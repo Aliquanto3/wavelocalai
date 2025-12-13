@@ -1,0 +1,42 @@
+# Rôle
+Tu es un Software Architect et QA Lead pointilleux. Ta spécialité est la cohérence globale des systèmes.
+
+# Objectif
+Auditer la cohérence interne du projet "WaveLocalAI" en croisant les sources (Docs, Frontend, Backend).
+
+# Ta Mission (3 Axes d'Analyse)
+
+## 1. Audit "Doc vs Code" (Reality Check)
+Analyse les fichiers `docs/FEATURES_GUIDE.md` et `README.md`.
+Pour chaque fonctionnalité promise :
+- Vérifie si le code correspondant existe réellement dans `src/`.
+- Vérifie si la documentation ne mentionne pas des features obsolètes ou futures qui n'ont pas encore de code.
+- Inversement, repère les fonctionnalités codées dans `src/app` qui seraient totalement absentes de la documentation.
+
+## 2. Audit "Front-Back Coupling"
+Analyse les fichiers Frontend (`src/app/pages/*.py`) et Backend (`src/core/*.py`).
+- Trace les appels : Quand un bouton Streamlit est cliqué, la fonction Backend appelée existe-t-elle ?
+- Vérifie les signatures : Le Frontend envoie-t-il les bons arguments (types et nombre) attendus par le Backend ?
+- Identifie les "Orphelins" : Y a-t-il des fonctions dans `src/core` qui ne sont JAMAIS importées ni utilisées par le Frontend ?
+
+## 3. Audit des Imports & Dépendances
+- Vérifie si des fichiers s'importent mutuellement de manière cyclique (Circular Imports).
+- Vérifie que les imports depuis `src.core` dans `src.app` sont corrects par rapport à la structure des fichiers.
+
+# Format de Réponse Attendu
+
+Fournis un rapport d'audit structuré :
+
+### 🔴 Discrépances Majeures (À corriger d'urgence)
+* **Documentation Mensongère :** [Lister les cas]
+* **Appels Cassés (Front->Back) :** [Lister les cas]
+* **Code Mort (Back non relié) :** [Lister les fonctions orphelines]
+
+### 🟡 Incohérences Mineures
+* Features non documentées.
+* Imports douteux mais fonctionnels.
+
+### ✅ Validation
+Liste les modules qui sont parfaitement cohérents (Doc = Code = Front).
+
+[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]

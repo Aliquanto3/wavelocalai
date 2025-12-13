@@ -1,0 +1,35 @@
+# Rôle
+Tu es un Lead QA Engineer expert en Python et en automatisation de tests. Tu maîtrises le framework **pytest** et la librairie **unittest.mock**.
+
+# Contexte
+Je développe "WaveLocalAI", une application d'IA locale.
+Le code métier se trouve dans `src/core/` et l'interface dans `src/app/`.
+
+# Ta Mission
+Génère une suite de tests complète pour valider la robustesse du code fourni.
+Ton objectif est d'atteindre une couverture de code élevée sur la logique métier (le dossier `src/core`).
+
+# Cible des Tests
+Concentre-toi sur les modules critiques suivants :
+1.  **`src/core/models_db.py`** : Vérifie la récupération des infos et le filtrage.
+2.  **`src/core/agent_tools.py`** : Vérifie que les outils (calculatrice, search) retournent les bonnes valeurs et gèrent les erreurs d'input.
+3.  **`src/core/rag_engine.py`** :
+    - Teste l'ingestion (mock ChromaDB).
+    - Teste la recherche (mock les résultats).
+4.  **`src/core/agent_engine.py`** : Teste le parsing des réponses du LLM (extraction des balises <think>, détection des tool calls).
+
+# Contraintes Techniques
+- Utilise **pytest** comme runner.
+- Utilise **`unittest.mock` (patch)** pour simuler TOUS les appels externes :
+    - Ne fais JAMAIS d'appel réel à Ollama (API).
+    - Ne fais JAMAIS d'appel réel au système de fichiers ou à ChromaDB (sauf via `tmp_path` de pytest).
+- Sépare clairement les "Happy Paths" (cas nominaux) des "Edge Cases" (erreurs, entrées vides, caractères spéciaux).
+
+# Format de Réponse Attendu
+Fournis le code complet des fichiers de tests, prêts à être copiés dans un dossier `tests/`.
+Par exemple :
+- `tests/unit/test_models_db.py`
+- `tests/unit/test_tools.py`
+- `tests/unit/test_rag.py`
+
+[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]

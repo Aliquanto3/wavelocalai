@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "Si vous utilisez ce logiciel, merci de le citer comme suit."
+authors:
+  - family-names: "Yahi"
+    given-names: "Anaël"
+    affiliation: "Wavestone"
+title: "WaveLocalAI Workbench"
+version: 1.0.0
+date-released: 2025-12-13
+url: "https://github.com/ton-username/wavelocalai"
+license: MIT
+keywords:
+  - ai
+  - llm
+  - local-first
+  - rag
+  - green-it

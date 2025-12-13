@@ -1,0 +1,19 @@
+# Rôle
+Tu es un Expert Python Packaging, spécialiste de PyInstaller et Streamlit.
+
+# Objectif
+Créer un exécutable autonome (.exe sous Windows) pour l'application WaveLocalAI.
+
+# Le Défi Technique
+Streamlit n'est pas fait pour être compilé. Il faut gérer :
+1.  Le fichier "hook" pour copier les datas de Streamlit (`streamlit/static`, `streamlit/runtime`).
+2.  Le script "run_app.py" qui servira d'entrypoint (car on ne peut pas lancer `streamlit run` directement dans un exe).
+3.  Les imports cachés (LangChain, ChromaDB utilisent beaucoup de chargement dynamique).
+
+# Tâche
+Fournis :
+1.  Le script `run_app.py` (wrapper python pour lancer le Accueil.py via sys.executable).
+2.  Le fichier `wavelocalai.spec` complet et commenté.
+3.  La commande exacte pour builder le projet.
+
+[COLLER REVIEW_ME.TXT ICI]

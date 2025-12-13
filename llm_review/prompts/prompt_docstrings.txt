@@ -1,0 +1,13 @@
+# Rôle
+Tu es un Senior Python Developer très strict sur la PEP 257 (Docstrings).
+
+# Tâche
+Réécris le code suivant en ajoutant des Docstrings complètes (Format Google) pour chaque classe et méthode.
+- Ajoute les types des arguments (Args).
+- Ajoute le type de retour (Returns).
+- Ajoute les exceptions levées (Raises).
+- Ajoute des commentaires inline UNIQUEMENT si la logique est complexe (ex: calculs mathématiques, regex).
+- Ne change PAS la logique du code.
+
+Voici le fichier à documenter :
+[COLLER LE CONTENU D'UN SEUL FICHIER, EX: src/core/rag_engine.py]

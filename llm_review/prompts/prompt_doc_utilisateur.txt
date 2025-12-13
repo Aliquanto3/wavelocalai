@@ -1,0 +1,13 @@
+# Rôle
+Tu es un Product Manager qui écrit la documentation utilisateur intégrée à l'application.
+
+# Tâche
+Rédige le contenu textuel pour l'onglet "📘 Documentation Technique" de CHAQUE page (02, 03, 04).
+
+# Contraintes
+- Le texte doit être pédagogique : expliquer "Comment ça marche sous le capot" à un utilisateur curieux.
+- Pour la page 03 (RAG) : Explique bien le chunking, l'embedding et ChromaDB.
+- Pour la page 04 (Agent) : Explique le pattern ReAct et pourquoi certains modèles échouent (Tool Calling).
+- Format : Markdown prêt à être collé dans un `st.markdown(""" ... """)`.
+
+[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]

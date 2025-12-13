@@ -1,0 +1,43 @@
+# --- Frontend & UI ---
+streamlit>=1.40.0
+watchdog>=4.0.0
+plotly>=5.18.0
+
+# --- AI Core & Orchestration ---
+langchain>=0.3.0
+langchain-community>=0.3.0
+langgraph>=0.2.50
+ollama>=0.4.0
+
+# --- Data & Utilities ---
+pandas>=2.2.0
+openpyxl>=3.1.0
+pydantic>=2.9.0
+python-dotenv>=1.0.0
+tqdm>=4.66.0
+
+# --- Hardware & Green IT ---
+codecarbon>=2.8.0
+psutil>=6.0.0
+# GPUtil requiert setuptools sur Python 3.12+ (car distutils a été supprimé)
+setuptools>=70.0.0
+GPUtil>=1.4.0
+py-cpuinfo>=9.0.0
+
+# --- RAG & Vector Store ---
+chromadb>=0.4.0
+pypdf>=3.17.0
+sentence-transformers>=2.2.0
+langchain-huggingface>=0.0.1
+langchain-chroma>=0.1.0
+langchain-text-splitters>=0.0.1
+
+# --- Agents ---
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-ollama>=0.2.0
+numexpr>=2.8.0
+
+nest_asyncio
+numexpr
+pytest

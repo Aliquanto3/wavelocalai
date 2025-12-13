@@ -1,0 +1,50 @@
+# Rôle
+Tu es un Senior UX/UI Designer et Product Manager spécialisé dans les "Developer Tools" et les interfaces de Data Science (Streamlit). Tu as une obsession pour l'utilisabilité, la hiérarchie visuelle et le "Wording".
+
+# Contexte
+Je développe "WaveLocalAI", un Workbench IA local (Python/Streamlit) permettant d'auditer et d'utiliser des LLM sur son PC.
+L'utilisateur type est un auditeur technique, un développeur ou un consultant Tech. Il a besoin d'efficacité, de clarté technique, mais n'est pas forcément un expert en Prompt Engineering.
+
+# Ta Mission
+Réalise un "UX Audit" (Heuristic Evaluation) complet de l'application basée sur le code fourni.
+Ton but est de challenger l'interface actuelle pour la rendre plus intuitive, plus fluide et plus professionnelle.
+
+# Contraintes Techniques (IMPORTANT)
+- L'interface est construite avec **Streamlit**.
+- Ne propose PAS de refonte graphique totale nécessitant du React ou du JavaScript complexe.
+- Propose des améliorations réalisables avec les widgets natifs Streamlit (st.columns, st.expander, st.status, st.tabs, st.metrics).
+
+# Axes d'Analyse
+
+1. **Architecture de l'Information (Navigation)**
+   - La division en 4 modules (Hardware, Arena, RAG, Agent) est-elle claire ?
+   - L'utilisateur comprend-il immédiatement où aller pour faire quoi ?
+   - Les onglets internes (ex: Chat vs Labo) sont-ils pertinents ?
+
+2. **Feedback & Visibilité du Système**
+   - L'utilisateur sait-il ce qu'il se passe quand l'IA "réfléchit" ? (Spinners, Progress bars, Status).
+   - Les messages d'erreur (ex: modèle non compatible, fichier manquant) sont-ils assez guidants ? (Error Recovery).
+   - Le système de "Green Monitor" (CO2) est-il assez visible ou anecdotique ?
+
+3. **Charge Cognitive & Clarté**
+   - Y a-t-il trop d'informations affichées d'un coup ? (Information Overload).
+   - Les "Smart Names" des modèles sont-ils suffisants ?
+   - Le "Wording" (textes, labels, boutons) est-il technique mais accessible ?
+
+4. **Expérience "Chat" & "Agent"**
+   - L'affichage de la pensée (<think>) via un expander est-il la meilleure solution ?
+   - La gestion de l'historique est-elle intuitive ?
+
+# Format de Réponse Attendu
+
+Fournis un rapport structuré :
+
+1.  **Note Globale d'Utilisabilité (A à F)** avec une justification courte.
+2.  **Top 3 des "Friction Points" :** Les 3 choses les plus agaçantes ou confuses pour l'utilisateur actuellement.
+3.  **Tableau d'Améliorations (Actionable) :**
+    | Page/Module | Problème UX Identifié | Solution Proposée (Streamlit) | Impact (Faible/Fort) |
+    |-------------|-----------------------|-------------------------------|----------------------|
+    | ...         | ...                   | ...                           | ...                  |
+4.  **Proposition de "Wording" :** Suggère de meilleures phrases pour les titres, boutons ou messages d'aide si nécessaire.
+
+[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]

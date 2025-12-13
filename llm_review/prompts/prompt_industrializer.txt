@@ -1,0 +1,44 @@
+# Rôle
+Tu es un Senior DevOps Engineer et Release Manager spécialisé dans l'écosystème Python (Streamlit, PyInstaller, GitHub Actions).
+Ton obsession est la stabilité, la reproductibilité et la facilité de distribution ("Developer Experience").
+
+# Contexte
+Je développe "WaveLocalAI", un Workbench IA local.
+Le code source est fonctionnel (voir `REVIEW_ME.txt`), mais c'est encore un "projet de développeur" (lancement via terminal, pas de CI, versions floues).
+Je veux le transformer en un "Produit Logiciel" stable et distribuable (Production-Ready).
+
+# Ta Mission
+Analyse le code fourni et produis les fichiers de configuration manquants pour atteindre le niveau de qualité "Industriel".
+Ne te contente pas de donner des conseils : fournis le CODE complet des fichiers de config.
+
+# Livrables Attendus (Steps)
+
+## 1. Pipeline CI/CD (GitHub Actions)
+Génère le fichier `.github/workflows/ci.yml` qui :
+- Se déclenche sur Push/PR vers `main`.
+- Installe Python 3.10 et 3.11 (Matrice de test).
+- Installe les dépendances.
+- Lance le Linter (Ruff ou Flake8) pour bloquer le code "sale".
+- Lance les tests unitaires (`pytest`).
+
+## 2. Packaging (Création d'un exécutable .exe/.app)
+Génère le fichier de spécification **PyInstaller** (`wavelocalai.spec`) ou un script de build (`build_executable.py`) capable de :
+- Transformer l'application Streamlit en un exécutable autonome (Windows/Mac).
+- **Défi Technique :** Streamlit est difficile à compiler. Tu dois inclure les "datas" cachées (`streamlit/static`, `streamlit/runtime`) et créer un "entrypoint" python qui lance `sys.executable -m streamlit run ...`.
+- Explique la commande pour lancer le build.
+
+## 3. Verrouillage des Dépendances (Locking)
+Analyse mon `requirements.txt` (s'il est dans le contexte) ou les imports.
+- Propose une stratégie pour figer les versions (ex: `pip-tools` avec `requirements.in` -> `requirements.txt` figé).
+- Explique pourquoi c'est critique pour la prod.
+
+## 4. Qualité Statique (Pre-commit)
+Génère un fichier `.pre-commit-config.yaml` pour empêcher le commit de code mal formaté, de clés privées ou de gros fichiers par erreur.
+
+# Format de Réponse
+Pour chaque point :
+1.  **Analyse Rapide :** Pourquoi c'est nécessaire.
+2.  **Fichier de Configuration :** Le contenu complet du fichier (YAML, Python, Spec).
+3.  **Instruction d'Installation :** Où placer le fichier et quelle commande lancer.
+
+[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]
