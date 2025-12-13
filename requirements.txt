@@ -41,3 +41,8 @@ numexpr>=2.8.0
 nest_asyncio
 numexpr
 pytest
+timeout_decorator
+func-timeout
+pytest-asyncio
+pytest-cov
+pre-commit

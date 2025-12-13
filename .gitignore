@@ -1,13 +1,10 @@
 # ==========================================
 # 1. PYTHON & SYSTÈME (Standard)
 # ==========================================
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Distribution / Packaging
 .Python
 build/
 develop-eggs/
@@ -26,8 +23,6 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# Operating System files
 .DS_Store
 Thumbs.db
 
@@ -44,50 +39,66 @@ venv.bak/
 # ==========================================
 # 3. SECRETS & CONFIGURATION (CRITIQUE)
 # ==========================================
-# Clés API et variables d'environnement
 .env
 .flaskenv
-
-# Secrets Streamlit
 .streamlit/secrets.toml
-
-# Autres configurations sensibles
 config_local.py
 *.key
 *.pem
 
+# ✅ NOUVEAUX AJOUTS (Sécurité renforcée)
+# Fichiers de backup qui peuvent contenir des secrets
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Fichiers de configuration IDE qui peuvent fuiter des chemins
+.vscode/settings.json.user
+.idea/workspace.xml
+.idea/tasks.xml
+
 # ==========================================
-# 4. WAVELOCALAI - SPECIFIQUE PROJET
+# 4. WAVELOCALAI - SPÉCIFIQUE PROJET
 # ==========================================
-# Base vectorielle (RAG)
 data/
 chroma/
 chroma_db/
-
-# Logs et Monitoring
 logs/
 *.log
 emissions.csv
-
-# Modèles IA (Trop lourds pour Git)
 models/
 *.gguf
 *.bin
 *.pt
-
-# Outils de Review temporaires
 llm_review/REVIEW_ME.txt
+
+# ✅ NOUVEAUX AJOUTS (Tests & Benchmarks)
+# Données de tests qui peuvent contenir des infos sensibles
+tests/fixtures/
+tests/data/
+benchmarks_data.csv
+benchmark_report.md
+
+# Fichiers temporaires de sessions
+*.session
+*.cache
 
 # ==========================================
 # 5. IDE (VS Code, PyCharm, etc.)
 # ==========================================
-# JetBrains
 .idea/
-
-# VS Code (On ignore tout sauf les configs de settings/launch utiles à partager)
 .vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+
+# ✅ NOUVEAUX AJOUTS (Autres IDEs)
+.spyderproject
+.spyproject
+.ropeproject
+*.sublime-project
+*.sublime-workspace
