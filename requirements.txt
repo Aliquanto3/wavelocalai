@@ -48,3 +48,11 @@ pytest-cov
 # Qualité du code & Sécurité (Hooks Git)
 pre-commit
 detect-secrets
+
+# --- V2 : Hybrid & Agents ---
+langchain-mistralai>=0.1.0
+mistralai>=1.0.0
+# Fix pour CrewAI/LangChain (conflit Pydantic v2)
+crewai>=0.30.0
+ragas>=0.1.0
+datasets

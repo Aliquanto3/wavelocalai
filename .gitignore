@@ -72,7 +72,7 @@ models/
 *.gguf
 *.bin
 *.pt
-llm_review/REVIEW_ME.txt
+llm_review/exports/
 
 # ✅ NOUVEAUX AJOUTS (Tests & Benchmarks)
 # Données de tests qui peuvent contenir des infos sensibles

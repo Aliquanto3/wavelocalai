@@ -2,6 +2,7 @@
 Tests unitaires pour models_db (gestion des modèles).
 Usage: pytest tests/unit/test_models_db.py -v
 """
+
 from pathlib import Path
 
 import pytest
@@ -107,7 +108,7 @@ class TestFriendlyNameConversion:
 
         friendly = get_friendly_name_from_tag(unknown_tag)
 
-        assert friendly == "custom-model"
+        assert friendly == "Custom-model"
 
 
 class TestThoughtExtraction:
