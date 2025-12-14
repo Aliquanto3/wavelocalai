@@ -42,11 +42,18 @@ class ResourceManager:
         Estime la RAM nécessaire pour un modèle spécifique.
         Utilise les données empiriques de models.json si disponibles (audit),
         sinon fait une estimation heuristique basée sur la taille du fichier.
+
+        Returns:
+            float: RAM estimée en GB. Retourne 0.0 pour les modèles API.
         """
         friendly_name = get_friendly_name_from_tag(model_tag)
         info = MODELS_DB.get(friendly_name)
 
         if info:
+            # ✅ NOUVEAU : Vérification si le modèle est de type API
+            if info.get("type") == "api":
+                return 0.0  # Les modèles API ne consomment pas de RAM locale
+
             # 1. Priorité : Donnée d'audit réelle (stress test)
             benchmark_stats = info.get("benchmark_stats", {})
             if benchmark_stats and "ram_usage_gb" in benchmark_stats:
@@ -88,11 +95,15 @@ class ResourceManager:
         safe_available_ram = available_ram - SYSTEM_RAM_BUFFER_GB
 
         if safe_available_ram >= total_ram_needed:
-            msg = (
-                f"✅ Ressources suffisantes. "
-                f"Besoin: {total_ram_needed:.2f}GB ({n_instances}x {unit_ram:.2f}GB). "
-                f"Dispo (safe): {safe_available_ram:.2f}GB."
-            )
+            # Message adapté selon le type de modèle
+            if total_ram_needed == 0:
+                msg = "✅ Modèle API détecté. Aucune RAM locale requise."
+            else:
+                msg = (
+                    f"✅ Ressources suffisantes. "
+                    f"Besoin: {total_ram_needed:.2f}GB ({n_instances}x {unit_ram:.2f}GB). "
+                    f"Dispo (safe): {safe_available_ram:.2f}GB."
+                )
             logger.info(msg)
             return ResourceCheckResult(True, msg, total_ram_needed, available_ram)
         else:
