@@ -5,6 +5,7 @@ from crewai import LLM, Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from pydantic import PrivateAttr
 
+# Import des outils Wavestone
 from src.core.agent_tools import AVAILABLE_TOOLS
 from src.core.config import MISTRAL_API_KEY
 
@@ -12,7 +13,6 @@ from src.core.config import MISTRAL_API_KEY
 class LangChainAdapter(BaseTool):
     """
     Adaptateur universel pour rendre les outils LangChain compatibles avec CrewAI.
-    Utilise PrivateAttr pour stocker la fonction callable sans perturber Pydantic v2.
     """
 
     name: str = ""
@@ -28,6 +28,7 @@ class LangChainAdapter(BaseTool):
     def _run(self, *args, **kwargs):
         """Exécution déléguée à l'outil LangChain d'origine."""
         try:
+            # Gestion basique des arguments string vs dict
             if len(args) == 1 and isinstance(args[0], str) and not kwargs:
                 return self._func(args[0])
             return self._func(*args, **kwargs)
@@ -49,82 +50,91 @@ class CrewFactory:
     def _get_native_llm(model_tag: str, temperature: float = 0.1):
         """
         Configure le LLM natif CrewAI (via LiteLLM).
-        Gère les préfixes obligatoires 'ollama/' et 'mistral/'.
         """
         # 1. Routing Cloud (Mistral)
         if model_tag.startswith("mistral-") and not model_tag.startswith("mistral:"):
             if not MISTRAL_API_KEY:
                 raise ValueError("Clé API Mistral manquante.")
-            # LiteLLM attend 'mistral/nom-du-model'
             return LLM(
                 model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
             )
 
         # 2. Routing Local (Ollama)
-        # LiteLLM attend 'ollama/nom-du-tag'
         return LLM(
             model=f"ollama/{model_tag}", base_url="http://localhost:11434", temperature=temperature
         )
 
     @staticmethod
-    def create_audit_crew(model_tag: str):
+    def create_custom_crew(agents_config: list[dict[str, str]], topic: str):
         """
-        Crée une équipe d'audit standard (Chercheur + Analyste).
+        Crée une équipe dynamique basée sur une configuration utilisateur.
+
+        Args:
+            agents_config: Liste de dicts {'role', 'goal', 'backstory', 'model_tag'}
+            topic: Le sujet global de la mission
         """
-        # 1. Instanciation du Cerveau (Natif CrewAI/LiteLLM)
-        llm = CrewFactory._get_native_llm(model_tag, temperature=0.1)
+        created_agents = []
+        created_tasks = []
 
-        # 2. Conversion des outils
-        crew_tools = CrewFactory._map_tools(AVAILABLE_TOOLS)
+        # On prépare les outils une seule fois pour tous les agents
+        # ✅ C'est ici que l'on donne la capacité "Tools" aux agents
+        common_tools = CrewFactory._map_tools(AVAILABLE_TOOLS)
 
-        # 3. Définition des Agents
-        researcher = Agent(
-            role="Senior Data Researcher",
-            goal="Trouver des informations factuelles précises dans la base de connaissance.",
-            backstory="""Tu es un enquêteur méticuleux. Tu ne te bases que sur des faits vérifiés.
-            Tu utilises les outils de recherche à ta disposition pour répondre à la mission.""",
-            verbose=True,
-            allow_delegation=False,
-            tools=crew_tools,
-            llm=llm,
-        )
+        # 1. Création des Agents
+        for agent_conf in agents_config:
+            # Instanciation du LLM spécifique à cet agent
+            llm = CrewFactory._get_native_llm(agent_conf["model_tag"], temperature=0.7)
 
-        analyst = Agent(
-            role="Briefing Manager",
-            goal="Synthétiser les informations pour produire un rapport exécutif.",
-            backstory="""Tu es expert en communication. Tu transformes les données brutes
-            du chercheur en un rapport clair, concis et professionnel en Français.""",
-            verbose=True,
-            allow_delegation=False,
-            llm=llm,
-        )
+            new_agent = Agent(
+                role=agent_conf["role"],
+                goal=agent_conf["goal"],
+                backstory=agent_conf.get("backstory", "Tu es un expert dans ton domaine."),
+                verbose=True,
+                allow_delegation=True,  # Permet aux agents de se parler entre eux
+                llm=llm,
+                tools=common_tools,  # ✅ Injection des outils (Calc, Time, Search)
+            )
+            created_agents.append(new_agent)
 
-        # 4. Définition des Tâches
-        task_research = Task(
-            description="""
-            Recherche des informations sur le sujet : '{topic}'.
-            Utilise l'outil 'search_wavestone_internal' si pertinent.
-            Cherche des chiffres, des dates et des faits concrets.
-            """,
-            expected_output="Une liste des faits trouvés.",
-            agent=researcher,
-        )
+            # 2. Création d'une tâche générique liée au rôle
+            task = Task(
+                description=f"""
+                Analyse le sujet suivant : '{topic}'.
+                Ton objectif spécifique est : {agent_conf['goal']}.
+                Utilise les outils à ta disposition si nécessaire (recherche, calcul, heure).
+                Produis une analyse détaillée selon ton point de vue d'expert.
+                """,
+                expected_output=f"Un rapport complet rédigé par le {agent_conf['role']}.",
+                agent=new_agent,
+            )
+            created_tasks.append(task)
 
-        task_write = Task(
-            description="""
-            Rédige une note de synthèse à partir des recherches précédentes.
-            Le ton doit être professionnel.
-            """,
-            expected_output="Un paragraphe de synthèse en Markdown.",
-            agent=analyst,
-        )
-
-        # 5. Assemblage de l'Équipe
+        # 3. Assemblage de l'équipe
         crew = Crew(
-            agents=[researcher, analyst],
-            tasks=[task_research, task_write],
+            agents=created_agents,
+            tasks=created_tasks,
             process=Process.sequential,
             verbose=True,
         )
 
         return crew
+
+    @staticmethod
+    def create_audit_crew(model_tag: str):
+        """Legacy : Crée une équipe d'audit standard."""
+        # On délègue à la nouvelle méthode générique pour éviter la duplication
+        config = [
+            {
+                "role": "Senior Data Researcher",
+                "goal": "Trouver des faits précis.",
+                "backstory": "Tu es factuel et méticuleux.",
+                "model_tag": model_tag,
+            },
+            {
+                "role": "Briefing Manager",
+                "goal": "Synthétiser les informations.",
+                "backstory": "Tu écris des rapports parfaits.",
+                "model_tag": model_tag,
+            },
+        ]
+        return CrewFactory.create_custom_crew(config, topic="Mission par défaut")
