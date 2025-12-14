@@ -123,7 +123,7 @@ Utilisez le script d'administration pour pré-charger les modèles validés :
 ### 📉 Audit & Benchmark (Script `audit_and_update.py`)
 **1. "La RAM mesurée diminue quand le contexte augmente (Swap Detecté)"**
 * **Symptôme :** Le rapport indique une RAM de 0.4GB pour un contexte de 32k tokens, alors qu'elle était de 4GB pour 16k tokens.
-* **Cause :** Votre machine a saturé sa mémoire physique (RAM). Le système d'exploitation a déplacé la mémoire du modèle sur le disque dur (**Swapping**). 
+* **Cause :** Votre machine a saturé sa mémoire physique (RAM). Le système d'exploitation a déplacé la mémoire du modèle sur le disque dur (**Swapping**).
 * **Conséquence :** Le script détecte cette anomalie, arrête le test pour ce modèle et ne conserve que le "Max Valid Context" (le dernier avant le swap) pour garantir des métriques de performance fiables.
 
 **2. "Mon nouveau modèle ajouté dans JSON n'est pas détecté"**
@@ -133,3 +133,105 @@ Utilisez le script d'administration pour pré-charger les modèles validés :
 
 **3. "Logs : ⚠️ Bavard (Max output atteint)"**
 * **Explication :** Ce n'est pas une erreur. Cela signifie que le modèle a généré une réponse plus longue que la limite de sécurité (512 tokens) imposée par le benchmark. Le test est considéré comme **VALIDE** (la RAM et la vitesse ont bien été mesurées), le script a simplement coupé la parole au modèle pour passer à la suite.
+
+## 4. 🔧 Problèmes Git & Pre-commit Hooks
+
+### 🔴 Problème : "Unable to read baseline" (detect-secrets)
+* **Symptôme :** Le hook `detect-secrets` échoue avec `error: Unable to read baseline` répété plusieurs fois.
+* **Cause 1 — BOM UTF-8 :** Le fichier `.secrets.baseline` contient un caractère invisible (BOM) ajouté par certains éditeurs Windows, rendant le JSON invalide.
+* **Solution :**
+    ```powershell
+    # Réécrire le fichier sans BOM
+    $content = Get-Content .secrets.baseline -Raw
+    [System.IO.File]::WriteAllText("$(Get-Location)\.secrets.baseline", $content, [System.Text.UTF8Encoding]::new($false))
+    git add .secrets.baseline
+    ```
+
+* **Cause 2 — Version incompatible :** Le baseline a été généré avec une version plus récente de `detect-secrets` que celle utilisée par pre-commit.
+* **Symptôme additionnel :** Message `No such 'GitLabTokenDetector' plugin to initialize`.
+* **Solution :**
+    ```powershell
+    # Mettre à jour pre-commit et ses hooks
+    pre-commit clean
+    pre-commit autoupdate
+    pre-commit install
+    git add .pre-commit-config.yaml
+    ```
+
+---
+
+### 🔴 Problème : isort et ruff modifient les fichiers en boucle
+* **Symptôme :** Chaque `git commit` échoue car isort puis ruff modifient le même fichier indéfiniment. Même après `git add .`, le cycle recommence.
+* **Cause :** Conflit de configuration entre isort et ruff qui ont des règles de tri d'imports légèrement différentes. Chacun "corrige" ce que l'autre a fait.
+* **Solution :** Désactiver le tri d'imports dans ruff (puisque isort s'en charge). Dans `pyproject.toml` :
+    ```toml
+    [tool.ruff.lint]
+    ignore = ["I"]  # "I" = règles isort dans ruff
+    ```
+* **Alternative :** Supprimer isort et laisser ruff gérer les imports (ruff est plus rapide). Commenter la section isort dans `.pre-commit-config.yaml`.
+
+---
+
+### 🔴 Problème : "Line too long" (E501) bloque le commit
+* **Symptôme :** ruff échoue avec plusieurs erreurs `E501 Line too long (XXX > 100)`.
+* **Cause :** Des lignes de code dépassent la limite configurée (100 caractères par défaut).
+* **Solutions :**
+    1. **Ignorer temporairement** (pour débloquer) :
+        ```toml
+        # Dans pyproject.toml
+        [tool.ruff.lint]
+        ignore = ["I", "E501"]
+        ```
+    2. **Corriger manuellement** les lignes concernées en les découpant.
+    3. **Augmenter la limite** si 100 est trop restrictif :
+        ```toml
+        [tool.ruff]
+        line-length = 120
+        ```
+
+---
+
+### 🟡 Problème : Warnings "legacy alias" et "deprecated settings"
+* **Symptôme :** Avertissements ruff mentionnant `The top-level linter settings are deprecated`.
+* **Cause :** La syntaxe de configuration ruff a évolué. Les anciennes clés (`select`, `ignore`, `per-file-ignores`) doivent être sous `[tool.ruff.lint]`.
+* **Impact :** Aucun bloquant, mais à corriger pour éviter les warnings.
+* **Solution :** Migrer la configuration dans `pyproject.toml` :
+    ```toml
+    # ❌ Ancienne syntaxe (dépréciée)
+    [tool.ruff]
+    select = ["E", "F"]
+    ignore = ["E501"]
+
+    # ✅ Nouvelle syntaxe
+    [tool.ruff.lint]
+    select = ["E", "F"]
+    ignore = ["E501"]
+    ```
+
+---
+
+### 🟡 Astuce : Forcer un commit en cas d'urgence
+Si les hooks bloquent et que vous devez absolument commit :
+```powershell
+# Bypass TOUS les hooks (à utiliser avec précaution)
+git commit -m "Mon message" --no-verify
+
+# Bypass UN SEUL hook spécifique
+$env:SKIP="detect-secrets"; git commit -m "Mon message"
+```
+⚠️ **Attention :** Pensez à corriger les problèmes sous-jacents avant le prochain commit.
+
+---
+
+### 🟢 Workflow recommandé après échec des hooks
+Quand les hooks modifient des fichiers automatiquement :
+```powershell
+# 1. Les hooks ont modifié des fichiers → les re-stager
+git add .
+
+# 2. Relancer le commit (même message)
+git commit -m "Mon message"
+
+# 3. Si ça échoue encore, répéter jusqu'à stabilisation
+#    (généralement 2-3 itérations max)
+```
