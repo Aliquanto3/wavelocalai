@@ -65,3 +65,9 @@ Pour exécuter l'ensemble de la suite de tests :
 # Mac/Linux
 .venv/bin/python -m pytest tests/
 ```
+
+Vous pouvez aussi utiliser pour un rapport complet :
+```bash
+# Windows
+.venv\Scripts\python -m pytest tests/ -v --cov=src.core --cov-report=term-missing --cov-report=html
+```

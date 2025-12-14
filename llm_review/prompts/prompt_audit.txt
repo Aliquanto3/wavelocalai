@@ -12,6 +12,7 @@ L'architecture actuelle doit être capable de supporter ces évolutions sans ré
 2. **Benchmark Comparatif :** Exécution de plusieurs modèles sur un même prompt (LLM Council).
 3. **Eval Ops :** Intégration de RAGAS/Giskard pour noter la qualité du RAG.
 4. **Logs & Métriques :** Traçabilité complète des I/O et consommation énergétique par requête.
+5. **Appel de LLM par API :** Intégration de l'API Mistral pour comparaison des performances avec le local (incluant estimation de l'impact environnemental du cloud)
 
 # Ta Mission
 Réalise un audit technique critique (Code Review) du code source fourni ci-après. Ne sois pas complaisant. Je veux identifier toutes les faiblesses avant publication Open Source.
@@ -42,6 +43,7 @@ Fournis un rapport structuré contenant :
 2. **Liste des Problèmes Critiques (Bloquants) :** Ce qui doit être corrigé avant publication.
 3. **Liste des Améliorations Architecturales :** Pour préparer l'arrivée de CrewAI/RAGAS.
 4. **Optimisations Rapides (Quick Wins) :** Snippets de code corrigés pour les problèmes évidents.
+5. **Proposition d'une roadmap de correction :** Prépare la suite de ton intervention pour proposer une correction de problème facilement actionnable à chacun de tes prochains messages.
 
 ---
 [COLLER LE CONTENU DE REVIEW_ME.TXT ICI]

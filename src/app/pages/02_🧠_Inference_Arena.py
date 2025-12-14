@@ -146,6 +146,9 @@ with tab_chat:
                     {"role": "assistant", "content": result.clean_text, "thought": result.thought}
                 )
 
+                # ✅ AJOUT : Forcer le rafraîchissement pour afficher le dernier message
+                st.rerun()
+
 # ==========================================
 # ONGLET 2 : LABO DE TESTS (Stateless)
 # ==========================================
@@ -435,21 +438,20 @@ with tab_manager:
                 st.markdown(f"**Contexte:** `{info['ctx']}` | **Params:** `{info['params_tot']}`")
 
     st.write("")
-    if st.button("⬇️ Lancer le téléchargement"):
-        if target_model_tag:
-            status = st.status(f"Téléchargement de {target_model_tag}...", expanded=True)
-            pbar = status.progress(0, text="Connexion...")
-            try:
-                for progress in LLMProvider.pull_model(target_model_tag):
-                    if progress.get("total"):
-                        p = progress["completed"] / progress["total"]
-                        pbar.progress(p, text=f"{progress['status']} - {int(p*100)}%")
-                    else:
-                        pbar.progress(0.5, text=progress["status"])
-                pbar.progress(1.0, text="Terminé !")
-                status.update(label="✅ Succès !", state="complete", expanded=False)
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                status.update(label="❌ Erreur", state="error")
-                st.error(str(e))
+    if st.button("⬇️ Lancer le téléchargement") and target_model_tag:
+        status = st.status(f"Téléchargement de {target_model_tag}...", expanded=True)
+        pbar = status.progress(0, text="Connexion...")
+        try:
+            for progress in LLMProvider.pull_model(target_model_tag):
+                if progress.get("total"):
+                    p = progress["completed"] / progress["total"]
+                    pbar.progress(p, text=f"{progress['status']} - {int(p*100)}%")
+                else:
+                    pbar.progress(0.5, text=progress["status"])
+            pbar.progress(1.0, text="Terminé !")
+            status.update(label="✅ Succès !", state="complete", expanded=False)
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            status.update(label="❌ Erreur", state="error")
+            st.error(str(e))
