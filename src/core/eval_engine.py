@@ -3,9 +3,6 @@ from dataclasses import dataclass
 
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# LangChain Imports
-from langchain_mistralai import ChatMistralAI
-
 # Ragas Imports
 try:
     from datasets import Dataset
@@ -16,7 +13,7 @@ try:
 except ImportError:
     RAGAS_AVAILABLE = False
 
-from src.core.config import MISTRAL_API_KEY
+from src.core.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -33,37 +30,36 @@ class EvalResult:
 class EvalEngine:
     """
     Moteur d'évaluation RAG Hybride.
-    Utilise un LLM Cloud (Mistral) pour juger un LLM Local (Ollama).
+    Capable d'utiliser n'importe quel modèle (Local ou Cloud) comme Juge.
     """
 
     def __init__(self):
         if not RAGAS_AVAILABLE:
             raise ImportError("Le module 'ragas' n'est pas installé.")
 
-        if not MISTRAL_API_KEY:
-            raise ValueError("La clé API Mistral est requise pour le Juge (EvalOps).")
-
-        # 1. Configuration du Juge (Cloud - Puissant)
-        # On force le 'json_object' pour éviter les ```json qui font crasher Ragas
-        self.judge_llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=MISTRAL_API_KEY,
-            temperature=0.0,
-            model_kwargs={"response_format": {"type": "json_object"}},
-        )
-
-        # 2. Configuration des Embeddings (Local - Rapide)
+        # Embeddings (Local - Rapide) pour Ragas
         self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
     def evaluate_single_turn(
-        self, query: str, response: str, retrieved_contexts: list[str]
+        self, query: str, response: str, retrieved_contexts: list[str], judge_tag: str
     ) -> EvalResult:
         """
-        Évalue une seule interaction (Question/Réponse/Contexte).
+        Évalue une seule interaction avec un Juge spécifique.
         """
-        logger.info(f"⚖️ Démarrage évaluation Ragas pour : '{query}'")
+        logger.info(f"⚖️ Démarrage évaluation Ragas avec le juge : {judge_tag}")
 
-        # 1. Préparation du Dataset
+        # 1. Configuration Avancée du Juge
+        # Si c'est un modèle Mistral API, on force le mode JSON Object pour éviter le Markdown qui casse Ragas
+        model_kwargs = {}
+        if "mistral" in judge_tag.lower() or "ministral" in judge_tag.lower():
+            model_kwargs = {"response_format": {"type": "json_object"}}
+
+        # 2. Instanciation Dynamique
+        judge_llm = LLMProvider.get_langchain_model(
+            judge_tag, temperature=0.0, model_kwargs=model_kwargs
+        )
+
+        # 3. Préparation du Dataset
         data = {
             "question": [query],
             "answer": [response],
@@ -71,27 +67,26 @@ class EvalEngine:
         }
         dataset = Dataset.from_dict(data)
 
-        # 2. Configuration des métriques (Reference-Free uniquement)
-        # Context Precision nécessite une vérité terrain (Ground Truth), on l'omet ici.
+        # 4. Configuration des métriques
         metrics = [answer_relevancy, faithfulness]
 
-        # Injection des dépendances
+        # Injection du Juge dans chaque métrique
         for m in metrics:
             if hasattr(m, "llm"):
-                m.llm = self.judge_llm
+                m.llm = judge_llm
             if hasattr(m, "embeddings"):
                 m.embeddings = self.embeddings
 
-        # 3. Exécution de l'évaluation
+        # 5. Exécution de l'évaluation
         results = evaluate(
             dataset=dataset,
             metrics=metrics,
-            llm=self.judge_llm,
+            llm=judge_llm,
             embeddings=self.embeddings,
             raise_exceptions=False,
         )
 
-        # 4. Extraction des scores
+        # 6. Extraction des scores
         scores = results.to_pandas().iloc[0]
 
         return EvalResult(

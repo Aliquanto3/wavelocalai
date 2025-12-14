@@ -12,9 +12,7 @@ except ImportError:
 
 from src.core.config import MISTRAL_API_KEY
 from src.core.metrics import InferenceMetrics, MetricsCalculator
-
-# On importe le helper depuis la DB
-from src.core.models_db import get_cloud_models_from_db
+from src.core.models_db import MODELS_DB, get_cloud_models_from_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,14 +24,18 @@ class LLMProvider:
     """
 
     @staticmethod
-    def _is_mistral_api_model(model_name: str) -> bool:
-        """Détecte si le modèle est API (basé sur le nom ou la config)."""
-        # Vérification simple par préfixe (peut être améliorée via DB)
-        return (
-            model_name.startswith("mistral-")
-            or model_name.startswith("codestral-")
-            or model_name.startswith("magistral-")
-        )
+    def _is_mistral_api_model(model_tag: str) -> bool:
+        """
+        Détecte si le modèle est une API Cloud via models.json.
+        """
+        # 1. Vérification propre via le JSON (Source of Truth)
+        for info in MODELS_DB.values():
+            if info.get("ollama_tag") == model_tag:
+                return info.get("type") == "api"
+
+        # 2. Fallback de sécurité
+        known_cloud_prefixes = ("mistral-", "codestral-", "magistral-", "ministral-", "devstral-")
+        return model_tag.startswith(known_cloud_prefixes)
 
     @staticmethod
     def list_models(cloud_enabled: bool = True) -> list[dict[str, Any]]:
@@ -66,7 +68,6 @@ class LLMProvider:
 
         # 2. Modèles Cloud (Via JSON DB)
         if cloud_enabled and MISTRAL_API_KEY:
-            # On récupère directement depuis la DB unifiée
             cloud_models = get_cloud_models_from_db()
             models.extend(cloud_models)
 
@@ -89,7 +90,6 @@ class LLMProvider:
         temperature: float = 0.7,
         system_prompt: str = None,
     ) -> AsyncGenerator[str | InferenceMetrics, None]:
-        # Routing basé sur la méthode de détection
         if LLMProvider._is_mistral_api_model(model_name):
             if not MISTRAL_API_KEY:
                 yield "❌ Erreur : Clé API Mistral manquante."
@@ -104,12 +104,8 @@ class LLMProvider:
             ):
                 yield chunk
 
-    # ... (Garder les méthodes _stream_ollama, _stream_mistral et get_langchain_model telles quelles)
-    # Elles n'ont pas besoin de changer car la logique de stream reste la même.
-
     @staticmethod
     async def _stream_ollama(model_name, messages, temperature, system_prompt):
-        # ... (Code existant inchangé)
         final_messages = messages.copy()
         if system_prompt:
             final_messages.insert(0, {"role": "system", "content": system_prompt})
@@ -156,7 +152,6 @@ class LLMProvider:
 
     @staticmethod
     async def _stream_mistral(model_name, messages, temperature, system_prompt):
-        # ... (Code existant inchangé)
         final_messages = messages.copy()
         if system_prompt:
             final_messages.insert(0, {"role": "system", "content": system_prompt})
@@ -191,13 +186,22 @@ class LLMProvider:
             raise e
 
     @staticmethod
-    def get_langchain_model(model_name: str, temperature: float = 0.7):
+    def get_langchain_model(model_name: str, temperature: float = 0.7, **kwargs):
+        """
+        Retourne un modèle LangChain prêt à l'emploi.
+        Accepte **kwargs pour passer des paramètres spécifiques (ex: model_kwargs).
+        """
         if LLMProvider._is_mistral_api_model(model_name):
             if not MISTRAL_API_KEY:
                 raise ValueError("Clé API Mistral manquante.")
             from langchain_mistralai import ChatMistralAI
 
-            return ChatMistralAI(model=model_name, api_key=MISTRAL_API_KEY, temperature=temperature)
+            # On passe kwargs (qui peut contenir model_kwargs)
+            return ChatMistralAI(
+                model=model_name, api_key=MISTRAL_API_KEY, temperature=temperature, **kwargs
+            )
+
         from langchain_ollama import ChatOllama
 
-        return ChatOllama(model=model_name, temperature=temperature, keep_alive="5m")
+        # Pour Ollama, on peut aussi passer kwargs si besoin (ex: format="json")
+        return ChatOllama(model=model_name, temperature=temperature, keep_alive="5m", **kwargs)

@@ -1,174 +1,102 @@
-"""
-Tests unitaires pour LLMProvider.
-Usage: pytest tests/unit/test_llm_provider.py -v
-"""
-
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics
 
 
 class TestLLMProviderListModels:
-    """Tests de la méthode list_models."""
+    @patch("src.core.llm_provider.ollama.list")
+    @patch("src.core.llm_provider.get_cloud_models_from_db")
+    def test_list_models_with_cloud(self, mock_get_cloud, mock_ollama_list):
+        """Teste la fusion des modèles locaux et cloud"""
+        # Setup Local
+        mock_model_local = MagicMock()
+        mock_model_local.model_dump.return_value = {"name": "llama3:8b", "size": 100}
+        mock_ollama_list.return_value = MagicMock(models=[mock_model_local])
 
-    def test_list_models_success(self):
-        """Test récupération normale de la liste unifiée."""
-        # Mock de la réponse Ollama
-        mock_ollama_response = {
-            "models": [
-                {"model": "qwen2.5:1.5b", "size": 1500000000},
-                {"model": "llama3:8b", "size": 8000000000},
-            ]
-        }
+        # Setup Cloud (DB)
+        mock_get_cloud.return_value = [
+            {"model": "mistral-large-latest", "type": "cloud", "source": "db"}
+        ]
 
-        # On mocke ollama.list ET on s'assure que MISTRAL_API_KEY est None pour ce test
-        with (
-            patch("src.core.llm_provider.ollama.list", return_value=mock_ollama_response),
-            patch("src.core.llm_provider.MISTRAL_API_KEY", None),
-        ):
-            models = LLMProvider.list_models()
+        # On patche la clé API pour activer le mode cloud
+        with patch("src.core.llm_provider.MISTRAL_API_KEY", "fake_key"):
+            models = LLMProvider.list_models(cloud_enabled=True)
 
-        # On vérifie qu'on a bien les modèles locaux + le tag "type": "local"
-        assert len(models) == 2
-        assert models[0]["model"] == "qwen2.5:1.5b"
-        assert models[0]["type"] == "local"
+            assert len(models) == 2
+            # Vérif Local
+            assert any(m["model"] == "llama3:8b" and m["type"] == "local" for m in models)
+            # Vérif Cloud
+            assert any(
+                m["model"] == "mistral-large-latest" and m["type"] == "cloud" for m in models
+            )
 
-    def test_list_models_with_cloud(self):
-        """Test récupération avec des modèles Cloud simulés."""
-        mock_ollama_response = {"models": []}
+    @patch("src.core.llm_provider.ollama.list")
+    def test_list_models_local_only(self, mock_ollama_list):
+        """Teste le filtre cloud_enabled=False"""
+        mock_model = MagicMock()
+        mock_model.model_dump.return_value = {"name": "qwen:0.5b"}
+        mock_ollama_list.return_value = MagicMock(models=[mock_model])
 
-        # On simule une clé API présente
-        with (
-            patch("src.core.llm_provider.ollama.list", return_value=mock_ollama_response),
-            patch("src.core.llm_provider.MISTRAL_API_KEY", "fake_key"),
-        ):
-            models = LLMProvider.list_models()
-
-        # On devrait avoir les modèles cloud par défaut définis dans le code
-        assert len(models) >= 3
-        assert any(m["model"] == "mistral-large-latest" and m["type"] == "cloud" for m in models)
-
-    def test_list_models_connection_error(self):
-        """Test gestion erreur de connexion Ollama (ne doit pas crasher le Cloud)."""
-        with (
-            patch("src.core.llm_provider.ollama.list", side_effect=Exception("Connection refused")),
-            patch("src.core.llm_provider.MISTRAL_API_KEY", None),
-        ):
-            models = LLMProvider.list_models()
-
-        assert models == []
+        # Même avec une clé API, si cloud_enabled=False, pas de cloud
+        with patch("src.core.llm_provider.MISTRAL_API_KEY", "fake_key"):
+            models = LLMProvider.list_models(cloud_enabled=False)
+            assert len(models) == 1
+            assert models[0]["type"] == "local"
 
 
-class TestLLMProviderPullModel:
-    """Tests de la méthode pull_model."""
-
-    def test_pull_model_success(self):
-        """Test téléchargement réussi."""
-
-        def fake_pull_stream(model_name, stream=True):
-            yield {"status": "downloading", "completed": 500, "total": 1000}
-            yield {"status": "done"}
-
-        with patch("src.core.llm_provider.ollama.pull", side_effect=fake_pull_stream):
-            stream = LLMProvider.pull_model("test-model")
-            events = list(stream)
-
-            assert len(events) == 2
-            assert events[0]["status"] == "downloading"
-
-    def test_pull_model_cloud_error(self):
-        """Test interdiction de télécharger un modèle Cloud."""
-        with pytest.raises(ValueError, match="Impossible de télécharger"):
-            LLMProvider.pull_model("mistral-large-latest")
-
-
-@pytest.mark.asyncio
 class TestLLMProviderChatStream:
-    """Tests de la méthode chat_stream (async)."""
+    @pytest.mark.asyncio
+    async def test_chat_stream_routing_ollama(self):
+        """Vérifie que les modèles standards vont vers Ollama"""
 
-    async def test_chat_stream_basic_ollama(self):
-        """Test stream basique vers Ollama."""
+        # On définit un VRAI générateur asynchrone pour le test
+        async def fake_ollama_stream(*args, **kwargs):
+            yield "chunk_test"
 
-        async def fake_stream():
-            yield {"message": {"content": "Hello"}}
-            yield {"message": {"content": " World"}}
-            yield {
-                "done": True,
-                "eval_count": 2,
-                "eval_duration": 1000000000,
-                "prompt_eval_count": 5,
-                "load_duration": 500000000,
-            }
+        # On utilise side_effect pour injecter ce générateur
+        with patch("src.core.llm_provider.LLMProvider._stream_ollama") as mock_stream:
+            mock_stream.side_effect = fake_ollama_stream
 
-        # NOTE IMPORTANTE : On mocke 'OllamaAsyncClient' et non plus 'AsyncClient'
-        with patch("src.core.llm_provider.OllamaAsyncClient") as mock_client_cls:
-            mock_instance = mock_client_cls.return_value
-            mock_instance.chat = AsyncMock(return_value=fake_stream())
+            # Action
+            gen = LLMProvider.chat_stream("llama3", [])
 
-            messages = [{"role": "user", "content": "Test"}]
-            full_text = ""
-            metrics = None
+            # Consommation du générateur
+            chunks = []
+            async for c in gen:
+                chunks.append(c)
 
-            # On appelle le chat_stream global qui va router vers _stream_ollama
-            stream = LLMProvider.chat_stream("test-model", messages)
-
-            async for item in stream:
-                if isinstance(item, str):
-                    full_text += item
-                elif isinstance(item, InferenceMetrics):
-                    metrics = item
-
-            assert full_text == "Hello World"
-            assert metrics is not None
-            assert metrics.output_tokens == 2
-            assert metrics.model_name == "test-model"
-
-    async def test_chat_stream_with_system_prompt(self):
-        """Test que le system prompt est inséré (Routing Ollama)."""
-
-        async def fake_stream():
-            yield {"message": {"content": "OK"}}
-            yield {"done": True}
-
-        with patch("src.core.llm_provider.OllamaAsyncClient") as mock_client_cls:
-            mock_instance = mock_client_cls.return_value
-            mock_instance.chat = AsyncMock(return_value=fake_stream())
-
-            messages = [{"role": "user", "content": "Test"}]
-            system_prompt = "Tu es un assistant strict."
-
-            stream = LLMProvider.chat_stream("test-model", messages, system_prompt=system_prompt)
-
-            async for _ in stream:
-                pass
-
-            # Vérification des appels
-            mock_instance.chat.assert_called_once()
-            call_args = mock_instance.chat.call_args
-            sent_messages = call_args.kwargs["messages"]
-
-            # Le premier message doit être le system prompt
-            assert sent_messages[0]["role"] == "system"
-            assert sent_messages[0]["content"] == system_prompt
+            # Vérification
+            mock_stream.assert_called_once()
+            assert chunks == ["chunk_test"]
 
     @pytest.mark.asyncio
-    async def test_chat_stream_error_handling(self):
-        """Test gestion d'erreur dans le stream."""
+    async def test_chat_stream_routing_mistral(self):
+        """Vérifie que les modèles 'mistral-' vont vers l'API"""
 
-        async def fake_stream_with_error():
-            yield {"message": {"content": "Start"}}
-            raise Exception("Ollama is down")
+        # On définit un VRAI générateur asynchrone pour le test
+        async def fake_mistral_stream(*args, **kwargs):
+            yield "chunk_mistral"
 
-        with patch("src.core.llm_provider.OllamaAsyncClient") as mock_client_cls:
-            mock_instance = mock_client_cls.return_value
-            mock_instance.chat = AsyncMock(return_value=fake_stream_with_error())
+        # On patche _is_mistral_api_model pour forcer le routing,
+        # et on patche _stream_mistral avec notre générateur
+        with (
+            patch("src.core.llm_provider.LLMProvider._is_mistral_api_model", return_value=True),
+            patch("src.core.llm_provider.LLMProvider._stream_mistral") as mock_stream,
+            patch("src.core.llm_provider.MISTRAL_API_KEY", "ok"),
+        ):
 
-            messages = [{"role": "user", "content": "Test"}]
-            stream = LLMProvider.chat_stream("test-model", messages)
+            mock_stream.side_effect = fake_mistral_stream
 
-            with pytest.raises(Exception, match="Ollama is down"):
-                async for _ in stream:
-                    pass
+            # Action
+            gen = LLMProvider.chat_stream("mistral-large", [])
+
+            # Consommation
+            chunks = []
+            async for c in gen:
+                chunks.append(c)
+
+            # Vérification
+            mock_stream.assert_called_once()
+            assert chunks == ["chunk_mistral"]

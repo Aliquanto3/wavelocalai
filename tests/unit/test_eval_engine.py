@@ -1,113 +1,125 @@
 """
-Tests unitaires pour EvalEngine (Moteur d'évaluation RAG).
+Tests unitaires pour le module EvalEngine.
 Usage: pytest tests/unit/test_eval_engine.py -v
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
-# On utilise un import conditionnel pour éviter les erreurs si les dépendances ne sont pas encore installées
-try:
-    from src.core.eval_engine import EvalEngine, EvalResult
-except ImportError:
-    # Dummy classes pour que les tests puissent être collectés même si l'implémentation manque
-    EvalEngine = None
-    EvalResult = None
+# Note : On ne patche plus sys.modules au niveau global ici !
 
 
-@pytest.fixture
-def mock_dependencies():
-    """Mocks pour les dépendances externes (Ragas, LangChain, Env)."""
-    with (
-        patch("src.core.eval_engine.ChatMistralAI") as mock_mistral,
-        patch("src.core.eval_engine.HuggingFaceEmbeddings") as mock_embeddings,
-        patch("src.core.eval_engine.evaluate") as mock_evaluate,
-        patch("src.core.eval_engine.MISTRAL_API_KEY", "fake_key_123"),
-    ):
-        yield {"mistral": mock_mistral, "embeddings": mock_embeddings, "evaluate": mock_evaluate}
+class TestEvalEngine:
 
+    @pytest.fixture
+    def mock_env(self):
+        """
+        Fixture qui simule la présence de 'ragas' et 'datasets'
+        UNIQUEMENT pendant la durée de ce test.
+        À la fin du test, les vraies librairies sont restaurées.
+        """
+        mock_ragas = MagicMock()
+        mock_datasets = MagicMock()
 
-class TestEvalEngineInitialization:
-    """Tests de l'initialisation du moteur."""
+        # On patche sys.modules temporairement
+        with patch.dict(
+            sys.modules,
+            {"ragas": mock_ragas, "ragas.metrics": MagicMock(), "datasets": mock_datasets},
+        ):
+            # On doit re-importer ou importer EvalEngine DANS ce contexte
+            # pour qu'il voit les mocks.
+            # Cependant, comme EvalEngine est déjà chargé par Python,
+            # on va surtout mocker ses imports internes.
+
+            # Pour ce test spécifique, on va surtout mocker les composants internes
+            # via le patch ci-dessous.
+            yield
+
+    @pytest.fixture
+    def mock_dependencies(self, mock_env):
+        """Mock les dépendances internes de la classe EvalEngine"""
+        # On patche là où la classe est définie
+        with (
+            patch("src.core.eval_engine.HuggingFaceEmbeddings") as mock_embed,
+            patch("src.core.eval_engine.evaluate") as mock_evaluate,
+            patch("src.core.eval_engine.LLMProvider") as mock_provider,
+        ):
+
+            # Setup Embeddings
+            mock_embed.return_value = MagicMock()
+
+            # Setup Provider (Juge)
+            mock_judge = MagicMock()
+            mock_provider.get_langchain_model.return_value = mock_judge
+
+            # IMPORTANT : On force RAGAS_AVAILABLE à True pour tester la logique
+            with patch("src.core.eval_engine.RAGAS_AVAILABLE", True):
+                # On importe la classe ici pour être sûr
+                from src.core.eval_engine import EvalEngine, EvalResult
+
+                yield {
+                    "embed": mock_embed,
+                    "evaluate": mock_evaluate,
+                    "provider": mock_provider,
+                    "judge": mock_judge,
+                    "engine_cls": EvalEngine,
+                    "result_cls": EvalResult,
+                }
 
     def test_init_success(self, mock_dependencies):
-        """Vérifie que le moteur s'initialise avec la bonne config JSON pour Mistral."""
-        if EvalEngine is None:
-            pytest.skip("Module src.core.eval_engine non implémenté")
-
-        # Correction F841 : On n'utilise pas la variable engine, on utilise _
-        _ = EvalEngine()
-
-        # 1. Vérification du Juge (Mistral)
-        mock_dependencies["mistral"].assert_called_once()
-        _, kwargs = mock_dependencies["mistral"].call_args
-
-        # POINT CRITIQUE : Vérifier le mode JSON
-        assert kwargs["model"] == "mistral-large-latest"
-        assert kwargs["model_kwargs"] == {"response_format": {"type": "json_object"}}
-        assert kwargs["temperature"] == 0.0
-
-        # 2. Vérification des Embeddings
-        mock_dependencies["embeddings"].assert_called_once()
-
-    def test_init_missing_api_key(self):
-        """Vérifie qu'une erreur est levée si la clé API est manquante."""
-        if EvalEngine is None:
-            pytest.skip("Module src.core.eval_engine non implémenté")
-
-        # Correction SIM117 : Fusion des context managers
-        with (
-            patch("src.core.eval_engine.MISTRAL_API_KEY", None),
-            pytest.raises(ValueError, match="clé API Mistral est requise"),
-        ):
-            EvalEngine()
-
-
-class TestEvalEngineEvaluation:
-    """Tests de la méthode d'évaluation."""
+        """Test l'initialisation réussie"""
+        eval_engine_cls = mock_dependencies["engine_cls"]
+        engine = eval_engine_cls()
+        assert engine.embeddings is not None
+        mock_dependencies["embed"].assert_called_once()
 
     def test_evaluate_single_turn_flow(self, mock_dependencies):
-        """Vérifie le flux complet d'évaluation d'une interaction."""
-        if EvalEngine is None:
-            pytest.skip("Module src.core.eval_engine non implémenté")
+        """Vérifie le flux complet d'une évaluation"""
+        # Setup des données de retour simulées de Ragas
+        mock_results = MagicMock()
+        mock_df = MagicMock()
+        mock_df.iloc.__getitem__.return_value = {"answer_relevancy": 0.85, "faithfulness": 0.90}
+        mock_results.to_pandas.return_value = mock_df
+        mock_dependencies["evaluate"].return_value = mock_results
 
-        engine = EvalEngine()
+        eval_engine_cls = mock_dependencies["engine_cls"]
+        eval_result_cls = mock_dependencies["result_cls"]
 
-        # Mock du résultat de ragas.evaluate
-        # Ragas retourne un objet Result qui contient un DataFrame pandas
-        mock_result = MagicMock()
-        mock_result.to_pandas.return_value = pd.DataFrame(
-            [
-                {
-                    "answer_relevancy": 0.95,
-                    "faithfulness": 0.85,
-                    "context_precision": 0.0,  # On ignore cette métrique dans la V2
-                }
-            ]
-        )
-        mock_dependencies["evaluate"].return_value = mock_result
+        engine = eval_engine_cls()
 
         # Exécution
         result = engine.evaluate_single_turn(
-            query="Quelle est la capitale ?",
-            response="Paris",
-            retrieved_contexts=["La capitale de la France est Paris."],
+            query="What is WaveLocalAI?",
+            response="It is a local AI tool.",
+            retrieved_contexts=["Context 1"],
+            judge_tag="mistral-large-latest",
         )
 
-        # 1. Vérifications de l'appel à Ragas
+        # Vérifications
+        mock_dependencies["provider"].get_langchain_model.assert_called_with(
+            "mistral-large-latest",
+            temperature=0.0,
+            model_kwargs={"response_format": {"type": "json_object"}},
+        )
+
         mock_dependencies["evaluate"].assert_called_once()
-        call_args = mock_dependencies["evaluate"].call_args
 
-        # On vérifie qu'on passe bien le Juge configuré et les Embeddings
-        assert call_args.kwargs["llm"] == engine.judge_llm
-        assert call_args.kwargs["embeddings"] == engine.embeddings
+        assert isinstance(result, eval_result_cls)
+        assert result.faithfulness == 0.90
+        assert result.answer_relevancy == 0.85
+        assert result.global_score == 0.875
 
-        # 2. Vérification du Résultat formaté
-        assert isinstance(result, EvalResult)
-        assert result.answer_relevancy == 0.95
-        assert result.faithfulness == 0.85
+    def test_evaluate_handles_ragas_exception(self, mock_dependencies):
+        """Vérifie que le moteur est robuste aux erreurs Ragas"""
+        mock_dependencies["evaluate"].side_effect = Exception("Ragas failure")
 
-        # Calcul du score global : (0.95 + 0.85) / 2 = 0.9
-        assert result.global_score == 0.9
+        eval_engine_cls = mock_dependencies["engine_cls"]
+        engine = eval_engine_cls()
+
+        with pytest.raises(Exception) as excinfo:
+            engine.evaluate_single_turn(
+                query="Q", response="A", retrieved_contexts=["C"], judge_tag="model"
+            )
+        assert "Ragas failure" in str(excinfo.value)
