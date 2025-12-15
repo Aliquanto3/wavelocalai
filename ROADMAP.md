@@ -9,7 +9,6 @@ L'objectif est de renforcer la capacité de l'outil à comparer objectivement le
 - [ ] **Interface "Arena" (Comparaison)** : Nouvel onglet permettant de sélectionner N modèles, les exécuter en parallèle sur un prompt et afficher les résultats côte à côte.
 - [ ] **Évaluation RAG** : Intégration de pipelines d'évaluation (Ragas ou Giskard) pour scorer la qualité des réponses sur documents.
 - [ ] **Fichiers de test RAG** : Fournir un set de documents par défaut pour faciliter les démos et tests immédiats.
-- [ ] **Intégration Mistral API** : Ajout du provider Mistral AI pour comparaison Cloud vs Local.
 
 ## 🛠 Moyen Terme : Industrialisation & UX
 Améliorer la robustesse et l'expérience utilisateur.
@@ -20,9 +19,14 @@ Améliorer la robustesse et l'expérience utilisateur.
 
 ## 🔮 Futur / Exploration
 Fonctionnalités avancées d'orchestration.
-
-- [ ] **Mode Multi-agents** : Exploration de frameworks comme CrewAI pour des tâches complexes.
 - [ ] **LLM Council** : Système de vote entre modèles pour déterminer la meilleure réponse (synthèse).
+
+## ✅ Complété (Décembre 2025)
+
+- [x] **Intégration Mistral API** : Support complet des modèles Mistral
+- [x] **Mode Multi-agents** : Implémentation CrewAI avec 8+ workflows
+- [x] **9 outils agents** : Email, CSV, DOCX, Charts, Markdown, Monitor
+- [x] **Détection unifiée** : model_detector.py comme source unique
 
 ---
 *Dernière mise à jour : 13/12/2025*

@@ -15,12 +15,13 @@ ROOT_DIR = Path(__file__).parent.parent
 # Dossier de sortie (À côté du script, comme demandé)
 OUTPUT_DIR = SCRIPT_DIR / "exports"
 
-# Définition des 4 fichiers de sortie
+# Définition des 5 fichiers de sortie (NOUVEAU : ajout de 'scripts')
 FILES_CONFIG = {
     "structure": OUTPUT_DIR / "01_PROJECT_STRUCTURE.txt",
     "docs": OUTPUT_DIR / "02_DOCUMENTATION.txt",
     "code": OUTPUT_DIR / "03_APP_CODE.txt",
     "tests": OUTPUT_DIR / "04_TESTS.txt",
+    "scripts": OUTPUT_DIR / "05_SCRIPTS_CODE.txt",  # NOUVEAU
 }
 
 # Dossiers à ignorer (système, env, cache, git)
@@ -162,6 +163,12 @@ def collect_file_contents(start_path: Path, filter_func: Callable[[Path], bool],
 # --- FILTRES SPÉCIFIQUES ---
 
 
+# NOUVEAU FILTRE : Fichiers dans un répertoire 'scripts' (ou similaire)
+def is_script_file(path: Path) -> bool:
+    # C'est un script si c'est un .py ET qu'il est dans un dossier "scripts"
+    return path.suffix.lower() == ".py" and "scripts" in path.parts and not is_ignored(path)
+
+
 def is_doc_file(path: Path) -> bool:
     return path.suffix.lower() == ".md"
 
@@ -172,10 +179,16 @@ def is_test_file(path: Path) -> bool:
 
 
 def is_app_code_file(path: Path) -> bool:
-    # C'est du code applicatif si c'est un .py ET qu'il n'est PAS dans "tests"
+    # C'est du code applicatif si c'est un .py
+    # ET qu'il n'est PAS dans "tests"
+    # ET qu'il n'est PAS dans "scripts" (NOUVELLE CONDITION)
     # Et ce n'est pas le script lui-même
+    is_py = path.suffix.lower() == ".py"
+    is_in_tests = "tests" in path.parts
+    is_in_scripts = "scripts" in path.parts  # Vérification de l'appartenance à "scripts"
     is_self = path.resolve() == Path(__file__).resolve()
-    return path.suffix.lower() == ".py" and "tests" not in path.parts and not is_self
+
+    return is_py and not is_in_tests and not is_in_scripts and not is_self
 
 
 def main():
@@ -196,7 +209,7 @@ def main():
     doc_content = collect_file_contents(ROOT_DIR, is_doc_file, "DOCUMENTATION (.md)")
     FILES_CONFIG["docs"].write_text(doc_content, encoding="utf-8")
 
-    # 3. Génération du code applicatif (.py hors tests)
+    # 3. Génération du code applicatif (.py hors tests et scripts)
     print("💻 Extraction du code applicatif...")
     code_content = collect_file_contents(ROOT_DIR, is_app_code_file, "CODE APPLICATIF (.py)")
     FILES_CONFIG["code"].write_text(code_content, encoding="utf-8")
@@ -205,6 +218,11 @@ def main():
     print("🧪 Extraction des tests...")
     test_content = collect_file_contents(ROOT_DIR, is_test_file, "TESTS")
     FILES_CONFIG["tests"].write_text(test_content, encoding="utf-8")
+
+    # 5. Génération des scripts (.py dans scripts/) - NOUVELLE ÉTAPE
+    print("🛠️  Extraction des scripts...")
+    script_content = collect_file_contents(ROOT_DIR, is_script_file, "SCRIPTS (.py)")
+    FILES_CONFIG["scripts"].write_text(script_content, encoding="utf-8")
 
     print("\n✅ Export terminé avec succès ! Fichiers générés :")
     # Correction B007 : Utilisation de _ au lieu de key

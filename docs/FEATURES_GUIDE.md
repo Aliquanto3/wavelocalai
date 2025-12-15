@@ -93,5 +93,31 @@ L'agent a accès à des fonctions Python sécurisées :
     * Affichage des logs d'exécution : Quel outil est appelé ? Avec quels arguments ? Quel est le résultat ?
 * **Mode ReAct :** L'agent suit la boucle *Raisonner -> Agir -> Observer -> Conclure*.
 
+## MISE À JOUR
+
+### 🛠️ Outils Disponibles (Tools)
+L'agent a maintenant accès à **9 outils** (anciennement 3) :
+
+**Système :**
+- 🕒 Time
+- 💻 System Monitor
+
+**Calcul :**
+- 🧮 Calculator
+
+**Données :**
+- 📊 CSV Analyzer
+- 🏢 Wavestone Search
+
+**Communication :**
+- 📧 Email Sender
+
+**Génération :**
+- 📝 Document Generator (DOCX)
+- 📈 Chart Generator (PNG)
+- 📄 Markdown Report
+
+Voir [AGENT_TOOLS.md](AGENT_TOOLS.md) pour la documentation complète.
+
 ---
 *Développé pour Wavestone - Architecture Local First.*

@@ -43,6 +43,21 @@ ollama serve  # Terminal dédié
 
 ## ⚙️ Configuration Avancée
 
+### SMTP pour Email Tool (Optionnel)
+```bash
+# .env
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=votre-email@gmail.com
+SMTP_PASSWORD=votre-app-password
+```
+
+**Configuration Gmail :**
+1. Activer la validation en 2 étapes
+2. Aller dans "Sécurité" > "Mots de passe d'application"
+3. Créer un mot de passe pour "Application Mail"
+4. Utiliser ce mot de passe dans SMTP_PASSWORD
+
 ### Green IT (Empreinte Carbone)
 ```bash
 # .env

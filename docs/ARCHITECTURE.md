@@ -43,3 +43,16 @@ Utilise **Streamlit** en mode Multi-Page.
 1.  **Backend :** Créer la logique dans `src/core/` (ex: `rag_engine.py`).
 2.  **Interface :** Créer une nouvelle page dans `src/app/pages/` (ex: `03_RAG_Knowledge.py`).
 3.  **Dépendances :** Mettre à jour `requirements.txt` si nécessaire.
+
+### Nouveaux Modules (Décembre 2025)
+
+#### model_detector.py
+Source unique de vérité pour la détection API vs Local.
+- Fonction `is_api_model()` : Consulte `models.json`
+- Cache LRU pour performance
+- Utilisé par agent_engine, crew_engine, llm_provider
+
+#### agent_tools.py
+- 9 outils avec pattern standardisé
+- Métadonnées pour l'UI (TOOLS_METADATA)
+- Fonction `get_tools_by_names()` pour filtrage dynamique
