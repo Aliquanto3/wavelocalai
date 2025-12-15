@@ -58,3 +58,9 @@ mistralai>=1.0.0
 crewai>=0.30.0
 ragas>=0.1.0
 datasets>=2.19.0
+
+# NOUVEAU - Outils additionnels
+python-docx>=0.8.11      # Document Generator
+matplotlib>=3.7.0        # Chart Generator
+openpyxl>=3.1.0         # Excel support pour Data Analyzer
+xlrd>=2.0.1             # Legacy Excel support

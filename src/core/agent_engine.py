@@ -1,49 +1,191 @@
+"""
+Agent Engine - Moteur d'agent autonome basé sur LangGraph.
+
+Modifications principales :
+- Support de la sélection dynamique d'outils
+- Support des modèles API (Mistral) en plus d'Ollama
+- Détection du type de modèle via models.json (SOURCE DE VÉRITÉ)
+"""
+
+import json
 import logging
+import os
 from collections.abc import Generator
+from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 
-from src.core.agent_tools import AVAILABLE_TOOLS
+from src.core.agent_tools import AVAILABLE_TOOLS, get_tools_by_names
+from src.core.model_detector import is_api_model
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Chargement de la base de données des modèles (SOURCE DE VÉRITÉ)
+MODELS_DB_PATH = Path(__file__).parent.parent.parent / "data" / "models.json"
+
+
+def load_models_db():
+    """Charge la base de données des modèles depuis models.json."""
+    try:
+        with open(MODELS_DB_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.warning(f"Fichier models.json non trouvé : {MODELS_DB_PATH}")
+        return {}
+    except json.JSONDecodeError as e:
+        logger.error(f"Erreur de parsing models.json : {e}")
+        return {}
+
+
+# Base de données globale des modèles
+MODELS_DB = load_models_db()
+
+
+def get_model_info_by_tag(ollama_tag: str) -> dict | None:
+    """
+    Récupère les informations d'un modèle à partir de son ollama_tag.
+
+    Args:
+        ollama_tag: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
+
+    Returns:
+        dict: Informations du modèle ou None si non trouvé
+    """
+    for _model_name, model_info in MODELS_DB.items():
+        if model_info.get("ollama_tag") == ollama_tag:
+            return model_info
+
+    logger.warning(f"Modèle non trouvé dans models.json : {ollama_tag}")
+    return None
+
 
 class AgentEngine:
     """
     Moteur d'agent autonome basé sur LangGraph.
-    Capable d'utiliser des outils pour répondre.
+    Capable d'utiliser des outils sélectionnés pour répondre.
+    Supporte les modèles locaux (Ollama) et API (Mistral).
     """
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, enabled_tools: list[str] = None):
+        """
+        Initialise l'agent avec un modèle et une liste d'outils.
+
+        Args:
+            model_name: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
+            enabled_tools: Liste des noms d'outils à activer (None = tous)
+                          Ex: ["calculator", "send_email", "system_monitor"]
+        """
         self.model_name = model_name
 
-        # 1. Initialisation du LLM avec support des outils
-        self.llm = ChatOllama(
-            model=model_name,
+        # 1. Sélection des outils
+        if enabled_tools is None:
+            # Par défaut, tous les outils sont activés
+            self.tools = AVAILABLE_TOOLS
+            logger.info(f"Agent initialisé avec TOUS les outils ({len(AVAILABLE_TOOLS)})")
+        else:
+            # Filtrage des outils par nom
+            self.tools = get_tools_by_names(enabled_tools)
+            logger.info(f"Agent initialisé avec {len(self.tools)} outil(s): {enabled_tools}")
+
+        # 2. Détection du type de modèle via models.json et initialisation du LLM
+        self.llm = self._initialize_llm(model_name)
+
+        # 3. Création du graphe d'agent (Prebuilt ReAct Agent)
+        self.agent_executor = create_react_agent(self.llm, self.tools)
+
+    def _initialize_llm(self, model_tag: str):
+        # Utiliser le détecteur central
+        if is_api_model(model_tag):
+            return self._initialize_mistral_api(model_tag)
+        else:
+            return self._initialize_ollama(model_tag)
+
+    def _initialize_mistral_api(self, model_tag: str):
+        """
+        Initialise un modèle Mistral via l'API.
+
+        Args:
+            model_tag: Tag du modèle
+            model_info: Informations du modèle depuis models.json
+
+        Returns:
+            ChatMistralAI: Instance du modèle API
+        """
+        try:
+            from langchain_mistralai import ChatMistralAI
+
+            api_key = os.getenv("MISTRAL_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    f"MISTRAL_API_KEY manquante dans .env pour utiliser le modèle API '{model_tag}'. "
+                    f"Ajoutez votre clé Mistral dans le fichier .env"
+                )
+
+            logger.info(f"🌐 Initialisation du modèle API Mistral : {model_tag} ")
+
+            return ChatMistralAI(
+                model=model_tag,
+                mistral_api_key=api_key,
+                temperature=0.0,  # Zéro créativité pour la rigueur des appels d'outils
+            )
+
+        except ImportError as e:
+            raise ImportError(
+                "Le package 'langchain-mistralai' est requis pour les modèles Mistral API. "
+                "Installez-le avec : pip install langchain-mistralai"
+            ) from e
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation du modèle API {model_tag} : {e}")
+            raise
+
+    def _initialize_ollama(self, model_tag: str):
+        """
+        Initialise un modèle local via Ollama.
+
+        Args:
+            model_tag: Tag du modèle
+
+        Returns:
+            ChatOllama: Instance du modèle local
+        """
+        logger.info(f"🏠 Initialisation du modèle local Ollama : {model_tag}")
+
+        return ChatOllama(
+            model=model_tag,
             temperature=0.0,  # Zéro créativité pour la rigueur des appels d'outils
         )
-
-        # 2. Création du graphe d'agent (Prebuilt ReAct Agent)
-        self.agent_executor = create_react_agent(self.llm, AVAILABLE_TOOLS)
 
     def run_stream(
         self,
         user_query: str,
         chat_history: list[dict] | None = None,
-        system_prompt: str | None = None,  # <--- AJOUT DU PARAMÈTRE ICI
+        system_prompt: str | None = None,
     ) -> Generator[dict, None, None]:
         """
         Exécute l'agent et stream les événements (pensées, appels d'outils, réponse finale).
+
+        Args:
+            user_query: Question de l'utilisateur
+            chat_history: Historique de conversation (optionnel)
+            system_prompt: Instructions système personnalisées (optionnel)
+
+        Yields:
+            dict: Événements avec structure {"type": ..., "content": ..., etc.}
         """
         if chat_history is None:
             chat_history = []
 
         # Valeur par défaut si non fournie
-        default_system = "Tu es un assistant utile capable d'utiliser des outils. Si tu utilises un outil, base ta réponse finale sur son résultat. Réponds dans la même langue que l'utilisateur."
+        default_system = (
+            "Tu es un assistant utile capable d'utiliser des outils. "
+            "Si tu utilises un outil, base ta réponse finale sur son résultat. "
+            "Réponds dans la même langue que l'utilisateur."
+        )
         final_system_prompt = system_prompt if system_prompt else default_system
 
         # Construction des messages LangChain
@@ -95,3 +237,67 @@ class AgentEngine:
         except Exception as e:
             logger.error(f"Erreur Agent: {e}")
             yield {"type": "error", "content": f"Erreur critique de l'agent : {str(e)}"}
+
+
+# ========================================
+# UTILITAIRES POUR TESTS & DEBUGGING
+# ========================================
+
+
+def list_available_models():
+    """Liste tous les modèles disponibles avec leur type."""
+    if not MODELS_DB:
+        print("❌ Base de données des modèles vide")
+        return
+
+    print(f"\n📋 {len(MODELS_DB)} modèles disponibles :\n")
+
+    for model_name, info in MODELS_DB.items():
+        model_type = info.get("type", "unknown")
+        ollama_tag = info.get("ollama_tag", "N/A")
+        icon = "🌐" if model_type == "api" else "🏠"
+
+        print(f"{icon} {model_name:<40} | Tag: {ollama_tag:<25} | Type: {model_type}")
+
+
+def test_model_detection(model_tag: str):
+    """Teste la détection du type d'un modèle."""
+    print(f"\n🔍 Test de détection pour : {model_tag}\n")
+
+    info = get_model_info_by_tag(model_tag)
+
+    if info:
+        print("✅ Modèle trouvé dans models.json")
+        print(f"   Type : {info.get('type', 'N/A')}")
+        print(f"   Éditeur : {info.get('editor', 'N/A')}")
+        print(f"   Paramètres : {info.get('params_tot', 'N/A')}")
+        print(f"   Capacités : {', '.join(info.get('capabilities', []))}")
+    else:
+        print("❌ Modèle non trouvé dans models.json")
+        print("   Fallback : Utilisation d'Ollama par défaut")
+
+
+if __name__ == "__main__":
+    # Tests de base
+    print("=" * 80)
+    print("AGENT ENGINE - TESTS DE DÉTECTION DE MODÈLES")
+    print("=" * 80)
+
+    # Liste tous les modèles
+    list_available_models()
+
+    # Tests de détection
+    print("\n" + "=" * 80)
+    print("TESTS DE DÉTECTION")
+    print("=" * 80)
+
+    test_cases = [
+        "qwen2.5:1.5b",  # Local
+        "mistral-large-2512",  # API
+        "devstral-2512",  # API
+        "mistral:7b",  # Local (Mistral via Ollama)
+        "model-inconnu",  # Non trouvé
+    ]
+
+    for model_tag in test_cases:
+        test_model_detection(model_tag)

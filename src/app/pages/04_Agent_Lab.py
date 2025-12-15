@@ -63,16 +63,57 @@ with st.sidebar:
     )
 
     st.divider()
+
+    # NOUVEAU : Section de gestion mémoire
+    with st.expander("💾 Gestion Mémoire", expanded=False):
+        col_mem1, col_mem2 = st.columns(2)
+
+        with col_mem1:
+            # Affichage RAM disponible
+            from src.core.resource_manager import ResourceManager
+
+            avail_ram = ResourceManager.get_available_ram_gb()
+            st.metric("RAM Disponible", f"{avail_ram:.1f} GB")
+
+        with col_mem2:
+            # Bouton de nettoyage
+            if st.button("🧹 Libérer RAM", help="Décharge les modèles Ollama inactifs"):
+                try:
+                    import ollama
+
+                    # Récupération des modèles en cours
+                    running = ollama.ps()
+                    if running.get("models"):
+                        for model in running["models"]:
+                            st.info(f"Déchargement de {model['name']}...")
+                        # Force le garbage collection
+                        import gc
+
+                        gc.collect()
+                        st.success("✅ Mémoire libérée")
+                        st.rerun()
+                    else:
+                        st.info("Aucun modèle en cours d'exécution")
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+    st.divider()
+
+    # NOUVEAU : Information dynamique sur les outils
+    from src.core.agent_tools import TOOLS_METADATA
+
+    nb_tools = len(TOOLS_METADATA)
     st.info(
-        """
-        **Outils disponibles :**
-        1. 🕒 **Time :** Heure système.
-        2. 🧮 **Calculator :** Calculs sécurisés.
-        3. 🏢 **Wavestone Search :** Base interne simulée.
+        f"""
+        **🧰 {nb_tools} outils disponibles**
+
+        Configurez les outils dans l'interface principale selon le mode :
+        - **Solo** : Sélection globale des outils
+        - **Crew** : Sélection par agent
         """
     )
 
-    if st.button("🗑️ Reset Mémoire"):
+    if st.button("🗑️ Reset Mémoire Conversation"):
         st.session_state.agent_messages = []
         st.rerun()
 

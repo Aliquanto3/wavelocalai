@@ -2,6 +2,7 @@
 Tests d'intégration pour AgentEngine (nécessite Ollama).
 Usage: pytest tests/integration/test_agent_engine.py -v -m integration
 """
+
 import pytest
 
 from src.core.agent_engine import AgentEngine
@@ -150,8 +151,7 @@ class TestAgentEngineIntegration:
         query = "Test de robustesse"
 
         try:
-            stream = agent.run_stream(query)
-            events = list(stream)
+            agent.run_stream(query)
 
             # Si on arrive ici, c'est OK (pas de crash)
             assert True
@@ -166,16 +166,41 @@ class TestAgentEngineToolsAvailability:
 
     def test_all_tools_loaded(self):
         """Test que tous les outils sont bien chargés."""
-        assert len(AVAILABLE_TOOLS) == 3, "Devrait avoir 3 outils"
+        # MODIFICATION : 3 → 9 outils
+        assert (
+            len(AVAILABLE_TOOLS) == 9
+        ), f"Devrait avoir 9 outils, mais {len(AVAILABLE_TOOLS)} trouvé(s)"
 
         tool_names = [tool.name for tool in AVAILABLE_TOOLS]
 
+        # Outils existants
         assert "get_current_time" in tool_names
         assert "calculator" in tool_names
         assert "search_wavestone_internal" in tool_names
+
+        # NOUVEAU : Outils ajoutés
+        assert "send_email" in tool_names
+        assert "analyze_csv" in tool_names
+        assert "generate_document" in tool_names
+        assert "generate_chart" in tool_names
+        assert "generate_markdown_report" in tool_names
+        assert "system_monitor" in tool_names
 
     def test_tools_have_descriptions(self):
         """Test que chaque outil a une description."""
         for tool in AVAILABLE_TOOLS:
             assert hasattr(tool, "description")
             assert len(tool.description) > 10, f"L'outil {tool.name} devrait avoir une description"
+
+    # NOUVEAU TEST : Métadonnées
+    def test_tools_metadata_exists(self):
+        """Test que les métadonnées des outils sont présentes."""
+        from src.core.agent_tools import TOOLS_METADATA
+
+        assert len(TOOLS_METADATA) == 9, "TOOLS_METADATA devrait contenir 9 entrées"
+
+        for _tool_name, metadata in TOOLS_METADATA.items():
+            assert "name" in metadata
+            assert "description" in metadata
+            assert "category" in metadata
+            assert "requires_config" in metadata

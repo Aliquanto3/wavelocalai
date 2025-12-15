@@ -12,7 +12,8 @@ except ImportError:
 
 from src.core.config import MISTRAL_API_KEY
 from src.core.metrics import InferenceMetrics, MetricsCalculator
-from src.core.models_db import MODELS_DB, get_cloud_models_from_db
+from src.core.model_detector import is_api_model
+from src.core.models_db import get_cloud_models_from_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,17 +26,8 @@ class LLMProvider:
 
     @staticmethod
     def _is_mistral_api_model(model_tag: str) -> bool:
-        """
-        Détecte si le modèle est une API Cloud via models.json.
-        """
-        # 1. Vérification propre via le JSON (Source of Truth)
-        for info in MODELS_DB.values():
-            if info.get("ollama_tag") == model_tag:
-                return info.get("type") == "api"
-
-        # 2. Fallback de sécurité
-        known_cloud_prefixes = ("mistral-", "codestral-", "magistral-", "ministral-", "devstral-")
-        return model_tag.startswith(known_cloud_prefixes)
+        # SIMPLIFIÉ : Utiliser le détecteur central
+        return is_api_model(model_tag)
 
     @staticmethod
     def list_models(cloud_enabled: bool = True) -> list[dict[str, Any]]:

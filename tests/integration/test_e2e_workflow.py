@@ -2,6 +2,7 @@
 Tests End-to-End du workflow complet.
 Usage: pytest tests/integration/test_e2e_workflow.py -v -m integration
 """
+
 import tempfile
 from pathlib import Path
 
@@ -123,6 +124,34 @@ class TestEndToEndWorkflow:
         finally:
             Path(temp_path).unlink(missing_ok=True)
             rag.clear_database()
+
+    # NOUVEAU TEST
+    async def test_agent_with_selective_tools(self):
+        """Test workflow : Agent avec outils sélectionnés."""
+        # Agent avec seulement calculator et system_monitor
+        agent = AgentEngine(
+            model_name="qwen2.5:1.5b", enabled_tools=["calculator", "system_monitor"]
+        )
+
+        # Vérification que seulement 2 outils sont chargés
+        assert len(agent.tools) == 2
+        tool_names = [t.name for t in agent.tools]
+        assert "calculator" in tool_names
+        assert "system_monitor" in tool_names
+        assert "send_email" not in tool_names  # Doit être absent
+
+        # Test que l'agent utilise bien un des outils disponibles
+        query = "Calcule 25 * 4 puis vérifie l'état du système"
+
+        tool_calls = []
+        stream = agent.run_stream(query)
+        for event in stream:
+            if event["type"] == "tool_call":
+                tool_calls.append(event["tool"])
+
+        # Au moins un des outils devrait être utilisé
+        assert len(tool_calls) > 0
+        assert any(name in ["calculator", "system_monitor"] for name in tool_calls)
 
 
 @pytest.mark.integration

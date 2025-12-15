@@ -102,3 +102,11 @@ benchmark_report.md
 .ropeproject
 *.sublime-project
 *.sublime-workspace
+
+# Fichiers générés
+outputs/*.docx
+outputs/*.png
+outputs/*.md
+
+# Mais garder le dossier
+!outputs/.gitkeep
