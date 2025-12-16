@@ -38,6 +38,15 @@ Utilise **Streamlit** en mode Multi-Page.
 * Chaque fichier dans `pages/` devient automatiquement un onglet dans la barre latérale.
 * Le Frontend "consomme" les services du Core. Il ne doit pas contenir de logique métier complexe.
 
+### 3. Architecture RAG Modulaire (`src/core/rag`)
+Le moteur RAG utilise le **Pattern Strategy** pour permettre le changement d'algorithme à chaud.
+
+* **`RAGEngine`** : L'orchestrateur (Façade). Il ne contient pas de logique métier mais délègue à la stratégie active.
+* **`strategies/`** : Contient les implémentations concrètes (`naive.py`, `hyde.py`, `self_rag.py`).
+    * Toute nouvelle stratégie doit hériter de `RetrievalStrategy` et implémenter `retrieve()`.
+* **`models_factory.py`** : Gère le chargement sécurisé des modèles (Embeddings/Rerankers) avec support du code distant (`trust_remote_code=True`).
+* **`vector_store.py`** : Gère ChromaDB en isolant les collections par modèle d'embedding (évite les conflits de dimensions).
+
 ## Ajouter une fonctionnalité
 
 1.  **Backend :** Créer la logique dans `src/core/` (ex: `rag_engine.py`).

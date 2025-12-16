@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
-
-from langchain_huggingface import HuggingFaceEmbeddings
+from typing import Any
 
 # Ragas Imports
 try:
@@ -29,70 +28,88 @@ class EvalResult:
 
 class EvalEngine:
     """
-    Moteur d'évaluation RAG Hybride.
-    Capable d'utiliser n'importe quel modèle (Local ou Cloud) comme Juge.
+    Moteur d'évaluation RAG Hybride (EvalOps).
+    Utilise Ragas avec le LLM Juge et les Embeddings actifs.
     """
 
     def __init__(self):
         if not RAGAS_AVAILABLE:
-            raise ImportError("Le module 'ragas' n'est pas installé.")
-
-        # Embeddings (Local - Rapide) pour Ragas
-        self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            logger.warning("⚠️ Ragas non installé. L'évaluation sera désactivée.")
 
     def evaluate_single_turn(
-        self, query: str, response: str, retrieved_contexts: list[str], judge_tag: str
+        self,
+        query: str,
+        response: str,
+        retrieved_contexts: list[str],
+        judge_tag: str,
+        embedding_model: Any,  # <--- Injection dynamique
     ) -> EvalResult:
         """
-        Évalue une seule interaction avec un Juge spécifique.
+        Évalue une interaction en utilisant le modèle d'embedding ACTIF du RAG.
         """
-        logger.info(f"⚖️ Démarrage évaluation Ragas avec le juge : {judge_tag}")
+        if not RAGAS_AVAILABLE:
+            return EvalResult(0.0, 0.0, 0.0)
 
-        # 1. Configuration Avancée du Juge
-        # Si c'est un modèle Mistral API, on force le mode JSON Object pour éviter le Markdown qui casse Ragas
+        logger.info(f"⚖️ EvalOps: Juge={judge_tag} | Embedding={type(embedding_model).__name__}")
+
+        # 1. Configuration du Juge (LangChain Object)
+        # Force JSON mode pour Mistral afin d'éviter les erreurs de parsing Ragas
         model_kwargs = {}
-        if "mistral" in judge_tag.lower() or "ministral" in judge_tag.lower():
+        if "mistral" in judge_tag.lower():
             model_kwargs = {"response_format": {"type": "json_object"}}
 
-        # 2. Instanciation Dynamique
         judge_llm = LLMProvider.get_langchain_model(
             judge_tag, temperature=0.0, model_kwargs=model_kwargs
         )
 
-        # 3. Préparation du Dataset
+        # 2. Préparation du Dataset Standard Ragas
         data = {
             "question": [query],
             "answer": [response],
             "contexts": [retrieved_contexts],
+            # Ragas demande parfois "ground_truth", on peut laisser vide pour ces métriques
+            # "ground_truth": [""]
         }
         dataset = Dataset.from_dict(data)
 
-        # 4. Configuration des métriques
+        # 3. Sélection des métriques
+        # On injecte le Juge ET l'Embedding dans chaque métrique
         metrics = [answer_relevancy, faithfulness]
 
-        # Injection du Juge dans chaque métrique
         for m in metrics:
+            # Injection du LLM Juge
             if hasattr(m, "llm"):
                 m.llm = judge_llm
+            # Injection de l'Embedding actif (CRITIQUE pour la cohérence)
             if hasattr(m, "embeddings"):
-                m.embeddings = self.embeddings
+                m.embeddings = embedding_model
 
-        # 5. Exécution de l'évaluation
-        results = evaluate(
-            dataset=dataset,
-            metrics=metrics,
-            llm=judge_llm,
-            embeddings=self.embeddings,
-            raise_exceptions=False,
-        )
+        # 4. Exécution (Safe Mode)
+        try:
+            results = evaluate(
+                dataset=dataset,
+                metrics=metrics,
+                llm=judge_llm,
+                embeddings=embedding_model,
+                raise_exceptions=False,  # Continue même si une métrique échoue
+            )
 
-        # 6. Extraction des scores
-        scores = results.to_pandas().iloc[0]
+            scores = results.to_pandas().iloc[0]
 
-        return EvalResult(
-            answer_relevancy=round(scores.get("answer_relevancy", 0.0), 3),
-            faithfulness=round(scores.get("faithfulness", 0.0), 3),
-            global_score=round(
-                (scores.get("answer_relevancy", 0) + scores.get("faithfulness", 0)) / 2, 3
-            ),
-        )
+            # Parsing sécurisé des scores (parfois NaN si le LLM local échoue)
+            answ_rel = scores.get("answer_relevancy", 0.0)
+            faith = scores.get("faithfulness", 0.0)
+
+            # Conversion NaN -> 0.0
+            answ_rel = 0.0 if answ_rel != answ_rel else answ_rel
+            faith = 0.0 if faith != faith else faith
+
+            return EvalResult(
+                answer_relevancy=round(answ_rel, 3),
+                faithfulness=round(faith, 3),
+                global_score=round((answ_rel + faith) / 2, 3),
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Erreur critique Ragas : {e}")
+            return EvalResult(0.0, 0.0, 0.0)

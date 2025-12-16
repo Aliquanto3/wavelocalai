@@ -71,6 +71,7 @@ huggingface-hub>=0.20.0
 chromadb>=0.4.22
 langchain-chroma
 langchain-huggingface
+einops
 
 # Parsing (Docling & Fallbacks)
 docling>=1.0.0

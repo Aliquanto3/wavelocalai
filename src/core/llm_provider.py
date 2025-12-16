@@ -11,6 +11,7 @@ except ImportError:
     Mistral = None
 
 from src.core.config import MISTRAL_API_KEY
+from src.core.green_monitor import GreenTracker, HardwareMonitor
 from src.core.metrics import InferenceMetrics, MetricsCalculator
 from src.core.model_detector import is_api_model
 from src.core.models_db import get_cloud_models_from_db
@@ -101,12 +102,23 @@ class LLMProvider:
         final_messages = messages.copy()
         if system_prompt:
             final_messages.insert(0, {"role": "system", "content": system_prompt})
+
         timer = MetricsCalculator()
+
+        # --- CORRECTION CO2 : INSTANCIATION MANUELLE ---
+        tracker = GreenTracker(project_name="wavelocal_eval")
+        tracker.start()  # Démarrage explicite
+
+        # Mesure RAM Avant
+        ram_start = HardwareMonitor.get_realtime_metrics().ram_used_gb
+
         timer.start()
         full_text = ""
         eval_count = 0
         prompt_eval_count = 0
         load_duration = 0
+        emissions_kg = 0.0  # Valeur par défaut
+
         client = OllamaAsyncClient()
         try:
             stream = await client.chat(
@@ -124,11 +136,27 @@ class LLMProvider:
                     eval_count = chunk.get("eval_count", 0)
                     prompt_eval_count = chunk.get("prompt_eval_count", 0)
                     load_duration = chunk.get("load_duration", 0)
+
             timer.stop()
+
+            # --- ARRÊT DU TRACKER ET RÉCUPÉRATION IMMÉDIATE ---
+            # tracker.stop() retourne la valeur calculée des émissions
+            emissions_kg = tracker.stop()
+
+            # Fallback de sécurité si CodeCarbon renvoie None (très court run)
+            if emissions_kg is None:
+                emissions_kg = 0.0
+
+            # Mesure RAM Après
+            ram_end = HardwareMonitor.get_realtime_metrics().ram_used_gb
+            ram_peak = max(ram_start, ram_end)
+
             if eval_count == 0:
                 eval_count = len(full_text) / 4
+
             duration = timer.duration
             tps = eval_count / duration if duration > 0 else 0
+
             yield InferenceMetrics(
                 model_name=model_name,
                 input_tokens=prompt_eval_count,
@@ -136,10 +164,14 @@ class LLMProvider:
                 total_duration_s=round(duration, 2),
                 load_duration_s=round(load_duration / 1e9, 2),
                 tokens_per_second=round(tps, 1),
-                model_size_gb=0,
+                model_size_gb=ram_peak,
+                carbon_g=emissions_kg * 1000,  # Conversion kg -> g
             )
+
         except Exception as e:
             logger.error(f"Ollama Error: {e}")
+            # Sécurité : Arrêter le tracker si plantage
+            tracker.stop()
             raise e
 
     @staticmethod

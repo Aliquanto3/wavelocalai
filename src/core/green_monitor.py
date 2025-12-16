@@ -1,8 +1,10 @@
 import atexit
+import contextlib
 import logging
+import os
 import platform
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import cpuinfo
 import psutil
@@ -30,9 +32,9 @@ class SystemMetrics:
     ram_usage_percent: float
     ram_total_gb: float
     ram_used_gb: float
-    gpu_name: Optional[str] = None
-    gpu_memory_total_gb: Optional[float] = None
-    gpu_memory_used_gb: Optional[float] = None
+    gpu_name: str | None = None
+    gpu_memory_total_gb: float | None = None
+    gpu_memory_used_gb: float | None = None
     co2_emissions_kg: float = 0.0
 
 
@@ -62,17 +64,25 @@ class HardwareMonitor:
 
     @staticmethod
     def get_realtime_metrics() -> SystemMetrics:
-        """Récupère les métriques en temps réel"""
+        """Récupère les métriques en temps réel (Focus Application)"""
 
-        # 1. CPU & RAM
-        cpu_percent = psutil.cpu_percent(interval=None)
-        mem = psutil.virtual_memory()
+        # 1. CPU & RAM (Scope Application)
+        # cpu_percent sur process.cpu_percent() est souvent > 100% sur multicore
+        # On garde psutil.cpu_percent() global ou on le normalise,
+        # mais pour la RAM c'est ici que ça se joue :
+
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        sys_mem = psutil.virtual_memory()  # Juste pour avoir le Total Système
 
         metrics = SystemMetrics(
-            cpu_usage_percent=cpu_percent,
-            ram_usage_percent=mem.percent,
-            ram_total_gb=round(mem.total / (1024**3), 2),
-            ram_used_gb=round(mem.used / (1024**3), 2),
+            cpu_usage_percent=psutil.cpu_percent(interval=None),
+            # Pourcentage de la RAM totale utilisé par CE processus
+            ram_usage_percent=round(process.memory_percent(), 2),
+            # La RAM totale reste celle de la machine (pour l'échelle)
+            ram_total_gb=round(sys_mem.total / (1024**3), 2),
+            # [CORRECTION] RAM utilisée uniquement par l'app (RSS = Resident Set Size)
+            ram_used_gb=round(mem_info.rss / (1024**3), 2),
         )
 
         # 2. GPU (Sécurisé)
@@ -203,7 +213,6 @@ class GreenTracker:
         """Destructeur : cleanup de sécurité si l'objet est garbage collecté."""
         if self._is_running:
             logger.warning(f"⚠️ Tracker '{self.project_name}' détruit sans avoir été arrêté")
-            try:
+            # REMPLACE LE BLOC TRY/EXCEPT PAR CECI :
+            with contextlib.suppress(Exception):
                 self.stop()
-            except Exception:
-                pass

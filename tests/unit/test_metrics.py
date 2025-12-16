@@ -2,6 +2,8 @@
 Tests unitaires pour le module metrics.
 Usage: pytest tests/unit/test_metrics.py -v
 """
+
+import asyncio
 import time
 
 import pytest
@@ -97,3 +99,52 @@ class TestMetricsCalculator:
 
         # Devrait retourner une valeur négative ou 0
         assert duration <= 0 or duration == calc.start_time
+
+
+# ========================================
+# NOUVEAUX TESTS (Validation du Stream)
+# ========================================
+
+
+@pytest.mark.asyncio
+class TestMetricsStreaming:
+    """Tests de la consommation de flux mixtes (Texte + Métriques)."""
+
+    async def test_mixed_stream_consumption(self):
+        """Simule la consommation d'un stream contenant Texte ET Métriques."""
+
+        # 1. Simuler le générateur du LLMProvider (Mock)
+        async def mock_llm_stream():
+            yield "Bonjour"
+            yield " le monde"
+            # L'objet métrique arrive à la fin du stream
+            yield InferenceMetrics(
+                model_name="test",
+                input_tokens=5,
+                output_tokens=5,
+                total_duration_s=1.0,
+                load_duration_s=0.1,
+                tokens_per_second=10.0,
+                model_size_gb=4.5,  # La valeur qu'on veut récupérer
+                carbon_g=0.12,  # La valeur qu'on veut récupérer
+            )
+
+        # 2. Simuler la logique de consommation côté UI (comme dans chat.py / eval.py)
+        full_text = ""
+        captured_metrics = None
+
+        async for chunk in mock_llm_stream():
+            if isinstance(chunk, str):
+                full_text += chunk
+            elif isinstance(chunk, InferenceMetrics):
+                captured_metrics = chunk
+
+        # 3. Assertions
+        assert full_text == "Bonjour le monde"
+
+        assert captured_metrics is not None, "L'objet métrique n'a pas été capturé"
+        assert isinstance(captured_metrics, InferenceMetrics)
+
+        # Vérification des valeurs critiques pour l'EvalOps Dashboard
+        assert captured_metrics.model_size_gb == 4.5
+        assert captured_metrics.carbon_g == 0.12

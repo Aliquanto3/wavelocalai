@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from src.core.llm_provider import LLMProvider
+from src.core.metrics import InferenceMetrics  # ✅ Import essentiel
 from src.core.models_db import extract_thought, get_model_info
 
 
@@ -53,7 +54,7 @@ def render_rag_eval_tab(
         st.markdown("#### 2. Protocole de Test")
         query = st.text_area(
             "Question de référence",
-            "Quelle est la politique de confidentialité du projet WaveLocalAI ?",
+            "Quels sont les objectifs principaux du projet ?",
             height=100,
         )
 
@@ -62,6 +63,7 @@ def render_rag_eval_tab(
                 st.error("Sélectionnez au moins un candidat et un juge.")
                 st.stop()
 
+            # 1. Retrieval Commun (Pour être équitable, tous les modèles ont le même contexte)
             with st.spinner("🔍 Récupération du contexte (RAG Common)..."):
                 try:
                     retrieved_docs = rag_engine.search(query, k=3)
@@ -79,8 +81,11 @@ def render_rag_eval_tab(
             total_steps = len(candidate_tags)
             prog_bar = prog_container.progress(0.0)
 
-            async def _stream_to_text(model_tag: str, prompt_text: str) -> str:
+            # Fonction helper pour capturer les métriques du stream
+            async def _stream_and_capture(model_tag: str, prompt_text: str):
                 txt = ""
+                captured_metrics = None
+
                 stream = LLMProvider.chat_stream(
                     model_tag,
                     [{"role": "user", "content": prompt_text}],
@@ -89,37 +94,64 @@ def render_rag_eval_tab(
                 async for chunk in stream:
                     if isinstance(chunk, str):
                         txt += chunk
-                return txt
+                    elif isinstance(chunk, InferenceMetrics):
+                        captured_metrics = chunk
+
+                return txt, captured_metrics
 
             for i, c_tag in enumerate(candidate_tags):
                 c_friendly = tag_to_friendly[c_tag]
                 prog_container.write(f"▶️ [{i+1}/{total_steps}] Évaluation de **{c_friendly}**...")
 
                 try:
-                    prog_container.write("   🎤 Génération...")
-                    t_start = time.perf_counter()
+                    # --- PRÉPARATION DU PROMPT RAG ---
+                    # ✅ CORRECTION 1 : Construction de la variable prompt_rag manquante
+                    context_block = "\n".join(contexts)
                     prompt_rag = (
-                        f"Contexte:\n{chr(10).join(contexts)}\n\nQuestion: {query}\nRéponse:"
+                        f"Tu es un assistant expert. Utilise le contexte suivant pour répondre à la question.\n\n"
+                        f"Contexte:\n{context_block}\n\n"
+                        f"Question: {query}"
                     )
-                    full_resp = asyncio.run(_stream_to_text(c_tag, prompt_rag))
-                    duration = time.perf_counter() - t_start
+
+                    # --- CHRONO GÉNÉRATION ---
+                    t_gen_start = time.perf_counter()
+                    prog_container.write("   🎤 Génération...")
+
+                    full_resp, metrics_obj = asyncio.run(_stream_and_capture(c_tag, prompt_rag))
+
+                    d_gen = time.perf_counter() - t_gen_start
+                    prog_container.write(f"   ✅ Généré en {d_gen:.2f}s")
+
                     thought, clean_answer = extract_thought(full_resp)
                     out_tokens = len(full_resp) // 4
 
+                    # --- CHRONO NOTATION ---
+                    t_eval_start = time.perf_counter()
                     prog_container.write("   ⚖️ Notation par le Juge...")
+
+                    # On récupère l'embedding actif depuis le RAGEngine
+                    active_embedding_model = rag_engine.embedding_model
+
                     eval_result = eval_engine.evaluate_single_turn(
                         query=query,
                         response=clean_answer,
                         retrieved_contexts=contexts,
                         judge_tag=judge_tag,
+                        embedding_model=active_embedding_model,
                     )
+                    d_eval = time.perf_counter() - t_eval_start
+                    prog_container.write(f"   ✅ Noté en {d_eval:.2f}s")
 
-                    info = get_model_info(c_friendly) or {}
-                    bench_stats = info.get("benchmark_stats", {})
-                    ref_ram_raw = bench_stats.get("ram_usage_gb")
-                    ref_ram = float(ref_ram_raw) if ref_ram_raw is not None else None
-                    ref_co2_kg = bench_stats.get("co2_emissions_kg")
-                    ref_co2_g = (ref_co2_kg * 1000) if ref_co2_kg is not None else None
+                    # --- RÉCUPÉRATION DES MÉTRIQUES ---
+                    # Récupération des vraies valeurs mesurées par LLMProvider
+                    real_ram = metrics_obj.model_size_gb if metrics_obj else None
+                    real_co2 = metrics_obj.carbon_g if metrics_obj else None
+
+                    # Fallback sur les valeurs statiques (JSON) si pas de mesure live (ex: API Cloud)
+                    if real_ram is None or real_ram == 0:
+                        info = get_model_info(c_friendly) or {}
+                        bench_stats = info.get("benchmark_stats", {})
+                        real_ram = bench_stats.get("ram_usage_gb")
 
                     results_data.append(
                         {
@@ -127,10 +159,12 @@ def render_rag_eval_tab(
                             "Score Global": f"{eval_result.global_score * 100:.0f}/100",
                             "Fidélité": eval_result.faithfulness,
                             "Pertinence": eval_result.answer_relevancy,
-                            "Durée (s)": round(duration, 2),
+                            "Durée (s)": round(
+                                d_gen, 2
+                            ),  # ✅ CORRECTION 2 : Utilisation de d_gen au lieu de duration
                             "Out Tokens": out_tokens,
-                            "RAM (Ref GB)": ref_ram,
-                            "CO2 (Ref g)": ref_co2_g,
+                            "RAM (Go)": real_ram,
+                            "CO2 (g)": real_co2,
                         }
                     )
 
@@ -151,6 +185,7 @@ def render_rag_eval_tab(
 
             if results_data:
                 df = pd.DataFrame(results_data)
+                # ✅ CORRECTION 3 : Alignement des clés de config avec les données
                 st.dataframe(
                     df,
                     column_config={
@@ -165,11 +200,9 @@ def render_rag_eval_tab(
                             "Fidélité", help="Respect du contexte documentaire (0-1)", format="%.2f"
                         ),
                         "Durée (s)": st.column_config.NumberColumn("Latence", format="%.2f s"),
-                        "RAM (Ref GB)": st.column_config.NumberColumn(
-                            "RAM (Ref)", format="%.1f GB"
-                        ),
-                        "CO2 (Ref g)": st.column_config.NumberColumn(
-                            "CO2 (Ref)", format="%.4f g", help="Impact carbone de référence."
+                        "RAM (Go)": st.column_config.NumberColumn("RAM (Go)", format="%.1f GB"),
+                        "CO2 (g)": st.column_config.NumberColumn(
+                            "CO2 (g)", format="%.6f g", help="Impact carbone mesuré (CodeCarbon)."
                         ),
                     },
                     use_container_width=True,

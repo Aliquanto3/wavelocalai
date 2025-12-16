@@ -4,6 +4,9 @@ import time
 import streamlit as st
 
 from src.core.llm_provider import LLMProvider
+
+# ✅ Import nécessaire pour identifier le type de chunk
+from src.core.metrics import InferenceMetrics
 from src.core.models_db import extract_thought
 
 
@@ -36,13 +39,34 @@ def render_rag_chat_tab(
             with st.chat_message("assistant"):
                 resp_container = st.empty()
 
-                with st.status("🚀 Pipeline RAG...", expanded=True) as status:
-                    t0 = time.perf_counter()
-                    status.write("🔍 Retrieval...")
+                with st.status("🚀 Pipeline RAG en cours...", expanded=True) as status:
+                    t_start_pipeline = time.perf_counter()
+
+                    # 1. Feedback Stratégie
+                    current_strategy = rag_engine.strategy.__class__.__name__
+                    if "HyDE" in current_strategy:
+                        status.write("🔮 **HyDE** : Génération d'une réponse hypothétique...")
+                    elif "SelfRAG" in current_strategy:
+                        status.write(
+                            "⚖️ **Self-RAG** : Analyse critique et réécriture potentielle..."
+                        )
+                    else:
+                        status.write("🔍 **Naive** : Recherche par similarité directe...")
+
+                    # 2. Retrieval avec Chrono
+                    t_retrieval_start = time.perf_counter()
                     retrieved = rag_engine.search(prompt, k=k_retrieval)
-                    status.write(
-                        f"   ✅ {len(retrieved)} docs trouvés ({time.perf_counter()-t0:.2f}s)"
-                    )
+                    d_retrieval = time.perf_counter() - t_retrieval_start
+
+                    # Feedback Reranker
+                    if rag_engine.current_reranker_name:
+                        status.write(
+                            f"🎯 **Retrieval & Reranking** : {len(retrieved)} documents trouvés ({d_retrieval:.2f}s)"
+                        )
+                    else:
+                        status.write(
+                            f"🔍 **Retrieval (Naive)** : {len(retrieved)} documents trouvés ({d_retrieval:.2f}s)"
+                        )
 
                     context_text = "\n\n".join([doc.page_content for doc in retrieved])
                     sys_prompt = f"Tu es un assistant expert. Utilise ce contexte pour répondre:\n{context_text}"
@@ -52,34 +76,52 @@ def render_rag_chat_tab(
                     ]
 
                     status.write(f"🧠 Génération avec {friendly_name}...")
-                    t2 = time.perf_counter()
 
+                    # --- GÉNÉRATION ASYNC AVEC CAPTURE MÉTRIQUES ---
                     async def run_gen():
                         full_txt = ""
                         first = False
-                        ttft = 0
+                        ttft = 0.0
+                        captured_metrics = None  # Variable pour stocker les métriques
+
                         stream = LLMProvider.chat_stream(selected_tag, payload, temperature=0.1)
                         async for chunk in stream:
-                            if not first:
-                                ttft = time.perf_counter() - t2
+                            # Détection du TTFT (Time To First Token) sur le premier chunk de texte
+                            if not first and isinstance(chunk, str):
+                                ttft = (
+                                    time.perf_counter() - t_start_pipeline
+                                )  # approx depuis début pipeline ou t2
                                 first = True
+
                             if isinstance(chunk, str):
                                 full_txt += chunk
                                 resp_container.markdown(full_txt + "▌")
-                        return full_txt, ttft
+                            elif isinstance(chunk, InferenceMetrics):
+                                captured_metrics = chunk
 
-                    full_resp, ttft_val = asyncio.run(run_gen())
-                    status.update(label="✅ Réponse terminée", state="complete", expanded=False)
+                        return full_txt, ttft, captured_metrics
+
+                    full_resp, ttft_val, metrics_obj = asyncio.run(run_gen())
+
+                    total_duration = time.perf_counter() - t_start_pipeline
+                    status.update(
+                        label=f"✅ Réponse terminée ({total_duration:.2f}s)",
+                        state="complete",
+                        expanded=False,
+                    )
+
                     thought, clean = extract_thought(full_resp)
 
                     st.session_state.rag_messages.append(
                         {"role": "assistant", "content": clean, "thought": thought}
                     )
 
+                    # Sauvegarde des infos de debug pour la colonne de droite
                     st.session_state.last_rag_debug = {
                         "sources": retrieved,
                         "ttft": ttft_val,
-                        "total_time": time.perf_counter() - t0,
+                        "total_time": total_duration,
+                        "metrics": metrics_obj,  # On stocke l'objet complet
                     }
 
                     resp_container.empty()
@@ -95,11 +137,42 @@ def render_rag_chat_tab(
         st.markdown("### 🔍 Sources & Métriques")
         if "last_rag_debug" in st.session_state:
             d = st.session_state.last_rag_debug
-            st.metric("Temps Total", f"{d['total_time']:.2f}s", delta=f"TTFT: {d['ttft']:.2f}s")
 
-            st.markdown("#### Sources")
+            # 1. Métriques de Performance
+            st.markdown("#### ⚡ Performance")
+
+            # Ligne 1 : Temps
+            c1, c2 = st.columns(2)
+            c1.metric("⏱️ Temps Total", f"{d['total_time']:.2f}s")
+            c2.metric("⚡ TTFT", f"{d['ttft']:.2f}s")
+
+            # Ligne 2 : Ressources (si disponibles dans metrics)
+            metrics = d.get("metrics")
+            if metrics:
+                c3, c4 = st.columns(2)
+                ram_val = f"{metrics.model_size_gb:.1f} GB" if metrics.model_size_gb else "N/A"
+                co2_val = f"{metrics.carbon_g:.4f} g" if metrics.carbon_g is not None else "0 g"
+
+                c3.metric("💾 RAM Peak", ram_val)
+                c4.metric("🌍 CO2", co2_val)
+
+                c5, c6 = st.columns(2)
+                c5.metric("🚀 Vitesse", f"{metrics.tokens_per_second:.1f} t/s")
+                c6.metric("📝 Output", f"{metrics.output_tokens} tok")
+            else:
+                st.info("Métriques détaillées non disponibles pour ce run.")
+
+            st.divider()
+
+            # 2. Sources
+            st.markdown(f"#### 📚 Sources ({len(d['sources'])})")
             for i, doc in enumerate(d["sources"]):
-                with st.expander(f"Source {i+1} : {doc.metadata.get('source', '?')}"):
-                    st.caption(doc.page_content)
+                source_name = doc.metadata.get("source", "Inconnu")
+                score = doc.metadata.get("score", None)  # Si disponible
+                score_label = f" (Sc: {score:.2f})" if score else ""
+
+                with st.expander(f"{i+1}. {source_name}{score_label}"):
+                    st.caption(f"Stratégie: {doc.metadata.get('strategy', 'Naive')}")
+                    st.text(doc.page_content)
         else:
             st.info("Lancez une requête pour voir les détails.")

@@ -55,24 +55,29 @@ Une interface d'administration avancée pour gérer votre bibliothèque locale O
 
 ---
 
-## 📚 Module 03 : RAG Knowledge (Base Documentaire)
+## 📚 Module 03 : RAG Knowledge (Base Documentaire 2.0)
 
-Ce module permet de discuter avec vos propres documents (PDF, TXT) sans que les données ne quittent votre machine.
+Ce module a été entièrement refondu pour offrir une architecture **RAG Avancée & Modulaire**.
 
-### 📥 Ingestion & Vectorisation
-* **Support Multi-formats :** Upload de fichiers PDF, TXT, MD.
-* **Moteur Vectoriel Local :**
-    * Utilise **ChromaDB** pour le stockage persistant (les données restent après redémarrage).
-    * Utilise le modèle d'embedding **`all-MiniLM-L6-v2`** optimisé pour CPU (rapide et léger).
-* **Introspection :** Tableau de bord affichant le nombre exact de "chunks" (morceaux de texte) en base et la liste des fichiers sources indexés.
+### 1. Configuration Dynamique
+Contrairement aux RAG classiques figés, vous avez le contrôle total :
+* **Multi-Modèles d'Embedding :** Choisissez entre rapidité (`MiniLM`), performance (`bge-m3`) ou état de l'art (`jina-v3`) directement depuis l'interface.
+* **Reranking Optionnel :** Activez un modèle de "Reranking" (ex: `bge-reranker`) pour affiner la pertinence des documents trouvés avant de les envoyer au LLM.
+* **Stratégies de Recherche (Architecture) :**
+    * 🔍 **Naive RAG** : Recherche standard par similarité. Rapide et efficace.
+    * 🔮 **HyDE (Hypothetical Document Embeddings)** : L'IA "hallucine" une réponse idéale pour mieux chercher dans les documents. Idéal pour les questions mal formulées.
+    * ⚖️ **Self-RAG (Corrective)** : Un agent critique ses propres résultats et réécrit la question si les documents trouvés sont insuffisants. Plus lent, mais très précis.
 
-### 🔎 Recherche & Observabilité
-Contrairement aux boîtes noires, ce module montre tout :
-* **Step-by-Step Debugging :** Chronométrage précis de chaque étape :
-    1.  *Retrieval :* Temps de recherche dans la base vectorielle.
-    2.  *Context Assembly :* Temps de préparation du prompt.
-    3.  *Génération :* Mesure du **TTFT** (Temps avant le 1er token) et du débit de génération.
-* **Transparence des Sources :** Affichage des extraits de texte exacts utilisés par l'IA pour générer sa réponse (lutte contre les hallucinations).
+### 2. Onglet "Chat Interactif"
+* **Transparence Totale :** Chaque étape est chronométrée et affichée (Retrieval, Reranking, Génération).
+* **Métriques Live :** Visualisez la consommation RAM (Peak) et l'impact CO2 de chaque réponse en temps réel.
+* **Sources Explicites :** Les extraits utilisés sont affichés avec leur score de pertinence.
+
+### 3. Onglet "EvalOps Dashboard" (Nouveau)
+Un environnement de benchmark professionnel ("LLM-as-a-Judge") :
+* **Protocole :** Comparez plusieurs modèles (ex: Mistral vs Granite) sur la même question et les mêmes documents.
+* **Scoring Automatique :** Un "Juge" (ex: Mistral Large) note la **Fidélité** (respect du texte) et la **Pertinence** de la réponse.
+* **Green IT :** Tableau comparatif incluant la latence, la RAM consommée et les émissions de CO2 par modèle.
 
 ---
 

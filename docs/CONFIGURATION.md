@@ -73,14 +73,6 @@ WAVELOCAL_PUE=1.0          # 1.0 = Local, 1.4 = Datacenter
 
 ### RAG (Embeddings)
 
-Par défaut, WaveLocalAI utilise `all-MiniLM-L6-v2` (léger, CPU-friendly).
-
-**Pour changer de modèle :**
-```bash
-# .env
-WAVELOCAL_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-mpnet-base-v2
-```
-
 **Modèles recommandés :**
 - `all-MiniLM-L6-v2` : Rapide, multilingue léger (80MB)
 - `paraphrase-multilingual-mpnet-base-v2` : Meilleure qualité FR/EN (420MB)

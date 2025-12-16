@@ -92,9 +92,10 @@ ollama pull qwen2.5:1.5b
 - **Support API Mistral** : Comparaison Local vs Cloud
 
 ### 📚 Module 3 : RAG Knowledge
-- Interrogation de documents locaux (PDF/TXT/MD)
-- Base vectorielle persistante (ChromaDB)
-- Observabilité du pipeline (retrieval, context, génération)
+- **Architecture Avancée** : Supporte Naive, HyDE et Self-RAG.
+- **EvalOps Intégré** : Benchmark automatique "LLM-as-a-Judge" (Scores Fidélité/Pertinence).
+- **Green RAG** : Mesure de l'impact CO2/RAM par requête.
+- **Multi-Modèles** : Choix dynamique des Embeddings et Rerankers (Local SOTA).
 
 ### 🤖 Module 4 : Agent Lab ⭐ **NOUVEAU**
 **Architecture rénovée avec support complet des modèles API**
