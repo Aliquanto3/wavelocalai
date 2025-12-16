@@ -9,8 +9,10 @@ load_dotenv()
 # Définition des chemins absolus
 ROOT_DIR = Path(__file__).parent.parent.parent
 DATA_DIR = ROOT_DIR / "data"
-LOGS_DIR = DATA_DIR / "logs"
 CHROMA_DIR = DATA_DIR / "chroma"
+LOGS_DIR = DATA_DIR / "logs"
+EMISSIONS_DIR = LOGS_DIR / "emissions"
+BENCHMARKS_DIR = LOGS_DIR / "benchmarks"
 
 # Source de vérité unique pour les modèles
 MODELS_JSON_PATH = DATA_DIR / "models.json"
@@ -28,4 +30,4 @@ DEFAULT_PUE = float(os.getenv("WAVELOCAL_PUE", "1.1"))
 
 
 def get_emissions_path() -> str:
-    return str(LOGS_DIR / "emissions.csv")
+    return str(EMISSIONS_DIR / "emissions.csv")

@@ -64,3 +64,20 @@ python-docx>=0.8.11      # Document Generator
 matplotlib>=3.7.0        # Chart Generator
 openpyxl>=3.1.0         # Excel support pour Data Analyzer
 xlrd>=2.0.1             # Legacy Excel support
+
+# RAG Core Dependencies
+sentence-transformers>=2.3.0
+huggingface-hub>=0.20.0
+chromadb>=0.4.22
+langchain-chroma
+langchain-huggingface
+
+# Parsing (Docling & Fallbacks)
+docling>=1.0.0
+pypdf>=4.0.0
+python-docx>=1.0.0
+openpyxl>=3.1.0
+
+# Performance & Eval
+ragas>=0.1.0
+datasets>=2.16.0
