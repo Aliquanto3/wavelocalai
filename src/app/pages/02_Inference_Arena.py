@@ -44,7 +44,7 @@ with st.sidebar:
     if not cloud_enabled:
         st.caption("🔒 Mode Local Strict")
     else:
-        st.caption("☁️ Mode Hybride")
+        st.caption("☁️ Mode Hybride (Local / Cloud)")
 
 # ==========================================
 # 2. CHARGEMENT CENTRALISÉ DES MODÈLES

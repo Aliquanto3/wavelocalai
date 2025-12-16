@@ -11,6 +11,8 @@ from pathlib import Path
 
 import psutil
 
+from src.core.config import SYSTEM_RAM_BUFFER_GB
+
 # Ajout du path pour les imports internes
 ROOT_DIR = Path(__file__).parent.parent
 sys.path.append(str(ROOT_DIR))
@@ -30,7 +32,6 @@ REPORT_MD_PATH = DATA_DIR / "benchmark_report.md"
 DATASET_CSV_PATH = DATA_DIR / "benchmarks_data.csv"
 AUDIT_LOG_FILE = LOGS_DIR / f"audit_benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
-MIN_RAM_MARGIN_GB = 1.0
 CONTEXT_LEVELS = [2048, 8192, 16384, 32768, 65536]
 TOTAL_RAM_GB = round(psutil.virtual_memory().total / (1024**3), 2)
 
@@ -181,7 +182,7 @@ def benchmark_single_pass(model_tag, context_window, output_token_limit=512):
     unload_model(model_tag)
 
     _, sys_ram_avail = get_system_ram_stats()
-    if sys_ram_avail < MIN_RAM_MARGIN_GB:
+    if sys_ram_avail < SYSTEM_RAM_BUFFER_GB:
         logger.warning(f"   ⚠️  RAM Système insuffisante ({sys_ram_avail:.2f}GB dispo).")
         return None
 

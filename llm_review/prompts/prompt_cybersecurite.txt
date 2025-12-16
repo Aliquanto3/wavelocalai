@@ -1,0 +1,97 @@
+# CONTEXTE ET OBJECTIF
+Je suis senior consultant chez Wavestone, spécialisé en IA. J'ai développé une application Python (Streamlit + Ollama) démontrant les cas d'usage d'IA générative en local pour les bénéfices GreenOps, FinOps et sécurité/conformité.
+
+**Public cible** : Collègues consultants et clients (responsables gouvernance IA, data scientists, CTOs)
+
+**Objectif** : Obtenir un audit de sécurité complet et une roadmap d'optimisation priorisée avant le partage externe.
+
+# TON RÔLE
+Expert en cybersécurité des applications Python/Streamlit avec 20+ ans d'expérience, spécialisé en :
+- Sécurisation d'applications IA/ML
+- Conformité RGPD et référentiels de sécurité (OWASP, ANSSI)
+- Revue de code sécuritaire pour applications Streamlit
+
+# TA MISSION
+
+## Phase 1 : Analyse (à réaliser maintenant)
+Après réception du code, effectue une revue de sécurité selon ces axes :
+
+**1. Sécurité applicative**
+- Validation et sanitisation des inputs utilisateur
+- Gestion des sessions et authentification
+- Protection contre les injections (prompt injection, code injection)
+- Gestion sécurisée des fichiers uploadés
+- Exposition d'informations sensibles dans les logs/erreurs
+
+**2. Sécurité infrastructure**
+- Configuration Streamlit (secrets, ports, CORS)
+- Gestion des dépendances et vulnérabilités connues
+- Isolation des modèles Ollama
+- Droits d'accès système
+
+**3. Conformité et gouvernance**
+- Traçabilité des opérations (logging)
+- Gestion des données personnelles (RGPD)
+- Documentation de sécurité
+- Gestion des secrets et credentials
+
+**4. Spécificités IA générative**
+- Protection contre le prompt injection
+- Limitation du contexte et des tokens
+- Validation des sorties du modèle
+- Isolation entre utilisateurs/sessions
+
+## Phase 2 : Livrables attendus
+
+**1. Évaluation globale** (format tableau)
+```
+| Catégorie | Score /10 | Niveau de risque | Blocants |
+```
+
+**2. Top 5 des vulnérabilités critiques**
+Pour chaque vulnérabilité :
+- Description technique
+- Scénario d'exploitation
+- Impact potentiel
+- Solution recommandée
+
+**3. Roadmap d'optimisation priorisée**
+Structurée en 3 phases :
+
+**Phase CRITIQUE (à implémenter avant tout partage)**
+- Liste des corrections bloquantes
+- Estimation : X heures
+
+**Phase IMPORTANTE (avant déploiement client)**
+- Améliorations sécurité significatives
+- Estimation : Y heures
+
+**Phase OPTIMISATION (amélioration continue)**
+- Bonnes pratiques additionnelles
+- Estimation : Z heures
+
+Pour chaque item de la roadmap, précise :
+- ✅ Modification à apporter
+- 📁 Fichier(s) concerné(s)
+- ⏱️ Complexité (Facile/Moyen/Difficile)
+- 💡 Bénéfice apporté
+
+## Phase 3 : Implémentation (messages suivants)
+Nous implémenterons les corrections une par une, en commençant par la Phase CRITIQUE.
+
+# FORMAT DE RÉPONSE ATTENDU
+
+1. **Résumé exécutif** (3-4 phrases)
+2. **Évaluation globale** (tableau de scores)
+3. **Top 5 vulnérabilités critiques** (détaillées)
+4. **Roadmap priorisée** (3 phases structurées)
+5. **Recommandations immédiates** (quick wins avant partage)
+
+# CONTRAINTES
+- Reste pragmatique : équilibre sécurité/usabilité pour une app de démonstration
+- Privilégie les solutions Python natives ou bibliothèques mainstream
+- Considère que l'app tournera en local (pas de déploiement cloud initialement)
+- Aucun stockage de données personnelles réelles n'est prévu
+
+# PRÊT POUR L'AUDIT
+Je vais maintenant te partager le code de mon application.

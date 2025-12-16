@@ -1,50 +1,111 @@
-# Rôle
-Tu es un Senior UX/UI Designer et Product Manager spécialisé dans les "Developer Tools" et les interfaces de Data Science (Streamlit). Tu as une obsession pour l'utilisabilité, la hiérarchie visuelle et le "Wording".
+# PROMPT OPTIMISÉ POUR GEMINI 3.0
 
-# Contexte
-Je développe "WaveLocalAI", un Workbench IA local (Python/Streamlit) permettant d'auditer et d'utiliser des LLM sur son PC.
-L'utilisateur type est un auditeur technique, un développeur ou un consultant Tech. Il a besoin d'efficacité, de clarté technique, mais n'est pas forcément un expert en Prompt Engineering.
+## CONTEXTE DÉTAILLÉ
+Je suis senior consultant chez Wavestone, spécialisé en IA. J'ai développé une application Python utilisant Streamlit et Ollama pour démontrer plusieurs cas d'usage de l'IA générative en local (sur PC de bureau).
 
-# Ta Mission
-Réalise un "UX Audit" (Heuristic Evaluation) complet de l'application basée sur le code fourni.
-Ton but est de challenger l'interface actuelle pour la rendre plus intuitive, plus fluide et plus professionnelle.
+**Objectifs de l'application :**
+- Démontrer les bénéfices GreenOps (réduction empreinte carbone)
+- Démontrer les bénéfices FinOps (optimisation des coûts)
+- Démontrer les avantages sécurité/conformité (données en local)
 
-# Contraintes Techniques (IMPORTANT)
-- L'interface est construite avec **Streamlit**.
-- Ne propose PAS de refonte graphique totale nécessitant du React ou du JavaScript complexe.
-- Propose des améliorations réalisables avec les widgets natifs Streamlit (st.columns, st.expander, st.status, st.tabs, st.metrics).
+**Public cible :**
+- Collègues consultants Wavestone
+- Clients : responsables gouvernance IA, data scientists, CTO
+- Niveau technique : varié (du business au très technique)
 
-# Axes d'Analyse
+**Contrainte importante :** L'application doit être auto-explicative pour permettre une adoption autonome et des tests indépendants.
 
-1. **Architecture de l'Information (Navigation)**
-   - La division en 4 modules (Hardware, Arena, RAG, Agent) est-elle claire ?
-   - L'utilisateur comprend-il immédiatement où aller pour faire quoi ?
-   - Les onglets internes (ex: Chat vs Labo) sont-ils pertinents ?
+---
 
-2. **Feedback & Visibilité du Système**
-   - L'utilisateur sait-il ce qu'il se passe quand l'IA "réfléchit" ? (Spinners, Progress bars, Status).
-   - Les messages d'erreur (ex: modèle non compatible, fichier manquant) sont-ils assez guidants ? (Error Recovery).
-   - Le système de "Green Monitor" (CO2) est-il assez visible ou anecdotique ?
+## TON RÔLE
+Tu es un UI/UX Designer senior avec 20+ ans d'expérience, expert en :
+- Design d'interfaces Streamlit
+- Applications d'IA générative
+- Accessibilité (WCAG 2.1)
+- Expérience utilisateur pour audiences techniques et business
 
-3. **Charge Cognitive & Clarté**
-   - Y a-t-il trop d'informations affichées d'un coup ? (Information Overload).
-   - Les "Smart Names" des modèles sont-ils suffisants ?
-   - Le "Wording" (textes, labels, boutons) est-il technique mais accessible ?
+---
 
-4. **Expérience "Chat" & "Agent"**
-   - L'affichage de la pensée (<think>) via un expander est-il la meilleure solution ?
-   - La gestion de l'historique est-elle intuitive ?
+## TA MISSION
+Je vais te fournir le code source de l'interface de mon application Streamlit.
 
-# Format de Réponse Attendu
+### ÉTAPE 1 : AUDIT UX/UI COMPLET
+Analyse l'application selon ces critères :
 
-Fournis un rapport structuré :
+**1. Expérience utilisateur**
+- Clarté du parcours utilisateur et onboarding
+- Facilité de prise en main (temps pour premier usage réussi)
+- Cohérence de la navigation entre les pages
+- Feedback utilisateur (loading states, messages de succès/erreur)
 
-1.  **Note Globale d'Utilisabilité (A à F)** avec une justification courte.
-2.  **Top 3 des "Friction Points" :** Les 3 choses les plus agaçantes ou confuses pour l'utilisateur actuellement.
-3.  **Tableau d'Améliorations (Actionable) :**
-    | Page/Module | Problème UX Identifié | Solution Proposée (Streamlit) | Impact (Faible/Fort) |
-    |-------------|-----------------------|-------------------------------|----------------------|
-    | ...         | ...                   | ...                           | ...                  |
-4.  **Proposition de "Wording" :** Suggère de meilleures phrases pour les titres, boutons ou messages d'aide si nécessaire.
+**2. Design visuel**
+- Hiérarchie visuelle et lisibilité
+- Cohérence de la charte graphique
+- Utilisation appropriée des couleurs, espacements, typographie
+- Adaptation mobile/responsive (si applicable)
 
-[COLLER LE CONTENU DE REVIEW_ME.TXT ICI]
+**3. Accessibilité**
+- Contraste des couleurs (WCAG AA minimum)
+- Labels et descriptions pour lecteurs d'écran
+- Navigation au clavier
+- Taille des zones cliquables
+
+**4. Communication de valeur**
+- Mise en avant des bénéfices (GreenOps, FinOps, Sécurité)
+- Clarté des explications pour chaque cas d'usage
+- Présence de métriques/indicateurs pertinents
+- Documentation intégrée ou tooltips
+
+**5. Qualité technique Streamlit**
+- Utilisation optimale des composants natifs
+- Gestion du state management
+- Performance et temps de chargement
+- Gestion des erreurs
+
+### FORMAT DE SORTIE ATTENDU
+
+**PARTIE 1 : ÉVALUATION GLOBALE**
+- Score général sur 10 avec justification
+- Top 3 des forces de l'interface actuelle
+- Top 5 des faiblesses critiques à corriger
+- Impression générale : l'app est-elle ready pour démonstration client ?
+
+**PARTIE 2 : ANALYSE PAGE PAR PAGE**
+Pour chaque page/onglet :
+- Note sur 10
+- Points forts spécifiques
+- Points d'amélioration avec niveau d'impact (Critique/Élevé/Moyen/Faible)
+- Risques UX identifiés
+
+**PARTIE 3 : ROADMAP D'OPTIMISATION PRIORISÉE**
+Organise les améliorations en sprints :
+
+**Sprint 1 - Quick Wins (Impact élevé, Effort faible)**
+- Liste des améliorations page par page
+- Temps estimé par amélioration
+- Justification de l'impact
+
+**Sprint 2 - Améliorations structurelles (Impact élevé, Effort moyen)**
+- Liste des améliorations page par page
+- Temps estimé par amélioration
+- Dépendances éventuelles
+
+**Sprint 3 - Optimisations avancées (Impact moyen, Effort variable)**
+- Liste des améliorations page par page
+- Temps estimé par amélioration
+
+**Sprint 4 - Nice-to-have (Impact faible, Effort faible)**
+- Améliorations optionnelles pour peaufiner
+
+### CONTRAINTES POUR TES RECOMMANDATIONS
+- Privilégier les composants natifs Streamlit (éviter trop de custom CSS/JS)
+- Solutions implémentables sans refonte complète
+- Maintenir la performance (app locale sur PC)
+- Rester compatible avec Ollama en backend
+
+### PROCHAINES ÉTAPES
+Après ta roadmap, nous implémenterons sprint par sprint dans les messages suivants.
+
+---
+
+**code de l'application**

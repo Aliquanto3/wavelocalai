@@ -1,144 +1,185 @@
+"""
+Inference Lab Tab - Sprint 2 (Ergonomie & Clarté)
+Refonte UX : Layout 2 colonnes (Input vs Output), Métriques en tête de résultat.
+"""
+
 import asyncio
 
 import streamlit as st
 
+from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceCallbacks, InferenceService
 from src.core.models_db import get_model_info
 
-# Données statiques (Cas d'usage)
-USE_CASES = {
-    "📊 Classification Verbatims (JSON)": {
-        "system": """Tu es un expert en analyse de feedback post-formation.
-    Ton objectif est d'analyser une liste de commentaires bruts au format JSON.
-    Pour chaque commentaire, tu dois produire un objet JSON contenant deux champs :
-    1. "sentiment" : Uniquement 'Positif', 'Neutre' ou 'Négatif'.
-    2. "categorie" : La thématique principale parmi ['Contenu', 'Animateur', 'Logistique', 'Applicabilité', 'Technique'].
 
-    Réponds UNIQUEMENT avec le JSON final minifié, sans markdown, sans introduction.""",
-        "user": """{
-        "1": "La formation était top, j'ai tout compris sur les prompts.",
-        "2": "Le formateur parlait trop vite, difficile de suivre.",
-        "3": "Copilot est impressionnant mais je ne vois pas l'usage dans mon métier.",
-        "4": "La salle était trop chaude, impossible de se concentrer.",
-        "5": "Très utile, je gagne déjà du temps sur mes mails.",
-        "6": "L'outil a planté deux fois pendant la démo...",
-        "7": "C'était correct, sans plus.",
-        "8": "Les exemples concrets sur Excel étaient pertinents.",
-        "9": "Je n'ai pas reçu le support de présentation promis.",
-        "10": "Génial, mais ça fait peur pour l'avenir de nos jobs !"
-    }""",
+# --- HELPER PARSING ---
+def _extract_params_billions(val: str | int | float) -> float:
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not val or not isinstance(val, str):
+        return 0.0
+    s = val.upper().strip().replace(" ", "")
+    try:
+        if "X" in s and "B" in s:
+            parts = s.replace("B", "").split("X")
+            return float(parts[0]) * float(parts[1])
+        if s.endswith("B"):
+            return float(s[:-1])
+        if s.endswith("M"):
+            return float(s[:-1]) / 1000.0
+        if s.isdigit():
+            return float(s)
+    except Exception:
+        pass
+    return 0.0
+
+
+# --- DONNÉES SCÉNARIOS ---
+USE_CASES = {
+    "📊 Classification (JSON)": {
+        "system": """Tu es un expert en analyse de sentiment. Réponds UNIQUEMENT avec un JSON : {"sentiment": "Positif"|"Neutre"|"Négatif", "categorie": "..."}.""",
+        "user": """Analyse ce feedback : "La formation était top, mais la salle trop chaude." """,
     },
     "🇬🇧 Traduction Technique": {
-        "system": 'Tu es un expert en traduction technique. Traduis le texte suivant en Anglais, Espagnol et Allemand. Sois précis sur la terminologie informatique. Réponds au format JSON : {"en": "...", "es": "...", "de": "..."}.',
-        "user": "L'architecture 'Local First' permet de réduire la latence réseau et d'améliorer la confidentialité des données en traitant les inférences directement sur le CPU de l'utilisateur, sans appel API vers le cloud.",
+        "system": 'Traduis en Anglais, Espagnol, Allemand. Format JSON : {"en": "...", "es": "...", "de": "..."}.',
+        "user": "L'inférence locale garantit la confidentialité des données.",
     },
-    "📄 Extraction Structurée (JSON)": {
-        "system": "Tu es un extracteur de données strict. Extrais les entités du texte (Date, Montant, Vendeur, Articles). Réponds UNIQUEMENT avec un JSON valide. Pas de texte avant ni après.",
-        "user": "FACTURE N° 2024-001\nDate : 12 décembre 2024\nVendeur : Wavestone Tech\n\nArticles :\n- 1x Audit Green IT (500€)\n- 3x Licences Copilot (90€)\n\nTotal TTC : 590€",
+    "📄 Extraction (JSON)": {
+        "system": "Extrais les entités (Date, Montant, Vendeur). Réponds UNIQUEMENT en JSON.",
+        "user": "Facture du 12/12/2024 de Wavestone pour 500€.",
     },
-    "💻 Assistant Coding (Python)": {
-        "system": "Tu es un Tech Lead Python expérimenté. Génère du code propre, typé (Type Hints) et documenté (Docstrings). Inclus une gestion d'erreur robuste.",
-        "user": "Écris une fonction Python asynchrone qui interroge une API REST avec la librairie 'httpx', gère les retries en cas d'erreur 500, et retourne le résultat en dictionnaire.",
+    "💻 Assistant Code (Python)": {
+        "system": "Tu es un expert Python. Génère du code typé et documenté.",
+        "user": "Fonction asynchrone pour appeler une API REST avec retry.",
     },
-    "🧮 Raisonnement (Chain of Thought)": {
-        "system": "Tu es un expert en logique. Pour répondre, tu dois IMPÉRATIVEMENT utiliser la méthode 'Chain of Thought' : explique ton raisonnement étape par étape avant de donner la réponse finale.",
-        "user": "J'ai 3 pommes. Hier j'en ai mangé une. Aujourd'hui j'en achète deux autres, mais j'en fais tomber une dans la boue que je jette. Combien de pommes puis-je manger maintenant ?",
+    "🧮 Raisonnement (CoT)": {
+        "system": "Utilise la méthode Chain of Thought : pense étape par étape avant de répondre.",
+        "user": "J'ai 3 pommes. J'en mange une. J'en achète deux. J'en jette une. Combien m'en reste-t-il ?",
     },
-    "📝 Résumé Exécutif": {
-        "system": "Tu es un assistant de direction. Fais un résumé concis (bullet points) du texte fourni, en te concentrant sur les décisions clés et les actions à entreprendre.",
-        "user": "Compte rendu de réunion - Projet Alpha.\nLa réunion a débuté à 10h. L'équipe a convenu que le budget initial était insuffisant. Marc doit revoir le fichier Excel d'ici mardi. Sophie a soulevé un risque de sécurité sur l'API, il faut auditer le module d'auth. La deadline du projet est repoussée de 2 semaines pour permettre ces ajustements. Le client a validé le nouveau design.",
+    "📝 Résumé": {
+        "system": "Fais un résumé exécutif en bullet points.",
+        "user": "Compte rendu de réunion : Le projet est en retard à cause de la validation API. On décale la livraison de 2 semaines.",
     },
 }
 
 
 def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
-    col_lab_config, col_lab_run, col_lab_metrics = st.columns([1, 2, 1])
 
-    with col_lab_config:
-        st.subheader("1. Scénario")
-        lab_model_display = st.selectbox(
-            "Modèle de Test", sorted_display_names, key="lab_model_select"
-        )
+    # --- LAYOUT ASYMÉTRIQUE (40% Input / 60% Output) ---
+    col_input, col_output = st.columns([2, 3])
+
+    # === COLONNE GAUCHE : CONFIGURATION ===
+    with col_input:
+        st.subheader("1. Configuration")
+
+        # Sélection Modèle & Cas
+        lab_model_display = st.selectbox("Modèle", sorted_display_names, key="lab_model_select")
         lab_model_tag = display_to_tag.get(lab_model_display)
         lab_model_friendly = tag_to_friendly.get(lab_model_tag, "Inconnu")
 
-        selected_use_case = st.selectbox("Cas d'Usage", list(USE_CASES.keys()))
+        selected_use_case = st.selectbox("Scénario Prédéfini", list(USE_CASES.keys()))
         default_sys = USE_CASES[selected_use_case]["system"]
         default_user = USE_CASES[selected_use_case]["user"]
 
-        lab_temp = st.slider(
-            "Température",
-            0.0,
-            1.0,
-            0.2,
-            key="lab_temp",
-            help="Basse pour extraction/code, Haute pour créativité",
+        # Paramètres avancés cachés
+        with st.expander("⚙️ Paramètres (System & Temp)", expanded=False):
+            system_prompt = st.text_area("System Prompt", value=default_sys, height=100)
+            lab_temp = st.slider("Température", 0.0, 1.0, 0.2)
+
+        # Zone de Prompt User
+        st.markdown("**Entrée Utilisateur**")
+        user_prompt = st.text_area(
+            "Votre prompt", value=default_user, height=200, label_visibility="collapsed"
         )
 
-    with col_lab_run:
-        st.subheader("2. Entrées & Sorties")
-        with st.expander("🛠️ Prompt Système", expanded=True):
-            system_prompt = st.text_area("Instruction Système", value=default_sys, height=100)
-        user_prompt = st.text_area("Prompt Utilisateur", value=default_user, height=150)
-
-        if st.button("🚀 Lancer le Test (One-Shot)", use_container_width=True):
+        # Bouton Action
+        if st.button("🚀 Lancer le Test", type="primary", use_container_width=True):
             if lab_model_tag:
+                st.session_state.lab_trigger = True
+            else:
+                st.warning("Sélectionnez un modèle.")
+
+    # === COLONNE DROITE : RÉSULTAT ===
+    with col_output:
+        st.subheader("2. Résultat & Analyse")
+
+        # Container de résultat
+        res_container = st.container(border=True)
+
+        if st.session_state.get("lab_trigger"):
+            # Reset trigger
+            st.session_state.lab_trigger = False
+
+            with res_container:
                 placeholder = st.empty()
-                state = {"current_text": ""}
+                state = {"text": ""}
 
                 async def on_token(token: str):
-                    state["current_text"] += token
-                    placeholder.markdown(state["current_text"] + "▌")
+                    state["text"] += token
+                    placeholder.markdown(state["text"] + "▌")
 
                 callbacks = InferenceCallbacks(on_token=on_token)
-                messages = [{"role": "user", "content": user_prompt}]
 
-                with st.spinner("Inférence en cours..."):
+                # RUN
+                with st.spinner("Génération..."):
                     result = asyncio.run(
                         InferenceService.run_inference(
                             model_tag=lab_model_tag,
-                            messages=messages,
+                            messages=[{"role": "user", "content": user_prompt}],
                             temperature=lab_temp,
                             system_prompt=system_prompt,
                             callbacks=callbacks,
                         )
                     )
 
+                # Affichage Final (Clean)
                 placeholder.empty()
                 if result.thought:
-                    with placeholder.container(), st.expander("💭 Raisonnement", expanded=True):
+                    with st.expander("💭 Raisonnement du modèle", expanded=True):
                         st.markdown(result.thought)
-                    st.markdown(result.clean_text)
-                else:
-                    placeholder.markdown(result.clean_text)
 
-                st.session_state.lab_result = result.raw_text
-                st.session_state.lab_metrics = result.metrics
+                st.markdown("### Réponse")
+                st.markdown(result.clean_text)
+
+                # Sauvegarde état pour affichage persistant
+                st.session_state.lab_last_result = result
+                st.session_state.lab_last_model = lab_model_friendly
+
+        # Affichage Persistant (si un résultat existe déjà)
+        elif "lab_last_result" in st.session_state:
+            res = st.session_state.lab_last_result
+            with res_container:
+                if res.thought:
+                    with st.expander("💭 Raisonnement du modèle", expanded=False):
+                        st.markdown(res.thought)
+                st.markdown("### Réponse")
+                st.markdown(res.clean_text)
+
+        # === ZONE MÉTRIQUES (Sous le résultat) ===
+        if "lab_last_result" in st.session_state:
+            res = st.session_state.lab_last_result
+            model_name = st.session_state.lab_last_model
+            m = res.metrics
+            info = get_model_info(model_name) or {}
+
+            st.divider()
+
+            # Calcul CO2
+            is_api = info.get("type") == "api"
+            carbon_mg = 0.0
+            if is_api and m.output_tokens > 0:
+                p = _extract_params_billions(info.get("params_act") or info.get("params_tot", "0"))
+                carbon_mg = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
             else:
-                st.warning("Sélectionnez un modèle.")
+                carbon_mg = CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
 
-    with col_lab_metrics:
-        st.subheader("3. Audit")
-        m = st.session_state.lab_metrics
-        if m:
-            info = get_model_info(lab_model_friendly)
-            size_gb = info["size_gb"] if info else "?"
+            # Affichage en Grid
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("⚡ Vitesse", f"{m.tokens_per_second:.1f} t/s")
+            c2.metric("🌱 Impact", f"{carbon_mg:.2f} mg")
+            c3.metric("⏱️ Latence", f"{m.total_duration_s:.2f} s")
+            c4.metric("📝 Tokens", f"{m.output_tokens}")
 
-            st.markdown("#### ⚡ Performance")
-            st.metric(
-                "Débit (t/s)",
-                f"{m.tokens_per_second}",
-                delta="Fluide" if m.tokens_per_second > 20 else "Lent",
-            )
-            st.metric("Latence Totale", f"{m.total_duration_s} s")
-
-            st.markdown("#### 💻 Technique")
-            st.text(f"Load Time: {m.load_duration_s}s")
-            st.text(f"In Tokens: {m.input_tokens}")
-            st.text(f"Out Tokens: {m.output_tokens}")
-            st.metric("RAM Modèle", size_gb)
-
-            st.markdown("#### 🌱 Impact")
-            st.progress(0.1, text="Calcul CodeCarbon...")
         else:
-            st.info("Lancez un test pour voir les métriques.")
+            with res_container:
+                st.info("👈 Configurez et lancez le test pour voir le résultat.")

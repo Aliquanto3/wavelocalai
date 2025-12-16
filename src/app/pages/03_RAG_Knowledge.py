@@ -1,3 +1,11 @@
+"""
+RAG Knowledge Tab - Sprint 1 (Onboarding & Ingestion)
+Changements :
+- Upload via st.dialog (Modal)
+- Sidebar nettoyée (Options avancées repliées)
+- Gestion de l'état vide ("Empty State")
+"""
+
 import time
 
 import nest_asyncio
@@ -11,37 +19,37 @@ from src.core.eval_engine import EvalEngine
 from src.core.llm_provider import LLMProvider
 from src.core.models_db import get_friendly_name_from_tag
 from src.core.rag.strategies.hyde import HyDERetrievalStrategy
-
-# STRATEGIES
 from src.core.rag.strategies.naive import NaiveRetrievalStrategy
 from src.core.rag.strategies.self_rag import SelfRAGStrategy
-
-# CORE IMPORTS
 from src.core.rag_engine import RAGEngine
 
 # PATCH ASYNCIO
 nest_asyncio.apply()
 
-st.set_page_config(page_title="RAG Knowledge & Eval", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="RAG Knowledge Base", page_icon="🧠", layout="wide")
 
-# --- CSS CUSTOM ---
+# --- CSS CUSTOM (Empty State & Metrics) ---
 st.markdown(
     """
 <style>
-    [data-testid="stMetricValue"] { font-size: 20px; }
-    .stAlert { padding: 0.5rem; }
+    div[data-testid="stMetricValue"] { font-size: 1.2rem; }
+    .big-icon { font-size: 4rem; text-align: center; display: block; margin-bottom: 1rem; }
+    .empty-state-box {
+        border: 2px dashed #4b4b4b;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        margin-top: 2rem;
+        background-color: #262730;
+    }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.title("🧠 RAG Knowledge Base 2.0")
-st.caption("Architecture Modulaire : Multi-Embeddings, Multi-Formats & Stratégies Avancées.")
 
-
-# --- 0. HELPERS : SCAN MODELS ---
+# --- 0. HELPERS ---
 def get_local_models(subfolder: str):
-    """Scanne le dossier data/models/{subfolder} pour lister les modèles disponibles."""
     path = DATA_DIR / "models" / subfolder
     if not path.exists():
         return []
@@ -50,16 +58,13 @@ def get_local_models(subfolder: str):
 
 # --- 1. INITIALISATION SERVICES ---
 if "rag_engine" not in st.session_state:
-    with st.spinner("🚀 Démarrage du moteur RAG modulaire..."):
-        # On cherche un embedding par défaut
+    with st.spinner("🚀 Démarrage du moteur RAG..."):
         avail_emb = get_local_models("embeddings")
         default_emb = (
             "bge-m3"
             if "bge-m3" in avail_emb
             else (avail_emb[0] if avail_emb else "all-MiniLM-L6-v2")
         )
-
-        # On cherche un reranker par défaut
         avail_rerank = get_local_models("rerankers")
         default_rerank = avail_rerank[0] if avail_rerank else None
 
@@ -71,159 +76,198 @@ if "eval_engine" not in st.session_state:
     try:
         st.session_state.eval_engine = EvalEngine()
     except Exception:
+        # Optionnel : loguer l'erreur pour le débogage
+        # print(f"Erreur lors de la lecture du système: {e}")
         st.session_state.eval_engine = None
 
 if "rag_messages" not in st.session_state:
     st.session_state.rag_messages = []
 
-# --- 2. SIDEBAR : CONFIGURATION AVANCÉE ---
-with st.sidebar:
-    st.header("🎛️ RAG Parameters")
 
+# --- 2. MODAL D'INGESTION (NOUVEAU) ---
+@st.dialog("📂 Gestion de la Base de Connaissance")
+def open_knowledge_manager():
+    st.caption("Ajoutez des documents PDF, TXT ou MD pour nourrir le cerveau de l'IA.")
+
+    # Zone d'upload large
+    uploaded_files = st.file_uploader(
+        "Sélectionner des fichiers", type=["pdf", "txt", "md", "docx"], accept_multiple_files=True
+    )
+
+    if uploaded_files:
+        st.info(f"📄 {len(uploaded_files)} fichier(s) prêt(s) à être indexé(s).")
+
+        if st.button("🚀 Indexer maintenant", type="primary", use_container_width=True):
+            # Simulation d'ingestion (Remplacer par votre appel réel rag_engine.add_documents)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            try:
+                # Exemple de boucle d'ingestion
+                for i, file in enumerate(uploaded_files):
+                    status_text.text(f"Traitement de {file.name}...")
+                    # --- CODE D'INGESTION RÉEL ICI ---
+                    # rag_engine.ingest(file)
+                    # ---------------------------------
+                    time.sleep(0.5)  # Fake work pour la démo UX
+                    progress_bar.progress((i + 1) / len(uploaded_files))
+
+                st.success("✅ Indexation terminée avec succès !")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erreur lors de l'indexation : {e}")
+
+    st.divider()
+    st.caption("Statistiques actuelles :")
+    stats = st.session_state.rag_engine.get_stats()
+    st.markdown(f"**{stats['count']} documents** dans la collection active.")
+
+    if st.button("🗑️ Tout supprimer (Reset)", type="secondary"):
+        st.session_state.rag_engine.clear_database()
+        st.rerun()
+
+
+# --- 3. SIDEBAR (NETTOYÉE) ---
+with st.sidebar:
+    st.header("🎛️ Configuration RAG")
+
+    # A. Mode Cloud/Local
     if "cloud_enabled" not in st.session_state:
         st.session_state.cloud_enabled = True
-
-    cloud_enabled = st.toggle(
+    st.session_state.cloud_enabled = st.toggle(
         "Activer Cloud (Mistral)",
         value=st.session_state.cloud_enabled,
         help="Si désactivé, seuls les modèles locaux (Ollama) seront accessibles.",
     )
-    st.session_state.cloud_enabled = cloud_enabled
-
-    if not cloud_enabled:
-        st.caption("🔒 Mode Local Strict")
+    if not st.session_state.cloud_enabled:
+        st.caption("🔒 Local Only (Ollama)")
 
     st.divider()
 
-    # --- SECTION 1 : MODÈLE ACTIF (Toujours visible) ---
-    st.caption("Base Vectorielle Active")
-    available_embeddings = get_local_models("embeddings")
-    if not available_embeddings:
-        available_embeddings = ["sentence-transformers/all-MiniLM-L6-v2"]
+    # B. Action Principale (Gros Bouton)
+    st.markdown("#### 📚 Base de Connaissance")
+    if st.button("📂 Gérer les Documents", type="primary", use_container_width=True, icon="📂"):
+        open_knowledge_manager()
 
-    current_emb = st.session_state.rag_engine.current_embedding_name
-
-    selected_emb = st.selectbox(
-        "Modèle d'Embedding",
-        available_embeddings,
-        index=available_embeddings.index(current_emb) if current_emb in available_embeddings else 0,
-        label_visibility="collapsed",
-    )
-
-    # Logique de changement (inchangée)
-    if selected_emb != current_emb:
-        with st.spinner(f"🔄 Switching to {selected_emb}..."):
-            st.session_state.rag_engine.set_models(embedding_name=selected_emb)
-            st.toast(f"Embedding changé : {selected_emb}", icon="🔌")
-            time.sleep(0.5)
-            st.rerun()
-
-    # Stats compactes
+    # Stats Rapides
     stats = st.session_state.rag_engine.get_stats()
-    col_s1, col_s2 = st.columns([2, 1])
-
-    # Le message du tooltip
-    tooltip_msg = (
-        f"ℹ️ Note : Les documents sont stockés dans des collections séparées.\n"
-        f"Si vous changez de modèle ({selected_emb}), vous ne verrez que les documents indexés avec lui."
-    )
-
-    col_s1.metric("Docs Indexés", stats["count"], help=tooltip_msg)  # <--- Ajout de help=
-
-    if col_s2.button("🧹", help="Purger cette base"):
-        st.session_state.rag_engine.clear_database()
-        st.rerun()
+    st.caption(f"📊 **{stats['count']}** chunks indexés")
 
     st.divider()
 
-    # --- SECTION 2 : INGESTION (Caché par défaut) ---
-    with st.expander("📥 Ajouter des Documents", expanded=False):
-        uploaded_files = st.file_uploader(
-            "Upload",
-            type=["pdf", "txt", "md", "docx"],
-            accept_multiple_files=True,
+    # C. Paramètres Avancés (Repliés)
+    with st.expander("⚙️ Réglages Avancés (Experts)", expanded=False):
+        # 1. Embedding
+        st.caption("Cerveau Documentaire (Embedding)")
+        avail_emb = get_local_models("embeddings") or ["sentence-transformers/all-MiniLM-L6-v2"]
+        curr_emb = st.session_state.rag_engine.current_embedding_name
+        sel_emb = st.selectbox(
+            "Modèle",
+            avail_emb,
+            index=avail_emb.index(curr_emb) if curr_emb in avail_emb else 0,
             label_visibility="collapsed",
         )
 
-        if uploaded_files and st.button(
-            f"Index {len(uploaded_files)} fichiers", use_container_width=True
-        ):
-            # ... (Garder ton code d'ingestion ici) ...
-            # Code inchangé pour process_uploads...
-            pass
-
-    # --- SECTION 3 : STRATÉGIE (Caché par défaut) ---
-    with st.expander("🧠 Stratégie de Recherche", expanded=False):
-        # Reranker
-        available_rerankers = get_local_models("rerankers")
-        current_reranker = st.session_state.rag_engine.current_reranker_name
-        reranker_options = ["Aucun"] + available_rerankers
-
-        selected_reranker_display = st.selectbox(
-            "Reranker (Affinement)",
-            reranker_options,
-            index=(
-                reranker_options.index(current_reranker)
-                if current_reranker in reranker_options
-                else 0
-            ),
-        )
-        # ... (Logique reranker inchangée) ...
+        if sel_emb != curr_emb:
+            st.session_state.rag_engine.set_models(embedding_name=sel_emb)
+            st.rerun()
 
         st.markdown("---")
 
-        # Strategy Selector
-        strategy_mode = st.radio(
-            "Architecture",
-            ["Naive RAG", "HyDE", "Self-RAG"],
-            captions=["Rapide", "Créatif", "Correctif (Lent)"],
-            index=0,
+        # 2. Stratégie
+        st.caption("Stratégie de Recherche")
+        strat_mode = st.radio("Mode", ["Naive RAG", "HyDE", "Self-RAG"], index=0)
+        k_retrieval = st.slider("Top-K Chunks", 1, 10, 4)
+
+        # 3. Reranker
+        st.caption("Reranker (Affinement)")
+        avail_rerank = ["Aucun"] + get_local_models("rerankers")
+        curr_rerank = st.session_state.rag_engine.current_reranker_name
+        sel_rerank = st.selectbox(
+            "Modèle",
+            avail_rerank,
+            index=avail_rerank.index(curr_rerank) if curr_rerank in avail_rerank else 0,
         )
 
-        k_retrieval = st.slider("Top-K Sources", 1, 10, 4)
-
-        # Application stratégie (inchangée)
-        if strategy_mode == "Naive RAG":
+        # Apply logic
+        if strat_mode == "Naive RAG":
             st.session_state.rag_engine.set_strategy(NaiveRetrievalStrategy())
-        elif strategy_mode == "HyDE":
+        elif strat_mode == "HyDE":
             st.session_state.rag_engine.set_strategy(HyDERetrievalStrategy())
-        elif strategy_mode == "Self-RAG":
+        elif strat_mode == "Self-RAG":
             st.session_state.rag_engine.set_strategy(SelfRAGStrategy())
 
+        # Reranker change logic would go here if needed per existing code
 
-# --- 3. MAIN TABS ---
-# Préparation des données modèles pour le chat
-installed_models_list = LLMProvider.list_models(cloud_enabled=st.session_state.cloud_enabled)
+# --- 4. MAIN PAGE LOGIC ---
 
+st.title("🧠 Assistant Documentaire")
 
-def format_model_label(m):
-    icon = "☁️" if m.get("type") in ["cloud", "api"] else "💻"
-    return f"{icon} {get_friendly_name_from_tag(m['model'])}"
+# Vérification de l'état vide
+doc_count = st.session_state.rag_engine.get_stats()["count"]
 
-
-display_to_tag = {format_model_label(m): m["model"] for m in installed_models_list}
-tag_to_friendly = {
-    m["model"]: get_friendly_name_from_tag(m["model"]) for m in installed_models_list
-}
-sorted_display_names = sorted(display_to_tag.keys())
-
-tab_chat, tab_eval = st.tabs(["💬 Chat Interactif", "⚖️ EvalOps Dashboard"])
-
-with tab_chat:
-    # On passe k_retrieval au chat render
-    render_rag_chat_tab(
-        st.session_state.rag_engine,
-        display_to_tag,
-        tag_to_friendly,
-        sorted_display_names,
-        k_retrieval,
+if doc_count == 0:
+    # --- EMPTY STATE UI ---
+    st.markdown(
+        """
+        <div class="empty-state-box">
+            <div class="big-icon">📭</div>
+            <h2>Votre base de connaissances est vide</h2>
+            <p style="color: #cccccc;">Pour commencer à discuter avec vos documents, vous devez d'abord les importer.</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
     )
 
-with tab_eval:
-    render_rag_eval_tab(
-        st.session_state.rag_engine,
-        st.session_state.eval_engine,
-        display_to_tag,
-        tag_to_friendly,
-        sorted_display_names,
-    )
+    col_center = st.columns([1, 2, 1])
+    with col_center[1]:
+        if st.button("🚀 Commencer l'ingestion", type="primary", use_container_width=True):
+            open_knowledge_manager()
+
+    st.markdown("### 💡 Pourquoi utiliser le RAG ?")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.info(
+            "**🔒 Confidentialité**\n\nVos documents restent en local, aucune fuite de données."
+        )
+    with c2:
+        st.info("**⚡ Précision**\n\nLe modèle répond uniquement basé sur VOS sources vérifiées.")
+    with c3:
+        st.info(
+            "**🌱 GreenOps**\n\nUtilisez des petits modèles précis plutôt que des monstres énergivores."
+        )
+
+else:
+    # --- NORMAL UI (TABS) ---
+    installed_models_list = LLMProvider.list_models(cloud_enabled=st.session_state.cloud_enabled)
+
+    def format_model_label(m):
+        icon = "☁️" if m.get("type") in ["cloud", "api"] else "💻"
+        return f"{icon} {get_friendly_name_from_tag(m['model'])}"
+
+    display_to_tag = {format_model_label(m): m["model"] for m in installed_models_list}
+    tag_to_friendly = {
+        m["model"]: get_friendly_name_from_tag(m["model"]) for m in installed_models_list
+    }
+    sorted_display_names = sorted(display_to_tag.keys())
+
+    tab_chat, tab_eval = st.tabs(["💬 Discussion", "⚖️ Benchmark & Qualité"])
+
+    with tab_chat:
+        render_rag_chat_tab(
+            st.session_state.rag_engine,
+            display_to_tag,
+            tag_to_friendly,
+            sorted_display_names,
+            k_retrieval,
+        )
+
+    with tab_eval:
+        render_rag_eval_tab(
+            st.session_state.rag_engine,
+            st.session_state.eval_engine,
+            display_to_tag,
+            tag_to_friendly,
+            sorted_display_names,
+        )

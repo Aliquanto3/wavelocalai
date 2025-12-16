@@ -41,6 +41,7 @@ try:
 
     from src.core.config import (
         BENCHMARKS_DIR,
+        DATA_DIR,
         DEFAULT_COUNTRY_ISO_CODE,
         EMISSIONS_DIR,
         MISTRAL_API_KEY,
@@ -62,8 +63,8 @@ except ImportError:
 
 # --- CONFIGURATION ---
 BENCHMARKS_DIR.mkdir(parents=True, exist_ok=True)
-REPORT_MD_PATH = BENCHMARKS_DIR / "benchmark_report.md"
-DATASET_CSV_PATH = BENCHMARKS_DIR / "benchmarks_data.csv"
+REPORT_MD_PATH = DATA_DIR / "benchmark_report.md"
+DATASET_CSV_PATH = DATA_DIR / "benchmarks_data.csv"
 AUDIT_LOG_FILE = BENCHMARKS_DIR / f"benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 # Seuils et paramètres

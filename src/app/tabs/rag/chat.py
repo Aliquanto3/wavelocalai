@@ -1,178 +1,230 @@
+"""
+RAG Chat Tab - Sprint 2 (UX & GreenOps Inline)
+Changements :
+- Suppression de la colonne latérale de debug.
+- Intégration des sources dans un expander sous la réponse.
+- Affichage des métriques (Temps, CO2, RAM) en "Badges" sous le message.
+- Persistance complète des métadonnées dans l'historique.
+"""
+
 import asyncio
 import time
 
 import streamlit as st
 
+# --- SSOT GreenOps ---
+from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
-
-# ✅ Import nécessaire pour identifier le type de chunk
 from src.core.metrics import InferenceMetrics
-from src.core.models_db import extract_thought
+from src.core.models_db import extract_thought, get_model_info
+
+
+# --- HELPER PARSING ---
+def _extract_params_billions(val: str | int | float) -> float:
+    """Extrait le nombre de paramètres en milliards (float)."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not val or not isinstance(val, str):
+        return 0.0
+    s = val.upper().strip().replace(" ", "")
+    try:
+        if "X" in s and "B" in s:
+            parts = s.replace("B", "").split("X")
+            return float(parts[0]) * float(parts[1])
+        if s.endswith("B"):
+            return float(s[:-1])
+        if s.endswith("M"):
+            return float(s[:-1]) / 1000.0
+        if s.isdigit():
+            return float(s)
+    except Exception:
+        pass
+    return 0.0
 
 
 def render_rag_chat_tab(
     rag_engine, display_to_tag, tag_to_friendly, sorted_display_names, k_retrieval
 ):
-    col_chat_main, col_chat_debug = st.columns([2, 1])
 
-    with col_chat_main:
+    # 1. SÉLECTEUR DE MODÈLE (Haut de page, discret)
+    c_sel, c_space = st.columns([1, 2])
+    with c_sel:
         selected_display = st.selectbox(
-            "Modèle Actif (Chat)", sorted_display_names, key="rag_chat_select"
+            "🤖 Modèle Actif",
+            sorted_display_names,
+            key="rag_chat_select",
+            label_visibility="collapsed",
         )
         selected_tag = display_to_tag.get(selected_display)
         friendly_name = tag_to_friendly.get(selected_tag)
 
-        st.divider()
+    st.divider()
 
-        for msg in st.session_state.rag_messages:
-            with st.chat_message(msg["role"]):
-                if "thought" in msg and msg["thought"]:
-                    with st.expander("💭 Raisonnement", expanded=False):
-                        st.markdown(msg["thought"])
-                st.markdown(msg["content"])
+    # 2. HISTORIQUE DE CONVERSATION
+    # On utilise enumerate pour garantir des clés uniques aux widgets (boutons)
+    for i, msg in enumerate(st.session_state.rag_messages):
+        with st.chat_message(msg["role"]):
+            # A. Affichage Pensée (CoT)
+            if msg.get("thought"):
+                with st.expander("💭 Raisonnement", expanded=False):
+                    st.markdown(msg["thought"])
 
-        if prompt := st.chat_input("Posez une question à vos documents..."):
-            st.session_state.rag_messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+            # B. Contenu Principal
+            st.markdown(msg["content"])
 
-            with st.chat_message("assistant"):
-                resp_container = st.empty()
+            # C. Zone Métadonnées (Uniquement pour l'assistant)
+            if msg["role"] == "assistant":
+                # Ligne de séparation discrète
+                st.markdown("---")
 
-                with st.status("🚀 Pipeline RAG en cours...", expanded=True) as status:
-                    t_start_pipeline = time.perf_counter()
+                # C1. Sources (Expander)
+                if msg.get("sources"):
+                    with st.expander(f"📚 {len(msg['sources'])} Sources utilisées", expanded=False):
+                        for idx, doc in enumerate(msg["sources"]):
+                            score = doc.metadata.get("score", 0)
+                            src_name = doc.metadata.get("source", "Doc inconnu")
+                            st.caption(f"**Source {idx+1}** : {src_name} (Pertinence: {score:.2f})")
+                            st.text(doc.page_content[:400] + "...")
 
-                    # 1. Feedback Stratégie
-                    current_strategy = rag_engine.strategy.__class__.__name__
-                    if "HyDE" in current_strategy:
-                        status.write("🔮 **HyDE** : Génération d'une réponse hypothétique...")
-                    elif "SelfRAG" in current_strategy:
-                        status.write(
-                            "⚖️ **Self-RAG** : Analyse critique et réécriture potentielle..."
-                        )
-                    else:
-                        status.write("🔍 **Naive** : Recherche par similarité directe...")
+                # C2. Métriques & Actions (Badges)
+                c_meta1, c_meta2 = st.columns([3, 1])
+                with c_meta1:
+                    # Construction des badges
+                    badges = []
+                    if "metrics" in msg:
+                        m = msg["metrics"]
+                        badges.append(f"⏱️ {m.get('total_time', 0):.1f}s")
+                        if "ram_gb" in m:
+                            badges.append(f"💾 {m['ram_gb']:.1f} GB")
+                        if "carbon_mg" in m:
+                            badges.append(f"🌱 {m['carbon_mg']:.2f} mgCO₂")
 
-                    # 2. Retrieval avec Chrono
-                    t_retrieval_start = time.perf_counter()
-                    retrieved = rag_engine.search(prompt, k=k_retrieval)
-                    d_retrieval = time.perf_counter() - t_retrieval_start
+                    if badges:
+                        st.caption(" | ".join(badges))
 
-                    # Feedback Reranker
-                    if rag_engine.current_reranker_name:
-                        status.write(
-                            f"🎯 **Retrieval & Reranking** : {len(retrieved)} documents trouvés ({d_retrieval:.2f}s)"
-                        )
-                    else:
-                        status.write(
-                            f"🔍 **Retrieval (Naive)** : {len(retrieved)} documents trouvés ({d_retrieval:.2f}s)"
-                        )
-
-                    context_text = "\n\n".join([doc.page_content for doc in retrieved])
-                    sys_prompt = f"Tu es un assistant expert. Utilise ce contexte pour répondre:\n{context_text}"
-                    payload = [
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": prompt},
-                    ]
-
-                    status.write(f"🧠 Génération avec {friendly_name}...")
-
-                    # --- GÉNÉRATION ASYNC AVEC CAPTURE MÉTRIQUES ---
-                    async def run_gen():
-                        full_txt = ""
-                        first = False
-                        ttft = 0.0
-                        captured_metrics = None  # Variable pour stocker les métriques
-
-                        stream = LLMProvider.chat_stream(selected_tag, payload, temperature=0.1)
-                        async for chunk in stream:
-                            # Détection du TTFT (Time To First Token) sur le premier chunk de texte
-                            if not first and isinstance(chunk, str):
-                                ttft = (
-                                    time.perf_counter() - t_start_pipeline
-                                )  # approx depuis début pipeline ou t2
-                                first = True
-
-                            if isinstance(chunk, str):
-                                full_txt += chunk
-                                resp_container.markdown(full_txt + "▌")
-                            elif isinstance(chunk, InferenceMetrics):
-                                captured_metrics = chunk
-
-                        return full_txt, ttft, captured_metrics
-
-                    full_resp, ttft_val, metrics_obj = asyncio.run(run_gen())
-
-                    total_duration = time.perf_counter() - t_start_pipeline
-                    status.update(
-                        label=f"✅ Réponse terminée ({total_duration:.2f}s)",
-                        state="complete",
-                        expanded=False,
+                with c_meta2:
+                    # Bouton de téléchargement avec CLÉ UNIQUE
+                    st.download_button(
+                        "📥 MD",
+                        msg["content"],
+                        file_name=f"rag_response_{i}.md",
+                        key=f"dl_rag_{i}",
+                        help="Télécharger la réponse",
                     )
 
-                    thought, clean = extract_thought(full_resp)
+    # 3. INPUT UTILISATEUR
+    if prompt := st.chat_input("Posez une question à vos documents..."):
+        # Ajout message user
+        st.session_state.rag_messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-                    st.session_state.rag_messages.append(
-                        {"role": "assistant", "content": clean, "thought": thought}
-                    )
+        # 4. RÉPONSE ASSISTANT
+        with st.chat_message("assistant"):
+            resp_container = st.empty()
+            status_box = st.status("🚀 Recherche & Réflexion...", expanded=True)
 
-                    # Sauvegarde des infos de debug pour la colonne de droite
-                    st.session_state.last_rag_debug = {
-                        "sources": retrieved,
-                        "ttft": ttft_val,
+            t_start_pipeline = time.perf_counter()
+
+            try:
+                # A. Pipeline RAG (Retrieval)
+                # Feedback dynamique sur la stratégie
+                strat_name = rag_engine.strategy.__class__.__name__
+                if "HyDE" in strat_name:
+                    status_box.write("🔮 HyDE : Génération hypothétique...")
+                elif "SelfRAG" in strat_name:
+                    status_box.write("⚖️ Self-RAG : Analyse critique...")
+                else:
+                    status_box.write("🔍 Naive RAG : Recherche vectorielle...")
+
+                t_ret = time.perf_counter()
+                retrieved = rag_engine.search(prompt, k=k_retrieval)
+                d_ret = time.perf_counter() - t_ret
+                status_box.write(f"✅ {len(retrieved)} documents trouvés ({d_ret:.2f}s)")
+
+                # B. Préparation Prompt
+                context_text = "\n\n".join([doc.page_content for doc in retrieved])
+                sys_prompt = (
+                    f"Tu es un assistant expert. Utilise ce contexte pour répondre:\n{context_text}"
+                )
+                payload = [
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": prompt},
+                ]
+
+                # C. Génération (Streaming)
+                status_box.write(f"🧠 Génération avec {friendly_name}...")
+
+                async def run_gen():
+                    full_txt = ""
+                    captured_metrics = None
+                    stream = LLMProvider.chat_stream(selected_tag, payload, temperature=0.1)
+                    async for chunk in stream:
+                        if isinstance(chunk, str):
+                            full_txt += chunk
+                            resp_container.markdown(full_txt + "▌")
+                        elif isinstance(chunk, InferenceMetrics):
+                            captured_metrics = chunk
+                    return full_txt, captured_metrics
+
+                full_resp, metrics_obj = asyncio.run(run_gen())
+
+                # Fin du process
+                total_duration = time.perf_counter() - t_start_pipeline
+                status_box.update(label="✅ Terminé", state="complete", expanded=False)
+
+                # D. Traitement Post-Génération
+                thought, clean = extract_thought(full_resp)
+
+                # Affichage Final
+                resp_container.empty()
+                if thought:
+                    with st.expander("💭 CoT", expanded=True):
+                        st.markdown(thought)
+                st.markdown(clean)
+
+                # E. Calculs GreenOps (SSOT)
+                carbon_mg = 0.0
+                ram_gb = 0.0
+                if metrics_obj:
+                    info = get_model_info(friendly_name) or {}
+
+                    # 1. RAM
+                    ram_gb = metrics_obj.model_size_gb or 0.0
+
+                    # 2. Carbone
+                    if info.get("type") == "api" and metrics_obj.output_tokens > 0:
+                        raw_params = info.get("params_act") or info.get("params_tot", "0")
+                        active_params = _extract_params_billions(raw_params)
+                        carbon_mg = (
+                            CarbonCalculator.compute_mistral_impact_g(
+                                active_params, metrics_obj.output_tokens
+                            )
+                            * 1000
+                        )
+                    else:
+                        carbon_mg = (
+                            CarbonCalculator.compute_local_theoretical_g(metrics_obj.output_tokens)
+                            * 1000
+                        )
+
+                # F. Sauvegarde Persistante
+                msg_data = {
+                    "role": "assistant",
+                    "content": clean,
+                    "thought": thought,
+                    "sources": retrieved,  # On garde les objets Document
+                    "metrics": {
                         "total_time": total_duration,
-                        "metrics": metrics_obj,  # On stocke l'objet complet
-                    }
+                        "ram_gb": ram_gb,
+                        "carbon_mg": carbon_mg,
+                    },
+                }
+                st.session_state.rag_messages.append(msg_data)
 
-                    resp_container.empty()
-                    if thought:
-                        with resp_container.container():
-                            with st.expander("💭 CoT", expanded=True):
-                                st.markdown(thought)
-                            st.markdown(clean)
-                    else:
-                        resp_container.markdown(clean)
+                # Rerun pour afficher proprement les badges (optionnel, mais propre)
+                st.rerun()
 
-    with col_chat_debug:
-        st.markdown("### 🔍 Sources & Métriques")
-        if "last_rag_debug" in st.session_state:
-            d = st.session_state.last_rag_debug
-
-            # 1. Métriques de Performance
-            st.markdown("#### ⚡ Performance")
-
-            # Ligne 1 : Temps
-            c1, c2 = st.columns(2)
-            c1.metric("⏱️ Temps Total", f"{d['total_time']:.2f}s")
-            c2.metric("⚡ TTFT", f"{d['ttft']:.2f}s")
-
-            # Ligne 2 : Ressources (si disponibles dans metrics)
-            metrics = d.get("metrics")
-            if metrics:
-                c3, c4 = st.columns(2)
-                ram_val = f"{metrics.model_size_gb:.1f} GB" if metrics.model_size_gb else "N/A"
-                co2_val = f"{metrics.carbon_g:.4f} g" if metrics.carbon_g is not None else "0 g"
-
-                c3.metric("💾 RAM Peak", ram_val)
-                c4.metric("🌍 CO2", co2_val)
-
-                c5, c6 = st.columns(2)
-                c5.metric("🚀 Vitesse", f"{metrics.tokens_per_second:.1f} t/s")
-                c6.metric("📝 Output", f"{metrics.output_tokens} tok")
-            else:
-                st.info("Métriques détaillées non disponibles pour ce run.")
-
-            st.divider()
-
-            # 2. Sources
-            st.markdown(f"#### 📚 Sources ({len(d['sources'])})")
-            for i, doc in enumerate(d["sources"]):
-                source_name = doc.metadata.get("source", "Inconnu")
-                score = doc.metadata.get("score", None)  # Si disponible
-                score_label = f" (Sc: {score:.2f})" if score else ""
-
-                with st.expander(f"{i+1}. {source_name}{score_label}"):
-                    st.caption(f"Stratégie: {doc.metadata.get('strategy', 'Naive')}")
-                    st.text(doc.page_content)
-        else:
-            st.info("Lancez une requête pour voir les détails.")
+            except Exception as e:
+                status_box.update(label="❌ Erreur", state="error")
+                st.error(f"Erreur Pipeline : {e}")

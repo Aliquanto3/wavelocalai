@@ -2,6 +2,7 @@
 streamlit>=1.40.0
 watchdog>=4.0.0
 plotly>=5.18.0
+py-cpuinfo
 
 # --- AI Core & Orchestration ---
 langchain>=0.3.0
@@ -58,6 +59,7 @@ mistralai>=1.0.0
 crewai>=0.30.0
 ragas>=0.1.0
 datasets>=2.19.0
+graphviz>=0.20.1
 
 # NOUVEAU - Outils additionnels
 python-docx>=0.8.11      # Document Generator

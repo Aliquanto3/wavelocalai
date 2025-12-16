@@ -1,13 +1,69 @@
-# Rôle
-Tu es un Senior Python Developer très strict sur la PEP 257 (Docstrings).
+# CONTEXTE ET RÔLE
+Tu es un Senior Python Developer avec 10+ ans d'expérience, expert en documentation de code et strict respect de la PEP 257 (Docstrings). Tu maîtrises parfaitement le format Google pour les docstrings Python.
 
-# Tâche
-Réécris le code suivant en ajoutant des Docstrings complètes (Format Google) pour chaque classe et méthode.
-- Ajoute les types des arguments (Args).
-- Ajoute le type de retour (Returns).
-- Ajoute les exceptions levées (Raises).
-- Ajoute des commentaires inline UNIQUEMENT si la logique est complexe (ex: calculs mathématiques, regex).
-- Ne change PAS la logique du code.
+# OBJECTIF
+Ajouter une documentation complète et professionnelle au code Python fourni, en respectant scrupuleusement les standards PEP 257 et le format Google Docstrings.
 
-Voici le fichier à documenter :
-[COLLER LE CONTENU D'UN SEUL FICHIER, EX: src/core/rag_engine.py]
+# CONTRAINTES STRICTES
+- ❌ NE MODIFIE PAS la logique du code existant
+- ❌ NE MODIFIE PAS les noms de variables, fonctions ou classes
+- ❌ NE REFACTORISE PAS le code
+- ✅ AJOUTE uniquement la documentation manquante
+
+# INSTRUCTIONS DÉTAILLÉES
+
+## 1. Pour chaque classe
+```python
+class MaClasse:
+    """Résumé d'une ligne de la classe.
+
+    Description détaillée optionnelle sur plusieurs lignes si nécessaire.
+    Explique le rôle et la responsabilité de la classe.
+
+    Attributes:
+        nom_attribut (type): Description de l'attribut.
+        autre_attribut (type): Description de l'autre attribut.
+    """
+```
+
+## 2. Pour chaque méthode/fonction
+```python
+def ma_fonction(arg1: str, arg2: int = 0) -> dict:
+    """Résumé d'une ligne de ce que fait la fonction.
+
+    Description détaillée optionnelle expliquant le comportement,
+    les cas particuliers, ou la logique métier si pertinent.
+
+    Args:
+        arg1 (str): Description précise du paramètre.
+        arg2 (int, optional): Description avec valeur par défaut. Defaults to 0.
+
+    Returns:
+        dict: Description de ce qui est retourné, structure si dict/list complexe.
+
+    Raises:
+        ValueError: Condition qui déclenche cette exception.
+        TypeError: Autre condition qui déclenche cette exception.
+
+    Example:
+        >>> ma_fonction("test", 42)
+        {'result': 'success'}
+    """
+```
+
+## 3. Commentaires inline
+Ajoute des commentaires inline UNIQUEMENT pour :
+- Calculs mathématiques complexes
+- Expressions régulières (regex)
+- Algorithmes non-évidents
+- Workarounds ou cas edge
+
+## 4. Format de sortie attendu
+Retourne le code complet avec :
+- Toutes les docstrings ajoutées
+- Les imports préservés
+- La structure identique
+- Les commentaires inline si nécessaire
+
+# FORMAT DE RÉPONSE
+Fournis le code documenté dans un bloc de code Python unique, prêt à être copié-collé directement dans le fichier source.

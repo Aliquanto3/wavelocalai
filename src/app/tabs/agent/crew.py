@@ -1,573 +1,499 @@
 """
-Crew Agent Tab - Interface pour équipes multi-agents avec sélection d'outils par agent.
-
-Corrections :
-- Clé unique pour les logs (utilisation d'un compteur au lieu du hash)
-- Nettoyage des codes ANSI dans les logs
-- Historique complet des logs avec scroll
+Crew Agent Tab - Sprint 3 (GreenOps & Safety)
+Modifications :
+- Pre-flight Check : Estimation de la RAM requise avant lancement
+- Alertes dynamiques (Warning/Error) si RAM insuffisante
+- Déduction du "Budget Carbone" global
+- FIX: Structure CREW_PROMPT_LIBRARY alignée avec les tests
 """
 
 import io
 import re
+import threading
 import time
 import traceback
 from contextlib import redirect_stdout
 
+import graphviz
 import psutil
 import streamlit as st
 
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
 from src.core.green_monitor import GreenTracker
-from src.core.resource_manager import ResourceManager
 
 # ========================================
-# BIBLIOTHÈQUE DE WORKFLOWS MULTI-AGENTS
+# 1. DONNÉES & CONFIGURATION (STRUCTURE CORRIGÉE)
 # ========================================
 
 CREW_PROMPT_LIBRARY = {
     "📊 Analyse de Marché": {
-        "Étude concurrentielle complète": {
+        "Étude Concurrentielle": {
             "prompt": "Analyser le marché des SLM en 2024 : acteurs, tendances, opportunités",
-            "description": "Analyse approfondie avec recherche, calculs et rapport",
-            "suggested_crew": [
+            "description": "Recherche complète du marché avec collecte de données, calculs de KPIs et rédaction d'un rapport stratégique",  # ✅ AJOUTÉ
+            "suggested_crew": [  # ✅ CORRIGÉ : "crew" → "suggested_crew"
                 {
-                    "role": "Chercheur de Marché",
-                    "goal": "Collecter des données factuelles sur le marché des SLM",
-                    "backstory": "Expert en veille concurrentielle, tu utilises tous les outils de recherche disponibles.",
-                    "tools": ["get_current_time", "search_wavestone_internal", "system_monitor"],
+                    "role": "Chercheur",
+                    "goal": "Collecter données marché",
+                    "backstory": "Expert en veille stratégique et analyse concurrentielle",  # ✅ AJOUTÉ
+                    "tools": ["get_current_time", "search_wavestone_internal"],
                 },
                 {
-                    "role": "Analyste Financier",
-                    "goal": "Calculer les métriques clés et ROI",
-                    "backstory": "Spécialiste en analyse financière et calculs complexes.",
-                    "tools": ["calculator", "analyze_csv", "generate_chart"],
+                    "role": "Analyste",
+                    "goal": "Calculer KPIs",
+                    "backstory": "Analyste quantitatif spécialisé en métriques business",  # ✅ AJOUTÉ
+                    "tools": ["calculator", "analyze_csv"],
                 },
                 {
-                    "role": "Rédacteur Senior",
-                    "goal": "Synthétiser les résultats en rapport professionnel",
-                    "backstory": "Expert en communication écrite, tu produis des documents impeccables.",
-                    "tools": ["generate_document", "generate_markdown_report"],
+                    "role": "Rédacteur",
+                    "goal": "Synthèse rapport",
+                    "backstory": "Consultant senior expert en communication stratégique",  # ✅ AJOUTÉ
+                    "tools": ["generate_document"],
                 },
             ],
-        },
+        }
     },
-    "🔬 Analyse de Données": {
-        "Pipeline d'analyse complète": {
-            "prompt": "Analyser les benchmarks dans data/benchmarks_data.csv et produire un rapport complet avec graphiques",
-            "description": "Analyse de données, visualisation et documentation",
-            "suggested_crew": [
+    "🔬 Data Science": {
+        "Audit Benchmarks": {
+            "prompt": "Analyser data/benchmarks_data.csv et produire un rapport graphiques",
+            "description": "Analyse statistique complète d'un dataset avec visualisation et documentation technique",  # ✅ AJOUTÉ
+            "suggested_crew": [  # ✅ CORRIGÉ
                 {
                     "role": "Data Analyst",
-                    "goal": "Analyser en profondeur le fichier CSV de benchmarks",
-                    "backstory": "Spécialiste en traitement de données, tu maîtrises l'analyse statistique.",
-                    "tools": ["analyze_csv", "calculator", "system_monitor"],
+                    "goal": "Analyse statistique CSV",
+                    "backstory": "Data scientist spécialisé en analyse exploratoire et statistiques",  # ✅ AJOUTÉ
+                    "tools": ["analyze_csv", "calculator"],
                 },
                 {
-                    "role": "Data Visualizer",
-                    "goal": "Créer des graphiques percutants à partir des données",
-                    "backstory": "Expert en visualisation, tu transformes les chiffres en insights visuels.",
-                    "tools": ["generate_chart", "analyze_csv"],
-                },
-                {
-                    "role": "Technical Writer",
-                    "goal": "Documenter l'analyse dans un rapport structuré",
-                    "backstory": "Rédacteur technique senior, tu produis une documentation claire et professionnelle.",
-                    "tools": ["generate_document", "generate_markdown_report"],
-                },
-            ],
-        },
-        "Monitoring système automatisé": {
-            "prompt": "Surveiller l'état du système, détecter les anomalies et envoyer un rapport par email",
-            "description": "Monitoring, analyse et notification",
-            "suggested_crew": [
-                {
-                    "role": "System Monitor",
-                    "goal": "Surveiller en continu les métriques système (CPU, RAM, Disque)",
-                    "backstory": "Expert en infrastructure, tu détectes les moindres anomalies.",
-                    "tools": ["system_monitor", "get_current_time"],
-                },
-                {
-                    "role": "Alert Manager",
-                    "goal": "Analyser les métriques et identifier les problèmes critiques",
-                    "backstory": "Spécialiste en SRE, tu établis des diagnostics précis.",
-                    "tools": ["calculator", "system_monitor"],
-                },
-                {
-                    "role": "Communication Manager",
-                    "goal": "Rédiger et envoyer les rapports de monitoring",
-                    "backstory": "Responsable communication, tu assures la bonne diffusion de l'information.",
-                    "tools": ["generate_markdown_report", "send_email"],
-                },
-            ],
-        },
-    },
-    "📈 Reporting Automatisé": {
-        "Rapport exécutif complet": {
-            "prompt": "Produire un rapport exécutif sur les performances des SLM avec données, graphiques et recommandations",
-            "description": "Collecte, analyse, visualisation et synthèse",
-            "suggested_crew": [
-                {
-                    "role": "Data Collector",
-                    "goal": "Collecter toutes les données pertinentes sur les performances",
-                    "backstory": "Spécialiste en collecte de données, tu ne laisses rien au hasard.",
-                    "tools": ["analyze_csv", "search_wavestone_internal", "system_monitor"],
-                },
-                {
-                    "role": "Performance Analyst",
-                    "goal": "Analyser les métriques et calculer les KPIs",
-                    "backstory": "Expert en métriques de performance, tu identifies les tendances clés.",
-                    "tools": ["calculator", "analyze_csv", "generate_chart"],
-                },
-                {
-                    "role": "Executive Reporter",
-                    "goal": "Synthétiser en rapport exécutif pour la direction",
-                    "backstory": "Consultant senior, tu communiques efficacement aux décideurs.",
-                    "tools": ["generate_document", "generate_chart"],
-                },
-                {
-                    "role": "Distributor",
-                    "goal": "Distribuer le rapport aux parties prenantes",
-                    "backstory": "Coordinateur projet, tu assures la diffusion de l'information.",
-                    "tools": ["send_email"],
-                },
-            ],
-        },
-    },
-    "🎯 Workflows Spécialisés": {
-        "Benchmark FinOps / GreenOps": {
-            "prompt": "Comparer les coûts et émissions CO2 entre modèles locaux et cloud, puis générer un rapport détaillé",
-            "description": "Analyse comparative approfondie",
-            "suggested_crew": [
-                {
-                    "role": "FinOps Analyst",
-                    "goal": "Analyser les coûts de chaque solution (Local vs Cloud)",
-                    "backstory": "Expert FinOps, tu optimises les dépenses cloud et infrastructure.",
-                    "tools": ["calculator", "analyze_csv", "search_wavestone_internal"],
-                },
-                {
-                    "role": "GreenOps Specialist",
-                    "goal": "Mesurer et comparer l'impact carbone",
-                    "backstory": "Spécialiste en IT durable, tu quantifies l'empreinte environnementale.",
-                    "tools": ["calculator", "system_monitor", "generate_chart"],
-                },
-                {
-                    "role": "Strategic Advisor",
-                    "goal": "Synthétiser les analyses et formuler des recommandations",
-                    "backstory": "Consultant stratégie IT, tu guides les décisions d'architecture.",
-                    "tools": ["generate_document", "generate_markdown_report"],
-                },
-            ],
-        },
-        "Documentation projet complète": {
-            "prompt": "Créer une documentation technique complète pour le projet WaveLocalAI",
-            "description": "Documentation multi-formats avec architecture et guides",
-            "suggested_crew": [
-                {
-                    "role": "Tech Lead",
-                    "goal": "Définir l'architecture et les composants techniques",
-                    "backstory": "Architecte logiciel senior, tu conçois des systèmes robustes.",
-                    "tools": ["system_monitor", "analyze_csv"],
-                },
-                {
-                    "role": "Technical Writer",
-                    "goal": "Rédiger la documentation technique détaillée",
-                    "backstory": "Expert en documentation, tu produis des guides clairs et complets.",
-                    "tools": ["generate_document", "generate_markdown_report"],
-                },
-                {
-                    "role": "Diagram Specialist",
-                    "goal": "Créer les schémas et visualisations d'architecture",
-                    "backstory": "Spécialiste en modélisation, tu illustres les concepts complexes.",
+                    "role": "Dataviz Expert",
+                    "goal": "Générer graphiques",
+                    "backstory": "Expert en visualisation de données et storytelling visuel",  # ✅ AJOUTÉ
                     "tools": ["generate_chart"],
                 },
+                {
+                    "role": "Technical Writer",
+                    "goal": "Documentation technique",
+                    "backstory": "Rédacteur technique spécialisé en documentation data",  # ✅ AJOUTÉ
+                    "tools": ["generate_markdown_report"],
+                },
             ],
-        },
+        }
+    },
+    "🌱 FinOps/GreenOps": {
+        "Benchmark Carbone": {
+            "prompt": "Comparer coûts et CO2 entre modèles locaux et cloud.",
+            "description": "Analyse comparative FinOps et GreenOps avec recommandations stratégiques d'optimisation",  # ✅ AJOUTÉ
+            "suggested_crew": [  # ✅ CORRIGÉ
+                {
+                    "role": "FinOps Analyst",
+                    "goal": "Estimer coûts cloud vs local",
+                    "backstory": "Expert FinOps spécialisé en optimisation des coûts cloud",  # ✅ AJOUTÉ
+                    "tools": ["calculator"],
+                },
+                {
+                    "role": "GreenOps Expert",
+                    "goal": "Calculer impact CO2",
+                    "backstory": "Spécialiste en informatique durable et empreinte carbone",  # ✅ AJOUTÉ
+                    "tools": ["system_monitor"],
+                },
+                {
+                    "role": "Consultant",
+                    "goal": "Synthèse stratégique",
+                    "backstory": "Consultant senior en transformation numérique responsable",  # ✅ AJOUTÉ
+                    "tools": ["generate_document"],
+                },
+            ],
+        }
     },
 }
 
+# ========================================
+# 2. HELPER ESTIMATION (NOUVEAU)
+# ========================================
+
+
+def estimate_mission_impact(agents, model_tag):
+    """
+    Estime la RAM requise et le coût carbone potentiel.
+    Heuristique simple pour la démo.
+    """
+    # 1. Estimation RAM Modèle (Heuristique simplifiée)
+    model_ram_base = 0.5  # Framework overhead
+    if "7b" in model_tag or "mistral" in model_tag:
+        model_ram_base += 4.5
+    elif "2b" in model_tag or "gemma" in model_tag:
+        model_ram_base += 1.8
+    elif "1b" in model_tag or "tiny" in model_tag:
+        model_ram_base += 0.8
+    else:
+        model_ram_base += 4.0  # Default fallback (supposé 7B/8B)
+
+    # 2. Estimation Overhead Agents (Context Window + History)
+    agent_overhead = len(agents) * 0.25
+
+    total_ram_gb = model_ram_base + agent_overhead
+
+    return total_ram_gb
+
 
 # ========================================
-# HELPER POUR CAPTURER LES LOGS
+# 3. UTILITAIRES UX
 # ========================================
 
 
 class StreamlitCapture(io.StringIO):
-    """
-    Capture les logs CrewAI avec nettoyage ANSI et historique complet.
-
-    CORRECTION : Utilisation d'un compteur d'updates au lieu du hash pour éviter les clés dupliquées.
-    """
-
-    # Compteur de classe pour générer des clés uniques
-    _update_counter = 0
+    """Capture les logs stdout pour les afficher proprement dans l'UI."""
 
     def __init__(self, container):
         super().__init__()
         self.container = container
         self.full_text = ""
-        self.max_display = 15000  # Caractères max à afficher
-
-        # Pattern regex pour les codes ANSI
+        # On utilise des regex pour colorer les logs importants
         self.ansi_pattern = re.compile(r"\x1b\[[0-9;]*[mHJK]|\x1b\([0-9;]*m")
-
-        # Pattern pour les caractères de box drawing
-        self.box_chars = str.maketrans(
-            {
-                "─": "-",
-                "│": "|",
-                "┌": "+",
-                "┐": "+",
-                "└": "+",
-                "┘": "+",
-                "├": "+",
-                "┤": "+",
-                "┬": "+",
-                "┴": "+",
-                "┼": "+",
-                "╭": "+",
-                "╮": "+",
-                "╰": "+",
-                "╯": "+",
-                "╔": "+",
-                "╗": "+",
-                "╚": "+",
-                "╝": "+",
-                "═": "=",
-                "║": "|",
-                "╠": "+",
-                "╣": "+",
-                "╦": "+",
-                "╩": "+",
-                "╬": "+",
-            }
-        )
-
-    def clean_ansi(self, text: str) -> str:
-        """Nettoie les codes ANSI et caractères de box drawing."""
-        # Suppression des codes couleur ANSI
-        text = self.ansi_pattern.sub("", text)
-
-        # Remplacement des caractères de box drawing
-        text = text.translate(self.box_chars)
-
-        return text
+        self.action_pattern = re.compile(
+            r"\[(\w+)\]\s*(\w+): (.*)"
+        )  # [TASK] Chercheur: Tâche en cours
 
     def write(self, s):
-        """Capture et affiche les logs avec nettoyage."""
         self.full_text += s
 
-        if s.strip():
-            # Nettoyage des codes ANSI
-            clean_text = self.clean_ansi(self.full_text)
+        # Mise à jour périodique et propre
+        if len(self.full_text) % 500 < 50:
+            clean = self.ansi_pattern.sub("", self.full_text)
 
-            # Limitation pour l'affichage
-            display_text = clean_text[-self.max_display :]
+            # --- MODIFICATION ICI : Simuler un terminal propre ---
 
-            # Indicateur si tronqué
-            if len(clean_text) > self.max_display:
-                hidden_chars = len(clean_text) - self.max_display
-                display_text = (
-                    f"[... {hidden_chars} caractères d'historique masqués ...]\n\n" + display_text
-                )
+            # Split par lignes pour analyse
+            lines = clean.split("\n")
+            display_lines = []
 
-            # CORRECTION : Utilisation d'un compteur au lieu du hash
-            StreamlitCapture._update_counter += 1
+            for line in lines[-10:]:  # N'affiche que les 10 dernières lignes pour la performance
+                match = self.action_pattern.match(line)
+                if match:
+                    # Rendre les étapes Crew plus lisibles
+                    action, role, desc = match.groups()
+                    if action == "TASK":
+                        display_lines.append(f"🤖 **{role}** : *{desc}*")
+                    elif action == "INFO":
+                        display_lines.append(f"➡️ {desc}")
+                    elif action == "SUCCESS":
+                        display_lines.append(f"✅ {role}: {desc}")
+                    elif action == "ERROR":
+                        display_lines.append(f"❌ {role}: {desc}")
+                    else:
+                        display_lines.append(line)
+                else:
+                    display_lines.append(line)
 
-            # Affichage avec scroll
-            self.container.text_area(
-                "📜 Historique des logs de collaboration",
-                value=display_text,
-                height=500,  # Hauteur fixe pour le scroll
-                key=f"crew_logs_update_{StreamlitCapture._update_counter}",  # Clé unique avec compteur
-                disabled=True,
-                help="Logs complets avec scroll - Les codes de couleur ANSI ont été nettoyés pour une meilleure lisibilité",
+            # Utiliser un markdown pour la lisibilité (plus propre que st.code)
+            self.container.markdown("\n".join(display_lines), unsafe_allow_html=True)
+
+
+def render_crew_diagram(agents):
+    if not agents:
+        return
+    try:
+        graph = graphviz.Digraph()
+        graph.attr(rankdir="LR", bgcolor="transparent")
+        graph.attr("node", shape="box", style="rounded,filled", fillcolor="white", fontname="Arial")
+        graph.node("Start", "🚀 Début", shape="circle", fillcolor="#e0e0e0")
+        prev_node = "Start"
+        for i, agent in enumerate(agents):
+            tools_count = len(agent.get("tools", []))
+            label = f"<{agent['role']}<BR/><FONT POINT-SIZE='10' COLOR='GRAY'>({tools_count} outils)</FONT>>"
+            node_id = f"agent_{i}"
+            graph.node(node_id, label)
+            graph.edge(prev_node, node_id)
+            prev_node = node_id
+        graph.node("End", "🏁 Rapport", shape="doublecircle", fillcolor="#d1ffd6")
+        graph.edge(prev_node, "End")
+        st.graphviz_chart(graph, use_container_width=True)
+    except Exception:
+        st.caption("⚠️ Impossible d'afficher le graphique (Graphviz manquant ?)")
+
+
+# ========================================
+# 4. MODALE BIBLIOTHÈQUE
+# ========================================
+
+
+@st.dialog("📚 Modèles d'Équipes (Templates)")
+def open_crew_library(installed_models_list):
+    st.caption("Chargez une configuration d'équipe pré-établie.")
+    for cat, workflows in CREW_PROMPT_LIBRARY.items():
+        st.subheader(f"{cat}")
+        cols = st.columns(2)
+        for i, (name, data) in enumerate(workflows.items()):
+            with cols[i % 2], st.container(border=True):
+                st.markdown(f"**{name}**")
+                st.caption(data["description"])  # ✅ Utilise maintenant "description"
+                if st.button("Charger", key=f"load_{name}", use_container_width=True):
+                    default_tag = installed_models_list[0]["model"] if installed_models_list else ""
+                    st.session_state.crew_agents = []
+                    for agent in data["suggested_crew"]:  # ✅ Utilise maintenant "suggested_crew"
+                        st.session_state.crew_agents.append(
+                            {
+                                "role": agent["role"],
+                                "goal": agent["goal"],
+                                "backstory": agent.get(
+                                    "backstory", "Expert qualifié dans son domaine"
+                                ),  # ✅ Utilise backstory
+                                "model_tag": default_tag,
+                                "tools": agent.get("tools", []),
+                            }
+                        )
+                    st.session_state.crew_topic = data["prompt"]
+                    st.session_state.crew_library_loaded = True
+                    st.rerun()
+
+    if st.button("Fermer"):
+        st.rerun()
+
+
+# ========================================
+# 5. RENDU PRINCIPAL
+# ========================================
+
+
+def render_agent_crew_tab(
+    installed_models_list: list, display_to_tag: dict, sorted_labels: list, avail_ram_gb: float
+):
+
+    # Init session_state
+    if "crew_agents" not in st.session_state:
+        default_tag = installed_models_list[0]["model"] if installed_models_list else ""
+        st.session_state.crew_agents = [
+            {
+                "role": "Analyste Principal",
+                "goal": "Réaliser l'analyse demandée",
+                "model_tag": default_tag,
+                "backstory": "Expert consultant Wavestone spécialisé en IA",
+                "tools": ["calculator", "system_monitor"],
+            }
+        ]
+    if "crew_topic" not in st.session_state:
+        st.session_state.crew_topic = "Analyser l'impact de l'IA."
+
+    if st.session_state.get("crew_library_loaded"):
+        st.toast("✅ Configuration chargée !", icon="🚀")
+        st.session_state.crew_library_loaded = False
+
+    # --- A. TOP BAR ---
+    with st.container(border=True):
+        c_dash_1, c_dash_2, c_dash_3 = st.columns([4, 2, 1])
+        with c_dash_1:
+            st.markdown(f"**Mission :** {st.session_state.crew_topic}")
+            st.caption(f"👥 Équipe de {len(st.session_state.crew_agents)} agents")
+        with c_dash_2:
+            main_agent_model = st.session_state.crew_agents[0].get("model_tag", "N/A")
+            friendly_lbl = next(
+                (k for k, v in display_to_tag.items() if v == main_agent_model), "Multi-modèles"
             )
+            st.markdown("**Modèle Principal**")
+            st.caption(friendly_lbl)
+        with c_dash_3:
+            if st.button("📂 Ouvrir", icon="📚", use_container_width=True):
+                open_crew_library(installed_models_list)
 
+    # --- B. CONFIGURATION ---
+    with st.expander("🛠️ Configuration de l'Équipe & Édition", expanded=False):
+        st.markdown("##### 🎯 Objectif Global")
+        new_topic = st.text_input(
+            "Sujet de la mission", value=st.session_state.crew_topic, label_visibility="collapsed"
+        )
+        st.session_state.crew_topic = new_topic
 
-# ========================================
-# INTERFACE PRINCIPALE
-# ========================================
+        st.divider()
+        st.markdown("##### 👥 Membres de l'équipe")
 
-
-def render_agent_crew_tab(installed_models_list: list, display_to_tag: dict, sorted_labels: list):
-    """
-    Rendu de l'onglet Multi-Agent avec sélection d'outils par agent et prompts prédéfinis.
-    """
-
-    # IMPORTANT : Réinitialiser le compteur au début de chaque rendu
-    StreamlitCapture._update_counter = 0
-
-    st.subheader("🤖 Orchestration Multi-Agents (Dynamique)")
-    st.caption(
-        "Composez votre équipe, assignez les outils et modèles, et observez la collaboration."
-    )
-
-    # ========================================
-    # SECTION 1 : BIBLIOTHÈQUE DE WORKFLOWS
-    # ========================================
-
-    with st.expander("📚 Bibliothèque de Workflows Prédéfinis", expanded=False):
-        st.markdown("*Sélectionnez un workflow pour pré-configurer une équipe d'agents optimisée*")
-
-        # Sélection par catégorie
-        workflow_category = st.selectbox(
-            "Catégorie de workflow",
-            options=list(CREW_PROMPT_LIBRARY.keys()),
-            key="workflow_category",
+        n_agents = len(st.session_state.crew_agents)
+        tabs = st.tabs(
+            [f"🕵️ {a['role']}" for a in st.session_state.crew_agents] + ["➕ Ajouter Agent"]
         )
 
-        workflows_in_category = CREW_PROMPT_LIBRARY[workflow_category]
+        for i, agent in enumerate(st.session_state.crew_agents):
+            with tabs[i]:
+                c_conf_1, c_conf_2 = st.columns([2, 1])
+                with c_conf_1:
+                    agent["role"] = st.text_input("Rôle", agent["role"], key=f"role_{i}")
+                    agent["goal"] = st.text_area(
+                        "Objectif Individuel", agent["goal"], key=f"goal_{i}", height=100
+                    )
+                    agent["backstory"] = st.text_area(
+                        "Backstory", agent.get("backstory", ""), key=f"back_{i}", height=68
+                    )
 
-        # Affichage des workflows disponibles
-        for workflow_name, workflow_data in workflows_in_category.items():
-            with st.container(border=True):
-                col_info, col_action = st.columns([3, 1])
+                with c_conf_2:
+                    cur_tag = agent.get("model_tag")
+                    cur_lbl = next(
+                        (k for k, v in display_to_tag.items() if v == cur_tag),
+                        sorted_labels[0] if sorted_labels else "",
+                    )
+                    new_lbl = st.selectbox(
+                        "Modèle IA",
+                        sorted_labels,
+                        index=sorted_labels.index(cur_lbl) if cur_lbl in sorted_labels else 0,
+                        key=f"mod_{i}",
+                    )
+                    agent["model_tag"] = display_to_tag[new_lbl]
 
-                with col_info:
-                    st.markdown(f"**{workflow_name}**")
-                    st.caption(workflow_data["description"])
-                    st.info(f"🎯 Mission : *{workflow_data['prompt']}*")
-                    st.caption(f"👥 {len(workflow_data['suggested_crew'])} agent(s) suggéré(s)")
+                    all_tools = list(TOOLS_METADATA.keys())
+                    tool_names = [TOOLS_METADATA[t]["name"] for t in all_tools]
+                    cur_tools = [
+                        TOOLS_METADATA[t]["name"]
+                        for t in agent.get("tools", [])
+                        if t in TOOLS_METADATA
+                    ]
 
-                with col_action:
-                    if st.button("🚀 Charger", key=f"load_{workflow_name}"):
-                        # Chargement de l'équipe pré-configurée
-                        default_tag = (
-                            installed_models_list[0]["model"] if installed_models_list else ""
+                    st.markdown("**Outils**")
+                    try:
+                        sel_tools = st.pills(
+                            f"tools_{i}",
+                            tool_names,
+                            default=cur_tools,
+                            selection_mode="multi",
+                            key=f"pills_{i}",
+                            label_visibility="collapsed",
                         )
-
-                        st.session_state.crew_agents = []
-                        for agent_config in workflow_data["suggested_crew"]:
-                            st.session_state.crew_agents.append(
-                                {
-                                    "role": agent_config["role"],
-                                    "goal": agent_config["goal"],
-                                    "backstory": agent_config["backstory"],
-                                    "model_tag": default_tag,
-                                    "tools": agent_config.get("tools", []),
-                                }
-                            )
-
-                        st.session_state.crew_topic = workflow_data["prompt"]
-                        if "mission_input_key" not in st.session_state:
-                            st.session_state.mission_input_key = 0
-                        st.session_state.mission_input_key += 1
-
-                        st.success(
-                            f"✅ Équipe chargée ! {len(st.session_state.crew_agents)} agent(s) prêt(s)"
+                    except Exception:
+                        # Optionnel : loguer l'erreur pour le débogage
+                        # print(f"Erreur lors de la lecture du système: {e}")
+                        sel_tools = st.multiselect(
+                            "Outils",
+                            tool_names,
+                            default=cur_tools,
+                            key=f"pills_{i}",
+                            label_visibility="collapsed",
                         )
+                    name_to_id = {v["name"]: k for k, v in TOOLS_METADATA.items()}
+                    agent["tools"] = [name_to_id[n] for n in sel_tools]
+
+                    st.markdown("")
+                    if st.button(
+                        "🗑️ Retirer", key=f"del_{i}", type="secondary", use_container_width=True
+                    ):
+                        st.session_state.crew_agents.pop(i)
                         st.rerun()
 
-    st.divider()
-
-    # ========================================
-    # SECTION 2 : COMPOSITION DE L'ÉQUIPE
-    # ========================================
-
-    with st.expander("👥 Composition de l'équipe", expanded=True):
-
-        # Initialisation par défaut
-        if "crew_agents" not in st.session_state:
-            default_tag = installed_models_list[0]["model"] if installed_models_list else ""
-            st.session_state.crew_agents = [
-                {
-                    "role": "Chercheur",
-                    "goal": "Chercher des faits",
-                    "model_tag": default_tag,
-                    "backstory": "Tu es un expert factuel. Tu utilises toujours tes outils avant de répondre.",
-                    "tools": [],  # Pas d'outils par défaut
-                }
-            ]
-
-        agents_to_remove = []
-
-        for i, agent in enumerate(st.session_state.crew_agents):
-            st.markdown(f"**Agent #{i+1}**")
-            c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-
-            with c1:
-                agent["role"] = st.text_input("Rôle", agent["role"], key=f"role_{i}")
-                agent["goal"] = st.text_input("Objectif", agent["goal"], key=f"goal_{i}")
-
-            with c2:
-                # Sélection du modèle
-                current_tag = agent.get("model_tag")
-                current_friendly = next(
-                    (k for k, v in display_to_tag.items() if v == current_tag), None
+        with tabs[n_agents]:
+            st.info("Ajouter un nouvel expert à la séquence.")
+            if st.button("➕ Créer un nouvel Agent", type="primary"):
+                def_tag = installed_models_list[0]["model"] if installed_models_list else ""
+                st.session_state.crew_agents.append(
+                    {
+                        "role": "Nouvel Expert",
+                        "goal": "Réaliser une tâche spécifique",
+                        "model_tag": def_tag,
+                        "backstory": "Expert qualifié.",
+                        "tools": [],
+                    }
                 )
+                st.rerun()
 
-                if current_friendly not in sorted_labels:
-                    current_friendly = sorted_labels[0] if sorted_labels else None
+    # --- C. VISUALISATION DU FLUX ---
+    st.markdown("##### 🔗 Workflow Visuel")
+    render_crew_diagram(st.session_state.crew_agents)
 
-                if sorted_labels and current_friendly:
-                    selected = st.selectbox(
-                        "Modèle",
-                        sorted_labels,
-                        index=sorted_labels.index(current_friendly),
-                        key=f"model_{i}",
-                    )
-                    agent["model_tag"] = display_to_tag[selected]
-                else:
-                    st.error("Aucun modèle")
+    # --- D. EXÉCUTION & PRE-FLIGHT CHECK (NOUVEAU) ---
 
-            with c3:
-                # Sélection des outils pour cet agent
-                st.markdown("🧰 **Outils**")
-
-                # Liste des outils disponibles
-                available_tool_names = list(TOOLS_METADATA.keys())
-                tool_labels = [TOOLS_METADATA[t]["name"] for t in available_tool_names]
-
-                # Récupération des outils actuels de l'agent
-                current_tools = agent.get("tools", [])
-
-                # Multiselect pour choisir les outils
-                selected_tool_labels = st.multiselect(
-                    "Sélectionner",
-                    options=tool_labels,
-                    default=[
-                        TOOLS_METADATA[t]["name"] for t in current_tools if t in TOOLS_METADATA
-                    ],
-                    key=f"tools_{i}",
-                    help="Sélectionnez les outils que cet agent pourra utiliser",
-                )
-
-                # Conversion des labels en noms techniques
-                label_to_name = {TOOLS_METADATA[t]["name"]: t for t in available_tool_names}
-                agent["tools"] = [
-                    label_to_name[label] for label in selected_tool_labels if label in label_to_name
-                ]
-
-                # Affichage du nombre d'outils
-                st.caption(f"🔧 {len(agent['tools'])} outil(s)")
-
-            with c4:
-                # Prompt Système (Backstory)
-                agent["backstory"] = st.text_area(
-                    "Backstory",
-                    agent.get("backstory", ""),
-                    height=90,
-                    key=f"back_{i}",
-                )
-
-            # Bouton de suppression
-            col_del = st.columns([6, 1])
-            if col_del[1].button("🗑️ Supprimer", key=f"del_{i}"):
-                agents_to_remove.append(i)
-
-            st.divider()
-
-        # Suppression effective
-        for i in reversed(agents_to_remove):
-            st.session_state.crew_agents.pop(i)
-            st.rerun()
-
-        # Bouton d'ajout
-        if st.button("➕ Ajouter un Agent"):
-            default_tag = installed_models_list[0]["model"] if installed_models_list else ""
-            st.session_state.crew_agents.append(
-                {
-                    "role": "Analyste",
-                    "goal": "Synthétiser",
-                    "model_tag": default_tag,
-                    "backstory": "Tu es concis et analytique.",
-                    "tools": [],  # Pas d'outils par défaut
-                }
-            )
-            st.rerun()
-
-    # ========================================
-    # SECTION 3 : MISSION GLOBALE
-    # ========================================
-
-    # Initialisation du topic
-    if "crew_topic" not in st.session_state:
-        st.session_state.crew_topic = "Analyser l'impact de l'IA sur le conseil."
-
-    crew_topic = st.text_input(
-        "🎯 Mission Globale",
-        value=st.session_state.crew_topic,
-        key=f"mission_input_{st.session_state.get('mission_input_key', 0)}",  # Key dynamique
+    # 1. Calcul Prédictif
+    est_ram = estimate_mission_impact(
+        st.session_state.crew_agents, st.session_state.crew_agents[0]["model_tag"]
     )
-    st.session_state.crew_topic = crew_topic
+    is_risky = est_ram > avail_ram_gb
 
-    # ========================================
-    # SECTION 4 : EXÉCUTION
-    # ========================================
+    # 2. Affichage Estimation
+    with st.container(border=True):
+        ce_1, ce_2 = st.columns([3, 1])
+        with ce_1:
+            st.markdown("**🛠️ Pre-flight Check**")
+            if is_risky:
+                st.error(
+                    f"⚠️ **Attention !** Cette mission requiert ~{est_ram:.1f} GB de RAM. Vous n'avez que {avail_ram_gb:.1f} GB."
+                )
+                st.caption(
+                    "👉 Conseil : Purgez la mémoire dans la sidebar ou réduisez le nombre d'agents."
+                )
+            else:
+                st.success(
+                    f"✅ **Système prêt.** Estimation : ~{est_ram:.1f} GB (Disponible : {avail_ram_gb:.1f} GB)"
+                )
+        with ce_2:
+            # Bouton désactivé ou rouge si risqué
+            launch_label = "⚠️ Risqué" if is_risky else "🚀 Lancer"
+            launch_type = "secondary" if is_risky else "primary"
+            launch_btn = st.button(
+                launch_label, type=launch_type, use_container_width=True, disabled=False
+            )  # On laisse clickable mais avec warning visuel
 
-    if st.button("🚀 Lancer la Mission Multi-Agents", type="primary"):
+    if launch_btn:
         if not st.session_state.crew_agents:
-            st.error("❌ Il faut au moins un agent !")
+            st.error("Besoin d'au moins 1 agent !")
             st.stop()
 
-        # Affichage du résumé de l'équipe
-        with st.expander("📋 Résumé de l'équipe", expanded=True):
-            for i, agent in enumerate(st.session_state.crew_agents):
-                st.markdown(
-                    f"""
-                **Agent {i+1} : {agent['role']}**
-                - Objectif : {agent['goal']}
-                - Modèle : {agent['model_tag']}
-                - Outils : {', '.join([TOOLS_METADATA[t]['name'] for t in agent['tools']]) if agent['tools'] else 'Aucun'}
-                """
-                )
+        st.divider()
+        status_box = st.status("🏗️ Orchestration des agents...", expanded=True)
 
-        # Pre-Flight Check RAM
-        total_ram_needed = 0
-        tags_used = [a["model_tag"] for a in st.session_state.crew_agents]
-        for tag in set(tags_used):
-            total_ram_needed += ResourceManager.estimate_model_ram(tag)
+        with st.expander("🛠️ Logs Terminaux (Temps réel)", expanded=False):
+            log_box = st.empty()
+            output_capture = StreamlitCapture(log_box)
 
-        avail = ResourceManager.get_available_ram_gb()
-        if avail < total_ram_needed:
-            st.warning(
-                f"⚠️ Attention : Besoin estimé {total_ram_needed:.1f}GB vs Dispo {avail:.1f}GB. Risque de swap."
-            )
-
-        # Exécution
-        log_container = st.empty()
-        output_capture = StreamlitCapture(log_container)
-
-        with (
-            st.spinner("🤝 Collaboration en cours... (Voir logs ci-dessous)"),
-            redirect_stdout(output_capture),
-        ):
-
+        with redirect_stdout(output_capture):
             t_start = time.perf_counter()
-            ram_start = psutil.virtual_memory().used / (1024**3)
+            tracker = GreenTracker("crew_mission")
+            tracker.start()
 
-            with GreenTracker("crew_mission"):
-                try:
-                    # Création de la Crew avec la config utilisateur
-                    crew = CrewFactory.create_custom_crew(st.session_state.crew_agents, crew_topic)
+            ram_start = psutil.virtual_memory().used
+            peak_container = {"val": ram_start}
+            stop_evt = threading.Event()
 
-                    # Lancement
-                    result = crew.kickoff()
+            def mon():
+                while not stop_evt.is_set():
+                    peak_container["val"] = max(peak_container["val"], psutil.virtual_memory().used)
+                    time.sleep(0.5)
 
-                    # Fin du tracking
-                    t_end = time.perf_counter()
-                    ram_end = psutil.virtual_memory().used / (1024**3)
-                    ram_peak = max(0, ram_end - ram_start)
+            threading.Thread(target=mon).start()
 
-                    # Affichage des résultats
-                    st.success("✅ Mission terminée !")
+            try:
+                status_box.write("🤝 Les agents collaborent...")
 
-                    col_m1, col_m2, col_m3 = st.columns(3)
-                    with col_m1:
-                        st.metric("⏱️ Durée", f"{t_end - t_start:.2f} s")
-                    with col_m2:
-                        st.metric("👥 Agents", len(st.session_state.crew_agents))
-                    with col_m3:
-                        st.metric("💾 RAM (Delta)", f"{ram_peak:.2f} GB")
+                crew = CrewFactory.create_custom_crew(
+                    st.session_state.crew_agents, st.session_state.crew_topic
+                )
+                result = crew.kickoff()
 
-                    st.divider()
+                stop_evt.set()
+                emissions_mg = tracker.stop() * 1000.0
+                t_end = time.perf_counter()
+                ram_gb_peak_delta = (peak_container["val"] - ram_start) / (1024**3)
 
-                    # Résultat final
-                    st.subheader("📄 Résultat de la Collaboration")
-                    st.markdown(result)
+                # UPDATE BUDGET GAMIFICATION
+                if "carbon_budget" in st.session_state:
+                    impact_percent = emissions_mg / 1000.0  # 1g = 1% arbitraire
+                    st.session_state.carbon_budget -= impact_percent
 
-                except Exception as e:
-                    st.error(f"💥 Erreur lors de l'exécution : {e}")
-                    with st.expander("🔍 Traceback complet"):
-                        st.code(traceback.format_exc())
+                status_box.update(label="✅ Mission Terminée !", state="complete", expanded=False)
+
+                st.success("Mission accomplie. Voici le rapport :")
+
+                k1, k2, k3, k4 = st.columns(4)
+                k1.metric("⏱️ Temps", f"{t_end - t_start:.1f}s")
+                k2.metric("💾 RAM Max", f"{ram_gb_peak_delta:.2f} GB")
+
+                c_val = f"{emissions_mg:.2f} mg"
+                c_delta_color = "normal"
+                if emissions_mg > 100:
+                    c_delta_color = "inverse"
+                k3.metric("🌍 Carbone", c_val, delta="- Budget", delta_color=c_delta_color)
+
+                k4.download_button("📥 Télécharger", data=str(result), file_name="rapport.md")
+
+                st.markdown("---")
+                st.markdown(result)
+
+            except Exception as e:
+                stop_evt.set()
+                status_box.update(label="❌ Échec", state="error")
+                st.error(f"Erreur : {e}")
+                with st.expander("Trace"):
+                    st.code(traceback.format_exc())

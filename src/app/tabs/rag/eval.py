@@ -1,228 +1,300 @@
+"""
+RAG Eval Tab - Sprint 3 (Dashboard Décisionnel)
+Changements :
+- Intégration de la bibliothèque Altair pour les graphiques.
+- Création d'un "Podium" pour les 3 meilleurs modèles.
+- Matrice de Décision : Graphique Qualité (Y) vs CO2 (X).
+- Séparation des données brutes (pour calculs) et formatées (pour affichage).
+"""
+
 import asyncio
 import time
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
+# --- SSOT GreenOps ---
+from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics  # ✅ Import essentiel
+from src.core.metrics import InferenceMetrics
 from src.core.models_db import extract_thought, get_model_info
+
+
+# --- HELPER PARSING ---
+def _extract_params_billions(val: str | int | float) -> float:
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not val or not isinstance(val, str):
+        return 0.0
+    s = val.upper().strip().replace(" ", "")
+    try:
+        if "X" in s and "B" in s:
+            parts = s.replace("B", "").split("X")
+            return float(parts[0]) * float(parts[1])
+        if s.endswith("B"):
+            return float(s[:-1])
+        if s.endswith("M"):
+            return float(s[:-1]) / 1000.0
+        if s.isdigit():
+            return float(s)
+    except Exception:
+        pass
+    return 0.0
 
 
 def render_rag_eval_tab(
     rag_engine, eval_engine, display_to_tag, tag_to_friendly, sorted_display_names
 ):
-    st.subheader("🎯 LLM-as-a-Judge : Benchmark Comparatif")
-    st.caption(
-        "Comparez les performances (Vitesse, RAM, CO2) et la pertinence de plusieurs modèles sur une même question RAG."
-    )
+
+    # EN-TÊTE
+    c_title, c_badge = st.columns([3, 1])
+    with c_title:
+        st.subheader("⚖️ Dashboard d'Évaluation (LLM-as-a-Judge)")
+        st.caption("Benchmark comparatif : Qualité vs Impact Environnemental.")
+    with c_badge:
+        # Petit badge informatif
+        st.info(
+            "💡 **GreenOps** : Le but est de trouver le modèle le plus léger possible qui maintient une qualité acceptable."
+        )
 
     if not eval_engine:
-        st.error("Le moteur d'évaluation n'est pas disponible (pip install ragas).")
+        st.error("⚠️ Le moteur d'évaluation (Ragas) n'est pas installé.")
         return
 
+    st.divider()
+
+    # 1. CONFIGURATION DU BENCHMARK
     col_conf, col_run = st.columns([1, 2])
 
     with col_conf:
-        st.markdown("#### 1. Configuration")
+        st.markdown("#### 1. Candidats")
         candidate_displays = st.multiselect(
-            "🤖 Modèles Candidats (Élèves)",
+            "Sélectionner les modèles à tester",
             sorted_display_names,
             default=[sorted_display_names[0]] if sorted_display_names else None,
-            help="Sélectionnez un ou plusieurs modèles à comparer.",
+            label_visibility="collapsed",
         )
         candidate_tags = [display_to_tag[d] for d in candidate_displays]
 
-        st.markdown("---")
-        st.markdown("#### ⚖️ Modèle Juge")
-
+        st.markdown("#### 2. Juge")
+        # Auto-select a smart model as judge
         default_judge_idx = 0
         for i, d in enumerate(sorted_display_names):
             if "mistral" in d.lower() or "gpt" in d.lower() or "large" in d.lower():
                 default_judge_idx = i
 
-        judge_display = st.selectbox(
-            "Sélectionner le Juge",
-            sorted_display_names,
-            index=default_judge_idx,
-            key="eval_judge",
-            help="Utilisez un modèle performant pour noter les autres.",
-        )
+        judge_display = st.selectbox("Modèle Juge", sorted_display_names, index=default_judge_idx)
         judge_tag = display_to_tag.get(judge_display)
 
     with col_run:
-        st.markdown("#### 2. Protocole de Test")
+        st.markdown("#### 3. Question de Référence")
         query = st.text_area(
-            "Question de référence",
-            "Quels sont les objectifs principaux du projet ?",
+            "Entrez une question complexe nécessitant le contexte documentaire",
+            "Quels sont les risques principaux mentionnés dans le document ?",
             height=100,
         )
 
-        if st.button("🚀 Lancer le Benchmark", type="primary"):
-            if not candidate_tags or not judge_tag:
-                st.error("Sélectionnez au moins un candidat et un juge.")
+        run_btn = st.button("🚀 Lancer le Benchmark", type="primary", use_container_width=True)
+
+    # 2. LOGIQUE D'EXÉCUTION
+    if run_btn:
+        if not candidate_tags or not judge_tag:
+            st.error("Veuillez sélectionner au moins un candidat et un juge.")
+            st.stop()
+
+        # A. Retrieval Commun (Pour équité)
+        with st.spinner("🔍 Récupération du contexte commun..."):
+            try:
+                retrieved_docs = rag_engine.search(query, k=3)
+                contexts = [doc.page_content for doc in retrieved_docs]
+                if not contexts:
+                    st.warning("⚠️ Aucun document trouvé. L'évaluation risque d'être faussée.")
+            except Exception as e:
+                st.error(f"Erreur Retrieval : {e}")
                 st.stop()
 
-            # 1. Retrieval Commun (Pour être équitable, tous les modèles ont le même contexte)
-            with st.spinner("🔍 Récupération du contexte (RAG Common)..."):
-                try:
-                    retrieved_docs = rag_engine.search(query, k=3)
-                    contexts = [doc.page_content for doc in retrieved_docs]
-                    if not contexts:
-                        st.error("❌ Aucun document trouvé pour cette question.")
-                        st.stop()
-                except Exception as e:
-                    st.error(f"Erreur Retrieval : {e}")
-                    st.stop()
+        # B. Boucle d'évaluation
+        results_raw = []  # Pour les graphiques (floats)
+        detailed_responses = {}
 
-            results_data = []
-            detailed_responses = {}
-            prog_container = st.status("📊 Exécution du Benchmark...", expanded=True)
-            total_steps = len(candidate_tags)
-            prog_bar = prog_container.progress(0.0)
+        prog_container = st.status("📊 Benchmark en cours...", expanded=True)
+        total_steps = len(candidate_tags)
+        prog_bar = prog_container.progress(0.0)
 
-            # Fonction helper pour capturer les métriques du stream
-            async def _stream_and_capture(model_tag: str, prompt_text: str):
-                txt = ""
-                captured_metrics = None
+        # Helper Async
+        async def _stream_and_capture(model_tag, prompt_text):
+            txt = ""
+            metrics = None
+            stream = LLMProvider.chat_stream(
+                model_tag, [{"role": "user", "content": prompt_text}], temperature=0.1
+            )
+            async for chunk in stream:
+                if isinstance(chunk, str):
+                    txt += chunk
+                elif isinstance(chunk, InferenceMetrics):
+                    metrics = chunk
+            return txt, metrics
 
-                stream = LLMProvider.chat_stream(
-                    model_tag,
-                    [{"role": "user", "content": prompt_text}],
-                    temperature=0.1,
+        for i, c_tag in enumerate(candidate_tags):
+            c_friendly = tag_to_friendly[c_tag]
+            prog_container.write(f"▶️ Test de **{c_friendly}**...")
+
+            try:
+                # Génération
+                context_block = "\n".join(contexts)
+                prompt_rag = f"Contexte:\n{context_block}\n\nQuestion: {query}"
+
+                t0 = time.perf_counter()
+                full_resp, metrics_obj = asyncio.run(_stream_and_capture(c_tag, prompt_rag))
+                d_gen = time.perf_counter() - t0
+
+                thought, clean_answer = extract_thought(full_resp)
+
+                # Calcul Carbone (SSOT)
+                carbon_mg = 0.0
+                info = get_model_info(c_friendly) or {}
+                ram_gb = 0.0
+
+                if metrics_obj:
+                    ram_gb = metrics_obj.model_size_gb or 0.0
+                    if info.get("type") == "api" and metrics_obj.output_tokens > 0:
+                        p = _extract_params_billions(
+                            info.get("params_act") or info.get("params_tot", "0")
+                        )
+                        carbon_mg = (
+                            CarbonCalculator.compute_mistral_impact_g(p, metrics_obj.output_tokens)
+                            * 1000
+                        )
+                    else:
+                        carbon_mg = (
+                            CarbonCalculator.compute_local_theoretical_g(metrics_obj.output_tokens)
+                            * 1000
+                        )
+
+                # Notation Juge
+                prog_container.write("   ⚖️ Le juge délibère...")
+                eval_result = eval_engine.evaluate_single_turn(
+                    query=query,
+                    response=clean_answer,
+                    retrieved_contexts=contexts,
+                    judge_tag=judge_tag,
+                    embedding_model=rag_engine.embedding_model,
                 )
-                async for chunk in stream:
-                    if isinstance(chunk, str):
-                        txt += chunk
-                    elif isinstance(chunk, InferenceMetrics):
-                        captured_metrics = chunk
 
-                return txt, captured_metrics
-
-            for i, c_tag in enumerate(candidate_tags):
-                c_friendly = tag_to_friendly[c_tag]
-                prog_container.write(f"▶️ [{i+1}/{total_steps}] Évaluation de **{c_friendly}**...")
-
-                try:
-                    # --- PRÉPARATION DU PROMPT RAG ---
-                    # ✅ CORRECTION 1 : Construction de la variable prompt_rag manquante
-                    context_block = "\n".join(contexts)
-                    prompt_rag = (
-                        f"Tu es un assistant expert. Utilise le contexte suivant pour répondre à la question.\n\n"
-                        f"Contexte:\n{context_block}\n\n"
-                        f"Question: {query}"
-                    )
-
-                    # --- CHRONO GÉNÉRATION ---
-                    t_gen_start = time.perf_counter()
-                    prog_container.write("   🎤 Génération...")
-
-                    full_resp, metrics_obj = asyncio.run(_stream_and_capture(c_tag, prompt_rag))
-
-                    d_gen = time.perf_counter() - t_gen_start
-                    prog_container.write(f"   ✅ Généré en {d_gen:.2f}s")
-
-                    thought, clean_answer = extract_thought(full_resp)
-                    out_tokens = len(full_resp) // 4
-
-                    # --- CHRONO NOTATION ---
-                    t_eval_start = time.perf_counter()
-                    prog_container.write("   ⚖️ Notation par le Juge...")
-
-                    # On récupère l'embedding actif depuis le RAGEngine
-                    active_embedding_model = rag_engine.embedding_model
-
-                    eval_result = eval_engine.evaluate_single_turn(
-                        query=query,
-                        response=clean_answer,
-                        retrieved_contexts=contexts,
-                        judge_tag=judge_tag,
-                        embedding_model=active_embedding_model,
-                    )
-                    d_eval = time.perf_counter() - t_eval_start
-                    prog_container.write(f"   ✅ Noté en {d_eval:.2f}s")
-
-                    # --- RÉCUPÉRATION DES MÉTRIQUES ---
-                    # Récupération des vraies valeurs mesurées par LLMProvider
-                    real_ram = metrics_obj.model_size_gb if metrics_obj else None
-                    real_co2 = metrics_obj.carbon_g if metrics_obj else None
-
-                    # Fallback sur les valeurs statiques (JSON) si pas de mesure live (ex: API Cloud)
-                    if real_ram is None or real_ram == 0:
-                        info = get_model_info(c_friendly) or {}
-                        bench_stats = info.get("benchmark_stats", {})
-                        real_ram = bench_stats.get("ram_usage_gb")
-
-                    results_data.append(
-                        {
-                            "Modèle": c_friendly,
-                            "Score Global": f"{eval_result.global_score * 100:.0f}/100",
-                            "Fidélité": eval_result.faithfulness,
-                            "Pertinence": eval_result.answer_relevancy,
-                            "Durée (s)": round(
-                                d_gen, 2
-                            ),  # ✅ CORRECTION 2 : Utilisation de d_gen au lieu de duration
-                            "Out Tokens": out_tokens,
-                            "RAM (Go)": real_ram,
-                            "CO2 (g)": real_co2,
-                        }
-                    )
-
-                    detailed_responses[c_friendly] = {
-                        "text": clean_answer,
-                        "thought": thought,
-                        "score": eval_result.global_score,
+                # Stockage Brut
+                results_raw.append(
+                    {
+                        "Modèle": c_friendly,
+                        "Score": eval_result.global_score,  # Float 0-1
+                        "CO2_mg": carbon_mg,  # Float
+                        "Latence_s": d_gen,  # Float
+                        "Fidélité": eval_result.faithfulness,
+                        "Pertinence": eval_result.answer_relevancy,
+                        "RAM_GB": ram_gb,
                     }
+                )
 
-                except Exception as e:
-                    st.error(f"Erreur sur {c_friendly}: {e}")
-                prog_bar.progress((i + 1) / total_steps)
+                detailed_responses[c_friendly] = {"text": clean_answer, "thought": thought}
 
-            prog_container.update(label="✅ Benchmark Terminé !", state="complete", expanded=False)
+            except Exception as e:
+                st.error(f"Erreur sur {c_friendly}: {e}")
+
+            prog_bar.progress((i + 1) / total_steps)
+
+        prog_container.update(label="✅ Benchmark Terminé !", state="complete", expanded=False)
+
+        # 3. VISUALISATION & PODIUM
+        if results_raw:
+            df = pd.DataFrame(results_raw)
 
             st.divider()
-            st.subheader("🏆 Tableau Comparatif")
 
-            if results_data:
-                df = pd.DataFrame(results_data)
-                # ✅ CORRECTION 3 : Alignement des clés de config avec les données
-                st.dataframe(
-                    df,
-                    column_config={
-                        "Score Global": st.column_config.ProgressColumn(
-                            "Qualité Globale",
-                            help="Moyenne Fidélité + Pertinence",
-                            format="%s",
-                            min_value=0,
-                            max_value=100,
-                        ),
-                        "Fidélité": st.column_config.NumberColumn(
-                            "Fidélité", help="Respect du contexte documentaire (0-1)", format="%.2f"
-                        ),
-                        "Durée (s)": st.column_config.NumberColumn("Latence", format="%.2f s"),
-                        "RAM (Go)": st.column_config.NumberColumn("RAM (Go)", format="%.1f GB"),
-                        "CO2 (g)": st.column_config.NumberColumn(
-                            "CO2 (g)", format="%.6f g", help="Impact carbone mesuré (CodeCarbon)."
-                        ),
-                    },
-                    use_container_width=True,
-                    hide_index=True,
+            # A. PODIUM (Top 3 Scores)
+            st.markdown("### 🏆 Le Podium Qualité")
+            df_sorted = df.sort_values("Score", ascending=False).reset_index(drop=True)
+
+            cols_podium = st.columns(3)
+            medals = ["🥇", "🥈", "🥉"]
+
+            for i in range(min(3, len(df_sorted))):
+                row = df_sorted.iloc[i]
+                with cols_podium[i], st.container(border=True):
+                    st.markdown(f"#### {medals[i]} {row['Modèle']}")
+                    s_percent = row["Score"] * 100
+                    st.metric("Score Global", f"{s_percent:.0f}/100")
+                    st.caption(f"Coût : {row['CO2_mg']:.2f} mgCO₂")
+
+            st.divider()
+
+            # B. MATRICE DE DÉCISION (Altair Chart)
+            # Axe X : Impact CO2 (On veut le plus bas possible -> à gauche)
+            # Axe Y : Qualité (On veut le plus haut possible -> en haut)
+            # Le "Sweet Spot" est en haut à gauche.
+
+            st.markdown("### 🎯 Matrice de Décision : Qualité vs Impact")
+            st.caption(
+                "Le modèle idéal se situe en **haut à gauche** (Haute Qualité, Faible Impact)."
+            )
+
+            chart = (
+                alt.Chart(df)
+                .mark_circle(size=150)
+                .encode(
+                    x=alt.X("CO2_mg", title="Impact CO₂ (mg) - Plus bas est mieux"),
+                    y=alt.Y(
+                        "Score",
+                        title="Qualité Globale (0-1) - Plus haut est mieux",
+                        scale=alt.Scale(domain=[0, 1]),
+                    ),
+                    color="Modèle",
+                    tooltip=[
+                        "Modèle",
+                        alt.Tooltip("Score", format=".2%"),
+                        alt.Tooltip("CO2_mg", format=".2f"),
+                        "Latence_s",
+                    ],
                 )
+                .interactive()
+            )
 
-                st.subheader("📝 Analyse des Réponses & Sources")
-                with st.expander("📄 Voir les Contextes utilisés (Communs à tous)", expanded=False):
-                    for k, ctx in enumerate(contexts):
-                        st.info(f"**Chunk {k+1}** : {ctx[:300]}...")
+            st.altair_chart(chart, use_container_width=True)
 
-                for name, data in sorted(
-                    detailed_responses.items(), key=lambda x: x[1]["score"], reverse=True
-                ):
-                    score_txt = f"{data['score']*100:.0f}/100"
-                    with st.expander(f"🤖 {name} (Note: {score_txt})", expanded=False):
-                        if data["thought"]:
-                            st.markdown("#### 💭 Raisonnement (Chain of Thought)")
-                            st.info(data["thought"])
-                        st.markdown("#### 🎤 Réponse")
-                        st.markdown(data["text"])
-            else:
-                st.warning("Aucun résultat généré.")
+            # C. TABLEAU DÉTAILLÉ
+            st.markdown("### 📝 Données Détaillées")
+
+            # Formatage pour l'affichage tableau uniquement
+            df_display = df.copy()
+            df_display["Score Global"] = (df_display["Score"] * 100).map("{:.0f}".format)
+
+            st.dataframe(
+                df_display,
+                column_config={
+                    "Modèle": st.column_config.TextColumn("Modèle", width="medium"),
+                    "Score Global": st.column_config.ProgressColumn(
+                        "Qualité", format="%s%%", min_value=0, max_value=100
+                    ),
+                    "CO2_mg": st.column_config.NumberColumn("CO₂ (mg)", format="%.2f"),
+                    "Latence_s": st.column_config.NumberColumn("Latence", format="%.2f s"),
+                    "RAM_GB": st.column_config.NumberColumn("RAM", format="%.1f GB"),
+                    # On cache les colonnes brutes intermédiaires si besoin
+                    "Score": None,
+                },
+                hide_index=True,
+                use_container_width=True,
+            )
+
+            # D. RÉPONSES TEXTUELLES
+            st.markdown("### 🔍 Analyse des Réponses")
+            with st.expander("📄 Voir le Contexte Documentaire utilisé", expanded=False):
+                for k, ctx in enumerate(contexts):
+                    st.text(f"--- Chunk {k+1} ---\n{ctx[:300]}...")
+
+            for name, data in detailed_responses.items():
+                with st.expander(f"Réponse de {name}"):
+                    if data["thought"]:
+                        st.info(f"💭 **Pensée:**\n{data['thought']}")
+                    st.markdown(data["text"])
+
+        else:
+            st.warning("Aucun résultat n'a été généré.")

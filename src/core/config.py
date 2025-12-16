@@ -21,6 +21,9 @@ MODELS_JSON_PATH = DATA_DIR / "models.json"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
+# Marge de sécurité RAM (en GB) pour l'OS et les autres apps
+SYSTEM_RAM_BUFFER_GB = 0.5
+
 # Configuration API
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 

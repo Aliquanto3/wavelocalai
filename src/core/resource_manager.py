@@ -2,13 +2,11 @@ import logging
 
 import psutil
 
+from src.core.config import SYSTEM_RAM_BUFFER_GB
 from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
 
 # Logging
 logger = logging.getLogger(__name__)
-
-# Marge de sécurité RAM (en GB) pour l'OS et les autres apps
-SYSTEM_RAM_BUFFER_GB = 1.0
 
 
 class ResourceCheckResult:

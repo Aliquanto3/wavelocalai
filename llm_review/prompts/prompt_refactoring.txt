@@ -1,30 +1,102 @@
-# Rôle
-Tu es un Senior Python Developer obsédé par le principe DRY (Don't Repeat Yourself) et la modularité.
+Tu es un Senior Python Developer avec 10+ ans d'expérience, expert en refactoring et en architecture logicielle. Tu appliques rigoureusement les principes SOLID, DRY et Clean Code.
 
-# Objectif
-Optimiser la base de code existante en détectant les redondances et la complexité inutile.
+# CONTEXTE & OBJECTIF
+Je vais te fournir une base de code Python (structure complète du projet). Ta mission est d'effectuer un audit technique approfondi pour identifier et corriger les anti-patterns, redondances et violations des bonnes pratiques.
 
-# Ta Mission
+# INSTRUCTIONS DÉTAILLÉES
 
-## 1. Chasse aux Doublons (Duplication)
-Analyse l'ensemble du code source `src/`.
-- Repère les blocs de code copiés-collés entre plusieurs fichiers (ex: est-ce que la logique de chargement de modèle est dupliquée dans le RAG et l'Arena ?).
-- Identifie les fonctions qui font presque la même chose et qui pourraient être fusionnées en une seule fonction générique avec des paramètres.
-- Vérifie si des constantes (ex: noms de modèles, chemins) sont hardcodées à plusieurs endroits au lieu d'être dans un fichier `config.py`.
+## ÉTAPE 1 : Analyse de Duplication
+Scanne l'ensemble du répertoire `src/` et identifie :
 
-## 2. Nettoyage des Imports
-- Liste les imports déclarés mais jamais utilisés dans le code (Unused Imports).
-- Repère les imports "wildcard" (`from module import *`) et propose de les remplacer par des imports explicites.
+1. **Duplication de code (≥ 5 lignes identiques ou similaires à 80%+)**
+   - Localise les blocs copiés-collés entre fichiers
+   - Détecte les fonctions avec logique similaire qui devraient être mutualisées
+   - Exemple : logique de chargement de modèle dupliquée entre RAG et Arena
 
-## 3. Modularité
-- Identifie les fonctions ou classes "Dieu" (God Object) qui sont trop longues (> 100 lignes) et propose un découpage logique.
-- Vérifie si de la logique métier (Core) a "fuité" dans les fichiers d'interface (App/Pages). Si oui, propose de la déplacer.
+2. **Constantes hardcodées**
+   - Repère les valeurs magiques (magic numbers/strings) répétées
+   - Identifie les configurations qui devraient être centralisées dans `config.py`
+   - Exemple : noms de modèles, chemins de fichiers, seuils numériques
 
-# Format de Réponse Attendu
+## ÉTAPE 2 : Optimisation des Imports
+Analyse tous les fichiers `.py` et liste :
 
-Pour chaque problème identifié, fournis :
-1.  **Localisation :** Fichier(s) et lignes concernés.
-2.  **Le Problème :** Pourquoi c'est une mauvaise pratique (ex: "Duplication de logique RAG").
-3.  **La Solution (Snippet) :** Le code refactorisé ou la stratégie de fusion proposée.
+1. **Imports inutilisés** : Déclarés mais jamais référencés dans le code
+2. **Imports wildcard** : `from module import *` → Propose les imports explicites
+3. **Imports circulaires** : Détecte les dépendances cycliques entre modules
+
+## ÉTAPE 3 : Refactoring Architectural
+
+1. **God Objects / Fonctions monolithiques**
+   - Identifie toute fonction > 100 lignes
+   - Repère les classes avec > 10 méthodes ou > 300 lignes
+   - Propose un découpage cohérent (Single Responsibility Principle)
+
+2. **Violation de séparation des couches**
+   - Détecte la logique métier (Core/Business Logic) dans les fichiers UI (Pages/App)
+   - Identifie les accès directs aux données depuis l'interface
+   - Propose une architecture en couches : UI → Service → Repository/Core
+
+3. **Couplage fort**
+   - Repère les imports croisés excessifs entre modules
+   - Suggère l'utilisation d'interfaces/abstractions (dependency injection)
+
+## ÉTAPE 4 : Analyse de Maintenabilité
+
+1. **Complexité cyclomatique élevée** : Fonctions avec > 10 branches conditionnelles
+2. **Nommage imprécis** : Variables à une lettre, noms non descriptifs
+3. **Manque de documentation** : Fonctions publiques sans docstring
+
+---
+
+# FORMAT DE SORTIE OBLIGATOIRE
+
+Pour chaque problème identifié, structure ta réponse ainsi :
+
+## 🔴 [CATÉGORIE] : [Titre du problème]
+
+**📍 Localisation :**
+- Fichier : `src/chemin/fichier.py`
+- Lignes : 45-67
+
+**⚠️ Problème :**
+[Explication claire de l'anti-pattern et son impact sur la maintenabilité]
+
+**✅ Solution Recommandée :**
+```python
+# Code refactorisé avec commentaires expliquant les changements
+def nouvelle_fonction_mutualisee(param1: str, param2: int) -> dict:
+    """
+    Docstring claire expliquant le but de la fonction.
+    """
+    # Logique optimisée
+    pass
+```
+
+**📊 Impact :**
+- Réduction de duplication : X lignes → Y lignes (-Z%)
+- Amélioration de la testabilité / réutilisabilité
+
+---
+
+# PRIORISATION
+
+Classe les problèmes par ordre de criticité :
+1. 🔥 **CRITIQUE** : Bugs potentiels, violations de sécurité
+2. 🟠 **HAUTE** : Duplication massive, God Objects
+3. 🟡 **MOYENNE** : Imports inutilisés, nommage imprécis
+4. 🟢 **BASSE** : Suggestions d'optimisation mineures
+
+---
+
+# BASE DE CODE À ANALYSER
 
 [COLLER LE CONTENU DE REVIEW_ME.TXT ICI]
+
+---
+
+# CONSIGNES FINALES
+- Fournis des exemples de code concrets et exécutables
+- Justifie chaque recommandation avec un principe de design (DRY, SOLID, etc.)
+- Propose des alternatives si plusieurs approches sont valables
+- Limite-toi aux 10 problèmes les plus impactants si la liste est trop longue
