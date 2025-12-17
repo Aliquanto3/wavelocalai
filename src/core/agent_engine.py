@@ -7,11 +7,9 @@ Modifications principales :
 - Détection du type de modèle via models.json (SOURCE DE VÉRITÉ)
 """
 
-import json
 import logging
 import os
 from collections.abc import Generator
-from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
@@ -19,48 +17,11 @@ from langgraph.prebuilt import create_react_agent
 
 from src.core.agent_tools import AVAILABLE_TOOLS, get_tools_by_names
 from src.core.model_detector import is_api_model
+from src.core.models_db import MODELS_DB, get_model_info
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Chargement de la base de données des modèles (SOURCE DE VÉRITÉ)
-MODELS_DB_PATH = Path(__file__).parent.parent.parent / "data" / "models.json"
-
-
-def load_models_db():
-    """Charge la base de données des modèles depuis models.json."""
-    try:
-        with open(MODELS_DB_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logger.warning(f"Fichier models.json non trouvé : {MODELS_DB_PATH}")
-        return {}
-    except json.JSONDecodeError as e:
-        logger.error(f"Erreur de parsing models.json : {e}")
-        return {}
-
-
-# Base de données globale des modèles
-MODELS_DB = load_models_db()
-
-
-def get_model_info_by_tag(ollama_tag: str) -> dict | None:
-    """
-    Récupère les informations d'un modèle à partir de son ollama_tag.
-
-    Args:
-        ollama_tag: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
-
-    Returns:
-        dict: Informations du modèle ou None si non trouvé
-    """
-    for _model_name, model_info in MODELS_DB.items():
-        if model_info.get("ollama_tag") == ollama_tag:
-            return model_info
-
-    logger.warning(f"Modèle non trouvé dans models.json : {ollama_tag}")
-    return None
 
 
 class AgentEngine:
@@ -264,7 +225,7 @@ def test_model_detection(model_tag: str):
     """Teste la détection du type d'un modèle."""
     print(f"\n🔍 Test de détection pour : {model_tag}\n")
 
-    info = get_model_info_by_tag(model_tag)
+    info = get_model_info(model_tag)
 
     if info:
         print("✅ Modèle trouvé dans models.json")

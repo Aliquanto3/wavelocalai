@@ -21,6 +21,7 @@ import streamlit as st
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
 from src.core.green_monitor import GreenTracker
+from src.core.model_profiles import estimate_mission_ram_gb, get_ram_risk_level
 
 # ========================================
 # 1. DONNÉES & CONFIGURATION (STRUCTURE CORRIGÉE)
@@ -108,36 +109,7 @@ CREW_PROMPT_LIBRARY = {
 }
 
 # ========================================
-# 2. HELPER ESTIMATION (NOUVEAU)
-# ========================================
-
-
-def estimate_mission_impact(agents, model_tag):
-    """
-    Estime la RAM requise et le coût carbone potentiel.
-    Heuristique simple pour la démo.
-    """
-    # 1. Estimation RAM Modèle (Heuristique simplifiée)
-    model_ram_base = 0.5  # Framework overhead
-    if "7b" in model_tag or "mistral" in model_tag:
-        model_ram_base += 4.5
-    elif "2b" in model_tag or "gemma" in model_tag:
-        model_ram_base += 1.8
-    elif "1b" in model_tag or "tiny" in model_tag:
-        model_ram_base += 0.8
-    else:
-        model_ram_base += 4.0  # Default fallback (supposé 7B/8B)
-
-    # 2. Estimation Overhead Agents (Context Window + History)
-    agent_overhead = len(agents) * 0.25
-
-    total_ram_gb = model_ram_base + agent_overhead
-
-    return total_ram_gb
-
-
-# ========================================
-# 3. UTILITAIRES UX
+# 2. UTILITAIRES UX
 # ========================================
 
 
@@ -213,7 +185,7 @@ def render_crew_diagram(agents):
 
 
 # ========================================
-# 4. MODALE BIBLIOTHÈQUE
+# 3. MODALE BIBLIOTHÈQUE
 # ========================================
 
 
@@ -251,7 +223,7 @@ def open_crew_library(installed_models_list):
 
 
 # ========================================
-# 5. RENDU PRINCIPAL
+# 4. RENDU PRINCIPAL
 # ========================================
 
 
@@ -397,10 +369,11 @@ def render_agent_crew_tab(
     # --- D. EXÉCUTION & PRE-FLIGHT CHECK (NOUVEAU) ---
 
     # 1. Calcul Prédictif
-    est_ram = estimate_mission_impact(
-        st.session_state.crew_agents, st.session_state.crew_agents[0]["model_tag"]
+    est_ram = estimate_mission_ram_gb(
+        st.session_state.crew_agents[0]["model_tag"], num_agents=len(st.session_state.crew_agents)
     )
-    is_risky = est_ram > avail_ram_gb
+    risk_level = get_ram_risk_level(est_ram, avail_ram_gb)
+    is_risky = risk_level in ("warning", "critical")
 
     # 2. Affichage Estimation
     with st.container(border=True):

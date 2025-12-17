@@ -19,28 +19,7 @@ from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
 from src.core.models_db import extract_thought, get_model_info
-
-
-# --- HELPER PARSING ---
-def _extract_params_billions(val: str | int | float) -> float:
-    if isinstance(val, (int, float)):
-        return float(val)
-    if not val or not isinstance(val, str):
-        return 0.0
-    s = val.upper().strip().replace(" ", "")
-    try:
-        if "X" in s and "B" in s:
-            parts = s.replace("B", "").split("X")
-            return float(parts[0]) * float(parts[1])
-        if s.endswith("B"):
-            return float(s[:-1])
-        if s.endswith("M"):
-            return float(s[:-1]) / 1000.0
-        if s.isdigit():
-            return float(s)
-    except Exception:
-        pass
-    return 0.0
+from src.core.utils import extract_params_billions as _extract_params_billions
 
 
 def render_rag_eval_tab(

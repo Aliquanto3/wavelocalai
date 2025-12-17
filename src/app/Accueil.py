@@ -164,7 +164,7 @@ def main():
             st.caption("🔒 Mode Local Strict activé")
 
     with c_copyright:
-        st.caption("© 2024 WaveLocalAI - Wavestone Tech Lab | v2.0.0 (Stable)")
+        st.caption("© 2025 WaveLocalAI - Wavestone Tech Lab | v2.0.0 (Stable)")
 
 
 if __name__ == "__main__":

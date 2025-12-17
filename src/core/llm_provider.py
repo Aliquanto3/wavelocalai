@@ -1,21 +1,18 @@
-import asyncio
+# src/core/llm_provider.py
+"""
+Gestionnaire unifié des LLM (Façade).
+
+Ce module maintient la compatibilité avec l'API existante tout en déléguant
+aux providers spécifiques via la factory.
+"""
+
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-import ollama
-from ollama import AsyncClient as OllamaAsyncClient
-
-try:
-    from mistralai import Mistral
-except ImportError:
-    Mistral = None
-
-from src.core.config import MISTRAL_API_KEY
-from src.core.green_monitor import GreenTracker, HardwareMonitor
-from src.core.metrics import InferenceMetrics, MetricsCalculator
+from src.core.metrics import InferenceMetrics
 from src.core.model_detector import is_api_model
-from src.core.models_db import get_cloud_models_from_db
+from src.core.providers.provider_factory import get_provider_factory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,265 +20,124 @@ logger = logging.getLogger(__name__)
 
 class LLMProvider:
     """
-    Gestionnaire unifié (Factory).
+    Façade unifiée pour l'accès aux LLM.
+
+    Maintient la compatibilité avec l'API existante tout en utilisant
+    la nouvelle architecture basée sur les providers.
+
+    Note: Cette classe est conservée pour la rétrocompatibilité.
+    Pour les nouveaux développements, préférez utiliser directement
+    la factory via get_provider_factory().
     """
 
     @staticmethod
     def _is_mistral_api_model(model_tag: str) -> bool:
-        # SIMPLIFIÉ : Utiliser le détecteur central
+        """Vérifie si un modèle est de type API Mistral."""
         return is_api_model(model_tag)
 
     @staticmethod
     def list_models(cloud_enabled: bool = True) -> list[dict[str, Any]]:
-        models = []
+        """
+        Liste tous les modèles disponibles.
 
-        # 1. Modèles Locaux (Via Ollama Runtime)
-        try:
-            ollama_resp = ollama.list()
-            raw_models = (
-                ollama_resp.models
-                if hasattr(ollama_resp, "models")
-                else ollama_resp.get("models", [])
-            )
+        Args:
+            cloud_enabled: Inclure les modèles cloud (Mistral)
 
-            for m in raw_models:
-                # Normalisation Dict
-                model_dict = (
-                    m.model_dump()
-                    if hasattr(m, "model_dump")
-                    else (m.__dict__ if hasattr(m, "__dict__") else dict(m))
-                )
-
-                model_dict["type"] = "local"
-                if "model" not in model_dict and "name" in model_dict:
-                    model_dict["model"] = model_dict["name"]
-
-                models.append(model_dict)
-        except Exception as e:
-            logger.error(f"Erreur Ollama list: {e}")
-
-        # 2. Modèles Cloud (Via JSON DB)
-        if cloud_enabled and MISTRAL_API_KEY:
-            cloud_models = get_cloud_models_from_db()
-            models.extend(cloud_models)
-
-        return models
+        Returns:
+            Liste des modèles avec leurs métadonnées
+        """
+        factory = get_provider_factory()
+        return factory.list_all_models(include_cloud=cloud_enabled)
 
     @staticmethod
     def pull_model(model_name: str) -> Any:
+        """
+        Télécharge un modèle via Ollama.
+
+        Args:
+            model_name: Nom du modèle à télécharger
+
+        Raises:
+            ValueError: Si tentative de télécharger un modèle cloud
+        """
         if LLMProvider._is_mistral_api_model(model_name):
             raise ValueError("Impossible de télécharger un modèle API Cloud.")
-        try:
-            return ollama.pull(model_name, stream=True)
-        except Exception as e:
-            logger.error(f"Erreur pull {model_name}: {e}")
-            raise e
+
+        factory = get_provider_factory()
+        ollama_provider = factory.get_provider_by_name("ollama")
+
+        if ollama_provider and hasattr(ollama_provider, "pull_model"):
+            return ollama_provider.pull_model(model_name)
+
+        raise ValueError("Provider Ollama non disponible")
 
     @staticmethod
     async def chat_stream(
         model_name: str,
         messages: list[dict[str, str]],
         temperature: float = 0.7,
-        system_prompt: str = None,
+        system_prompt: str | None = None,
     ) -> AsyncGenerator[str | InferenceMetrics, None]:
-        if LLMProvider._is_mistral_api_model(model_name):
-            if not MISTRAL_API_KEY:
-                yield "❌ Erreur : Clé API Mistral manquante."
-                return
-            async for chunk in LLMProvider._stream_mistral(
-                model_name, messages, temperature, system_prompt
-            ):
-                yield chunk
-        else:
-            async for chunk in LLMProvider._stream_ollama(
-                model_name, messages, temperature, system_prompt
-            ):
-                yield chunk
+        """
+        Génère une réponse en streaming.
 
-    @staticmethod
-    async def _stream_ollama(model_name, messages, temperature, system_prompt):
-        final_messages = messages.copy()
-        if system_prompt:
-            final_messages.insert(0, {"role": "system", "content": system_prompt})
+        Args:
+            model_name: Tag du modèle
+            messages: Historique de conversation
+            temperature: Créativité du modèle
+            system_prompt: Instruction système optionnelle
 
-        timer = MetricsCalculator()
+        Yields:
+            str: Tokens générés
+            InferenceMetrics: Métriques finales
+        """
+        factory = get_provider_factory()
 
-        # --- CORRECTION CO2 : INSTANCIATION MANUELLE ---
-        tracker = GreenTracker(project_name="wavelocal_eval")
-        tracker.start()  # Démarrage explicite
-
-        # Mesure RAM Avant
-        ram_start = HardwareMonitor.get_realtime_metrics().ram_used_gb
-
-        timer.start()
-        full_text = ""
-        eval_count = 0
-        prompt_eval_count = 0
-        load_duration = 0
-        emissions_kg = 0.0  # Valeur par défaut
-
-        client = OllamaAsyncClient()
         try:
-            stream = await client.chat(
-                model=model_name,
-                messages=final_messages,
-                stream=True,
-                options={
-                    "temperature": temperature,
-                    # "num_predict": 2048,   # <--- STOP FORCE : Limite le nombre de tokens générés
-                    "repeat_penalty": 1.15,  # <--- ANTI-BOUCLE : Punit les répétitions
-                    "stop": [
-                        "<|eot_id|>",
-                        "User:",
-                        "\n\n\n",
-                    ],  # <--- STOP SÉMANTIQUE : Arrêt sur mots clés
-                    "top_k": 40,  # (Optionnel) Aide à éviter les choix absurdes
-                    "top_p": 0.9,  # (Optionnel) Garde le focus
-                },
-            )
-            async for chunk in stream:
-                if "message" in chunk and "content" in chunk["message"]:
-                    content = chunk["message"]["content"]
-                    full_text += content
-                    yield content
-                if "done" in chunk and chunk["done"]:
-                    eval_count = chunk.get("eval_count", 0)
-                    prompt_eval_count = chunk.get("prompt_eval_count", 0)
-                    load_duration = chunk.get("load_duration", 0)
-
-            timer.stop()
-
-            # --- ARRÊT DU TRACKER ET RÉCUPÉRATION IMMÉDIATE ---
-            # tracker.stop() retourne la valeur calculée des émissions
-            emissions_kg = tracker.stop()
-
-            # Fallback de sécurité si CodeCarbon renvoie None (très court run)
-            if emissions_kg is None:
-                emissions_kg = 0.0
-
-            # Mesure RAM Après
-            ram_end = HardwareMonitor.get_realtime_metrics().ram_used_gb
-            ram_peak = max(ram_start, ram_end)
-
-            if eval_count == 0:
-                eval_count = len(full_text) / 4
-
-            duration = timer.duration
-            tps = eval_count / duration if duration > 0 else 0
-
-            yield InferenceMetrics(
+            provider = factory.get_provider(model_name)
+            async for chunk in provider.chat_stream(
                 model_name=model_name,
-                input_tokens=prompt_eval_count,
-                output_tokens=int(eval_count),
-                total_duration_s=round(duration, 2),
-                load_duration_s=round(load_duration / 1e9, 2),
-                tokens_per_second=round(tps, 1),
-                model_size_gb=ram_peak,
-                carbon_g=emissions_kg * 1000,  # Conversion kg -> g
-            )
+                messages=messages,
+                temperature=temperature,
+                system_prompt=system_prompt,
+            ):
+                yield chunk
+
+        except ValueError as e:
+            # Provider non disponible
+            logger.error(f"Provider error: {e}")
+            yield f"❌ Erreur : {e}"
 
         except Exception as e:
-            logger.error(f"Ollama Error: {e}")
-            # Sécurité : Arrêter le tracker si plantage
-            tracker.stop()
+            logger.error(f"Chat stream error for {model_name}: {e}")
             raise e
 
     @staticmethod
-    async def _stream_mistral(model_name, messages, temperature, system_prompt):
-        final_messages = messages.copy()
-        if system_prompt:
-            final_messages.insert(0, {"role": "system", "content": system_prompt})
-
-        timer = MetricsCalculator()
-        timer.start()
-        full_text = ""
-
-        # --- CONFIGURATION DU RETRY (Backoff) ---
-        max_retries = 3  # Nombre d'essais max
-        base_delay = 2  # Attente initiale en secondes
-
-        client = Mistral(api_key=MISTRAL_API_KEY)
-
-        stream_response = None
-
-        # On tente de récupérer le stream avec une boucle de réessai
-        for attempt in range(max_retries + 1):
-            try:
-                # Note: Si vous utilisez le client asynchrone Mistral, ajoutez 'await' devant
-                # Si vous utilisez le client synchrone standard dans une fonction async,
-                # cela peut bloquer, mais pour le retry c'est gérable ici.
-                stream_response = client.chat.stream(
-                    model=model_name,
-                    messages=final_messages,
-                    temperature=temperature,
-                    max_tokens=2048,  # (Rappel de la sécurité ajoutée précédemment)
-                )
-                break  # Si ça marche, on sort de la boucle de retry
-
-            except Exception as e:
-                # On vérifie si c'est une erreur de Rate Limit (souvent code 429)
-                error_str = str(e).lower()
-                is_rate_limit = (
-                    "429" in error_str
-                    or "rate limit" in error_str
-                    or "too many requests" in error_str
-                )
-
-                if is_rate_limit and attempt < max_retries:
-                    wait_time = base_delay * (2**attempt)  # Ex: 2s, 4s, 8s
-                    logger.warning(
-                        f"Mistral Rate Limit atteint. Pause de {wait_time}s avant réessai..."
-                    )
-                    await asyncio.sleep(wait_time)  # Pause asynchrone
-                else:
-                    # Si c'est une autre erreur ou si on a épuisé les essais
-                    logger.error(f"Mistral API Error (Tentative {attempt+1}/{max_retries+1}): {e}")
-                    raise e
-
-        # Lecture du flux (si la connexion a réussi)
-        try:
-            for chunk in stream_response:
-                content = chunk.data.choices[0].delta.content
-                if content:
-                    full_text += content
-                    yield content
-
-            timer.stop()
-            # ... (Le reste du calcul de métriques reste identique) ...
-            eval_count = len(full_text) / 4
-            duration = timer.duration
-            tps = eval_count / duration if duration > 0 else 0
-            yield InferenceMetrics(
-                model_name=model_name,
-                input_tokens=0,
-                output_tokens=int(eval_count),
-                total_duration_s=round(duration, 2),
-                load_duration_s=0,
-                tokens_per_second=round(tps, 1),
-                carbon_g=0.0,
-            )
-
-        except Exception as e:
-            logger.error(f"Erreur lors de la lecture du stream Mistral: {e}")
-            raise e
-
-    @staticmethod
-    def get_langchain_model(model_name: str, temperature: float = 0.7, **kwargs):
+    def get_langchain_model(model_name: str, temperature: float = 0.7, **kwargs) -> Any:
         """
         Retourne un modèle LangChain prêt à l'emploi.
-        Accepte **kwargs pour passer des paramètres spécifiques (ex: model_kwargs).
+
+        Args:
+            model_name: Tag du modèle
+            temperature: Température d'inférence
+            **kwargs: Arguments additionnels
+
+        Returns:
+            Instance de BaseChatModel (LangChain)
         """
-        if LLMProvider._is_mistral_api_model(model_name):
-            if not MISTRAL_API_KEY:
-                raise ValueError("Clé API Mistral manquante.")
-            from langchain_mistralai import ChatMistralAI
+        factory = get_provider_factory()
+        provider = factory.get_provider(model_name)
+        return provider.get_langchain_model(
+            model_name=model_name, temperature=temperature, **kwargs
+        )
 
-            # On passe kwargs (qui peut contenir model_kwargs)
-            return ChatMistralAI(
-                model=model_name, api_key=MISTRAL_API_KEY, temperature=temperature, **kwargs
-            )
+    @staticmethod
+    def health_check() -> dict[str, bool]:
+        """
+        Vérifie l'état de tous les providers.
 
-        from langchain_ollama import ChatOllama
-
-        # Pour Ollama, on peut aussi passer kwargs si besoin (ex: format="json")
-        return ChatOllama(model=model_name, temperature=temperature, keep_alive="5m", **kwargs)
+        Returns:
+            Dict {provider_name: is_healthy}
+        """
+        factory = get_provider_factory()
+        return factory.health_check_all()

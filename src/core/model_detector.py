@@ -1,31 +1,15 @@
+# src/core/model_detector.py
 """
 Module central de détection du type de modèle.
-SOURCE UNIQUE DE VÉRITÉ : models.json
+SOURCE UNIQUE DE VÉRITÉ : models.json via models_db.py
 """
 
-import json
 import logging
-from functools import lru_cache
-from pathlib import Path
+
+# Import depuis la source unique
+from src.core.models_db import MODELS_DB
 
 logger = logging.getLogger(__name__)
-
-# Chemin vers models.json
-MODELS_DB_PATH = Path(__file__).parent.parent.parent / "data" / "models.json"
-
-
-@lru_cache(maxsize=1)
-def load_models_db() -> dict:
-    """Charge models.json (avec cache)."""
-    try:
-        with open(MODELS_DB_PATH, encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logger.warning(f"models.json non trouvé : {MODELS_DB_PATH}")
-        return {}
-    except json.JSONDecodeError as e:
-        logger.error(f"Erreur parsing models.json : {e}")
-        return {}
 
 
 def get_model_info(model_tag: str) -> dict | None:
@@ -38,9 +22,7 @@ def get_model_info(model_tag: str) -> dict | None:
     Returns:
         dict: Infos du modèle ou None
     """
-    models_db = load_models_db()
-
-    for _model_name, model_info in models_db.items():
+    for _model_name, model_info in MODELS_DB.items():
         if model_info.get("ollama_tag") == model_tag:
             return model_info
 

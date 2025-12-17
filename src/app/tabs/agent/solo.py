@@ -12,39 +12,7 @@ import streamlit as st
 from src.core.agent_engine import AgentEngine
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.resource_manager import ResourceManager
-
-
-# --- HELPER PARSING ---
-def _extract_params_billions(val: str | int | float) -> float:
-    if isinstance(val, (int, float)):
-        return float(val)
-    if not val or not isinstance(val, str):
-        return 0.0
-    s = val.upper().strip().replace(" ", "")
-    try:
-        if "X" in s and "B" in s:
-            parts = s.replace("B", "").split("X")
-            return float(parts[0]) * float(parts[1])
-        if s.endswith("B"):
-            return float(s[:-1])
-        if s.endswith("M"):
-            return float(s[:-1]) / 1000.0
-        if s.isdigit():
-            return float(s)
-    except Exception:
-        pass
-    return 0.0
-
-
-def extract_thought(text: str) -> tuple[str | None, str]:
-    if "<thinking>" in text and "</thinking>" in text:
-        start = text.find("<thinking>") + len("<thinking>")
-        end = text.find("</thinking>")
-        thought = text[start:end].strip()
-        clean = text[: text.find("<thinking>")] + text[end + len("</thinking>") :]
-        return thought, clean.strip()
-    return None, text
-
+from src.core.utils import extract_thought
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {

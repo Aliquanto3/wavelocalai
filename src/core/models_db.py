@@ -137,7 +137,7 @@ def get_model_card(tag: str, ollama_info: dict[str, Any] = None) -> dict[str, An
     }
 
 
-def extract_thought(content: str) -> tuple[str | None, str | None]:  # Correction UP007
+def extract_thought(content: str) -> tuple[str | None, str | None]:
     """
     Extrait le contenu des balises <think> (ex: DeepSeek R1).
     Retourne (thought, content_cleaned).
@@ -147,6 +147,5 @@ def extract_thought(content: str) -> tuple[str | None, str | None]:  # Correctio
     pattern = r"<think>(.*?)</think>"
     match = re.search(pattern, content, re.DOTALL)
     if match:
-        # On retourne la pensée et le reste du texte nettoyé
         return match.group(1).strip(), re.sub(pattern, "", content, flags=re.DOTALL).strip()
     return None, content
