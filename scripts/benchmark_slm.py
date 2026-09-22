@@ -69,6 +69,8 @@ AUDIT_LOG_FILE = BENCHMARKS_DIR / f"benchmark_{datetime.now().strftime('%Y%m%d_%
 
 # Seuils et paramètres
 MIN_RAM_MARGIN_GB = 1.0
+# Croissance du fichier d'échange à partir de laquelle on considère un vrai swap.
+SWAP_DELTA_THRESHOLD_GB = 0.5
 CONTEXT_LEVELS = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
 TOTAL_RAM_GB = round(psutil.virtual_memory().total / (1024**3), 2)
 DEFAULT_OUTPUT_TOKENS = 256
@@ -90,46 +92,126 @@ SUPPORTED_LANGUAGES = {
     "ru": {"name": "Russian", "hello": "Привет", "expected": ["привет", "здравствуйте"]},
 }
 
-# Tests de raisonnement logique
+# Plafond de génération pour les tests fonctionnels (évite les boucles infinies)
+FUNCTIONAL_MAX_TOKENS = 1024
+
+# Tests de raisonnement logique.
+# "match" décrit la façon de valider : number (dernier nombre de la réponse),
+# word (mot isolé), compact (comparaison sans espaces) ou contains.
 REASONING_TESTS = [
     {
         "id": "logic_syllogism",
         "prompt": "All roses are flowers. All flowers need water. Does a rose need water? Answer only 'yes' or 'no'.",
         "expected": "yes",
+        "match": "word",
         "category": "logic",
     },
     {
         "id": "arithmetic_simple",
         "prompt": "What is 17 + 28? Answer with only the number.",
         "expected": "45",
+        "match": "number",
         "category": "arithmetic",
     },
     {
         "id": "arithmetic_multi",
         "prompt": "If I have 3 boxes with 4 apples each, and I eat 2 apples, how many apples are left? Answer with only the number.",
         "expected": "10",
+        "match": "number",
         "category": "arithmetic",
     },
     {
         "id": "logic_negation",
         "prompt": "If it is NOT true that all cats are black, can there be a white cat? Answer only 'yes' or 'no'.",
         "expected": "yes",
+        "match": "word",
         "category": "logic",
     },
     {
         "id": "sequence",
         "prompt": "What is the next number in this sequence: 2, 4, 8, 16, ? Answer with only the number.",
         "expected": "32",
+        "match": "number",
+        "category": "pattern",
+    },
+    {
+        "id": "logic_transitive",
+        "prompt": "All Bloops are Razzies. No Razzies are Lazzies. Can a Bloop be a Lazzie? Answer only 'yes' or 'no'.",
+        "expected": "no",
+        "match": "word",
+        "category": "logic",
+    },
+    {
+        "id": "time_arithmetic",
+        "prompt": "A train leaves at 09:15 and the journey takes 2 hours and 50 minutes. At what time does it arrive? Answer only in HH:MM 24-hour format.",
+        "expected": "12:05",
+        "match": "compact",
+        "category": "arithmetic",
+    },
+    {
+        "id": "unit_conversion",
+        "prompt": "A tank holds 2.5 cubic meters of water. How many liters is that? Answer with only the number.",
+        "expected": "2500",
+        "match": "number",
+        "category": "arithmetic",
+    },
+    {
+        "id": "percentage",
+        "prompt": "A price rises from 80 euros to 100 euros. What is the percentage increase? Answer with only the number.",
+        "expected": "25",
+        "match": "number",
+        "category": "arithmetic",
+    },
+    {
+        "id": "trap_cognitive_reflection",
+        "prompt": "A bat and a ball cost 1.10 euros in total. The bat costs 1.00 euro more than the ball. How much does the ball cost, in cents? Answer with only the number.",
+        "expected": "5",
+        "match": "number",
+        "category": "trap",
+    },
+    {
+        "id": "trap_decimal_comparison",
+        "prompt": "Which number is larger: 9.11 or 9.9? Answer with only the number.",
+        "expected": "9.9",
+        "match": "number",
+        "category": "trap",
+    },
+    {
+        "id": "trap_letter_counting",
+        "prompt": "How many times does the letter 'r' appear in the word 'strawberry'? Answer with only the number.",
+        "expected": "3",
+        "match": "number",
+        "category": "trap",
+    },
+    {
+        "id": "date_arithmetic",
+        "prompt": "If today is Wednesday, what day of the week will it be in 10 days? Answer with only the day name in English.",
+        "expected": "saturday",
+        "match": "word",
+        "category": "pattern",
+    },
+    {
+        "id": "ordering",
+        "prompt": "Sort these numbers in descending order, separated by commas, and write nothing else: 12, 7, 103, 9",
+        "expected": "103,12,9,7",
+        "match": "compact",
         "category": "pattern",
     },
 ]
 
-# Tests de suivi d'instructions
+
+def _parse_int_list(text: str) -> list[int]:
+    """Extrait une liste d'entiers d'une réponse CSV sur une ligne."""
+    return [int(x) for x in re.findall(r"-?\d+", text)]
+
+
+# Tests de suivi d'instructions (contraintes de format strictes)
 INSTRUCTION_TESTS = [
     {
         "id": "format_list",
         "prompt": "List exactly 3 colors. Format: one color per line, no numbers, no punctuation.",
-        "check": lambda r: len([line for line in r.strip().split("\n") if line.strip()]) == 3,
+        "check": lambda r: len([ln for ln in r.strip().split("\n") if ln.strip()]) == 3
+        and not re.search(r"[\d.,;:]", r),
     },
     {
         "id": "format_uppercase",
@@ -144,7 +226,137 @@ INSTRUCTION_TESTS = [
     {
         "id": "constraint_length",
         "prompt": "Describe the sun in exactly 10 words. Count carefully.",
-        "check": lambda r: 8 <= len(r.split()) <= 12,  # Tolérance ±2
+        "check": lambda r: len(r.split()) == 10,
+    },
+    {
+        "id": "exact_prefix",
+        "prompt": "Reply with a single line starting exactly with 'RESULT: ' followed by the capital city of Japan.",
+        "check": lambda r: r.strip().startswith("RESULT: ") and "tokyo" in r.lower(),
+    },
+    {
+        "id": "one_word_lowercase",
+        "prompt": "What is the capital of France? Reply with exactly one word, all lowercase, no punctuation.",
+        "check": lambda r: r.strip() == "paris",
+    },
+    {
+        "id": "csv_constraints",
+        "prompt": "Write exactly five even numbers between 10 and 30, separated by commas, on one line, in descending order. Write nothing else.",
+        "check": lambda r: (
+            lambda nums: len(nums) == 5
+            and all(n % 2 == 0 and 10 <= n <= 30 for n in nums)
+            and nums == sorted(nums, reverse=True)
+        )(_parse_int_list(r)),
+    },
+    {
+        "id": "no_markdown",
+        "prompt": "Explain gravity in exactly two sentences. Plain text only: no markdown, no bullet points, no headings.",
+        "check": lambda r: not re.search(r"(^|\n)\s*[-*#>]|\*\*", r)
+        and len([s for s in re.split(r"(?<=[.!?])\s+", r.strip()) if s.strip()]) == 2,
+    },
+]
+
+# Tests d'abstention : le modèle doit refuser d'inventer.
+ABSTENTION_TESTS = [
+    {
+        "id": "fictional_entity",
+        "prompt": "What was the population of the city of Zyrbandia in 2024? If you do not know, or if it does not exist, reply with exactly: UNKNOWN",
+    },
+    {
+        "id": "future_event",
+        "prompt": "Who won the 2031 FIFA World Cup? If it has not happened yet, reply with exactly: UNKNOWN",
+    },
+]
+
+# Suite de tests d'appel d'outils (détection, choix, paramètres, abstention d'appel)
+_WEATHER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a location",
+        "parameters": {
+            "type": "object",
+            "properties": {"location": {"type": "string", "description": "City name"}},
+            "required": ["location"],
+        },
+    },
+}
+_SUM_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "calculate_sum",
+        "description": "Add two numbers together",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "number", "description": "First number"},
+                "b": {"type": "number", "description": "Second number"},
+            },
+            "required": ["a", "b"],
+        },
+    },
+}
+_EMAIL_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "send_email",
+        "description": "Send an email to a recipient",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Recipient address"},
+                "body": {"type": "string", "description": "Message body"},
+            },
+            "required": ["to", "body"],
+        },
+    },
+}
+_WEATHER_UNIT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a location",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {"type": "string", "description": "City name"},
+                "unit": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "Temperature unit",
+                },
+            },
+            "required": ["location", "unit"],
+        },
+    },
+}
+
+TOOL_TESTS = [
+    {
+        "id": "simple_call",
+        "tools": [_WEATHER_TOOL],
+        "prompt": "What is the current weather in Paris, France?",
+        "expect_call": "get_weather",
+        "expect_args": {"location": "paris"},
+    },
+    {
+        "id": "choose_among_tools",
+        "tools": [_WEATHER_TOOL, _SUM_TOOL, _EMAIL_TOOL],
+        "prompt": "What is 128 plus 47?",
+        "expect_call": "calculate_sum",
+        "expect_args": {"a": "128", "b": "47"},
+    },
+    {
+        "id": "no_call_needed",
+        "tools": [_WEATHER_TOOL],
+        "prompt": "What is the capital of France?",
+        "expect_call": None,
+    },
+    {
+        "id": "enum_parameter",
+        "tools": [_WEATHER_UNIT_TOOL],
+        "prompt": "What is the weather in Tokyo, in fahrenheit?",
+        "expect_call": "get_weather",
+        "expect_args": {"location": "tokyo", "unit": "fahrenheit"},
     },
 ]
 
@@ -172,6 +384,48 @@ Return ONLY the JSON, no explanation.""",
     },
 }
 
+# Second test JSON : structure imbriquée (objet + tableau + enum), nettement plus discriminant.
+JSON_SCHEMA_TEST_NESTED = {
+    "prompt": """Generate a JSON object representing a purchase order with this exact structure:
+{
+  "orderId": string,
+  "status": one of "pending", "shipped", "delivered",
+  "customer": { "name": string, "vip": boolean },
+  "items": array of 2 objects, each { "sku": string, "qty": integer (1 to 99) },
+  "total": number
+}
+Return ONLY the JSON, no explanation.""",
+    "schema": {
+        "type": "object",
+        "required": ["orderId", "status", "customer", "items", "total"],
+        "properties": {
+            "orderId": {"type": "string"},
+            "status": {"type": "string", "enum": ["pending", "shipped", "delivered"]},
+            "customer": {
+                "type": "object",
+                "required": ["name", "vip"],
+                "properties": {"name": {"type": "string"}, "vip": {"type": "boolean"}},
+            },
+            "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "type": "object",
+                    "required": ["sku", "qty"],
+                    "properties": {
+                        "sku": {"type": "string"},
+                        "qty": {"type": "integer", "minimum": 1, "maximum": 99},
+                    },
+                },
+            },
+            "total": {"type": "number"},
+        },
+    },
+}
+
+JSON_TESTS = [JSON_SCHEMA_TEST, JSON_SCHEMA_TEST_NESTED]
+
 # Configuration du logging
 logging.basicConfig(
     level=logging.INFO,
@@ -185,62 +439,124 @@ logger = logging.getLogger(__name__)
 
 
 # --- HELPERS ---
+_THINK_BLOCK_RE = re.compile(r"<(think|thinking|reasoning)>.*?</\1>", re.DOTALL | re.IGNORECASE)
+_THINK_OPEN_RE = re.compile(r"<(think|thinking|reasoning)>.*$", re.DOTALL | re.IGNORECASE)
+
+
+def strip_thinking(text: str | None) -> str:
+    """Retire les blocs de raisonnement laissés dans la réponse par certains modèles.
+
+    Sans ce nettoyage, un modèle qui écrit son <think> dans le contenu échoue
+    systématiquement aux contrôles de format, ce qui fausse le score.
+    """
+    if not text:
+        return ""
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    cleaned = _THINK_OPEN_RE.sub("", cleaned)
+    return cleaned.strip()
+
+
+def _answer_matches(response: str, expected: str, match: str = "contains") -> bool:
+    """Valide une réponse courte selon le mode de comparaison attendu."""
+    text = strip_thinking(response).strip().lower()
+    exp = expected.lower()
+
+    if match == "number":
+        # On compare le DERNIER nombre cité : tolère "17 + 28 = 45".
+        numbers = re.findall(r"-?\d+(?:[.,]\d+)?", text)
+        if not numbers:
+            return False
+        last = numbers[-1].replace(",", ".").rstrip("0").rstrip(".")
+        target = exp.replace(",", ".").rstrip("0").rstrip(".")
+        return last == target or numbers[-1].replace(",", ".") == exp
+    if match == "word":
+        return re.search(rf"\b{re.escape(exp)}\b", text) is not None
+    if match == "compact":
+        return exp.replace(" ", "") in re.sub(r"\s+", "", text)
+    return exp in text
+
+
 def _is_valid_json_with_keys(response: str, required_keys: list) -> bool:
     """Vérifie si la réponse est un JSON valide avec les clés requises."""
     try:
         # Nettoyage des backticks markdown
-        clean = re.sub(r"```json\s*|\s*```", "", response.strip())
+        clean = re.sub(r"```json\s*|\s*```", "", strip_thinking(response).strip())
         data = json.loads(clean)
         return all(k in data for k in required_keys)
     except (json.JSONDecodeError, TypeError):
         return False
 
 
+def _value_matches_spec(value, spec: dict) -> bool:
+    """Valide une valeur contre un sous-schéma (types, bornes, enum, tableaux, objets)."""
+    expected_type = spec.get("type")
+
+    if expected_type == "string" and not isinstance(value, str):
+        return False
+    if expected_type == "boolean" and not isinstance(value, bool):
+        return False
+    # bool est un sous-type de int en Python : on l'exclut explicitement.
+    if expected_type == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+        return False
+    if expected_type == "number" and (
+        not isinstance(value, (int, float)) or isinstance(value, bool)
+    ):
+        return False
+    if expected_type == "array" and not isinstance(value, list):
+        return False
+    if expected_type == "object" and not isinstance(value, dict):
+        return False
+
+    if "enum" in spec and value not in spec["enum"]:
+        return False
+
+    if expected_type in ("integer", "number"):
+        if "minimum" in spec and value < spec["minimum"]:
+            return False
+        if "maximum" in spec and value > spec["maximum"]:
+            return False
+
+    if expected_type == "string" and "pattern" in spec and not re.match(spec["pattern"], value):
+        return False
+
+    if expected_type == "array":
+        if "minItems" in spec and len(value) < spec["minItems"]:
+            return False
+        if "maxItems" in spec and len(value) > spec["maxItems"]:
+            return False
+        item_spec = spec.get("items")
+        if item_spec and not all(_value_matches_spec(item, item_spec) for item in value):
+            return False
+
+    if expected_type == "object":
+        if not all(k in value for k in spec.get("required", [])):
+            return False
+        for key, sub_spec in spec.get("properties", {}).items():
+            if key in value and not _value_matches_spec(value[key], sub_spec):
+                return False
+
+    return True
+
+
 def _validate_json_schema(response: str, schema: dict) -> tuple[bool, bool]:
     """
-    Valide un JSON contre un schéma simplifié.
+    Valide un JSON contre un schéma simplifié (récursif : objets, tableaux, enum).
     Retourne (json_valide, schema_conforme).
     """
+    clean = strip_thinking(response)
+    clean = re.sub(r"```(?:json)?\s*|\s*```", "", clean.strip())
+    # Certains modèles encadrent le JSON de texte : on isole le premier objet.
+    if not clean.startswith("{"):
+        start, end = clean.find("{"), clean.rfind("}")
+        if start != -1 and end > start:
+            clean = clean[start : end + 1]
+
     try:
-        clean = re.sub(r"```json\s*|\s*```", "", response.strip())
         data = json.loads(clean)
     except (json.JSONDecodeError, TypeError):
         return False, False
 
-    # Vérification basique du schéma
-    props = schema.get("properties", {})
-    required = schema.get("required", [])
-
-    # Vérifier les champs requis
-    if not all(k in data for k in required):
-        return True, False
-
-    # Vérifier les types
-    for key, spec in props.items():
-        if key not in data:
-            continue
-        value = data[key]
-        expected_type = spec.get("type")
-
-        if expected_type == "string" and not isinstance(value, str):
-            return True, False
-        if expected_type == "integer" and not isinstance(value, int):
-            return True, False
-        if expected_type == "boolean" and not isinstance(value, bool):
-            return True, False
-
-        # Vérifier les contraintes numériques
-        if expected_type == "integer":
-            if "minimum" in spec and value < spec["minimum"]:
-                return True, False
-            if "maximum" in spec and value > spec["maximum"]:
-                return True, False
-
-        # Vérifier le pattern regex
-        if "pattern" in spec and isinstance(value, str) and not re.match(spec["pattern"], value):
-            return True, False
-
-    return True, True
+    return True, _value_matches_spec(data, schema)
 
 
 def detect_license_type(model_tag: str) -> str:
@@ -312,6 +628,43 @@ def _get_efficiency_score(reasoning_score: float, co2_per_1k: float) -> str:
     return "🔴 Faible"
 
 
+GEN_TASK = (
+    "Write a detailed technical explanation about how neural networks learn "
+    "through backpropagation."
+)
+
+# Part de la fenêtre de contexte occupée par le prompt du test de performance.
+PREFILL_FILL_RATIO = 0.5
+
+# Texte de remplissage déterministe (reproductibilité entre deux campagnes).
+_FILLER_SENTENCES = [
+    "The quarterly report details revenue, operating costs and hiring plans across divisions.",
+    "Logistics delays in the northern corridor affected delivery times during the last period.",
+    "The engineering team migrated the storage layer and reduced median query latency.",
+    "Customer support handled a higher ticket volume after the pricing change was announced.",
+    "Regulatory filings were updated to reflect the new data retention requirements.",
+]
+
+
+def _build_perf_prompt(context_window: int) -> str:
+    """Construit un prompt occupant environ la moitié de la fenêtre de contexte.
+
+    Mesurer le prefill sur un prompt de quelques tokens ne mesure qu'un coût fixe :
+    la vitesse de lecture obtenue est alors ininterprétable. On calibre donc le
+    prompt sur le contexte testé (≈ 3,5 caractères par token).
+    """
+    target_chars = int(context_window * PREFILL_FILL_RATIO * 3.5)
+    parts: list[str] = []
+    length = 0
+    idx = 0
+    while length < target_chars:
+        sentence = _FILLER_SENTENCES[idx % len(_FILLER_SENTENCES)]
+        parts.append(sentence)
+        length += len(sentence) + 1
+        idx += 1
+    return f"{' '.join(parts)}\n\n{GEN_TASK}"
+
+
 def _generate_needle_haystack(
     context_size: int, depth_percent: float = 0.5
 ) -> tuple[str, str, str]:
@@ -374,8 +727,15 @@ def get_csv_headers() -> list[str]:
         "input_tokens",
         "output_tokens",
         "tokens_per_second",
+        "prefill_tokens_per_second",
         "time_to_first_token_ms",
+        "ttft_full_prompt_ms",
+        "ttft_with_load_ms",
+        "load_time_ms",
         "duration_s",
+        "model_memory_gb",
+        "gpu_offload_pct",
+        "swap_delta_gb",
         "ollama_ram_usage_gb",
         "gpu_vram_usage_gb",
         "ram_peak_gb",
@@ -385,6 +745,7 @@ def get_csv_headers() -> list[str]:
         "tool_call_valid",
         "tool_call_function_correct",
         "tool_call_params_correct",
+        "tool_suite_score",
         "json_generation_valid",
         "json_schema_compliant",
         "needle_in_haystack_found",
@@ -400,6 +761,8 @@ def get_csv_headers() -> list[str]:
         [
             "reasoning_score",
             "instruction_following_score",
+            "abstention_score",
+            "reasoning_by_category",
             "response_variance",
             "run_id",
             "date",
@@ -410,13 +773,28 @@ def get_csv_headers() -> list[str]:
 
 
 def initialize_csv():
-    """Crée le fichier CSV avec les headers s'il n'existe pas."""
-    if not DATASET_CSV_PATH.exists():
-        headers = get_csv_headers()
-        with open(DATASET_CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(headers)
-        logger.info(f"📄 CSV initialisé : {DATASET_CSV_PATH}")
+    """Crée le CSV, ou l'archive si ses colonnes ne correspondent plus au script.
+
+    Sans ce contrôle, un CSV créé par une version antérieure garde ses anciennes
+    colonnes et les nouvelles métriques sont silencieusement perdues à l'écriture
+    (DictWriter est en extrasaction="ignore").
+    """
+    headers = get_csv_headers()
+
+    if DATASET_CSV_PATH.exists():
+        with open(DATASET_CSV_PATH, newline="", encoding="utf-8") as f:
+            existing = next(csv.reader(f), [])
+        if existing == headers:
+            return
+        archive = DATASET_CSV_PATH.with_name(
+            f"{DATASET_CSV_PATH.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+        shutil.move(str(DATASET_CSV_PATH), str(archive))
+        logger.warning(f"📄 Colonnes du CSV obsolètes : ancien fichier archivé -> {archive.name}")
+
+    with open(DATASET_CSV_PATH, "w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerow(headers)
+    logger.info(f"📄 CSV initialisé : {DATASET_CSV_PATH}")
 
 
 def append_to_csv(results: list[dict]):
@@ -489,6 +867,56 @@ def get_gpu_memory_usage_gb() -> float:
     return 0.0
 
 
+def get_model_memory_gb() -> float:
+    """Empreinte mémoire totale du modèle chargé : RAM des processus Ollama + VRAM.
+
+    Sur une machine à GPU, les poids vivent en VRAM et la RAM des processus reste
+    proche de zéro : la mesurer seule rend la détection de swap ininterprétable.
+    """
+    return get_ollama_process_memory_gb() + get_gpu_memory_usage_gb()
+
+
+def get_loaded_model_footprint(model_tag: str) -> tuple[float, int]:
+    """Empreinte du modèle chargé d'après `ollama ps` : (taille totale en GB, % en VRAM).
+
+    On interroge Ollama plutôt que de calculer une différence de mémoire avant/après :
+    le déchargement est asynchrone, donc la mesure de référence peut encore contenir
+    le modèle précédent et produire une empreinte absurdement faible.
+    """
+    try:
+        for m in ollama.ps().get("models", []):
+            if m.get("model") in (model_tag, f"{model_tag}:latest"):
+                size = m.get("size") or 0
+                pct = round(100 * (m.get("size_vram") or 0) / size) if size else 0
+                return round(size / (1024**3), 3), pct
+    except Exception:
+        pass
+    return 0.0, 0
+
+
+def get_gpu_offload_pct(model_tag: str) -> int:
+    """Pourcentage du modèle chargé résidant en VRAM (0 = 100% CPU, 100 = tout GPU)."""
+    return get_loaded_model_footprint(model_tag)[1]
+
+
+_CAPABILITIES_CACHE: dict[str, list[str]] = {}
+
+
+def get_model_capabilities(model_tag: str) -> list[str]:
+    """Capacités déclarées par Ollama (tools, thinking, vision...), mises en cache."""
+    if model_tag not in _CAPABILITIES_CACHE:
+        try:
+            _CAPABILITIES_CACHE[model_tag] = list(ollama.show(model_tag).capabilities or [])
+        except Exception:
+            _CAPABILITIES_CACHE[model_tag] = []
+    return _CAPABILITIES_CACHE[model_tag]
+
+
+def supports_thinking(model_tag: str) -> bool:
+    """Indique si le modèle expose un mode raisonnement désactivable."""
+    return "thinking" in get_model_capabilities(model_tag)
+
+
 def get_real_disk_size(model_tag: str) -> float:
     """Récupère la taille réelle sur disque d'un modèle Ollama."""
     try:
@@ -523,10 +951,16 @@ class ModelTester:
         model_tag: str,
         model_type: str = "local",
         country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
+        thinking: bool = False,
     ):
         self.model_tag = model_tag
         self.model_type = model_type
         self.country_iso = country_iso
+        # Par défaut le raisonnement est désactivé : sinon les modèles "thinking"
+        # sont comparés à des modèles qui répondent directement, et chaque test
+        # peut durer plusieurs minutes.
+        self.thinking = thinking
+        self.detail: dict = {}
         self.mistral_client = None
 
         if model_type == "api" and MISTRAL_AVAILABLE and MISTRAL_API_KEY:
@@ -560,12 +994,19 @@ class ModelTester:
             kwargs = {"model": self.model_tag, "messages": messages}
             if tools:
                 kwargs["tools"] = tools
-            if options:
-                kwargs["options"] = options
+
+            opts = dict(options or {})
+            opts.setdefault("num_predict", FUNCTIONAL_MAX_TOKENS)
+            kwargs["options"] = opts
+
+            if supports_thinking(self.model_tag):
+                kwargs["think"] = self.thinking
 
             resp = ollama.chat(**kwargs)
 
-            content = resp.message.content
+            # Certains modèles écrivent leur raisonnement dans le contenu :
+            # on le retire pour ne noter que la réponse finale.
+            content = strip_thinking(resp.message.content)
             tool_calls = getattr(resp.message, "tool_calls", None)
 
             # LOGGING: Sortie
@@ -613,7 +1054,7 @@ class ModelTester:
             )
 
             return {
-                "content": choice.content or "",
+                "content": strip_thinking(choice.content),
                 "tool_calls": getattr(choice, "tool_calls", None),
                 "prompt_eval_count": getattr(resp.usage, "prompt_tokens", 0),
                 "eval_count": getattr(resp.usage, "completion_tokens", 0),
@@ -622,64 +1063,62 @@ class ModelTester:
             logger.error(f"Erreur appel API: {e}")
             return None
 
-    def test_tool_calling(self) -> dict:
-        """Test de capacité tool calling avec validation complète."""
-        result = {"valid": False, "function_correct": False, "params_correct": False}
-
-        test_tool = {
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Get current weather for a location",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "City name",
-                        }
-                    },
-                    "required": ["location"],
-                },
-            },
-        }
-
-        messages = [
-            {
-                "role": "user",
-                "content": "What is the current weather in Paris, France?",
-            }
-        ]
-
-        resp = self._call_model(
-            messages, tools=[test_tool], options={"temperature": 0, "num_ctx": 2048}
-        )
-
-        if not resp or not resp.get("tool_calls"):
-            return result
-
-        result["valid"] = True
-
-        tool_call = resp["tool_calls"][0]
+    @staticmethod
+    def _parse_tool_call(tool_call) -> tuple[str, dict]:
+        """Extrait (nom, arguments) d'un tool call, quel que soit son format."""
         func = getattr(tool_call, "function", tool_call)
-
-        func_name = getattr(func, "name", None) or func.get("name")
-        if func_name == "get_weather":
-            result["function_correct"] = True
-
-        args = getattr(func, "arguments", None) or func.get("arguments", {})
+        name = getattr(func, "name", None) or (func.get("name") if isinstance(func, dict) else "")
+        args = getattr(func, "arguments", None)
+        if args is None and isinstance(func, dict):
+            args = func.get("arguments", {})
         if isinstance(args, str):
             try:
                 args = json.loads(args)
             except json.JSONDecodeError:
                 args = {}
+        return name or "", args or {}
 
-        if "location" in args:
-            location = args["location"].lower()
-            if "paris" in location:
-                result["params_correct"] = True
+    def test_tool_calling(self) -> dict:
+        """Suite d'appels d'outils : détection, choix du bon outil, paramètres, abstention.
 
-        return result
+        Chaque cas vaut 1 point ; success_rate est la moyenne. Le cas "no_call_needed"
+        vérifie que le modèle n'invente pas un appel quand la question n'en demande pas.
+        """
+        cases: dict[str, bool] = {}
+        legacy = {"valid": False, "function_correct": False, "params_correct": False}
+
+        for test in TOOL_TESTS:
+            resp = self._call_model(
+                [{"role": "user", "content": test["prompt"]}],
+                tools=test["tools"],
+                options={"temperature": 0, "num_ctx": 2048},
+            )
+            calls = (resp or {}).get("tool_calls") or []
+
+            if test["expect_call"] is None:
+                cases[test["id"]] = bool(resp) and not calls
+                continue
+
+            if not calls:
+                cases[test["id"]] = False
+                continue
+
+            name, args = self._parse_tool_call(calls[0])
+            ok = name == test["expect_call"]
+            for key, expected in test.get("expect_args", {}).items():
+                value = str(args.get(key, "")).lower()
+                ok = ok and expected.lower() in value
+
+            cases[test["id"]] = ok
+
+            if test["id"] == "simple_call":
+                legacy["valid"] = True
+                legacy["function_correct"] = name == test["expect_call"]
+                legacy["params_correct"] = ok
+
+        score = round(sum(cases.values()) / len(cases), 2) if cases else 0.0
+        self.detail["tool_cases"] = cases
+        return {**legacy, "cases": cases, "score": score}
 
     def test_tool_not_calling(self) -> bool:
         """Test que le modèle ne call PAS un tool quand ce n'est pas pertinent."""
@@ -703,13 +1142,47 @@ class ModelTester:
             return False
         return not resp.get("tool_calls")
 
-    def test_json_generation(self) -> tuple[bool, bool]:
-        """Test de génération JSON avec validation de schéma."""
-        messages = [{"role": "user", "content": JSON_SCHEMA_TEST["prompt"]}]
-        resp = self._call_model(messages, options={"temperature": 0, "num_ctx": 2048})
-        if not resp or not resp.get("content"):
-            return False, False
-        return _validate_json_schema(resp["content"], JSON_SCHEMA_TEST["schema"])
+    def test_json_generation(self) -> tuple[float, float]:
+        """Génération JSON sur deux schémas (plat puis imbriqué avec tableau et enum).
+
+        Retourne (taux de JSON valides, taux de schémas respectés).
+        """
+        valid_count = 0
+        schema_count = 0
+        details = {}
+
+        for idx, test in enumerate(JSON_TESTS):
+            resp = self._call_model(
+                [{"role": "user", "content": test["prompt"]}],
+                options={"temperature": 0, "num_ctx": 2048},
+            )
+            if not resp or not resp.get("content"):
+                details[f"json_{idx}"] = "no_response"
+                continue
+            valid, conform = _validate_json_schema(resp["content"], test["schema"])
+            valid_count += valid
+            schema_count += conform
+            details[f"json_{idx}"] = {"valid": valid, "schema": conform}
+
+        total = len(JSON_TESTS)
+        self.detail["json_cases"] = details
+        return round(valid_count / total, 2), round(schema_count / total, 2)
+
+    def test_abstention(self) -> float:
+        """Le modèle doit répondre UNKNOWN au lieu d'inventer (entité fictive, futur)."""
+        correct = 0
+        details = {}
+        for test in ABSTENTION_TESTS:
+            resp = self._call_model(
+                [{"role": "user", "content": test["prompt"]}],
+                options={"temperature": 0, "num_ctx": 2048},
+            )
+            content = (resp or {}).get("content") or ""
+            ok = "unknown" in content.lower()
+            correct += ok
+            details[test["id"]] = ok
+        self.detail["abstention_cases"] = details
+        return round(correct / len(ABSTENTION_TESTS), 2) if ABSTENTION_TESTS else 0.0
 
     def test_language(self, lang_code: str) -> dict:
         """Test de support linguistique avec tolérance accrue."""
@@ -785,39 +1258,57 @@ class ModelTester:
         return result
 
     def test_reasoning(self) -> float:
-        """Exécute les tests de raisonnement et retourne un score 0-1."""
+        """Exécute les tests de raisonnement et retourne un score 0-1.
+
+        Le détail par test et par catégorie (logic, arithmetic, pattern, trap)
+        est conservé dans self.detail pour départager les modèles proches.
+        """
         correct = 0
         total = len(REASONING_TESTS)
+        per_test: dict[str, bool] = {}
+        per_category: dict[str, list[int]] = {}
 
         for test in REASONING_TESTS:
             resp = self._call_model(
                 [{"role": "user", "content": test["prompt"]}],
                 options={"temperature": 0, "num_ctx": 2048},
             )
+            ok = bool(
+                resp
+                and resp.get("content")
+                and _answer_matches(resp["content"], test["expected"], test.get("match", "contains"))
+            )
+            correct += ok
+            per_test[test["id"]] = ok
+            per_category.setdefault(test["category"], []).append(int(ok))
 
-            if resp and resp.get("content"):
-                content = resp["content"].strip().lower()
-                expected = test["expected"].lower()
-                if expected in content or content == expected:
-                    correct += 1
-
+        self.detail["reasoning_tests"] = per_test
+        self.detail["reasoning_by_category"] = {
+            cat: round(sum(v) / len(v), 2) for cat, v in per_category.items()
+        }
         return round(correct / total, 2) if total > 0 else 0.0
 
     def test_instruction_following(self) -> float:
-        """Exécute les tests de suivi d'instructions."""
+        """Exécute les tests de suivi d'instructions (contraintes de format strictes)."""
         correct = 0
         total = len(INSTRUCTION_TESTS)
+        per_test: dict[str, bool] = {}
+
         for test in INSTRUCTION_TESTS:
             resp = self._call_model(
                 [{"role": "user", "content": test["prompt"]}],
                 options={"temperature": 0, "num_ctx": 2048},
             )
+            ok = False
             if resp and resp.get("content"):
                 try:
-                    if test["check"](resp["content"]):
-                        correct += 1
+                    ok = bool(test["check"](resp["content"]))
                 except Exception:
-                    pass
+                    ok = False
+            correct += ok
+            per_test[test["id"]] = ok
+
+        self.detail["instruction_tests"] = per_test
         return round(correct / total, 2) if total > 0 else 0.0
 
     def test_needle_in_haystack(self, context_size: int) -> bool:
@@ -866,6 +1357,7 @@ def benchmark_inference(
     model_type: str = "local",
     country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
     output_token_limit: int = DEFAULT_OUTPUT_TOKENS,
+    thinking: bool = False,
 ) -> dict | None:
     """
     Benchmark d'inférence avec mesures complètes.
@@ -879,7 +1371,9 @@ def benchmark_inference(
             return None
 
     ollama_ram_start = get_ollama_process_memory_gb() if model_type == "local" else 0
+    model_mem_start = get_model_memory_gb() if model_type == "local" else 0
     gpu_vram_start = get_gpu_memory_usage_gb()
+    swap_start = psutil.swap_memory().used / (1024**3)
 
     # Initialiser CodeCarbon
     EMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -895,30 +1389,34 @@ def benchmark_inference(
     start_time = time.perf_counter()
     first_token_time = None
 
-    messages = [
-        {
-            "role": "user",
-            "content": "Write a detailed technical explanation about how neural networks learn through backpropagation.",
-        }
-    ]
+    # Prompt calibré sur le contexte testé : sans cela, prompt_eval_duration ne mesure
+    # qu'un coût fixe et la vitesse de lecture affichée n'a pas de sens.
+    messages = [{"role": "user", "content": _build_perf_prompt(context_window)}]
 
     try:
         if model_type == "local":
-            # Mode streaming pour mesurer TTFT
-            stream = ollama.chat(
-                model=model_tag,
-                messages=messages,
-                stream=True,
-                options={
+            chat_kwargs = {
+                "model": model_tag,
+                "messages": messages,
+                "stream": True,
+                "options": {
                     "num_ctx": context_window,
                     "temperature": 0.7,
                     "num_predict": output_token_limit,
                 },
-            )
+            }
+            if supports_thinking(model_tag):
+                chat_kwargs["think"] = thinking
+
+            # Mode streaming pour mesurer TTFT
+            stream = ollama.chat(**chat_kwargs)
 
             response_content = ""
             input_tokens = 0
             output_tokens = 0
+            eval_duration_ns = 0
+            prompt_eval_duration_ns = 0
+            load_duration_ns = 0
 
             for chunk in stream:
                 if first_token_time is None:
@@ -929,9 +1427,14 @@ def benchmark_inference(
 
                 # Récupérer les stats à la fin
                 if hasattr(chunk, "prompt_eval_count"):
-                    input_tokens = chunk.prompt_eval_count or 0
+                    input_tokens = chunk.prompt_eval_count or input_tokens
                 if hasattr(chunk, "eval_count"):
-                    output_tokens = chunk.eval_count or 0
+                    output_tokens = chunk.eval_count or output_tokens
+                eval_duration_ns = getattr(chunk, "eval_duration", None) or eval_duration_ns
+                prompt_eval_duration_ns = (
+                    getattr(chunk, "prompt_eval_duration", None) or prompt_eval_duration_ns
+                )
+                load_duration_ns = getattr(chunk, "load_duration", None) or load_duration_ns
 
             if output_tokens == 0:
                 output_tokens = len(response_content.split())
@@ -954,13 +1457,48 @@ def benchmark_inference(
             input_tokens = resp.usage.prompt_tokens
             output_tokens = resp.usage.completion_tokens
             response_content = resp.choices[0].message.content
+            eval_duration_ns = 0
+            prompt_eval_duration_ns = 0
+            load_duration_ns = 0
 
         duration = time.perf_counter() - start_time
-        ttft_ms = int((first_token_time - start_time) * 1000) if first_token_time else 0
+        ttft_wall_ms = int((first_token_time - start_time) * 1000) if first_token_time else 0
+        load_ms = int(load_duration_ns / 1e6)
+        # TTFT du prompt calibré : chargement déduit, mais lecture du prompt incluse.
+        ttft_full_prompt_ms = max(0, ttft_wall_ms - load_ms)
+
+        # TTFT "ressenti" : modèle déjà chaud et prompt court, c'est ce que vit
+        # l'utilisateur en conversation. C'est cette valeur qui alimente la note UX.
+        ttft_ms = ttft_full_prompt_ms
+        if model_type == "local":
+            try:
+                warm_kwargs = {
+                    "model": model_tag,
+                    "messages": [{"role": "user", "content": "Say hello in one word."}],
+                    "stream": True,
+                    "options": {"num_ctx": context_window, "temperature": 0, "num_predict": 8},
+                }
+                if supports_thinking(model_tag):
+                    warm_kwargs["think"] = thinking
+                warm_start = time.perf_counter()
+                warm_first = None
+                for chunk in ollama.chat(**warm_kwargs):
+                    if warm_first is None:
+                        warm_first = time.perf_counter()
+                    _ = chunk
+                if warm_first:
+                    ttft_ms = int((warm_first - warm_start) * 1000)
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"TTFT à chaud non mesuré : {e}")
 
         # Mesures post-inférence
         if model_type == "local":
             ollama_ram_end = get_ollama_process_memory_gb()
+            # Empreinte donnée par Ollama lui-même (fiable), avec repli sur la mesure
+            # par différence si le modèle a déjà quitté la mémoire.
+            model_memory_usage, gpu_offload_pct = get_loaded_model_footprint(model_tag)
+            if model_memory_usage == 0:
+                model_memory_usage = max(0, get_model_memory_gb() - model_mem_start)
             sys_ram_peak, _ = get_system_ram_stats()
             emissions = tracker.stop() if tracker else 0
             ram_model_usage = max(0, ollama_ram_end - ollama_ram_start)
@@ -968,12 +1506,23 @@ def benchmark_inference(
             sys_ram_peak = 0
             emissions = 0  # Pas de mesure CO2 pour API
             ram_model_usage = 0
+            model_memory_usage = 0
+            gpu_offload_pct = 0
 
         gpu_vram_end = get_gpu_memory_usage_gb()
         gpu_vram_usage = max(0, gpu_vram_end - gpu_vram_start)
 
-        # Calculer tokens/s
-        tokens_per_second = round(output_tokens / duration, 2) if duration > 0 else 0
+        # Vitesse de génération pure (hors chargement et hors lecture du prompt).
+        if eval_duration_ns:
+            tokens_per_second = round(output_tokens / (eval_duration_ns / 1e9), 2)
+        else:
+            tokens_per_second = round(output_tokens / duration, 2) if duration > 0 else 0
+        # Vitesse de lecture du prompt (prefill), déterminante en RAG.
+        prefill_tps = (
+            round(input_tokens / (prompt_eval_duration_ns / 1e9), 1)
+            if prompt_eval_duration_ns
+            else 0
+        )
 
         # CO2 par 1000 tokens
         total_tokens = input_tokens + output_tokens
@@ -991,8 +1540,15 @@ def benchmark_inference(
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "tokens_per_second": tokens_per_second,
+            "prefill_tokens_per_second": prefill_tps,
             "time_to_first_token_ms": ttft_ms,
+            "ttft_full_prompt_ms": ttft_full_prompt_ms,
+            "ttft_with_load_ms": ttft_wall_ms,
+            "load_time_ms": load_ms,
             "duration_s": round(duration, 2),
+            "model_memory_gb": round(model_memory_usage, 3),
+            "gpu_offload_pct": gpu_offload_pct,
+            "swap_delta_gb": round(psutil.swap_memory().used / (1024**3) - swap_start, 3),
             "ollama_ram_usage_gb": round(ram_model_usage, 3),
             "gpu_vram_usage_gb": round(gpu_vram_usage, 3),
             "ram_peak_gb": round(sys_ram_peak, 2),
@@ -1033,22 +1589,37 @@ def run_full_benchmark(
             disk_size = 0
 
     results = []
-    tester = ModelTester(model_tag, model_type, args.country)
+    thinking = getattr(args, "thinking", "off") == "on"
+    tester = ModelTester(model_tag, model_type, args.country, thinking=thinking)
 
     # --- TESTS FONCTIONNELS (une seule fois) ---
     logger.info("   🔧 Tests fonctionnels...")
+    if model_type == "local" and supports_thinking(model_tag):
+        logger.info(f"      Mode raisonnement : {'activé' if thinking else 'désactivé'}")
 
     # Tool calling
-    tool_results = {"valid": False, "function_correct": False, "params_correct": False}
+    tool_results = {
+        "valid": False,
+        "function_correct": False,
+        "params_correct": False,
+        "cases": {},
+        "score": 0.0,
+    }
     if "tools" in model_data.get("capabilities", []) or args.force_tool_test:
         tool_results = tester.test_tool_calling()
         logger.info(
-            f"      Tools: valid={tool_results['valid']}, func={tool_results['function_correct']}, params={tool_results['params_correct']}"
+            f"      Tools: {tool_results['score'] * 100:.0f}% "
+            f"({sum(tool_results['cases'].values())}/{len(tool_results['cases'])}) "
+            f"détail={tool_results['cases']}"
         )
 
     # JSON
     json_valid, json_schema = tester.test_json_generation()
-    logger.info(f"      JSON: valid={json_valid}, schema={json_schema}")
+    logger.info(f"      JSON: valides={json_valid}, schémas respectés={json_schema}")
+
+    # Abstention (le modèle doit refuser d'inventer)
+    abstention_score = tester.test_abstention()
+    logger.info(f"      Abstention: {abstention_score * 100:.0f}%")
 
     # Langues
     # Langues (Test systématique de toutes les langues supportées par le benchmark)
@@ -1064,11 +1635,15 @@ def run_full_benchmark(
 
     # Raisonnement
     reasoning_score = tester.test_reasoning()
-    logger.info(f"      Raisonnement: {reasoning_score * 100:.0f}%")
+    logger.info(
+        f"      Raisonnement: {reasoning_score * 100:.0f}% "
+        f"par catégorie={tester.detail.get('reasoning_by_category', {})}"
+    )
 
     # Suivi d'instructions
     instruction_score = tester.test_instruction_following()
-    logger.info(f"      Instructions: {instruction_score * 100:.0f}%")
+    failed = [k for k, v in tester.detail.get("instruction_tests", {}).items() if not v]
+    logger.info(f"      Instructions: {instruction_score * 100:.0f}% échecs={failed}")
 
     # --- TESTS DE CONTEXTE ---
     logger.info("   📊 Tests de montée en contexte...")
@@ -1089,6 +1664,7 @@ def run_full_benchmark(
             model_type,
             args.country,
             args.output_tokens,
+            thinking,
         )
 
         if not bench:
@@ -1108,11 +1684,28 @@ def run_full_benchmark(
             )
             break
 
-        # Détection du swap (local seulement)
+        # Détection du swap (local seulement).
+        # On compare l'empreinte RAM + VRAM : la RAM seule vaut ~0 quand le modèle
+        # est en VRAM, ce qui déclenchait un faux positif dès le deuxième palier.
         if model_type == "local":
-            current_ram = bench["ollama_ram_usage_gb"]
-            if prev_ram_usage > 0 and current_ram < prev_ram_usage * 0.8:
-                logger.warning("      📉 SWAP détecté! Arrêt.")
+            current_ram = bench.get("model_memory_gb") or bench["ollama_ram_usage_gb"]
+            swap_delta = bench.get("swap_delta_gb", 0)
+            # Signal direct : le fichier d'échange a grossi pendant l'inférence.
+            real_swap = swap_delta > SWAP_DELTA_THRESHOLD_GB
+
+            # Une baisse d'empreinte n'est PAS un swap : quand le contexte grandit,
+            # Ollama déplace des couches vers le CPU et la VRAM mesurée diminue.
+            # On le signale sans interrompre la montée en contexte.
+            if prev_ram_usage > 0.2 and current_ram < prev_ram_usage * 0.8:
+                logger.info(
+                    f"      ↪️  Report CPU probable : empreinte {prev_ram_usage:.2f} -> "
+                    f"{current_ram:.2f} GB, GPU {bench.get('gpu_offload_pct', 0)}%"
+                )
+
+            if real_swap:
+                logger.warning(
+                    f"      📉 SWAP disque détecté (fichier d'échange +{swap_delta:.2f} GB). Arrêt."
+                )
                 bench["status"] = "SWAP_DETECTED"
                 # On garde ce résultat mais on arrête
                 results.append(
@@ -1130,6 +1723,8 @@ def run_full_benchmark(
                         instruction_score,
                         False,
                         run_id,
+                        abstention_score,
+                        tester.detail,
                     )
                 )
                 break
@@ -1156,6 +1751,8 @@ def run_full_benchmark(
             instruction_score,
             needle_found,
             run_id,
+            abstention_score,
+            tester.detail,
         )
 
         results.append(result_row)
@@ -1185,8 +1782,11 @@ def _build_result_row(
     instruction_score: float,
     needle_found: bool,
     run_id: int,
+    abstention_score: float = 0.0,
+    detail: dict | None = None,
 ) -> dict:
     """Construit une ligne de résultat complète."""
+    detail = detail or {}
     row = {
         "model_name": model_name,
         "ollama_tag": model_tag,
@@ -1196,8 +1796,15 @@ def _build_result_row(
         "input_tokens": bench.get("input_tokens", 0),
         "output_tokens": bench.get("output_tokens", 0),
         "tokens_per_second": bench.get("tokens_per_second", 0),
+        "prefill_tokens_per_second": bench.get("prefill_tokens_per_second", 0),
         "time_to_first_token_ms": bench.get("time_to_first_token_ms", 0),
+        "ttft_full_prompt_ms": bench.get("ttft_full_prompt_ms", 0),
+        "ttft_with_load_ms": bench.get("ttft_with_load_ms", 0),
+        "load_time_ms": bench.get("load_time_ms", 0),
         "duration_s": bench.get("duration_s", 0),
+        "model_memory_gb": bench.get("model_memory_gb", 0),
+        "gpu_offload_pct": bench.get("gpu_offload_pct", 0),
+        "swap_delta_gb": bench.get("swap_delta_gb", 0),
         "ollama_ram_usage_gb": bench.get("ollama_ram_usage_gb", 0),
         "gpu_vram_usage_gb": bench.get("gpu_vram_usage_gb", 0),
         "ram_peak_gb": bench.get("ram_peak_gb", 0),
@@ -1207,11 +1814,16 @@ def _build_result_row(
         "tool_call_valid": tool_results.get("valid", False),
         "tool_call_function_correct": tool_results.get("function_correct", False),
         "tool_call_params_correct": tool_results.get("params_correct", False),
+        "tool_suite_score": tool_results.get("score", 0.0),
         "json_generation_valid": json_valid,
         "json_schema_compliant": json_schema,
         "needle_in_haystack_found": needle_found,
         "reasoning_score": reasoning_score,
         "instruction_following_score": instruction_score,
+        "abstention_score": abstention_score,
+        "reasoning_by_category": json.dumps(
+            detail.get("reasoning_by_category", {}), ensure_ascii=False
+        ),
         "response_variance": 0.0,  # TODO: implémenter avec multi-runs
         "run_id": run_id,
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1262,10 +1874,18 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
         "date": datetime.now().strftime("%Y-%m-%d"),
         "max_validated_ctx": best.get("context_size", 0),
         "ram_usage_at_max_ctx_gb": best.get("ollama_ram_usage_gb", 0),
+        "model_memory_at_max_ctx_gb": best.get("model_memory_gb", 0),
         "gpu_vram_usage_gb": best.get("gpu_vram_usage_gb", 0),
-        # Performance pure
+        # Part du modèle réellement en VRAM : explique l'essentiel des écarts de vitesse.
+        "gpu_offload_pct": best.get("gpu_offload_pct", 0),
+        # Performance pure (génération seule, chargement exclu)
         "avg_tokens_per_second": round(avg_tps, 2),
+        "prefill_tokens_per_second": best.get("prefill_tokens_per_second", 0),
+        # Taille du prompt ayant servi à mesurer le prefill (≈ 50 % du contexte).
+        "prefill_prompt_tokens": best.get("input_tokens", 0),
         "avg_ttft_ms": int(avg_ttft),
+        "ttft_full_prompt_ms": best.get("ttft_full_prompt_ms", 0),
+        "load_time_ms": best.get("load_time_ms", 0),
         # Métriques Décisionnelles (Nouvelles)
         "ux_rating": ux_rating,  # ⚡ Instantané, 🚀 Rapide...
         "efficiency_grade": eff_score,  # 🟢 Excellent, 🔴 Faible...
@@ -1277,16 +1897,20 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
         "tool_capability": {
             "function_detection": best.get("tool_call_valid", False),
             "parameter_extraction": best.get("tool_call_params_correct", False),
-            "success_rate": 1.0 if best.get("tool_call_params_correct") else 0.0,
+            # Moyenne des 4 cas : appel simple, choix entre outils,
+            # abstention d'appel, paramètre enum.
+            "success_rate": best.get("tool_suite_score", 0.0),
         },
         "json_capability": {
-            "valid_json_rate": 1.0 if best.get("json_generation_valid") else 0.0,
-            "schema_compliance_rate": 1.0 if best.get("json_schema_compliant") else 0.0,
+            "valid_json_rate": float(best.get("json_generation_valid") or 0.0),
+            "schema_compliance_rate": float(best.get("json_schema_compliant") or 0.0),
         },
         "needle_in_haystack": {},
         "quality_scores": {
             "reasoning_avg": reasoning_avg,
             "instruction_following_avg": instruction_avg,
+            "abstention_avg": best.get("abstention_score", 0),
+            "reasoning_by_category": json.loads(best.get("reasoning_by_category") or "{}"),
             "response_variance_avg": best.get("response_variance", 0),
         },
     }
@@ -1314,9 +1938,10 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
 
     # Capabilities Validated (Tags automatiques)
     validated_caps = []
-    if best.get("tool_call_params_correct"):
+    # Seuils explicites : les scores sont désormais des taux, pas des booléens.
+    if (best.get("tool_suite_score") or 0) >= 0.75:
         validated_caps.append("tools_validated")
-    if best.get("json_schema_compliant"):
+    if (best.get("json_schema_compliant") or 0) >= 1.0:
         validated_caps.append("json_validated")
 
     # Tag automatique multilingue
@@ -1591,6 +2216,15 @@ Exemples d'utilisation:
     )
 
     # Options de tests
+    parser.add_argument(
+        "--thinking",
+        choices=["off", "on"],
+        default="off",
+        help=(
+            "Mode raisonnement des modèles 'thinking' (défaut: off). "
+            "Off = comparaison équitable avec les modèles sans raisonnement et durée bornée."
+        ),
+    )
     parser.add_argument(
         "--force-tool-test",
         action="store_true",
