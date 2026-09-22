@@ -1,0 +1,1721 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Benchmark SLM on-prem — Wavestone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ws-purple: #451DC7;
+    --ws-purple-dark: #250F6B;
+    --ws-purple-soft: #EDE7FE;
+    --ws-green: #04F06A;
+    --ws-green-light: #CAFEE0;
+    --ws-ink: #0a0a14;
+    --ws-ink-soft: #4a4a5e;
+    --ws-gray: #8a8a9e;
+    --ws-line: #E6E6EC;
+    --ws-cream: #F6F5FA;
+    --ws-yellow: #FFCA4A;
+    --ws-red: #FF2A49;
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 22px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Aptos', 'Inter', system-ui, sans-serif;
+    background: white; color: var(--ws-ink);
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1360px; margin: 0 auto; padding: 0 2rem; }
+  .mono { font-family: 'Manrope', 'Inter', monospace; letter-spacing: 0.14em;
+          text-transform: uppercase; font-size: 0.78rem; font-weight: 700; }
+  section { padding: 7rem 0; position: relative; }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.1; }
+  h2 { font-size: clamp(2rem, 4.5vw, 3.5rem); font-weight: 700; letter-spacing: -0.03em; }
+  h2 .accent, .accent { color: var(--ws-purple); }
+  .cream { background: var(--ws-cream); }
+
+  /* ----- NAV ----- */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--ws-line);
+    transition: all .4s var(--ease);
+  }
+  nav.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
+  .nav-inner {
+    max-width: 1360px; margin: 0 auto; padding: 1.1rem 2rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .logo { display: flex; align-items: center; gap: 0.85rem; text-decoration: none; color: var(--ws-ink); }
+  .logo-svg { height: 26px; width: auto; display: block; flex-shrink: 0; }
+  .logo-svg path { fill: var(--ws-purple); transition: fill .3s var(--ease); }
+  .logo:hover .logo-svg path { fill: var(--ws-purple-dark); }
+  .logo-divider { width: 1px; height: 26px; background: var(--ws-line); }
+  .logo-context { display: flex; flex-direction: column; line-height: 1.15; }
+  .logo-context .for {
+    font-size: 0.66rem; color: var(--ws-gray); font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .logo-context .for-client { color: var(--ws-purple); font-weight: 800; }
+  .nav-links { display: flex; gap: 2.2rem; align-items: center; }
+  .nav-links a {
+    color: var(--ws-ink); text-decoration: none; font-size: 0.9rem;
+    font-weight: 500; position: relative; padding: 0.3rem 0;
+  }
+  .nav-links a::after {
+    content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px;
+    background: var(--ws-purple); transition: width .4s var(--ease);
+  }
+  .nav-links a:hover::after { width: 100%; }
+
+  /* ----- BUTTONS ----- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    padding: 0.95rem 1.6rem; border-radius: 100px;
+    font-weight: 600; font-size: 0.9rem; text-decoration: none;
+    transition: all .3s var(--ease); cursor: pointer; border: none; font-family: inherit;
+  }
+  .btn-pink { background: var(--ws-purple); color: white; }
+  .btn-pink:hover { background: var(--ws-purple-dark); transform: translateY(-2px); }
+  .btn-outline { background: transparent; color: var(--ws-ink); border: 1.5px solid var(--ws-line); }
+  .btn-outline:hover { border-color: var(--ws-purple); color: var(--ws-purple); }
+  .btn .arrow { transition: transform .3s var(--ease); }
+  .btn:hover .arrow { transform: translateX(4px); }
+
+  /* ----- HERO ----- */
+  .hero { min-height: 92vh; display: flex; align-items: center; padding: 10rem 0 5rem; position: relative; overflow: hidden; }
+  .hero-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .hero-bg::before {
+    content: ''; position: absolute; width: 700px; height: 700px;
+    border-radius: 50%; top: -200px; right: -200px; opacity: 0.7;
+    background: radial-gradient(circle, var(--ws-purple-soft), transparent 70%);
+  }
+  .hero-bg::after {
+    content: ''; position: absolute; width: 400px; height: 400px;
+    border-radius: 50%; bottom: -100px; left: -100px;
+    background: radial-gradient(circle, rgba(4,240,106,0.18), transparent 70%);
+  }
+  .dot-grid {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(69,29,199,0.12) 1px, transparent 1px);
+    background-size: 28px 28px; opacity: 0.5; pointer-events: none;
+  }
+  .hero-content { position: relative; z-index: 2; width: 100%; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 0.6rem; margin-bottom: 2rem; color: var(--ws-purple); }
+  .hero-eyebrow::before { content: ''; width: 32px; height: 2px; background: var(--ws-purple); }
+  h1.hero-title {
+    font-size: clamp(2.6rem, 6.5vw, 5.4rem); line-height: 0.98; font-weight: 800;
+    letter-spacing: -0.04em; margin-bottom: 2.5rem; max-width: 1100px;
+  }
+  h1.hero-title .highlight { color: var(--ws-purple); position: relative; display: inline-block; }
+  h1.hero-title .highlight::after {
+    content: ''; position: absolute; left: 0; bottom: 6px; width: 100%; height: 14px;
+    background: var(--ws-green); z-index: -1; opacity: 0.55;
+    animation: underlineGrow 1.2s .6s var(--ease) both;
+  }
+  @keyframes underlineGrow { from { width: 0; } to { width: 100%; } }
+  .hero-sub { font-size: 1.2rem; color: var(--ws-ink-soft); max-width: 640px; margin-bottom: 2.5rem; line-height: 1.5; }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .hero-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem;
+    margin-top: 6rem; padding-top: 3rem; border-top: 1px solid var(--ws-line);
+  }
+  .stat .num { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; color: var(--ws-ink); line-height: 1; }
+  .stat .num .suffix { color: var(--ws-purple); }
+  .stat .label { color: var(--ws-gray); font-size: 0.88rem; margin-top: 0.5rem; }
+
+  /* ----- HERO ORB ----- */
+  .hero-orb {
+    position: absolute; right: 4%; top: 50%; transform: translateY(-50%);
+    width: 460px; height: 460px; pointer-events: none; z-index: 1;
+    animation: orbFloat 8s ease-in-out infinite;
+  }
+  @keyframes orbFloat {
+    0%, 100% { transform: translateY(-50%) rotate(0deg); }
+    50% { transform: translateY(-54%) rotate(3deg); }
+  }
+  .hero-orb .ring { animation: ringSpin 40s linear infinite; transform-origin: center; }
+  .hero-orb .ring-2 { animation-duration: 60s; animation-direction: reverse; }
+  .hero-orb .ring-3 { animation-duration: 80s; }
+  @keyframes ringSpin { to { transform: rotate(360deg); } }
+  .hero-orb .node { animation: nodePulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .hero-orb .node.n2 { animation-delay: 0.4s; }
+  .hero-orb .node.n3 { animation-delay: 0.8s; }
+  .hero-orb .node.n4 { animation-delay: 1.2s; }
+  .hero-orb .node.n5 { animation-delay: 1.6s; }
+  .hero-orb .node.n6 { animation-delay: 2s; }
+  @keyframes nodePulse {
+    0%, 100% { transform: scale(1); opacity: .9; }
+    50% { transform: scale(1.4); opacity: 1; }
+  }
+  @media (max-width: 1100px) { .hero-orb { opacity: 0.3; width: 320px; } }
+  @media (max-width: 700px) { .hero-orb { display: none; } }
+
+  /* ----- REVEAL ----- */
+  .reveal { opacity: 0; transform: translateY(30px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal.delay-1 { transition-delay: .1s; }
+  .reveal.delay-2 { transition-delay: .2s; }
+  .reveal.delay-3 { transition-delay: .3s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .hero-orb, .hero-orb .ring, .hero-orb .node { animation: none; }
+    h1.hero-title .highlight::after { animation: none; width: 100%; }
+  }
+
+  /* ----- SECTION HEAD ----- */
+  .section-head { margin-bottom: 4.5rem; max-width: 900px; }
+  .eyebrow { color: var(--ws-purple); margin-bottom: 1.2rem; display: inline-flex; align-items: center; gap: 0.7rem; }
+  .eyebrow::before { content: ''; width: 28px; height: 2px; background: var(--ws-purple); }
+  .section-intro { margin-top: 1.5rem; font-size: 1.05rem; color: var(--ws-ink-soft); max-width: 760px; }
+
+  /* ----- CARDS ----- */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+  .card {
+    background: white; border: 1px solid var(--ws-line); border-radius: var(--radius-lg);
+    padding: 2.2rem; transition: all .4s var(--ease);
+  }
+  .card:hover { border-color: var(--ws-purple); transform: translateY(-4px); box-shadow: 0 16px 48px rgba(69,29,199,0.08); }
+  .card .icon {
+    width: 46px; height: 46px; border-radius: var(--radius-sm); background: var(--ws-purple-soft);
+    color: var(--ws-purple); display: flex; align-items: center; justify-content: center; margin-bottom: 1.4rem;
+  }
+  .card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.7rem; }
+  .card p { color: var(--ws-ink-soft); font-size: 0.95rem; }
+  .card .metric { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ws-purple); line-height: 1; margin-bottom: 0.4rem; }
+
+  /* ----- TABS ----- */
+  .tabs-nav { display: flex; gap: 0.5rem; margin-bottom: 3rem; flex-wrap: wrap; border-bottom: 1px solid var(--ws-line); padding-bottom: 1.5rem; }
+  .tab-btn {
+    padding: 0.9rem 1.6rem; border: 1.5px solid var(--ws-line); background: white; border-radius: 999px;
+    cursor: pointer; font-family: inherit; font-weight: 600; font-size: 0.92rem; color: var(--ws-ink);
+    transition: all .3s var(--ease); display: flex; align-items: center; gap: 0.6rem;
+  }
+  .tab-btn .step {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--ws-cream); color: var(--ws-ink);
+    display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700;
+  }
+  .tab-btn:hover { border-color: var(--ws-ink); transform: translateY(-2px); }
+  .tab-btn.active { background: var(--ws-ink); color: white; border-color: var(--ws-ink); }
+  .tab-btn.active .step { background: var(--ws-purple); color: white; }
+  .tab-panel { display: none; animation: fadeIn .5s var(--ease); }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ----- PROMPT BLOCKS ----- */
+  .prompt {
+    background: var(--ws-ink); color: #e8e8f2; border-radius: var(--radius-md);
+    padding: 1.4rem 1.6rem; font-family: 'Manrope', monospace; font-size: 0.88rem;
+    line-height: 1.6; margin: 1rem 0; overflow-x: auto; border-left: 3px solid var(--ws-purple);
+  }
+  .prompt .tag {
+    display: block; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ws-green); margin-bottom: 0.7rem; font-weight: 700;
+  }
+  .prompt .expect { color: var(--ws-green); font-weight: 700; }
+  .prompt .note { color: var(--ws-gray); font-size: 0.82rem; display: block; margin-top: 0.7rem; }
+  .test-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+  .test-meta { background: var(--ws-cream); border-radius: var(--radius-lg); padding: 2rem; }
+  .test-meta h4 { font-size: 1.05rem; margin-bottom: 1rem; }
+  .test-meta ul { list-style: none; }
+  .test-meta li { padding: 0.55rem 0; border-bottom: 1px solid var(--ws-line); font-size: 0.92rem; color: var(--ws-ink-soft); display: flex; justify-content: space-between; gap: 1rem; }
+  .test-meta li:last-child { border-bottom: none; }
+  .test-meta li strong { color: var(--ws-ink); }
+
+  /* ----- RÉPONSES DÉPLIABLES ----- */
+  .answers-toggle {
+    display: inline-flex; align-items: center; gap: 0.6rem; margin: 0.2rem 0 1.4rem;
+    padding: 0.6rem 1.1rem; border-radius: 999px; border: 1.5px solid var(--ws-line);
+    background: white; cursor: pointer; font-family: inherit; font-size: 0.84rem;
+    font-weight: 600; color: var(--ws-ink); transition: all .3s var(--ease);
+  }
+  .answers-toggle:hover { border-color: var(--ws-purple); color: var(--ws-purple); }
+  .answers-toggle .chev { transition: transform .3s var(--ease); }
+  .answers-toggle[aria-expanded="true"] { background: var(--ws-ink); color: white; border-color: var(--ws-ink); }
+  .answers-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .answers-panel { display: none; margin: -0.6rem 0 1.6rem; }
+  .answers-panel.open { display: block; animation: fadeIn .4s var(--ease); }
+  .answer-row {
+    display: grid; grid-template-columns: 200px 1fr; gap: 1rem; padding: 0.8rem 0;
+    border-bottom: 1px solid var(--ws-line); align-items: start;
+  }
+  .answer-row:last-child { border-bottom: none; }
+  .answer-model { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; }
+  .verdict { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex;
+             align-items: center; justify-content: center; color: white; }
+  .verdict.ok { background: #06a45e; }
+  .verdict.ko { background: var(--ws-red); }
+  .verdict.na { background: var(--ws-gray); }
+  .answer-text {
+    font-family: 'Manrope', monospace; font-size: 0.83rem; color: var(--ws-ink-soft);
+    background: var(--ws-cream); border-radius: 10px; padding: 0.7rem 0.9rem;
+    white-space: pre-wrap; word-break: break-word; max-height: 7.5em; overflow: hidden;
+    position: relative; cursor: pointer;
+  }
+  .answer-text.expanded { max-height: none; }
+  .answer-text:not(.expanded).clamped::after {
+    content: '⌄ tout afficher'; position: absolute; right: 0; bottom: 0;
+    background: linear-gradient(to right, transparent, var(--ws-cream) 40%);
+    padding: 0 0.6rem 0 2rem; font-size: 0.75rem; color: var(--ws-purple); font-weight: 700;
+  }
+  .answers-meta { font-size: 0.8rem; color: var(--ws-gray); margin-bottom: 0.8rem; }
+
+  /* ----- TABLE ----- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--ws-line); border-radius: var(--radius-lg); background: white; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 940px; }
+  thead th {
+    text-align: left; padding: 1.1rem 1rem; background: var(--ws-cream); color: var(--ws-ink);
+    font-weight: 700; font-size: 0.76rem; letter-spacing: 0.1em; text-transform: uppercase;
+    border-bottom: 1px solid var(--ws-line); white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--ws-purple); }
+  thead th .sort-hint { color: var(--ws-gray); font-size: 0.7rem; margin-left: 0.3rem; }
+  tbody td { padding: 0.95rem 1rem; border-bottom: 1px solid var(--ws-line); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--ws-purple-soft); }
+  tbody tr.highlight-row { background: rgba(4,240,106,0.07); }
+  .model-name { font-weight: 700; }
+  .model-editor { color: var(--ws-gray); font-size: 0.8rem; }
+  .pill {
+    display: inline-block; padding: 0.22rem 0.6rem; border-radius: 999px;
+    font-size: 0.74rem; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .pill-gpu { background: var(--ws-green-light); color: #06663a; }
+  .pill-split { background: #FFF1C9; color: #7a5600; }
+  .pill-cpu { background: #FFE0E5; color: #8c0b20; }
+  .bar { position: relative; height: 8px; border-radius: 999px; background: var(--ws-line); min-width: 74px; }
+  .bar span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--ws-purple); }
+  .bar.green span { background: var(--ws-green); }
+  .score { font-weight: 700; }
+  .score.low { color: var(--ws-red); }
+  .score.mid { color: #7a5600; }
+  .legend { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-top: 1.4rem; color: var(--ws-gray); font-size: 0.85rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: block; }
+
+  /* ----- FILTRES & ANNEXE ----- */
+  .filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+  .filter-input {
+    padding: 0.75rem 1.1rem; border: 1.5px solid var(--ws-line); border-radius: 999px;
+    font-family: inherit; font-size: 0.9rem; background: white; color: var(--ws-ink);
+    min-width: 280px; transition: border-color .3s var(--ease);
+  }
+  .filter-input:focus { outline: none; border-color: var(--ws-purple); }
+  .filter-label { font-size: 0.82rem; color: var(--ws-gray); margin-right: 0.4rem; }
+  .filter-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .chip {
+    padding: 0.5rem 0.95rem; border-radius: 999px; border: 1.5px solid var(--ws-line);
+    background: white; cursor: pointer; font-family: inherit; font-size: 0.82rem;
+    font-weight: 600; color: var(--ws-ink-soft); transition: all .25s var(--ease);
+  }
+  .chip:hover { border-color: var(--ws-purple); color: var(--ws-purple); }
+  .chip[aria-pressed="true"] { background: var(--ws-purple); border-color: var(--ws-purple); color: white; }
+
+  .data-item { background: white; border: 1px solid var(--ws-line); border-radius: var(--radius-md); margin-bottom: 0.7rem; overflow: hidden; }
+  .data-item.open { border-color: var(--ws-purple); box-shadow: 0 10px 34px rgba(69,29,199,0.07); }
+  .data-head {
+    display: grid; grid-template-columns: 1fr 108px 92px 92px 92px 40px; gap: 1rem;
+    align-items: center; padding: 1rem 1.3rem; cursor: pointer;
+  }
+  .data-head:hover { background: var(--ws-purple-soft); }
+  .data-head .dh-name { font-weight: 700; font-size: 0.95rem; }
+  .data-head .dh-sub { color: var(--ws-gray); font-size: 0.78rem; }
+  .data-head .dh-val { font-size: 0.88rem; font-weight: 600; }
+  .data-head .dh-lab { display: block; color: var(--ws-gray); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+  .data-body { display: none; padding: 0 1.3rem 1.5rem; }
+  .data-item.open .data-body { display: block; animation: fadeIn .35s var(--ease); }
+  .data-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem 1.6rem; margin-top: 0.6rem; }
+  .data-grid .kv { border-top: 1px solid var(--ws-line); padding-top: 0.6rem; }
+  .data-grid .kv .k { display: block; color: var(--ws-gray); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.2rem; }
+  .data-grid .kv .v { font-weight: 600; font-size: 0.92rem; }
+  .data-note { font-size: 0.85rem; color: var(--ws-ink-soft); margin-top: 1rem; }
+  .tagline-mono { font-family: 'Manrope', monospace; font-size: 0.8rem; color: var(--ws-purple); }
+  @media (max-width: 900px) {
+    .data-head { grid-template-columns: 1fr 60px 40px; }
+    .data-head .dh-hide { display: none; }
+    .data-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ----- CORRÉLATIONS ----- */
+  .corr-row { display: grid; grid-template-columns: 220px 1fr 62px; gap: 0.8rem; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid var(--ws-line); }
+  .corr-row:last-child { border-bottom: none; }
+  .corr-label { font-size: 0.88rem; font-weight: 600; }
+  .corr-track { height: 10px; background: var(--ws-line); border-radius: 999px; position: relative; overflow: hidden; }
+  .corr-track span { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+  .corr-track span.pos { background: var(--ws-green); left: 50%; }
+  .corr-track span.neg { background: var(--ws-purple); right: 50%; }
+  .corr-track::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--ws-gray); opacity: .5; }
+  .corr-val { font-family: 'Manrope', monospace; font-weight: 700; font-size: 0.86rem; text-align: right; }
+
+  /* ----- ACCORDION ----- */
+  .phase-item { background: white; border-radius: var(--radius-lg); overflow: hidden; transition: all .4s var(--ease); border: 1px solid var(--ws-line); margin-bottom: 1rem; }
+  .phase-item.open { border-color: var(--ws-purple); box-shadow: 0 12px 40px rgba(69,29,199,0.08); }
+  .phase-header { padding: 1.6rem 2rem; display: grid; grid-template-columns: 60px 1fr auto; align-items: center; gap: 1.5rem; cursor: pointer; }
+  .phase-num { font-size: 2rem; font-weight: 800; color: var(--ws-purple); line-height: 1; letter-spacing: -0.04em; }
+  .phase-title h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .phase-title p { color: var(--ws-ink-soft); font-size: 0.92rem; }
+  .phase-toggle { width: 40px; height: 40px; border-radius: 50%; background: var(--ws-cream); display: flex; align-items: center; justify-content: center; transition: all .4s var(--ease); flex-shrink: 0; }
+  .phase-item.open .phase-toggle { background: var(--ws-purple); color: white; transform: rotate(45deg); }
+  .phase-body { max-height: 0; overflow: hidden; transition: max-height .6s var(--ease); }
+  .phase-item.open .phase-body { max-height: 900px; }
+  .phase-body .inner { padding: 0 2rem 2rem 6.5rem; color: var(--ws-ink-soft); font-size: 0.96rem; }
+  .phase-body .inner p + p { margin-top: 0.8rem; }
+
+  /* ----- DARK SECTION ----- */
+  .dark-section { background: var(--ws-ink); color: white; }
+  .dark-section h2 { color: white; }
+  .dark-section .eyebrow, .dark-section .accent { color: var(--ws-green); }
+  .dark-section .eyebrow::before { background: var(--ws-green); }
+  .dark-section .section-intro { color: rgba(255,255,255,0.7); }
+  .dark-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 2rem; }
+  .dark-card h3 { color: white; font-size: 1.15rem; margin-bottom: 0.6rem; }
+  .dark-card p { color: rgba(255,255,255,0.72); font-size: 0.94rem; }
+  .dark-card .metric { color: var(--ws-green); font-size: 2.2rem; font-weight: 800; line-height: 1; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
+  .code-block {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md);
+    padding: 1.3rem 1.5rem; font-family: 'Manrope', monospace; font-size: 0.86rem; color: #d9d9e8;
+    overflow-x: auto; line-height: 1.8;
+  }
+  .code-block .c { color: var(--ws-gray); }
+  .code-block .g { color: var(--ws-green); }
+
+  /* ----- CALLOUT ----- */
+  .callout {
+    background: linear-gradient(135deg, var(--ws-purple), var(--ws-purple-dark));
+    color: white; border-radius: var(--radius-lg); padding: 2.6rem 3rem; position: relative; overflow: hidden;
+  }
+  .callout::after {
+    content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    right: -80px; top: -120px; background: radial-gradient(circle, rgba(4,240,106,0.3), transparent 70%);
+  }
+  .callout h3 { font-size: 1.6rem; margin-bottom: 0.8rem; position: relative; }
+  .callout p { color: rgba(255,255,255,0.85); max-width: 780px; position: relative; }
+
+  /* ----- SCROLL PROGRESS + CURSOR ----- */
+  .scroll-progress { position: fixed; top: 0; left: 0; height: 2px; width: 0%; background: var(--ws-green); z-index: 200; transition: width .1s linear; }
+  .cursor-dot {
+    position: fixed; width: 24px; height: 24px; border-radius: 50%; background: var(--ws-purple);
+    opacity: 0.15; pointer-events: none; transform: translate(-50%, -50%);
+    transition: transform .15s var(--ease); z-index: 200; mix-blend-mode: multiply;
+  }
+  @media (max-width: 900px) { .cursor-dot { display: none; } }
+
+  /* ----- FOOTER ----- */
+  footer { padding: 4rem 0 2rem; background: var(--ws-ink); color: rgba(255,255,255,0.7); }
+  .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem; padding-bottom: 3rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .footer-col h5 { color: white; font-weight: 700; font-size: 0.9rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  .footer-col a { display: block; color: rgba(255,255,255,0.7); text-decoration: none; margin-bottom: 0.6rem; font-size: 0.92rem; transition: color .3s; }
+  .footer-col a:hover { color: var(--ws-green); }
+  .footer-bottom { padding-top: 2rem; display: flex; justify-content: space-between; font-size: 0.85rem; flex-wrap: wrap; gap: 1rem; }
+
+  @media (max-width: 900px) {
+    .nav-links { display: none; }
+    .hero { padding: 7rem 0 3rem; min-height: auto; }
+    section { padding: 4rem 0; }
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+    .grid-3, .grid-2, .test-row { grid-template-columns: 1fr; }
+    .cursor-dot { display: none; }
+    .container { padding: 0 1.3rem; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .phase-body .inner { padding: 0 1.4rem 1.6rem; }
+    .phase-header { grid-template-columns: 44px 1fr auto; gap: 1rem; padding: 1.2rem 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+<div class="cursor-dot" id="cursor"></div>
+
+<!-- ===== NAV ===== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="#" class="logo" aria-label="Wavestone">
+      <svg class="logo-svg" viewBox="0 0 307 42" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2" aria-hidden="true">
+        <path d="M-3.843-8.349h16.891l-2.409 3.746-12.447-.019-2.035-3.727Z" transform="scale(2 -2) rotate(-61.367 .264 -10.29)"/>
+        <path d="M0 12.081c-3.666 0-5.343-2.682-5.343-6.041C-5.343 2.682-3.666 0 0 0s5.343 2.682 5.343 6.04c0 3.359-1.677 6.041-5.343 6.041M0-1.617c-4.933 0-8.833 2.907-8.833 7.657 0 4.751 3.9 7.658 8.833 7.658 4.932 0 8.833-2.907 8.833-7.658 0-4.75-3.901-7.657-8.833-7.657" transform="matrix(2 0 0 2 221.951 14.024)"/>
+        <path d="M0-10.554h5.34V2.011h3.329v-12.565h5.34v-2.011H0v2.011Z" transform="matrix(2 0 0 2 173.832 36.636)"/>
+        <path d="M0-3.449c-2.126-.554-4.134-1.078-4.134-2.391 0-1.323 1.848-1.915 3.679-1.915 1.82 0 3.546.456 5.278 1.392l.42.227v-1.927l-.165-.082C3.516-8.92 1.457-9.383-.429-9.383c-3.162 0-6.54 1.165-6.54 4.436 0 3.154 3.247 4.013 6.112 4.772C1.3.395 3.336.934 3.336 2.334c0 1.338-1.927 1.98-3.717 1.98-2.118 0-4.221-.665-6.248-1.957l-.227-.145-.942 1.367.255.173c2.018 1.367 4.779 2.182 7.384 2.182 3.945 0 6.493-1.756 6.493-4.439 0-3.292-3.512-4.208-6.334-4.944" transform="matrix(2 0 0 2 156.98 29.542)"/>
+        <path d="M0 2h8.257l.006-2.016H0v-4.251h8.904l.006-2.017H-3.329V8.284H9.035l.006-2.016H0V2Z" transform="matrix(2 0 0 2 117.545 24.063)"/>
+        <path d="M0 10.535V6.267h8.257l.006-2.016H0V0h8.905l.005-2.016H-3.329v14.567H9.035l.006-2.016H0Z" transform="matrix(2 0 0 2 288.814 15.528)"/>
+        <path d="M0 5.542 2.493.901l2.542 4.641H0Zm-4.823 4.64 2.329.003 1.411-2.627H6.14l1.438 2.624h3.783L3.267-4.643l-8.09 14.825Z" transform="matrix(2 0 0 2 54.77 20.265)"/>
+        <path d="m0 3.74-5.085-9.281h-3.784L-.775 9.284l8.09-14.825-2.33-.003L0 3.74Z" transform="matrix(2 0 0 2 90.655 22.593)"/>
+        <path d="m0-14.575.004 9.072-12.051-9.333V-.003h2.014l.014-9.063L2.014.261l.002-14.836H0Z" transform="matrix(2 0 0 2 270.249 40.645)"/>
+        <path d="M0-20.58h-2.653c-2.896 3.035-5.583 6.249-7.672 9.626a51.752 51.752 0 0 0-2.356 4.236l-4.442-8.107h-4.246L-13.275 0l.002-.008C-10.777-7.504-6.209-14.46 0-20.58" transform="matrix(2 0 0 2 60.381 41.16)"/>
+      </svg>
+      <span class="logo-divider"></span>
+      <div class="logo-context">
+        <span class="for">Projet</span>
+        <span class="for for-client">WaveLocalAI</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="#contexte">Contexte</a>
+      <a href="#protocole">Protocole</a>
+      <a href="#tests">Tests</a>
+      <a href="#resultats">Résultats</a>
+      <a href="#correlations">Corrélations</a>
+      <a href="#annexe">Données</a>
+      <a href="#limites">Limites</a>
+    </div>
+    <a href="#resultats" class="btn btn-pink">Voir les résultats <span class="arrow">→</span></a>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="dot-grid"></div>
+
+  <svg class="hero-orb" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#451DC7" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#04F06A" stop-opacity="0.05"/>
+      </linearGradient>
+      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#451DC7"/>
+        <stop offset="100%" stop-color="#04F06A"/>
+      </linearGradient>
+    </defs>
+    <circle cx="230" cy="230" r="200" fill="url(#orbGrad)"/>
+    <g class="ring ring-1"><circle cx="230" cy="230" r="210" stroke="#451DC7" stroke-width="1" stroke-dasharray="2 8" opacity="0.4"/></g>
+    <g class="ring ring-2"><circle cx="230" cy="230" r="170" stroke="#451DC7" stroke-width="1.5" opacity="0.5"/></g>
+    <g class="ring ring-3"><circle cx="230" cy="230" r="130" stroke="#04F06A" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/></g>
+    <circle cx="230" cy="230" r="70" fill="url(#ringGrad)" opacity="0.18"/>
+    <circle cx="230" cy="230" r="40" fill="#451DC7" opacity="0.9"/>
+    <circle cx="230" cy="230" r="40" fill="#04F06A" opacity="0.3"/>
+    <g stroke="#451DC7" stroke-width="1" opacity="0.35">
+      <line x1="230" y1="230" x2="90" y2="120"/>
+      <line x1="230" y1="230" x2="370" y2="100"/>
+      <line x1="230" y1="230" x2="400" y2="280"/>
+      <line x1="230" y1="230" x2="110" y2="370"/>
+      <line x1="230" y1="230" x2="340" y2="390"/>
+      <line x1="230" y1="230" x2="60" y2="240"/>
+    </g>
+    <circle class="node n1" cx="90" cy="120" r="8" fill="#451DC7"/>
+    <circle class="node n2" cx="370" cy="100" r="10" fill="#04F06A"/>
+    <circle class="node n3" cx="400" cy="280" r="7" fill="#451DC7"/>
+    <circle class="node n4" cx="110" cy="370" r="9" fill="#04F06A"/>
+    <circle class="node n5" cx="340" cy="390" r="7" fill="#451DC7"/>
+    <circle class="node n6" cx="60" cy="240" r="8" fill="#04F06A"/>
+  </svg>
+
+  <div class="container hero-content">
+    <div class="hero-eyebrow mono reveal">Benchmark SLM on-premise · Septembre 2026</div>
+    <h1 class="hero-title reveal delay-1">
+      20 modèles denses<br>
+      sur <span class="highlight">6 Go de VRAM</span>.
+    </h1>
+    <p class="hero-sub reveal delay-2">
+      Quels petits modèles de langage tiennent réellement sur un poste de travail, à quelle vitesse,
+      et avec quelle qualité ? Mesures reproductibles sur Gemma, Qwen, Granite, Phi, Ministral,
+      Llama, LFM, Nemotron et Bonsai.
+    </p>
+    <div class="hero-actions reveal delay-3">
+      <a href="#resultats" class="btn btn-pink">Voir le classement <span class="arrow">→</span></a>
+      <a href="#tests" class="btn btn-outline">Comprendre les tests</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat reveal"><div class="num" data-count="20">0</div><div class="label">modèles benchmarkés</div></div>
+      <div class="stat reveal delay-1"><div class="num" data-count="30">0</div><div class="label">tests par modèle</div></div>
+      <div class="stat reveal delay-2"><div class="num" data-count="248">0<span class="suffix"> t/s</span></div><div class="label">génération la plus rapide</div></div>
+      <div class="stat reveal delay-3"><div class="num" data-count="27">0<span class="suffix">B</span></div><div class="label">plus gros modèle tenu</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 01 CONTEXTE ===== -->
+<section id="contexte">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">01 — Le contexte</span>
+      <h2>La contrainte n'est pas le nombre de paramètres. <span class="accent">C'est la VRAM.</span></h2>
+      <p class="section-intro">
+        La machine de test est un portable équipé d'une RTX 3060 Laptop (6 Go de VRAM), de 32 Go de RAM
+        et d'un Ryzen 7 5800H. Le moteur d'inférence est Ollama 0.34.2. La question de départ était
+        « jusqu'à quelle taille de modèle puis-je aller ? » — la réponse tient davantage au poids
+        réellement chargé qu'au nombre de paramètres annoncé.
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="card reveal">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+        </div>
+        <div class="metric">4 Go</div>
+        <h3>Le seuil réel</h3>
+        <p>Au-delà d'environ 4 Go chargés (poids + cache de contexte), le modèle déborde sur le CPU et la
+        génération chute d'un facteur 3 à 5. C'est la vraie limite pratique, pas les « 6B de paramètres ».</p>
+      </div>
+      <div class="card reveal delay-1">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+        </div>
+        <div class="metric">1 bit</div>
+        <h3>La quantification bat la taille</h3>
+        <p>Un modèle de 8B entraîné nativement en 1 bit (Bonsai) tient dans 3,35 Go et tourne à 91 tok/s,
+        entièrement sur le GPU — là où un 8B classique déborde et tombe à 11 tok/s.</p>
+      </div>
+      <div class="card reveal delay-2">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg>
+        </div>
+        <div class="metric">12 %</div>
+        <h3>Le MoE renverse l'intuition</h3>
+        <p>Un Mixture-of-Experts de 35B avec 3B actifs tourne à 32 tok/s avec seulement 12 % du modèle en
+        VRAM, le reste en RAM. Plus rapide que tous les modèles denses de plus de 8B testés.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 02 PROTOCOLE ===== -->
+<section id="protocole" class="cream">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">02 — Le protocole</span>
+      <h2>Mesurer <span class="accent">sur cette machine</span>, avec cette quantification.</h2>
+      <p class="section-intro">
+        Les benchmarks publics couvrent désormais l'appel d'outils (BFCL v4, τ²-bench), la vitesse et la
+        mémoire (LLM-Perf, MLPerf Client, LocalScore), la robustesse du contexte (RULER, HELMET) et
+        l'énergie (AI Energy Score). Ce protocole ne les remplace pas : il répond à la question qu'aucun
+        ne traite, parce qu'elle dépend du poste de travail — ce modèle-là, dans cette quantification-là,
+        tient-il dans 6 Go de VRAM, et à quel prix ?
+      </p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card reveal">
+        <h3>Conditions de mesure</h3>
+        <ul style="list-style:none;margin-top:1rem">
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Température</span><strong>0 (déterministe)</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Mode raisonnement</span><strong>désactivé</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Paliers de contexte</span><strong>2K → 16K</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Plafond par test</span><strong>1 024 tokens</strong></li>
+          <li style="padding:0.6rem 0;display:flex;justify-content:space-between;gap:1rem"><span>Machine</span><strong>au repos</strong></li>
+        </ul>
+        <p style="margin-top:1.2rem;font-size:0.9rem">
+          Le mode raisonnement est désactivé pour une raison d'équité : comparer un modèle qui réfléchit
+          2 000 tokens avant de répondre à un modèle qui répond directement ne mesure pas la même chose.
+        </p>
+      </div>
+      <div class="card reveal delay-1">
+        <h3>Ce qui est mesuré</h3>
+        <ul style="list-style:none;margin-top:1rem">
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Génération pure</span><strong>tok/s hors chargement</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Lecture du prompt</span><strong>prefill sur prompt calibré</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Empreinte mémoire</span><strong>rapportée par Ollama</strong></li>
+          <li style="padding:0.6rem 0;border-bottom:1px solid var(--ws-line);display:flex;justify-content:space-between;gap:1rem"><span>Placement</span><strong>% du modèle en VRAM</strong></li>
+          <li style="padding:0.6rem 0;display:flex;justify-content:space-between;gap:1rem"><span>Empreinte carbone</span><strong>CodeCarbon (mix FR)</strong></li>
+        </ul>
+        <p style="margin-top:1.2rem;font-size:0.9rem">
+          La vitesse vient des compteurs natifs d'Ollama : le temps de chargement du modèle est exclu,
+          puisqu'il n'est payé qu'une fois et non à chaque requête.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-top:2.5rem">
+      <h3>Ce que mesurent déjà les benchmarks publics</h3>
+      <p style="margin-bottom:1.2rem">
+        Affirmer que « les benchmarks académiques ignorent la mémoire, la fluidité et les outils » était
+        vrai il y a deux ans. Ce n'est plus le cas, et il est plus utile de s'y référer que de les ignorer.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1.2rem;position:relative">
+        <div>
+          <strong style="display:block;color:var(--ws-green);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem">Outils et agents</strong>
+          <p style="font-size:0.92rem">
+            <a href="https://gorilla.cs.berkeley.edu/leaderboard.html" target="_blank" rel="noopener" style="color:white;text-decoration:underline">BFCL v4</a>
+            note l'appel de fonctions en single-turn, multi-turn, parallèle et agentique, coût et latence inclus.
+            τ²-bench simule des dialogues outillés sous contraintes métier.
+          </p>
+        </div>
+        <div>
+          <strong style="display:block;color:var(--ws-green);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem">Vitesse et mémoire</strong>
+          <p style="font-size:0.92rem">
+            <a href="https://huggingface.co/spaces/optimum/llm-perf-leaderboard" target="_blank" rel="noopener" style="color:white;text-decoration:underline">LLM-Perf</a>
+            publie latence, débit et mémoire ;
+            <a href="https://mlcommons.org/benchmarks/client/" target="_blank" rel="noopener" style="color:white;text-decoration:underline">MLPerf Client</a>
+            cible les PC ;
+            <a href="https://www.localscore.ai/" target="_blank" rel="noopener" style="color:white;text-decoration:underline">LocalScore</a>
+            mesure sur votre propre machine.
+          </p>
+        </div>
+        <div>
+          <strong style="display:block;color:var(--ws-green);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem">Contexte long</strong>
+          <p style="font-size:0.92rem">
+            RULER (13 tâches de 4K à 128K), HELMET (7 catégories applicatives), NIAH-2 et MRCR v2 sont
+            nettement plus exigeants que le test à une seule aiguille utilisé ici.
+          </p>
+        </div>
+        <div>
+          <strong style="display:block;color:var(--ws-green);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem">Énergie</strong>
+          <p style="font-size:0.92rem">
+            <a href="https://huggingface.co/spaces/AIEnergyScore/Leaderboard" target="_blank" rel="noopener" style="color:white;text-decoration:underline">AI Energy Score</a>
+            note 166 modèles de 1 à 5 étoiles, sur H100 normalisé — donc sans rapport avec la consommation
+            d'un poste de travail quantifié.
+          </p>
+        </div>
+      </div>
+      <p style="margin-top:1.4rem;font-size:0.92rem">
+        La valeur ajoutée de cette campagne tient donc à trois choses : la quantification exacte utilisée
+        en production, le placement GPU/CPU réellement décidé par Ollama, et le croisement qualité /
+        mémoire / carbone en une seule passe reproductible.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 03 TESTS ===== -->
+<section id="tests">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">03 — Les tests</span>
+      <h2>30 épreuves par modèle, <span class="accent">prompts réels</span>.</h2>
+      <p class="section-intro">
+        Chaque modèle passe la même batterie : raisonnement, suivi d'instructions, appel d'outils,
+        génération JSON, abstention et robustesse du contexte. Voici les prompts exacts.
+      </p>
+    </div>
+
+    <div class="tabs-nav reveal">
+      <button class="tab-btn active" data-tab="t-reason"><span class="step">1</span> Raisonnement</button>
+      <button class="tab-btn" data-tab="t-instr"><span class="step">2</span> Instructions</button>
+      <button class="tab-btn" data-tab="t-tools"><span class="step">3</span> Outils</button>
+      <button class="tab-btn" data-tab="t-json"><span class="step">4</span> JSON &amp; abstention</button>
+      <button class="tab-btn" data-tab="t-ctx"><span class="step">5</span> Contexte</button>
+    </div>
+
+    <div class="tab-panel active" id="t-reason">
+      <div class="test-row">
+        <div>
+          <h3 style="font-size:1.4rem;margin-bottom:0.8rem">14 items, 4 catégories</h3>
+          <p style="color:var(--ws-ink-soft);margin-bottom:1rem">
+            Logique, arithmétique, motifs et pièges. Les pièges sont les plus discriminants : ils punissent
+            la réponse réflexe plutôt que le calcul.
+          </p>
+          <div class="prompt" data-answers="bat_ball">
+            <span class="tag">Piège · coût de la balle</span>
+            A bat and a ball cost 1.10 euros in total. The bat costs 1.00 euro more than the ball.
+            How much does the ball cost, in cents? Answer with only the number.
+            <span class="note">Attendu : <span class="expect">5</span> — la réponse réflexe « 10 » est fausse.</span>
+          </div>
+          <div class="prompt" data-answers="decimal">
+            <span class="tag">Piège · comparaison décimale</span>
+            Which number is larger: 9.11 or 9.9? Answer with only the number.
+            <span class="note">Attendu : <span class="expect">9.9</span></span>
+          </div>
+          <div class="prompt" data-answers="strawberry">
+            <span class="tag">Piège · comptage de lettres</span>
+            How many times does the letter 'r' appear in the word 'strawberry'? Answer with only the number.
+            <span class="note">Attendu : <span class="expect">3</span> — difficile par construction pour un tokenizer.</span>
+          </div>
+        </div>
+        <div>
+          <div class="test-meta">
+            <h4>Répartition des 14 items</h4>
+            <ul>
+              <li><span>Logique</span><strong>3 items</strong></li>
+              <li><span>Arithmétique</span><strong>5 items</strong></li>
+              <li><span>Motifs &amp; séquences</span><strong>3 items</strong></li>
+              <li><span>Pièges</span><strong>3 items</strong></li>
+            </ul>
+          </div>
+          <div class="prompt" data-answers="bloops">
+            <span class="tag">Logique · transitivité</span>
+            All Bloops are Razzies. No Razzies are Lazzies. Can a Bloop be a Lazzie?
+            Answer only 'yes' or 'no'.
+            <span class="note">Attendu : <span class="expect">no</span></span>
+          </div>
+          <div class="prompt" data-answers="train">
+            <span class="tag">Arithmétique · horaires</span>
+            A train leaves at 09:15 and the journey takes 2 hours and 50 minutes.
+            At what time does it arrive? Answer only in HH:MM 24-hour format.
+            <span class="note">Attendu : <span class="expect">12:05</span></span>
+          </div>
+          <p style="font-size:0.9rem;color:var(--ws-gray);margin-top:1rem">
+            La validation dépend du type de réponse : le mode « nombre » compare le dernier nombre cité
+            (ce qui tolère « 17 + 28 = 45 »), le mode « mot » exige le mot isolé — sans quoi « nobody »
+            validerait « no ».
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="t-instr">
+      <div class="test-row">
+        <div>
+          <h3 style="font-size:1.4rem;margin-bottom:0.8rem">8 contraintes de format</h3>
+          <p style="color:var(--ws-ink-soft);margin-bottom:1rem">
+            Aucune tolérance : la contrainte est respectée ou elle ne l'est pas. C'est ce qui sépare un
+            modèle utilisable dans une chaîne automatisée d'un modèle qui bavarde.
+          </p>
+          <div class="prompt" data-answers="csv">
+            <span class="tag">CSV contraint</span>
+            Write exactly five even numbers between 10 and 30, separated by commas, on one line,
+            in descending order. Write nothing else.
+            <span class="note">Vérifié : 5 nombres, tous pairs, bornés, strictement décroissants.</span>
+          </div>
+          <div class="prompt" data-answers="prefix">
+            <span class="tag">Préfixe exact</span>
+            Reply with a single line starting exactly with 'RESULT: ' followed by the capital city of Japan.
+            <span class="note">Vérifié : la réponse commence par <span class="expect">RESULT: </span> et contient Tokyo.</span>
+          </div>
+        </div>
+        <div>
+          <div class="prompt" data-answers="one_word">
+            <span class="tag">Un seul mot</span>
+            What is the capital of France? Reply with exactly one word, all lowercase, no punctuation.
+            <span class="note">Vérifié : la réponse est exactement <span class="expect">paris</span>.</span>
+          </div>
+          <div class="prompt" data-answers="no_markdown">
+            <span class="tag">Sans markdown</span>
+            Explain gravity in exactly two sentences. Plain text only: no markdown, no bullet points,
+            no headings.
+            <span class="note">Vérifié : deux phrases, aucun caractère de mise en forme.</span>
+          </div>
+          <div class="test-meta" style="margin-top:1.4rem">
+            <h4>Le test que presque personne ne passe</h4>
+            <ul>
+              <li><span>« Describe the sun in exactly 10 words »</span><strong>13 échecs / 20</strong></li>
+            </ul>
+            <p style="margin-top:0.9rem;font-size:0.9rem;color:var(--ws-ink-soft)">
+              Compter ses propres mots reste hors de portée des petits modèles. Ce test plafonne
+              mécaniquement le score de la catégorie à 0,88 pour la majorité du panel.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="t-tools">
+      <div class="test-row">
+        <div>
+          <h3 style="font-size:1.4rem;margin-bottom:0.8rem">4 cas, moyennés</h3>
+          <p style="color:var(--ws-ink-soft);margin-bottom:1rem">
+            Un booléen « sait appeler un outil » ne suffit pas : certains modèles appellent correctement
+            dans un cas et hallucinent la réponse dans un autre.
+          </p>
+          <div class="prompt" data-answers="weather_paris">
+            <span class="tag">Cas 1 · appel simple</span>
+            What is the current weather in Paris, France?
+            <span class="note">Outil <span class="expect">get_weather(location)</span> — attendu : appel avec « Paris ».</span>
+          </div>
+          <div class="prompt" data-answers="sum">
+            <span class="tag">Cas 2 · choix entre trois outils</span>
+            What is 128 plus 47?
+            <span class="note">Outils disponibles : get_weather, calculate_sum, send_email — attendu :
+            <span class="expect">calculate_sum(a=128, b=47)</span>.</span>
+          </div>
+        </div>
+        <div>
+          <div class="prompt" data-answers="capital_fr_tool">
+            <span class="tag">Cas 3 · ne pas appeler</span>
+            What is the capital of France?
+            <span class="note">L'outil météo est proposé — attendu : <span class="expect">aucun appel</span>.
+            Plusieurs petits modèles échouent ici.</span>
+          </div>
+          <div class="prompt" data-answers="tokyo">
+            <span class="tag">Cas 4 · paramètre enum</span>
+            What is the weather in Tokyo, in fahrenheit?
+            <span class="note">Attendu : location = Tokyo et unit = <span class="expect">fahrenheit</span>
+            (enum celsius | fahrenheit).</span>
+          </div>
+          <div class="test-meta" style="margin-top:1.4rem">
+            <h4>Une découverte inattendue</h4>
+            <p style="font-size:0.92rem;color:var(--ws-ink-soft)">
+              Sur le MoE Qwen 3.6, <strong>ajouter une description au paramètre</strong> suffit à le faire
+              inventer une météo plausible au lieu d'appeler la fonction : 5 appels sur 5 sans description,
+              0 sur 5 avec. Un détail de schéma qui changerait tout en production.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="t-json">
+      <div class="test-row">
+        <div>
+          <h3 style="font-size:1.4rem;margin-bottom:0.8rem">Structure et prudence</h3>
+          <p style="color:var(--ws-ink-soft);margin-bottom:1rem">
+            Deux schémas JSON, l'un plat, l'autre imbriqué avec tableau et énumération, validés
+            récursivement (types, bornes, cardinalité).
+          </p>
+          <div class="prompt" data-answers="json_nested">
+            <span class="tag">JSON imbriqué</span>
+            Generate a JSON object representing a purchase order with this exact structure:<br>
+            { "orderId": string, "status": one of "pending", "shipped", "delivered",<br>
+            &nbsp;&nbsp;"customer": { "name": string, "vip": boolean },<br>
+            &nbsp;&nbsp;"items": array of 2 objects, each { "sku": string, "qty": integer (1 to 99) },<br>
+            &nbsp;&nbsp;"total": number }<br>
+            Return ONLY the JSON, no explanation.
+            <span class="note">Vérifié : énumération respectée, exactement 2 items, quantités bornées.</span>
+          </div>
+        </div>
+        <div>
+          <div class="prompt" data-answers="zyrbandia">
+            <span class="tag">Abstention · entité fictive</span>
+            What was the population of the city of Zyrbandia in 2024? If you do not know, or if it does
+            not exist, reply with exactly: UNKNOWN
+            <span class="note">Attendu : <span class="expect">UNKNOWN</span> plutôt qu'un chiffre inventé.</span>
+          </div>
+          <div class="prompt" data-answers="worldcup">
+            <span class="tag">Abstention · événement futur</span>
+            Who won the 2031 FIFA World Cup? If it has not happened yet, reply with exactly: UNKNOWN
+          </div>
+          <p style="font-size:0.9rem;color:var(--ws-gray);margin-top:1rem">
+            Ce test s'est révélé peu discriminant : avec une consigne explicite, tous les modèles
+            s'abstiennent sauf Granite 4.0 350M. Une version plus subtile, sans consigne, serait nécessaire.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="t-ctx">
+      <div class="test-row">
+        <div>
+          <h3 style="font-size:1.4rem;margin-bottom:0.8rem">Aiguille dans une botte de foin</h3>
+          <p style="color:var(--ws-ink-soft);margin-bottom:1rem">
+            Un code secret est inséré à 10 %, 50 % puis 90 % d'un texte de remplissage calibré sur la
+            taille du contexte. Le modèle doit le retrouver <strong>aux trois positions</strong> pour
+            valider le palier.
+          </p>
+          <div class="prompt" data-answers="needle">
+            <span class="tag">Needle in a haystack</span>
+            Read the following text carefully and find the secret code hidden within it.<br><br>
+            TEXT: [texte de remplissage calibré…] The secret code is: CVGIJA04 […]<br><br>
+            QUESTION: What is the secret code mentioned in the text above? Answer with only the code,
+            nothing else.
+            <span class="note">Le test vérifie l'effet « perdu au milieu » : un modèle peut réussir à 10 %
+            et échouer à 50 %.</span>
+          </div>
+        </div>
+        <div>
+          <div class="test-meta">
+            <h4>Paliers de contexte testés</h4>
+            <ul>
+              <li><span>2 048 tokens</span><strong>vitesse seule</strong></li>
+              <li><span>4 096 tokens</span><strong>+ needle ×3</strong></li>
+              <li><span>8 192 tokens</span><strong>+ needle ×3</strong></li>
+              <li><span>16 384 tokens</span><strong>+ needle ×3</strong></li>
+            </ul>
+          </div>
+          <p style="font-size:0.92rem;color:var(--ws-ink-soft);margin-top:1.2rem">
+            À chaque palier, le prompt de mesure occupe environ la moitié de la fenêtre, afin que la
+            vitesse de lecture porte sur un volume réaliste. La montée s'arrête si le système se met à
+            pagineur sur disque, détecté via la croissance du fichier d'échange.
+          </p>
+          <p style="font-size:0.92rem;color:var(--ws-ink-soft);margin-top:0.8rem">
+            <strong>19 modèles sur 20</strong> valident les trois positions jusqu'à 16K. Seul Phi 4 Mini
+            échoue, dès 4K.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 04 RESULTATS ===== -->
+<section id="resultats" class="cream">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">04 — Les résultats</span>
+      <h2>Le classement complet, <span class="accent">trié comme vous voulez.</span></h2>
+      <p class="section-intro">
+        Cliquez sur un en-tête de colonne pour trier. Les lignes vertes tiennent à 100 % sur le GPU.
+        Scores de qualité sur une échelle de 0 à 1.
+      </p>
+    </div>
+
+    <div class="table-wrap reveal">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th data-sort="text">Modèle <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Params <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Go chargés <span class="sort-hint">↕</span></th>
+            <th data-sort="num">GPU <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Génération <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Raisonnement <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Instructions <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Outils <span class="sort-hint">↕</span></th>
+            <th data-sort="num">Ctx validé <span class="sort-hint">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+
+    <div class="legend reveal">
+      <span><i style="background:var(--ws-green)"></i> 100 % en VRAM — vitesse maximale</span>
+      <span><i style="background:var(--ws-yellow)"></i> Débordement partiel sur le CPU</span>
+      <span><i style="background:var(--ws-red)"></i> Majoritairement en RAM</span>
+      <span>Génération mesurée hors chargement du modèle</span>
+    </div>
+
+    <div class="callout reveal" style="margin-top:3rem">
+      <h3>Le peloton de tête tient dans 3,5 Go</h3>
+      <p>
+        Gemma 4 E2B (1,55 Go), LFM 2.5 2.6B (1,97 Go), Qwen 3.5 4B (3,30 Go) et Bonsai 8B en 1 bit
+        (3,35 Go) combinent les meilleurs scores de qualité et une génération supérieure à 57 tok/s,
+        tout en restant intégralement sur le GPU. Les modèles plus lourds gagnent peu en qualité et
+        perdent un facteur 5 en vitesse.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 05 CORRÉLATIONS ===== -->
+<section id="correlations">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">05 — Les corrélations</span>
+      <h2>Les métriques ne sont <span class="accent">pas indépendantes.</span></h2>
+      <p class="section-intro">
+        Coefficients de Spearman sur les 20 modèles (corrélation de rang : elle mesure si les
+        classements vont dans le même sens, sans supposer de relation linéaire). Au-delà de 0,7 en
+        valeur absolue, deux métriques disent en grande partie la même chose.
+      </p>
+    </div>
+
+    <div class="grid-2 reveal" style="align-items:start">
+      <div>
+        <div id="corrList"></div>
+        <p style="font-size:0.85rem;color:var(--ws-gray);margin-top:1rem">
+          Seules les paires dont la corrélation dépasse 0,45 en valeur absolue sont affichées.
+        </p>
+      </div>
+      <div class="card" style="padding:1.6rem">
+        <h3 style="margin-bottom:0.3rem">Mémoire chargée et vitesse</h3>
+        <p style="font-size:0.9rem;margin-bottom:1rem">
+          Chaque point est un modèle. Le rayon traduit le nombre de paramètres, la couleur le
+          placement GPU. La relation est presque monotone — sauf une exception, en bas à droite.
+        </p>
+        <div id="scatter"></div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:2.5rem">
+      <div class="card reveal">
+        <div class="metric" id="corrMemGen">—</div>
+        <h3>Mémoire → vitesse</h3>
+        <p>La corrélation la plus forte du jeu de données. Le poids chargé (poids du modèle plus cache
+        de contexte) prédit la vitesse mieux que le nombre de paramètres.</p>
+      </div>
+      <div class="card reveal delay-1">
+        <div class="metric" id="corrGpuGen">—</div>
+        <h3>Placement → vitesse</h3>
+        <p>Le pourcentage en VRAM est l'autre face de la même pièce : dès qu'une partie du modèle part
+        en RAM, la bande passante s'effondre. Moyenne de <strong id="avgFull">—</strong> pour les
+        modèles entièrement sur GPU, contre <strong id="avgSplit">—</strong> pour les autres.</p>
+      </div>
+      <div class="card reveal delay-2">
+        <div class="metric" id="corrReasonInstr">—</div>
+        <h3>Raisonnement → instructions</h3>
+        <p>Les deux dimensions de qualité progressent ensemble : un modèle qui raisonne mieux respecte
+        aussi mieux les contraintes de format. Elles ne sont donc pas deux mesures indépendantes.</p>
+      </div>
+    </div>
+
+    <div class="callout reveal" style="margin-top:2.5rem">
+      <h3>Ce que la corrélation ne dit pas</h3>
+      <p>
+        Paramètres et vitesse sont fortement anticorrélés (ρ ≈ −0,86), mais ce n'est pas la cause :
+        le nombre de paramètres agit <em>à travers</em> la mémoire chargée. La preuve tient en un
+        contre-exemple, le MoE de 35 milliards de paramètres, qui génère à 32 tok/s avec 12 % du modèle en VRAM — plus vite que des modèles denses cinq fois plus petits. Ce sont les paramètres
+        <strong>actifs</strong> et la bande passante mémoire qui comptent, pas le total.
+      </p>
+      <p style="margin-top:0.9rem">
+        Autre piège : qualité et vitesse sont anticorrélées (ρ ≈ −0,55), ce qui reflète surtout le fait
+        que les gros modèles sont plus lents. À l'intérieur du groupe qui tient entièrement en VRAM,
+        Gemma 4 E2B obtient les meilleurs scores de format <em>et</em> 109 tok/s : le compromis n'est pas une
+        fatalité.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 06 ENSEIGNEMENTS ===== -->
+<section id="enseignements" class="dark-section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">06 — Les enseignements</span>
+      <h2>Trois idées reçues <span class="accent">corrigées par la mesure.</span></h2>
+    </div>
+
+    <div class="grid-3">
+      <div class="dark-card reveal">
+        <div class="metric">×5</div>
+        <h3>Le mur des 4 Go</h3>
+        <p>
+          Granite 4.2 8B occupe 7,65 Go et ne tient qu'à 51 % en VRAM : 11 tok/s. Granite 4.2 3B, à
+          3,28 Go et 100 % GPU, génère 87 tok/s. Huit fois plus rapide, pour une qualité voisine sur ce
+          panel de tests.
+        </p>
+      </div>
+      <div class="dark-card reveal delay-1">
+        <div class="metric">91 t/s</div>
+        <h3>Le 1 bit change la donne</h3>
+        <p>
+          Bonsai 8B, entraîné nativement en 1 bit, tient dans 3,35 Go et atteint 91 tok/s en restant
+          entièrement sur le GPU. Bonsai 27B passe aussi, à 4,9 Go, mais retombe à 18 tok/s avec une
+          lecture de prompt lente.
+        </p>
+      </div>
+      <div class="dark-card reveal delay-2">
+        <div class="metric">32 t/s</div>
+        <h3>Le MoE n'a pas besoin de VRAM</h3>
+        <p>
+          Qwen 3.6 35B-A3B tourne avec 12 % du modèle en VRAM et 21 Go en RAM, à 32 tok/s : plus rapide
+          que tous les denses de plus de 8B. Ollama place automatiquement les experts en RAM.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top:3rem" class="reveal">
+      <h3 style="color:white;font-size:1.3rem;margin-bottom:1.2rem">Reproduire ces mesures</h3>
+      <div class="code-block">
+<span class="c"># Catalogue et benchmark complet, contexte jusqu'à 16K</span><br>
+python scripts/benchmark_slm.py --max-context 16384 --force-tool-test<br><br>
+<span class="c"># Un modèle précis, avec le mode raisonnement activé</span><br>
+python scripts/benchmark_slm.py -m <span class="g">qwen3.5:4b</span> --thinking on<br><br>
+<span class="c"># Régénérer le rapport sans relancer les tests</span><br>
+python scripts/benchmark_slm.py --report-only
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 06 RECOMMANDATIONS ===== -->
+<section id="recommandations">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">07 — Les recommandations</span>
+      <h2>Quel modèle, <span class="accent">pour quel usage ?</span></h2>
+    </div>
+
+    <div class="grid-3">
+      <div class="card reveal">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Chat quotidien</h3>
+        <p style="margin-bottom:0.8rem"><strong class="accent">Gemma 4 E2B QAT</strong> — 1,55 Go, 109 tok/s.</p>
+        <p>Le seul du panel à réussir toutes les contraintes de format, avec 0,86 en raisonnement. Le
+        meilleur rapport qualité/poids mesuré.</p>
+      </div>
+      <div class="card reveal delay-1">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <h3>Agents et outils</h3>
+        <p style="margin-bottom:0.8rem"><strong class="accent">Qwen 3.5 4B</strong> — 3,30 Go, 57 tok/s.</p>
+        <p>Score parfait sur les quatre cas d'outils, 10 langues validées, tous les pièges réussis.
+        Nemotron 3 Nano 4B si la vitesse prime.</p>
+      </div>
+      <div class="card reveal delay-2">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 5.8h6.1l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/></svg>
+        </div>
+        <h3>Qualité maximale</h3>
+        <p style="margin-bottom:0.8rem"><strong class="accent">Qwen 3.5 9B Unsloth</strong> — 5,41 Go, 14 tok/s.</p>
+        <p>Raisonnement et instructions au plus haut niveau, mais 71 % en VRAM seulement. Gemma 4 12B
+        est équivalent en qualité, à 11 tok/s.</p>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:1.5rem">
+      <div class="card reveal">
+        <h3>Le pari à tenter</h3>
+        <p><strong class="accent">Bonsai 8B en 1 bit</strong> — 3,35 Go, 91 tok/s, 100 % GPU. Un modèle de 8B
+        à la vitesse d'un 3B. Contrepartie : seulement 6 langues validées et 0,71 en raisonnement, sous
+        Qwen 3.5 4B qui est plus léger.</p>
+      </div>
+      <div class="card reveal delay-1">
+        <h3>À écarter pour ces usages</h3>
+        <p><strong>Phi 4 Mini</strong> (0,25 sur les outils, seul échec du needle à 4K),
+        <strong>Gemma 3 1B</strong> (aucun support des outils),
+        <strong>Granite 4.0 350M</strong> (0,21 en raisonnement, invente au lieu de s'abstenir).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 07 LIMITES ===== -->
+<section id="limites" class="cream">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">08 — Les limites</span>
+      <h2>Ce que ce benchmark <span class="accent">ne prouve pas.</span></h2>
+      <p class="section-intro">
+        Un benchmark honnête expose ses biais. Voici ceux qui pourraient changer les conclusions.
+      </p>
+    </div>
+
+    <div class="reveal">
+      <div class="phase-item open">
+        <div class="phase-header">
+          <div class="phase-num">01</div>
+          <div class="phase-title">
+            <h3>Un échantillon volontairement réduit</h3>
+            <p>14 + 8 + 4 + 2 + 2 items par modèle</p>
+          </div>
+          <div class="phase-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div>
+        <div class="phase-body"><div class="inner">
+          <p>Un écart de quelques centièmes entre deux modèles n'est pas significatif. Seuls les écarts
+          nets le sont : Granite 350M à 0,21 contre Qwen 3.5 4B à 0,86 est un verdict, 0,86 contre 0,93
+          ne l'est pas.</p>
+        </div></div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-header">
+          <div class="phase-num">02</div>
+          <div class="phase-title">
+            <h3>Les pièges sont probablement contaminés</h3>
+            <p>Bat and ball, 9.11 vs 9.9, « r » dans strawberry</p>
+          </div>
+          <div class="phase-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div>
+        <div class="phase-body"><div class="inner">
+          <p>Ces énigmes circulent largement et figurent vraisemblablement dans les jeux d'entraînement
+          récents. Elles discriminent les générations anciennes bien plus que les modèles de 2026, qui
+          peuvent les avoir mémorisées plutôt que résolues.</p>
+        </div></div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-header">
+          <div class="phase-num">03</div>
+          <div class="phase-title">
+            <h3>Deux mesures ne sont pas homogènes</h3>
+            <p>Le MoE et deux modèles revalidés</p>
+          </div>
+          <div class="phase-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div>
+        <div class="phase-body"><div class="inner">
+          <p>Le MoE Qwen 3.6 n'a été mesuré qu'à 4K : son benchmark a été interrompu par le système,
+          faute de mémoire disponible (21 Go occupés). Qwen 3.5 4B et Granite 4.2 8B ont été revalidés
+          à 8K lors de la correction de la mesure de prefill.</p>
+          <p>Les chiffres de vitesse de lecture du prompt ne figurent pas dans le tableau : ils ont été
+          corrigés après la campagne principale et mériteraient un nouveau passage complet.</p>
+        </div></div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-header">
+          <div class="phase-num">04</div>
+          <div class="phase-title">
+            <h3>Un seul run, et des backends non déterministes</h3>
+            <p>Température 0 ne garantit pas la reproductibilité</p>
+          </div>
+          <div class="phase-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div>
+        <div class="phase-body"><div class="inner">
+          <p>Le routage d'un MoE et le batching peuvent produire des réponses différentes d'un appel à
+          l'autre, à température nulle. Pour un verdict serré entre deux modèles, il faut augmenter le
+          nombre de runs.</p>
+          <p>Les mesures de vitesse sont également sensibles à la charge de la machine : celles publiées
+          ici ont été prises au repos, après avoir constaté qu'un téléchargement en arrière-plan faisait
+          perdre jusqu'à 30 % de débit.</p>
+        </div></div>
+      </div>
+
+      <div class="phase-item">
+        <div class="phase-header">
+          <div class="phase-num">05</div>
+          <div class="phase-title">
+            <h3>Un biais linguistique assumé</h3>
+            <p>Tests de raisonnement en anglais</p>
+          </div>
+          <div class="phase-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        </div>
+        <div class="phase-body"><div class="inner">
+          <p>Les épreuves de logique et d'arithmétique sont en anglais pour standardiser la notation. La
+          couverture multilingue est évaluée séparément, sur 11 langues, par un test de compréhension et
+          de génération — d'où la colonne « langues validées » du jeu de données complet.</p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 09 ANNEXE : DONNÉES COMPLÈTES ===== -->
+<section id="annexe" class="cream">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">09 — L'annexe</span>
+      <h2>Toutes les données, <span class="accent">modèle par modèle.</span></h2>
+      <p class="section-intro">
+        L'intégralité des mesures, y compris celles absentes du tableau de synthèse : lecture du prompt,
+        latence, chargement, aiguille par palier, langues validées, licence détectée et empreinte carbone.
+        Filtrez, puis dépliez une ligne pour tout voir.
+      </p>
+    </div>
+
+    <div class="filters reveal">
+      <input type="search" id="filterText" class="filter-input" placeholder="Filtrer par nom, éditeur ou tag Ollama…" aria-label="Filtrer les modèles">
+      <div class="filter-chips" id="filterEditors"></div>
+      <div class="filter-chips">
+        <button class="chip" data-placement="all" aria-pressed="true">Tous</button>
+        <button class="chip" data-placement="gpu" aria-pressed="false">100 % GPU</button>
+        <button class="chip" data-placement="split" aria-pressed="false">Débordement CPU</button>
+      </div>
+      <div class="filter-chips">
+        <label class="filter-label" for="sortBy">Trier par</label>
+        <select id="sortBy" class="filter-input" style="max-width:220px">
+          <option value="quality">Qualité globale</option>
+          <option value="gen">Vitesse de génération</option>
+          <option value="mem">Mémoire chargée</option>
+          <option value="paramsNum">Nombre de paramètres</option>
+          <option value="co2">Empreinte carbone</option>
+          <option value="name">Nom</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="answers-meta reveal" id="filterCount" style="margin-top:1.2rem"></p>
+    <div id="dataList" class="reveal"></div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="#" class="logo" aria-label="Wavestone">
+          <svg class="logo-svg" viewBox="0 0 307 42" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;height:24px" aria-hidden="true">
+            <g style="fill:#ffffff">
+              <path d="M-3.843-8.349h16.891l-2.409 3.746-12.447-.019-2.035-3.727Z" transform="scale(2 -2) rotate(-61.367 .264 -10.29)"/>
+              <path d="M0 12.081c-3.666 0-5.343-2.682-5.343-6.041C-5.343 2.682-3.666 0 0 0s5.343 2.682 5.343 6.04c0 3.359-1.677 6.041-5.343 6.041M0-1.617c-4.933 0-8.833 2.907-8.833 7.657 0 4.751 3.9 7.658 8.833 7.658 4.932 0 8.833-2.907 8.833-7.658 0-4.75-3.901-7.657-8.833-7.657" transform="matrix(2 0 0 2 221.951 14.024)"/>
+              <path d="M0-10.554h5.34V2.011h3.329v-12.565h5.34v-2.011H0v2.011Z" transform="matrix(2 0 0 2 173.832 36.636)"/>
+              <path d="M0-3.449c-2.126-.554-4.134-1.078-4.134-2.391 0-1.323 1.848-1.915 3.679-1.915 1.82 0 3.546.456 5.278 1.392l.42.227v-1.927l-.165-.082C3.516-8.92 1.457-9.383-.429-9.383c-3.162 0-6.54 1.165-6.54 4.436 0 3.154 3.247 4.013 6.112 4.772C1.3.395 3.336.934 3.336 2.334c0 1.338-1.927 1.98-3.717 1.98-2.118 0-4.221-.665-6.248-1.957l-.227-.145-.942 1.367.255.173c2.018 1.367 4.779 2.182 7.384 2.182 3.945 0 6.493-1.756 6.493-4.439 0-3.292-3.512-4.208-6.334-4.944" transform="matrix(2 0 0 2 156.98 29.542)"/>
+              <path d="M0 2h8.257l.006-2.016H0v-4.251h8.904l.006-2.017H-3.329V8.284H9.035l.006-2.016H0V2Z" transform="matrix(2 0 0 2 117.545 24.063)"/>
+              <path d="M0 10.535V6.267h8.257l.006-2.016H0V0h8.905l.005-2.016H-3.329v14.567H9.035l.006-2.016H0Z" transform="matrix(2 0 0 2 288.814 15.528)"/>
+              <path d="M0 5.542 2.493.901l2.542 4.641H0Zm-4.823 4.64 2.329.003 1.411-2.627H6.14l1.438 2.624h3.783L3.267-4.643l-8.09 14.825Z" transform="matrix(2 0 0 2 54.77 20.265)"/>
+              <path d="m0 3.74-5.085-9.281h-3.784L-.775 9.284l8.09-14.825-2.33-.003L0 3.74Z" transform="matrix(2 0 0 2 90.655 22.593)"/>
+              <path d="m0-14.575.004 9.072-12.051-9.333V-.003h2.014l.014-9.063L2.014.261l.002-14.836H0Z" transform="matrix(2 0 0 2 270.249 40.645)"/>
+              <path d="M0-20.58h-2.653c-2.896 3.035-5.583 6.249-7.672 9.626a51.752 51.752 0 0 0-2.356 4.236l-4.442-8.107h-4.246L-13.275 0l.002-.008C-10.777-7.504-6.209-14.46 0-20.58" transform="matrix(2 0 0 2 60.381 41.16)"/>
+            </g>
+          </svg>
+        </a>
+        <p style="margin-top: 1.5rem; max-width: 340px; font-size: 0.95rem;">
+          Benchmark SLM on-premise réalisé dans le cadre du projet WaveLocalAI — exécution de modèles de
+          langage en local, mesure de performance et d'empreinte carbone.
+        </p>
+      </div>
+      <div class="footer-col">
+        <h5>Sections</h5>
+        <a href="#contexte">Contexte</a>
+        <a href="#protocole">Protocole</a>
+        <a href="#tests">Tests</a>
+        <a href="#resultats">Résultats</a>
+      </div>
+      <div class="footer-col">
+        <h5>Données</h5>
+        <a href="#resultats">data/models.json</a>
+        <a href="#resultats">data/benchmarks_data.csv</a>
+        <a href="#resultats">data/benchmark_report.md</a>
+      </div>
+      <div class="footer-col">
+        <h5>Environnement</h5>
+        <span style="color: white; font-weight: 600; display: block;">RTX 3060 Laptop · 6 Go</span>
+        <span style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">32 Go RAM · Ollama 0.34.2</span>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 · Benchmark SLM on-premise · WaveLocalAI · By Wavestone</span>
+      <span style="color: rgba(255,255,255,0.5)">Campagne du 22 septembre 2026</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  /*DATA_START*/
+  window.BENCH = {"models":[{"name":"Granite 4.0 350M","tag":"granite4:350m","editor":"IBM","params":"0.35B","paramsNum":0.35,"active":"0.35B","desc":"Plus petit Granite 4.0, dense. Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":1.16,"gpu":100,"vram":1.304,"gen":232.4,"prefill":12568.7,"prefillTokens":4534,"ttft":49,"ttftFull":399,"load":1413,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":false},"reason":0.21,"byCat":{"logic":0.33,"arithmetic":0.2,"pattern":0.33,"trap":0.0},"instr":0.25,"abst":0.0,"tools":0.75,"jsonValid":1.0,"jsonSchema":1.0,"co2":4e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"fr":{"comprehension":false,"generation":true},"es":{"comprehension":false,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":false},"ja":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"LFM 2.5 1.2B Thinking","tag":"lfm2.5-thinking:1.2b","editor":"Liquid AI","params":"1.2B","paramsNum":1.2,"active":"1.2B","desc":"Hybride convolution + attention (dense), raisonnement. Licence LFM Open.","license":"Autre (Voir détails)","date":"2026-09-22","mem":1.007,"gpu":100,"vram":1.144,"gen":248.28,"prefill":9833.1,"prefillTokens":4783,"ttft":33,"ttftFull":511,"load":780,"ctx":16384,"needle":{"ctx_4k":false,"ctx_8k":true,"ctx_16k":true},"reason":0.57,"byCat":{"logic":0.67,"arithmetic":0.8,"pattern":0.33,"trap":0.33},"instr":0.75,"abst":1.0,"tools":1.0,"jsonValid":0.5,"jsonSchema":0.5,"co2":4e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":false,"generation":true},"de":{"comprehension":false,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":false,"generation":true},"zh":{"comprehension":false,"generation":true},"ja":{"comprehension":false,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","multilingual_full"]},{"name":"Gemma 3 1B","tag":"gemma3:1b","editor":"Google","params":"1B","paramsNum":1.0,"active":"1B","desc":"Plus petit Gemma texte récent (Gemma 4 n'a pas de taille < E2B).","license":"Autre (Voir détails)","date":"2026-09-22","mem":0.903,"gpu":100,"vram":1.102,"gen":177.31,"prefill":9855.9,"prefillTokens":4514,"ttft":42,"ttftFull":500,"load":1594,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.43,"byCat":{"logic":1.0,"arithmetic":0.2,"pattern":0.33,"trap":0.33},"instr":0.75,"abst":1.0,"tools":0.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":5e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["json_validated","multilingual_full"]},{"name":"Qwen 3.5 0.8B","tag":"qwen3.5:0.8b","editor":"Alibaba","params":"0.87B","paramsNum":0.87,"active":"0.87B","desc":"Qwen 3.5 dense (Gated DeltaNet + attention), multimodal. Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":1.219,"gpu":100,"vram":1.57,"gen":167.64,"prefill":7699.6,"prefillTokens":4517,"ttft":61,"ttftFull":620,"load":2070,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.43,"byCat":{"logic":0.67,"arithmetic":0.4,"pattern":0.33,"trap":0.33},"instr":0.62,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":5e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":false,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Bonsai 8B (1-bit)","tag":"bonsai:8b-q1_0","editor":"PrismML","params":"8B","paramsNum":8.0,"active":"8B","desc":"Qwen3-8B entraîné nativement en 1 bit (Q1_0). Apache 2.0.","license":"Erreur lecture","date":"2026-09-22","mem":3.352,"gpu":100,"vram":0.772,"gen":90.61,"prefill":1894.7,"prefillTokens":4516,"ttft":131,"ttftFull":2404,"load":7892,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.71,"byCat":{"logic":0.67,"arithmetic":0.8,"pattern":0.67,"trap":0.67},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":8e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":false,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":false,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":false,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"LFM 2.5 2.6B","tag":"LiquidAI/lfm2.5-2.6b","editor":"Liquid AI","params":"2.7B","paramsNum":2.7,"active":"2.7B","desc":"Hybride convolution + attention, dense. Licence LFM Open.","license":"Autre (Voir détails)","date":"2026-09-22","mem":1.972,"gpu":100,"vram":2.112,"gen":102.94,"prefill":4370.2,"prefillTokens":4648,"ttft":54,"ttftFull":1081,"load":2215,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":false},"reason":1.0,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":1.0,"trap":1.0},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":7e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Llama 3.2 3B","tag":"llama3.2:3b","editor":"Meta","params":"3.2B","paramsNum":3.2,"active":"3.2B","desc":"Référence Meta (2024), plus de petit Llama depuis. Llama Community License.","license":"Llama Community","date":"2026-09-22","mem":3.703,"gpu":100,"vram":3.837,"gen":90.64,"prefill":3445.4,"prefillTokens":4529,"ttft":99,"ttftFull":1331,"load":2193,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.64,"byCat":{"logic":1.0,"arithmetic":0.4,"pattern":1.0,"trap":0.33},"instr":0.88,"abst":1.0,"tools":0.75,"jsonValid":1.0,"jsonSchema":1.0,"co2":8e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":false,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":false,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Granite 4.2 3B","tag":"granite4.2:3b","editor":"IBM","params":"3.7B","paramsNum":3.7,"active":"3.7B","desc":"Granite 4.2 dense (août 2026). Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":3.279,"gpu":100,"vram":3.415,"gen":87.36,"prefill":2783.6,"prefillTokens":4521,"ttft":85,"ttftFull":1639,"load":1912,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.64,"byCat":{"logic":1.0,"arithmetic":0.4,"pattern":0.67,"trap":0.67},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":8e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":false,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":false,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":false,"generation":true},"ja":{"comprehension":false,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":false,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Phi 4 Mini 3.8B","tag":"phi4-mini:3.8b","editor":"Microsoft","params":"3.8B","paramsNum":3.8,"active":"3.8B","desc":"Dernier petit Phi (pas de Phi-5). MIT.","license":"MIT","date":"2026-09-22","mem":4.938,"gpu":80,"vram":4.075,"gen":64.92,"prefill":2306.5,"prefillTokens":4507,"ttft":151,"ttftFull":2040,"load":4003,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.64,"byCat":{"logic":1.0,"arithmetic":0.4,"pattern":0.67,"trap":0.67},"instr":0.88,"abst":1.0,"tools":0.25,"jsonValid":1.0,"jsonSchema":1.0,"co2":1e-05,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["json_validated","multilingual_full","license_permissive"]},{"name":"Qwen 3.5 2B","tag":"qwen3.5:2b","editor":"Alibaba","params":"2.3B","paramsNum":2.3,"active":"2.3B","desc":"Qwen 3.5 dense, Q8 par défaut. Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":2.405,"gpu":100,"vram":3.263,"gen":101.89,"prefill":4783.8,"prefillTokens":4517,"ttft":64,"ttftFull":979,"load":3462,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.57,"byCat":{"logic":1.0,"arithmetic":0.4,"pattern":0.67,"trap":0.33},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":9e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Nemotron 3 Nano 4B","tag":"nemotron-3-nano:4b","editor":"NVIDIA","params":"4.0B","paramsNum":4.0,"active":"4.0B","desc":"Hybride Mamba + attention, dense. NVIDIA Open Model License.","license":"Autre (Voir détails)","date":"2026-09-22","mem":2.938,"gpu":100,"vram":3.118,"gen":81.03,"prefill":2524.0,"prefillTokens":4790,"ttft":123,"ttftFull":1970,"load":2188,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.79,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":0.67,"trap":0.33},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":8e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":false,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Ministral 3 3B","tag":"ministral-3:3b","editor":"Mistral AI","params":"3.8B","paramsNum":3.8,"active":"3.8B","desc":"Plus petit Ministral 3 (déc. 2025). Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":4.142,"gpu":79,"vram":4.171,"gen":76.81,"prefill":2391.0,"prefillTokens":5325,"ttft":146,"ttftFull":2285,"load":4695,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":false,"ctx_16k":true},"reason":0.79,"byCat":{"logic":0.67,"arithmetic":0.8,"pattern":0.67,"trap":1.0},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":7e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":false,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Qwen 3.5 4B","tag":"qwen3.5:4b","editor":"Alibaba","params":"4.7B","paramsNum":4.7,"active":"4.7B","desc":"Qwen 3.5 dense, multimodal. Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":3.3,"gpu":100,"vram":4.161,"gen":57.24,"prefill":1787.8,"prefillTokens":4517,"ttft":118,"ttftFull":2561,"load":3734,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.86,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":0.33,"trap":1.0},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":1.1e-05,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Bonsai 27B (1-bit)","tag":"bonsai:27b-q1_0","editor":"PrismML","params":"27B","paramsNum":27.0,"active":"27B","desc":"Qwen3.6-27B dense entraîné en 1 bit (Q1_0). Apache 2.0.","license":"Erreur lecture","date":"2026-09-22","mem":4.902,"gpu":78,"vram":3.983,"gen":18.43,"prefill":329.8,"prefillTokens":4517,"ttft":624,"ttftFull":13736,"load":6013,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.71,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":0.33,"trap":0.33},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":2.6e-05,"ux":"🚀 Rapide","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Gemma 4 E2B (QAT)","tag":"gemma4:e2b-it-qat","editor":"Google","params":"4.6B","paramsNum":4.6,"active":"2B","desc":"Gemma 4 dense à Per-Layer Embeddings (~2B effectifs), QAT. Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":1.548,"gpu":100,"vram":2.823,"gen":109.29,"prefill":3776.1,"prefillTokens":4513,"ttft":53,"ttftFull":1243,"load":4256,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.86,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":0.67,"trap":0.67},"instr":1.0,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":9e-06,"ux":"⚡ Instantané","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Gemma 4 12B (Unsloth IQ3_XXS)","tag":"gemma4-ud:12b-iq3_xxs","editor":"Google","params":"11.9B","paramsNum":11.9,"active":"11.9B","desc":"Gemma 4 12B dense, quantification dynamique Unsloth ~3 bits.","license":"Erreur lecture","date":"2026-09-22","mem":5.379,"gpu":69,"vram":4.071,"gen":11.04,"prefill":685.8,"prefillTokens":4517,"ttft":802,"ttftFull":6637,"load":6997,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":1.0,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":1.0,"trap":1.0},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":3.4e-05,"ux":"🐢 Acceptable","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Ministral 3 14B (Unsloth IQ2_M)","tag":"ministral3-ud:14b-iq2_m","editor":"Mistral AI","params":"13.9B","paramsNum":13.9,"active":"13.9B","desc":"Ministral 3 14B dense, quantification dynamique Unsloth ~2,7 bits.","license":"Erreur lecture","date":"2026-09-22","mem":7.28,"gpu":54,"vram":4.081,"gen":8.9,"prefill":347.9,"prefillTokens":5379,"ttft":600,"ttftFull":15526,"load":4974,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.71,"byCat":{"logic":1.0,"arithmetic":0.8,"pattern":0.67,"trap":0.33},"instr":0.88,"abst":1.0,"tools":0.75,"jsonValid":1.0,"jsonSchema":1.0,"co2":2.4e-05,"ux":"🚀 Rapide","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","tag":"qwen3.5-ud:9b-q3_k_xl","editor":"Alibaba","params":"9.7B","paramsNum":9.7,"active":"9.7B","desc":"Qwen 3.5 9B dense, quantification dynamique Unsloth ~3,5 bits.","license":"Erreur lecture","date":"2026-09-22","mem":5.411,"gpu":71,"vram":4.042,"gen":13.47,"prefill":469.7,"prefillTokens":4517,"ttft":442,"ttftFull":9663,"load":5479,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.86,"byCat":{"logic":1.0,"arithmetic":0.8,"pattern":0.67,"trap":1.0},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":2.4e-05,"ux":"🚀 Rapide","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":false,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full"]},{"name":"Granite 4.2 8B","tag":"granite4.2:8b","editor":"IBM","params":"8.8B","paramsNum":8.8,"active":"8.8B","desc":"Granite 4.2 dense (août 2026). Apache 2.0.","license":"Apache 2.0","date":"2026-09-22","mem":7.652,"gpu":51,"vram":4.077,"gen":10.64,"prefill":457.4,"prefillTokens":4521,"ttft":519,"ttftFull":9898,"load":3932,"ctx":16384,"needle":{"ctx_4k":true,"ctx_8k":true,"ctx_16k":true},"reason":0.71,"byCat":{"logic":1.0,"arithmetic":0.8,"pattern":0.67,"trap":0.33},"instr":0.88,"abst":1.0,"tools":1.0,"jsonValid":1.0,"jsonSchema":1.0,"co2":2.4e-05,"ux":"🚀 Rapide","efficiency":"🟢 Excellent","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":false,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["tools_validated","json_validated","multilingual_full","license_permissive"]},{"name":"Qwen 3.6 35B-A3B (MoE)","tag":"qwen3.6:35b-a3b","editor":"Alibaba","params":"35B","paramsNum":35.0,"active":"3B","desc":"MoE 35B / 3B actifs. Experts déportés en RAM par Ollama (offload), test de comparaison avec les denses.","license":"Apache 2.0","date":"2026-09-22","mem":20.95,"gpu":13,"vram":4.28,"gen":32.28,"prefill":32.7,"prefillTokens":0,"ttft":762,"ttftFull":0,"load":31620,"ctx":4096,"needle":{"ctx_4k":true},"reason":0.93,"byCat":{"logic":1.0,"arithmetic":1.0,"pattern":0.67,"trap":1.0},"instr":0.88,"abst":1.0,"tools":0.5,"jsonValid":1.0,"jsonSchema":1.0,"co2":0.000189,"ux":"🚀 Rapide","efficiency":"🟡 Bon","langs":{"en":{"comprehension":true,"generation":false},"fr":{"comprehension":true,"generation":true},"es":{"comprehension":true,"generation":true},"de":{"comprehension":true,"generation":true},"it":{"comprehension":true,"generation":true},"pt":{"comprehension":true,"generation":true},"zh":{"comprehension":true,"generation":true},"ja":{"comprehension":true,"generation":true},"ko":{"comprehension":true,"generation":true},"ar":{"comprehension":true,"generation":true},"ru":{"comprehension":true,"generation":true}},"caps":["json_validated","multilingual_full","license_permissive"],"note":"Mesuré à 4K seulement, lors d'un run antérieur au correctif de notation : le benchmark complet a été interrompu deux fois par le système, ce modèle occupant 21 Go de RAM. Empreinte relevée par ollama ps.","stale":true}],"answers":{"weather_paris":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris, France'}))]","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"I will check the current weather in Paris for you.","ok":false},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'required': ['location'], 'properties': {'location': {'description': 'City name', 'type': 'string'}}, 'type': 'object'}))]","ok":false},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"The current weather in Paris, France is: - Temperature: 15°C - Condition: Partly Cloudy - Humidity: 60% - Wind Speed: 10 km/h","ok":false}],"sum":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'b': 47, 'a': 128}))]","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': '128', 'b': '47'}))]","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"[ToolCall(function=Function(name='calculate_sum', arguments={'a': 128, 'b': 47}))]","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"To solve this problem, I will use the `calculate_sum` function to add 128 and 47. Let me compute the result: 128 + 47 = 175 So the answer is 175. I will now call the function to confirm.","ok":false},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"The result of 128 plus 47 is **175**.","ok":false},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"To calculate the sum of 128 and 47, I will use the \"calculate_sum\" function. The result is: 128 + 47 = 175.","ok":false},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"128 plus 47 equals 175.","ok":false}],"capital_fr_tool":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"The capital of France is Paris.","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"Paris is the capital of France.","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"The capital of France is **Paris**.","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"The capital of France is Paris.","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"The capital of France is Paris. I don't need to use any tools for this question. The answer is based on general knowledge. </think> The capital of France is Paris.","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"The capital of France is Paris. This is a well-known fact and does not require a tool call.","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"The capital of France is Paris. However, since the available tools cannot address this query directly, I'll provide the answer based on general knowledge. **Answer:** Paris.","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"The capital of France is **Paris**.","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"The capital of France is **Paris**.","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"The capital of France is **Paris**.","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"The capital of France is Paris.","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"<|tool_call|>I understand that you're asking for the capital of France. However, as an AI, I don't have the capability to directly answer questions that don't require a function call. If you need the current weather for Paris, the capital of France, I can certainly help with that. Would you like to ...","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"The capital of France is Paris.","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"The capital of France is Paris.","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"The capital of France is Paris.","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"The capital of France is Paris.","ok":true},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"The capital of France is Paris.","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris'}))]","ok":false},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Paris'}))]","ok":false}],"tokyo":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'unit': 'fahrenheit', 'location': 'Tokyo'}))]","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'type': 'object', 'required': ['location', 'unit'], 'properties': {'location': {'description': 'City name', 'type': 'string'}, 'unit': {'description': 'Temperature unit', 'enum': ['celsius', 'fahrenheit'], 'type': 'string'}}}))]","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"[ToolCall(function=Function(name='get_weather', arguments={'location': 'Tokyo', 'unit': 'fahrenheit'}))]","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"I will check the current weather in Tokyo for you.","ok":false}],"json_nested":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"{ \"orderId\": \"PO-8472\", \"status\": \"shipped\", \"customer\": { \"name\": \"Acme Corp\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-1001\", \"qty\": 50 }, { \"sku\": \"SKU-2042\", \"qty\": 12 } ], \"total\": 3850.00 }","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"{ \"orderId\": \"PO123456\", \"status\": \"shipped\", \"customer\": { \"name\": \"John Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU001\", \"qty\": 3 }, { \"sku\": \"SKU002\", \"qty\": 5 } ], \"total\": 195.0 }","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"```json { \"orderId\": \"ORD-20231027-001\", \"status\": \"shipped\", \"customer\": { \"name\": \"John Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"ABC-123\", \"qty\": 2 }, { \"sku\": \"DEF-456\", \"qty\": 1 } ], \"total\": 60 } ```","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"```json { \"orderId\": \"PO-98234-X\", \"status\": \"shipped\", \"customer\": { \"name\": \"Alice Henderson\", \"vip\": true }, \"items\": [ { \"sku\": \"WID-001\", \"qty\": 2 }, { \"sku\": \"GBL-442\", \"qty\": 5 } ], \"total\": 145.50 } ```","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"```json { \"orderId\": \"PO12345\", \"status\": \"pending\", \"customer\": { \"name\": \"John Doe\", \"vip\": false }, \"items\": [ { \"sku\": \"SKU001\", \"qty\": 5 }, { \"sku\": \"SKU002\", \"qty\": 12 } ], \"total\": 150.00 } ```","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"{ \"orderId\": \"ORD123456\", \"status\": \"pending\", \"customer\": { \"name\": \"John Doe\", \"vip\": false }, \"items\": [ { \"sku\": \"SKU789\", \"qty\": 5 }, { \"sku\": \"SKU101\", \"qty\": 10 } ], \"total\": 150 }","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"{ \"orderId\": \"PO12345\", \"status\": \"pending\", \"customer\": { \"name\": \"John Doe\", \"vip\": false }, \"items\": [ { \"sku\": \"SKU001\", \"qty\": 2 }, { \"sku\": \"SKU002\", \"qty\": 3 } ], \"total\": 15.0 }","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"{ \"orderId\": \"PO-2024-001\", \"status\": \"pending\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-1001\", \"qty\": 2 }, { \"sku\": \"SKU-1002\", \"qty\": 3 } ], \"total\": 125.99 }","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"{ \"orderId\": \"ORD-2025-001\", \"status\": \"pending\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"ABC123\", \"qty\": 3 }, { \"sku\": \"DEF456\", \"qty\": 5 } ], \"total\": 27.0 }","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"{ \"orderId\": \"PO123\", \"status\": \"pending\", \"customer\": { \"name\": \"John Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"ABC123\", \"qty\": 5 }, { \"sku\": \"DEF456\", \"qty\": 10 } ], \"total\": 150.00 }","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"```json { \"orderId\": \"PO-20260922-001\", \"status\": \"pending\", \"customer\": { \"name\": \"Acme Corp\", \"vip\": true }, \"items\": [ { \"sku\": \"ELEC-45X\", \"qty\": 3 }, { \"sku\": \"SOFT-98Y\", \"qty\": 15 } ], \"total\": 1250.75 } ```","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"```json { \"orderId\": \"PO20260922-0045\", \"status\": \"pending\", \"customer\": { \"name\": \"Alexandra Martinez\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-12345\", \"qty\": 3 }, { \"sku\": \"SKU-67890\", \"qty\": 7 } ], \"total\": 458.25 } ```","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"{ \"orderId\": \"PO123456\", \"status\": \"pending\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU001\", \"qty\": 5 }, { \"sku\": \"SKU002\", \"qty\": 12 } ], \"total\": 185.0 }","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"```json { \"orderId\": \"PO123456\", \"status\": \"shipped\", \"customer\": { \"name\": \"John Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU123\", \"qty\": 10 }, { \"sku\": \"SKU456\", \"qty\": 5 } ], \"total\": 150.00 } ```","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"{ \"orderId\": \"PO-2024-001\", \"status\": \"pending\", \"customer\": { \"name\": \"John Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-001\", \"qty\": 5 }, { \"sku\": \"SKU-002\", \"qty\": 3 } ], \"total\": 18 }","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"{ \"orderId\": \"PO-2023-8847\", \"status\": \"pending\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-1001\", \"qty\": 5 }, { \"sku\": \"SKU-1002\", \"qty\": 3 } ], \"total\": 149.50 }","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"{ \"orderId\": \"PO-2023-001\", \"status\": \"pending\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-12345\", \"qty\": 5 }, { \"sku\": \"SKU-67890\", \"qty\": 10 } ], \"total\": 250.0 }","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"{ \"orderId\": \"PO-2023-8492\", \"status\": \"shipped\", \"customer\": { \"name\": \"Alice Johnson\", \"vip\": true }, \"items\": [ { \"sku\": \"SKU-1001\", \"qty\": 5 }, { \"sku\": \"SKU-2045\", \"qty\": 12 } ], \"total\": 189.99 }","ok":true},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"{ \"orderId\": \"ORD-2023-84756\", \"status\": \"pending\", \"customer\": { \"name\": \"Jane Doe\", \"vip\": true }, \"items\": [ { \"sku\": \"WIDGET-A1\", \"qty\": 5 }, { \"sku\": \"GADGET-B2\", \"qty\": 2 } ], \"total\": 149.98 }","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false}],"zyrbandia":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"UNKNOWN","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"UNKNOWN","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"UNKNOWN","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"UNKNOWN","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"UNKNOWN","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"UNKNOWN","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"UNKNOWN","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"UNKNOWN","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"UNKNOWN","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"UNKNOWN","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"UNKNOWN","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"UNKNOWN","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"UNKNOWN","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"UNKNOWN","ok":true},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"UNKNOWN","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"I'm sorry, but I don't have the capability to provide real-time or future data. I am designed to respect user privacy and confidentiality.","ok":false}],"worldcup":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"UNKNOWN","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"UNKNOWN","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"UNKNOWN","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"UNKNOWN","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"UNKNOWN","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"UNKNOWN","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"UNKNOWN","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"UNKNOWN","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"UNKNOWN","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"UNKNOWN","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"UNKNOWN","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"UNKNOWN","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"UNKNOWN","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"The 2031 FIFA World Cup is currently in development and will not be held until at least 2034. Therefore, the event has not happened yet. UNKNOWN","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"UNKNOWN","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"UNKNOWN","ok":true},{"tag":"qwen3.6:35b-a3b","name":"Qwen 3.6 35B-A3B (MoE)","answer":"UNKNOWN","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"I'm sorry, but I don't have the capability to provide information on current events or future events. I can assist you with information related to the past or future events.","ok":false}],"bloops":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"No","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"No","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"no","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"no","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"no","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"no","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"no","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"no","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"No.","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"no","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"No.","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"no","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"No.","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"no","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"no","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"no","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"Yes.","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"yes","ok":false}],"train":[{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"To find the arrival time, we add the journey duration to the departure time. - **Departure time**: 09:15 - **Journey time**: 2 hours and 50 minutes Add 2 hours to 09:15: 09:15 + 2 hours = **11:15** Now add 50 minutes to 11:15: 11:15 + 50 minutes = **12:05** **Answer: 12:05**","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"12:05","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"12:05","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"The train leaves at 09:15 and the journey takes 2 hours and 50 minutes. Add 2 hours and 50 minutes to 09:15. First, add 2 hours: 09:15 + 2 hours = 11:15 Then add 50 minutes: 11:15 + 50 minutes = 12:05 So the arrival time is 12:05. Answer in HH:MM 24-hour format: 12:05 \\boxed{12:05}","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"12:05","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"To find the arrival time, add 2 hours and 50 minutes to the departure time. Departure time: 09:15 Add 2 hours: 11:15 Add 50 minutes: 12:05 Arrival time: 12:05","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"12:05","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"12:05","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"The train arrives at 12:05.","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"09:15 + 2 hours = 11:15 11:15 + 50 minutes = 12:05 12:05","ok":true},{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"To find the arrival time, add the duration of the journey to the departure time. **Departure Time:** 09:15 **Duration:** 2 hours and 50 minutes **Step-by-step calculation:** 1. Add the hours: 09:15 + 2 hours = 11:15 2. Add the remaining minutes (50 minutes): 11:15 + 50 minutes = 12:0...","ok":false},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"14:30","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"09:20","ok":false},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"11:05","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"11:55","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"13:15","ok":false},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"17:15","ok":false},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"11:05","ok":false}],"bat_ball":[{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"5","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"5","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"Let's solve the problem step-by-step: Let the cost of the ball be **x** euros. The bat costs **x + 1** euros. The total cost is: **x + (x + 1) = 1.10** Simplify: **2x + 1 = 1.10** Subtract 1: **2x = 0.10** Divide by 2: **x = 0.05 euros** Convert to cents: **0.05 euros = 5 cents** **5**","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"5","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"5","ok":true},{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"50","ok":false},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"Let's solve the problem step by step. We are told: - A **bat** and a **ball** cost **1.10 euros** in total. - The **bat** costs **1.00 euro more** than the **ball**. Let the cost of the **ball** be $ x $ euros. Then the cost of the **bat** is $ x + 1.00 $ euros. The total cost is: $$ x + (x + ...","ok":false},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"100","ok":false},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"50","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"100","ok":false},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"Let the ball cost \\( b \\) cents. Then the bat costs \\( b + 100 \\) cents (since the bat costs 1.00 euro more than the ball, i.e., 100 cents more). The total cost in cents is \\( b + (b + 100) = 2b + 100 \\). We are told the total cost is 1.10 euros, which is \\( 1.10 \\times 100 = 110 \\) cents. So: ...","ok":false},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"90","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"Let $ B $ be the cost of","ok":false},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"110","ok":false},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"10","ok":false},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"10","ok":false},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"The ball costs 10 cents. Here's the reasoning: 1. Let's denote the cost of the ball as B euros. 2. The bat costs 1.00 euro more than the ball, so the cost of the bat is B + 1.00 euros. 3. Together, the bat and the ball cost 1.10 euros, so B + (B + 1.00) = 1.10 euros. 4. Simplifying the equation,...","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"15","ok":false},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"11","ok":false}],"decimal":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"9.9","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"9.9","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"9.9","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"9.9","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"9.9","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"9.9","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"9.9","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"9.9 \\boxed{9.9}","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"9.9","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"9.9","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"9.9","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"9.9","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"9.9","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"9.9","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"9.9","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"9.9","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"9.9","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"9.11","ok":false},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"9.11","ok":false}],"strawberry":[{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"3","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"3","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"3","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"3","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"3","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"3","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"3","ok":true},{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"2","ok":false},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"1","ok":false},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"4","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"The letter 'r' appears 1 time in the word 'strawberry'.","ok":false},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"1","ok":false},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"1","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"2","ok":false},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"2","ok":false},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"4","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"1","ok":false},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"5","ok":false}],"ordering":[{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"103, 12, 9, 7","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"103, 12, 9, 7","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"103, 12, 9, 7","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"103, 12, 9, 7","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"103, 12, 9, 7","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"103, 12, 9, 7","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"103, 12, 9, 7","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"103, 12, 9, 7","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"103, 12, 9, 7","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"103, 12, 9, 7","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"103, 12, 9, 7","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"103, 12, 9, 7","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"103, 12, 9, 7","ok":true},{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"103, 12, 10, 9","ok":false},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"103, 9, 12, 7","ok":false},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"103,12,10,9","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"12, 103, 7, 9","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"103, 12, 10, 7","ok":false}],"ten_words":[{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"A giant, fiery ball of energy, warming Earth and life.","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"Bright, fiery star, radiating immense energy across the vast cosmos.","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"Sunlight radiates warmth, power, life's essence, guiding life on Earth.","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"The sun is a massive ball of hot glowing gas.","ok":true},{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"A blazing, golden sphere radiating immense heat and light across our solar system.","ok":false},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"A massive, glowing ball of plasma in space, providing light and heat for life on Earth.","ok":false},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"The sun is a hot star that provides light and heat.","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"Sun, radiant source of light.","ok":false},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"Bright, warm, radiant source of light and energy.","ok":false},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"A massive star emitting light and heat.","ok":false},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"<Empty>","ok":false},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"\"Giant, fiery ball of gas, nuclear fusion, 93 million miles away.\"","ok":false},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"**\"Golden orb blazing warmth, life’s eternal cosmic light.\"** *(9 words—adjusting to 10:)* **\"Fiery sphere igniting Earth’s endless golden day.\"** *(10 words)*","ok":false},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"Glowing star, life-giving, warm, bright, endless, radiant, celestial, powerful, eternal, source.","ok":false},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"A massive, glowing star at the solar system's center.","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"The sun is a bright, golden orb that warms the earth and creates life.","ok":false},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"A burning ball of gas that warms our world.","ok":false},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"A hot ball of gas that gives us light and heat.","ok":false},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"The Sun is a massive, glowing star at our solar system's center.","ok":false}],"prefix":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"RESULT: Tokyo","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"RESULT: Tokyo","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"RESULT: Tokyo","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"RESULT: Tokyo","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"RESULT: TOKYO","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"RESULT: Tokyo","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"RESULT: Tokyo","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"RESULT: TOKYO","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"RESULT: Tokyo","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"RESULT: Tokyo","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"RESULT: TOKYO","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"RESULT: Tokyo","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"RESULT: TOKYO","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"RESULT: TOKYO","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"RESULT: TOKYO","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"RESULT: Tokyo","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"RESULT: Tokyo","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"RESULT: Tokyo","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"Tokyo","ok":false}],"one_word":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"paris","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"paris","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"paris","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"paris","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"paris","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"paris","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"paris","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"paris","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"paris","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"paris","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"paris","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"paris","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"paris","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"paris","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"paris","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"paris","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"paris","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"Paris","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"par","ok":false}],"csv":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"28,26,24,22,20","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"28,26,24,22,20","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"30, 28, 26, 24, 22","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"28,26,24,22,20","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"28,26,24,22,20","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"18, 16, 14, 12, 10","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"18, 16, 14, 12, 10","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"28, 26, 24, 22, 20","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"12, 14, 16, 18, 20","ok":false},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"17, 14, 10","ok":false},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"<Empty>","ok":false}],"no_markdown":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"Gravity is a fundamental force that attracts objects with mass toward one another, causing planets to orbit stars and keeping us firmly on the ground. This interaction shapes the structure of the universe by governing everything from falling apples to the motion of galaxies across space.","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"Gravity is the force that attracts objects with mass toward each other. It is the reason why objects fall to the ground and why planets orbit the sun.","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"Gravity is a force that attracts any two objects with mass towards each other. It’s the reason objects fall down and planets orbit stars – it’s a fundamental force shaping the universe.","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"Gravity is the fundamental force by which all objects with mass attract one another. It is caused by the curvature of spacetime, where massive bodies like planets warp the fabric of the universe to influence the motion of matter.","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"Gravity is the fundamental force of nature that attracts any two objects with mass toward each other. It is the reason planets orbit stars and keeps us firmly on the ground.","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"Gravity is the attractive force between masses caused by the curvature of spacetime around them. It pulls objects toward each other, and the strength depends on the masses involved and the distance between them.","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"Gravity is the attractive force that any mass exerts on any other mass, proportional to the product of their masses and inversely proportional to the square of the distance between them. It manifests as the curvature of spacetime described by Einstein’s general relativity, causing objects to follow ...","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"Gravity is a fundamental force attracting all masses together. It shapes the structure of the universe by influencing matter distribution.","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"Gravity is the attractive force that arises from mass, pulling objects toward each other and giving them weight. According to Einstein’s general theory of relativity, this curvature of spacetime causes the motion we perceive as gravitational attraction.","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"Gravity is a fundamental force of nature that causes objects with mass to attract each other, with the strength of the attraction depending on the mass and distance between the objects. According to Albert Einstein's theory of general relativity, gravity is not a force that acts between objects, but...","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"Gravity is the natural force that pulls objects with mass toward each other, causing things to fall to the ground or keeping planets in orbit around stars. It weakens with distance and depends on the mass of the objects involved, as described by Einstein’s general relativity and Newton’s law of univ...","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"Gravity is the natural force that pulls objects toward each other due to their mass, causing everything from apples to planets to fall toward the center of a larger body like Earth. The strength of this pull depends on how much mass is involved and how far apart they are, following Einstein’s theory...","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"Gravity is the force that attracts objects with mass toward each other. It is caused by the curvature of spacetime created by mass.","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"Gravity is the force that attracts two bodies toward each other, such as the force that keeps the planets in orbit around the sun. It is a fundamental interaction that governs the motion of objects with mass.","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"Gravity is the force that attracts two bodies toward each other based on their masses and the distance between them. This phenomenon causes objects with more mass to pull on objects with less mass, creating a gravitational field that governs the motion of celestial bodies and everyday objects alike.","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"Gravity is a fundamental force of nature that causes any object with mass to attract other objects with mass toward it. This invisible pull keeps planets orbiting stars and prevents us from floating away into space.","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"Gravity is a fundamental force that attracts all objects with mass toward one another. This attraction causes planets to orbit stars and keeps objects grounded on the surface of Earth.","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"Gravity is a fundamental force of nature that attracts objects with mass towards each other.","ok":false},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"Gravity is the fundamental force that attracts objects with mass toward one another, causing planets to orbit stars and keeping us grounded on Earth by pulling everything down toward the center of the universe.","ok":false}],"needle":[{"tag":"bonsai:27b-q1_0","name":"Bonsai 27B (1-bit)","answer":"GWO1BAOI","ok":true},{"tag":"bonsai:8b-q1_0","name":"Bonsai 8B (1-bit)","answer":"G96UO8TO","ok":true},{"tag":"gemma3:1b","name":"Gemma 3 1B","answer":"WCNXDWS3","ok":true},{"tag":"gemma4-ud:12b-iq3_xxs","name":"Gemma 4 12B (Unsloth IQ3_XXS)","answer":"WPIE4457","ok":true},{"tag":"gemma4:e2b-it-qat","name":"Gemma 4 E2B (QAT)","answer":"IP0FXVB6","ok":true},{"tag":"granite4:350m","name":"Granite 4.0 350M","answer":"10DT4CY8","ok":true},{"tag":"granite4.2:3b","name":"Granite 4.2 3B","answer":"KK3Z4CZK","ok":true},{"tag":"granite4.2:8b","name":"Granite 4.2 8B","answer":"QRQGKXM2","ok":true},{"tag":"lfm2.5-thinking:1.2b","name":"LFM 2.5 1.2B Thinking","answer":"QZNQAO4X","ok":true},{"tag":"LiquidAI/lfm2.5-2.6b","name":"LFM 2.5 2.6B","answer":"RNZVKX6R","ok":true},{"tag":"llama3.2:3b","name":"Llama 3.2 3B","answer":"EUJJ1VUC","ok":true},{"tag":"ministral3-ud:14b-iq2_m","name":"Ministral 3 14B (Unsloth IQ2_M)","answer":"C6Q623WP","ok":true},{"tag":"nemotron-3-nano:4b","name":"Nemotron 3 Nano 4B","answer":"O1SSQX1D","ok":true},{"tag":"phi4-mini:3.8b","name":"Phi 4 Mini 3.8B","answer":"XEIDNFW9","ok":true},{"tag":"qwen3.5:0.8b","name":"Qwen 3.5 0.8B","answer":"W73KRW73","ok":true},{"tag":"qwen3.5:2b","name":"Qwen 3.5 2B","answer":"ORB7DF3W","ok":true},{"tag":"qwen3.5:4b","name":"Qwen 3.5 4B","answer":"3I4DR6IQ","ok":true},{"tag":"qwen3.5-ud:9b-q3_k_xl","name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","answer":"0NI3I7QN","ok":true},{"tag":"ministral-3:3b","name":"Ministral 3 3B","answer":"**ZU6FTUVL**","ok":false}]},"corr":{"n":20,"pairs":{"params|mem":{"pearson":0.499,"spearman":0.806},"params|gpu":{"pearson":-0.804,"spearman":-0.763},"params|gen":{"pearson":-0.593,"spearman":-0.87},"params|ttft":{"pearson":0.832,"spearman":0.878},"params|reason":{"pearson":0.428,"spearman":0.69},"params|instr":{"pearson":0.286,"spearman":0.634},"params|tools":{"pearson":-0.065,"spearman":0.097},"mem|gpu":{"pearson":-0.696,"spearman":-0.842},"mem|gen":{"pearson":-0.864,"spearman":-0.949},"mem|ttft":{"pearson":0.754,"spearman":0.922},"mem|reason":{"pearson":0.423,"spearman":0.462},"mem|instr":{"pearson":0.431,"spearman":0.507},"mem|tools":{"pearson":0.077,"spearman":-0.005},"gpu|gen":{"pearson":0.612,"spearman":0.833},"gpu|ttft":{"pearson":-0.852,"spearman":-0.859},"gpu|reason":{"pearson":-0.39,"spearman":-0.424},"gpu|instr":{"pearson":-0.225,"spearman":-0.268},"gpu|tools":{"pearson":0.19,"spearman":0.156},"gen|ttft":{"pearson":-0.728,"spearman":-0.935},"gen|reason":{"pearson":-0.696,"spearman":-0.552},"gen|instr":{"pearson":-0.672,"spearman":-0.512},"gen|tools":{"pearson":-0.15,"spearman":-0.057},"ttft|reason":{"pearson":0.471,"spearman":0.531},"ttft|instr":{"pearson":0.262,"spearman":0.452},"ttft|tools":{"pearson":0.014,"spearman":-0.004},"reason|instr":{"pearson":0.768,"spearman":0.693},"reason|tools":{"pearson":0.318,"spearman":0.322},"instr|tools":{"pearson":0.158,"spearman":0.268}},"rows":[{"name":"Granite 4.0 350M","params":0.35,"mem":1.16,"gpu":100,"gen":232.4,"ttft":49,"reason":0.21,"instr":0.25,"tools":0.75,"co2":4e-06},{"name":"LFM 2.5 1.2B Thinking","params":1.2,"mem":1.007,"gpu":100,"gen":248.28,"ttft":33,"reason":0.57,"instr":0.75,"tools":1.0,"co2":4e-06},{"name":"Gemma 3 1B","params":1.0,"mem":0.903,"gpu":100,"gen":177.31,"ttft":42,"reason":0.43,"instr":0.75,"tools":0.0,"co2":5e-06},{"name":"Qwen 3.5 0.8B","params":0.87,"mem":1.219,"gpu":100,"gen":167.64,"ttft":61,"reason":0.43,"instr":0.62,"tools":1.0,"co2":5e-06},{"name":"Bonsai 8B (1-bit)","params":8.0,"mem":3.352,"gpu":100,"gen":90.61,"ttft":131,"reason":0.71,"instr":0.88,"tools":1.0,"co2":8e-06},{"name":"LFM 2.5 2.6B","params":2.7,"mem":1.972,"gpu":100,"gen":102.94,"ttft":54,"reason":1.0,"instr":0.88,"tools":1.0,"co2":7e-06},{"name":"Llama 3.2 3B","params":3.2,"mem":3.703,"gpu":100,"gen":90.64,"ttft":99,"reason":0.64,"instr":0.88,"tools":0.75,"co2":8e-06},{"name":"Granite 4.2 3B","params":3.7,"mem":3.279,"gpu":100,"gen":87.36,"ttft":85,"reason":0.64,"instr":0.88,"tools":1.0,"co2":8e-06},{"name":"Phi 4 Mini 3.8B","params":3.8,"mem":4.938,"gpu":80,"gen":64.92,"ttft":151,"reason":0.64,"instr":0.88,"tools":0.25,"co2":1e-05},{"name":"Qwen 3.5 2B","params":2.3,"mem":2.405,"gpu":100,"gen":101.89,"ttft":64,"reason":0.57,"instr":0.88,"tools":1.0,"co2":9e-06},{"name":"Nemotron 3 Nano 4B","params":4.0,"mem":2.938,"gpu":100,"gen":81.03,"ttft":123,"reason":0.79,"instr":0.88,"tools":1.0,"co2":8e-06},{"name":"Ministral 3 3B","params":3.8,"mem":4.142,"gpu":79,"gen":76.81,"ttft":146,"reason":0.79,"instr":0.88,"tools":1.0,"co2":7e-06},{"name":"Qwen 3.5 4B","params":4.7,"mem":3.3,"gpu":100,"gen":57.24,"ttft":118,"reason":0.86,"instr":0.88,"tools":1.0,"co2":1.1e-05},{"name":"Bonsai 27B (1-bit)","params":27.0,"mem":4.902,"gpu":78,"gen":18.43,"ttft":624,"reason":0.71,"instr":0.88,"tools":1.0,"co2":2.6e-05},{"name":"Gemma 4 E2B (QAT)","params":4.6,"mem":1.548,"gpu":100,"gen":109.29,"ttft":53,"reason":0.86,"instr":1.0,"tools":1.0,"co2":9e-06},{"name":"Gemma 4 12B (Unsloth IQ3_XXS)","params":11.9,"mem":5.379,"gpu":69,"gen":11.04,"ttft":802,"reason":1.0,"instr":0.88,"tools":1.0,"co2":3.4e-05},{"name":"Ministral 3 14B (Unsloth IQ2_M)","params":13.9,"mem":7.28,"gpu":54,"gen":8.9,"ttft":600,"reason":0.71,"instr":0.88,"tools":0.75,"co2":2.4e-05},{"name":"Qwen 3.5 9B (Unsloth Q3_K_XL)","params":9.7,"mem":5.411,"gpu":71,"gen":13.47,"ttft":442,"reason":0.86,"instr":0.88,"tools":1.0,"co2":2.4e-05},{"name":"Granite 4.2 8B","params":8.8,"mem":7.652,"gpu":51,"gen":10.64,"ttft":519,"reason":0.71,"instr":0.88,"tools":1.0,"co2":2.4e-05},{"name":"Qwen 3.6 35B-A3B (MoE)","params":35.0,"mem":4.28,"gpu":13,"gen":32.28,"ttft":762,"reason":0.93,"instr":0.88,"tools":0.5,"co2":0.000189}]},"generated":"2026-09-22"};
+  /*DATA_END*/
+
+  // ----- DONNÉES DU BENCHMARK -----
+  const MODELS = (window.BENCH.models || []).map(m => ({
+    name: m.name, editor: m.editor, params: m.paramsNum, mem: m.mem, gpu: m.gpu,
+    gen: m.gen, reason: m.reason, instr: m.instr, tools: m.tools,
+    ctx: Math.round((m.ctx || 0) / 1024), stale: !!m.stale
+  }));
+
+  const MAX_GEN = Math.max(...MODELS.map(m => m.gen));
+  const MAX_MEM = Math.max(...MODELS.map(m => m.mem));
+
+  function gpuPill(pct) {
+    const cls = pct >= 100 ? 'pill-gpu' : (pct >= 50 ? 'pill-split' : 'pill-cpu');
+    return `<span class="pill ${cls}">${pct} %</span>`;
+  }
+  function scoreCell(v) {
+    const cls = v < 0.5 ? 'low' : (v < 0.8 ? 'mid' : '');
+    return `<span class="score ${cls}">${v.toFixed(2)}</span>`;
+  }
+  function bar(value, max, green) {
+    const pct = Math.round((value / max) * 100);
+    return `<div class="bar ${green ? 'green' : ''}"><span style="width:${pct}%"></span></div>`;
+  }
+
+  function render(rows) {
+    document.getElementById('resultsBody').innerHTML = rows.map(m => `
+      <tr class="${m.gpu >= 100 ? 'highlight-row' : ''}">
+        <td>
+          <div class="model-name">${m.name}</div>
+          <div class="model-editor">${m.editor}</div>
+        </td>
+        <td>${m.params} B</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <strong>${m.mem.toFixed(2)}</strong>${bar(m.mem, MAX_MEM, false)}
+          </div>
+        </td>
+        <td>${gpuPill(m.gpu)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <strong>${m.gen.toFixed(0)}</strong>
+            <span style="color:var(--ws-gray);font-size:0.78rem">t/s</span>
+            ${bar(m.gen, MAX_GEN, true)}
+          </div>
+        </td>
+        <td>${scoreCell(m.reason)}</td>
+        <td>${scoreCell(m.instr)}</td>
+        <td>${scoreCell(m.tools)}</td>
+        <td>${m.ctx}K${m.stale ? ' <span title="mesure partielle" style="color:var(--ws-yellow);font-weight:700">*</span>' : ''}</td>
+      </tr>`).join('');
+  }
+
+  // Tri initial : qualité globale décroissante
+  const initial = [...MODELS].sort((a, b) =>
+    (b.reason + b.instr + b.tools) - (a.reason + a.instr + a.tools));
+  render(initial);
+
+  // ----- TRI DES COLONNES -----
+  const KEYS = ['name', 'params', 'mem', 'gpu', 'gen', 'reason', 'instr', 'tools', 'ctx'];
+  let sortState = { idx: null, asc: false };
+  document.querySelectorAll('#resultsTable thead th').forEach((th, idx) => {
+    th.addEventListener('click', () => {
+      const key = KEYS[idx];
+      sortState = { idx, asc: sortState.idx === idx ? !sortState.asc : (key === 'name') };
+      const dir = sortState.asc ? 1 : -1;
+      const sorted = [...MODELS].sort((a, b) =>
+        typeof a[key] === 'string' ? dir * a[key].localeCompare(b[key]) : dir * (a[key] - b[key]));
+      render(sorted);
+    });
+  });
+
+  // ----- SCROLL PROGRESS + NAV -----
+  const progress = document.getElementById('scrollProgress');
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.width = ((window.scrollY / h) * 100) + '%';
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // ----- REVEAL -----
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.15, rootMargin: '0px 0px 15% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Filet de sécurité : en iframe ou en impression, l'observateur peut ne jamais
+  // se déclencher. Aucun contenu ne doit rester invisible pour autant.
+  setTimeout(() => document.querySelectorAll('.reveal:not(.visible)').forEach(el => {
+    if (el.getBoundingClientRect().top < window.innerHeight * 2.5) el.classList.add('visible');
+  }), 2500);
+  window.addEventListener('beforeprint', () =>
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible')));
+
+  // ----- COMPTEURS -----
+  function animateCounter(el) {
+    const target = +el.dataset.count;
+    const suffix = el.querySelector('.suffix')?.outerHTML || '';
+    const dur = 1800; const start = performance.now();
+    function step(now) {
+      const t = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.innerHTML = Math.round(target * eased) + suffix;
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  const co = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !e.target.dataset.done) {
+        e.target.dataset.done = '1'; animateCounter(e.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('[data-count]').forEach(el => co.observe(el));
+
+  // ----- TABS -----
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const t = document.getElementById(b.dataset.tab);
+    if (t) t.classList.add('active');
+  }));
+
+  // ----- ACCORDÉON -----
+  document.querySelectorAll('.phase-header').forEach(h =>
+    h.addEventListener('click', () => {
+      const item = h.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.phase-item').forEach(p => p.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    })
+  );
+
+  // ===== RÉPONSES RÉELLES DES MODÈLES =====
+  const ANSWERS = (window.BENCH && window.BENCH.answers) || {};
+  const CHECK_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  const CROSS_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
+  document.querySelectorAll('.prompt[data-answers]').forEach(block => {
+    const key = block.dataset.answers;
+    const rows = ANSWERS[key];
+    if (!rows || !rows.length) return;
+
+    const okCount = rows.filter(r => r.ok === true).length;
+    const btn = document.createElement('button');
+    btn.className = 'answers-toggle';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = `Voir les réponses des modèles <span style="color:var(--ws-gray);font-weight:500">${okCount}/${rows.length} réussites</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>`;
+
+    const panel = document.createElement('div');
+    panel.className = 'answers-panel';
+    panel.innerHTML = `<p class="answers-meta">Réponses telles qu'enregistrées dans les logs, température 0.</p>` +
+      rows.map(r => {
+        const cls = r.ok === true ? 'ok' : (r.ok === false ? 'ko' : 'na');
+        const icon = r.ok === true ? CHECK_ICON : (r.ok === false ? CROSS_ICON : '');
+        const text = (r.answer || '(réponse vide)').replace(/</g, '&lt;');
+        return `<div class="answer-row">
+            <div class="answer-model"><span class="verdict ${cls}">${icon}</span>${r.name}</div>
+            <div class="answer-text">${text}</div>
+          </div>`;
+      }).join('');
+
+    block.insertAdjacentElement('afterend', panel);
+    block.insertAdjacentElement('afterend', btn);
+
+    btn.addEventListener('click', () => {
+      const open = panel.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+      if (open) panel.querySelectorAll('.answer-text').forEach(el => {
+        if (el.scrollHeight > el.clientHeight + 4) el.classList.add('clamped');
+      });
+    });
+  });
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.answer-text');
+    if (t) t.classList.toggle('expanded');
+  });
+
+  // ===== CORRÉLATIONS =====
+  const CORR = (window.BENCH && window.BENCH.corr) || { pairs: {}, rows: [] };
+  const CORR_LABELS = {
+    params: 'Paramètres', mem: 'Go chargés', gpu: '% en VRAM', gen: 'Génération',
+    ttft: 'Latence', reason: 'Raisonnement', instr: 'Instructions', tools: 'Outils'
+  };
+
+  const corrList = document.getElementById('corrList');
+  if (corrList && CORR.pairs) {
+    const entries = Object.entries(CORR.pairs)
+      .map(([k, v]) => ({ a: k.split('|')[0], b: k.split('|')[1], s: v.spearman }))
+      .filter(e => Math.abs(e.s) >= 0.45)
+      .sort((x, y) => Math.abs(y.s) - Math.abs(x.s));
+    corrList.innerHTML = entries.map(e => {
+      const pct = Math.abs(e.s) * 50;
+      const bar = e.s >= 0
+        ? `<span class="pos" style="width:${pct}%"></span>`
+        : `<span class="neg" style="width:${pct}%"></span>`;
+      return `<div class="corr-row">
+          <div class="corr-label">${CORR_LABELS[e.a]} <span style="color:var(--ws-gray)">/</span> ${CORR_LABELS[e.b]}</div>
+          <div class="corr-track">${bar}</div>
+          <div class="corr-val" style="color:${e.s >= 0 ? '#06a45e' : 'var(--ws-purple)'}">${e.s.toFixed(2)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+  if (CORR.pairs) {
+    const get = (k) => CORR.pairs[k] ? CORR.pairs[k].spearman.toFixed(2) : '—';
+    setText('corrMemGen', get('mem|gen'));
+    setText('corrGpuGen', get('gpu|gen'));
+    setText('corrReasonInstr', get('reason|instr'));
+  }
+  if (CORR.rows && CORR.rows.length) {
+    const full = CORR.rows.filter(r => r.gpu >= 100);
+    const split = CORR.rows.filter(r => r.gpu < 100);
+    const avg = (arr) => Math.round(arr.reduce((s, r) => s + r.gen, 0) / (arr.length || 1));
+    setText('avgFull', avg(full) + ' tok/s');
+    setText('avgSplit', avg(split) + ' tok/s');
+
+    // Nuage de points mémoire / vitesse
+    const W = 460, H = 300, PAD = 46;
+    const maxMem = Math.max(...CORR.rows.map(r => r.mem)) * 1.08;
+    const maxGen = Math.max(...CORR.rows.map(r => r.gen)) * 1.08;
+    const x = (v) => PAD + (v / maxMem) * (W - PAD - 14);
+    const y = (v) => H - PAD - (v / maxGen) * (H - PAD - 14);
+    const color = (g) => g >= 100 ? '#04F06A' : (g >= 50 ? '#FFCA4A' : '#FF2A49');
+    const points = CORR.rows.map(r => {
+      const rad = Math.max(4, Math.min(13, Math.sqrt(r.params) * 2.2));
+      return `<circle cx="${x(r.mem).toFixed(1)}" cy="${y(r.gen).toFixed(1)}" r="${rad.toFixed(1)}"
+        fill="${color(r.gpu)}" fill-opacity="0.75" stroke="#451DC7" stroke-width="1"><title>${r.name} — ${r.mem} Go, ${r.gen} tok/s, ${r.gpu} % GPU</title></circle>`;
+    }).join('');
+    const ticksX = [0, 2, 4, 6, 8].filter(v => v <= maxMem).map(v =>
+      `<text x="${x(v)}" y="${H - PAD + 18}" font-size="10" fill="#8a8a9e" text-anchor="middle">${v} Go</text>
+       <line x1="${x(v)}" y1="${H - PAD}" x2="${x(v)}" y2="${H - PAD + 4}" stroke="#E6E6EC"/>`).join('');
+    const ticksY = [0, 60, 120, 180, 240].filter(v => v <= maxGen).map(v =>
+      `<text x="${PAD - 8}" y="${y(v) + 3}" font-size="10" fill="#8a8a9e" text-anchor="end">${v}</text>
+       <line x1="${PAD}" y1="${y(v)}" x2="${W - 10}" y2="${y(v)}" stroke="#E6E6EC" stroke-dasharray="2 4"/>`).join('');
+    const scatter = document.getElementById('scatter');
+    if (scatter) scatter.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img"
+        aria-label="Nuage de points : mémoire chargée en abscisse, tokens par seconde en ordonnée">
+        ${ticksY}${ticksX}
+        <line x1="${PAD}" y1="${H - PAD}" x2="${W - 10}" y2="${H - PAD}" stroke="#E6E6EC"/>
+        <line x1="${PAD}" y1="10" x2="${PAD}" y2="${H - PAD}" stroke="#E6E6EC"/>
+        <text x="${PAD - 8}" y="14" font-size="10" fill="#8a8a9e" text-anchor="end">tok/s</text>
+        ${points}
+      </svg>`;
+  }
+
+  // ===== ANNEXE : EXPLORATION DES DONNÉES =====
+  const ALL = (window.BENCH && window.BENCH.models) || [];
+  const state = { text: '', editors: new Set(), placement: 'all', sort: 'quality' };
+
+  const editorsBox = document.getElementById('filterEditors');
+  if (editorsBox) {
+    const editors = [...new Set(ALL.map(m => m.editor))].sort();
+    editorsBox.innerHTML = editors.map(e =>
+      `<button class="chip" data-editor="${e}" aria-pressed="false">${e}</button>`).join('');
+  }
+
+  function quality(m) { return m.reason + m.instr + m.tools + m.jsonSchema; }
+
+  function matches(m) {
+    const q = state.text.toLowerCase();
+    if (q && !(`${m.name} ${m.editor} ${m.tag}`.toLowerCase().includes(q))) return false;
+    if (state.editors.size && !state.editors.has(m.editor)) return false;
+    if (state.placement === 'gpu' && m.gpu < 100) return false;
+    if (state.placement === 'split' && m.gpu >= 100) return false;
+    return true;
+  }
+
+  function kv(k, v) { return `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+  function renderData() {
+    const list = document.getElementById('dataList');
+    if (!list) return;
+    const rows = ALL.filter(matches).sort((a, b) => {
+      if (state.sort === 'name') return a.name.localeCompare(b.name);
+      if (state.sort === 'quality') return quality(b) - quality(a);
+      if (state.sort === 'co2') return (a.co2 || 0) - (b.co2 || 0);
+      return (b[state.sort] || 0) - (a[state.sort] || 0);
+    });
+
+    setText('filterCount', `${rows.length} modèle${rows.length > 1 ? 's' : ''} affiché${rows.length > 1 ? 's' : ''} sur ${ALL.length}`);
+
+    list.innerHTML = rows.map(m => {
+      const needle = Object.entries(m.needle || {})
+        .map(([k, v]) => `${k.replace('ctx_', '')} ${v ? '✓' : '✗'}`).join(' · ') || '—';
+      const cats = Object.entries(m.byCat || {})
+        .map(([k, v]) => `${k} ${v.toFixed(2)}`).join(' · ') || '—';
+      const langs = Object.entries(m.langs || {})
+        .filter(([, v]) => v.comprehension && v.generation).map(([k]) => k).join(', ') || '—';
+      return `<div class="data-item">
+        <div class="data-head">
+          <div>
+            <div class="dh-name">${m.name}</div>
+            <div class="dh-sub">${m.editor} · <span class="tagline-mono">${m.tag}</span></div>
+          </div>
+          <div class="dh-val dh-hide"><span class="dh-lab">Chargé</span>${m.mem.toFixed(2)} Go</div>
+          <div class="dh-val dh-hide"><span class="dh-lab">GPU</span>${m.gpu} %</div>
+          <div class="dh-val"><span class="dh-lab">Génération</span>${m.gen.toFixed(0)} t/s</div>
+          <div class="dh-val dh-hide"><span class="dh-lab">Qualité</span>${(quality(m) / 4).toFixed(2)}</div>
+          <div class="phase-toggle" style="width:32px;height:32px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+        </div>
+        <div class="data-body">
+          <div class="data-grid">
+            ${kv('Paramètres', m.params + (m.active && m.active !== m.params ? ` (${m.active} actifs)` : ''))}
+            ${kv('Mémoire chargée', m.mem.toFixed(2) + ' Go')}
+            ${kv('Part en VRAM', m.gpu + ' %')}
+            ${kv('VRAM mesurée', (m.vram || 0).toFixed(2) + ' Go')}
+            ${kv('Génération', m.gen.toFixed(1) + ' tok/s')}
+            ${kv('Lecture du prompt', m.prefill ? `${Math.round(m.prefill)} tok/s sur ${m.prefillTokens} tokens` : '—')}
+            ${kv('Latence ressentie', m.ttft + ' ms')}
+            ${kv('Latence prompt long', m.ttftFull ? m.ttftFull + ' ms' : '—')}
+            ${kv('Chargement', (m.load / 1000).toFixed(1) + ' s')}
+            ${kv('Contexte validé', (m.ctx / 1024) + 'K')}
+            ${kv('Aiguille par palier', needle)}
+            ${kv('Raisonnement', m.reason.toFixed(2))}
+            ${kv('Par catégorie', cats)}
+            ${kv('Instructions', m.instr.toFixed(2))}
+            ${kv('Outils', m.tools.toFixed(2))}
+            ${kv('JSON (schéma)', m.jsonSchema.toFixed(2))}
+            ${kv('Abstention', m.abst.toFixed(2))}
+            ${kv('Langues validées', langs)}
+            ${kv('Licence', m.license || '—')}
+            ${kv('CO₂ / 1k tokens', m.co2 ? m.co2.toExponential(2) + ' kg' : '—')}
+          </div>
+          ${m.desc ? `<p class="data-note">${m.desc}</p>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.data-head').forEach(h =>
+      h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+  }
+
+  const filterText = document.getElementById('filterText');
+  if (filterText) filterText.addEventListener('input', e => { state.text = e.target.value; renderData(); });
+  document.querySelectorAll('[data-editor]').forEach(chip =>
+    chip.addEventListener('click', () => {
+      const e = chip.dataset.editor;
+      if (state.editors.has(e)) state.editors.delete(e); else state.editors.add(e);
+      chip.setAttribute('aria-pressed', String(state.editors.has(e)));
+      renderData();
+    }));
+  document.querySelectorAll('[data-placement]').forEach(chip =>
+    chip.addEventListener('click', () => {
+      state.placement = chip.dataset.placement;
+      document.querySelectorAll('[data-placement]').forEach(c =>
+        c.setAttribute('aria-pressed', String(c === chip)));
+      renderData();
+    }));
+  const sortBy = document.getElementById('sortBy');
+  if (sortBy) sortBy.addEventListener('change', e => { state.sort = e.target.value; renderData(); });
+  renderData();
+
+  // ----- CURSEUR -----
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+  });
+</script>
+
+</body>
+</html>

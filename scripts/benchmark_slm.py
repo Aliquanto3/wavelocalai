@@ -463,12 +463,16 @@ def _answer_matches(response: str, expected: str, match: str = "contains") -> bo
 
     if match == "number":
         # On compare le DERNIER nombre cité : tolère "17 + 28 = 45".
+        def _normalize(value: str) -> str:
+            value = value.replace(",", ".")
+            # Les zéros finaux ne se suppriment QUE derrière une virgule décimale :
+            # sinon "50" deviendrait "5" et validerait une réponse fausse.
+            return value.rstrip("0").rstrip(".") if "." in value else value
+
         numbers = re.findall(r"-?\d+(?:[.,]\d+)?", text)
         if not numbers:
             return False
-        last = numbers[-1].replace(",", ".").rstrip("0").rstrip(".")
-        target = exp.replace(",", ".").rstrip("0").rstrip(".")
-        return last == target or numbers[-1].replace(",", ".") == exp
+        return _normalize(numbers[-1]) == _normalize(exp)
     if match == "word":
         return re.search(rf"\b{re.escape(exp)}\b", text) is not None
     if match == "compact":
