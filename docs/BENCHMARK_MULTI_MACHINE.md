@@ -20,6 +20,10 @@ provoquer le moindre conflit de fusion.
 
 ## Sur une nouvelle machine
 
+> Avec Claude Code, [PROMPT_NOUVELLE_MACHINE.md](PROMPT_NOUVELLE_MACHINE.md)
+> contient un prompt prêt à coller qui déroule toute cette procédure, points de
+> validation compris.
+
 ### 1. Préparer
 
 ```bash
