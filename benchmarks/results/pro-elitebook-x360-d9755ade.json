@@ -1,0 +1,690 @@
+{
+  "machine": {
+    "machine_id": "pro-elitebook-x360-d9755ade",
+    "label": "pro-elitebook-x360",
+    "os": "Windows 11",
+    "cpu": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+    "cpu_cores_physical": 4,
+    "cpu_cores_logical": 8,
+    "ram_gb": 15.7,
+    "gpus": [
+      {
+        "name": "Intel(R) Iris(R) Xe Graphics",
+        "vram_gb": 2.0,
+        "vendor": "unknown",
+        "vram_unreliable": true
+      }
+    ],
+    "vram_gb": 2.0,
+    "mode": "cpu",
+    "budget_gb": 7.85,
+    "disk_free_gb": 52.1,
+    "ollama_version": "0.34.3",
+    "python": "3.13.5"
+  },
+  "benchmark_commit": "578eeb1eca5c2b4852be074abdb0df580738188e",
+  "benchmark_dirty": false,
+  "exported_at": "2026-09-23T12:28:50+00:00",
+  "models": {
+    "Granite 4.0 350M": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 0.926,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 18.69,
+      "prefill_tokens_per_second": 172.2,
+      "prefill_prompt_tokens": 2284,
+      "avg_ttft_ms": 163,
+      "ttft_full_prompt_ms": 13308,
+      "load_time_ms": 1333,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 1.719066909241298e-05,
+      "avg_co2_per_1k_tokens": 4e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": false
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.21,
+        "instruction_following_avg": 0.25,
+        "abstention_avg": 0.0,
+        "reasoning_by_category": {
+          "logic": 0.33,
+          "arithmetic": 0.2,
+          "pattern": 0.33,
+          "trap": 0.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "LFM 2.5 1.2B Thinking": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 0.905,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 24.61,
+      "prefill_tokens_per_second": 104.5,
+      "prefill_prompt_tokens": 2399,
+      "avg_ttft_ms": 237,
+      "ttft_full_prompt_ms": 22989,
+      "load_time_ms": 1332,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 2.1847465830480143e-05,
+      "avg_co2_per_1k_tokens": 5e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 0.5,
+        "schema_compliance_rate": 0.5
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.64,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 3 1B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 0.893,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 16.13,
+      "prefill_tokens_per_second": 65.7,
+      "prefill_prompt_tokens": 2264,
+      "avg_ttft_ms": 356,
+      "ttft_full_prompt_ms": 34488,
+      "load_time_ms": 2720,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 3.177032295789223e-05,
+      "avg_co2_per_1k_tokens": 8e-06,
+      "tool_capability": {
+        "function_detection": false,
+        "parameter_extraction": false,
+        "success_rate": 0.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.5,
+        "instruction_following_avg": 0.75,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.2,
+          "pattern": 0.33,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 0.8B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 1.115,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 16.26,
+      "prefill_tokens_per_second": 81.4,
+      "prefill_prompt_tokens": 2267,
+      "avg_ttft_ms": 364,
+      "ttft_full_prompt_ms": 27892,
+      "load_time_ms": 2373,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 2.839805821761535e-05,
+      "avg_co2_per_1k_tokens": 7e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.43,
+        "instruction_following_avg": 0.62,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.4,
+          "pattern": 0.33,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "MiniCPM5 1B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 0.918,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 21.16,
+      "prefill_tokens_per_second": 113.6,
+      "prefill_prompt_tokens": 2300,
+      "avg_ttft_ms": 219,
+      "ttft_full_prompt_ms": 20256,
+      "load_time_ms": 1315,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 2.0823223997913737e-05,
+      "avg_co2_per_1k_tokens": 5e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.29,
+        "instruction_following_avg": 0.75,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.33,
+          "arithmetic": 0.2,
+          "pattern": 0.33,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "MiniCPM5 2B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 4096,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 1.669,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 12.73,
+      "prefill_tokens_per_second": 43.4,
+      "prefill_prompt_tokens": 1171,
+      "avg_ttft_ms": 481,
+      "ttft_full_prompt_ms": 26986,
+      "load_time_ms": 2329,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 4.3614814446120096e-05,
+      "avg_co2_per_1k_tokens": 1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.71,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.6,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Bonsai 8B (1-bit)": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 2.418,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 3.47,
+      "prefill_tokens_per_second": 6.0,
+      "prefill_prompt_tokens": 2266,
+      "avg_ttft_ms": 2761,
+      "ttft_full_prompt_ms": 375213,
+      "load_time_ms": 2863,
+      "ux_rating": "🐌 Lent",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.00026583938107463206,
+      "avg_co2_per_1k_tokens": 6.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.71,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "LFM 2.5 2.6B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 1.84,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 8.88,
+      "prefill_tokens_per_second": 33.2,
+      "prefill_prompt_tokens": 2331,
+      "avg_ttft_ms": 665,
+      "ttft_full_prompt_ms": 70336,
+      "load_time_ms": 3694,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 6.605296892946669e-05,
+      "avg_co2_per_1k_tokens": 1.6e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Llama 3.2 3B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 2.905,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 6.92,
+      "prefill_tokens_per_second": 29.5,
+      "prefill_prompt_tokens": 2279,
+      "avg_ttft_ms": 650,
+      "ttft_full_prompt_ms": 77389,
+      "load_time_ms": 3330,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Llama Community",
+      "total_co2_emissions_kg": 6.933347022763725e-05,
+      "avg_co2_per_1k_tokens": 1.6e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 0.75
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.64,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.4,
+          "pattern": 1.0,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Granite 4.2 3B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 2.86,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 5.43,
+      "prefill_tokens_per_second": 24.5,
+      "prefill_prompt_tokens": 2271,
+      "avg_ttft_ms": 709,
+      "ttft_full_prompt_ms": 92570,
+      "load_time_ms": 3076,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 8.374122814995118e-05,
+      "avg_co2_per_1k_tokens": 2.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.64,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.4,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Phi 4 Mini 3.8B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 3.458,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 5.81,
+      "prefill_tokens_per_second": 21.2,
+      "prefill_prompt_tokens": 2257,
+      "avg_ttft_ms": 524,
+      "ttft_full_prompt_ms": 106768,
+      "load_time_ms": 3582,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "MIT",
+      "total_co2_emissions_kg": 8.861461872087338e-05,
+      "avg_co2_per_1k_tokens": 2.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": false,
+        "success_rate": 0.25
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.64,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.4,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 2B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 2.305,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 9.68,
+      "prefill_tokens_per_second": 36.4,
+      "prefill_prompt_tokens": 2267,
+      "avg_ttft_ms": 750,
+      "ttft_full_prompt_ms": 62365,
+      "load_time_ms": 3615,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 5.536796796822926e-05,
+      "avg_co2_per_1k_tokens": 1.3e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.57,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.4,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Nemotron 3 Nano 4B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 3.095,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 5.29,
+      "prefill_tokens_per_second": 16.0,
+      "prefill_prompt_tokens": 2406,
+      "avg_ttft_ms": 1870,
+      "ttft_full_prompt_ms": 150864,
+      "load_time_ms": 3072,
+      "ux_rating": "🐌 Lent",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 0.00012377319999634328,
+      "avg_co2_per_1k_tokens": 2.8e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.79,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ministral 3 3B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 3.039,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 5.45,
+      "prefill_tokens_per_second": 26.1,
+      "prefill_prompt_tokens": 2941,
+      "avg_ttft_ms": 639,
+      "ttft_full_prompt_ms": 112908,
+      "load_time_ms": 6990,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.00010150229948139965,
+      "avg_co2_per_1k_tokens": 1.6e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.79,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 4B": {
+      "date": "2026-09-23",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 3.123,
+      "gpu_vram_usage_gb": 0,
+      "gpu_offload_pct": 0,
+      "avg_tokens_per_second": 5.74,
+      "prefill_tokens_per_second": 22.8,
+      "prefill_prompt_tokens": 2267,
+      "avg_ttft_ms": 1175,
+      "ttft_full_prompt_ms": 99396,
+      "load_time_ms": 5632,
+      "ux_rating": "🐢 Acceptable",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 9.004239417017957e-05,
+      "avg_co2_per_1k_tokens": 2.2e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.33,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    }
+  }
+}
