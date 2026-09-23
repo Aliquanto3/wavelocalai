@@ -70,6 +70,11 @@ def select(profile: dict[str, Any], catalog: dict[str, Any]) -> tuple[list, list
     keep, drop = [], []
 
     for name, entry in catalog.items():
+        if entry.get("status") == "pending":
+            # Repéré, mais pas encore exécutable : on le garde visible sans
+            # l'installer ni le mesurer.
+            drop.append((name, entry, "en attente de support"))
+            continue
         if entry.get("type") != "local":
             drop.append((name, entry, "modèle API, hors périmètre"))
             continue
@@ -150,6 +155,14 @@ def cmd_plan(args: argparse.Namespace) -> None:
         print(f"\n{len(drop)} modèles écartés :")
         for name, _entry, why in drop:
             print(f"  {name:34} {why}")
+
+    pending = [(n, e) for n, e in catalog.items() if e.get("status") == "pending"]
+    if pending:
+        print(f"\n{len(pending)} modèle(s) en attente de support, non testés :")
+        for name, entry in pending:
+            print(f"  {name:34} {entry.get('blocked_by', '')}")
+            print(f"  {'':34} suivi : {entry.get('tracking', '—')}")
+        print("  Vérifier si le verrou a sauté : python scripts/check_pending.py")
 
     print(f"\nÀ télécharger : {to_get:.1f} Go — disque libre : {profile['disk_free_gb']} Go")
     print(f"Étape suivante : python scripts/bench_here.py install --label {args.label or '<nom>'}")

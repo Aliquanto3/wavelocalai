@@ -115,6 +115,29 @@ même version du benchmark, plutôt que d'aligner des chiffres trompeurs.
 | Empreinte carbone | Non directement : elle dépend du mix électrique (`WAVELOCAL_COUNTRY_ISO`) et du matériel |
 | Latence ressentie | Oui, mais sensible à la charge de la machine |
 
+## Modèles en attente de support
+
+Certains modèles prometteurs ne se chargent pas encore : leur architecture n'est
+pas supportée par llama.cpp, dont Ollama dépend depuis sa version 0.30. Plutôt
+que de les oublier ou de les réévaluer à chaque veille, le catalogue les garde
+avec `"status": "pending"`, le motif du blocage et un ticket de suivi.
+
+`bench_here.py plan` les affiche à part, sans les installer ni les mesurer.
+Pour savoir si le verrou a sauté :
+
+```bash
+python scripts/check_pending.py
+```
+
+Le script interroge le ticket de suivi et indique s'il est temps de réessayer.
+Aucun téléchargement n'a lieu. Quand un modèle devient exécutable, retirez son
+entrée de `PENDING` dans `scripts/build_catalog.py`, régénérez le catalogue,
+puis installez-le normalement.
+
+Cas actuel : **K2 Horizon 3.7B** (Apache 2.0, 524K de contexte, en tête des
+modèles ouverts sous 4B sur l'indice Artificial Analysis) attend le support de
+l'architecture `k2_horizon` en amont.
+
 ## Mettre le catalogue à jour
 
 Après une campagne qui ajoute des modèles ou affine les empreintes :

@@ -70,6 +70,42 @@ HF_FALLBACK = {
 # Machine ayant fourni les empreintes de référence.
 REFERENCE = "RTX 3060 Laptop 6 Go VRAM / 32 Go RAM / Ollama 0.34.2"
 
+# Modèles repérés comme intéressants mais qu'Ollama ne sait pas encore charger.
+# Ils restent dans le catalogue pour ne pas être réévalués à chaque veille, et
+# sont écartés de la sélection tant que le verrou n'a pas sauté.
+PENDING = {
+    "K2 Horizon 3.7B": {
+        "ollama_tag": "k2-horizon:3.7b-q4_k_m",
+        "type": "local",
+        "editor": "Institute of Foundation Models",
+        "size_gb": "3.16 GB",
+        "params_tot": "3.7B",
+        "params_act": "3.7B",
+        "ctx": 524288,
+        "capabilities": ["chat", "tools", "thinking"],
+        "role": "assistant_light",
+        "desc": (
+            "Dense 3,7B à raisonnement étendu (sept. 2026), Apache 2.0, 524K de contexte. "
+            "En tête des modèles ouverts sous 4B sur l'indice Artificial Analysis. "
+            "Paramètres recommandés : temperature 1.0, top_p 0.95, et au moins 32 768 "
+            "tokens de sortie — notre protocole standardisé le sous-évaluerait."
+        ),
+        "status": "pending",
+        "blocked_by": (
+            "L'architecture k2_horizon n'est pas supportée par llama.cpp en amont, "
+            "dont dépend Ollama depuis la version 0.30. Seul le fork de l'éditeur "
+            "sait la charger."
+        ),
+        "tracking": "https://github.com/ggml-org/llama.cpp/issues/28361",
+        "checked_on": "2026-09-23",
+        "hf_fallback": {
+            "repo": "IFM/K2-Horizon-3.7B-GGUF",
+            "file": "K2-Horizon-4B-Q4_K_M.gguf",
+            "template_from": None,
+        },
+    },
+}
+
 
 def main() -> None:
     db = json.loads(LOCAL_DB.read_text(encoding="utf-8"))
@@ -96,6 +132,8 @@ def main() -> None:
         # mais restent un modèle dense.
         entry["moe"] = is_moe
         catalog["models"][name] = entry
+
+    catalog["models"].update(PENDING)
 
     CATALOG.parent.mkdir(parents=True, exist_ok=True)
     CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
