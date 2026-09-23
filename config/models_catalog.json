@@ -38,6 +38,26 @@
       "measured_at_ctx": 16384,
       "moe": false
     },
+    "MiniCPM5 1B": {
+      "ollama_tag": "minicpm5:1b-q4_k_m",
+      "type": "local",
+      "editor": "OpenBMB",
+      "size_gb": "0.64 GB",
+      "params_tot": "1.1B",
+      "params_act": "1.1B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools"
+      ],
+      "role": "edge_tiny",
+      "desc": "MiniCPM5 dense, Q4_K_M officiel. Annonce l'etat de l'art 1B. Apache 2.0.",
+      "hf_fallback": {
+        "repo": "openbmb/MiniCPM5-1B-GGUF",
+        "file": "MiniCPM5-1B-Q4_K_M.gguf"
+      },
+      "moe": false
+    },
     "Gemma 3 1B": {
       "ollama_tag": "gemma3:1b",
       "type": "local",
@@ -95,6 +115,26 @@
         "repo": "prism-ml/Bonsai-8B-gguf",
         "file": "Bonsai-8B-Q1_0.gguf",
         "template_from": null
+      },
+      "moe": false
+    },
+    "MiniCPM5 2B": {
+      "ollama_tag": "minicpm5:2b-q4_k_m",
+      "type": "local",
+      "editor": "OpenBMB",
+      "size_gb": "1.45 GB",
+      "params_tot": "2.5B",
+      "params_act": "2.5B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools"
+      ],
+      "role": "assistant_light",
+      "desc": "MiniCPM5 dense, Q4_K_M officiel. Annonce 53.9 de moyenne contre 51.1 a Qwen3.5-4B. Apache 2.0.",
+      "hf_fallback": {
+        "repo": "openbmb/MiniCPM5-2B-GGUF",
+        "file": "MiniCPM5-2B-Q4_K_M.gguf"
       },
       "moe": false
     },
