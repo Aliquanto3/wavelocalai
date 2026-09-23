@@ -46,6 +46,25 @@ HF_FALLBACK = {
         "file": "Ministral-3-14B-Instruct-2512-UD-IQ2_M.gguf",
         "template_from": "ministral-3:3b",
     },
+    # Gabarit publié par OpenBMB (docs/deployment/ollama.md) : aucun modèle
+    # officiel voisin ne convient, MiniCPM5 n'étant pas dans la bibliothèque.
+    "minicpm5:2b-q4_k_m": {
+        "repo": "openbmb/MiniCPM5-2B-GGUF",
+        "file": "MiniCPM5-2B-Q4_K_M.gguf",
+        "modelfile": (
+            'TEMPLATE """{{- if .Messages -}}\n'
+            "{{- range .Messages -}}\n"
+            "<|im_start|>{{ .Role }}\n"
+            "{{ .Content }}<|im_end|>\n"
+            "{{ end -}}\n"
+            "<|im_start|>assistant\n"
+            '{{ end -}}"""\n'
+            'PARAMETER stop "<|im_end|>"\n'
+            'PARAMETER stop "</s>"\n'
+            "PARAMETER temperature 1.0\n"
+            "PARAMETER top_p 0.95"
+        ),
+    },
 }
 
 # Machine ayant fourni les empreintes de référence.

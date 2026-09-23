@@ -4,7 +4,9 @@ Ce document contient un prompt autonome à coller dans une session Claude Code
 ouverte sur une autre machine. Il ne suppose rien d'autre que le dépôt et un
 accès réseau.
 
-La procédure détaillée, elle, est dans [BENCHMARK_MULTI_MACHINE.md](BENCHMARK_MULTI_MACHINE.md).
+La procédure détaillée est dans [BENCHMARK_MULTI_MACHINE.md](BENCHMARK_MULTI_MACHINE.md).
+Sans assistant, suivez plutôt le [guide pas à pas](GUIDE_BENCHMARK_MANUEL.md),
+écrit pour être exécuté par un humain.
 
 ## Le prompt
 

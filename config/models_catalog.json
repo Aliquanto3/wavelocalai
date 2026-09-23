@@ -1,21 +1,42 @@
 {
   "_reference_machine": "RTX 3060 Laptop 6 Go VRAM / 32 Go RAM / Ollama 0.34.2",
   "models": {
-    "Granite 4.0 350M": {
-      "ollama_tag": "granite4:350m",
+    "MiniCPM5 1B": {
+      "ollama_tag": "minicpm5:1b-q4_k_m",
       "type": "local",
-      "editor": "IBM",
-      "size_gb": "0.7 GB",
-      "params_tot": "0.35B",
-      "params_act": "0.35B",
+      "editor": "OpenBMB",
+      "size_gb": "0.64 GB",
+      "params_tot": "1.1B",
+      "params_act": "1.1B",
       "ctx": 131072,
       "capabilities": [
         "chat",
-        "tools"
+        "tools",
+        "thinking"
       ],
       "role": "edge_tiny",
-      "desc": "Plus petit Granite 4.0, dense. Apache 2.0.",
-      "measured_loaded_gb": 1.16,
+      "desc": "Dense 1,08B de la meme famille (aout 2026). Meme gabarit ChatML que le 2B. Apache 2.0.",
+      "hf_fallback": {
+        "repo": "openbmb/MiniCPM5-1B-GGUF",
+        "file": "MiniCPM5-1B-Q4_K_M.gguf",
+        "modelfile": "TEMPLATE \"\"\"{{- if .Messages -}}\n{{- range .Messages -}}\n<|im_start|>{{ .Role }}\n{{ .Content }}<|im_end|>\n{{ end -}}\n<|im_start|>assistant\n{{ end -}}\"\"\"\nPARAMETER stop \"<|im_end|>\"\nPARAMETER stop \"</s>\"\nPARAMETER temperature 1.0\nPARAMETER top_p 0.95"
+      },
+      "moe": false
+    },
+    "Gemma 3 1B": {
+      "ollama_tag": "gemma3:1b",
+      "type": "local",
+      "editor": "Google",
+      "size_gb": "0.8 GB",
+      "params_tot": "1B",
+      "params_act": "1B",
+      "ctx": 32768,
+      "capabilities": [
+        "chat"
+      ],
+      "role": "edge_tiny",
+      "desc": "Plus petit Gemma texte récent (Gemma 4 n'a pas de taille < E2B).",
+      "measured_loaded_gb": 0.903,
       "measured_at_ctx": 16384,
       "moe": false
     },
@@ -38,40 +59,21 @@
       "measured_at_ctx": 16384,
       "moe": false
     },
-    "MiniCPM5 1B": {
-      "ollama_tag": "minicpm5:1b-q4_k_m",
+    "Granite 4.0 350M": {
+      "ollama_tag": "granite4:350m",
       "type": "local",
-      "editor": "OpenBMB",
-      "size_gb": "0.64 GB",
-      "params_tot": "1.1B",
-      "params_act": "1.1B",
+      "editor": "IBM",
+      "size_gb": "0.7 GB",
+      "params_tot": "0.35B",
+      "params_act": "0.35B",
       "ctx": 131072,
       "capabilities": [
         "chat",
         "tools"
       ],
       "role": "edge_tiny",
-      "desc": "MiniCPM5 dense, Q4_K_M officiel. Annonce l'etat de l'art 1B. Apache 2.0.",
-      "hf_fallback": {
-        "repo": "openbmb/MiniCPM5-1B-GGUF",
-        "file": "MiniCPM5-1B-Q4_K_M.gguf"
-      },
-      "moe": false
-    },
-    "Gemma 3 1B": {
-      "ollama_tag": "gemma3:1b",
-      "type": "local",
-      "editor": "Google",
-      "size_gb": "0.8 GB",
-      "params_tot": "1B",
-      "params_act": "1B",
-      "ctx": 32768,
-      "capabilities": [
-        "chat"
-      ],
-      "role": "edge_tiny",
-      "desc": "Plus petit Gemma texte récent (Gemma 4 n'a pas de taille < E2B).",
-      "measured_loaded_gb": 0.903,
+      "desc": "Plus petit Granite 4.0, dense. Apache 2.0.",
+      "measured_loaded_gb": 1.16,
       "measured_at_ctx": 16384,
       "moe": false
     },
@@ -95,47 +97,48 @@
       "measured_at_ctx": 16384,
       "moe": false
     },
-    "Bonsai 8B (1-bit)": {
-      "ollama_tag": "bonsai:8b-q1_0",
-      "type": "local",
-      "editor": "PrismML",
-      "size_gb": "1.16 GB",
-      "params_tot": "8B",
-      "params_act": "8B",
-      "ctx": 65536,
-      "capabilities": [
-        "chat",
-        "tools"
-      ],
-      "role": "assistant_generalist",
-      "desc": "Qwen3-8B entraîné nativement en 1 bit (Q1_0). Apache 2.0.",
-      "measured_loaded_gb": 3.352,
-      "measured_at_ctx": 16384,
-      "hf_fallback": {
-        "repo": "prism-ml/Bonsai-8B-gguf",
-        "file": "Bonsai-8B-Q1_0.gguf",
-        "template_from": null
-      },
-      "moe": false
-    },
     "MiniCPM5 2B": {
       "ollama_tag": "minicpm5:2b-q4_k_m",
       "type": "local",
       "editor": "OpenBMB",
-      "size_gb": "1.45 GB",
-      "params_tot": "2.5B",
-      "params_act": "2.5B",
+      "size_gb": "1.56 GB",
+      "params_tot": "2.52B",
+      "params_act": "2.52B",
       "ctx": 131072,
       "capabilities": [
         "chat",
-        "tools"
+        "tools",
+        "thinking"
       ],
       "role": "assistant_light",
-      "desc": "MiniCPM5 dense, Q4_K_M officiel. Annonce 53.9 de moyenne contre 51.1 a Qwen3.5-4B. Apache 2.0.",
+      "desc": "Dense 2,52B orienté agentique (sept. 2026). Appels d'outils en XML, reconnus par Ollama 0.34.3 (100 % au test d'outils, vrais tool_calls). Apache 2.0.",
+      "measured_loaded_gb": 1.524,
+      "measured_at_ctx": 4096,
       "hf_fallback": {
         "repo": "openbmb/MiniCPM5-2B-GGUF",
-        "file": "MiniCPM5-2B-Q4_K_M.gguf"
+        "file": "MiniCPM5-2B-Q4_K_M.gguf",
+        "modelfile": "TEMPLATE \"\"\"{{- if .Messages -}}\n{{- range .Messages -}}\n<|im_start|>{{ .Role }}\n{{ .Content }}<|im_end|>\n{{ end -}}\n<|im_start|>assistant\n{{ end -}}\"\"\"\nPARAMETER stop \"<|im_end|>\"\nPARAMETER stop \"</s>\"\nPARAMETER temperature 1.0\nPARAMETER top_p 0.95"
       },
+      "moe": false
+    },
+    "Gemma 4 E2B (QAT)": {
+      "ollama_tag": "gemma4:e2b-it-qat",
+      "type": "local",
+      "editor": "Google",
+      "size_gb": "4.3 GB",
+      "params_tot": "4.6B",
+      "params_act": "2B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "role": "assistant_light",
+      "desc": "Gemma 4 dense à Per-Layer Embeddings (~2B effectifs), QAT. Apache 2.0.",
+      "measured_loaded_gb": 1.548,
+      "measured_at_ctx": 16384,
       "moe": false
     },
     "LFM 2.5 2.6B": {
@@ -154,61 +157,6 @@
       "role": "assistant_light",
       "desc": "Hybride convolution + attention, dense. Licence LFM Open.",
       "measured_loaded_gb": 1.972,
-      "measured_at_ctx": 16384,
-      "moe": false
-    },
-    "Llama 3.2 3B": {
-      "ollama_tag": "llama3.2:3b",
-      "type": "local",
-      "editor": "Meta",
-      "size_gb": "2.0 GB",
-      "params_tot": "3.2B",
-      "params_act": "3.2B",
-      "ctx": 131072,
-      "capabilities": [
-        "chat",
-        "tools"
-      ],
-      "role": "assistant_light",
-      "desc": "Référence Meta (2024), plus de petit Llama depuis. Llama Community License.",
-      "measured_loaded_gb": 3.703,
-      "measured_at_ctx": 16384,
-      "moe": false
-    },
-    "Granite 4.2 3B": {
-      "ollama_tag": "granite4.2:3b",
-      "type": "local",
-      "editor": "IBM",
-      "size_gb": "2.2 GB",
-      "params_tot": "3.7B",
-      "params_act": "3.7B",
-      "ctx": 131072,
-      "capabilities": [
-        "chat",
-        "tools",
-        "thinking"
-      ],
-      "role": "assistant_light",
-      "desc": "Granite 4.2 dense (août 2026). Apache 2.0.",
-      "measured_loaded_gb": 3.279,
-      "measured_at_ctx": 16384,
-      "moe": false
-    },
-    "Phi 4 Mini 3.8B": {
-      "ollama_tag": "phi4-mini:3.8b",
-      "type": "local",
-      "editor": "Microsoft",
-      "size_gb": "2.5 GB",
-      "params_tot": "3.8B",
-      "params_act": "3.8B",
-      "ctx": 131072,
-      "capabilities": [
-        "chat",
-        "tools"
-      ],
-      "role": "assistant_light",
-      "desc": "Dernier petit Phi (pas de Phi-5). MIT.",
-      "measured_loaded_gb": 4.938,
       "measured_at_ctx": 16384,
       "moe": false
     },
@@ -251,22 +199,22 @@
       "measured_at_ctx": 16384,
       "moe": false
     },
-    "Ministral 3 3B": {
-      "ollama_tag": "ministral-3:3b",
+    "Granite 4.2 3B": {
+      "ollama_tag": "granite4.2:3b",
       "type": "local",
-      "editor": "Mistral AI",
-      "size_gb": "3.0 GB",
-      "params_tot": "3.8B",
-      "params_act": "3.8B",
-      "ctx": 262144,
+      "editor": "IBM",
+      "size_gb": "2.2 GB",
+      "params_tot": "3.7B",
+      "params_act": "3.7B",
+      "ctx": 131072,
       "capabilities": [
         "chat",
         "tools",
-        "vision"
+        "thinking"
       ],
       "role": "assistant_light",
-      "desc": "Plus petit Ministral 3 (déc. 2025). Apache 2.0.",
-      "measured_loaded_gb": 4.142,
+      "desc": "Granite 4.2 dense (août 2026). Apache 2.0.",
+      "measured_loaded_gb": 3.279,
       "measured_at_ctx": 16384,
       "moe": false
     },
@@ -287,6 +235,66 @@
       "role": "assistant_generalist",
       "desc": "Qwen 3.5 dense, multimodal. Apache 2.0.",
       "measured_loaded_gb": 3.3,
+      "measured_at_ctx": 16384,
+      "moe": false
+    },
+    "Bonsai 8B (1-bit)": {
+      "ollama_tag": "bonsai:8b-q1_0",
+      "type": "local",
+      "editor": "PrismML",
+      "size_gb": "1.16 GB",
+      "params_tot": "8B",
+      "params_act": "8B",
+      "ctx": 65536,
+      "capabilities": [
+        "chat",
+        "tools"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Qwen3-8B entraîné nativement en 1 bit (Q1_0). Apache 2.0.",
+      "measured_loaded_gb": 3.352,
+      "measured_at_ctx": 16384,
+      "hf_fallback": {
+        "repo": "prism-ml/Bonsai-8B-gguf",
+        "file": "Bonsai-8B-Q1_0.gguf",
+        "template_from": null
+      },
+      "moe": false
+    },
+    "Llama 3.2 3B": {
+      "ollama_tag": "llama3.2:3b",
+      "type": "local",
+      "editor": "Meta",
+      "size_gb": "2.0 GB",
+      "params_tot": "3.2B",
+      "params_act": "3.2B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools"
+      ],
+      "role": "assistant_light",
+      "desc": "Référence Meta (2024), plus de petit Llama depuis. Llama Community License.",
+      "measured_loaded_gb": 3.703,
+      "measured_at_ctx": 16384,
+      "moe": false
+    },
+    "Ministral 3 3B": {
+      "ollama_tag": "ministral-3:3b",
+      "type": "local",
+      "editor": "Mistral AI",
+      "size_gb": "3.0 GB",
+      "params_tot": "3.8B",
+      "params_act": "3.8B",
+      "ctx": 262144,
+      "capabilities": [
+        "chat",
+        "tools",
+        "vision"
+      ],
+      "role": "assistant_light",
+      "desc": "Plus petit Ministral 3 (déc. 2025). Apache 2.0.",
+      "measured_loaded_gb": 4.142,
       "measured_at_ctx": 16384,
       "moe": false
     },
@@ -314,41 +322,22 @@
       },
       "moe": false
     },
-    "Gemma 4 E2B (QAT)": {
-      "ollama_tag": "gemma4:e2b-it-qat",
+    "Phi 4 Mini 3.8B": {
+      "ollama_tag": "phi4-mini:3.8b",
       "type": "local",
-      "editor": "Google",
-      "size_gb": "4.3 GB",
-      "params_tot": "4.6B",
-      "params_act": "2B",
+      "editor": "Microsoft",
+      "size_gb": "2.5 GB",
+      "params_tot": "3.8B",
+      "params_act": "3.8B",
       "ctx": 131072,
       "capabilities": [
         "chat",
-        "tools",
-        "thinking",
-        "vision"
+        "tools"
       ],
       "role": "assistant_light",
-      "desc": "Gemma 4 dense à Per-Layer Embeddings (~2B effectifs), QAT. Apache 2.0.",
-      "measured_loaded_gb": 1.548,
+      "desc": "Dernier petit Phi (pas de Phi-5). MIT.",
+      "measured_loaded_gb": 4.938,
       "measured_at_ctx": 16384,
-      "moe": false
-    },
-    "OLMo 3 7B": {
-      "ollama_tag": "olmo-3:7b",
-      "type": "local",
-      "editor": "AI2",
-      "size_gb": "4.5 GB",
-      "params_tot": "7.3B",
-      "params_act": "7.3B",
-      "ctx": 65536,
-      "capabilities": [
-        "chat",
-        "tools",
-        "thinking"
-      ],
-      "role": "assistant_generalist",
-      "desc": "Modèle entièrement ouvert (données + code). Apache 2.0.",
       "moe": false
     },
     "Gemma 4 12B (Unsloth IQ3_XXS)": {
@@ -373,30 +362,6 @@
         "repo": "unsloth/gemma-4-12b-it-GGUF",
         "file": "gemma-4-12b-it-UD-IQ3_XXS.gguf",
         "template_from": "gemma4:e2b-it-qat"
-      },
-      "moe": false
-    },
-    "Ministral 3 14B (Unsloth IQ2_M)": {
-      "ollama_tag": "ministral3-ud:14b-iq2_m",
-      "type": "local",
-      "editor": "Mistral AI",
-      "size_gb": "4.91 GB",
-      "params_tot": "13.9B",
-      "params_act": "13.9B",
-      "ctx": 262144,
-      "capabilities": [
-        "chat",
-        "tools",
-        "vision"
-      ],
-      "role": "assistant_generalist",
-      "desc": "Ministral 3 14B dense, quantification dynamique Unsloth ~2,7 bits.",
-      "measured_loaded_gb": 7.28,
-      "measured_at_ctx": 16384,
-      "hf_fallback": {
-        "repo": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
-        "file": "Ministral-3-14B-Instruct-2512-UD-IQ2_M.gguf",
-        "template_from": "ministral-3:3b"
       },
       "moe": false
     },
@@ -425,23 +390,45 @@
       },
       "moe": false
     },
-    "Granite 4.2 8B": {
-      "ollama_tag": "granite4.2:8b",
+    "OLMo 3 7B": {
+      "ollama_tag": "olmo-3:7b",
       "type": "local",
-      "editor": "IBM",
-      "size_gb": "5.3 GB",
-      "params_tot": "8.8B",
-      "params_act": "8.8B",
-      "ctx": 131072,
+      "editor": "AI2",
+      "size_gb": "4.5 GB",
+      "params_tot": "7.3B",
+      "params_act": "7.3B",
+      "ctx": 65536,
       "capabilities": [
         "chat",
         "tools",
         "thinking"
       ],
       "role": "assistant_generalist",
-      "desc": "Granite 4.2 dense (août 2026). Apache 2.0.",
-      "measured_loaded_gb": 7.652,
+      "desc": "Modèle entièrement ouvert (données + code). Apache 2.0.",
+      "moe": false
+    },
+    "Ministral 3 14B (Unsloth IQ2_M)": {
+      "ollama_tag": "ministral3-ud:14b-iq2_m",
+      "type": "local",
+      "editor": "Mistral AI",
+      "size_gb": "4.91 GB",
+      "params_tot": "13.9B",
+      "params_act": "13.9B",
+      "ctx": 262144,
+      "capabilities": [
+        "chat",
+        "tools",
+        "vision"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Ministral 3 14B dense, quantification dynamique Unsloth ~2,7 bits.",
+      "measured_loaded_gb": 7.28,
       "measured_at_ctx": 16384,
+      "hf_fallback": {
+        "repo": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+        "file": "Ministral-3-14B-Instruct-2512-UD-IQ2_M.gguf",
+        "template_from": "ministral-3:3b"
+      },
       "moe": false
     },
     "Ministral 3 8B": {
@@ -477,6 +464,25 @@
       ],
       "role": "assistant_generalist",
       "desc": "Gemma 4 dense à Per-Layer Embeddings (~4B effectifs), QAT. Apache 2.0.",
+      "moe": false
+    },
+    "Granite 4.2 8B": {
+      "ollama_tag": "granite4.2:8b",
+      "type": "local",
+      "editor": "IBM",
+      "size_gb": "5.3 GB",
+      "params_tot": "8.8B",
+      "params_act": "8.8B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Granite 4.2 dense (août 2026). Apache 2.0.",
+      "measured_loaded_gb": 7.652,
+      "measured_at_ctx": 16384,
       "moe": false
     },
     "Qwen 3.5 9B": {
