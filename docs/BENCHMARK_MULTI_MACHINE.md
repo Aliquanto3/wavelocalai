@@ -20,9 +20,10 @@ provoquer le moindre conflit de fusion.
 
 ## Sur une nouvelle machine
 
-> Avec Claude Code, [PROMPT_NOUVELLE_MACHINE.md](PROMPT_NOUVELLE_MACHINE.md)
-> contient un prompt prêt à coller qui déroule toute cette procédure, points de
-> validation compris.
+> Deux variantes de cette procédure existent :
+> [PROMPT_NOUVELLE_MACHINE.md](PROMPT_NOUVELLE_MACHINE.md) pour la dérouler avec
+> Claude Code, et [GUIDE_BENCHMARK_MANUEL.md](GUIDE_BENCHMARK_MANUEL.md) pour
+> l'exécuter à la main, sans assistant et sans connaissance du projet.
 
 ### 1. Préparer
 
