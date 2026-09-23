@@ -136,7 +136,9 @@ def main() -> None:
     catalog["models"].update(PENDING)
 
     CATALOG.parent.mkdir(parents=True, exist_ok=True)
-    CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Saut de ligne final : sans lui, le hook end-of-file-fixer le rajoute à
+    # chaque commit et le fichier oscille d'une régénération à l'autre.
+    CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     measured = sum(1 for m in catalog["models"].values() if "measured_loaded_gb" in m)
     print(f"{len(catalog['models'])} modèles ({measured} avec empreinte mesurée) -> {CATALOG}")
 
