@@ -171,7 +171,10 @@ def pull_via_hf(entry: dict[str, Any], tag: str) -> bool:
     modelfile = GGUF_DIR / f"Modelfile.{tag.replace(':', '_').replace('/', '_')}"
     lines = [f"FROM {target.as_posix()}"]
     donor = fb.get("template_from")
-    if donor:
+    if fb.get("modelfile"):
+        # Gabarit fourni par l'éditeur du modèle : il prime sur tout emprunt.
+        lines.append(fb["modelfile"])
+    elif donor:
         # On reprend le Modelfile complet du modèle officiel voisin : un TEMPLATE
         # multi-lignes tronqué produit une erreur "unexpected EOF" à l'import.
         out = subprocess.run(["ollama", "show", "--modelfile", donor],

@@ -474,6 +474,30 @@
       "role": "assistant_generalist",
       "desc": "MoE 35B / 3B actifs. Experts déportés en RAM par Ollama (offload), test de comparaison avec les denses.",
       "moe": true
+    },
+    "MiniCPM5 2B": {
+      "ollama_tag": "minicpm5:2b-q4_k_m",
+      "type": "local",
+      "editor": "OpenBMB",
+      "size_gb": "1.56 GB",
+      "params_tot": "2.52B",
+      "params_act": "2.52B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_light",
+      "desc": "Dense 2,52B orienté agentique (sept. 2026). Appels d'outils en XML : Ollama ne les parse pas, contrairement à SGLang. Apache 2.0.",
+      "measured_loaded_gb": 1.524,
+      "measured_at_ctx": 4096,
+      "hf_fallback": {
+        "repo": "openbmb/MiniCPM5-2B-GGUF",
+        "file": "MiniCPM5-2B-Q4_K_M.gguf",
+        "modelfile": "TEMPLATE \"\"\"{{- if .Messages -}}\n{{- range .Messages -}}\n<|im_start|>{{ .Role }}\n{{ .Content }}<|im_end|>\n{{ end -}}\n<|im_start|>assistant\n{{ end -}}\"\"\"\nPARAMETER stop \"<|im_end|>\"\nPARAMETER stop \"</s>\"\nPARAMETER temperature 1.0\nPARAMETER top_p 0.95"
+      },
+      "moe": false
     }
   }
 }

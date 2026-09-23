@@ -956,10 +956,14 @@ class ModelTester:
         model_type: str = "local",
         country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
         thinking: bool = False,
+        vendor_params: bool = False,
     ):
         self.model_tag = model_tag
         self.model_type = model_type
         self.country_iso = country_iso
+        # Mode "éditeur" : on n'impose pas la température, laissant s'appliquer
+        # les PARAMETER du Modelfile publié par l'éditeur du modèle.
+        self.vendor_params = vendor_params
         # Par défaut le raisonnement est désactivé : sinon les modèles "thinking"
         # sont comparés à des modèles qui répondent directement, et chaque test
         # peut durer plusieurs minutes.
@@ -1001,6 +1005,8 @@ class ModelTester:
 
             opts = dict(options or {})
             opts.setdefault("num_predict", FUNCTIONAL_MAX_TOKENS)
+            if self.vendor_params:
+                opts.pop("temperature", None)
             kwargs["options"] = opts
 
             if supports_thinking(self.model_tag):
@@ -1362,6 +1368,7 @@ def benchmark_inference(
     country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
     output_token_limit: int = DEFAULT_OUTPUT_TOKENS,
     thinking: bool = False,
+    vendor_params: bool = False,
 ) -> dict | None:
     """
     Benchmark d'inférence avec mesures complètes.
@@ -1409,6 +1416,8 @@ def benchmark_inference(
                     "num_predict": output_token_limit,
                 },
             }
+            if vendor_params:
+                chat_kwargs["options"].pop("temperature")
             if supports_thinking(model_tag):
                 chat_kwargs["think"] = thinking
 
@@ -1482,6 +1491,8 @@ def benchmark_inference(
                     "stream": True,
                     "options": {"num_ctx": context_window, "temperature": 0, "num_predict": 8},
                 }
+                if vendor_params:
+                    warm_kwargs["options"].pop("temperature")
                 if supports_thinking(model_tag):
                     warm_kwargs["think"] = thinking
                 warm_start = time.perf_counter()
@@ -1594,7 +1605,9 @@ def run_full_benchmark(
 
     results = []
     thinking = getattr(args, "thinking", "off") == "on"
-    tester = ModelTester(model_tag, model_type, args.country, thinking=thinking)
+    vendor = getattr(args, "params", "standard") == "vendor"
+    tester = ModelTester(model_tag, model_type, args.country, thinking=thinking,
+                         vendor_params=vendor)
 
     # --- TESTS FONCTIONNELS (une seule fois) ---
     logger.info("   🔧 Tests fonctionnels...")
@@ -1669,6 +1682,7 @@ def run_full_benchmark(
             args.country,
             args.output_tokens,
             thinking,
+            vendor,
         )
 
         if not bench:
@@ -1842,7 +1856,8 @@ def _build_result_row(
     return row
 
 
-def update_model_json(db: dict, model_name: str, results: list[dict]):
+def update_model_json(db: dict, model_name: str, results: list[dict],
+                      stats_key: str = "benchmark_stats"):
     """Met à jour le JSON avec les statistiques résumées et les nouvelles métriques."""
     if not results:
         return
@@ -1936,7 +1951,7 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
             languages_supported[lang_code] = {"comprehension": comp, "generation": gen}
 
     # Mise à jour DB
-    db[model_name]["benchmark_stats"] = stats
+    db[model_name][stats_key] = stats
     if languages_supported:
         db[model_name]["languages_validated"] = languages_supported
 
@@ -2221,6 +2236,20 @@ Exemples d'utilisation:
 
     # Options de tests
     parser.add_argument(
+        "--params",
+        choices=["standard", "vendor"],
+        default="standard",
+        help=(
+            "standard (défaut) : température 0 pour tous, comparaison stricte. "
+            "vendor : on laisse s'appliquer les PARAMETER du Modelfile de l'éditeur."
+        ),
+    )
+    parser.add_argument(
+        "--stats-key",
+        help="Clé d'écriture dans models.json (défaut : benchmark_stats, "
+             "ou benchmark_stats_vendor en mode éditeur / raisonnement activé)",
+    )
+    parser.add_argument(
         "--thinking",
         choices=["off", "on"],
         default="off",
@@ -2271,6 +2300,14 @@ Exemples d'utilisation:
     )
 
     args = parser.parse_args()
+
+    # Une campagne "au mieux" (paramètres éditeur ou raisonnement activé) ne doit
+    # pas écraser la campagne standardisée : elle s'écrit sous sa propre clé.
+    stats_key = args.stats_key or (
+        "benchmark_stats_vendor"
+        if (args.params == "vendor" or args.thinking == "on")
+        else "benchmark_stats"
+    )
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -2329,7 +2366,7 @@ Exemples d'utilisation:
             continue
 
         # Ignorer les déjà testés
-        if args.skip_tested and data.get("benchmark_stats"):
+        if args.skip_tested and data.get(stats_key):
             logger.info(f"⏭️  {name} : Déjà testé, ignoré.")
             continue
 
@@ -2350,6 +2387,8 @@ Exemples d'utilisation:
         sys.exit(0)
 
     logger.info(f"🚀 Benchmark de {len(models_to_test)} modèle(s)")
+    logger.info(f"⚙️  Paramètres : {args.params} | raisonnement : {args.thinking} "
+                f"| écriture sous : {stats_key}")
     logger.info(f"🖥️  RAM système : {TOTAL_RAM_GB} GB")
     logger.info(f"🌍 Pays CodeCarbon : {args.country}")
 
@@ -2375,7 +2414,7 @@ Exemples d'utilisation:
 
             # Mettre à jour le JSON
             if not args.no_update and all_results:
-                update_model_json(db, name, all_results)
+                update_model_json(db, name, all_results, stats_key)
                 with open(MODELS_JSON_PATH, "w", encoding="utf-8") as f:
                     json.dump(db, f, indent=4, ensure_ascii=False)
                 logger.info("   📝 JSON mis à jour")
