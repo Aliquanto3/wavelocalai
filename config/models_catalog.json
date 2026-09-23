@@ -489,7 +489,7 @@
         "thinking"
       ],
       "role": "assistant_light",
-      "desc": "Dense 2,52B orienté agentique (sept. 2026). Appels d'outils en XML : Ollama ne les parse pas, contrairement à SGLang. Apache 2.0.",
+      "desc": "Dense 2,52B orienté agentique (sept. 2026). Appels d'outils en XML, reconnus par Ollama 0.34.3 (100 % au test d'outils, vrais tool_calls). Apache 2.0.",
       "measured_loaded_gb": 1.524,
       "measured_at_ctx": 4096,
       "hf_fallback": {

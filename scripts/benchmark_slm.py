@@ -1286,7 +1286,9 @@ class ModelTester:
             ok = bool(
                 resp
                 and resp.get("content")
-                and _answer_matches(resp["content"], test["expected"], test.get("match", "contains"))
+                and _answer_matches(
+                    resp["content"], test["expected"], test.get("match", "contains")
+                )
             )
             correct += ok
             per_test[test["id"]] = ok
@@ -1606,8 +1608,9 @@ def run_full_benchmark(
     results = []
     thinking = getattr(args, "thinking", "off") == "on"
     vendor = getattr(args, "params", "standard") == "vendor"
-    tester = ModelTester(model_tag, model_type, args.country, thinking=thinking,
-                         vendor_params=vendor)
+    tester = ModelTester(
+        model_tag, model_type, args.country, thinking=thinking, vendor_params=vendor
+    )
 
     # --- TESTS FONCTIONNELS (une seule fois) ---
     logger.info("   🔧 Tests fonctionnels...")
@@ -1783,6 +1786,12 @@ def run_full_benchmark(
             f"RAM {bench['ollama_ram_usage_gb']}GB"
         )
 
+    # Le needle-in-haystack recharge le modèle après le déchargement opéré par
+    # benchmark_inference : sans ce dernier unload, il reste résident pendant le
+    # keep_alive (5 min par défaut) et cohabite avec le modèle suivant.
+    if model_type == "local":
+        unload_model(model_tag)
+
     return results
 
 
@@ -1856,8 +1865,9 @@ def _build_result_row(
     return row
 
 
-def update_model_json(db: dict, model_name: str, results: list[dict],
-                      stats_key: str = "benchmark_stats"):
+def update_model_json(
+    db: dict, model_name: str, results: list[dict], stats_key: str = "benchmark_stats"
+):
     """Met à jour le JSON avec les statistiques résumées et les nouvelles métriques."""
     if not results:
         return
@@ -2247,7 +2257,7 @@ Exemples d'utilisation:
     parser.add_argument(
         "--stats-key",
         help="Clé d'écriture dans models.json (défaut : benchmark_stats, "
-             "ou benchmark_stats_vendor en mode éditeur / raisonnement activé)",
+        "ou benchmark_stats_vendor en mode éditeur / raisonnement activé)",
     )
     parser.add_argument(
         "--thinking",
@@ -2267,11 +2277,6 @@ Exemples d'utilisation:
         "--force-lang-test",
         action="store_true",
         help="Tester toutes les langues même si non déclarées",
-    )
-    parser.add_argument(
-        "--skip-functional",
-        action="store_true",
-        help="Passer les tests fonctionnels (tools, JSON, langues)",
     )
 
     # Outputs
@@ -2387,8 +2392,10 @@ Exemples d'utilisation:
         sys.exit(0)
 
     logger.info(f"🚀 Benchmark de {len(models_to_test)} modèle(s)")
-    logger.info(f"⚙️  Paramètres : {args.params} | raisonnement : {args.thinking} "
-                f"| écriture sous : {stats_key}")
+    logger.info(
+        f"⚙️  Paramètres : {args.params} | raisonnement : {args.thinking} "
+        f"| écriture sous : {stats_key}"
+    )
     logger.info(f"🖥️  RAM système : {TOTAL_RAM_GB} GB")
     logger.info(f"🌍 Pays CodeCarbon : {args.country}")
 
@@ -2429,6 +2436,11 @@ Exemples d'utilisation:
 
                 traceback.print_exc()
             continue
+        finally:
+            # Même après une erreur ou une interruption, on libère la mémoire
+            # avant de charger le modèle suivant.
+            if data.get("type", "local") == "local":
+                unload_model(data.get("ollama_tag"))
 
     # Générer le rapport
     if not args.no_report:
