@@ -75,6 +75,8 @@ SWAP_DELTA_THRESHOLD_GB = 0.5
 CONTEXT_LEVELS = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
 TOTAL_RAM_GB = round(psutil.virtual_memory().total / (1024**3), 2)
 DEFAULT_OUTPUT_TOKENS = 256
+# En deçà, le temps de génération mesuré tient surtout du bruit.
+MIN_TOKENS_FOR_SPEED = 32
 DEFAULT_TIMEOUT_S = 300
 DEFAULT_RUNS = 1
 # Refroidissement entre modèles : sur un portable, une campagne longue fait
@@ -952,6 +954,11 @@ def dispersion(values: list[float], digits: int = 2) -> dict:
         "ci95": [round(mean - half, digits), round(mean + half, digits)],
         "ci95_half_width": round(half, digits),
     }
+
+
+def _speed_measurable(row: dict) -> bool:
+    """Vrai si la génération est assez longue pour que son débit veuille dire quelque chose."""
+    return (row.get("output_tokens") or 0) >= MIN_TOKENS_FOR_SPEED
 
 
 def get_model_memory_gb() -> float:
@@ -1962,35 +1969,64 @@ def update_model_json(
         return
 
     # 1. Filtrage et moyennes de base
-    ok_results = [r for r in results if r.get("status") == "OK"]
-    if not ok_results:
-        ok_results = results
+    # MAX_TOKENS_HIT n'est pas un échec : la génération a atteint sa limite. Ne
+    # garder que les OK écartait tous les autres paliers dès qu'une réponse
+    # s'arrêtait d'elle-même, et avec eux des exécutions entières.
+    valid = [r for r in results if r.get("status") not in ("FAILED", "SWAP_DETECTED")]
+    if not valid:
+        valid = results
 
-    best = max(ok_results, key=lambda x: x.get("context_size", 0))
+    best = max(valid, key=lambda x: x.get("context_size", 0))
 
-    avg_tps = sum(r.get("tokens_per_second", 0) for r in ok_results) / len(ok_results)
-    avg_ttft = sum(r.get("time_to_first_token_ms", 0) for r in ok_results) / len(ok_results)
+    # Un débit n'a de sens que sur une génération assez longue : sur 3 tokens,
+    # le bruit de mesure donnait 274 tok/s à un modèle qui en fait ~230.
+    timed = [r for r in valid if _speed_measurable(r)] or valid
+
+    avg_tps = sum(r.get("tokens_per_second", 0) for r in timed) / len(timed)
+    avg_ttft = sum(r.get("time_to_first_token_ms", 0) for r in valid) / len(valid)
     total_co2 = sum(r.get("co2_kg", 0) for r in results)
-    avg_co2_per_1k = sum(r.get("co2_per_1k_tokens", 0) for r in ok_results) / len(ok_results)
+    avg_co2_per_1k = sum(r.get("co2_per_1k_tokens", 0) for r in valid) / len(valid)
 
-    # Scores de qualité
-    reasoning_avg = best.get("reasoning_score", 0)
-    instruction_avg = best.get("instruction_following_score", 0)
-
-    # Dispersion entre exécutions : une seule valeur par run, prise au contexte
-    # le plus élevé validé, sinon la moyenne des paliers mélangerait deux effets.
+    # Dispersion entre exécutions : une seule valeur par run, prise au plus haut
+    # contexte validé par TOUTES les exécutions, sinon on comparerait des paliers
+    # différents et l'effet du contexte passerait pour de la variabilité.
     by_run: dict[int, list[dict]] = {}
-    for r in ok_results:
+    for r in valid:
         by_run.setdefault(r.get("run_id", 1), []).append(r)
-    per_run_best = [max(rows, key=lambda x: x.get("context_size", 0)) for rows in by_run.values()]
+    common_ctx = min(max(r.get("context_size", 0) for r in rows) for rows in by_run.values())
+    per_run = [
+        max((r for r in rows if r.get("context_size", 0) <= common_ctx),
+            key=lambda x: x.get("context_size", 0))
+        for rows in by_run.values()
+    ]
+
+    # Pour le débit, le palier doit en plus être mesurable dans chaque exécution.
+    speed_ctxs = set.intersection(*(
+        {r.get("context_size", 0) for r in rows if _speed_measurable(r)} for rows in by_run.values()
+    ))
+    speed_ctx = max(speed_ctxs) if speed_ctxs else None
+    speed_rows = [
+        next(r for r in rows if r.get("context_size", 0) == speed_ctx and _speed_measurable(r))
+        for rows in by_run.values()
+    ] if speed_ctx else []
+    tps_stats = dispersion([r.get("tokens_per_second") for r in speed_rows])
+    if tps_stats:
+        tps_stats["ctx"] = speed_ctx
 
     runs_stats = {
-        "tokens_per_second": dispersion([r.get("tokens_per_second", 0) for r in per_run_best]),
-        "reasoning": dispersion([r.get("reasoning_score", 0) for r in per_run_best], digits=3),
+        "tokens_per_second": tps_stats,
+        "reasoning": dispersion([r.get("reasoning_score", 0) for r in per_run], digits=3),
         "instruction_following": dispersion(
-            [r.get("instruction_following_score", 0) for r in per_run_best], digits=3),
-        "gpu_clock_mhz": dispersion([r.get("gpu_clock_mhz", 0) for r in per_run_best], digits=0),
+            [r.get("instruction_following_score", 0) for r in per_run], digits=3),
+        "gpu_clock_mhz": dispersion([r.get("gpu_clock_mhz", 0) for r in per_run], digits=0),
     }
+
+    # Scores de qualité : moyenne des exécutions. À température 0 elles sont
+    # identiques ; en campagne « au mieux », prendre une seule exécution
+    # reviendrait à publier un tirage au lieu de la tendance.
+    reasoning_avg = runs_stats["reasoning"].get("mean", best.get("reasoning_score", 0))
+    instruction_avg = runs_stats["instruction_following"].get(
+        "mean", best.get("instruction_following_score", 0))
 
     # 2. Calcul des nouvelles métriques intelligentes
     ux_rating = _get_ux_rating(avg_ttft)
