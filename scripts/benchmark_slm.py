@@ -23,6 +23,7 @@ import logging
 import random
 import re
 import shutil
+import statistics
 import string
 import sys
 import time
@@ -76,6 +77,14 @@ TOTAL_RAM_GB = round(psutil.virtual_memory().total / (1024**3), 2)
 DEFAULT_OUTPUT_TOKENS = 256
 DEFAULT_TIMEOUT_S = 300
 DEFAULT_RUNS = 1
+# Refroidissement entre modèles : sur un portable, une campagne longue fait
+# chuter les fréquences GPU (-27 % observés), ce qui se lit à tort comme une
+# différence entre modèles.
+DEFAULT_COOLDOWN_TEMP_C = 65
+DEFAULT_COOLDOWN_MAX_S = 180
+# Valeurs de t de Student à 95 %, par degré de liberté (n-1).
+T95 = {1: 12.71, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447,
+       7: 2.365, 8: 2.306, 9: 2.262}
 
 # Langues supportées pour les tests multilingues (Listes de synonymes acceptés)
 SUPPORTED_LANGUAGES = {
@@ -463,12 +472,16 @@ def _answer_matches(response: str, expected: str, match: str = "contains") -> bo
 
     if match == "number":
         # On compare le DERNIER nombre cité : tolère "17 + 28 = 45".
+        def _normalize(value: str) -> str:
+            value = value.replace(",", ".")
+            # Les zéros finaux ne se suppriment QUE derrière une virgule décimale :
+            # sinon "50" deviendrait "5" et validerait une réponse fausse.
+            return value.rstrip("0").rstrip(".") if "." in value else value
+
         numbers = re.findall(r"-?\d+(?:[.,]\d+)?", text)
         if not numbers:
             return False
-        last = numbers[-1].replace(",", ".").rstrip("0").rstrip(".")
-        target = exp.replace(",", ".").rstrip("0").rstrip(".")
-        return last == target or numbers[-1].replace(",", ".") == exp
+        return _normalize(numbers[-1]) == _normalize(exp)
     if match == "word":
         return re.search(rf"\b{re.escape(exp)}\b", text) is not None
     if match == "compact":
@@ -736,6 +749,8 @@ def get_csv_headers() -> list[str]:
         "model_memory_gb",
         "gpu_offload_pct",
         "swap_delta_gb",
+        "gpu_temp_c",
+        "gpu_clock_mhz",
         "ollama_ram_usage_gb",
         "gpu_vram_usage_gb",
         "ram_peak_gb",
@@ -843,28 +858,100 @@ def get_ollama_process_memory_gb() -> float:
     return total_mem_bytes / (1024**3)
 
 
-def get_gpu_memory_usage_gb() -> float:
-    """Tente de mesurer l'utilisation VRAM GPU (NVIDIA)."""
-    try:
-        import subprocess
+def _nvidia_smi(query: str) -> str:
+    """Interroge nvidia-smi et retourne la sortie brute, vide en cas d'échec."""
+    import subprocess
 
+    try:
         result = subprocess.run(
-            [
-                "nvidia-smi",
-                "--query-gpu=memory.used",
-                "--format=csv,noheader,nounits",
-            ],
+            ["nvidia-smi", f"--query-gpu={query}", "--format=csv,noheader,nounits"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        if result.returncode == 0:
-            # Somme de toutes les GPU
-            total_mb = sum(int(x) for x in result.stdout.strip().split("\n") if x)
-            return total_mb / 1024
+        return result.stdout.strip() if result.returncode == 0 else ""
     except Exception:
-        pass
-    return 0.0
+        return ""
+
+
+def get_gpu_memory_usage_gb() -> float:
+    """Tente de mesurer l'utilisation VRAM GPU (NVIDIA)."""
+    out = _nvidia_smi("memory.used")
+    if not out:
+        return 0.0
+    try:
+        # Somme de toutes les GPU
+        return sum(int(x) for x in out.split("\n") if x) / 1024
+    except ValueError:
+        return 0.0
+
+
+def get_gpu_thermals() -> tuple[float, float]:
+    """(température °C, fréquence graphique MHz) du GPU, ou (0, 0).
+
+    Sur un portable, une campagne longue fait chuter les fréquences : jusqu'à
+    -27 % observés entre le début et la fin d'un run de 20 modèles. Sans cette
+    trace, l'écart se lit à tort comme une différence entre modèles.
+    """
+    out = _nvidia_smi("temperature.gpu,clocks.current.graphics")
+    if not out:
+        return 0.0, 0.0
+    try:
+        temp, clock = out.splitlines()[0].split(",")
+        return float(temp), float(clock)
+    except (ValueError, IndexError):
+        return 0.0, 0.0
+
+
+def wait_for_cooldown(target_c: float, max_wait_s: float) -> dict:
+    """Attend que le GPU redescende sous `target_c`, au plus `max_wait_s`.
+
+    Sans cette pause, les modèles mesurés en fin de campagne le sont à
+    fréquence réduite : l'écart avec ceux du début n'a alors rien à voir avec
+    les modèles eux-mêmes.
+    """
+    start_temp, start_clock = get_gpu_thermals()
+    if not start_temp or start_temp <= target_c:
+        return {"waited_s": 0, "start_temp_c": start_temp, "end_temp_c": start_temp,
+                "clock_mhz": start_clock, "reached": True}
+
+    begin = time.perf_counter()
+    temp = start_temp
+    while temp > target_c and (time.perf_counter() - begin) < max_wait_s:
+        time.sleep(5)
+        temp, _ = get_gpu_thermals()
+
+    waited = round(time.perf_counter() - begin, 1)
+    _, clock = get_gpu_thermals()
+    return {"waited_s": waited, "start_temp_c": start_temp, "end_temp_c": temp,
+            "clock_mhz": clock, "reached": temp <= target_c}
+
+
+def dispersion(values: list[float], digits: int = 2) -> dict:
+    """Moyenne, écart-type et intervalle de confiance à 95 % d'une série.
+
+    Avec deux ou trois répétitions, l'intervalle reste large : c'est le
+    message, pas un défaut du calcul.
+    """
+    values = [v for v in values if v is not None]
+    n = len(values)
+    if n == 0:
+        return {}
+    if n == 1:
+        return {"n": 1, "mean": round(values[0], digits)}
+
+    mean = statistics.mean(values)
+    sd = statistics.stdev(values)
+    half = T95.get(n - 1, 1.96) * sd / (n ** 0.5)
+    return {
+        "n": n,
+        "mean": round(mean, digits),
+        "sd": round(sd, digits),
+        "min": round(min(values), digits),
+        "max": round(max(values), digits),
+        "ci95": [round(mean - half, digits), round(mean + half, digits)],
+        "ci95_half_width": round(half, digits),
+    }
 
 
 def get_model_memory_gb() -> float:
@@ -952,10 +1039,14 @@ class ModelTester:
         model_type: str = "local",
         country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
         thinking: bool = False,
+        vendor_params: bool = False,
     ):
         self.model_tag = model_tag
         self.model_type = model_type
         self.country_iso = country_iso
+        # Mode "éditeur" : on n'impose pas la température, laissant s'appliquer
+        # les PARAMETER du Modelfile publié par l'éditeur du modèle.
+        self.vendor_params = vendor_params
         # Par défaut le raisonnement est désactivé : sinon les modèles "thinking"
         # sont comparés à des modèles qui répondent directement, et chaque test
         # peut durer plusieurs minutes.
@@ -997,6 +1088,8 @@ class ModelTester:
 
             opts = dict(options or {})
             opts.setdefault("num_predict", FUNCTIONAL_MAX_TOKENS)
+            if self.vendor_params:
+                opts.pop("temperature", None)
             kwargs["options"] = opts
 
             if supports_thinking(self.model_tag):
@@ -1276,7 +1369,9 @@ class ModelTester:
             ok = bool(
                 resp
                 and resp.get("content")
-                and _answer_matches(resp["content"], test["expected"], test.get("match", "contains"))
+                and _answer_matches(
+                    resp["content"], test["expected"], test.get("match", "contains")
+                )
             )
             correct += ok
             per_test[test["id"]] = ok
@@ -1358,6 +1453,7 @@ def benchmark_inference(
     country_iso: str = DEFAULT_COUNTRY_ISO_CODE,
     output_token_limit: int = DEFAULT_OUTPUT_TOKENS,
     thinking: bool = False,
+    vendor_params: bool = False,
 ) -> dict | None:
     """
     Benchmark d'inférence avec mesures complètes.
@@ -1405,6 +1501,8 @@ def benchmark_inference(
                     "num_predict": output_token_limit,
                 },
             }
+            if vendor_params:
+                chat_kwargs["options"].pop("temperature")
             if supports_thinking(model_tag):
                 chat_kwargs["think"] = thinking
 
@@ -1478,6 +1576,8 @@ def benchmark_inference(
                     "stream": True,
                     "options": {"num_ctx": context_window, "temperature": 0, "num_predict": 8},
                 }
+                if vendor_params:
+                    warm_kwargs["options"].pop("temperature")
                 if supports_thinking(model_tag):
                     warm_kwargs["think"] = thinking
                 warm_start = time.perf_counter()
@@ -1511,6 +1611,7 @@ def benchmark_inference(
 
         gpu_vram_end = get_gpu_memory_usage_gb()
         gpu_vram_usage = max(0, gpu_vram_end - gpu_vram_start)
+        gpu_temp_c, gpu_clock_mhz = get_gpu_thermals()
 
         # Vitesse de génération pure (hors chargement et hors lecture du prompt).
         if eval_duration_ns:
@@ -1549,6 +1650,8 @@ def benchmark_inference(
             "model_memory_gb": round(model_memory_usage, 3),
             "gpu_offload_pct": gpu_offload_pct,
             "swap_delta_gb": round(psutil.swap_memory().used / (1024**3) - swap_start, 3),
+            "gpu_temp_c": gpu_temp_c,
+            "gpu_clock_mhz": gpu_clock_mhz,
             "ollama_ram_usage_gb": round(ram_model_usage, 3),
             "gpu_vram_usage_gb": round(gpu_vram_usage, 3),
             "ram_peak_gb": round(sys_ram_peak, 2),
@@ -1590,7 +1693,10 @@ def run_full_benchmark(
 
     results = []
     thinking = getattr(args, "thinking", "off") == "on"
-    tester = ModelTester(model_tag, model_type, args.country, thinking=thinking)
+    vendor = getattr(args, "params", "standard") == "vendor"
+    tester = ModelTester(
+        model_tag, model_type, args.country, thinking=thinking, vendor_params=vendor
+    )
 
     # --- TESTS FONCTIONNELS (une seule fois) ---
     logger.info("   🔧 Tests fonctionnels...")
@@ -1665,6 +1771,7 @@ def run_full_benchmark(
             args.country,
             args.output_tokens,
             thinking,
+            vendor,
         )
 
         if not bench:
@@ -1762,8 +1869,15 @@ def run_full_benchmark(
             f"      {status_icon} {bench['status']} | "
             f"{bench['tokens_per_second']} tok/s | "
             f"TTFT {bench['time_to_first_token_ms']}ms | "
-            f"RAM {bench['ollama_ram_usage_gb']}GB"
+            f"RAM {bench['ollama_ram_usage_gb']}GB | "
+            f"GPU {bench.get('gpu_temp_c', 0):.0f}°C {bench.get('gpu_clock_mhz', 0):.0f}MHz"
         )
+
+    # Le needle-in-haystack recharge le modèle après le déchargement opéré par
+    # benchmark_inference : sans ce dernier unload, il reste résident pendant le
+    # keep_alive (5 min par défaut) et cohabite avec le modèle suivant.
+    if model_type == "local":
+        unload_model(model_tag)
 
     return results
 
@@ -1805,6 +1919,8 @@ def _build_result_row(
         "model_memory_gb": bench.get("model_memory_gb", 0),
         "gpu_offload_pct": bench.get("gpu_offload_pct", 0),
         "swap_delta_gb": bench.get("swap_delta_gb", 0),
+        "gpu_temp_c": bench.get("gpu_temp_c", 0),
+        "gpu_clock_mhz": bench.get("gpu_clock_mhz", 0),
         "ollama_ram_usage_gb": bench.get("ollama_ram_usage_gb", 0),
         "gpu_vram_usage_gb": bench.get("gpu_vram_usage_gb", 0),
         "ram_peak_gb": bench.get("ram_peak_gb", 0),
@@ -1838,7 +1954,9 @@ def _build_result_row(
     return row
 
 
-def update_model_json(db: dict, model_name: str, results: list[dict]):
+def update_model_json(
+    db: dict, model_name: str, results: list[dict], stats_key: str = "benchmark_stats"
+):
     """Met à jour le JSON avec les statistiques résumées et les nouvelles métriques."""
     if not results:
         return
@@ -1858,6 +1976,21 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
     # Scores de qualité
     reasoning_avg = best.get("reasoning_score", 0)
     instruction_avg = best.get("instruction_following_score", 0)
+
+    # Dispersion entre exécutions : une seule valeur par run, prise au contexte
+    # le plus élevé validé, sinon la moyenne des paliers mélangerait deux effets.
+    by_run: dict[int, list[dict]] = {}
+    for r in ok_results:
+        by_run.setdefault(r.get("run_id", 1), []).append(r)
+    per_run_best = [max(rows, key=lambda x: x.get("context_size", 0)) for rows in by_run.values()]
+
+    runs_stats = {
+        "tokens_per_second": dispersion([r.get("tokens_per_second", 0) for r in per_run_best]),
+        "reasoning": dispersion([r.get("reasoning_score", 0) for r in per_run_best], digits=3),
+        "instruction_following": dispersion(
+            [r.get("instruction_following_score", 0) for r in per_run_best], digits=3),
+        "gpu_clock_mhz": dispersion([r.get("gpu_clock_mhz", 0) for r in per_run_best], digits=0),
+    }
 
     # 2. Calcul des nouvelles métriques intelligentes
     ux_rating = _get_ux_rating(avg_ttft)
@@ -1906,6 +2039,8 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
             "schema_compliance_rate": float(best.get("json_schema_compliant") or 0.0),
         },
         "needle_in_haystack": {},
+        # Dispersion mesurée entre exécutions (vide si un seul run).
+        "runs": runs_stats,
         "quality_scores": {
             "reasoning_avg": reasoning_avg,
             "instruction_following_avg": instruction_avg,
@@ -1932,7 +2067,7 @@ def update_model_json(db: dict, model_name: str, results: list[dict]):
             languages_supported[lang_code] = {"comprehension": comp, "generation": gen}
 
     # Mise à jour DB
-    db[model_name]["benchmark_stats"] = stats
+    db[model_name][stats_key] = stats
     if languages_supported:
         db[model_name]["languages_validated"] = languages_supported
 
@@ -2217,6 +2352,36 @@ Exemples d'utilisation:
 
     # Options de tests
     parser.add_argument(
+        "--cooldown-temp",
+        type=float,
+        default=0,
+        help=(
+            f"Attendre que le GPU redescende sous cette température avant chaque "
+            f"exécution (0 = désactivé, {DEFAULT_COOLDOWN_TEMP_C} recommandé sur portable). "
+            "Sans cette pause, les modèles de fin de campagne sont mesurés à fréquence réduite."
+        ),
+    )
+    parser.add_argument(
+        "--cooldown-max",
+        type=float,
+        default=DEFAULT_COOLDOWN_MAX_S,
+        help=f"Durée maximale d'attente par refroidissement (défaut : {DEFAULT_COOLDOWN_MAX_S}s)",
+    )
+    parser.add_argument(
+        "--params",
+        choices=["standard", "vendor"],
+        default="standard",
+        help=(
+            "standard (défaut) : température 0 pour tous, comparaison stricte. "
+            "vendor : on laisse s'appliquer les PARAMETER du Modelfile de l'éditeur."
+        ),
+    )
+    parser.add_argument(
+        "--stats-key",
+        help="Clé d'écriture dans models.json (défaut : benchmark_stats, "
+        "ou benchmark_stats_vendor en mode éditeur / raisonnement activé)",
+    )
+    parser.add_argument(
         "--thinking",
         choices=["off", "on"],
         default="off",
@@ -2234,11 +2399,6 @@ Exemples d'utilisation:
         "--force-lang-test",
         action="store_true",
         help="Tester toutes les langues même si non déclarées",
-    )
-    parser.add_argument(
-        "--skip-functional",
-        action="store_true",
-        help="Passer les tests fonctionnels (tools, JSON, langues)",
     )
 
     # Outputs
@@ -2267,6 +2427,14 @@ Exemples d'utilisation:
     )
 
     args = parser.parse_args()
+
+    # Une campagne "au mieux" (paramètres éditeur ou raisonnement activé) ne doit
+    # pas écraser la campagne standardisée : elle s'écrit sous sa propre clé.
+    stats_key = args.stats_key or (
+        "benchmark_stats_vendor"
+        if (args.params == "vendor" or args.thinking == "on")
+        else "benchmark_stats"
+    )
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -2325,7 +2493,7 @@ Exemples d'utilisation:
             continue
 
         # Ignorer les déjà testés
-        if args.skip_tested and data.get("benchmark_stats"):
+        if args.skip_tested and data.get(stats_key):
             logger.info(f"⏭️  {name} : Déjà testé, ignoré.")
             continue
 
@@ -2346,6 +2514,10 @@ Exemples d'utilisation:
         sys.exit(0)
 
     logger.info(f"🚀 Benchmark de {len(models_to_test)} modèle(s)")
+    logger.info(
+        f"⚙️  Paramètres : {args.params} | raisonnement : {args.thinking} "
+        f"| écriture sous : {stats_key}"
+    )
     logger.info(f"🖥️  RAM système : {TOTAL_RAM_GB} GB")
     logger.info(f"🌍 Pays CodeCarbon : {args.country}")
 
@@ -2362,6 +2534,16 @@ Exemples d'utilisation:
                 if args.runs > 1:
                     logger.info(f"   📍 Run {run_id}/{args.runs}")
 
+                if args.cooldown_temp > 0:
+                    cd = wait_for_cooldown(args.cooldown_temp, args.cooldown_max)
+                    if cd["waited_s"]:
+                        verdict = "atteint" if cd["reached"] else "plafond atteint"
+                        logger.info(
+                            f"   ❄️  Refroidissement {cd['waited_s']:.0f}s : "
+                            f"{cd['start_temp_c']:.0f}°C -> {cd['end_temp_c']:.0f}°C "
+                            f"({verdict}, {cd['clock_mhz']:.0f}MHz)"
+                        )
+
                 results = run_full_benchmark(name, data, args, run_id)
                 all_results.extend(results)
 
@@ -2371,7 +2553,7 @@ Exemples d'utilisation:
 
             # Mettre à jour le JSON
             if not args.no_update and all_results:
-                update_model_json(db, name, all_results)
+                update_model_json(db, name, all_results, stats_key)
                 with open(MODELS_JSON_PATH, "w", encoding="utf-8") as f:
                     json.dump(db, f, indent=4, ensure_ascii=False)
                 logger.info("   📝 JSON mis à jour")
@@ -2386,6 +2568,11 @@ Exemples d'utilisation:
 
                 traceback.print_exc()
             continue
+        finally:
+            # Même après une erreur ou une interruption, on libère la mémoire
+            # avant de charger le modèle suivant.
+            if data.get("type", "local") == "local":
+                unload_model(data.get("ollama_tag"))
 
     # Générer le rapport
     if not args.no_report:
