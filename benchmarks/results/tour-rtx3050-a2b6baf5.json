@@ -17,13 +17,13 @@
     "vram_gb": 8.0,
     "mode": "gpu",
     "budget_gb": 6.8,
-    "disk_free_gb": 503.6,
+    "disk_free_gb": 485.9,
     "ollama_version": "0.34.3",
     "python": "3.14.6"
   },
   "benchmark_commit": "b36cb8cbb56cdaa4a8c7b21a78d4d4c5a4926e20",
   "benchmark_dirty": false,
-  "exported_at": "2026-09-24T17:48:32+00:00",
+  "exported_at": "2026-09-24T19:25:52+00:00",
   "models": {
     "MiniCPM5 1B": {
       "date": "2026-09-24",
@@ -2424,6 +2424,198 @@
         },
         "response_variance_avg": 0.0
       }
+    },
+    "Ling 3.0 Tiny": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 4.646,
+      "gpu_vram_usage_gb": 4.774,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 129.56,
+      "prefill_tokens_per_second": 3007.5,
+      "prefill_prompt_tokens": 4527,
+      "avg_ttft_ms": 92,
+      "ttft_full_prompt_ms": 1528,
+      "load_time_ms": 1995,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 3.4792565271176616e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 128.14,
+          "sd": 0.01,
+          "min": 128.14,
+          "max": 128.15,
+          "ci95": [
+            128.08,
+            128.21
+          ],
+          "ci95_half_width": 0.06,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.93,
+          "sd": 0.0,
+          "min": 0.93,
+          "max": 0.93,
+          "ci95": [
+            0.93,
+            0.93
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2017.0,
+          "sd": 0.0,
+          "min": 2017.0,
+          "max": 2017.0,
+          "ci95": [
+            2017.0,
+            2017.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ling 3.0 Tiny (bartowski IQ4_XS)": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 4.245,
+      "gpu_vram_usage_gb": 4.372,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 118.14,
+      "prefill_tokens_per_second": 3028.0,
+      "prefill_prompt_tokens": 4527,
+      "avg_ttft_ms": 92,
+      "ttft_full_prompt_ms": 1516,
+      "load_time_ms": 1998,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 3.44628568104942e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 115.87,
+          "sd": 1.22,
+          "min": 115.01,
+          "max": 116.73,
+          "ci95": [
+            104.94,
+            126.8
+          ],
+          "ci95_half_width": 10.93,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.93,
+          "sd": 0.0,
+          "min": 0.93,
+          "max": 0.93,
+          "ci95": [
+            0.93,
+            0.93
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.75,
+          "sd": 0.0,
+          "min": 0.75,
+          "max": 0.75,
+          "ci95": [
+            0.75,
+            0.75
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2017.0,
+          "sd": 0.0,
+          "min": 2017.0,
+          "max": 2017.0,
+          "ci95": [
+            2017.0,
+            2017.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.75,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
     }
   },
   "models_vendor": {
@@ -4795,6 +4987,196 @@
         "abstention_avg": 0.5,
         "reasoning_by_category": {
           "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ling 3.0 Tiny": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 4.561,
+      "gpu_vram_usage_gb": 4.688,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 129.87,
+      "prefill_tokens_per_second": 2769.4,
+      "prefill_prompt_tokens": 2276,
+      "avg_ttft_ms": 92,
+      "ttft_full_prompt_ms": 838,
+      "load_time_ms": 2005,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 3.759996314942609e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 128.98,
+          "sd": 0.07,
+          "min": 128.9,
+          "max": 129.04,
+          "ci95": [
+            128.8,
+            129.17
+          ],
+          "ci95_half_width": 0.18,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.977,
+          "sd": 0.04,
+          "min": 0.93,
+          "max": 1.0,
+          "ci95": [
+            0.876,
+            1.077
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.92,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.748,
+            1.092
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2010.0,
+          "sd": 0.0,
+          "min": 2010.0,
+          "max": 2010.0,
+          "ci95": [
+            2010.0,
+            2010.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.977,
+        "instruction_following_avg": 0.92,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ling 3.0 Tiny (bartowski IQ4_XS)": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 4.16,
+      "gpu_vram_usage_gb": 4.286,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 118.51,
+      "prefill_tokens_per_second": 2766.2,
+      "prefill_prompt_tokens": 2276,
+      "avg_ttft_ms": 91,
+      "ttft_full_prompt_ms": 839,
+      "load_time_ms": 1992,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 3.9671467246629944e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 117.98,
+          "sd": 0.19,
+          "min": 117.83,
+          "max": 118.19,
+          "ci95": [
+            117.51,
+            118.45
+          ],
+          "ci95_half_width": 0.47,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.953,
+          "sd": 0.04,
+          "min": 0.93,
+          "max": 1.0,
+          "ci95": [
+            0.853,
+            1.054
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.96,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.788,
+            1.132
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2010.0,
+          "sd": 8.0,
+          "min": 2002.0,
+          "max": 2017.0,
+          "ci95": [
+            1991.0,
+            2028.0
+          ],
+          "ci95_half_width": 19.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.953,
+        "instruction_following_avg": 0.96,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
           "arithmetic": 1.0,
           "pattern": 1.0,
           "trap": 1.0
