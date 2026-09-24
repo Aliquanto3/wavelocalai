@@ -29,7 +29,30 @@ from scripts.machine_profile import describe  # noqa: E402
 CATALOG = ROOT / "config" / "models_catalog.json"
 LOCAL_DB = ROOT / "data" / "models.json"
 RESULTS_DIR = ROOT / "benchmarks" / "results"
-GGUF_DIR = Path("D:/ia/gguf") if Path("D:/").exists() else ROOT / "data" / "gguf"
+# Place à exiger d'un disque à modèles : la sélection complète pèse une
+# soixantaine de gigaoctets, dont une vingtaine passent par hf_fallback.
+GGUF_MIN_FREE_BYTES = 30 * 1024**3
+
+
+def _gguf_dir() -> Path:
+    """Disque de travail des GGUF téléchargés hors bibliothèque Ollama.
+
+    D: sert de disque à modèles quand il en est un. Mais « D: existe » ne veut
+    pas dire « D: a la place » : sur une machine où c'est une petite partition,
+    tous les modèles passant par hf_fallback échouaient en cours d'écriture
+    (os error 112) et disparaissaient silencieusement du benchmark.
+    """
+    scratch = Path("D:/ia/gguf")
+    if scratch.drive and Path(scratch.drive + "/").exists():
+        try:
+            if shutil.disk_usage(scratch.drive + "/").free >= GGUF_MIN_FREE_BYTES:
+                return scratch
+        except OSError:
+            pass
+    return ROOT / "data" / "gguf"
+
+
+GGUF_DIR = _gguf_dir()
 
 # Marge appliquée à l'empreinte de référence : une autre machine, un autre
 # pilote et un autre contexte ne donnent pas exactement la même occupation.
