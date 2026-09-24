@@ -1,7 +1,5 @@
 # src/core/providers/ollama_provider.py
-"""
-Provider Ollama pour les modèles locaux.
-"""
+"""Provider Ollama pour les modèles locaux."""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -10,31 +8,34 @@ from typing import Any
 import ollama
 from langchain_ollama import ChatOllama
 
-from src.core.interfaces import ILLMProvider
-from src.core.metrics import InferenceMetrics, MetricsCalculator
+from src.core.providers.base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
 
 
-class OllamaProvider(ILLMProvider):
-    """
-    Provider pour les modèles locaux via Ollama.
-    """
+class OllamaProvider(BaseProvider):
+    """Provider pour les modèles locaux via Ollama."""
 
     def __init__(self, base_url: str = "http://localhost:11434"):
-        """
-        Initialise le provider Ollama.
-
-        Args:
-            base_url: URL du serveur Ollama
-        """
         self._base_url = base_url
 
+    def pull_model(self, model_name: str) -> Any:
+        """
+        Télécharge un modèle via la bibliothèque ollama.
+
+        Args:
+            model_name: Nom du modèle (tag)
+
+        Returns:
+            Réponse du téléchargement
+        """
+        try:
+            return ollama.pull(model_name, stream=True)
+        except Exception as e:
+            logger.error(f"Erreur lors du pull du modèle {model_name}: {e}")
+            raise ValueError(f"Échec du téléchargement Ollama: {e}") from e
+
     def _create_async_client(self):
-        """
-        Crée un nouveau client async à chaque appel.
-        Évite les problèmes d'event loop fermée entre les requêtes.
-        """
         from ollama import AsyncClient as OllamaAsyncClient
 
         return OllamaAsyncClient(host=self._base_url)
@@ -47,8 +48,55 @@ class OllamaProvider(ILLMProvider):
     def is_local(self) -> bool:
         return True
 
+    @property
+    def is_available(self) -> bool:
+        return True  # Toujours disponible si Ollama tourne
+
+    async def _stream_implementation(
+        self,
+        model_name: str,
+        messages: list[dict[str, str]],
+        temperature: float,
+        metadata: dict[str, Any],
+    ) -> AsyncGenerator[str, None]:
+        """Implémentation streaming Ollama avec paramètres anti-répétition."""
+        client = self._create_async_client()
+
+        # Options optimisées pour éviter les boucles de répétition sur petits SLM
+        options = {
+            "temperature": temperature,
+            "repeat_penalty": 1.2,  # Pénalise les tokens déjà générés
+            "repeat_last_n": 64,  # Fenêtre de contexte pour la pénalité
+            "top_k": 40,  # Limite aux 40 tokens les plus probables
+            "top_p": 0.9,  # Nucleus sampling
+        }
+
+        stream = await client.chat(
+            model=model_name,
+            messages=messages,
+            stream=True,
+            options=options,
+        )
+
+        async for chunk in stream:
+            if isinstance(chunk, dict):
+                content = chunk.get("message", {}).get("content", "")
+                if content:
+                    yield content
+                if chunk.get("done"):
+                    metadata["output_tokens"] = chunk.get("eval_count", 0)
+                    metadata["input_tokens"] = chunk.get("prompt_eval_count", 0)
+                    metadata["load_duration"] = chunk.get("load_duration", 0) / 1e9
+            else:
+                content = getattr(chunk, "message", None)
+                if content and hasattr(content, "content") and content.content:
+                    yield content.content
+                if getattr(chunk, "done", False):
+                    metadata["output_tokens"] = getattr(chunk, "eval_count", 0)
+                    metadata["input_tokens"] = getattr(chunk, "prompt_eval_count", 0)
+                    metadata["load_duration"] = getattr(chunk, "load_duration", 0) / 1e9
+
     def list_models(self) -> list[dict[str, Any]]:
-        """Liste les modèles installés localement via Ollama."""
         models = []
         try:
             ollama_resp = ollama.list()
@@ -57,7 +105,6 @@ class OllamaProvider(ILLMProvider):
                 if hasattr(ollama_resp, "models")
                 else ollama_resp.get("models", [])
             )
-
             for m in raw_models:
                 model_dict = (
                     m.model_dump()
@@ -68,111 +115,14 @@ class OllamaProvider(ILLMProvider):
                 if "model" not in model_dict and "name" in model_dict:
                     model_dict["model"] = model_dict["name"]
                 models.append(model_dict)
-
         except Exception as e:
             logger.error(f"Erreur Ollama list: {e}")
-
         return models
 
-    async def chat_stream(
-        self,
-        model_name: str,
-        messages: list[dict[str, str]],
-        temperature: float = 0.7,
-        system_prompt: str | None = None,
-    ) -> AsyncGenerator[str | InferenceMetrics, None]:
-        """Génère une réponse en streaming via Ollama."""
-
-        final_messages = messages.copy()
-        if system_prompt:
-            final_messages.insert(0, {"role": "system", "content": system_prompt})
-
-        timer = MetricsCalculator()
-        full_text = ""
-        eval_count = 0
-        prompt_eval_count = 0
-        load_duration = 0
-
-        # Créer un nouveau client pour chaque requête (évite "Event loop is closed")
-        client = self._create_async_client()
-
-        try:
-            timer.start()
-            stream = await client.chat(
-                model=model_name,
-                messages=final_messages,
-                stream=True,
-                options={"temperature": temperature},
-            )
-
-            async for chunk in stream:
-                if isinstance(chunk, dict):
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        full_text += content
-                        yield content
-
-                    # Métriques finales
-                    if chunk.get("done"):
-                        eval_count = chunk.get("eval_count", len(full_text) // 4)
-                        prompt_eval_count = chunk.get("prompt_eval_count", 0)
-                        load_duration = chunk.get("load_duration", 0)
-                else:
-                    # Format objet Pydantic
-                    content = getattr(chunk, "message", None)
-                    if content and hasattr(content, "content"):
-                        text = content.content
-                        if text:
-                            full_text += text
-                            yield text
-
-                    if getattr(chunk, "done", False):
-                        eval_count = getattr(chunk, "eval_count", len(full_text) // 4)
-                        prompt_eval_count = getattr(chunk, "prompt_eval_count", 0)
-                        load_duration = getattr(chunk, "load_duration", 0)
-
-            timer.stop()
-
-            # Calcul des métriques
-            duration = timer.duration
-            tokens_per_second = eval_count / duration if duration > 0 else 0
-
-            yield InferenceMetrics(
-                model_name=model_name,
-                input_tokens=prompt_eval_count,
-                output_tokens=eval_count,
-                total_duration_s=round(duration, 2),
-                load_duration_s=round(load_duration / 1e9, 2) if load_duration else 0,
-                tokens_per_second=round(tokens_per_second, 1),
-                carbon_g=0.0,
-            )
-
-        except Exception as e:
-            logger.error(f"Ollama Error: {e}")
-            raise e
-
-    def get_langchain_model(
-        self, model_name: str, temperature: float = 0.7, **kwargs
-    ) -> ChatOllama:
-        """Retourne un modèle LangChain Ollama."""
-        return ChatOllama(
-            model=model_name,
-            temperature=temperature,
-            base_url=self._base_url,
-            keep_alive="5m",
-            **kwargs,
-        )
-
-    def pull_model(self, model_name: str) -> Any:
-        """Télécharge un modèle via Ollama."""
-        try:
-            return ollama.pull(model_name, stream=True)
-        except Exception as e:
-            logger.error(f"Erreur pull {model_name}: {e}")
-            raise e
+    def get_langchain_model(self, model_name: str, temperature: float = 0.7, **kwargs) -> Any:
+        return ChatOllama(model=model_name, temperature=temperature, **kwargs)
 
     def health_check(self) -> bool:
-        """Vérifie si Ollama est accessible."""
         try:
             ollama.list()
             return True

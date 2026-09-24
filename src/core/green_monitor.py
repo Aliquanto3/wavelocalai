@@ -11,6 +11,7 @@ import psutil
 from codecarbon import OfflineEmissionsTracker
 
 from src.core.config import DEFAULT_COUNTRY_ISO_CODE, LOGS_DIR
+from src.core.constants import GREEN_IT
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -22,28 +23,6 @@ try:
     GPU_LIB_AVAILABLE = True
 except ImportError:
     GPU_LIB_AVAILABLE = False
-
-
-# ==========================================
-# 1. CONSTANTES & CALIBRATION (SCIENTIFIQUE)
-# ==========================================
-
-# --- CONFIGURATION MISTRAL / ECOLOGITS ---
-# Source : GenAI Impact / EcoLogits (https://ecologits.ai)
-# Formule : E = N_tokens * (alpha * P_actifs + beta)
-ALPHA = 8.91e-5  # Pente (Wh par milliard de paramètres)
-BETA = 1.43e-3  # Ordonnée à l'origine (Overhead fixe)
-
-# Données de Référence (ACV Mistral Juillet 2025)
-REF_MODEL_PARAMS_B = 123.0  # Mistral Large 2
-REF_OUTPUT_TOKENS = 400.0  # Scénario de référence
-REF_CARBON_G = 1.14  # gCO2e (Scope 3 complet : Fabrication + Usage)
-
-# --- CONFIGURATION LOCALE (Fallback) ---
-# Moyenne observée sur laptop pro (M2/Intel i7) pour SLM 7B
-# 0.19 mg/token = 0.00019 g/token
-LOCAL_THEORETICAL_G_PER_TOKEN = 0.00019
-
 
 # ==========================================
 # 2. MOTEUR DE CALCUL (STATIQUE)
@@ -63,7 +42,9 @@ class CarbonCalculator:
         if active_params_billions <= 0:
             return 0.0
 
-        energy_per_token_wh = (ALPHA * active_params_billions) + BETA
+        energy_per_token_wh = (
+            GREEN_IT.ECOLOGITS_ALPHA * active_params_billions
+        ) + GREEN_IT.ECOLOGITS_BETA
         total_energy_wh = output_tokens * energy_per_token_wh
         return total_energy_wh
 
@@ -74,11 +55,11 @@ class CarbonCalculator:
         Cache le résultat en variable de classe si besoin (ici calculé à la volée car très léger).
         """
         ref_energy_wh = CarbonCalculator._calculate_mistral_energy_wh(
-            REF_MODEL_PARAMS_B, int(REF_OUTPUT_TOKENS)
+            GREEN_IT.REF_MODEL_PARAMS_B, int(GREEN_IT.REF_OUTPUT_TOKENS)
         )
         if ref_energy_wh == 0:
             return 0.0
-        return REF_CARBON_G / ref_energy_wh
+        return GREEN_IT.REF_CARBON_G / ref_energy_wh
 
     @classmethod
     def compute_mistral_impact_g(cls, active_params_billions: float, output_tokens: int) -> float:
@@ -106,7 +87,7 @@ class CarbonCalculator:
         Estimation théorique rapide pour le local (si CodeCarbon indisponible).
         Basé sur une moyenne statistique (Scope 2 Usage uniquement).
         """
-        return tokens_count * LOCAL_THEORETICAL_G_PER_TOKEN
+        return tokens_count * GREEN_IT.LOCAL_THEORETICAL_G_PER_TOKEN
 
 
 # ==========================================

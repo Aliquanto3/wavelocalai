@@ -2,12 +2,12 @@
 Service d'orchestration d'inférence découplé de l'UI.
 Permet la réutilisation pour benchmarks, agents et évaluations.
 """
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
@@ -20,17 +20,15 @@ logger = logging.getLogger(__name__)
 # ========================================
 # 1. STRUCTURES DE DONNÉES
 # ========================================
-
-
 @dataclass
 class InferenceResult:
     """Résultat complet d'une inférence."""
 
     raw_text: str
     clean_text: str
-    thought: Optional[str]
-    metrics: Optional[InferenceMetrics]
-    error: Optional[str] = None
+    thought: str | None
+    metrics: InferenceMetrics | None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -41,10 +39,10 @@ class InferenceCallbacks:
     Permet au frontend de s'abonner aux événements sans couplage.
     """
 
-    on_token: Optional[Callable[[str], Awaitable[None]]] = None
-    on_metrics: Optional[Callable[[InferenceMetrics], Awaitable[None]]] = None
-    on_thought: Optional[Callable[[str], Awaitable[None]]] = None
-    on_error: Optional[Callable[[str], Awaitable[None]]] = None
+    on_token: Callable[[str], Awaitable[None]] | None = None
+    on_metrics: Callable[[InferenceMetrics], Awaitable[None]] | None = None
+    on_thought: Callable[[str], Awaitable[None]] | None = None
+    on_error: Callable[[str], Awaitable[None]] | None = None
 
 
 # ========================================
@@ -70,8 +68,8 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float = 0.7,
-        system_prompt: Optional[str] = None,
-        callbacks: Optional[InferenceCallbacks] = None,
+        system_prompt: str | None = None,
+        callbacks: InferenceCallbacks | None = None,
         timeout: int = 120,
     ) -> InferenceResult:
         """
@@ -124,8 +122,8 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float,
-        system_prompt: Optional[str],
-        callbacks: Optional[InferenceCallbacks],
+        system_prompt: str | None,
+        callbacks: InferenceCallbacks | None,
     ) -> InferenceResult:
         """Logique d'exécution interne (sans timeout wrapper)."""
 

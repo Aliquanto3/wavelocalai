@@ -1,0 +1,172 @@
+📦 PROJECT STRUCTURE
+==================================================
+
+📁 (root)/
+    📄 .env.example
+    📄 .pre-commit-config.yaml
+    📄 CITATION.cff
+    📄 CONTRIBUTING.md
+    📄 LICENSE
+    📄 README.md
+    📄 ROADMAP.md
+    📄 pyproject.toml
+    📄 pytest.ini
+    📄 requirements.txt
+
+📁 docs/
+    📄 AGENT_TOOLS.md
+    📄 ARCHITECTURE.md
+    📄 COMMANDES_UTILES.md
+    📄 CONFIGURATION.md
+    📄 FEATURES_GUIDE.md
+    📄 METHODOLOGIE_CARBONE.md
+    📄 RAG_ARCHITECTURES.MD
+    📄 TROUBLESHOOT.md
+
+📁 outputs/
+    📄 etat_systeme.md
+    📄 rapport_systeme_monitoring.md
+    📄 system_report.md
+
+📁 scripts/
+    📄 BENCHMARK.md
+    📄 README.md
+    📄 audit_and_update.py
+    📄 benchmark_slm.py
+    📄 scan_secrets.py
+    📄 setup_models.py
+    📄 setup_rag_models.py
+
+📁 src\app/
+    📄 Accueil.py
+
+📁 src\app\components/
+    📄 __init__.py
+    📄 chat_message.py
+    📄 metrics_display.py
+    📄 model_selector.py
+    📄 source_expander.py
+
+📁 src\app\pages/
+    📄 01_Socle_Hardware.py
+    📄 02_Inference_Arena.py
+    📄 03_RAG_Knowledge.py
+    📄 04_Agent_Lab.py
+
+📁 src\app\tabs\agent/
+    📄 crew.py
+    📄 solo.py
+
+📁 src\app\tabs\inference/
+    📄 arena.py
+    📄 chat.py
+    📄 lab.py
+    📄 manager.py
+
+📁 src\app\tabs\rag/
+    📄 chat.py
+    📄 eval.py
+
+📁 src\config/
+    📄 prompts.yaml
+
+📁 src\core/
+    📄 agent_engine.py
+    📄 config.py
+    📄 constants.py
+    📄 crew_engine.py
+    📄 eval_engine.py
+    📄 green_monitor.py
+    📄 inference_service.py
+    📄 llm_provider.py
+    📄 metrics.py
+    📄 metrics_service.py
+    📄 model_profiles.py
+    📄 models_db.py
+    📄 rag_engine.py
+    📄 rate_limiter.py
+    📄 resource_manager.py
+    📄 utils.py
+
+📁 src\core\exporters/
+    📄 __init__.py
+    📄 metrics_exporter.py
+
+📁 src\core\interfaces/
+    📄 __init__.py
+
+📁 src\core\observability/
+    📄 logger.py
+    📄 metrics.py
+
+📁 src\core\providers/
+    📄 __init__.py
+    📄 anthropic_provider.py
+    📄 base_provider.py
+    📄 mistral_provider.py
+    📄 ollama_provider.py
+    📄 openai_provider.py
+    📄 provider_factory.py
+
+📁 src\core\queue/
+    📄 manager.py
+    📄 models.py
+
+📁 src\core\rag/
+    📄 ingestion.py
+    📄 models_factory.py
+    📄 vector_store.py
+
+📁 src\core\rag\strategies/
+    📄 base.py
+    📄 hyde.py
+    📄 naive.py
+    📄 self_rag.py
+
+📁 src\core\repositories/
+    📄 __init__.py
+    📄 benchmark_repository.py
+
+📁 src\core\services/
+    📄 config_service.py
+
+📁 src\core\session/
+    📄 __init__.py
+    📄 session_manager.py
+
+📁 src\core\tools/
+    📄 __init__.py
+    📄 calculator.py
+    📄 config.py
+    📄 data_tools.py
+    📄 document_tools.py
+    📄 email_tools.py
+    📄 search_tools.py
+    📄 system_tools.py
+    📄 time_tools.py
+
+📁 tests/
+    📄 __init__.py
+
+📁 tests\integration/
+    📄 test_agent_engine.py
+    📄 test_e2e_workflow.py
+
+📁 tests\unit/
+    📄 __init__.py
+    📄 test_agent_tools.py
+    📄 test_benchmark_repository.py
+    📄 test_eval_engine.py
+    📄 test_green_monitor.py
+    📄 test_hardware_monitor.py
+    📄 test_inference_service.py
+    📄 test_llm_provider.py
+    📄 test_metrics.py
+    📄 test_metrics_exporter.py
+    📄 test_metrics_service.py
+    📄 test_metrics_service_carbon.py
+    📄 test_models_db.py
+    📄 test_rag_security.py
+    📄 test_rag_strategies.py
+    📄 test_session_manager.py
+    📄 test_solo_interface.py

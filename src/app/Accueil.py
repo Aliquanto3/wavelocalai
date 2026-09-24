@@ -154,7 +154,7 @@ def main():
         # 1. Utilisation de on_change=update_cloud_state
         # 2. Key simple pour le lire dans le callback
         st.session_state.cloud_enabled = st.toggle(
-            "Autoriser les API Cloud (Mistral/OpenAI)",
+            "Autoriser les API Cloud (Mistral/OpenAI/Anthropic)",
             value=st.session_state.cloud_enabled,
             key="global_cloud_toggle",
             on_change=update_cloud_state,  # L'élément clé

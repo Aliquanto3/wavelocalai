@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
 # Ragas Imports
 try:
@@ -13,6 +13,9 @@ except ImportError:
     RAGAS_AVAILABLE = False
 
 from src.core.llm_provider import LLMProvider
+
+if TYPE_CHECKING:
+    from langchain_core.embeddings import Embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +45,7 @@ class EvalEngine:
         response: str,
         retrieved_contexts: list[str],
         judge_tag: str,
-        embedding_model: Any,  # <--- Injection dynamique
+        embedding_model: "Embeddings",
     ) -> EvalResult:
         """
         Évalue une interaction en utilisant le modèle d'embedding ACTIF du RAG.

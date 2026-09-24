@@ -15,9 +15,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 
-from src.core.agent_tools import AVAILABLE_TOOLS, get_tools_by_names
-from src.core.model_detector import is_api_model
-from src.core.models_db import MODELS_DB, get_model_info
+from src.core.models_db import MODELS_DB, get_model_info, is_api_model
+from src.core.tools import AVAILABLE_TOOLS, get_tools_by_names
 
 # Logging
 logging.basicConfig(level=logging.INFO)

@@ -142,21 +142,27 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
             st.divider()
 
-            # Calcul CO2
-            is_api = info.get("type") == "api"
-            carbon_mg = 0.0
-            if is_api and m.output_tokens > 0:
-                p = _extract_params_billions(info.get("params_act") or info.get("params_tot", "0"))
-                carbon_mg = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
+            # Garde défensive : métriques parfois absentes (API cloud, erreur stream)
+            if m is None:
+                st.caption("⚠️ Métriques non disponibles pour cette inférence.")
             else:
-                carbon_mg = CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
+                # Calcul CO2
+                is_api = info.get("type") == "api"
+                carbon_mg = 0.0
+                if is_api and m.output_tokens > 0:
+                    p = _extract_params_billions(
+                        info.get("params_act") or info.get("params_tot", "0")
+                    )
+                    carbon_mg = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
+                else:
+                    carbon_mg = CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
 
-            # Affichage en Grid
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("⚡ Vitesse", f"{m.tokens_per_second:.1f} t/s")
-            c2.metric("🌱 Impact", f"{carbon_mg:.2f} mg")
-            c3.metric("⏱️ Latence", f"{m.total_duration_s:.2f} s")
-            c4.metric("📝 Tokens", f"{m.output_tokens}")
+                # Affichage en Grid
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("⚡ Vitesse", f"{m.tokens_per_second:.1f} t/s")
+                c2.metric("🌱 Impact", f"{carbon_mg:.2f} mg")
+                c3.metric("⏱️ Latence", f"{m.total_duration_s:.2f} s")
+                c4.metric("📝 Tokens", f"{m.output_tokens}")
 
         else:
             with res_container:

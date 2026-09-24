@@ -11,7 +11,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from src.core.metrics import InferenceMetrics
-from src.core.model_detector import is_api_model
+from src.core.models_db import is_api_model
 from src.core.providers.provider_factory import get_provider_factory
 
 logging.basicConfig(level=logging.INFO)

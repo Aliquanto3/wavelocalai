@@ -10,9 +10,9 @@ Modifications :
 import streamlit as st
 
 from src.core.agent_engine import AgentEngine
-from src.core.agent_tools import TOOLS_METADATA
+from src.core.models_db import extract_thought
 from src.core.resource_manager import ResourceManager
-from src.core.utils import extract_thought
+from src.core.tools import TOOLS_METADATA
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {

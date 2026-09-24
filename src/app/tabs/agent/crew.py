@@ -18,10 +18,10 @@ import graphviz
 import psutil
 import streamlit as st
 
-from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
 from src.core.green_monitor import GreenTracker
 from src.core.model_profiles import estimate_mission_ram_gb, get_ram_risk_level
+from src.core.tools import TOOLS_METADATA
 
 # ========================================
 # 1. DONNÉES & CONFIGURATION (STRUCTURE CORRIGÉE)

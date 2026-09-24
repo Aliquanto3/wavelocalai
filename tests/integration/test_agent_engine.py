@@ -6,7 +6,7 @@ Usage: pytest tests/integration/test_agent_engine.py -v -m integration
 import pytest
 
 from src.core.agent_engine import AgentEngine
-from src.core.agent_tools import AVAILABLE_TOOLS
+from src.core.tools import AVAILABLE_TOOLS
 
 
 @pytest.mark.integration
@@ -195,7 +195,7 @@ class TestAgentEngineToolsAvailability:
     # NOUVEAU TEST : Métadonnées
     def test_tools_metadata_exists(self):
         """Test que les métadonnées des outils sont présentes."""
-        from src.core.agent_tools import TOOLS_METADATA
+        from src.core.tools import TOOLS_METADATA
 
         assert len(TOOLS_METADATA) == 9, "TOOLS_METADATA devrait contenir 9 entrées"
 

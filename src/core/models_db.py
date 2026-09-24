@@ -28,18 +28,36 @@ MODELS_DB = load_models_db()
 # --- HELPERS MODELS ---
 
 
-def get_cloud_models_from_db() -> list[dict[str, Any]]:
-    """Retourne la liste des modèles configurés comme API/Cloud dans le JSON."""
+def get_cloud_models_from_db(editor_filter: str | None = None) -> list[dict[str, Any]]:
+    """
+    Retourne la liste des modèles configurés comme API/Cloud dans le JSON.
+
+    Args:
+        editor_filter: Filtre optionnel sur l'éditeur (ex: "Mistral AI", "OpenAI").
+                       La comparaison est insensible à la casse.
+
+    Returns:
+        Liste des modèles cloud, optionnellement filtrés par éditeur.
+    """
     cloud_models = []
     for friendly_name, info in MODELS_DB.items():
-        if info.get("type") == "api":
-            m = info.copy()
-            m["name"] = friendly_name
-            m["model"] = info.get("ollama_tag", friendly_name)
-            m["type"] = "cloud"
-            if "size" not in m:
-                m["size"] = 0
-            cloud_models.append(m)
+        if info.get("type") != "api":
+            continue
+
+        # Filtrage par éditeur si demandé
+        if editor_filter:
+            model_editor = info.get("editor", "").lower()
+            if model_editor != editor_filter.lower():
+                continue
+
+        m = info.copy()
+        m["name"] = friendly_name
+        m["model"] = info.get("ollama_tag", friendly_name)
+        m["type"] = "cloud"
+        if "size" not in m:
+            m["size"] = 0
+        cloud_models.append(m)
+
     return cloud_models
 
 
@@ -149,3 +167,91 @@ def extract_thought(content: str) -> tuple[str | None, str | None]:
     if match:
         return match.group(1).strip(), re.sub(pattern, "", content, flags=re.DOTALL).strip()
     return None, content
+
+
+# =============================================================================
+# DÉTECTION DE TYPE DE MODÈLE (ex-model_detector.py)
+# =============================================================================
+
+
+def get_model_info_by_tag(model_tag: str) -> dict[str, Any] | None:
+    """
+    Récupère les infos d'un modèle via son tag Ollama/API.
+
+    Args:
+        model_tag: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
+
+    Returns:
+        dict: Infos du modèle ou None si non trouvé
+    """
+    for model_info in MODELS_DB.values():
+        if model_info.get("ollama_tag") == model_tag:
+            return model_info
+    logger.debug(f"Modèle non trouvé dans models.json : {model_tag}")
+    return None
+
+
+def is_api_model(model_tag: str) -> bool:
+    """
+    Détecte si un modèle est de type API (cloud).
+
+    Args:
+        model_tag: Tag du modèle
+
+    Returns:
+        bool: True si API, False si local
+    """
+    model_info = get_model_info_by_tag(model_tag)
+
+    if model_info:
+        is_api = model_info.get("type") == "api"
+        logger.debug(
+            f"{'✅' if is_api else '🏠'} {model_tag} détecté comme {'API' if is_api else 'LOCAL'}"
+        )
+        return is_api
+
+    logger.warning(f"⚠️ {model_tag} non trouvé, fallback = LOCAL")
+    return False
+
+
+def get_model_provider(model_tag: str) -> str:
+    """
+    Retourne le nom du provider pour un modèle.
+
+    Returns:
+        str: "mistral_api", "anthropic_api", "openai_api", "ollama", ou "unknown"
+    """
+    if not is_api_model(model_tag):
+        return "ollama"
+
+    model_info = get_model_info_by_tag(model_tag)
+    if not model_info:
+        return "unknown"
+
+    editor = model_info.get("editor", "").lower()
+
+    if "mistral" in editor:
+        return "mistral_api"
+    if "anthropic" in editor:
+        return "anthropic_api"
+    if "openai" in editor:
+        return "openai_api"
+
+    return "api_unknown"
+
+
+__all__ = [
+    "MODELS_DB",
+    "guess_editor_from_tag",
+    "get_friendly_name_from_tag",
+    "get_model_info",
+    "get_all_friendly_names",
+    "get_all_languages",
+    "get_model_card",
+    "extract_thought",
+    "get_cloud_models_from_db",
+    # Nouvelles fonctions (ex-model_detector)
+    "get_model_info_by_tag",
+    "is_api_model",
+    "get_model_provider",
+]

@@ -1,0 +1,45 @@
+📊 PROJECT STATISTICS
+==================================================
+
+📅 Generated: 2025-12-18 04:51:52
+📁 Root: C:\Users\anael.yahi\Documents\GitHub\wavelocalai
+
+## Global Metrics
+- Total files: 118
+- Total lines: 18,225
+- Total size: 626.17 KB
+
+## Files by Category
+- app: 18 files (3,615 lines)
+- config: 6 files (380 lines)
+- core: 42 files (5,369 lines)
+- docs: 16 files (2,457 lines)
+- other: 2 files (38 lines)
+- scripts: 14 files (3,225 lines)
+- tests: 20 files (3,141 lines)
+
+## Top 20 Imported Modules
+- src: 171 imports
+- logging: 38 imports
+- typing: 29 imports
+- pathlib: 21 imports
+- streamlit: 18 imports
+- pytest: 18 imports
+- langchain_core: 17 imports
+- time: 16 imports
+- datetime: 16 imports
+- asyncio: 14 imports
+- dataclasses: 12 imports
+- json: 10 imports
+- collections: 10 imports
+- psutil: 9 imports
+- sys: 6 imports
+- ollama: 6 imports
+- re: 6 imports
+- pandas: 6 imports
+- tempfile: 6 imports
+- contextlib: 5 imports
+
+## Estimated Context Size
+- Approximate tokens: ~72,900
+- Recommendation: Split by phase

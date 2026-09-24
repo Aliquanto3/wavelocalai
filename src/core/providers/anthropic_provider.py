@@ -1,174 +1,132 @@
-from __future__ import annotations
+# src/core/providers/anthropic_provider.py
+"""Provider Anthropic pour les modèles Claude."""
 
 import logging
-import os
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
+
+from src.core.config import ANTHROPIC_API_KEY
+from src.core.models_db import get_cloud_models_from_db
+from src.core.providers.base_provider import BaseProvider
 
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
 
-from src.core.interfaces import ILLMProvider
-from src.core.metrics import InferenceMetrics, MetricsCalculator
-
 logger = logging.getLogger(__name__)
 
-# Configuration
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-
-# Import conditionnel pour le runtime
 try:
-    from anthropic import AsyncAnthropic as _AsyncAnthropic
+    from anthropic import AsyncAnthropic
 
     ANTHROPIC_AVAILABLE = True
 except ImportError:
-    _AsyncAnthropic = None
     ANTHROPIC_AVAILABLE = False
 
 
-class AnthropicProvider(ILLMProvider):
-    """
-    Provider pour les modèles Anthropic (Claude).
-    """
+class AnthropicProvider(BaseProvider):
+    """Provider pour les modèles Anthropic Claude."""
 
-    # Modèles disponibles avec leurs métadonnées
-    AVAILABLE_MODELS = {
-        "claude-sonnet-4-20250514": {"name": "Claude Sonnet 4", "params": "?", "context": 200000},
-        "claude-3-5-sonnet-20241022": {
-            "name": "Claude 3.5 Sonnet",
-            "params": "?",
-            "context": 200000,
-        },
-        "claude-3-5-haiku-20241022": {"name": "Claude 3.5 Haiku", "params": "?", "context": 200000},
-        "claude-3-opus-20240229": {"name": "Claude 3 Opus", "params": "?", "context": 200000},
-    }
-
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: str | None = None) -> None:
         """
         Initialise le provider Anthropic.
 
         Args:
-            api_key: Clé API Anthropic (utilise ANTHROPIC_API_KEY par défaut)
+            api_key: Clé API optionnelle.
         """
         self._api_key = api_key or ANTHROPIC_API_KEY
-        self._client = None
+        self._client: AsyncAnthropic | None = None
 
-    def _get_client(self) -> AsyncAnthropic:
-        """Lazy initialization du client."""
+    def _get_client(self) -> "AsyncAnthropic":
+        """
+        Initialise ou retourne le client asynchrone Anthropic.
+
+        Returns:
+            Le client AsyncAnthropic.
+
+        Raises:
+            ImportError: Si le package anthropic n'est pas installé.
+            ValueError: Si la clé API n'est pas configurée.
+        """
         if self._client is None:
             if not ANTHROPIC_AVAILABLE:
-                raise ImportError("anthropic package not installed. Run: pip install anthropic")
+                raise ImportError("Package 'anthropic' manquant.")
             if not self._api_key:
-                raise ValueError("Anthropic API key not configured")
+                raise ValueError("Clé API Anthropic non configurée.")
+            from anthropic import AsyncAnthropic
+
             self._client = AsyncAnthropic(api_key=self._api_key)
         return self._client
 
     @property
     def provider_name(self) -> str:
+        """Returns: 'anthropic'."""
         return "anthropic"
 
     @property
     def is_local(self) -> bool:
+        """Returns: False."""
         return False
 
     @property
     def is_available(self) -> bool:
-        """Vérifie si le provider est configuré et disponible."""
+        """Returns: True si configuré."""
         return ANTHROPIC_AVAILABLE and bool(self._api_key)
 
-    def list_models(self) -> list[dict[str, Any]]:
-        """Liste les modèles Anthropic disponibles."""
-        if not self.is_available:
-            return []
-
-        models = []
-        for model_id, info in self.AVAILABLE_MODELS.items():
-            models.append(
-                {
-                    "model": model_id,
-                    "name": info["name"],
-                    "type": "cloud",
-                    "provider": "anthropic",
-                    "params": info["params"],
-                    "context_length": info["context"],
-                }
-            )
-
-        return models
-
-    async def chat_stream(
+    async def _stream_implementation(
         self,
         model_name: str,
         messages: list[dict[str, str]],
-        temperature: float = 0.7,
-        system_prompt: str | None = None,
-    ) -> AsyncGenerator[str | InferenceMetrics, None]:
-        """Génère une réponse en streaming via l'API Anthropic."""
+        temperature: float,
+        metadata: dict[str, Any],
+    ) -> AsyncGenerator[str, None]:
+        """
+        Gère le flux de réponse Anthropic et capture l'usage.
 
+        Args:
+            model_name: Tag du modèle Claude.
+            messages: Liste des messages (excluant le système).
+            temperature: Température.
+            metadata: Métadonnées incluant '_system_prompt'.
+
+        Yields:
+            Tokens textuels.
+        """
+        client = self._get_client()
+        system = metadata.get("_system_prompt", "You are a helpful assistant.")
+
+        async with client.messages.stream(
+            model=model_name,
+            max_tokens=4096,
+            system=system,
+            messages=messages,
+            temperature=temperature,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+
+            final_message = await stream.get_final_message()
+            if final_message.usage:
+                metadata["input_tokens"] = final_message.usage.input_tokens
+                metadata["output_tokens"] = final_message.usage.output_tokens
+
+    def list_models(self) -> list[dict[str, Any]]:
         if not self.is_available:
-            yield "❌ Erreur : Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
-            return
+            return []
+        return get_cloud_models_from_db(editor_filter="Anthropic")
 
-        # Anthropic utilise un format différent pour le system prompt
-        system = system_prompt or "You are a helpful assistant."
+    def get_langchain_model(self, model_name: str, temperature: float = 0.7, **kwargs: Any) -> Any:
+        """
+        Retourne l'objet ChatAnthropic.
 
-        # Filtrer les messages système (Anthropic les gère séparément)
-        filtered_messages = [m for m in messages if m.get("role") != "system"]
+        Args:
+            model_name: Tag du modèle.
+            temperature: Température.
+            **kwargs: Paramètres additionnels.
 
-        timer = MetricsCalculator()
-        full_text = ""
-        input_tokens = 0
-        output_tokens = 0
-
-        try:
-            client = self._get_client()
-            timer.start()
-
-            async with client.messages.stream(
-                model=model_name,
-                max_tokens=4096,
-                system=system,
-                messages=filtered_messages,
-                temperature=temperature,
-            ) as stream:
-                async for text in stream.text_stream:
-                    full_text += text
-                    yield text
-
-                # Récupérer les métriques finales
-                final_message = await stream.get_final_message()
-                if final_message.usage:
-                    input_tokens = final_message.usage.input_tokens
-                    output_tokens = final_message.usage.output_tokens
-
-            timer.stop()
-
-            # Estimation si usage non disponible
-            if output_tokens == 0:
-                output_tokens = len(full_text) // 4
-
-            duration = timer.duration
-            tokens_per_second = output_tokens / duration if duration > 0 else 0
-
-            yield InferenceMetrics(
-                model_name=model_name,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                total_duration_s=round(duration, 2),
-                load_duration_s=0,
-                tokens_per_second=round(tokens_per_second, 1),
-                carbon_g=0.0,
-            )
-
-        except Exception as e:
-            logger.error(f"Anthropic Error: {e}")
-            raise e
-
-    def get_langchain_model(self, model_name: str, temperature: float = 0.7, **kwargs) -> Any:
-        """Retourne un modèle LangChain Anthropic."""
+        Returns:
+            Instance de ChatAnthropic.
+        """
         if not self.is_available:
-            raise ValueError("Provider Anthropic non disponible (clé API manquante)")
-
+            raise ValueError("Provider Anthropic non disponible")
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
@@ -176,19 +134,22 @@ class AnthropicProvider(ILLMProvider):
         )
 
     def health_check(self) -> bool:
-        """Vérifie si l'API Anthropic est accessible."""
+        """Vérifie la validité de la connexion."""
         if not self.is_available:
             return False
         try:
-            # Test simple avec un message minimal
+            # Listing des modèles comme alternative moins coûteuse qu'un message
             import anthropic
 
             client = anthropic.Anthropic(api_key=self._api_key)
+            # Anthropic n'a pas de client.models.list() universel simple,
+            # on garde un petit message mais sur le modèle le moins cher.
             client.messages.create(
                 model="claude-3-5-haiku-20241022",
-                max_tokens=10,
-                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens=1,
+                messages=[{"role": "user", "content": "ping"}],
             )
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Anthropic Health Check failed: {e}")
             return False

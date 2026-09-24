@@ -18,6 +18,11 @@ class ILLMProvider(ABC):
     Chaque provider (Ollama, Mistral, OpenAI, etc.) doit implémenter cette interface.
     """
 
+    @abstractmethod
+    def list_models_with_provider(self) -> list[dict[str, Any]]:
+        """Liste les modèles avec la clé 'provider' garantie."""
+        pass
+
     @property
     @abstractmethod
     def provider_name(self) -> str:

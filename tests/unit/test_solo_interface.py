@@ -29,7 +29,7 @@ class TestPromptLibrary:
     def test_prompt_library_required_tools_exist(self):
         """Test que les outils requis existent."""
         from src.app.tabs.agent.solo import PROMPT_LIBRARY
-        from src.core.agent_tools import TOOLS_METADATA
+        from src.core.tools import TOOLS_METADATA
 
         for _category, prompts in PROMPT_LIBRARY.items():
             for prompt_name, prompt_data in prompts.items():
@@ -66,7 +66,7 @@ class TestCrewPromptLibrary:
     def test_crew_library_tools_exist(self):
         """Test que tous les outils suggérés existent."""
         from src.app.tabs.agent.crew import CREW_PROMPT_LIBRARY
-        from src.core.agent_tools import TOOLS_METADATA
+        from src.core.tools import TOOLS_METADATA
 
         for _category, workflows in CREW_PROMPT_LIBRARY.items():
             for workflow_name, workflow_data in workflows.items():

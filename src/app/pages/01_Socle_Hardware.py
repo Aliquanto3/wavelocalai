@@ -1,3 +1,4 @@
+import logging
 import platform
 import socket
 import sys
@@ -6,6 +7,8 @@ import pandas as pd
 import plotly.express as px
 import psutil
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 # --- IMPORT DYNAMIQUE ---
 try:
@@ -205,10 +208,11 @@ with st.expander("🔎 Voir les détails complets", expanded=False):
         sys_info["Hostname"] = socket.gethostname()
         sys_info["Python"] = sys.version.split()[0]
         sys_info["CPU Cores"] = psutil.cpu_count(logical=True)
-    except Exception:
+    except Exception as e:
         # Optionnel : loguer l'erreur pour le débogage
         # print(f"Erreur lors de la lecture du système: {e}")
-        sys_info["Status"] = "Erreur lecture système"
+        logger.warning(f"Lecture système partielle: {type(e).__name__}: {e}")
+        sys_info["Status"] = f"Erreur: {type(e).__name__}"
 
     st.json(sys_info)
 

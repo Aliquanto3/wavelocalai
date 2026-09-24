@@ -13,10 +13,11 @@ from crewai import LLM, Agent, Crew, Process, Task
 from crewai.tools import BaseTool
 from pydantic import PrivateAttr
 
-# Import des outils Wavestone
-from src.core.agent_tools import get_tools_by_names
 from src.core.config import MISTRAL_API_KEY
-from src.core.model_detector import is_api_model
+from src.core.models_db import is_api_model
+
+# Import des outils Wavestone
+from src.core.tools import get_tools_by_names
 
 
 class LangChainAdapter(BaseTool):

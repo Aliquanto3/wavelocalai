@@ -4,10 +4,11 @@ Factory pour la gestion centralisée des providers LLM.
 """
 
 import logging
+from functools import lru_cache
 from typing import Any
 
 from src.core.interfaces import ILLMProvider
-from src.core.model_detector import is_api_model
+from src.core.models_db import is_api_model
 from src.core.providers.mistral_provider import MistralProvider
 from src.core.providers.ollama_provider import OllamaProvider
 
@@ -16,20 +17,15 @@ logger = logging.getLogger(__name__)
 
 class LLMProviderFactory:
     """
-    Factory singleton pour gérer les providers LLM.
+    Factory pour gérer les providers LLM.
 
     Permet d'obtenir le bon provider en fonction du modèle demandé
     et de lister tous les modèles disponibles.
     """
 
-    _instance = None
-    _providers: dict[str, ILLMProvider] = {}
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialize_providers()
-        return cls._instance
+    def __init__(self):
+        self._providers: dict[str, ILLMProvider] = {}
+        self._initialize_providers()
 
     def _initialize_providers(self):
         """Initialise les providers disponibles."""
@@ -77,7 +73,6 @@ class LLMProviderFactory:
         Raises:
             ValueError: Si aucun provider ne peut gérer ce modèle
         """
-        # Détection par préfixe du modèle
         model_lower = model_tag.lower()
 
         # OpenAI
@@ -130,10 +125,7 @@ class LLMProviderFactory:
                 continue
 
             try:
-                models = provider.list_models()
-                # Ajouter le nom du provider à chaque modèle
-                for model in models:
-                    model["provider"] = provider_name
+                models = provider.list_models_with_provider()
                 all_models.extend(models)
             except Exception as e:
                 logger.warning(f"Erreur listing modèles {provider_name}: {e}")
@@ -166,13 +158,25 @@ class LLMProviderFactory:
         return list(self._providers.keys())
 
 
-# Instance singleton globale
-_factory: LLMProviderFactory | None = None
-
-
+@lru_cache(maxsize=1)
 def get_provider_factory() -> LLMProviderFactory:
-    """Retourne l'instance singleton de la factory."""
-    global _factory
-    if _factory is None:
-        _factory = LLMProviderFactory()
-    return _factory
+    """
+    Retourne l'instance singleton de la factory.
+
+    Utilise lru_cache pour le pattern singleton.
+    Pour les tests, utiliser reset_provider_factory() pour réinitialiser.
+    """
+    return LLMProviderFactory()
+
+
+def reset_provider_factory() -> None:
+    """
+    Réinitialise la factory (utile pour les tests).
+
+    Usage dans les tests:
+        from src.core.providers.provider_factory import reset_provider_factory
+
+        def teardown_method(self):
+            reset_provider_factory()
+    """
+    get_provider_factory.cache_clear()

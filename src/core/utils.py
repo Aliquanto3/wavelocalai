@@ -4,9 +4,6 @@ Utilitaires partagés pour le projet WaveLocalAI.
 Centralise les fonctions dupliquées à travers les modules.
 """
 
-# Réexport de extract_thought depuis models_db (source de vérité historique)
-from src.core.models_db import extract_thought
-
 
 def extract_params_billions(val: str | int | float) -> float:
     """
@@ -46,4 +43,4 @@ def extract_params_billions(val: str | int | float) -> float:
     return 0.0
 
 
-__all__ = ["extract_params_billions", "extract_thought"]
+__all__ = ["extract_params_billions"]

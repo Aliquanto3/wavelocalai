@@ -1,0 +1,2088 @@
+
+====================
+FILE: src\app\Accueil.py
+====================
+import logging
+import sys
+from pathlib import Path
+import psutil
+import streamlit as st
+from src.core.green_monitor import GreenTracker
+def update_cloud_state():
+    """Callback exécuté immédiatement après le changement de st.toggle.
+Ceci garantit que la session state est mise à jour AVANT le rerun,
+évitant l'effet de désynchronisation."""
+    pass
+def get_system_health():
+    """Petit check rapide pour l'accueil."""
+    pass
+def main():
+    pass
+
+====================
+FILE: src\app\components\chat_message.py
+====================
+import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
+from src.core.models_db import extract_thought
+def render_chat_message(role: str, content: str, model_tag: str | None=None, show_thinking: bool=True, avatar: str | None=None) -> None:
+    """Affiche un message de chat avec gestion du thinking.
+
+Args:
+    role: Rôle ("user", "assistant", "system")
+    content: Contenu du message
+    model_tag: Tag du modèle (pour l'assistant)
+    show_thinking: Afficher le bloc thinking si présent
+    avatar: Avatar personnalisé (emoji ou URL)"""
+    pass
+def render_thinking_block(thought: str, title: str='💭 Réflexion', expanded: bool=False) -> None:
+    """Affiche un bloc de réflexion (thinking) du modèle.
+
+Args:
+    thought: Contenu de la réflexion
+    title: Titre du bloc
+    expanded: État initial (ouvert/fermé)"""
+    pass
+def render_streaming_message(placeholder: DeltaGenerator, content: str, is_complete: bool=False) -> None:
+    """Met à jour un message en streaming.
+
+Args:
+    placeholder: Placeholder Streamlit à mettre à jour (retour de st.empty())
+    content: Contenu actuel
+    is_complete: True si le streaming est terminé"""
+    pass
+def render_error_message(error: str, suggestion: str | None=None) -> None:
+    """Affiche un message d'erreur formaté.
+
+Args:
+    error: Message d'erreur
+    suggestion: Suggestion de résolution"""
+    pass
+
+====================
+FILE: src\app\components\metrics_display.py
+====================
+import streamlit as st
+from src.core.metrics_service import DisplayMetrics, get_metrics_service
+def render_metrics_badge(tokens_per_second: float, carbon_g: float, compact: bool=True) -> None:
+    """Affiche un badge compact avec les métriques clés.
+
+Args:
+    tokens_per_second: Débit de génération
+    carbon_g: Émissions carbone en grammes
+    compact: Mode compact (une ligne) ou détaillé"""
+    pass
+def render_metrics_expander(metrics: DisplayMetrics, title: str='📊 Métriques détaillées', expanded: bool=False) -> None:
+    """Affiche les métriques dans un expander.
+
+Args:
+    metrics: Métriques formatées
+    title: Titre de l'expander
+    expanded: État initial (ouvert/fermé)"""
+    pass
+def render_carbon_indicator(carbon_g: float, show_equivalence: bool=True) -> None:
+    """Affiche un indicateur visuel de l'empreinte carbone.
+
+Args:
+    carbon_g: Émissions en grammes de CO2
+    show_equivalence: Afficher l'équivalence (ex: km en voiture)"""
+    pass
+
+====================
+FILE: src\app\components\model_selector.py
+====================
+import streamlit as st
+from src.core.llm_provider import LLMProvider
+from src.core.models_db import MODELS_DB
+def render_model_selector(key: str, label: str='🤖 Modèle', include_cloud: bool=True, show_details: bool=True, default_model: str | None=None, help_text: str | None=None) -> str | None:
+    """Affiche un sélecteur de modèle avec informations enrichies.
+
+Args:
+    key: Clé unique pour le widget Streamlit
+    label: Label du sélecteur
+    include_cloud: Inclure les modèles cloud
+    show_details: Afficher les détails du modèle sélectionné
+    default_model: Modèle sélectionné par défaut
+    help_text: Texte d'aide
+
+Returns:
+    Tag du modèle sélectionné ou None"""
+    pass
+def _render_model_details(model_tag: str) -> None:
+    """Affiche les détails d'un modèle."""
+    pass
+def render_model_comparison_selector(key_prefix: str, num_models: int=2, label: str='Modèles à comparer') -> list[str]:
+    """Affiche plusieurs sélecteurs pour comparer des modèles.
+
+Args:
+    key_prefix: Préfixe pour les clés des widgets
+    num_models: Nombre de modèles à sélectionner
+    label: Label de la section
+
+Returns:
+    Liste des tags de modèles sélectionnés"""
+    pass
+
+====================
+FILE: src\app\components\source_expander.py
+====================
+from typing import Any
+import streamlit as st
+def render_sources_expander(sources: list[dict[str, Any]], title: str='📚 Sources utilisées', expanded: bool=False, max_sources: int=5) -> None:
+    """Affiche les sources utilisées par le RAG dans un expander.
+
+Args:
+    sources: Liste des documents sources
+    title: Titre de l'expander
+    expanded: État initial
+    max_sources: Nombre max de sources à afficher"""
+    pass
+def _render_source_item(source: dict[str, Any], index: int) -> None:
+    """Affiche un item de source."""
+    pass
+def render_source_chips(sources: list[dict[str, Any]], max_chips: int=3) -> None:
+    """Affiche les sources sous forme de chips compacts.
+
+Args:
+    sources: Liste des documents sources
+    max_chips: Nombre max de chips à afficher"""
+    pass
+
+====================
+FILE: src\app\pages\01_Socle_Hardware.py
+====================
+import platform
+import socket
+import sys
+import pandas as pd
+import plotly.express as px
+import psutil
+import streamlit as st
+import logging
+from src.core.config import get_emissions_path
+from src.core.green_monitor import GreenTracker, HardwareMonitor
+def get_emissions_path():
+    pass
+def get_device_info():
+    """Détecte intelligemment le type de 'Moteur' (CPU/CUDA/MPS)."""
+    pass
+def get_true_system_metrics():
+    """Récupère les métriques temps réel."""
+    pass
+def get_co2_equivalencies(emissions_kg):
+    """Calcule des équivalences parlantes."""
+    pass
+
+====================
+FILE: src\app\pages\02_Inference_Arena.py
+====================
+import streamlit as st
+from src.app.tabs.inference.arena import render_arena_tab
+from src.app.tabs.inference.chat import render_chat_tab
+from src.app.tabs.inference.lab import render_lab_tab
+from src.app.tabs.inference.manager import render_manager_tab
+from src.core.llm_provider import LLMProvider
+from src.core.models_db import get_friendly_name_from_tag
+def format_model_label(model_data):
+    """Helper pour l'affichage avec icônes dans les SelectBox"""
+    pass
+
+====================
+FILE: src\app\pages\03_RAG_Knowledge.py
+====================
+import time
+import nest_asyncio
+import streamlit as st
+from src.app.tabs.rag.chat import render_rag_chat_tab
+from src.app.tabs.rag.eval import render_rag_eval_tab
+from src.core.config import DATA_DIR
+from src.core.eval_engine import EvalEngine
+from src.core.llm_provider import LLMProvider
+from src.core.models_db import get_friendly_name_from_tag
+from src.core.rag.strategies.hyde import HyDERetrievalStrategy
+from src.core.rag.strategies.naive import NaiveRetrievalStrategy
+from src.core.rag.strategies.self_rag import SelfRAGStrategy
+from src.core.rag_engine import RAGEngine
+def get_local_models(subfolder: str):
+    pass
+def open_knowledge_manager():
+    pass
+def format_model_label(m):
+    pass
+
+====================
+FILE: src\app\pages\04_Agent_Lab.py
+====================
+import time
+import nest_asyncio
+import psutil
+import streamlit as st
+from src.app.tabs.agent.crew import render_agent_crew_tab
+from src.app.tabs.agent.solo import render_agent_solo_tab
+from src.core.llm_provider import LLMProvider
+from src.core.models_db import get_friendly_name_from_tag, get_model_info
+import gc
+import torch
+
+====================
+FILE: src\app\tabs\agent\crew.py
+====================
+import io
+import re
+import threading
+import time
+import traceback
+from contextlib import redirect_stdout
+import graphviz
+import psutil
+import streamlit as st
+from src.core.tools import TOOLS_METADATA
+from src.core.crew_engine import CrewFactory
+from src.core.green_monitor import GreenTracker
+from src.core.model_profiles import estimate_mission_ram_gb, get_ram_risk_level
+
+class StreamlitCapture:
+    """Capture les logs stdout pour les afficher proprement dans l'UI."""
+    def __init__(self, container):
+        pass
+    def write(self, s):
+        pass
+def render_crew_diagram(agents):
+    pass
+def open_crew_library(installed_models_list):
+    pass
+def render_agent_crew_tab(installed_models_list: list, display_to_tag: dict, sorted_labels: list, avail_ram_gb: float):
+    pass
+
+====================
+FILE: src\app\tabs\agent\solo.py
+====================
+import streamlit as st
+from src.core.agent_engine import AgentEngine
+from src.core.tools import TOOLS_METADATA
+from src.core.resource_manager import ResourceManager
+from src.core.models_db import extract_thought
+def open_prompt_library():
+    pass
+def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
+    pass
+
+====================
+FILE: src\app\tabs\inference\arena.py
+====================
+import asyncio
+import re
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+from src.core.green_monitor import CarbonCalculator
+from src.core.inference_service import InferenceService
+from src.core.models_db import get_model_info
+from src.core.utils import extract_params_billions as _extract_params_billions
+def _render_podium(results_data):
+    """Affiche le vainqueur et les graphiques comparatifs (Bubble Chart)."""
+    pass
+def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
+    pass
+
+====================
+FILE: src\app\tabs\inference\chat.py
+====================
+import asyncio
+import time
+import streamlit as st
+from src.core.green_monitor import CarbonCalculator
+from src.core.inference_service import InferenceCallbacks, InferenceService
+from src.core.models_db import get_model_info
+from src.core.utils import extract_params_billions as _extract_params_billions
+def _calculate_metrics(metrics, model_friendly_name: str):
+    """Calcule les métriques pour le badge."""
+    pass
+def _render_message_footer(metrics: dict):
+    """Affiche des badges stylisés sous le message."""
+    pass
+def render_chat_tab(selected_tag: str, selected_display: str, display_to_tag: dict, sorted_display_names: list):
+    pass
+
+====================
+FILE: src\app\tabs\inference\lab.py
+====================
+import asyncio
+import streamlit as st
+from src.core.green_monitor import CarbonCalculator
+from src.core.inference_service import InferenceCallbacks, InferenceService
+from src.core.models_db import get_model_info
+from src.core.utils import extract_params_billions as _extract_params_billions
+def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
+    pass
+
+====================
+FILE: src\app\tabs\inference\manager.py
+====================
+import contextlib
+import time
+import pandas as pd
+import streamlit as st
+from src.core.llm_provider import LLMProvider
+from src.core.models_db import get_all_friendly_names, get_model_card, get_model_info
+def _parse_params_to_float(val: str | int | float) -> float:
+    pass
+def _parse_size_to_float(val: str) -> float:
+    pass
+def open_download_modal(installed_names: list):
+    pass
+def render_manager_tab(installed_models_list: list):
+    pass
+
+====================
+FILE: src\app\tabs\rag\chat.py
+====================
+import asyncio
+import time
+import streamlit as st
+from src.core.green_monitor import CarbonCalculator
+from src.core.llm_provider import LLMProvider
+from src.core.metrics import InferenceMetrics
+from src.core.models_db import extract_thought, get_model_info
+from src.core.utils import extract_params_billions as _extract_params_billions
+def render_rag_chat_tab(rag_engine, display_to_tag, tag_to_friendly, sorted_display_names, k_retrieval):
+    pass
+
+====================
+FILE: src\app\tabs\rag\eval.py
+====================
+import asyncio
+import time
+import altair as alt
+import pandas as pd
+import streamlit as st
+from src.core.green_monitor import CarbonCalculator
+from src.core.llm_provider import LLMProvider
+from src.core.metrics import InferenceMetrics
+from src.core.models_db import extract_thought, get_model_info
+from src.core.utils import extract_params_billions as _extract_params_billions
+def render_rag_eval_tab(rag_engine, eval_engine, display_to_tag, tag_to_friendly, sorted_display_names):
+    pass
+
+====================
+FILE: src\core\agent_engine.py
+====================
+import logging
+import os
+from collections.abc import Generator
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
+from langgraph.prebuilt import create_react_agent
+from src.core.tools import AVAILABLE_TOOLS, get_tools_by_names
+from src.core.models_db import MODELS_DB, get_model_info, get_model_info_by_tag, is_api_model
+
+class AgentEngine:
+    """Moteur d'agent autonome basé sur LangGraph.
+Capable d'utiliser des outils sélectionnés pour répondre.
+Supporte les modèles locaux (Ollama) et API (Mistral)."""
+    def __init__(self, model_name: str, enabled_tools: list[str]=None):
+        """Initialise l'agent avec un modèle et une liste d'outils.
+
+Args:
+    model_name: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
+    enabled_tools: Liste des noms d'outils à activer (None = tous)
+                  Ex: ["calculator", "send_email", "system_monitor"]"""
+        pass
+    def _initialize_llm(self, model_tag: str):
+        pass
+    def _initialize_mistral_api(self, model_tag: str):
+        """Initialise un modèle Mistral via l'API.
+
+Args:
+    model_tag: Tag du modèle
+    model_info: Informations du modèle depuis models.json
+
+Returns:
+    ChatMistralAI: Instance du modèle API"""
+        pass
+    def _initialize_ollama(self, model_tag: str):
+        """Initialise un modèle local via Ollama.
+
+Args:
+    model_tag: Tag du modèle
+
+Returns:
+    ChatOllama: Instance du modèle local"""
+        pass
+    def run_stream(self, user_query: str, chat_history: list[dict] | None=None, system_prompt: str | None=None) -> Generator[dict, None, None]:
+        """Exécute l'agent et stream les événements (pensées, appels d'outils, réponse finale).
+
+Args:
+    user_query: Question de l'utilisateur
+    chat_history: Historique de conversation (optionnel)
+    system_prompt: Instructions système personnalisées (optionnel)
+
+Yields:
+    dict: Événements avec structure {"type": ..., "content": ..., etc.}"""
+        pass
+def list_available_models():
+    """Liste tous les modèles disponibles avec leur type."""
+    pass
+def test_model_detection(model_tag: str):
+    """Teste la détection du type d'un modèle."""
+    pass
+
+====================
+FILE: src\core\config.py
+====================
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+def get_emissions_path() -> str:
+    """Retourne le chemin du fichier de log des émissions carbone."""
+    pass
+
+====================
+FILE: src\core\constants.py
+====================
+from dataclasses import dataclass
+from typing import Final
+
+class GreenITConstants:
+    """Constantes pour le calcul d'impact carbone."""
+
+class ResourceConstants:
+    """Seuils de ressources pour le monitoring."""
+
+class UIConstants:
+    """Constantes pour l'interface utilisateur."""
+
+class RAGConstants:
+    """Constantes pour le pipeline RAG."""
+
+class RateLimitConstants:
+    """Limites de débit par provider."""
+
+class ModelMemoryProfile:
+    """Profil mémoire pour un type de modèle."""
+
+class MemoryProfiles:
+    """Profils de consommation mémoire par taille de modèle."""
+
+====================
+FILE: src\core\crew_engine.py
+====================
+from typing import Any
+from crewai import LLM, Agent, Crew, Process, Task
+from crewai.tools import BaseTool
+from pydantic import PrivateAttr
+from src.core.tools import get_tools_by_names
+from src.core.config import MISTRAL_API_KEY
+from src.core.models_db import is_api_model
+
+class LangChainAdapter:
+    """Adaptateur universel pour rendre les outils LangChain compatibles avec CrewAI."""
+    def __init__(self, tool_instance, **data):
+        pass
+    def _run(self, *args, **kwargs):
+        """Exécution déléguée à l'outil LangChain d'origine."""
+        pass
+
+class CrewFactory:
+    """Usine à équipes d'agents (Crews)."""
+    def _map_tools(langchain_tools):
+        """Convertit les outils LangChain en outils CrewAI via l'adaptateur."""
+        pass
+    def _get_native_llm(model_tag: str, temperature: float=0.1):
+        """Configure le LLM natif CrewAI (via LiteLLM)."""
+        pass
+    def create_custom_crew(agents_config: list[dict[str, Any]], topic: str):
+        """Crée une équipe dynamique basée sur une configuration utilisateur.
+
+Args:
+    agents_config: Liste de dicts avec clés:
+        - 'role': str
+        - 'goal': str
+        - 'backstory': str
+        - 'model_tag': str
+        - 'tools': list[str] (NOUVEAU - optionnel)
+    topic: Le sujet global de la mission
+
+Exemple:
+    agents_config = [
+        {
+            "role": "Analyste",
+            "goal": "Analyser les données",
+            "backstory": "Expert en data",
+            "model_tag": "qwen2.5:1.5b",
+            "tools": ["calculator", "analyze_csv", "system_monitor"]
+        },
+        {
+            "role": "Rédacteur",
+            "goal": "Rédiger le rapport",
+            "backstory": "Expert en communication",
+            "model_tag": "qwen2.5:3b",
+            "tools": ["generate_document", "generate_markdown_report"]
+        }
+    ]"""
+        pass
+    def create_audit_crew(model_tag: str):
+        """Legacy : Crée une équipe d'audit standard avec tous les outils.
+Maintenu pour compatibilité avec l'ancien code."""
+        pass
+
+====================
+FILE: src\core\eval_engine.py
+====================
+import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+from datasets import Dataset
+from ragas import evaluate
+from ragas.metrics import answer_relevancy, faithfulness
+from src.core.llm_provider import LLMProvider
+from langchain_core.embeddings import Embeddings
+
+class EvalResult:
+    """Résultat d'une évaluation Ragas."""
+
+class EvalEngine:
+    """Moteur d'évaluation RAG Hybride (EvalOps).
+Utilise Ragas avec le LLM Juge et les Embeddings actifs."""
+    def __init__(self):
+        pass
+    def evaluate_single_turn(self, query: str, response: str, retrieved_contexts: list[str], judge_tag: str, embedding_model: 'Embeddings') -> EvalResult:
+        """Évalue une interaction en utilisant le modèle d'embedding ACTIF du RAG."""
+        pass
+
+====================
+FILE: src\core\green_monitor.py
+====================
+import atexit
+import contextlib
+import logging
+import os
+import platform
+from dataclasses import dataclass
+from typing import Any
+import cpuinfo
+import psutil
+from codecarbon import OfflineEmissionsTracker
+from src.core.config import DEFAULT_COUNTRY_ISO_CODE, LOGS_DIR
+from src.core.constants import GREEN_IT
+import GPUtil
+
+class CarbonCalculator:
+    """Service utilitaire pur pour les calculs d'empreinte.
+Toutes les sorties sont en GRAMMES (gCO2e)."""
+    def _calculate_mistral_energy_wh(active_params_billions: float, output_tokens: int) -> float:
+        """Calcule l'énergie (Wh) selon la formule de régression EcoLogits."""
+        pass
+    def _get_mistral_implicit_mix() -> float:
+        """Dérive le 'Mix Énergétique Implicite' (gCO2e/Wh) basé sur l'ACV Mistral.
+Cache le résultat en variable de classe si besoin (ici calculé à la volée car très léger)."""
+        pass
+    def compute_mistral_impact_g(cls, active_params_billions: float, output_tokens: int) -> float:
+        """Estime l'impact carbone (Scope 3) pour un modèle Cloud type Mistral.
+
+Args:
+    active_params_billions (float): Paramètres actifs (ex: 7.0, 12.0, 3.5).
+    output_tokens (int): Nombre de tokens générés.
+
+Returns:
+    float: Impact en grammes de CO2e."""
+        pass
+    def compute_local_theoretical_g(tokens_count: int) -> float:
+        """Estimation théorique rapide pour le local (si CodeCarbon indisponible).
+Basé sur une moyenne statistique (Scope 2 Usage uniquement)."""
+        pass
+
+class SystemMetrics:
+    """Snapshot de l'état du système."""
+
+class HardwareMonitor:
+    """Service d'audit matériel."""
+    def get_system_info() -> dict[str, Any]:
+        """Récupère les informations système statiques.
+
+Returns:
+    dict: Informations système (OS, processeur, cœurs, etc.)"""
+        pass
+    def get_realtime_metrics() -> SystemMetrics:
+        """Récupère les métriques instantanées."""
+        pass
+
+class GreenTracker:
+    """Wrapper CodeCarbon pour mesurer l'impact réel (Scope 2).
+Retourne les valeurs en GRAMMES."""
+    def __init__(self, project_name='wavelocal_audit'):
+        pass
+    def start(self):
+        """Démarre la sonde."""
+        pass
+    def stop(self) -> float:
+        """Arrête la sonde et retourne les émissions en GRAMMES (g)."""
+        pass
+    def __enter__(self):
+        pass
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+    def _cleanup_all_trackers(cls):
+        """Sécurité : Arrêt forcé des trackers zombies."""
+        pass
+
+====================
+FILE: src\core\inference_service.py
+====================
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+from src.core.llm_provider import LLMProvider
+from src.core.metrics import InferenceMetrics
+from src.core.models_db import extract_thought
+
+class InferenceResult:
+    """Résultat complet d'une inférence."""
+
+class InferenceCallbacks:
+    """Callbacks optionnels pour feedback temps réel.
+Permet au frontend de s'abonner aux événements sans couplage."""
+
+class InferenceService:
+    """Orchestrateur pur (sans dépendance UI) pour exécution d'inférences.
+
+Usage:
+    # Sans callbacks (mode batch)
+    result = await InferenceService.run_inference(model, messages)
+
+    # Avec callbacks (mode streaming UI)
+    callbacks = InferenceCallbacks(on_token=update_ui)
+    result = await InferenceService.run_inference(model, messages, callbacks)"""
+
+====================
+FILE: src\core\llm_provider.py
+====================
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any
+from src.core.metrics import InferenceMetrics
+from src.core.models_db import is_api_model
+from src.core.providers.provider_factory import get_provider_factory
+
+class LLMProvider:
+    """Façade unifiée pour l'accès aux LLM.
+
+Maintient la compatibilité avec l'API existante tout en utilisant
+la nouvelle architecture basée sur les providers.
+
+Note: Cette classe est conservée pour la rétrocompatibilité.
+Pour les nouveaux développements, préférez utiliser directement
+la factory via get_provider_factory()."""
+    def _is_mistral_api_model(model_tag: str) -> bool:
+        """Vérifie si un modèle est de type API Mistral."""
+        pass
+    def list_models(cloud_enabled: bool=True) -> list[dict[str, Any]]:
+        """Liste tous les modèles disponibles.
+
+Args:
+    cloud_enabled: Inclure les modèles cloud (Mistral)
+
+Returns:
+    Liste des modèles avec leurs métadonnées"""
+        pass
+    def pull_model(model_name: str) -> Any:
+        """Télécharge un modèle via Ollama.
+
+Args:
+    model_name: Nom du modèle à télécharger
+
+Raises:
+    ValueError: Si tentative de télécharger un modèle cloud"""
+        pass
+    def get_langchain_model(model_name: str, temperature: float=0.7, **kwargs) -> Any:
+        """Retourne un modèle LangChain prêt à l'emploi.
+
+Args:
+    model_name: Tag du modèle
+    temperature: Température d'inférence
+    **kwargs: Arguments additionnels
+
+Returns:
+    Instance de BaseChatModel (LangChain)"""
+        pass
+    def health_check() -> dict[str, bool]:
+        """Vérifie l'état de tous les providers.
+
+Returns:
+    Dict {provider_name: is_healthy}"""
+        pass
+
+====================
+FILE: src\core\metrics.py
+====================
+from dataclasses import dataclass
+import time
+
+class InferenceMetrics:
+    """Structure standard pour les métriques d'inférence"""
+
+class MetricsCalculator:
+    """Helper pour mesurer le temps d'exécution"""
+    def __init__(self):
+        pass
+    def start(self):
+        pass
+    def stop(self):
+        pass
+    def duration(self):
+        pass
+
+====================
+FILE: src\core\metrics_service.py
+====================
+from dataclasses import dataclass
+from typing import Any
+from src.core.green_monitor import CarbonCalculator
+from src.core.models_db import MODELS_DB
+from src.core.utils import extract_params_billions
+
+class DisplayMetrics:
+    """Métriques formatées pour l'affichage UI."""
+
+class CarbonEstimate:
+    """Estimation carbone pour une inférence."""
+
+class MetricsService:
+    """Service pour les calculs et le formatage des métriques.
+
+Centralise la logique dispersée dans les tabs UI :
+- Calcul du carbone (théorique vs mesuré)
+- Formatage des durées et tokens
+- Extraction des paramètres modèle"""
+    def get_model_params_billions(self, model_tag: str) -> float:
+        """Récupère le nombre de paramètres d'un modèle en milliards.
+
+Args:
+    model_tag: Tag du modèle (ex: "qwen2.5:1.5b")
+
+Returns:
+    float: Nombre de paramètres en milliards"""
+        pass
+    def calculate_carbon(self, model_tag: str, output_tokens: int, duration_s: float, measured_carbon_g: float | None=None, is_local: bool=True) -> CarbonEstimate:
+        """Calcule ou estime les émissions carbone d'une inférence.
+
+Priorité :
+1. Carbone mesuré (CodeCarbon) si disponible et > 0
+2. Calcul théorique basé sur les paramètres du modèle
+
+Args:
+    model_tag: Tag du modèle
+    output_tokens: Nombre de tokens générés
+    duration_s: Durée de l'inférence en secondes
+    measured_carbon_g: Carbone mesuré par CodeCarbon (optionnel)
+    is_local: True si modèle local, False si API cloud
+
+Returns:
+    CarbonEstimate avec les détails du calcul"""
+        pass
+    def _estimate_energy_from_carbon(self, carbon_g: float) -> float:
+        """Estime l'énergie consommée à partir du carbone.
+Utilise le mix énergétique français (~50g CO2/kWh)."""
+        pass
+    def format_duration(self, duration_s: float) -> str:
+        """Formate une durée en secondes pour l'affichage."""
+        pass
+    def format_tokens_per_second(self, tps: float) -> str:
+        """Formate le débit de tokens pour l'affichage."""
+        pass
+    def format_carbon(self, carbon_g: float) -> str:
+        """Formate les émissions carbone pour l'affichage."""
+        pass
+    def format_model_params(self, params_b: float) -> str:
+        """Formate le nombre de paramètres pour l'affichage."""
+        pass
+    def build_display_metrics(self, model_tag: str, input_tokens: int, output_tokens: int, duration_s: float, tokens_per_second: float, measured_carbon_g: float | None=None, is_local: bool=True) -> DisplayMetrics:
+        """Construit les métriques formatées pour l'affichage UI.
+
+Args:
+    model_tag: Tag du modèle
+    input_tokens: Tokens d'entrée
+    output_tokens: Tokens générés
+    duration_s: Durée totale
+    tokens_per_second: Débit de génération
+    measured_carbon_g: Carbone mesuré (optionnel)
+    is_local: True si modèle local
+
+Returns:
+    DisplayMetrics prêtes pour l'affichage"""
+        pass
+def get_metrics_service() -> MetricsService:
+    """Retourne l'instance singleton du service de métriques."""
+    pass
+
+====================
+FILE: src\core\models_db.py
+====================
+import json
+import logging
+import re
+from typing import Any
+from src.core.config import MODELS_JSON_PATH
+def load_models_db() -> dict[str, Any]:
+    """Charge la source de vérité unique (models.json)."""
+    pass
+def get_cloud_models_from_db(editor_filter: str | None=None) -> list[dict[str, Any]]:
+    """Retourne la liste des modèles configurés comme API/Cloud dans le JSON.
+
+Args:
+    editor_filter: Filtre optionnel sur l'éditeur (ex: "Mistral AI", "OpenAI").
+                   La comparaison est insensible à la casse.
+
+Returns:
+    Liste des modèles cloud, optionnellement filtrés par éditeur."""
+    pass
+def guess_editor_from_tag(tag: str) -> str:
+    pass
+def get_friendly_name_from_tag(tag: str) -> str:
+    pass
+def get_model_info(friendly_name: str) -> dict[str, Any] | None:
+    pass
+def get_all_friendly_names(local_only: bool=False) -> list[str]:
+    pass
+def get_all_languages() -> list[str]:
+    pass
+def get_model_card(tag: str, ollama_info: dict[str, Any]=None) -> dict[str, Any]:
+    """Crée une fiche standardisée pour l'UI."""
+    pass
+def extract_thought(content: str) -> tuple[str | None, str | None]:
+    """Extrait le contenu des balises <think> (ex: DeepSeek R1).
+Retourne (thought, content_cleaned)."""
+    pass
+def get_model_info_by_tag(model_tag: str) -> dict[str, Any] | None:
+    """Récupère les infos d'un modèle via son tag Ollama/API.
+
+Args:
+    model_tag: Tag du modèle (ex: "qwen2.5:1.5b", "mistral-large-2512")
+
+Returns:
+    dict: Infos du modèle ou None si non trouvé"""
+    pass
+def is_api_model(model_tag: str) -> bool:
+    """Détecte si un modèle est de type API (cloud).
+
+Args:
+    model_tag: Tag du modèle
+
+Returns:
+    bool: True si API, False si local"""
+    pass
+def get_model_provider(model_tag: str) -> str:
+    """Retourne le nom du provider pour un modèle.
+
+Returns:
+    str: "mistral_api", "anthropic_api", "openai_api", "ollama", ou "unknown""""
+    pass
+
+====================
+FILE: src\core\model_profiles.py
+====================
+from src.core.constants import MEMORY_PROFILES, ModelMemoryProfile
+def get_model_memory_profile(model_tag: str) -> ModelMemoryProfile:
+    """Récupère le profil mémoire d'un modèle basé sur son tag."""
+    pass
+def estimate_mission_ram_gb(model_tag: str, num_agents: int=1) -> float:
+    """Estime la RAM totale requise pour une mission multi-agents."""
+    pass
+def get_ram_risk_level(required_gb: float, available_gb: float) -> str:
+    """Évalue le niveau de risque RAM."""
+    pass
+
+====================
+FILE: src\core\rag_engine.py
+====================
+import asyncio
+import logging
+from langchain_core.documents import Document
+from src.core.rag.ingestion import IngestionPipeline
+from src.core.rag.models_factory import RAGModelsFactory
+from src.core.rag.strategies.base import RetrievalStrategy
+from src.core.rag.strategies.naive import NaiveRetrievalStrategy
+from src.core.rag.vector_store import VectorStoreManager
+
+class RAGEngine:
+    """Façade principale du module RAG (Version 2.0).
+Orchestre les composants : Store, Models, Strategies."""
+    def __init__(self, embedding_model_name: str='all-MiniLM-L6-v2', reranker_model_name: str=None):
+        pass
+    def _load_models(self):
+        """Charge ou recharge les modèles."""
+        pass
+    def set_models(self, embedding_name: str=None, reranker_name: str=None):
+        """Permet de changer de modèles à chaud (Switching)."""
+        pass
+    def set_strategy(self, strategy: RetrievalStrategy):
+        """Change la stratégie de recherche (Naive, HyDE, etc.)."""
+        pass
+    def ingest_file(self, file_path: str, original_filename: str) -> int:
+        """Ingestion synchrone."""
+        pass
+    def search(self, query: str, k: int=4) -> list[Document]:
+        """Exécute la recherche via la stratégie active."""
+        pass
+    def get_stats(self) -> dict:
+        """Récupère les stats de la collection active."""
+        pass
+    def clear_database(self):
+        """Purge la collection active."""
+        pass
+
+====================
+FILE: src\core\rate_limiter.py
+====================
+import asyncio
+import logging
+import time
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Any
+
+class RateLimitConfig:
+    """Configuration du rate limiting pour un provider."""
+
+class RateLimitState:
+    """État du rate limiter."""
+
+class RateLimiter:
+    """Rate limiter configurable par provider.
+
+Supporte :
+- Limite de requêtes par minute
+- Limite de requêtes par jour
+- Limite de tokens par minute
+- Limite de requêtes concurrentes"""
+    def __new__(cls):
+        pass
+    def configure(self, provider: str, config: RateLimitConfig):
+        """Configure le rate limiting pour un provider."""
+        pass
+    def _get_state(self, provider: str) -> RateLimitState:
+        """Récupère ou initialise l'état pour un provider."""
+        pass
+    def _get_config(self, provider: str) -> RateLimitConfig:
+        """Récupère la configuration pour un provider."""
+        pass
+    def _cleanup_old_requests(self, state: RateLimitState):
+        """Nettoie les requêtes expirées."""
+        pass
+    def can_make_request(self, provider: str) -> tuple[bool, str]:
+        """Vérifie si une requête peut être effectuée.
+
+Returns:
+    (can_proceed, reason)"""
+        pass
+    def record_request(self, provider: str, tokens: int=0):
+        """Enregistre une requête effectuée."""
+        pass
+    def release(self, provider: str, tokens: int=0):
+        """Libère un slot après une requête."""
+        pass
+    def get_stats(self, provider: str) -> dict[str, Any]:
+        """Retourne les statistiques actuelles pour un provider."""
+        pass
+def get_rate_limiter() -> RateLimiter:
+    """Retourne l'instance singleton du rate limiter."""
+    pass
+
+====================
+FILE: src\core\resource_manager.py
+====================
+import logging
+import psutil
+from src.core.config import SYSTEM_RAM_BUFFER_GB
+from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
+
+class ResourceCheckResult:
+    def __init__(self, allowed: bool, message: str, ram_required_gb: float=0.0, ram_available_gb: float=0.0):
+        pass
+
+class ResourceManager:
+    """Garde-fou pour la gestion des ressources système (RAM).
+Empêche le lancement de processus si la RAM est insuffisante."""
+    def get_available_ram_gb() -> float:
+        """Retourne la RAM disponible réelle en GB."""
+        pass
+    def estimate_model_ram(model_tag: str) -> float:
+        """Estime la RAM nécessaire pour un modèle spécifique.
+Utilise les données empiriques de models.json si disponibles (audit),
+sinon fait une estimation heuristique basée sur la taille du fichier.
+
+Returns:
+    float: RAM estimée en GB. Retourne 0.0 pour les modèles API."""
+        pass
+    def free_ollama_memory(cls) -> float:
+        """Libère la mémoire Ollama en déchargeant les modèles inactifs.
+
+Returns:
+    float: RAM libérée en GB"""
+        pass
+    def check_resources(cls, model_tag: str, n_instances: int=1, auto_free: bool=True) -> ResourceCheckResult:
+        """Vérifie si le système a assez de ressources pour lancer N instances du modèle.
+
+Args:
+    model_tag: Tag du modèle
+    n_instances: Nombre d'agents simultanés prévus
+    auto_free: Si True, tente de libérer de la RAM si insuffisante
+
+Returns:
+    ResourceCheckResult: Verdict (Autorisé/Refusé) avec détails."""
+        pass
+
+====================
+FILE: src\core\utils.py
+====================
+def extract_params_billions(val: str | int | float) -> float:
+    """Extrait le nombre de paramètres en milliards (float) depuis une chaîne.
+Formats supportés :
+- "7B" → 7.0
+- "1.5B" → 1.5
+- "8x7B" → 56.0 (MoE)
+- "500M" → 0.5
+- 7 → 7.0
+Args:
+    val: Valeur à parser (str, int ou float)
+Returns:
+    float: Nombre de paramètres en milliards, 0.0 si non parsable"""
+    pass
+
+====================
+FILE: src\core\exporters\metrics_exporter.py
+====================
+import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+class MetricPoint:
+    """Point de métrique individuel."""
+    def to_prometheus(self) -> str:
+        """Formate en format Prometheus."""
+        pass
+    def to_dict(self) -> dict[str, Any]:
+        """Convertit en dictionnaire."""
+        pass
+
+class MetricsExporter:
+    """Exporter de métriques multi-format.
+
+Supporte :
+- JSON (fichier ou string)
+- CSV
+- Prometheus text format
+- OpenTelemetry (préparation future)"""
+    def __init__(self, output_dir: str | Path | None=None):
+        """Initialise l'exporter.
+
+Args:
+    output_dir: Répertoire de sortie pour les fichiers"""
+        pass
+    def record(self, name: str, value: float, labels: dict[str, str] | None=None, timestamp: datetime | None=None) -> None:
+        """Enregistre une métrique dans le buffer.
+
+Args:
+    name: Nom de la métrique (ex: "inference_duration_seconds")
+    value: Valeur numérique
+    labels: Labels optionnels (ex: {"model": "qwen2.5:1.5b"})
+    timestamp: Timestamp (défaut: maintenant)"""
+        pass
+    def record_inference(self, model_tag: str, duration_s: float, tokens_per_second: float, input_tokens: int, output_tokens: int, carbon_mg: float, is_local: bool=True) -> None:
+        """Enregistre les métriques d'une inférence.
+
+Crée automatiquement plusieurs métriques avec les bons labels."""
+        pass
+    def export_prometheus(self, include_help: bool=True) -> str:
+        """Exporte les métriques au format Prometheus.
+
+Args:
+    include_help: Inclure les commentaires HELP et TYPE
+
+Returns:
+    String au format Prometheus text exposition"""
+        pass
+    def export_json(self) -> str:
+        """Exporte les métriques en JSON."""
+        pass
+    def export_to_file(self, format: str='json', filename: str | None=None) -> Path:
+        """Exporte les métriques vers un fichier.
+
+Args:
+    format: Format de sortie ("json", "prometheus", "csv")
+    filename: Nom du fichier (auto-généré si None)
+
+Returns:
+    Path du fichier créé"""
+        pass
+    def _export_csv_string(self) -> str:
+        """Génère le contenu CSV."""
+        pass
+    def flush(self) -> int:
+        """Vide le buffer de métriques.
+
+Returns:
+    Nombre de métriques supprimées"""
+        pass
+    def get_buffer_size(self) -> int:
+        """Retourne le nombre de métriques dans le buffer."""
+        pass
+    def get_latest_metrics(self, name: str | None=None, limit: int=100) -> list[MetricPoint]:
+        """Récupère les dernières métriques du buffer.
+
+Args:
+    name: Filtrer par nom de métrique
+    limit: Nombre maximum de résultats
+
+Returns:
+    Liste des métriques"""
+        pass
+def get_metrics_exporter() -> MetricsExporter:
+    """Retourne l'instance singleton de l'exporter."""
+    pass
+
+====================
+FILE: src\core\observability\logger.py
+====================
+import logging
+import json
+import time
+import threading
+from datetime import datetime
+from typing import Optional, Dict, Any
+def set_log_context(session_id: str, user_id: Optional[str]=None, request_id: Optional[str]=None):
+    """Sets the context for the current execution thread."""
+    pass
+def get_log_context() -> Dict[str, str]:
+    pass
+
+class JSONFormatter:
+    """Formats log records as a JSON string."""
+    def format(self, record: logging.LogRecord) -> str:
+        pass
+def setup_observability(log_level=logging.INFO):
+    """Configures the root logger to use JSON formatting."""
+    pass
+
+====================
+FILE: src\core\observability\metrics.py
+====================
+import time
+import logging
+from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+
+class MetricSnapshot:
+
+class MetricsService:
+    def __init__(self):
+        pass
+    def get_instance(cls):
+        pass
+    def record_transaction(self, provider: str, input_tokens: int, output_tokens: int, latency_ms: float, success: bool=True):
+        """Records a single LLM interaction."""
+        pass
+    def get_snapshot(self) -> Dict:
+        pass
+
+====================
+FILE: src\core\providers\anthropic_provider.py
+====================
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any, TYPE_CHECKING
+from src.core.models_db import get_cloud_models_from_db
+from src.core.config import ANTHROPIC_API_KEY
+from src.core.providers.base_provider import BaseProvider
+from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic
+
+class AnthropicProvider:
+    """Provider pour les modèles Anthropic Claude."""
+    def __init__(self, api_key: str | None=None) -> None:
+        """Initialise le provider Anthropic.
+
+Args:
+    api_key: Clé API optionnelle."""
+        pass
+    def _get_client(self) -> 'AsyncAnthropic':
+        """Initialise ou retourne le client asynchrone Anthropic.
+
+Returns:
+    Le client AsyncAnthropic.
+
+Raises:
+    ImportError: Si le package anthropic n'est pas installé.
+    ValueError: Si la clé API n'est pas configurée."""
+        pass
+    def provider_name(self) -> str:
+        """Returns: 'anthropic'."""
+        pass
+    def is_local(self) -> bool:
+        """Returns: False."""
+        pass
+    def is_available(self) -> bool:
+        """Returns: True si configuré."""
+        pass
+    def list_models(self) -> list[dict[str, Any]]:
+        pass
+    def get_langchain_model(self, model_name: str, temperature: float=0.7, **kwargs: Any) -> Any:
+        """Retourne l'objet ChatAnthropic.
+
+Args:
+    model_name: Tag du modèle.
+    temperature: Température.
+    **kwargs: Paramètres additionnels.
+
+Returns:
+    Instance de ChatAnthropic."""
+        pass
+    def health_check(self) -> bool:
+        """Vérifie la validité de la connexion."""
+        pass
+
+====================
+FILE: src\core\providers\base_provider.py
+====================
+import logging
+from abc import abstractmethod
+from collections.abc import AsyncGenerator
+from typing import Any
+from src.core.interfaces import ILLMProvider
+from src.core.metrics import InferenceMetrics, MetricsCalculator
+
+class BaseProvider:
+    """Provider abstrait avec implémentation commune de chat_stream.
+
+Les sous-classes doivent implémenter :
+- _stream_implementation() : logique spécifique au provider
+- _extract_metrics() : extraction des métriques spécifiques
+- provider_name, is_local, is_available, list_models, get_langchain_model, health_check"""
+    def _prepare_messages(self, messages: list[dict[str, str]], system_prompt: str | None) -> list[dict[str, str]]:
+        """Prépare les messages avec le system prompt. Peut être surchargée."""
+        pass
+    def _build_metrics(self, model_name: str, full_text: str, timer: MetricsCalculator, metadata: dict[str, Any]) -> InferenceMetrics:
+        """Construit les métriques finales. Peut être surchargée."""
+        pass
+    def list_models_with_provider(self) -> list[dict[str, Any]]:
+        """Liste les modèles en ajoutant systématiquement la clé 'provider'.
+
+Wrapper autour de list_models() pour garantir la cohérence
+de la structure retournée par tous les providers.
+
+Returns:
+    Liste de modèles avec 'provider' garanti."""
+        pass
+
+====================
+FILE: src\core\providers\mistral_provider.py
+====================
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any
+from src.core.config import MISTRAL_API_KEY
+from src.core.models_db import get_cloud_models_from_db
+from src.core.providers.base_provider import BaseProvider
+from mistralai import Mistral
+
+class MistralProvider:
+    """Provider pour les modèles Mistral AI (cloud)."""
+    def __init__(self, api_key: str | None=None):
+        pass
+    def _create_client(self) -> 'Mistral':
+        """Crée un nouveau client Mistral (pour appels sync)."""
+        pass
+    def _create_async_client(self) -> 'Mistral':
+        """Crée un nouveau client Mistral pour chaque appel async.
+
+Évite le problème 'Event loop is closed' causé par la réutilisation
+d'un client httpx persistant entre plusieurs asyncio.run()."""
+        pass
+    def provider_name(self) -> str:
+        pass
+    def is_local(self) -> bool:
+        pass
+    def is_available(self) -> bool:
+        pass
+    def list_models(self) -> list[dict[str, Any]]:
+        pass
+    def get_langchain_model(self, model_name: str, temperature: float=0.7, **kwargs) -> Any:
+        pass
+    def health_check(self) -> bool:
+        pass
+
+====================
+FILE: src\core\providers\ollama_provider.py
+====================
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any
+import ollama
+from langchain_ollama import ChatOllama
+from src.core.providers.base_provider import BaseProvider
+
+class OllamaProvider:
+    """Provider pour les modèles locaux via Ollama."""
+    def __init__(self, base_url: str='http://localhost:11434'):
+        pass
+    def pull_model(self, model_name: str) -> Any:
+        """Télécharge un modèle via la bibliothèque ollama.
+
+Args:
+    model_name: Nom du modèle (tag)
+
+Returns:
+    Réponse du téléchargement"""
+        pass
+    def _create_async_client(self):
+        pass
+    def provider_name(self) -> str:
+        pass
+    def is_local(self) -> bool:
+        pass
+    def is_available(self) -> bool:
+        pass
+    def list_models(self) -> list[dict[str, Any]]:
+        pass
+    def get_langchain_model(self, model_name: str, temperature: float=0.7, **kwargs) -> Any:
+        pass
+    def health_check(self) -> bool:
+        pass
+
+====================
+FILE: src\core\providers\openai_provider.py
+====================
+import logging
+import os
+from collections.abc import AsyncGenerator
+from typing import Any, TYPE_CHECKING
+from src.core.models_db import get_cloud_models_from_db
+from src.core.providers.base_provider import BaseProvider
+from src.core.config import OPENAI_API_KEY
+from openai import AsyncOpenAI
+from openai import AsyncOpenAI
+
+class OpenAIProvider:
+    """Provider pour les modèles OpenAI (GPT-4, GPT-3.5, etc.)."""
+    def __init__(self, api_key: str | None=None) -> None:
+        """Initialise le provider OpenAI.
+
+Args:
+    api_key: Clé API optionnelle (sinon utilise OPENAI_API_KEY)."""
+        pass
+    def _get_client(self) -> 'AsyncOpenAI':
+        """Initialise ou retourne le client asynchrone OpenAI.
+
+Returns:
+    Le client AsyncOpenAI.
+
+Raises:
+    ImportError: Si le package openai n'est pas installé.
+    ValueError: Si la clé API n'est pas configurée."""
+        pass
+    def provider_name(self) -> str:
+        """Returns: 'openai'."""
+        pass
+    def is_local(self) -> bool:
+        """Returns: False (Cloud provider)."""
+        pass
+    def is_available(self) -> bool:
+        """Returns: True si le package est installé et la clé configurée."""
+        pass
+    def list_models(self) -> list[dict[str, Any]]:
+        pass
+    def get_langchain_model(self, model_name: str, temperature: float=0.7, **kwargs: Any) -> Any:
+        """Retourne l'objet ChatOpenAI compatible LangChain.
+
+Args:
+    model_name: Nom du modèle.
+    temperature: Température d'inférence.
+    **kwargs: Paramètres supplémentaires.
+
+Returns:
+    Instance de ChatOpenAI."""
+        pass
+    def health_check(self) -> bool:
+        """Vérifie la validité de la clé via une requête légère de listing."""
+        pass
+
+====================
+FILE: src\core\providers\provider_factory.py
+====================
+import logging
+from functools import lru_cache
+from typing import Any
+from src.core.interfaces import ILLMProvider
+from src.core.models_db import is_api_model
+from src.core.providers.mistral_provider import MistralProvider
+from src.core.providers.ollama_provider import OllamaProvider
+
+class LLMProviderFactory:
+    """Factory pour gérer les providers LLM.
+
+Permet d'obtenir le bon provider en fonction du modèle demandé
+et de lister tous les modèles disponibles."""
+    def __init__(self):
+        pass
+    def _initialize_providers(self):
+        """Initialise les providers disponibles."""
+        pass
+    def get_provider(self, model_tag: str) -> ILLMProvider:
+        """Retourne le provider approprié pour un modèle donné.
+
+Args:
+    model_tag: Tag du modèle (ex: "qwen2.5:1.5b", "gpt-4o", "claude-3-5-sonnet")
+
+Returns:
+    ILLMProvider correspondant
+
+Raises:
+    ValueError: Si aucun provider ne peut gérer ce modèle"""
+        pass
+    def get_provider_by_name(self, provider_name: str) -> ILLMProvider | None:
+        """Retourne un provider par son nom.
+
+Args:
+    provider_name: Nom du provider ('ollama', 'mistral', etc.)
+
+Returns:
+    ILLMProvider ou None si non trouvé"""
+        pass
+    def list_all_models(self, include_cloud: bool=True) -> list[dict[str, Any]]:
+        """Liste tous les modèles de tous les providers.
+
+Args:
+    include_cloud: Inclure les modèles cloud (Mistral, etc.)
+
+Returns:
+    Liste consolidée de tous les modèles disponibles"""
+        pass
+    def register_provider(self, name: str, provider: ILLMProvider):
+        """Enregistre un nouveau provider.
+
+Args:
+    name: Nom unique du provider
+    provider: Instance du provider"""
+        pass
+    def health_check_all(self) -> dict[str, bool]:
+        """Vérifie l'état de tous les providers.
+
+Returns:
+    Dict {provider_name: is_healthy}"""
+        pass
+    def available_providers(self) -> list[str]:
+        """Liste des noms de providers disponibles."""
+        pass
+def get_provider_factory() -> LLMProviderFactory:
+    """Retourne l'instance singleton de la factory.
+
+Utilise lru_cache pour le pattern singleton.
+Pour les tests, utiliser reset_provider_factory() pour réinitialiser."""
+    pass
+def reset_provider_factory() -> None:
+    """Réinitialise la factory (utile pour les tests).
+
+Usage dans les tests:
+    from src.core.providers.provider_factory import reset_provider_factory
+
+    def teardown_method(self):
+        reset_provider_factory()"""
+    pass
+
+====================
+FILE: src\core\queue\manager.py
+====================
+import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Optional, Callable, Any
+from datetime import datetime
+from src.core.queue.models import Job, JobStatus
+
+class JobManager:
+    def __init__(self):
+        pass
+    def get_instance(cls):
+        pass
+    def submit_job(self, user_id: str, task_type: str, payload: Dict[str, Any], fn: Callable) -> str:
+        """Submits a job for execution.
+
+Args:
+    user_id: Owner of the job.
+    task_type: Identifier for the task.
+    payload: Arguments to pass to the function.
+    fn: The actual function to execute (e.g., crew.kickoff).
+
+Returns:
+    job_id: The tracking ID."""
+        pass
+    def get_job(self, job_id: str) -> Optional[Job]:
+        pass
+    def _execute_wrapper(self, job_id: str, fn: Callable, payload: Dict[str, Any]):
+        """Internal wrapper to handle state transitions and error catching."""
+        pass
+
+====================
+FILE: src\core\queue\models.py
+====================
+from enum import Enum
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
+from datetime import datetime
+import uuid
+
+class JobStatus:
+
+class Job:
+    """Represents a background task."""
+    def create(cls, user_id: str, task_type: str, payload: Dict[str, Any]) -> 'Job':
+        pass
+
+====================
+FILE: src\core\rag\ingestion.py
+====================
+import logging
+import tempfile
+from pathlib import Path
+from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader, TextLoader
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from src.core.config import DATA_DIR
+
+class IngestionPipeline:
+    """Pipeline d'ingestion multi-formats.
+Support actuel : PDF, TXT, MD, DOCX."""
+    def _validate_path(file_path: str) -> Path:
+        """Valide et sécurise un chemin de fichier.
+Vérifie l'existence et restreint l'accès aux dossiers autorisés (Data & Temp)."""
+        pass
+    def process_file(self, file_path: str, original_name: str) -> list[Document]:
+        """Charge et découpe un fichier."""
+        pass
+
+====================
+FILE: src\core\rag\models_factory.py
+====================
+import logging
+from langchain_huggingface import HuggingFaceEmbeddings
+from sentence_transformers import CrossEncoder
+from src.core.config import DATA_DIR
+
+class RAGModelsFactory:
+    """Factory pour charger les modèles d'embedding et de reranking
+depuis le stockage local (data/models)."""
+    def get_embedding_model(model_name: str, device: str='cpu') -> HuggingFaceEmbeddings:
+        """Charge un modèle d'embedding local compatible LangChain."""
+        pass
+    def get_reranker_model(model_name: str, device: str='cpu') -> CrossEncoder | None:
+        """Charge un modèle CrossEncoder (Reranker)."""
+        pass
+
+====================
+FILE: src\core\rag\vector_store.py
+====================
+import logging
+from langchain_chroma import Chroma
+from langchain_core.embeddings import Embeddings
+from src.core.config import CHROMA_DIR
+
+class VectorStoreManager:
+    """Gère l'accès à ChromaDB.
+Isole les collections par modèle d'embedding pour éviter les conflits de dimensions."""
+    def __init__(self, embedding_function: Embeddings, model_name: str):
+        pass
+    def _init_db(self):
+        pass
+    def get_store(self) -> Chroma:
+        pass
+    def get_stats(self) -> dict:
+        pass
+    def clear(self):
+        """Supprime uniquement la collection active."""
+        pass
+
+====================
+FILE: src\core\rag\strategies\base.py
+====================
+from abc import ABC, abstractmethod
+from typing import Any
+from langchain_core.documents import Document
+
+class RetrievalStrategy:
+    """Interface abstraite pour les stratégies de Retrieval."""
+    def retrieve(self, query: str, vector_store: Any, k: int, reranker: Any=None, **kwargs) -> list[Document]:
+        """Exécute la logique de récupération.
+
+Args:
+    query: La question utilisateur
+    vector_store: L'instance ChromaDB (LangChain)
+    k: Nombre de documents à récupérer
+    reranker: (Optionnel) Modèle CrossEncoder pour le re-classement
+
+Returns:
+    Liste de documents pertinents"""
+        pass
+
+====================
+FILE: src\core\rag\strategies\hyde.py
+====================
+import asyncio
+import logging
+from typing import Any
+from langchain_core.documents import Document
+from src.core.llm_provider import LLMProvider
+from src.core.rag.strategies.base import RetrievalStrategy
+
+class HyDERetrievalStrategy:
+    """Stratégie HyDE (Hypothetical Document Embeddings).
+1. Génère un document fictif (hypothèse) via un LLM.
+2. Utilise ce document pour la recherche vectorielle.
+3. (Optionnel) Reranking."""
+    def __init__(self, generator_model_tag: str='qwen2.5:1.5b'):
+        pass
+    def retrieve(self, query: str, vector_store: Any, k: int, reranker: Any=None, **kwargs) -> list[Document]:
+        pass
+
+====================
+FILE: src\core\rag\strategies\naive.py
+====================
+import logging
+from typing import Any
+from langchain_core.documents import Document
+from src.core.rag.strategies.base import RetrievalStrategy
+
+class NaiveRetrievalStrategy:
+    """Stratégie RAG Classique :
+1. Similarity Search (Vector DB)
+2. (Optionnel) Reranking avec Cross-Encoder"""
+    def retrieve(self, query: str, vector_store: Any, k: int, reranker: Any=None, **kwargs) -> list[Document]:
+        pass
+
+====================
+FILE: src\core\rag\strategies\self_rag.py
+====================
+import asyncio
+import logging
+from typing import Any, TypedDict
+from langchain_core.documents import Document
+from langgraph.graph import END, StateGraph
+from src.core.llm_provider import LLMProvider
+from src.core.rag.strategies.base import RetrievalStrategy
+
+class GraphState:
+    """L'état qui circule dans le graphe."""
+
+class SelfRAGStrategy:
+    """Stratégie Self-RAG (Corrective RAG) locale avec LangGraph.
+Vérifie la pertinence des documents avant de répondre."""
+    def __init__(self, grader_llm: str='qwen2.5:1.5b'):
+        pass
+    def decide_to_generate(self, state: GraphState):
+        """Edge Conditionnel : Générer ou Réécrire ?"""
+        pass
+    def retrieve(self, query: str, vector_store: Any, k: int, reranker: Any=None, **kwargs) -> list[Document]:
+        pass
+
+====================
+FILE: src\core\repositories\benchmark_repository.py
+====================
+import json
+import logging
+import sqlite3
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+class BenchmarkResult:
+    """Résultat d'un benchmark individuel."""
+    def to_dict(self) -> dict[str, Any]:
+        """Convertit en dictionnaire pour la sérialisation."""
+        pass
+    def from_dict(cls, data: dict[str, Any]) -> 'BenchmarkResult':
+        """Crée une instance depuis un dictionnaire."""
+        pass
+
+class BenchmarkSummary:
+    """Résumé agrégé d'un benchmark."""
+
+class BenchmarkRepository:
+    """Repository pour stocker et récupérer les résultats de benchmarks.
+
+Utilise SQLite pour la persistance locale."""
+    def __init__(self, db_path: str | Path | None=None):
+        """Initialise le repository.
+
+Args:
+    db_path: Chemin vers la base SQLite (défaut: data/benchmarks.db)"""
+        pass
+    def _init_db(self):
+        """Initialise le schéma de la base de données."""
+        pass
+    def save_result(self, result: BenchmarkResult) -> str:
+        """Sauvegarde un résultat de benchmark.
+
+Args:
+    result: Résultat à sauvegarder
+
+Returns:
+    ID du résultat sauvegardé"""
+        pass
+    def save_results_batch(self, results: list[BenchmarkResult]) -> list[str]:
+        """Sauvegarde plusieurs résultats en une seule transaction.
+
+Args:
+    results: Liste des résultats
+
+Returns:
+    Liste des IDs sauvegardés"""
+        pass
+    def get_result(self, result_id: str) -> BenchmarkResult | None:
+        """Récupère un résultat par son ID."""
+        pass
+    def get_results_by_benchmark(self, benchmark_id: str) -> list[BenchmarkResult]:
+        """Récupère tous les résultats d'un benchmark."""
+        pass
+    def get_results_by_model(self, model_tag: str, limit: int=100) -> list[BenchmarkResult]:
+        """Récupère les résultats pour un modèle spécifique."""
+        pass
+    def get_summary_by_model(self, benchmark_id: str) -> list[BenchmarkSummary]:
+        """Génère un résumé agrégé par modèle pour un benchmark.
+
+Args:
+    benchmark_id: ID du benchmark
+
+Returns:
+    Liste des résumés par modèle"""
+        pass
+    def compare_models(self, model_tags: list[str], benchmark_id: str | None=None) -> dict[str, dict[str, float]]:
+        """Compare les performances de plusieurs modèles.
+
+Args:
+    model_tags: Liste des modèles à comparer
+    benchmark_id: Optionnel, filtrer par benchmark
+
+Returns:
+    Dict {model_tag: {metric: value}}"""
+        pass
+    def list_benchmarks(self, limit: int=50) -> list[dict[str, Any]]:
+        """Liste les benchmarks récents."""
+        pass
+    def delete_benchmark(self, benchmark_id: str) -> int:
+        """Supprime tous les résultats d'un benchmark.
+
+Returns:
+    Nombre de résultats supprimés"""
+        pass
+    def export_to_csv(self, benchmark_id: str, output_path: str | Path) -> Path:
+        """Exporte les résultats d'un benchmark en CSV.
+
+Args:
+    benchmark_id: ID du benchmark
+    output_path: Chemin du fichier de sortie
+
+Returns:
+    Path du fichier créé"""
+        pass
+def get_benchmark_repository() -> BenchmarkRepository:
+    """Retourne l'instance singleton du repository."""
+    pass
+
+====================
+FILE: src\core\services\config_service.py
+====================
+import yaml
+import logging
+from pathlib import Path
+from typing import Dict, Any, Optional
+import threading
+
+class ConfigService:
+    def __new__(cls):
+        pass
+    def __init__(self):
+        pass
+    def load_prompts(self) -> Dict[str, Any]:
+        """Loads prompts from YAML. Returns cached version if available."""
+        pass
+    def get_agent_config(self, agent_type: str, key: str) -> Optional[Dict]:
+        """Helper to get specific config.
+Usage: get_agent_config('agent_crew', 'market_analyst')"""
+        pass
+def get_config_service() -> ConfigService:
+    pass
+
+====================
+FILE: src\core\session\session_manager.py
+====================
+import logging
+import threading
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any
+
+class Session:
+    """Session utilisateur."""
+    def is_expired(self, timeout_minutes: int=60) -> bool:
+        """Vérifie si la session a expiré."""
+        pass
+    def touch(self) -> None:
+        """Met à jour le timestamp de dernière activité."""
+        pass
+    def get(self, key: str, default: Any=None) -> Any:
+        """Récupère une valeur de la session."""
+        pass
+    def set(self, key: str, value: Any) -> None:
+        """Définit une valeur dans la session."""
+        pass
+    def delete(self, key: str) -> bool:
+        """Supprime une valeur de la session."""
+        pass
+    def clear(self) -> None:
+        """Vide toutes les données de la session."""
+        pass
+
+class SessionManager:
+    """Gestionnaire centralisé des sessions.
+
+Fonctionnalités :
+- Création et gestion des sessions
+- Isolation des données par utilisateur
+- Expiration automatique
+- Thread-safe"""
+    def __init__(self, session_timeout_minutes: int=60, max_sessions: int=1000, cleanup_interval_minutes: int=15):
+        """Initialise le gestionnaire de sessions.
+
+Args:
+    session_timeout_minutes: Durée d'inactivité avant expiration
+    max_sessions: Nombre maximum de sessions simultanées
+    cleanup_interval_minutes: Intervalle de nettoyage automatique"""
+        pass
+    def create_session(self, user_id: str | None=None, metadata: dict[str, Any] | None=None) -> Session:
+        """Crée une nouvelle session.
+
+Args:
+    user_id: Identifiant utilisateur optionnel
+    metadata: Métadonnées de la session
+
+Returns:
+    Nouvelle session créée"""
+        pass
+    def get_session(self, session_id: str) -> Session | None:
+        """Récupère une session par son ID.
+
+Args:
+    session_id: ID de la session
+
+Returns:
+    Session ou None si non trouvée/expirée"""
+        pass
+    def get_or_create_session(self, session_id: str | None=None, user_id: str | None=None) -> Session:
+        """Récupère une session existante ou en crée une nouvelle.
+
+Args:
+    session_id: ID de session existante (optionnel)
+    user_id: ID utilisateur pour la nouvelle session
+
+Returns:
+    Session existante ou nouvelle"""
+        pass
+    def get_user_sessions(self, user_id: str) -> list[Session]:
+        """Récupère toutes les sessions d'un utilisateur.
+
+Args:
+    user_id: ID de l'utilisateur
+
+Returns:
+    Liste des sessions actives"""
+        pass
+    def delete_session(self, session_id: str) -> bool:
+        """Supprime une session.
+
+Args:
+    session_id: ID de la session
+
+Returns:
+    True si supprimée, False si non trouvée"""
+        pass
+    def delete_user_sessions(self, user_id: str) -> int:
+        """Supprime toutes les sessions d'un utilisateur.
+
+Args:
+    user_id: ID de l'utilisateur
+
+Returns:
+    Nombre de sessions supprimées"""
+        pass
+    def _remove_session(self, session_id: str) -> bool:
+        """Supprime une session (interne, sans lock)."""
+        pass
+    def _cleanup_expired(self) -> int:
+        """Nettoie les sessions expirées (interne, sans lock)."""
+        pass
+    def _maybe_cleanup(self) -> None:
+        """Effectue un nettoyage si l'intervalle est dépassé."""
+        pass
+    def get_stats(self) -> dict[str, Any]:
+        """Retourne les statistiques du gestionnaire."""
+        pass
+def get_session_manager() -> SessionManager:
+    """Retourne l'instance singleton du gestionnaire de sessions."""
+    pass
+
+====================
+FILE: src\core\tools\calculator.py
+====================
+import logging
+import re
+import numexpr
+from func_timeout import FunctionTimedOut, func_timeout
+from langchain_core.tools import tool
+from src.core.config import CALCULATOR_TIMEOUT
+def _safe_eval(expression: str) -> float:
+    """Évalue une expression mathématique de manière sécurisée."""
+    pass
+def calculator(expression: str) -> str:
+    """Effectue un calcul mathématique sécurisé.
+
+Args:
+    expression: Expression mathématique (ex: "2 + 2", "sqrt(16)", "3.14 * 2^2")
+
+Returns:
+    Résultat du calcul ou message d'erreur"""
+    pass
+
+====================
+FILE: src\core\tools\data_tools.py
+====================
+import logging
+from pathlib import Path
+import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
+from langchain_core.tools import tool
+from src.core.config import OUTPUT_DIR
+def analyze_csv(file_path: str, query: str='describe') -> str:
+    """Analyse un fichier CSV et retourne des statistiques.
+
+Args:
+    file_path: Chemin vers le fichier CSV
+    query: Type d'analyse ("describe", "head", "columns", "shape")
+
+Returns:
+    Résultat de l'analyse ou message d'erreur"""
+    pass
+def generate_chart(file_path: str, x_column: str, y_column: str, chart_type: str='line', title: str='Graphique') -> str:
+    """Génère un graphique à partir d'un fichier CSV.
+
+Args:
+    file_path: Chemin vers le fichier CSV
+    x_column: Nom de la colonne pour l'axe X
+    y_column: Nom de la colonne pour l'axe Y
+    chart_type: Type de graphique ("line", "bar", "scatter")
+    title: Titre du graphique
+
+Returns:
+    Chemin vers l'image générée ou message d'erreur"""
+    pass
+
+====================
+FILE: src\core\tools\document_tools.py
+====================
+import datetime
+import logging
+import unicodedata
+from pathlib import Path
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from langchain_core.tools import tool
+from src.core.config import OUTPUT_DIR
+def _sanitize_filename(name: str) -> str:
+    """Nettoie un nom de fichier."""
+    pass
+def generate_document(title: str, content: str, author: str='WaveLocalAI') -> str:
+    """Génère un document Word (.docx).
+
+Args:
+    title: Titre du document
+    content: Contenu principal (supporte le Markdown basique)
+    author: Auteur du document
+
+Returns:
+    Chemin vers le document généré"""
+    pass
+def generate_markdown_report(title: str, sections: str) -> str:
+    """Génère un rapport au format Markdown.
+
+Args:
+    title: Titre du rapport
+    sections: Contenu des sections (format: "Section1: contenu1 | Section2: contenu2")
+
+Returns:
+    Chemin vers le fichier Markdown généré"""
+    pass
+
+====================
+FILE: src\core\tools\email_tools.py
+====================
+import logging
+from langchain_core.tools import tool
+def send_email(to: str, subject: str, body: str) -> str:
+    """Simule l'envoi d'un email (mode demo).
+
+Args:
+    to: Adresse email du destinataire
+    subject: Sujet de l'email
+    body: Corps du message
+
+Returns:
+    Confirmation de l'envoi simulé"""
+    pass
+
+====================
+FILE: src\core\tools\search_tools.py
+====================
+import json
+import logging
+from pathlib import Path
+from langchain_core.tools import tool
+def search_wavestone_internal(query: str) -> str:
+    """Recherche dans la base de connaissances interne Wavestone.
+
+Args:
+    query: Termes de recherche
+
+Returns:
+    Résultats de la recherche ou message si non trouvé"""
+    pass
+
+====================
+FILE: src\core\tools\system_tools.py
+====================
+import psutil
+from langchain_core.tools import tool
+def system_monitor() -> str:
+    """Retourne les métriques système actuelles (CPU, RAM, Disque).
+
+Returns:
+    Rapport formaté des ressources système"""
+    pass
+
+====================
+FILE: src\core\tools\time_tools.py
+====================
+import datetime
+from langchain_core.tools import tool
+def get_current_time() -> str:
+    """Retourne la date et l'heure actuelles.
+
+Returns:
+    Date et heure au format ISO"""
+    pass

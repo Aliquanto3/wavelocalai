@@ -85,3 +85,17 @@ Pour chaque problème :
 | Fonctions > 50 lignes | | |
 | Imports inutilisés | | |
 | Fonctions sans docstring | | |
+
+## Roadmap
+Rédige un planning de migration du code en 3 à 4 étapes pour implémenter une correction intégrant au minimum tous les problèmes critiques et importants.
+Construit ce planning de sorte que chaque fichier soit modifié dans une seule étape et n'ait plus besoin d'évoluer aux étapes suivantes. Tu prévois donc immédiatement le contenu des fichiers pour qu'il soit compatible avec les évolutions que tu fera aux phases suivantes.
+Dans les prochains messages, tu implémentera les évolutions prévues à chaque étape.
+
+# Style
+Tu es concis et efficace.
+Tu vas droit à l'essentiel en donnant uniquement les résultats pratiques et les moyens concrets de les implémenter.
+Tu t'assures de réduire au maximum la taille de tes messages dès qu'ils contiennent une solution applicable à l'objectif fourni pour la phase en cours.
+Si les corrections d'un fichier donné sont mineures, au lieu de réécrire tout le fichier, tu décris précisément le code à modifier en indiquant clairement l'emplacement de la correction.
+
+# Astuce
+Dès que tu sens que le contexte que tu traites est trop long et te fait perdre en qualité de réponse, tu fournis à la place un prompt décrivant la situation actuelle et les prochaines étapes de la roadmap afin de permettre à l'utilisateur de recommencer une session avec Claude intégrant un historique plus court.
