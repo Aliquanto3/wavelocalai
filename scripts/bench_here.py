@@ -267,6 +267,11 @@ def cmd_export(args: argparse.Namespace) -> None:
     if not results:
         sys.exit("data/models.json ne contient aucun benchmark_stats.")
 
+    # Campagne « au mieux » (paramètres éditeur, raisonnement activé), quand elle
+    # a été jouée : elle se partage à côté de la campagne standardisée.
+    vendor = {n: v["benchmark_stats_vendor"] for n, v in db.items()
+              if v.get("benchmark_stats_vendor")}
+
     sha = subprocess.run(["git", "log", "-1", "--format=%H", "--", "scripts/benchmark_slm.py"],
                          capture_output=True, text=True, cwd=ROOT).stdout.strip()
     dirty = subprocess.run(["git", "status", "--porcelain", "scripts/benchmark_slm.py"],
@@ -279,11 +284,15 @@ def cmd_export(args: argparse.Namespace) -> None:
         "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "models": results,
     }
+    if vendor:
+        payload["models_vendor"] = vendor
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out = RESULTS_DIR / f"{profile['machine_id']}.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"{len(results)} modèles exportés -> {out}")
+    print(f"{len(results)} modèles exportés"
+          + (f", dont {len(vendor)} avec la campagne éditeur" if vendor else "")
+          + f" -> {out}")
     if dirty:
         print("⚠️  scripts/benchmark_slm.py est modifié localement : commitez avant de comparer.")
     branch = f"bench/{profile['machine_id']}"
