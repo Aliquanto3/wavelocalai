@@ -499,6 +499,54 @@
       },
       "moe": false
     },
+    "Ling 3.0 Tiny": {
+      "ollama_tag": "ling3-tiny:8b-q4_k_m",
+      "type": "local",
+      "editor": "inclusionAI",
+      "params_tot": "7.9B",
+      "params_act": "1.3B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_generalist",
+      "size_gb": "4.82 GB",
+      "desc": "MoE hybride 7,9B dont 1,3B actifs (août 2026), attention linéaire KDA + MLA : cache quasi nul, +0,2 Go seulement de 2K à 16K. MIT. GGUF officiel Q4_K_M. Empreinte mesurée sur tour-rtx3050 (RTX 3050 8 Go), pas sur la machine de référence.",
+      "measured_loaded_gb": 4.646,
+      "measured_at_ctx": 16384,
+      "hf_fallback": {
+        "repo": "inclusionAI/Ling-3.0-tiny-GGUF",
+        "file": "Ling-3.0-tiny-Q4_K_M.gguf",
+        "modelfile": "TEMPLATE \"\"\"<role>SYSTEM</role>{{ if .System }}{{ .System }}\n{{ end }}detailed thinking {{ if .Think }}on{{ else }}off{{ end }}<|role_end|>\n{{- range $i, $_ := .Messages }}\n{{- if eq .Role \"user\" }}<role>HUMAN</role>{{ .Content }}<|role_end|>\n{{- else if eq .Role \"assistant\" }}<role>ASSISTANT</role>\n{{ if .Thinking }}<think>{{ .Thinking }}</think>{{ else }}<think></think>{{ end }}{{ .Content }}<|role_end|>\n{{- else if eq .Role \"tool\" }}<role>OBSERVATION</role>\n<tool_response>\n{{ .Content }}\n</tool_response><|role_end|>\n{{- end }}\n{{- end }}<role>ASSISTANT</role>\n{{ if .Think }}<think>{{ else }}<think></think>{{ end }}\"\"\"\nPARAMETER stop \"<|role_end|>\"\nPARAMETER stop \"<|endoftext|>\"\nPARAMETER temperature 1.0\nPARAMETER top_p 0.95\nPARAMETER top_k 20"
+      },
+      "moe": false
+    },
+    "Ling 3.0 Tiny (bartowski IQ4_XS)": {
+      "ollama_tag": "ling3-tiny:8b-iq4_xs",
+      "type": "local",
+      "editor": "inclusionAI",
+      "params_tot": "7.9B",
+      "params_act": "1.3B",
+      "ctx": 131072,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_generalist",
+      "size_gb": "4.39 GB",
+      "desc": "Ling 3.0 Tiny quantifié IQ4_XS, pour les machines à 6 Go de VRAM. ~10 % plus lent que le Q4_K_M sur CUDA, raisonnement identique au premier essai. MIT. Empreinte mesurée sur tour-rtx3050, pas sur la machine de référence.",
+      "measured_loaded_gb": 4.245,
+      "measured_at_ctx": 16384,
+      "hf_fallback": {
+        "repo": "bartowski/Ling-3.0-tiny-GGUF",
+        "file": "Ling-3.0-tiny-IQ4_XS.gguf",
+        "modelfile": "TEMPLATE \"\"\"<role>SYSTEM</role>{{ if .System }}{{ .System }}\n{{ end }}detailed thinking {{ if .Think }}on{{ else }}off{{ end }}<|role_end|>\n{{- range $i, $_ := .Messages }}\n{{- if eq .Role \"user\" }}<role>HUMAN</role>{{ .Content }}<|role_end|>\n{{- else if eq .Role \"assistant\" }}<role>ASSISTANT</role>\n{{ if .Thinking }}<think>{{ .Thinking }}</think>{{ else }}<think></think>{{ end }}{{ .Content }}<|role_end|>\n{{- else if eq .Role \"tool\" }}<role>OBSERVATION</role>\n<tool_response>\n{{ .Content }}\n</tool_response><|role_end|>\n{{- end }}\n{{- end }}<role>ASSISTANT</role>\n{{ if .Think }}<think>{{ else }}<think></think>{{ end }}\"\"\"\nPARAMETER stop \"<|role_end|>\"\nPARAMETER stop \"<|endoftext|>\"\nPARAMETER temperature 1.0\nPARAMETER top_p 0.95\nPARAMETER top_k 20"
+      },
+      "moe": false
+    },
     "K2 Horizon 3.7B": {
       "ollama_tag": "k2-horizon:3.7b-q4_k_m",
       "type": "local",

@@ -221,9 +221,35 @@ def pull_via_hf(entry: dict[str, Any], tag: str) -> bool:
     return subprocess.run(["ollama", "create", tag, "-f", str(modelfile)]).returncode == 0
 
 
+def sync_local_db(catalog: dict[str, Any]) -> None:
+    """Complète data/models.json avec les modèles du catalogue qu'il ne connaît pas.
+
+    benchmark_slm.py ne parcourt que cette copie de travail : sans cela, un modèle
+    ajouté au catalogue après la première campagne d'une machine était installé,
+    puis ignoré sans un mot au moment de mesurer.
+    """
+    if not LOCAL_DB.exists():
+        LOCAL_DB.parent.mkdir(parents=True, exist_ok=True)
+        LOCAL_DB.write_text(json.dumps(catalog, ensure_ascii=False, indent=4), encoding="utf-8")
+        print(f"Copie de travail créée : {LOCAL_DB}")
+        return
+
+    db = json.loads(LOCAL_DB.read_text(encoding="utf-8"))
+    known = {entry.get("ollama_tag") for entry in db.values()}
+    added = [name for name, entry in catalog.items()
+             if name not in db and entry.get("ollama_tag") not in known]
+    if not added:
+        return
+    for name in added:
+        db[name] = catalog[name]
+    LOCAL_DB.write_text(json.dumps(db, ensure_ascii=False, indent=4), encoding="utf-8")
+    print(f"Copie de travail : {len(added)} modèle(s) ajouté(s) depuis le catalogue ({', '.join(added)})")
+
+
 def cmd_install(args: argparse.Namespace) -> None:
     profile = build_profile(args.label)
     catalog = load_catalog()
+    sync_local_db(catalog)
     keep, _ = select(profile, catalog)
     have = installed_tags()
 
@@ -261,12 +287,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     if not tags:
         sys.exit("Aucun modèle installé parmi ceux retenus : lancez d'abord la commande install.")
 
-    # data/models.json est la copie de travail du script de benchmark : on la
-    # sème depuis le catalogue si elle n'existe pas encore sur cette machine.
-    if not LOCAL_DB.exists():
-        LOCAL_DB.parent.mkdir(parents=True, exist_ok=True)
-        LOCAL_DB.write_text(json.dumps(catalog, ensure_ascii=False, indent=4), encoding="utf-8")
-        print(f"Copie de travail créée : {LOCAL_DB}")
+    # data/models.json est la copie de travail du script de benchmark.
+    sync_local_db(catalog)
 
     # Sans GPU, on réduit le contexte et la génération : sinon un run dure la nuit.
     max_ctx = args.max_context or (8192 if profile["mode"] == "cpu" else 16384)

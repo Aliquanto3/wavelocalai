@@ -70,6 +70,11 @@ téléchargement du GGUF via `hf download`, puis `ollama create` avec le gabarit
 d'un modèle officiel voisin — Ollama 0.34 refusant la redirection du CDN
 Hugging Face (`blocked redirect to a different host`).
 
+La commande complète aussi `data/models.json` avec les modèles ajoutés au
+catalogue depuis la dernière campagne de la machine : `benchmark_slm.py` ne
+parcourt que cette copie de travail, et ignorerait sans rien dire un modèle
+pourtant installé.
+
 ### 4. Mesurer
 
 ```bash
