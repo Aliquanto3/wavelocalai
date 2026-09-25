@@ -138,6 +138,24 @@ Cas actuel : **K2 Horizon 3.7B** (Apache 2.0, 524K de contexte, en tête des
 modèles ouverts sous 4B sur l'indice Artificial Analysis) attend le support de
 l'architecture `k2_horizon` en amont.
 
+## Modèles trop lents pour le test complet
+
+Sur une petite configuration, certains modèles débordent tant sur le CPU que le
+test complet durerait des heures (plus encore en campagne « au mieux », où le
+raisonnement multiplie le texte généré) pour une vitesse inexploitable au
+quotidien. Pour ceux-là, on ne mesure que ce qui dépend du poste :
+
+```bash
+python scripts/bench_speed_only.py --models olmo-3:7b granite4.2:8b \
+    --reason "moins de 10 tok/s à 8K sur cette machine"
+```
+
+Vitesse de génération et délai avant le premier token, palier de contexte par
+palier, avec la mesure de `benchmark_slm.py` (importée, pas copiée : l'empreinte
+git reste la même). L'export les publie à part, sous `models_speed_only`, avec
+le motif ; leurs scores de qualité déjà mesurés, eux, ne dépendent pas de la
+machine.
+
 ## Mettre le catalogue à jour
 
 Après une campagne qui ajoute des modèles ou affine les empreintes :
