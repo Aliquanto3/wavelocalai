@@ -17,32 +17,32 @@
     "vram_gb": 6.0,
     "mode": "gpu",
     "budget_gb": 5.1,
-    "disk_free_gb": 166.7,
+    "disk_free_gb": 170.1,
     "ollama_version": "0.34.2",
     "python": "3.14.4"
   },
-  "benchmark_commit": "14c78084c0a742958a9da53c5a10390051ffe6c3",
+  "benchmark_commit": "b36cb8cbb56cdaa4a8c7b21a78d4d4c5a4926e20",
   "benchmark_dirty": false,
-  "exported_at": "2026-09-23T13:15:05+00:00",
+  "exported_at": "2026-09-25T21:04:28+00:00",
   "models": {
     "Granite 4.0 350M": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 1.16,
       "gpu_vram_usage_gb": 1.304,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 232.4,
-      "prefill_tokens_per_second": 12568.7,
+      "avg_tokens_per_second": 243.38,
+      "prefill_tokens_per_second": 13111.0,
       "prefill_prompt_tokens": 4534,
-      "avg_ttft_ms": 49,
-      "ttft_full_prompt_ms": 399,
-      "load_time_ms": 1413,
+      "avg_ttft_ms": 42,
+      "ttft_full_prompt_ms": 383,
+      "load_time_ms": 1903,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 2.596310502166722e-05,
-      "avg_co2_per_1k_tokens": 4e-06,
+      "total_co2_emissions_kg": 4.297882050681945e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -55,7 +55,58 @@
       "needle_in_haystack": {
         "ctx_4k": true,
         "ctx_8k": true,
-        "ctx_16k": false
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 230.07,
+          "sd": 0.62,
+          "min": 229.64,
+          "max": 230.51,
+          "ci95": [
+            224.55,
+            235.6
+          ],
+          "ci95_half_width": 5.53,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.21,
+          "sd": 0.0,
+          "min": 0.21,
+          "max": 0.21,
+          "ci95": [
+            0.21,
+            0.21
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.25,
+          "sd": 0.0,
+          "min": 0.25,
+          "max": 0.25,
+          "ci95": [
+            0.25,
+            0.25
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2118.0,
+          "sd": 5.0,
+          "min": 2115.0,
+          "max": 2122.0,
+          "ci95": [
+            2074.0,
+            2163.0
+          ],
+          "ci95_half_width": 44.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.21,
@@ -71,23 +122,23 @@
       }
     },
     "LFM 2.5 1.2B Thinking": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 1.007,
       "gpu_vram_usage_gb": 1.144,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 248.28,
-      "prefill_tokens_per_second": 9833.1,
+      "avg_tokens_per_second": 275.04,
+      "prefill_tokens_per_second": 10509.8,
       "prefill_prompt_tokens": 4783,
-      "avg_ttft_ms": 33,
-      "ttft_full_prompt_ms": 511,
-      "load_time_ms": 780,
+      "avg_ttft_ms": 30,
+      "ttft_full_prompt_ms": 478,
+      "load_time_ms": 1624,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 2.546630825750606e-05,
-      "avg_co2_per_1k_tokens": 4e-06,
+      "total_co2_emissions_kg": 3.640717145040369e-05,
+      "avg_co2_per_1k_tokens": 3e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -98,9 +149,60 @@
         "schema_compliance_rate": 0.5
       },
       "needle_in_haystack": {
-        "ctx_4k": false,
+        "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 272.57,
+          "sd": 0.16,
+          "min": 272.46,
+          "max": 272.68,
+          "ci95": [
+            271.17,
+            273.97
+          ],
+          "ci95_half_width": 1.4,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.57,
+          "sd": 0.0,
+          "min": 0.57,
+          "max": 0.57,
+          "ci95": [
+            0.57,
+            0.57
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.75,
+          "sd": 0.0,
+          "min": 0.75,
+          "max": 0.75,
+          "ci95": [
+            0.75,
+            0.75
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2092.0,
+          "sd": 0.0,
+          "min": 2092.0,
+          "max": 2092.0,
+          "ci95": [
+            2092.0,
+            2092.0
+          ],
+          "ci95_half_width": 0.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.57,
@@ -116,23 +218,23 @@
       }
     },
     "Gemma 3 1B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 0.903,
-      "gpu_vram_usage_gb": 1.102,
+      "gpu_vram_usage_gb": 1.103,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 177.31,
-      "prefill_tokens_per_second": 9855.9,
+      "avg_tokens_per_second": 187.24,
+      "prefill_tokens_per_second": 10504.2,
       "prefill_prompt_tokens": 4514,
       "avg_ttft_ms": 42,
-      "ttft_full_prompt_ms": 500,
-      "load_time_ms": 1594,
+      "ttft_full_prompt_ms": 475,
+      "load_time_ms": 2489,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 3.0970988248285956e-05,
-      "avg_co2_per_1k_tokens": 5e-06,
+      "total_co2_emissions_kg": 5.9128743040473965e-05,
+      "avg_co2_per_1k_tokens": 4e-06,
       "tool_capability": {
         "function_detection": false,
         "parameter_extraction": false,
@@ -146,6 +248,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 185.98,
+          "sd": 0.25,
+          "min": 185.8,
+          "max": 186.16,
+          "ci95": [
+            183.69,
+            188.27
+          ],
+          "ci95_half_width": 2.29,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.43,
+          "sd": 0.0,
+          "min": 0.43,
+          "max": 0.43,
+          "ci95": [
+            0.43,
+            0.43
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.75,
+          "sd": 0.0,
+          "min": 0.75,
+          "max": 0.75,
+          "ci95": [
+            0.75,
+            0.75
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2100.0,
+          "sd": 0.0,
+          "min": 2100.0,
+          "max": 2100.0,
+          "ci95": [
+            2100.0,
+            2100.0
+          ],
+          "ci95_half_width": 0.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.43,
@@ -161,22 +314,22 @@
       }
     },
     "Qwen 3.5 0.8B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.0,
+      "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 1.219,
-      "gpu_vram_usage_gb": 1.57,
+      "gpu_vram_usage_gb": 1.571,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 167.64,
-      "prefill_tokens_per_second": 7699.6,
+      "avg_tokens_per_second": 179.16,
+      "prefill_tokens_per_second": 8292.6,
       "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 61,
-      "ttft_full_prompt_ms": 620,
-      "load_time_ms": 2070,
+      "avg_ttft_ms": 58,
+      "ttft_full_prompt_ms": 577,
+      "load_time_ms": 2805,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 3.598815169221922e-05,
+      "total_co2_emissions_kg": 6.103994208813703e-05,
       "avg_co2_per_1k_tokens": 5e-06,
       "tool_capability": {
         "function_detection": true,
@@ -191,6 +344,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 175.71,
+          "sd": 0.0,
+          "min": 175.71,
+          "max": 175.71,
+          "ci95": [
+            175.71,
+            175.71
+          ],
+          "ci95_half_width": 0.0,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.43,
+          "sd": 0.0,
+          "min": 0.43,
+          "max": 0.43,
+          "ci95": [
+            0.43,
+            0.43
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.62,
+          "sd": 0.0,
+          "min": 0.62,
+          "max": 0.62,
+          "ci95": [
+            0.62,
+            0.62
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2111.0,
+          "sd": 6.0,
+          "min": 2107.0,
+          "max": 2115.0,
+          "ci95": [
+            2060.0,
+            2162.0
+          ],
+          "ci95_half_width": 51.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.43,
@@ -206,23 +410,23 @@
       }
     },
     "Bonsai 8B (1-bit)": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
+      "ram_usage_at_max_ctx_gb": 0.001,
       "model_memory_at_max_ctx_gb": 3.352,
-      "gpu_vram_usage_gb": 0.772,
+      "gpu_vram_usage_gb": 3.487,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 90.61,
-      "prefill_tokens_per_second": 1894.7,
+      "avg_tokens_per_second": 97.49,
+      "prefill_tokens_per_second": 2038.0,
       "prefill_prompt_tokens": 4516,
-      "avg_ttft_ms": 131,
-      "ttft_full_prompt_ms": 2404,
-      "load_time_ms": 7892,
+      "avg_ttft_ms": 126,
+      "ttft_full_prompt_ms": 2236,
+      "load_time_ms": 2019,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 5.722455114904353e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 8.69964308848014e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -236,6 +440,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 87.88,
+          "sd": 0.4,
+          "min": 87.6,
+          "max": 88.16,
+          "ci95": [
+            84.32,
+            91.44
+          ],
+          "ci95_half_width": 3.56,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.71,
+          "sd": 0.0,
+          "min": 0.71,
+          "max": 0.71,
+          "ci95": [
+            0.71,
+            0.71
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2092.0,
+          "sd": 0.0,
+          "min": 2092.0,
+          "max": 2092.0,
+          "ci95": [
+            2092.0,
+            2092.0
+          ],
+          "ci95_half_width": 0.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.71,
@@ -251,23 +506,23 @@
       }
     },
     "LFM 2.5 2.6B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
+      "ram_usage_at_max_ctx_gb": 0.001,
       "model_memory_at_max_ctx_gb": 1.972,
       "gpu_vram_usage_gb": 2.112,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 102.94,
-      "prefill_tokens_per_second": 4370.2,
+      "avg_tokens_per_second": 123.23,
+      "prefill_tokens_per_second": 4726.0,
       "prefill_prompt_tokens": 4648,
-      "avg_ttft_ms": 54,
-      "ttft_full_prompt_ms": 1081,
-      "load_time_ms": 2215,
+      "avg_ttft_ms": 46,
+      "ttft_full_prompt_ms": 1000,
+      "load_time_ms": 2439,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 4.865631781892761e-05,
-      "avg_co2_per_1k_tokens": 7e-06,
+      "total_co2_emissions_kg": 7.173784214408481e-05,
+      "avg_co2_per_1k_tokens": 5e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -280,7 +535,58 @@
       "needle_in_haystack": {
         "ctx_4k": true,
         "ctx_8k": true,
-        "ctx_16k": false
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 122.01,
+          "sd": 0.03,
+          "min": 121.99,
+          "max": 122.03,
+          "ci95": [
+            121.76,
+            122.26
+          ],
+          "ci95_half_width": 0.25,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1920.0,
+          "sd": 117.0,
+          "min": 1837.0,
+          "max": 2002.0,
+          "ci95": [
+            871.0,
+            2968.0
+          ],
+          "ci95_half_width": 1049.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 1.0,
@@ -296,23 +602,23 @@
       }
     },
     "Llama 3.2 3B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 3.703,
       "gpu_vram_usage_gb": 3.837,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 90.64,
-      "prefill_tokens_per_second": 3445.4,
+      "avg_tokens_per_second": 103.43,
+      "prefill_tokens_per_second": 3724.3,
       "prefill_prompt_tokens": 4529,
-      "avg_ttft_ms": 99,
-      "ttft_full_prompt_ms": 1331,
-      "load_time_ms": 2193,
+      "avg_ttft_ms": 101,
+      "ttft_full_prompt_ms": 1233,
+      "load_time_ms": 2458,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Llama Community",
-      "total_co2_emissions_kg": 5.1860520944415414e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 8.10688925408253e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -326,6 +632,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 95.89,
+          "sd": 0.1,
+          "min": 95.82,
+          "max": 95.96,
+          "ci95": [
+            95.0,
+            96.78
+          ],
+          "ci95_half_width": 0.89,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.64,
+          "sd": 0.0,
+          "min": 0.64,
+          "max": 0.64,
+          "ci95": [
+            0.64,
+            0.64
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2092.0,
+          "sd": 0.0,
+          "min": 2092.0,
+          "max": 2092.0,
+          "ci95": [
+            2092.0,
+            2092.0
+          ],
+          "ci95_half_width": 0.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.64,
@@ -341,23 +698,23 @@
       }
     },
     "Granite 4.2 3B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 3.279,
       "gpu_vram_usage_gb": 3.415,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 87.36,
-      "prefill_tokens_per_second": 2783.6,
+      "avg_tokens_per_second": 94.63,
+      "prefill_tokens_per_second": 3011.5,
       "prefill_prompt_tokens": 4521,
       "avg_ttft_ms": 85,
-      "ttft_full_prompt_ms": 1639,
-      "load_time_ms": 1912,
+      "ttft_full_prompt_ms": 1515,
+      "load_time_ms": 2148,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 5.498999104196109e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 8.399588110690015e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -371,6 +728,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 89.29,
+          "sd": 0.11,
+          "min": 89.21,
+          "max": 89.37,
+          "ci95": [
+            88.27,
+            90.31
+          ],
+          "ci95_half_width": 1.02,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.64,
+          "sd": 0.0,
+          "min": 0.64,
+          "max": 0.64,
+          "ci95": [
+            0.64,
+            0.64
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2096.0,
+          "sd": 6.0,
+          "min": 2092.0,
+          "max": 2100.0,
+          "ci95": [
+            2045.0,
+            2147.0
+          ],
+          "ci95_half_width": 51.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.64,
@@ -386,23 +794,23 @@
       }
     },
     "Phi 4 Mini 3.8B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.001,
+      "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 4.938,
       "gpu_vram_usage_gb": 4.075,
       "gpu_offload_pct": 80,
-      "avg_tokens_per_second": 64.92,
-      "prefill_tokens_per_second": 2306.5,
+      "avg_tokens_per_second": 74.6,
+      "prefill_tokens_per_second": 2463.9,
       "prefill_prompt_tokens": 4507,
-      "avg_ttft_ms": 151,
-      "ttft_full_prompt_ms": 2040,
-      "load_time_ms": 4003,
+      "avg_ttft_ms": 129,
+      "ttft_full_prompt_ms": 1897,
+      "load_time_ms": 4031,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "MIT",
-      "total_co2_emissions_kg": 6.97768491485339e-05,
-      "avg_co2_per_1k_tokens": 1e-05,
+      "total_co2_emissions_kg": 0.00011593488585710153,
+      "avg_co2_per_1k_tokens": 8e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": false,
@@ -416,6 +824,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 40.14,
+          "sd": 0.47,
+          "min": 39.81,
+          "max": 40.48,
+          "ci95": [
+            35.89,
+            44.4
+          ],
+          "ci95_half_width": 4.26,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.64,
+          "sd": 0.0,
+          "min": 0.64,
+          "max": 0.64,
+          "ci95": [
+            0.64,
+            0.64
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2062.0,
+          "sd": 32.0,
+          "min": 2040.0,
+          "max": 2085.0,
+          "ci95": [
+            1777.0,
+            2348.0
+          ],
+          "ci95_half_width": 286.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.64,
@@ -431,23 +890,23 @@
       }
     },
     "Qwen 3.5 2B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
       "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 2.405,
       "gpu_vram_usage_gb": 3.263,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 101.89,
-      "prefill_tokens_per_second": 4783.8,
+      "avg_tokens_per_second": 106.32,
+      "prefill_tokens_per_second": 5454.8,
       "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 64,
-      "ttft_full_prompt_ms": 979,
-      "load_time_ms": 3462,
+      "avg_ttft_ms": 62,
+      "ttft_full_prompt_ms": 860,
+      "load_time_ms": 3451,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 5.644095751807264e-05,
-      "avg_co2_per_1k_tokens": 9e-06,
+      "total_co2_emissions_kg": 8.714541532909526e-05,
+      "avg_co2_per_1k_tokens": 7e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -461,6 +920,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 105.19,
+          "sd": 0.69,
+          "min": 104.7,
+          "max": 105.67,
+          "ci95": [
+            99.02,
+            111.35
+          ],
+          "ci95_half_width": 6.16,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.57,
+          "sd": 0.0,
+          "min": 0.57,
+          "max": 0.57,
+          "ci95": [
+            0.57,
+            0.57
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2092.0,
+          "sd": 0.0,
+          "min": 2092.0,
+          "max": 2092.0,
+          "ci95": [
+            2092.0,
+            2092.0
+          ],
+          "ci95_half_width": 0.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.57,
@@ -476,23 +986,23 @@
       }
     },
     "Nemotron 3 Nano 4B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.0,
+      "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 2.938,
       "gpu_vram_usage_gb": 3.118,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 81.03,
-      "prefill_tokens_per_second": 2524.0,
+      "avg_tokens_per_second": 71.69,
+      "prefill_tokens_per_second": 2499.3,
       "prefill_prompt_tokens": 4790,
-      "avg_ttft_ms": 123,
-      "ttft_full_prompt_ms": 1970,
-      "load_time_ms": 2188,
+      "avg_ttft_ms": 117,
+      "ttft_full_prompt_ms": 1983,
+      "load_time_ms": 2676,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 5.878203249615526e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 0.00010072477536056423,
+      "avg_co2_per_1k_tokens": 7e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -506,6 +1016,57 @@
         "ctx_4k": true,
         "ctx_8k": true,
         "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 67.16,
+          "sd": 0.18,
+          "min": 67.03,
+          "max": 67.29,
+          "ci95": [
+            65.51,
+            68.81
+          ],
+          "ci95_half_width": 1.65,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.79,
+          "sd": 0.0,
+          "min": 0.79,
+          "max": 0.79,
+          "ci95": [
+            0.79,
+            0.79
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1950.0,
+          "sd": 148.0,
+          "min": 1845.0,
+          "max": 2055.0,
+          "ci95": [
+            615.0,
+            3285.0
+          ],
+          "ci95_half_width": 1335.0
+        }
       },
       "quality_scores": {
         "reasoning_avg": 0.79,
@@ -521,423 +1082,22 @@
       }
     },
     "Ministral 3 3B": {
-      "date": "2026-09-22",
+      "date": "2026-09-25",
       "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.001,
+      "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 4.142,
       "gpu_vram_usage_gb": 4.171,
       "gpu_offload_pct": 79,
-      "avg_tokens_per_second": 76.81,
-      "prefill_tokens_per_second": 2391.0,
+      "avg_tokens_per_second": 72.46,
+      "prefill_tokens_per_second": 2376.3,
       "prefill_prompt_tokens": 5325,
-      "avg_ttft_ms": 146,
-      "ttft_full_prompt_ms": 2285,
-      "load_time_ms": 4695,
+      "avg_ttft_ms": 124,
+      "ttft_full_prompt_ms": 2294,
+      "load_time_ms": 4191,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 7.513537477192675e-05,
-      "avg_co2_per_1k_tokens": 7e-06,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": false,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.79,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 0.67,
-          "arithmetic": 0.8,
-          "pattern": 0.67,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.5 4B": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 3.3,
-      "gpu_vram_usage_gb": 4.161,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 57.24,
-      "prefill_tokens_per_second": 1787.8,
-      "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 118,
-      "ttft_full_prompt_ms": 2561,
-      "load_time_ms": 3734,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 7.514958239703934e-05,
-      "avg_co2_per_1k_tokens": 1.1e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.86,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 0.33,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Bonsai 27B (1-bit)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 4.902,
-      "gpu_vram_usage_gb": 3.983,
-      "gpu_offload_pct": 78,
-      "avg_tokens_per_second": 18.43,
-      "prefill_tokens_per_second": 329.8,
-      "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 624,
-      "ttft_full_prompt_ms": 13736,
-      "load_time_ms": 6013,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00020601148506245025,
-      "avg_co2_per_1k_tokens": 2.6e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.71,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 0.33,
-          "trap": 0.33
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Gemma 4 E2B (QAT)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 1.548,
-      "gpu_vram_usage_gb": 2.823,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 109.29,
-      "prefill_tokens_per_second": 3776.1,
-      "prefill_prompt_tokens": 4513,
-      "avg_ttft_ms": 53,
-      "ttft_full_prompt_ms": 1243,
-      "load_time_ms": 4256,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 5.5017668522466835e-05,
-      "avg_co2_per_1k_tokens": 9e-06,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.86,
-        "instruction_following_avg": 1.0,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 0.67,
-          "trap": 0.67
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Gemma 4 12B (Unsloth IQ3_XXS)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 5.379,
-      "gpu_vram_usage_gb": 4.071,
-      "gpu_offload_pct": 69,
-      "avg_tokens_per_second": 11.04,
-      "prefill_tokens_per_second": 685.8,
-      "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 802,
-      "ttft_full_prompt_ms": 6637,
-      "load_time_ms": 6997,
-      "ux_rating": "🐢 Acceptable",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00023308669659168003,
-      "avg_co2_per_1k_tokens": 3.4e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 1.0,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 1.0,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Ministral 3 14B (Unsloth IQ2_M)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 7.28,
-      "gpu_vram_usage_gb": 4.081,
-      "gpu_offload_pct": 54,
-      "avg_tokens_per_second": 8.9,
-      "prefill_tokens_per_second": 347.9,
-      "prefill_prompt_tokens": 5379,
-      "avg_ttft_ms": 600,
-      "ttft_full_prompt_ms": 15526,
-      "load_time_ms": 4974,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00027892292899988795,
-      "avg_co2_per_1k_tokens": 2.4e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 0.75
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.71,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.8,
-          "pattern": 0.67,
-          "trap": 0.33
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.5 9B (Unsloth Q3_K_XL)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 5.411,
-      "gpu_vram_usage_gb": 4.042,
-      "gpu_offload_pct": 71,
-      "avg_tokens_per_second": 13.47,
-      "prefill_tokens_per_second": 469.7,
-      "prefill_prompt_tokens": 4517,
-      "avg_ttft_ms": 442,
-      "ttft_full_prompt_ms": 9663,
-      "load_time_ms": 5479,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.0001637783019912996,
-      "avg_co2_per_1k_tokens": 2.4e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.86,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.8,
-          "pattern": 0.67,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Granite 4.2 8B": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 16384,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 7.652,
-      "gpu_vram_usage_gb": 4.077,
-      "gpu_offload_pct": 51,
-      "avg_tokens_per_second": 10.64,
-      "prefill_tokens_per_second": 457.4,
-      "prefill_prompt_tokens": 4521,
-      "avg_ttft_ms": 519,
-      "ttft_full_prompt_ms": 9898,
-      "load_time_ms": 3932,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 0.000186275905702058,
-      "avg_co2_per_1k_tokens": 2.4e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true,
-        "ctx_16k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.71,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.8,
-          "pattern": 0.67,
-          "trap": 0.33
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.6 35B-A3B (MoE)": {
-      "date": "2026-09-22",
-      "max_validated_ctx": 4096,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 4.28,
-      "gpu_vram_usage_gb": 4.28,
-      "gpu_offload_pct": 13,
-      "avg_tokens_per_second": 32.28,
-      "prefill_tokens_per_second": 32.7,
-      "avg_ttft_ms": 762,
-      "load_time_ms": 31620,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟡 Bon",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 0.00010675332343288137,
-      "avg_co2_per_1k_tokens": 0.000189,
-      "tool_capability": {
-        "function_detection": false,
-        "parameter_extraction": false,
-        "success_rate": 0.5
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.93,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 0.67,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "MiniCPM5 2B": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 4096,
-      "ram_usage_at_max_ctx_gb": 0.001,
-      "model_memory_at_max_ctx_gb": 1.524,
-      "gpu_vram_usage_gb": 1.659,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 133.29,
-      "prefill_tokens_per_second": 4577.7,
-      "prefill_prompt_tokens": 1171,
-      "avg_ttft_ms": 44,
-      "ttft_full_prompt_ms": 266,
-      "load_time_ms": 1672,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 3.720715090966954e-05,
+      "total_co2_emissions_kg": 0.0001184326133990962,
       "avg_co2_per_1k_tokens": 5e-06,
       "tool_capability": {
         "function_detection": true,
@@ -953,6 +1113,1113 @@
         "ctx_8k": true,
         "ctx_16k": false
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 34.05,
+          "sd": 5.03,
+          "min": 30.49,
+          "max": 37.61,
+          "ci95": [
+            -11.2,
+            79.3
+          ],
+          "ci95_half_width": 45.25,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.79,
+          "sd": 0.0,
+          "min": 0.79,
+          "max": 0.79,
+          "ci95": [
+            0.79,
+            0.79
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1294.0,
+          "sd": 69.0,
+          "min": 1245.0,
+          "max": 1342.0,
+          "ci95": [
+            677.0,
+            1910.0
+          ],
+          "ci95_half_width": 616.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.79,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 4B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 3.3,
+      "gpu_vram_usage_gb": 4.161,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 65.79,
+      "prefill_tokens_per_second": 1990.5,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 113,
+      "ttft_full_prompt_ms": 2302,
+      "load_time_ms": 3563,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.00011821623009957849,
+      "avg_co2_per_1k_tokens": 9e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 63.5,
+          "sd": 0.22,
+          "min": 63.34,
+          "max": 63.65,
+          "ci95": [
+            61.52,
+            65.47
+          ],
+          "ci95_half_width": 1.97,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.86,
+          "sd": 0.0,
+          "min": 0.86,
+          "max": 0.86,
+          "ci95": [
+            0.86,
+            0.86
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2070.0,
+          "sd": 32.0,
+          "min": 2047.0,
+          "max": 2092.0,
+          "ci95": [
+            1784.0,
+            2355.0
+          ],
+          "ci95_half_width": 286.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.33,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Bonsai 27B (1-bit)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 4.902,
+      "gpu_vram_usage_gb": 3.983,
+      "gpu_offload_pct": 78,
+      "avg_tokens_per_second": 22.81,
+      "prefill_tokens_per_second": 412.9,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 498,
+      "ttft_full_prompt_ms": 10972,
+      "load_time_ms": 5209,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.00034737099693921825,
+      "avg_co2_per_1k_tokens": 2.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 13.25,
+          "sd": 0.1,
+          "min": 13.18,
+          "max": 13.32,
+          "ci95": [
+            12.36,
+            14.14
+          ],
+          "ci95_half_width": 0.89,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.71,
+          "sd": 0.0,
+          "min": 0.71,
+          "max": 0.71,
+          "ci95": [
+            0.71,
+            0.71
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1598.0,
+          "sd": 117.0,
+          "min": 1515.0,
+          "max": 1680.0,
+          "ci95": [
+            549.0,
+            2646.0
+          ],
+          "ci95_half_width": 1049.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.71,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.33,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 4 E2B (QAT)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 1.548,
+      "gpu_vram_usage_gb": 2.823,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 117.04,
+      "prefill_tokens_per_second": 4096.8,
+      "prefill_prompt_tokens": 4513,
+      "avg_ttft_ms": 51,
+      "ttft_full_prompt_ms": 1146,
+      "load_time_ms": 4204,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 8.650969072621687e-05,
+      "avg_co2_per_1k_tokens": 7e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 114.25,
+          "sd": 0.12,
+          "min": 114.16,
+          "max": 114.33,
+          "ci95": [
+            113.16,
+            115.33
+          ],
+          "ci95_half_width": 1.08,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.86,
+          "sd": 0.0,
+          "min": 0.86,
+          "max": 0.86,
+          "ci95": [
+            0.86,
+            0.86
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2074.0,
+          "sd": 37.0,
+          "min": 2047.0,
+          "max": 2100.0,
+          "ci95": [
+            1737.0,
+            2410.0
+          ],
+          "ci95_half_width": 337.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "OLMo 3 7B": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.002,
+      "model_memory_at_max_ctx_gb": 6.234,
+      "gpu_vram_usage_gb": 4.106,
+      "gpu_offload_pct": 48,
+      "avg_tokens_per_second": 11.88,
+      "prefill_tokens_per_second": 436.7,
+      "prefill_prompt_tokens": 4560,
+      "avg_ttft_ms": 1188,
+      "ttft_full_prompt_ms": 10459,
+      "load_time_ms": 4231,
+      "ux_rating": "🐢 Acceptable",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.00037747251165293037,
+      "avg_co2_per_1k_tokens": 2.3e-05,
+      "tool_capability": {
+        "function_detection": false,
+        "parameter_extraction": false,
+        "success_rate": 0.0
+      },
+      "json_capability": {
+        "valid_json_rate": 0.5,
+        "schema_compliance_rate": 0.5
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": false,
+        "ctx_16k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 6.25,
+          "sd": 0.01,
+          "min": 6.24,
+          "max": 6.26,
+          "ci95": [
+            6.12,
+            6.38
+          ],
+          "ci95_half_width": 0.13,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.57,
+          "sd": 0.0,
+          "min": 0.57,
+          "max": 0.57,
+          "ci95": [
+            0.57,
+            0.57
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.62,
+          "sd": 0.0,
+          "min": 0.62,
+          "max": 0.62,
+          "ci95": [
+            0.62,
+            0.62
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1958.0,
+          "sd": 32.0,
+          "min": 1935.0,
+          "max": 1980.0,
+          "ci95": [
+            1672.0,
+            2243.0
+          ],
+          "ci95_half_width": 286.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.57,
+        "instruction_following_avg": 0.62,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.8,
+          "pattern": 0.33,
+          "trap": 0.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 4 12B (Unsloth IQ3_XXS)": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 5.379,
+      "gpu_vram_usage_gb": 4.071,
+      "gpu_offload_pct": 69,
+      "avg_tokens_per_second": 7.27,
+      "prefill_tokens_per_second": 396.9,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 966,
+      "ttft_full_prompt_ms": 11449,
+      "load_time_ms": 6803,
+      "ux_rating": "🐢 Acceptable",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.0004975131752873217,
+      "avg_co2_per_1k_tokens": 3.6e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 6.62,
+          "sd": 0.15,
+          "min": 6.52,
+          "max": 6.73,
+          "ci95": [
+            5.29,
+            7.96
+          ],
+          "ci95_half_width": 1.33,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 731.0,
+          "sd": 206.0,
+          "min": 585.0,
+          "max": 877.0,
+          "ci95": [
+            -1125.0,
+            2587.0
+          ],
+          "ci95_half_width": 1856.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 1.0,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ministral 3 14B (Unsloth IQ2_M)": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 7.28,
+      "gpu_vram_usage_gb": 4.081,
+      "gpu_offload_pct": 54,
+      "avg_tokens_per_second": 5.99,
+      "prefill_tokens_per_second": 355.5,
+      "prefill_prompt_tokens": 5379,
+      "avg_ttft_ms": 648,
+      "ttft_full_prompt_ms": 15200,
+      "load_time_ms": 5003,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.000604872477833835,
+      "avg_co2_per_1k_tokens": 2.7e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 0.75
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 3.5,
+          "sd": 0.35,
+          "min": 3.25,
+          "max": 3.74,
+          "ci95": [
+            0.38,
+            6.61
+          ],
+          "ci95_half_width": 3.11,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.71,
+          "sd": 0.0,
+          "min": 0.71,
+          "max": 0.71,
+          "ci95": [
+            0.71,
+            0.71
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1170.0,
+          "sd": 21.0,
+          "min": 1155.0,
+          "max": 1185.0,
+          "ci95": [
+            979.0,
+            1361.0
+          ],
+          "ci95_half_width": 191.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.71,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 9B (Unsloth Q3_K_XL)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 5.411,
+      "gpu_vram_usage_gb": 4.042,
+      "gpu_offload_pct": 71,
+      "avg_tokens_per_second": 24.17,
+      "prefill_tokens_per_second": 951.5,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 274,
+      "ttft_full_prompt_ms": 4780,
+      "load_time_ms": 5347,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.0002878686837357041,
+      "avg_co2_per_1k_tokens": 2.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 18.73,
+          "sd": 0.02,
+          "min": 18.71,
+          "max": 18.74,
+          "ci95": [
+            18.53,
+            18.92
+          ],
+          "ci95_half_width": 0.19,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.86,
+          "sd": 0.0,
+          "min": 0.86,
+          "max": 0.86,
+          "ci95": [
+            0.86,
+            0.86
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1222.0,
+          "sd": 117.0,
+          "min": 1140.0,
+          "max": 1305.0,
+          "ci95": [
+            174.0,
+            2271.0
+          ],
+          "ci95_half_width": 1049.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Granite 4.2 8B": {
+      "date": "2026-09-24",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 7.652,
+      "gpu_vram_usage_gb": 4.077,
+      "gpu_offload_pct": 51,
+      "avg_tokens_per_second": 10.41,
+      "prefill_tokens_per_second": 454.5,
+      "prefill_prompt_tokens": 4521,
+      "avg_ttft_ms": 514,
+      "ttft_full_prompt_ms": 9971,
+      "load_time_ms": 3977,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0003840237815542672,
+      "avg_co2_per_1k_tokens": 2.4e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 5.05,
+          "sd": 0.05,
+          "min": 5.02,
+          "max": 5.09,
+          "ci95": [
+            4.61,
+            5.5
+          ],
+          "ci95_half_width": 0.44,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.71,
+          "sd": 0.0,
+          "min": 0.71,
+          "max": 0.71,
+          "ci95": [
+            0.71,
+            0.71
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 307.0,
+          "sd": 64.0,
+          "min": 262.0,
+          "max": 352.0,
+          "ci95": [
+            -265.0,
+            879.0
+          ],
+          "ci95_half_width": 572.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.71,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ministral 3 8B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 7.218,
+      "gpu_vram_usage_gb": 4.138,
+      "gpu_offload_pct": 45,
+      "avg_tokens_per_second": 9.86,
+      "prefill_tokens_per_second": 656.1,
+      "prefill_prompt_tokens": 5325,
+      "avg_ttft_ms": 386,
+      "ttft_full_prompt_ms": 8173,
+      "load_time_ms": 5570,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0005041984350283344,
+      "avg_co2_per_1k_tokens": 2.4e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 6.55,
+          "sd": 0.04,
+          "min": 6.53,
+          "max": 6.58,
+          "ci95": [
+            6.24,
+            6.87
+          ],
+          "ci95_half_width": 0.32,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.93,
+          "sd": 0.0,
+          "min": 0.93,
+          "max": 0.93,
+          "ci95": [
+            0.93,
+            0.93
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 356.0,
+          "sd": 69.0,
+          "min": 307.0,
+          "max": 405.0,
+          "ci95": [
+            -267.0,
+            979.0
+          ],
+          "ci95_half_width": 623.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 4 E4B (QAT)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 2.886,
+      "gpu_vram_usage_gb": 4.325,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 71.08,
+      "prefill_tokens_per_second": 2387.1,
+      "prefill_prompt_tokens": 4513,
+      "avg_ttft_ms": 81,
+      "ttft_full_prompt_ms": 1936,
+      "load_time_ms": 4846,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.00012477751364178456,
+      "avg_co2_per_1k_tokens": 9e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 68.75,
+          "sd": 2.53,
+          "min": 66.96,
+          "max": 70.54,
+          "ci95": [
+            46.0,
+            91.5
+          ],
+          "ci95_half_width": 22.75,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.86,
+          "sd": 0.0,
+          "min": 0.86,
+          "max": 0.86,
+          "ci95": [
+            0.86,
+            0.86
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2066.0,
+          "sd": 37.0,
+          "min": 2040.0,
+          "max": 2092.0,
+          "ci95": [
+            1736.0,
+            2396.0
+          ],
+          "ci95_half_width": 330.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "MiniCPM5 2B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 2.09,
+      "gpu_vram_usage_gb": 2.229,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 121.74,
+      "prefill_tokens_per_second": 4299.0,
+      "prefill_prompt_tokens": 4584,
+      "avg_ttft_ms": 56,
+      "ttft_full_prompt_ms": 1086,
+      "load_time_ms": 2159,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 5.224658626192291e-05,
+      "avg_co2_per_1k_tokens": 4e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 119.26,
+          "sd": 0.68,
+          "min": 118.78,
+          "max": 119.74,
+          "ci95": [
+            113.16,
+            125.36
+          ],
+          "ci95_half_width": 6.1,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.64,
+          "sd": 0.0,
+          "min": 0.64,
+          "max": 0.64,
+          "ci95": [
+            0.64,
+            0.64
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2100.0,
+          "sd": 0.0,
+          "min": 2100.0,
+          "max": 2100.0,
+          "ci95": [
+            2100.0,
+            2100.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
       "quality_scores": {
         "reasoning_avg": 0.64,
         "instruction_following_avg": 0.88,
@@ -965,31 +2232,222 @@
         },
         "response_variance_avg": 0.0
       }
+    },
+    "Ling 3.0 Tiny (bartowski IQ4_XS)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 4.336,
+      "gpu_vram_usage_gb": 4.101,
+      "gpu_offload_pct": 91,
+      "avg_tokens_per_second": 121.08,
+      "prefill_tokens_per_second": 2891.9,
+      "prefill_prompt_tokens": 4527,
+      "avg_ttft_ms": 130,
+      "ttft_full_prompt_ms": 1598,
+      "load_time_ms": 4819,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.00010318264059204523,
+      "avg_co2_per_1k_tokens": 8e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 114.42,
+          "sd": 4.4,
+          "min": 111.31,
+          "max": 117.53,
+          "ci95": [
+            74.89,
+            153.95
+          ],
+          "ci95_half_width": 39.53,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.86,
+          "sd": 0.0,
+          "min": 0.86,
+          "max": 0.86,
+          "ci95": [
+            0.86,
+            0.86
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.75,
+          "sd": 0.0,
+          "min": 0.75,
+          "max": 0.75,
+          "ci95": [
+            0.75,
+            0.75
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2100.0,
+          "sd": 0.0,
+          "min": 2100.0,
+          "max": 2100.0,
+          "ci95": [
+            2100.0,
+            2100.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.86,
+        "instruction_following_avg": 0.75,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
     }
   },
   "models_vendor": {
     "Granite 4.0 350M": {
-      "date": "2026-09-23",
+      "date": "2026-09-24",
       "max_validated_ctx": 8192,
       "ram_usage_at_max_ctx_gb": 0.001,
       "model_memory_at_max_ctx_gb": 0.926,
       "gpu_vram_usage_gb": 1.069,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 235.75,
-      "prefill_tokens_per_second": 10602.3,
+      "avg_tokens_per_second": 109.99,
+      "prefill_tokens_per_second": 7846.4,
       "prefill_prompt_tokens": 2284,
-      "avg_ttft_ms": 38,
-      "ttft_full_prompt_ms": 242,
-      "load_time_ms": 1472,
+      "avg_ttft_ms": 39,
+      "ttft_full_prompt_ms": 318,
+      "load_time_ms": 1471,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 1.9490693939961275e-05,
-      "avg_co2_per_1k_tokens": 5e-06,
+      "total_co2_emissions_kg": 5.325723413768526e-05,
+      "avg_co2_per_1k_tokens": 4e-06,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
-        "success_rate": 0.75
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 107.45,
+          "sd": 0.86,
+          "min": 106.61,
+          "max": 108.33,
+          "ci95": [
+            105.31,
+            109.59
+          ],
+          "ci95_half_width": 2.14,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.26,
+          "sd": 0.087,
+          "min": 0.21,
+          "max": 0.36,
+          "ci95": [
+            0.045,
+            0.475
+          ],
+          "ci95_half_width": 0.215
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.293,
+          "sd": 0.075,
+          "min": 0.25,
+          "max": 0.38,
+          "ci95": [
+            0.107,
+            0.48
+          ],
+          "ci95_half_width": 0.186
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1480.0,
+          "sd": 30.0,
+          "min": 1447.0,
+          "max": 1507.0,
+          "ci95": [
+            1404.0,
+            1555.0
+          ],
+          "ci95_half_width": 75.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.26,
+        "instruction_following_avg": 0.293,
+        "abstention_avg": 0.0,
+        "reasoning_by_category": {
+          "logic": 0.33,
+          "arithmetic": 0.0,
+          "pattern": 0.67,
+          "trap": 0.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "LFM 2.5 1.2B Thinking": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 0.897,
+      "gpu_vram_usage_gb": 1.034,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 70.34,
+      "prefill_tokens_per_second": 4454.6,
+      "prefill_prompt_tokens": 2399,
+      "avg_ttft_ms": 48,
+      "ttft_full_prompt_ms": 569,
+      "load_time_ms": 1459,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 7.437233569801469e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
       },
       "json_capability": {
         "valid_json_rate": 1.0,
@@ -999,9 +2457,250 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 69.91,
+          "sd": 0.87,
+          "min": 69.13,
+          "max": 70.85,
+          "ci95": [
+            67.75,
+            72.07
+          ],
+          "ci95_half_width": 2.16,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.593,
+          "sd": 0.04,
+          "min": 0.57,
+          "max": 0.64,
+          "ci95": [
+            0.493,
+            0.694
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.793,
+          "sd": 0.075,
+          "min": 0.75,
+          "max": 0.88,
+          "ci95": [
+            0.607,
+            0.98
+          ],
+          "ci95_half_width": 0.186
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1425.0,
+          "sd": 0.0,
+          "min": 1425.0,
+          "max": 1425.0,
+          "ci95": [
+            1425.0,
+            1425.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.29,
-        "instruction_following_avg": 0.38,
+        "reasoning_avg": 0.593,
+        "instruction_following_avg": 0.793,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 3 1B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 0.887,
+      "gpu_vram_usage_gb": 1.056,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 84.02,
+      "prefill_tokens_per_second": 5006.0,
+      "prefill_prompt_tokens": 2264,
+      "avg_ttft_ms": 48,
+      "ttft_full_prompt_ms": 477,
+      "load_time_ms": 2279,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 7.371485997931749e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
+      "tool_capability": {
+        "function_detection": false,
+        "parameter_extraction": false,
+        "success_rate": 0.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 0.5
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 82.88,
+          "sd": 2.26,
+          "min": 80.72,
+          "max": 85.23,
+          "ci95": [
+            77.26,
+            88.5
+          ],
+          "ci95_half_width": 5.62,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.43,
+          "sd": 0.0,
+          "min": 0.43,
+          "max": 0.43,
+          "ci95": [
+            0.43,
+            0.43
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.623,
+          "sd": 0.125,
+          "min": 0.5,
+          "max": 0.75,
+          "ci95": [
+            0.313,
+            0.934
+          ],
+          "ci95_half_width": 0.311
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1440.0,
+          "sd": 13.0,
+          "min": 1425.0,
+          "max": 1447.0,
+          "ci95": [
+            1408.0,
+            1471.0
+          ],
+          "ci95_half_width": 32.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.43,
+        "instruction_following_avg": 0.623,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.2,
+          "pattern": 0.33,
+          "trap": 0.33
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 0.8B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 1.11,
+      "gpu_vram_usage_gb": 1.462,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 84.09,
+      "prefill_tokens_per_second": 2596.5,
+      "prefill_prompt_tokens": 2265,
+      "avg_ttft_ms": 64,
+      "ttft_full_prompt_ms": 895,
+      "load_time_ms": 2761,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 8.381740027124184e-05,
+      "avg_co2_per_1k_tokens": 7e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 0.0,
+        "schema_compliance_rate": 0.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 85.77,
+          "sd": 0.73,
+          "min": 84.96,
+          "max": 86.39,
+          "ci95": [
+            83.95,
+            87.59
+          ],
+          "ci95_half_width": 1.82,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.237,
+          "sd": 0.046,
+          "min": 0.21,
+          "max": 0.29,
+          "ci95": [
+            0.122,
+            0.351
+          ],
+          "ci95_half_width": 0.115
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.25,
+          "sd": 0.13,
+          "min": 0.12,
+          "max": 0.38,
+          "ci95": [
+            -0.073,
+            0.573
+          ],
+          "ci95_half_width": 0.323
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1400.0,
+          "sd": 43.0,
+          "min": 1350.0,
+          "max": 1425.0,
+          "ci95": [
+            1292.0,
+            1508.0
+          ],
+          "ci95_half_width": 108.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.237,
+        "instruction_following_avg": 0.25,
         "abstention_avg": 0.0,
         "reasoning_by_category": {
           "logic": 0.33,
@@ -1012,156 +2711,24 @@
         "response_variance_avg": 0.0
       }
     },
-    "LFM 2.5 1.2B Thinking": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 0.897,
-      "gpu_vram_usage_gb": 1.034,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 256.72,
-      "prefill_tokens_per_second": 9691.1,
-      "prefill_prompt_tokens": 2399,
-      "avg_ttft_ms": 34,
-      "ttft_full_prompt_ms": 267,
-      "load_time_ms": 781,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 1.722515773372816e-05,
-      "avg_co2_per_1k_tokens": 4e-06,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 0.5,
-        "schema_compliance_rate": 0.5
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.71,
-        "instruction_following_avg": 0.62,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.8,
-          "pattern": 0.33,
-          "trap": 0.67
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Gemma 3 1B": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 0.887,
-      "gpu_vram_usage_gb": 1.056,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 178.06,
-      "prefill_tokens_per_second": 9034.0,
-      "prefill_prompt_tokens": 2264,
-      "avg_ttft_ms": 40,
-      "ttft_full_prompt_ms": 276,
-      "load_time_ms": 1592,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 2.401849794033845e-05,
-      "avg_co2_per_1k_tokens": 6e-06,
-      "tool_capability": {
-        "function_detection": false,
-        "parameter_extraction": false,
-        "success_rate": 0.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.43,
-        "instruction_following_avg": 0.5,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.2,
-          "pattern": 0.33,
-          "trap": 0.33
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.5 0.8B": {
-      "date": "2026-09-23",
+    "Bonsai 8B (1-bit)": {
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
       "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 1.11,
-      "gpu_vram_usage_gb": 1.462,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 168.22,
-      "prefill_tokens_per_second": 7324.4,
-      "prefill_prompt_tokens": 2265,
-      "avg_ttft_ms": 58,
-      "ttft_full_prompt_ms": 334,
-      "load_time_ms": 2704,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 2.7952131896489782e-05,
-      "avg_co2_per_1k_tokens": 7e-06,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 0.75
-      },
-      "json_capability": {
-        "valid_json_rate": 0.0,
-        "schema_compliance_rate": 0.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": false,
-        "ctx_8k": false
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.29,
-        "instruction_following_avg": 0.25,
-        "abstention_avg": 0.0,
-        "reasoning_by_category": {
-          "logic": 0.67,
-          "arithmetic": 0.4,
-          "pattern": 0.0,
-          "trap": 0.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Bonsai 8B (1-bit)": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 2.32,
       "gpu_vram_usage_gb": 2.46,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 92.13,
-      "prefill_tokens_per_second": 2012.0,
+      "avg_tokens_per_second": 32.77,
+      "prefill_tokens_per_second": 858.0,
       "prefill_prompt_tokens": 2266,
-      "avg_ttft_ms": 100,
-      "ttft_full_prompt_ms": 1142,
-      "load_time_ms": 1300,
+      "avg_ttft_ms": 111,
+      "ttft_full_prompt_ms": 2658,
+      "load_time_ms": 1973,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 3.643901627343753e-05,
-      "avg_co2_per_1k_tokens": 9e-06,
+      "total_co2_emissions_kg": 0.00014827017855297475,
+      "avg_co2_per_1k_tokens": 1.2e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1175,13 +2742,64 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 31.76,
+          "sd": 0.17,
+          "min": 31.6,
+          "max": 31.93,
+          "ci95": [
+            31.35,
+            32.17
+          ],
+          "ci95_half_width": 0.41,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.763,
+          "sd": 0.046,
+          "min": 0.71,
+          "max": 0.79,
+          "ci95": [
+            0.649,
+            0.878
+          ],
+          "ci95_half_width": 0.115
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1420.0,
+          "sd": 120.0,
+          "min": 1297.0,
+          "max": 1537.0,
+          "ci95": [
+            1121.0,
+            1718.0
+          ],
+          "ci95_half_width": 298.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.71,
+        "reasoning_avg": 0.763,
         "instruction_following_avg": 0.88,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 0.67,
-          "arithmetic": 0.8,
+          "arithmetic": 1.0,
           "pattern": 0.67,
           "trap": 0.67
         },
@@ -1189,23 +2807,23 @@
       }
     },
     "LFM 2.5 2.6B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 1.754,
-      "gpu_vram_usage_gb": 1.888,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 1.831,
+      "gpu_vram_usage_gb": 1.972,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 115.89,
-      "prefill_tokens_per_second": 4373.5,
+      "avg_tokens_per_second": 30.95,
+      "prefill_tokens_per_second": 1699.0,
       "prefill_prompt_tokens": 2331,
-      "avg_ttft_ms": 54,
-      "ttft_full_prompt_ms": 554,
-      "load_time_ms": 1558,
+      "avg_ttft_ms": 88,
+      "ttft_full_prompt_ms": 1408,
+      "load_time_ms": 2001,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 2.912783733771328e-05,
-      "avg_co2_per_1k_tokens": 7e-06,
+      "total_co2_emissions_kg": 0.00014794671537667373,
+      "avg_co2_per_1k_tokens": 1.2e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1219,9 +2837,60 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 31.06,
+          "sd": 0.51,
+          "min": 30.71,
+          "max": 31.65,
+          "ci95": [
+            29.79,
+            32.33
+          ],
+          "ci95_half_width": 1.27,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.883,
+          "sd": 0.04,
+          "min": 0.86,
+          "max": 0.93,
+          "ci95": [
+            0.783,
+            0.984
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.92,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.748,
+            1.092
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 980.0,
+          "sd": 387.0,
+          "min": 727.0,
+          "max": 1425.0,
+          "ci95": [
+            19.0,
+            1941.0
+          ],
+          "ci95_half_width": 961.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.93,
-        "instruction_following_avg": 1.0,
+        "reasoning_avg": 0.883,
+        "instruction_following_avg": 0.92,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 0.67,
@@ -1233,23 +2902,23 @@
       }
     },
     "Llama 3.2 3B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 2.821,
-      "gpu_vram_usage_gb": 2.954,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 2.893,
+      "gpu_vram_usage_gb": 3.028,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 100.0,
-      "prefill_tokens_per_second": 3758.2,
+      "avg_tokens_per_second": 25.58,
+      "prefill_tokens_per_second": 1565.0,
       "prefill_prompt_tokens": 2279,
-      "avg_ttft_ms": 74,
-      "ttft_full_prompt_ms": 617,
-      "load_time_ms": 1560,
+      "avg_ttft_ms": 81,
+      "ttft_full_prompt_ms": 1468,
+      "load_time_ms": 2227,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Llama Community",
-      "total_co2_emissions_kg": 3.181169986666394e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 0.00016985310734430126,
+      "avg_co2_per_1k_tokens": 1.4e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1257,43 +2926,94 @@
       },
       "json_capability": {
         "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
+        "schema_compliance_rate": 0.5
       },
       "needle_in_haystack": {
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 24.9,
+          "sd": 0.22,
+          "min": 24.66,
+          "max": 25.09,
+          "ci95": [
+            24.35,
+            25.44
+          ],
+          "ci95_half_width": 0.54,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.617,
+          "sd": 0.107,
+          "min": 0.5,
+          "max": 0.71,
+          "ci95": [
+            0.351,
+            0.882
+          ],
+          "ci95_half_width": 0.266
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1350.0,
+          "sd": 99.0,
+          "min": 1237.0,
+          "max": 1425.0,
+          "ci95": [
+            1103.0,
+            1597.0
+          ],
+          "ci95_half_width": 247.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.64,
+        "reasoning_avg": 0.617,
         "instruction_following_avg": 0.88,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 1.0,
-          "arithmetic": 0.6,
-          "pattern": 1.0,
-          "trap": 0.0
+          "arithmetic": 0.2,
+          "pattern": 0.67,
+          "trap": 0.33
         },
         "response_variance_avg": 0.0
       }
     },
     "Granite 4.2 3B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
+      "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 2.716,
       "gpu_vram_usage_gb": 2.856,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 90.12,
-      "prefill_tokens_per_second": 3138.9,
+      "avg_tokens_per_second": 24.94,
+      "prefill_tokens_per_second": 1181.6,
       "prefill_prompt_tokens": 2271,
-      "avg_ttft_ms": 67,
-      "ttft_full_prompt_ms": 734,
-      "load_time_ms": 1922,
+      "avg_ttft_ms": 74,
+      "ttft_full_prompt_ms": 1934,
+      "load_time_ms": 1958,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 3.753980455122273e-05,
-      "avg_co2_per_1k_tokens": 9e-06,
+      "total_co2_emissions_kg": 0.00017366141476066234,
+      "avg_co2_per_1k_tokens": 1.4e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1307,9 +3027,60 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 24.64,
+          "sd": 0.12,
+          "min": 24.51,
+          "max": 24.74,
+          "ci95": [
+            24.35,
+            24.93
+          ],
+          "ci95_half_width": 0.29,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.907,
+          "sd": 0.04,
+          "min": 0.86,
+          "max": 0.93,
+          "ci95": [
+            0.806,
+            1.007
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.96,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.788,
+            1.132
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1530.0,
+          "sd": 123.0,
+          "min": 1425.0,
+          "max": 1665.0,
+          "ci95": [
+            1225.0,
+            1835.0
+          ],
+          "ci95_half_width": 305.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.93,
-        "instruction_following_avg": 1.0,
+        "reasoning_avg": 0.907,
+        "instruction_following_avg": 0.96,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 1.0,
@@ -1321,27 +3092,27 @@
       }
     },
     "Phi 4 Mini 3.8B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
+      "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 3.379,
       "gpu_vram_usage_gb": 3.515,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 80.0,
-      "prefill_tokens_per_second": 3302.7,
+      "avg_tokens_per_second": 19.45,
+      "prefill_tokens_per_second": 1255.5,
       "prefill_prompt_tokens": 2257,
-      "avg_ttft_ms": 97,
-      "ttft_full_prompt_ms": 722,
-      "load_time_ms": 2443,
+      "avg_ttft_ms": 101,
+      "ttft_full_prompt_ms": 1841,
+      "load_time_ms": 2470,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "MIT",
-      "total_co2_emissions_kg": 4.0044984391434176e-05,
-      "avg_co2_per_1k_tokens": 1e-05,
+      "total_co2_emissions_kg": 0.00021556360583244839,
+      "avg_co2_per_1k_tokens": 1.8e-05,
       "tool_capability": {
         "function_detection": true,
-        "parameter_extraction": false,
-        "success_rate": 0.25
+        "parameter_extraction": true,
+        "success_rate": 0.5
       },
       "json_capability": {
         "valid_json_rate": 1.0,
@@ -1351,57 +3122,159 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 19.02,
+          "sd": 0.27,
+          "min": 18.81,
+          "max": 19.32,
+          "ci95": [
+            18.35,
+            19.68
+          ],
+          "ci95_half_width": 0.67,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.64,
+          "sd": 0.0,
+          "min": 0.64,
+          "max": 0.64,
+          "ci95": [
+            0.64,
+            0.64
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1020.0,
+          "sd": 13.0,
+          "min": 1012.0,
+          "max": 1035.0,
+          "ci95": [
+            987.0,
+            1053.0
+          ],
+          "ci95_half_width": 33.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.57,
+        "reasoning_avg": 0.64,
         "instruction_following_avg": 0.88,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 1.0,
           "arithmetic": 0.4,
           "pattern": 0.67,
-          "trap": 0.33
+          "trap": 0.67
         },
         "response_variance_avg": 0.0
       }
     },
     "Qwen 3.5 2B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
+      "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 2.296,
       "gpu_vram_usage_gb": 3.153,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 101.75,
-      "prefill_tokens_per_second": 4859.4,
+      "avg_tokens_per_second": 36.09,
+      "prefill_tokens_per_second": 1674.2,
       "prefill_prompt_tokens": 2265,
-      "avg_ttft_ms": 62,
-      "ttft_full_prompt_ms": 487,
-      "load_time_ms": 3467,
+      "avg_ttft_ms": 72,
+      "ttft_full_prompt_ms": 1376,
+      "load_time_ms": 3517,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 4.110440627199333e-05,
-      "avg_co2_per_1k_tokens": 1e-05,
+      "total_co2_emissions_kg": 0.00014599750680092827,
+      "avg_co2_per_1k_tokens": 1.2e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
         "success_rate": 1.0
       },
       "json_capability": {
-        "valid_json_rate": 0.5,
-        "schema_compliance_rate": 0.5
+        "valid_json_rate": 0.0,
+        "schema_compliance_rate": 0.0
       },
       "needle_in_haystack": {
         "ctx_4k": false,
         "ctx_8k": false
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 35.8,
+          "sd": 0.38,
+          "min": 35.52,
+          "max": 36.24,
+          "ci95": [
+            34.85,
+            36.76
+          ],
+          "ci95_half_width": 0.95,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.617,
+          "sd": 0.04,
+          "min": 0.57,
+          "max": 0.64,
+          "ci95": [
+            0.516,
+            0.717
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.5,
+          "sd": 0.12,
+          "min": 0.38,
+          "max": 0.62,
+          "ci95": [
+            0.202,
+            0.798
+          ],
+          "ci95_half_width": 0.298
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1137.0,
+          "sd": 328.0,
+          "min": 780.0,
+          "max": 1425.0,
+          "ci95": [
+            322.0,
+            1952.0
+          ],
+          "ci95_half_width": 815.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.57,
+        "reasoning_avg": 0.617,
         "instruction_following_avg": 0.5,
         "abstention_avg": 0.5,
         "reasoning_by_category": {
           "logic": 0.67,
-          "arithmetic": 0.6,
+          "arithmetic": 0.8,
           "pattern": 0.67,
           "trap": 0.33
         },
@@ -1409,23 +3282,23 @@
       }
     },
     "Nemotron 3 Nano 4B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
+      "ram_usage_at_max_ctx_gb": 0,
       "model_memory_at_max_ctx_gb": 2.798,
       "gpu_vram_usage_gb": 2.978,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 75.8,
-      "prefill_tokens_per_second": 2359.2,
+      "avg_tokens_per_second": 20.4,
+      "prefill_tokens_per_second": 1032.8,
       "prefill_prompt_tokens": 2406,
-      "avg_ttft_ms": 121,
-      "ttft_full_prompt_ms": 1063,
-      "load_time_ms": 2450,
+      "avg_ttft_ms": 136,
+      "ttft_full_prompt_ms": 2374,
+      "load_time_ms": 2253,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Autre (Voir détails)",
-      "total_co2_emissions_kg": 4.553972448503191e-05,
-      "avg_co2_per_1k_tokens": 1.1e-05,
+      "total_co2_emissions_kg": 0.00021315750837051255,
+      "avg_co2_per_1k_tokens": 1.7e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1439,8 +3312,59 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 20.49,
+          "sd": 0.21,
+          "min": 20.32,
+          "max": 20.73,
+          "ci95": [
+            19.97,
+            21.02
+          ],
+          "ci95_half_width": 0.53,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.977,
+          "sd": 0.04,
+          "min": 0.93,
+          "max": 1.0,
+          "ci95": [
+            0.876,
+            1.077
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 952.0,
+          "sd": 411.0,
+          "min": 675.0,
+          "max": 1425.0,
+          "ci95": [
+            -70.0,
+            1974.0
+          ],
+          "ci95_half_width": 1022.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 1.0,
+        "reasoning_avg": 0.977,
         "instruction_following_avg": 1.0,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
@@ -1453,154 +3377,22 @@
       }
     },
     "Ministral 3 3B": {
-      "date": "2026-09-23",
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.001,
+      "ram_usage_at_max_ctx_gb": 0.0,
       "model_memory_at_max_ctx_gb": 2.947,
       "gpu_vram_usage_gb": 3.835,
       "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 90.7,
-      "prefill_tokens_per_second": 3510.4,
+      "avg_tokens_per_second": 24.0,
+      "prefill_tokens_per_second": 1371.3,
       "prefill_prompt_tokens": 2941,
-      "avg_ttft_ms": 97,
-      "ttft_full_prompt_ms": 872,
-      "load_time_ms": 2947,
+      "avg_ttft_ms": 104,
+      "ttft_full_prompt_ms": 2180,
+      "load_time_ms": 2983,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
       "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 4.3004104690733334e-05,
-      "avg_co2_per_1k_tokens": 7e-06,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.79,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.6,
-          "pattern": 0.67,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.5 4B": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 3.042,
-      "gpu_vram_usage_gb": 3.903,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 59.57,
-      "prefill_tokens_per_second": 1883.6,
-      "prefill_prompt_tokens": 2265,
-      "avg_ttft_ms": 112,
-      "ttft_full_prompt_ms": 1222,
-      "load_time_ms": 3768,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 5.552441008497742e-05,
-      "avg_co2_per_1k_tokens": 1.4e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 0.0,
-        "schema_compliance_rate": 0.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": false,
-        "ctx_8k": false
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.86,
-        "instruction_following_avg": 0.75,
-        "abstention_avg": 0.5,
-        "reasoning_by_category": {
-          "logic": 0.67,
-          "arithmetic": 1.0,
-          "pattern": 1.0,
-          "trap": 0.67
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Bonsai 27B (1-bit)": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 4.369,
-      "gpu_vram_usage_gb": 3.976,
-      "gpu_offload_pct": 87,
-      "avg_tokens_per_second": 22.01,
-      "prefill_tokens_per_second": 356.0,
-      "prefill_prompt_tokens": 2265,
-      "avg_ttft_ms": 427,
-      "ttft_full_prompt_ms": 6383,
-      "load_time_ms": 5737,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00012804299406578035,
-      "avg_co2_per_1k_tokens": 3e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 0.5,
-        "schema_compliance_rate": 0.5
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.79,
-        "instruction_following_avg": 0.75,
-        "abstention_avg": 0.5,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.4,
-          "pattern": 1.0,
-          "trap": 1.0
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Gemma 4 E2B (QAT)": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 1.541,
-      "gpu_vram_usage_gb": 2.767,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 113.93,
-      "prefill_tokens_per_second": 3944.0,
-      "prefill_prompt_tokens": 2270,
-      "avg_ttft_ms": 71,
-      "ttft_full_prompt_ms": 647,
-      "load_time_ms": 4248,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 4.261741957355632e-05,
+      "total_co2_emissions_kg": 0.00019463341724806587,
       "avg_co2_per_1k_tokens": 1.1e-05,
       "tool_capability": {
         "function_detection": true,
@@ -1613,127 +3405,90 @@
       },
       "needle_in_haystack": {
         "ctx_4k": true,
-        "ctx_8k": false
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 23.31,
+          "sd": 0.16,
+          "min": 23.13,
+          "max": 23.43,
+          "ci95": [
+            22.92,
+            23.7
+          ],
+          "ci95_half_width": 0.39,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.763,
+          "sd": 0.046,
+          "min": 0.71,
+          "max": 0.79,
+          "ci95": [
+            0.649,
+            0.878
+          ],
+          "ci95_half_width": 0.115
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1387.0,
+          "sd": 515.0,
+          "min": 855.0,
+          "max": 1882.0,
+          "ci95": [
+            109.0,
+            2666.0
+          ],
+          "ci95_half_width": 1278.0
+        }
       },
       "quality_scores": {
-        "reasoning_avg": 0.93,
+        "reasoning_avg": 0.763,
         "instruction_following_avg": 0.88,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 1.0,
-          "trap": 0.67
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Gemma 4 12B (Unsloth IQ3_XXS)": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0,
-      "model_memory_at_max_ctx_gb": 5.373,
-      "gpu_vram_usage_gb": 4.06,
-      "gpu_offload_pct": 71,
-      "avg_tokens_per_second": 11.46,
-      "prefill_tokens_per_second": 664.6,
-      "prefill_prompt_tokens": 2270,
-      "avg_ttft_ms": 1042,
-      "ttft_full_prompt_ms": 3688,
-      "load_time_ms": 6752,
-      "ux_rating": "🐢 Acceptable",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00016039340813335648,
-      "avg_co2_per_1k_tokens": 3.9e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 1.0,
-        "instruction_following_avg": 0.62,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 1.0,
+          "logic": 0.67,
+          "arithmetic": 0.8,
+          "pattern": 0.67,
           "trap": 1.0
         },
         "response_variance_avg": 0.0
       }
     },
-    "Ministral 3 14B (Unsloth IQ2_M)": {
-      "date": "2026-09-23",
+    "Qwen 3.5 4B": {
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 6.021,
-      "gpu_vram_usage_gb": 4.046,
-      "gpu_offload_pct": 65,
-      "avg_tokens_per_second": 10.66,
-      "prefill_tokens_per_second": 642.5,
-      "prefill_prompt_tokens": 2995,
-      "avg_ttft_ms": 434,
-      "ttft_full_prompt_ms": 4708,
-      "load_time_ms": 4996,
-      "ux_rating": "🚀 Rapide",
-      "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00017133271459924404,
-      "avg_co2_per_1k_tokens": 2.6e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 0.75
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": true
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.71,
-        "instruction_following_avg": 0.88,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 0.8,
-          "pattern": 0.67,
-          "trap": 0.33
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "Qwen 3.5 9B (Unsloth Q3_K_XL)": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 5.148,
-      "gpu_vram_usage_gb": 4.065,
-      "gpu_offload_pct": 76,
-      "avg_tokens_per_second": 23.02,
-      "prefill_tokens_per_second": 857.6,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 3.042,
+      "gpu_vram_usage_gb": 3.903,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 18.33,
+      "prefill_tokens_per_second": 719.2,
       "prefill_prompt_tokens": 2265,
-      "avg_ttft_ms": 276,
-      "ttft_full_prompt_ms": 2664,
-      "load_time_ms": 5730,
+      "avg_ttft_ms": 126,
+      "ttft_full_prompt_ms": 3170,
+      "load_time_ms": 3513,
       "ux_rating": "⚡ Instantané",
       "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 0.00011052453718566501,
-      "avg_co2_per_1k_tokens": 2.7e-05,
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.000251473908545564,
+      "avg_co2_per_1k_tokens": 2.1e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1747,9 +3502,60 @@
         "ctx_4k": false,
         "ctx_8k": false
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 18.04,
+          "sd": 0.19,
+          "min": 17.9,
+          "max": 18.25,
+          "ci95": [
+            17.57,
+            18.5
+          ],
+          "ci95_half_width": 0.46,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.883,
+          "sd": 0.081,
+          "min": 0.79,
+          "max": 0.93,
+          "ci95": [
+            0.683,
+            1.084
+          ],
+          "ci95_half_width": 0.201
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.71,
+          "sd": 0.193,
+          "min": 0.5,
+          "max": 0.88,
+          "ci95": [
+            0.23,
+            1.19
+          ],
+          "ci95_half_width": 0.48
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1425.0,
+          "sd": 0.0,
+          "min": 1425.0,
+          "max": 1425.0,
+          "ci95": [
+            1425.0,
+            1425.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.93,
-        "instruction_following_avg": 0.75,
+        "reasoning_avg": 0.883,
+        "instruction_following_avg": 0.71,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
           "logic": 1.0,
@@ -1760,68 +3566,24 @@
         "response_variance_avg": 0.0
       }
     },
-    "Granite 4.2 8B": {
-      "date": "2026-09-23",
+    "Bonsai 27B (1-bit)": {
+      "date": "2026-09-25",
       "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.001,
-      "model_memory_at_max_ctx_gb": 6.368,
-      "gpu_vram_usage_gb": 4.128,
-      "gpu_offload_pct": 63,
-      "avg_tokens_per_second": 14.57,
-      "prefill_tokens_per_second": 760.8,
-      "prefill_prompt_tokens": 2271,
-      "avg_ttft_ms": 324,
-      "ttft_full_prompt_ms": 2995,
-      "load_time_ms": 3436,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 4.369,
+      "gpu_vram_usage_gb": 3.976,
+      "gpu_offload_pct": 87,
+      "avg_tokens_per_second": 20.05,
+      "prefill_tokens_per_second": 192.4,
+      "prefill_prompt_tokens": 2265,
+      "avg_ttft_ms": 454,
+      "ttft_full_prompt_ms": 11796,
+      "load_time_ms": 5516,
       "ux_rating": "🚀 Rapide",
       "efficiency_grade": "🟢 Excellent",
-      "detected_license": "Apache 2.0",
-      "total_co2_emissions_kg": 0.00012417734372910667,
-      "avg_co2_per_1k_tokens": 2.9e-05,
-      "tool_capability": {
-        "function_detection": true,
-        "parameter_extraction": true,
-        "success_rate": 1.0
-      },
-      "json_capability": {
-        "valid_json_rate": 1.0,
-        "schema_compliance_rate": 1.0
-      },
-      "needle_in_haystack": {
-        "ctx_4k": true,
-        "ctx_8k": false
-      },
-      "quality_scores": {
-        "reasoning_avg": 0.86,
-        "instruction_following_avg": 0.75,
-        "abstention_avg": 1.0,
-        "reasoning_by_category": {
-          "logic": 1.0,
-          "arithmetic": 1.0,
-          "pattern": 0.67,
-          "trap": 0.67
-        },
-        "response_variance_avg": 0.0
-      }
-    },
-    "MiniCPM5 2B": {
-      "date": "2026-09-23",
-      "max_validated_ctx": 8192,
-      "ram_usage_at_max_ctx_gb": 0.0,
-      "model_memory_at_max_ctx_gb": 1.747,
-      "gpu_vram_usage_gb": 1.886,
-      "gpu_offload_pct": 100,
-      "avg_tokens_per_second": 116.22,
-      "prefill_tokens_per_second": 4696.0,
-      "prefill_prompt_tokens": 2298,
-      "avg_ttft_ms": 50,
-      "ttft_full_prompt_ms": 502,
-      "load_time_ms": 1686,
-      "ux_rating": "⚡ Instantané",
-      "efficiency_grade": "🟢 Excellent",
       "detected_license": "Erreur lecture",
-      "total_co2_emissions_kg": 3.224382635170488e-05,
-      "avg_co2_per_1k_tokens": 8e-06,
+      "total_co2_emissions_kg": 0.0003973918039265682,
+      "avg_co2_per_1k_tokens": 3.1e-05,
       "tool_capability": {
         "function_detection": true,
         "parameter_extraction": true,
@@ -1835,17 +3597,1720 @@
         "ctx_4k": true,
         "ctx_8k": true
       },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 16.36,
+          "sd": 4.84,
+          "min": 10.77,
+          "max": 19.22,
+          "ci95": [
+            4.33,
+            28.39
+          ],
+          "ci95_half_width": 12.03,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.883,
+          "sd": 0.04,
+          "min": 0.86,
+          "max": 0.93,
+          "ci95": [
+            0.783,
+            0.984
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.75,
+          "sd": 0.0,
+          "min": 0.75,
+          "max": 0.75,
+          "ci95": [
+            0.75,
+            0.75
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1667.0,
+          "sd": 490.0,
+          "min": 1102.0,
+          "max": 1950.0,
+          "ci95": [
+            451.0,
+            2884.0
+          ],
+          "ci95_half_width": 1216.0
+        }
+      },
       "quality_scores": {
-        "reasoning_avg": 0.79,
-        "instruction_following_avg": 1.0,
+        "reasoning_avg": 0.883,
+        "instruction_following_avg": 0.75,
         "abstention_avg": 1.0,
         "reasoning_by_category": {
-          "logic": 0.67,
+          "logic": 1.0,
           "arithmetic": 0.8,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 4 E2B (QAT)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 1.541,
+      "gpu_vram_usage_gb": 2.767,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 122.75,
+      "prefill_tokens_per_second": 4078.6,
+      "prefill_prompt_tokens": 2270,
+      "avg_ttft_ms": 69,
+      "ttft_full_prompt_ms": 628,
+      "load_time_ms": 4309,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 9.950277819451059e-05,
+      "avg_co2_per_1k_tokens": 8e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 121.92,
+          "sd": 0.26,
+          "min": 121.71,
+          "max": 122.21,
+          "ci95": [
+            121.28,
+            122.56
+          ],
+          "ci95_half_width": 0.64,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.977,
+          "sd": 0.04,
+          "min": 0.93,
+          "max": 1.0,
+          "ci95": [
+            0.876,
+            1.077
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.92,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.748,
+            1.092
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2082.0,
+          "sd": 5.0,
+          "min": 2077.0,
+          "max": 2085.0,
+          "ci95": [
+            2071.0,
+            2094.0
+          ],
+          "ci95_half_width": 11.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.977,
+        "instruction_following_avg": 0.92,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Qwen 3.5 9B (Unsloth Q3_K_XL)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.0,
+      "model_memory_at_max_ctx_gb": 5.148,
+      "gpu_vram_usage_gb": 4.065,
+      "gpu_offload_pct": 76,
+      "avg_tokens_per_second": 25.97,
+      "prefill_tokens_per_second": 876.3,
+      "prefill_prompt_tokens": 2265,
+      "avg_ttft_ms": 234,
+      "ttft_full_prompt_ms": 2604,
+      "load_time_ms": 5616,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.0003078614950684965,
+      "avg_co2_per_1k_tokens": 2.5e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 0.0,
+        "schema_compliance_rate": 0.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": false,
+        "ctx_8k": false
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 23.56,
+          "sd": 0.12,
+          "min": 23.47,
+          "max": 23.7,
+          "ci95": [
+            23.25,
+            23.87
+          ],
+          "ci95_half_width": 0.31,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.953,
+          "sd": 0.04,
+          "min": 0.93,
+          "max": 1.0,
+          "ci95": [
+            0.853,
+            1.054
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.623,
+          "sd": 0.125,
+          "min": 0.5,
+          "max": 0.75,
+          "ci95": [
+            0.313,
+            0.934
+          ],
+          "ci95_half_width": 0.311
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 1697.0,
+          "sd": 99.0,
+          "min": 1590.0,
+          "max": 1785.0,
+          "ci95": [
+            1451.0,
+            1943.0
+          ],
+          "ci95_half_width": 246.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.953,
+        "instruction_following_avg": 0.623,
+        "abstention_avg": 0.5,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 0.8,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ministral 3 8B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 6.117,
+      "gpu_vram_usage_gb": 4.122,
+      "gpu_offload_pct": 52,
+      "avg_tokens_per_second": 10.86,
+      "prefill_tokens_per_second": 750.1,
+      "prefill_prompt_tokens": 2941,
+      "avg_ttft_ms": 339,
+      "ttft_full_prompt_ms": 3962,
+      "load_time_ms": 5463,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0004961930543918975,
+      "avg_co2_per_1k_tokens": 2.6e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 8.53,
+          "sd": 0.42,
+          "min": 8.1,
+          "max": 8.94,
+          "ci95": [
+            7.49,
+            9.57
+          ],
+          "ci95_half_width": 1.04,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.907,
+          "sd": 0.04,
+          "min": 0.86,
+          "max": 0.93,
+          "ci95": [
+            0.806,
+            1.007
+          ],
+          "ci95_half_width": 0.1
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 440.0,
+          "sd": 63.0,
+          "min": 367.0,
+          "max": 480.0,
+          "ci95": [
+            283.0,
+            596.0
+          ],
+          "ci95_half_width": 157.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.907,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Gemma 4 E4B (QAT)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 2.878,
+      "gpu_vram_usage_gb": 4.192,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 72.29,
+      "prefill_tokens_per_second": 2437.4,
+      "prefill_prompt_tokens": 2270,
+      "avg_ttft_ms": 79,
+      "ttft_full_prompt_ms": 1017,
+      "load_time_ms": 4593,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0001382299738715178,
+      "avg_co2_per_1k_tokens": 1.2e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 71.5,
+          "sd": 0.74,
+          "min": 70.66,
+          "max": 72.08,
+          "ci95": [
+            69.65,
+            73.35
+          ],
+          "ci95_half_width": 1.85,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.93,
+          "sd": 0.0,
+          "min": 0.93,
+          "max": 0.93,
+          "ci95": [
+            0.93,
+            0.93
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.92,
+          "sd": 0.069,
+          "min": 0.88,
+          "max": 1.0,
+          "ci95": [
+            0.748,
+            1.092
+          ],
+          "ci95_half_width": 0.172
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2082.0,
+          "sd": 5.0,
+          "min": 2077.0,
+          "max": 2085.0,
+          "ci95": [
+            2071.0,
+            2094.0
+          ],
+          "ci95_half_width": 11.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.92,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
           "pattern": 1.0,
           "trap": 0.67
         },
         "response_variance_avg": 0.0
+      }
+    },
+    "MiniCPM5 2B": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 1.747,
+      "gpu_vram_usage_gb": 1.886,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 133.65,
+      "prefill_tokens_per_second": 5013.3,
+      "prefill_prompt_tokens": 2298,
+      "avg_ttft_ms": 47,
+      "ttft_full_prompt_ms": 471,
+      "load_time_ms": 2042,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 7.143406033789536e-05,
+      "avg_co2_per_1k_tokens": 6e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 132.22,
+          "sd": 0.34,
+          "min": 131.95,
+          "max": 132.6,
+          "ci95": [
+            131.38,
+            133.06
+          ],
+          "ci95_half_width": 0.84,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.793,
+          "sd": 0.075,
+          "min": 0.75,
+          "max": 0.88,
+          "ci95": [
+            0.607,
+            0.98
+          ],
+          "ci95_half_width": 0.186
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2085.0,
+          "sd": 0.0,
+          "min": 2085.0,
+          "max": 2085.0,
+          "ci95": [
+            2085.0,
+            2085.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 1.0,
+        "instruction_following_avg": 0.793,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      }
+    },
+    "Ling 3.0 Tiny (bartowski IQ4_XS)": {
+      "date": "2026-09-25",
+      "max_validated_ctx": 8192,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 4.252,
+      "gpu_vram_usage_gb": 4.122,
+      "gpu_offload_pct": 93,
+      "avg_tokens_per_second": 121.49,
+      "prefill_tokens_per_second": 2621.5,
+      "prefill_prompt_tokens": 2276,
+      "avg_ttft_ms": 123,
+      "ttft_full_prompt_ms": 895,
+      "load_time_ms": 4951,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Erreur lecture",
+      "total_co2_emissions_kg": 0.00011785011709615077,
+      "avg_co2_per_1k_tokens": 1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 3,
+          "mean": 120.33,
+          "sd": 0.68,
+          "min": 119.58,
+          "max": 120.91,
+          "ci95": [
+            118.64,
+            122.02
+          ],
+          "ci95_half_width": 1.69,
+          "ctx": 8192
+        },
+        "reasoning": {
+          "n": 3,
+          "mean": 0.93,
+          "sd": 0.07,
+          "min": 0.86,
+          "max": 1.0,
+          "ci95": [
+            0.756,
+            1.104
+          ],
+          "ci95_half_width": 0.174
+        },
+        "instruction_following": {
+          "n": 3,
+          "mean": 0.877,
+          "sd": 0.125,
+          "min": 0.75,
+          "max": 1.0,
+          "ci95": [
+            0.566,
+            1.187
+          ],
+          "ci95_half_width": 0.311
+        },
+        "gpu_clock_mhz": {
+          "n": 3,
+          "mean": 2085.0,
+          "sd": 0.0,
+          "min": 2085.0,
+          "max": 2085.0,
+          "ci95": [
+            2085.0,
+            2085.0
+          ],
+          "ci95_half_width": 0.0
+        }
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.877,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 0.67,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 0.67
+        },
+        "response_variance_avg": 0.0
+      }
+    }
+  },
+  "models_speed_only": {
+    "OLMo 3 7B": {
+      "date": "2026-09-25",
+      "reason": "Débordement CPU important sur cette machine (27 à 52 % du modèle hors GPU selon le contexte, au plus 13 tok/s à 8K et 11 tok/s à 16K) : test complet jugé irréaliste pour des cas d'usage courants.",
+      "protocol": {
+        "runs": 2,
+        "output_tokens": 256,
+        "temperature": 0.7,
+        "thinking": false,
+        "cooldown_temp_c": 65.0
+      },
+      "max_validated_ctx": 16384,
+      "by_context": {
+        "2048": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 22.66,
+            "sd": 0.21,
+            "min": 22.52,
+            "max": 22.81,
+            "ci95": [
+              20.82,
+              24.51
+            ],
+            "ci95_half_width": 1.84
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 510.0,
+            "sd": 74.0,
+            "min": 458,
+            "max": 563,
+            "ci95": [
+              -157.0,
+              1178.0
+            ],
+            "ci95_half_width": 667.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 816,
+            "sd": 7.0,
+            "min": 811,
+            "max": 821,
+            "ci95": [
+              752.0,
+              880.0
+            ],
+            "ci95_half_width": 64.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 789.1,
+            "sd": 0.9,
+            "min": 788.5,
+            "max": 789.8,
+            "ci95": [
+              780.9,
+              797.4
+            ],
+            "ci95_half_width": 8.3
+          },
+          "model_memory_gb": 5.054,
+          "gpu_offload_pct": 73,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 2115.0,
+            "sd": 21.0,
+            "min": 2100.0,
+            "max": 2130.0,
+            "ci95": [
+              1924.0,
+              2306.0
+            ],
+            "ci95_half_width": 191.0
+          }
+        },
+        "4096": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 14.6,
+            "sd": 0.14,
+            "min": 14.5,
+            "max": 14.7,
+            "ci95": [
+              13.33,
+              15.87
+            ],
+            "ci95_half_width": 1.27
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 782.0,
+            "sd": 142.0,
+            "min": 681,
+            "max": 882,
+            "ci95": [
+              -496.0,
+              2059.0
+            ],
+            "ci95_half_width": 1277.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 1691,
+            "sd": 13.0,
+            "min": 1682,
+            "max": 1700,
+            "ci95": [
+              1577.0,
+              1805.0
+            ],
+            "ci95_half_width": 114.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 712.4,
+            "sd": 4.9,
+            "min": 708.9,
+            "max": 715.9,
+            "ci95": [
+              667.9,
+              756.9
+            ],
+            "ci95_half_width": 44.5
+          },
+          "model_memory_gb": 5.814,
+          "gpu_offload_pct": 63,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1954.0,
+            "sd": 228.0,
+            "min": 1792.0,
+            "max": 2115.0,
+            "ci95": [
+              -99.0,
+              4006.0
+            ],
+            "ci95_half_width": 2053.0
+          }
+        },
+        "8192": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 9.74,
+            "sd": 0.17,
+            "min": 9.62,
+            "max": 9.86,
+            "ci95": [
+              8.21,
+              11.27
+            ],
+            "ci95_half_width": 1.53
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 1219,
+            "sd": 263.0,
+            "min": 1033,
+            "max": 1405,
+            "ci95": [
+              -1145.0,
+              3583.0
+            ],
+            "ci95_half_width": 2364.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 3532.0,
+            "sd": 9.0,
+            "min": 3526,
+            "max": 3539,
+            "ci95": [
+              3450.0,
+              3615.0
+            ],
+            "ci95_half_width": 83.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 656.1,
+            "sd": 1.8,
+            "min": 654.8,
+            "max": 657.4,
+            "ci95": [
+              639.6,
+              672.6
+            ],
+            "ci95_half_width": 16.5
+          },
+          "model_memory_gb": 6.101,
+          "gpu_offload_pct": 54,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1890.0,
+            "sd": 318.0,
+            "min": 1665.0,
+            "max": 2115.0,
+            "ci95": [
+              -970.0,
+              4750.0
+            ],
+            "ci95_half_width": 2860.0
+          }
+        },
+        "16384": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 6.88,
+            "sd": 0.23,
+            "min": 6.72,
+            "max": 7.05,
+            "ci95": [
+              4.79,
+              8.98
+            ],
+            "ci95_half_width": 2.1
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 2054.0,
+            "sd": 462.0,
+            "min": 1727,
+            "max": 2380,
+            "ci95": [
+              -2096.0,
+              6203.0
+            ],
+            "ci95_half_width": 4150.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 8030,
+            "sd": 59.0,
+            "min": 7988,
+            "max": 8072,
+            "ci95": [
+              7496.0,
+              8564.0
+            ],
+            "ci95_half_width": 534.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 569.0,
+            "sd": 4.2,
+            "min": 566.0,
+            "max": 572.0,
+            "ci95": [
+              530.9,
+              607.1
+            ],
+            "ci95_half_width": 38.1
+          },
+          "model_memory_gb": 6.234,
+          "gpu_offload_pct": 48,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 2104.0,
+            "sd": 5.0,
+            "min": 2100.0,
+            "max": 2107.0,
+            "ci95": [
+              2059.0,
+              2148.0
+            ],
+            "ci95_half_width": 44.0
+          }
+        }
+      }
+    },
+    "Gemma 4 12B (Unsloth IQ3_XXS)": {
+      "date": "2026-09-25",
+      "reason": "Débordement CPU important sur cette machine (27 à 52 % du modèle hors GPU selon le contexte, au plus 13 tok/s à 8K et 11 tok/s à 16K) : test complet jugé irréaliste pour des cas d'usage courants.",
+      "protocol": {
+        "runs": 2,
+        "output_tokens": 256,
+        "temperature": 0.7,
+        "thinking": false,
+        "cooldown_temp_c": 65.0
+      },
+      "max_validated_ctx": 16384,
+      "by_context": {
+        "2048": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 14.46,
+            "sd": 0.26,
+            "min": 14.27,
+            "max": 14.64,
+            "ci95": [
+              12.1,
+              16.81
+            ],
+            "ci95_half_width": 2.35
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 554,
+            "sd": 25.0,
+            "min": 536,
+            "max": 572,
+            "ci95": [
+              325.0,
+              783.0
+            ],
+            "ci95_half_width": 229.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 1106.0,
+            "sd": 23.0,
+            "min": 1090,
+            "max": 1123,
+            "ci95": [
+              897.0,
+              1316.0
+            ],
+            "ci95_half_width": 210.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 543.1,
+            "sd": 7.8,
+            "min": 537.6,
+            "max": 548.6,
+            "ci95": [
+              473.2,
+              613.0
+            ],
+            "ci95_half_width": 69.9
+          },
+          "model_memory_gb": 5.348,
+          "gpu_offload_pct": 73,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1290.0,
+            "sd": 148.0,
+            "min": 1185.0,
+            "max": 1395.0,
+            "ci95": [
+              -45.0,
+              2625.0
+            ],
+            "ci95_half_width": 1335.0
+          }
+        },
+        "4096": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 13.76,
+            "sd": 0.04,
+            "min": 13.73,
+            "max": 13.79,
+            "ci95": [
+              13.38,
+              14.14
+            ],
+            "ci95_half_width": 0.38
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 566.0,
+            "sd": 1.0,
+            "min": 565,
+            "max": 566,
+            "ci95": [
+              559.0,
+              572.0
+            ],
+            "ci95_half_width": 6.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 1830,
+            "sd": 18.0,
+            "min": 1817,
+            "max": 1843,
+            "ci95": [
+              1665.0,
+              1995.0
+            ],
+            "ci95_half_width": 165.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 636.9,
+            "sd": 6.1,
+            "min": 632.6,
+            "max": 641.2,
+            "ci95": [
+              582.2,
+              691.6
+            ],
+            "ci95_half_width": 54.7
+          },
+          "model_memory_gb": 5.358,
+          "gpu_offload_pct": 73,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1200.0,
+            "sd": 0.0,
+            "min": 1200.0,
+            "max": 1200.0,
+            "ci95": [
+              1200.0,
+              1200.0
+            ],
+            "ci95_half_width": 0.0
+          }
+        },
+        "8192": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 12.65,
+            "sd": 0.07,
+            "min": 12.6,
+            "max": 12.7,
+            "ci95": [
+              12.01,
+              13.29
+            ],
+            "ci95_half_width": 0.64
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 634.0,
+            "sd": 23.0,
+            "min": 617,
+            "max": 650,
+            "ci95": [
+              424.0,
+              843.0
+            ],
+            "ci95_half_width": 210.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 3284.0,
+            "sd": 9.0,
+            "min": 3278,
+            "max": 3291,
+            "ci95": [
+              3202.0,
+              3367.0
+            ],
+            "ci95_half_width": 83.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 695.9,
+            "sd": 2.1,
+            "min": 694.4,
+            "max": 697.4,
+            "ci95": [
+              676.8,
+              715.0
+            ],
+            "ci95_half_width": 19.1
+          },
+          "model_memory_gb": 5.373,
+          "gpu_offload_pct": 71,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 952.0,
+            "sd": 21.0,
+            "min": 937.0,
+            "max": 967.0,
+            "ci95": [
+              761.0,
+              1143.0
+            ],
+            "ci95_half_width": 191.0
+          }
+        },
+        "16384": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 11.42,
+            "sd": 0.14,
+            "min": 11.32,
+            "max": 11.52,
+            "ci95": [
+              10.15,
+              12.69
+            ],
+            "ci95_half_width": 1.27
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 690.0,
+            "sd": 6.0,
+            "min": 686,
+            "max": 695,
+            "ci95": [
+              633.0,
+              748.0
+            ],
+            "ci95_half_width": 57.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 6300.0,
+            "sd": 4.0,
+            "min": 6298,
+            "max": 6303,
+            "ci95": [
+              6269.0,
+              6332.0
+            ],
+            "ci95_half_width": 32.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 722.2,
+            "sd": 0.4,
+            "min": 722.0,
+            "max": 722.5,
+            "ci95": [
+              719.1,
+              725.4
+            ],
+            "ci95_half_width": 3.2
+          },
+          "model_memory_gb": 5.379,
+          "gpu_offload_pct": 69,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 851.0,
+            "sd": 239.0,
+            "min": 682.0,
+            "max": 1020.0,
+            "ci95": [
+              -1297.0,
+              2999.0
+            ],
+            "ci95_half_width": 2148.0
+          }
+        }
+      }
+    },
+    "Ministral 3 14B (Unsloth IQ2_M)": {
+      "date": "2026-09-25",
+      "reason": "Débordement CPU important sur cette machine (27 à 52 % du modèle hors GPU selon le contexte, au plus 13 tok/s à 8K et 11 tok/s à 16K) : test complet jugé irréaliste pour des cas d'usage courants.",
+      "protocol": {
+        "runs": 2,
+        "output_tokens": 256,
+        "temperature": 0.7,
+        "thinking": false,
+        "cooldown_temp_c": 65.0
+      },
+      "max_validated_ctx": 16384,
+      "by_context": {
+        "2048": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 18.75,
+            "sd": 0.21,
+            "min": 18.6,
+            "max": 18.89,
+            "ci95": [
+              16.9,
+              20.59
+            ],
+            "ci95_half_width": 1.84
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 235,
+            "sd": 4.0,
+            "min": 232,
+            "max": 238,
+            "ci95": [
+              197.0,
+              273.0
+            ],
+            "ci95_half_width": 38.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 1638.0,
+            "sd": 1.0,
+            "min": 1637,
+            "max": 1638,
+            "ci95": [
+              1631.0,
+              1644.0
+            ],
+            "ci95_half_width": 6.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 755.0,
+            "sd": 2.6,
+            "min": 753.1,
+            "max": 756.8,
+            "ci95": [
+              731.4,
+              778.5
+            ],
+            "ci95_half_width": 23.5
+          },
+          "model_memory_gb": 5.071,
+          "gpu_offload_pct": 79,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1684.0,
+            "sd": 16.0,
+            "min": 1672.0,
+            "max": 1695.0,
+            "ci95": [
+              1537.0,
+              1830.0
+            ],
+            "ci95_half_width": 146.0
+          }
+        },
+        "4096": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 13.17,
+            "sd": 0.04,
+            "min": 13.14,
+            "max": 13.2,
+            "ci95": [
+              12.79,
+              13.55
+            ],
+            "ci95_half_width": 0.38
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 296,
+            "sd": 0.0,
+            "min": 296,
+            "max": 296,
+            "ci95": [
+              296.0,
+              296.0
+            ],
+            "ci95_half_width": 0.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 2518.0,
+            "sd": 4.0,
+            "min": 2516,
+            "max": 2521,
+            "ci95": [
+              2487.0,
+              2550.0
+            ],
+            "ci95_half_width": 32.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 727.6,
+            "sd": 0.4,
+            "min": 727.4,
+            "max": 727.9,
+            "ci95": [
+              724.5,
+              730.8
+            ],
+            "ci95_half_width": 3.2
+          },
+          "model_memory_gb": 5.4,
+          "gpu_offload_pct": 73,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 1170.0,
+            "sd": 127.0,
+            "min": 1080.0,
+            "max": 1260.0,
+            "ci95": [
+              26.0,
+              2314.0
+            ],
+            "ci95_half_width": 1144.0
+          }
+        },
+        "8192": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 8.63,
+            "sd": 0.02,
+            "min": 8.62,
+            "max": 8.65,
+            "ci95": [
+              8.44,
+              8.83
+            ],
+            "ci95_half_width": 0.19
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 404.0,
+            "sd": 4.0,
+            "min": 401,
+            "max": 406,
+            "ci95": [
+              372.0,
+              435.0
+            ],
+            "ci95_half_width": 32.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 4470.0,
+            "sd": 4.0,
+            "min": 4467,
+            "max": 4472,
+            "ci95": [
+              4438.0,
+              4501.0
+            ],
+            "ci95_half_width": 32.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 675.7,
+            "sd": 0.1,
+            "min": 675.6,
+            "max": 675.7,
+            "ci95": [
+              675.0,
+              676.3
+            ],
+            "ci95_half_width": 0.6
+          },
+          "model_memory_gb": 6.021,
+          "gpu_offload_pct": 65,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 798.0,
+            "sd": 90.0,
+            "min": 735.0,
+            "max": 862.0,
+            "ci95": [
+              -9.0,
+              1606.0
+            ],
+            "ci95_half_width": 807.0
+          }
+        },
+        "16384": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 5.42,
+            "sd": 0.22,
+            "min": 5.26,
+            "max": 5.57,
+            "ci95": [
+              3.44,
+              7.39
+            ],
+            "ci95_half_width": 1.97
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 640.0,
+            "sd": 77.0,
+            "min": 585,
+            "max": 694,
+            "ci95": [
+              -53.0,
+              1332.0
+            ],
+            "ci95_half_width": 693.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 9185,
+            "sd": 3.0,
+            "min": 9183,
+            "max": 9187,
+            "ci95": [
+              9160.0,
+              9210.0
+            ],
+            "ci95_half_width": 25.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 589.4,
+            "sd": 0.2,
+            "min": 589.2,
+            "max": 589.5,
+            "ci95": [
+              587.4,
+              591.3
+            ],
+            "ci95_half_width": 1.9
+          },
+          "model_memory_gb": 7.28,
+          "gpu_offload_pct": 54,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 465.0,
+            "sd": 21.0,
+            "min": 450.0,
+            "max": 480.0,
+            "ci95": [
+              274.0,
+              656.0
+            ],
+            "ci95_half_width": 191.0
+          }
+        }
+      }
+    },
+    "Granite 4.2 8B": {
+      "date": "2026-09-25",
+      "reason": "Débordement CPU important sur cette machine (27 à 52 % du modèle hors GPU selon le contexte, au plus 13 tok/s à 8K et 11 tok/s à 16K) : test complet jugé irréaliste pour des cas d'usage courants.",
+      "protocol": {
+        "runs": 2,
+        "output_tokens": 256,
+        "temperature": 0.7,
+        "thinking": false,
+        "cooldown_temp_c": 65.0
+      },
+      "max_validated_ctx": 16384,
+      "by_context": {
+        "2048": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 20.2,
+            "sd": 0.06,
+            "min": 20.16,
+            "max": 20.24,
+            "ci95": [
+              19.69,
+              20.71
+            ],
+            "ci95_half_width": 0.51
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 206,
+            "sd": 17.0,
+            "min": 194,
+            "max": 218,
+            "ci95": [
+              53.0,
+              359.0
+            ],
+            "ci95_half_width": 153.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 787,
+            "sd": 1.0,
+            "min": 786,
+            "max": 788,
+            "ci95": [
+              774.0,
+              800.0
+            ],
+            "ci95_half_width": 13.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 769.0,
+            "sd": 4.5,
+            "min": 765.8,
+            "max": 772.2,
+            "ci95": [
+              728.3,
+              809.7
+            ],
+            "ci95_half_width": 40.7
+          },
+          "model_memory_gb": 5.41,
+          "gpu_offload_pct": 73,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 870.0,
+            "sd": 0.0,
+            "min": 870.0,
+            "max": 870.0,
+            "ci95": [
+              870.0,
+              870.0
+            ],
+            "ci95_half_width": 0.0
+          }
+        },
+        "4096": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 15.98,
+            "sd": 0.18,
+            "min": 15.85,
+            "max": 16.1,
+            "ci95": [
+              14.39,
+              17.56
+            ],
+            "ci95_half_width": 1.59
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 264.0,
+            "sd": 22.0,
+            "min": 248,
+            "max": 279,
+            "ci95": [
+              66.0,
+              461.0
+            ],
+            "ci95_half_width": 197.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 1470.0,
+            "sd": 4.0,
+            "min": 1468,
+            "max": 1473,
+            "ci95": [
+              1439.0,
+              1502.0
+            ],
+            "ci95_half_width": 32.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 792.5,
+            "sd": 2.0,
+            "min": 791.1,
+            "max": 793.9,
+            "ci95": [
+              774.7,
+              810.3
+            ],
+            "ci95_half_width": 17.8
+          },
+          "model_memory_gb": 5.735,
+          "gpu_offload_pct": 69,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 592.0,
+            "sd": 0.0,
+            "min": 592.0,
+            "max": 592.0,
+            "ci95": [
+              592.0,
+              592.0
+            ],
+            "ci95_half_width": 0.0
+          }
+        },
+        "8192": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 10.99,
+            "sd": 0.04,
+            "min": 10.96,
+            "max": 11.02,
+            "ci95": [
+              10.61,
+              11.37
+            ],
+            "ci95_half_width": 0.38
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 370,
+            "sd": 41.0,
+            "min": 341,
+            "max": 399,
+            "ci95": [
+              1.0,
+              739.0
+            ],
+            "ci95_half_width": 369.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 2940.0,
+            "sd": 2.0,
+            "min": 2939,
+            "max": 2942,
+            "ci95": [
+              2921.0,
+              2960.0
+            ],
+            "ci95_half_width": 19.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 775.4,
+            "sd": 0.7,
+            "min": 774.9,
+            "max": 775.9,
+            "ci95": [
+              769.0,
+              781.8
+            ],
+            "ci95_half_width": 6.4
+          },
+          "model_memory_gb": 6.368,
+          "gpu_offload_pct": 63,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 472.0,
+            "sd": 32.0,
+            "min": 450.0,
+            "max": 495.0,
+            "ci95": [
+              187.0,
+              758.0
+            ],
+            "ci95_half_width": 286.0
+          }
+        },
+        "16384": {
+          "tokens_per_second": {
+            "n": 2,
+            "mean": 7.22,
+            "sd": 0.1,
+            "min": 7.15,
+            "max": 7.29,
+            "ci95": [
+              6.33,
+              8.11
+            ],
+            "ci95_half_width": 0.89
+          },
+          "time_to_first_token_ms": {
+            "n": 2,
+            "mean": 522.0,
+            "sd": 54.0,
+            "min": 483,
+            "max": 560,
+            "ci95": [
+              32.0,
+              1011.0
+            ],
+            "ci95_half_width": 489.0
+          },
+          "ttft_full_prompt_ms": {
+            "n": 2,
+            "mean": 6701,
+            "sd": 6.0,
+            "min": 6697,
+            "max": 6705,
+            "ci95": [
+              6650.0,
+              6752.0
+            ],
+            "ci95_half_width": 51.0
+          },
+          "prefill_tokens_per_second": {
+            "n": 2,
+            "mean": 676.2,
+            "sd": 0.6,
+            "min": 675.8,
+            "max": 676.7,
+            "ci95": [
+              670.5,
+              682.0
+            ],
+            "ci95_half_width": 5.7
+          },
+          "model_memory_gb": 7.652,
+          "gpu_offload_pct": 51,
+          "gpu_clock_mhz": {
+            "n": 2,
+            "mean": 394.0,
+            "sd": 5.0,
+            "min": 390.0,
+            "max": 397.0,
+            "ci95": [
+              349.0,
+              438.0
+            ],
+            "ci95_half_width": 44.0
+          }
+        }
       }
     }
   }
