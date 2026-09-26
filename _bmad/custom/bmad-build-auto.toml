@@ -1,0 +1,12 @@
+# Override d'équipe pour bmad-build-auto (versionné).
+# Contraintes du dépôt, rappelées à chaque story : la série de nuit tourne sans surveillance.
+
+[workflow]
+persistent_facts = [
+  "Seuil de taille des specs pour ce projet : n'ajouter l'avertissement `oversized` au frontmatter (step-02) que si la spec dépasse 4000 tokens, au lieu de 1600. La règle « un seul objectif » reste inchangée.",
+  "Ne jamais modifier scripts/benchmark_slm.py, benchmarks/ ni l'environnement Python du benchmark (.venv) : les résultats publiés en dépendent. L'app se teste dans .venv-app.",
+  "Aucun test ne doit exiger Ollama, une clé d'API, un téléchargement de modèle ou le réseau : providers simulés et streamlit.testing.v1.AppTest. Les parcours navigateur portent le marqueur pytest `e2e` et sont exclus par défaut.",
+  "Ne jamais écrire dans la collection Chroma réelle (data/chroma) : les tests utilisent un répertoire temporaire.",
+  "Textes d'interface en français. Aucun test désactivé, sauté ou affaibli pour faire passer une story.",
+  "file:docs/audits/frontend-2026-09/SYNTHESE.md",
+]
