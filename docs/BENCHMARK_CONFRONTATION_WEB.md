@@ -33,9 +33,7 @@ Verdicts : **cohérent** · **écart à expliquer** · **donnée nouvelle** (rie
 2. **Le poste n'exploite pas toute son avance de bande passante sur la tour** : il est 1,13 à 1,31 fois plus rapide, pour 1,50 fois plus de bande passante. C'est un écart à expliquer. La piste privilégiée est un coût fixe par token (processeur, limite de puissance du GPU portable), plus lourd sur les petits modèles.
 3. **Les scores de qualité suivent l'ordre attendu** : les plus petits modèles sont en bas, les familles gardent leur hiérarchie, et la quantification IQ2 pénalise plus que l'IQ3. À température 0, le poste et la tour donnent le même raisonnement pour 16 modèles sur 22. Les autres écarts, d'une ou deux questions, correspondent à un non-déterminisme entre GPU que la littérature récente documente.
 4. **La plupart des modèles récents n'ont aucune mesure publiée sur ce type de matériel** : Ling 3.0 Tiny, MiniCPM5, LFM 2.5, Gemma 4 E2B et E4B, Granite 4.2, OLMo 3. Ce sont des **données nouvelles**. C'est aussi le cas des courbes de vitesse par palier de contexte sur 6 Go de VRAM.
-5. **Deux effets de mesure ne semblent documentés nulle part** :
-   - la chute du débit d'inférence d'un facteur 2 à 4 quand Windows passe en veille moderne, écran éteint ;
-   - le débit bimodal de trois modèles à température 0 sur le portable.
+5. **Un effet de mesure ne semble documenté nulle part** : la chute du débit d'inférence d'un facteur 2 à 4 quand Windows passe en veille moderne, écran éteint. Le débit bimodal de trois modèles sur le portable, d'abord classé parmi les effets nouveaux, s'explique par un mécanisme connu : la limite de puissance du GPU portable change d'une génération à l'autre (§4).
 
    Les autres effets (générations courtes, dispersion à 2 exécutions, profils constructeur) sont connus, et nos correctifs vont dans le sens des bonnes pratiques.
 
@@ -140,17 +138,24 @@ Nos suites sont courtes : 14 questions de raisonnement et 8 consignes de suivi d
 | **Profils Armoury Crate** : bridage à 88 °C en Performance ; en Turbo, fréquence plafonnée mais meilleur débit | Principe connu (arbitrage entre puissance, température et fréquence), rien de chiffré pour ce modèle ou pour l'inférence | **Partiellement connu** |
 | **Générations courtes** : 274 tok/s calculés sur 3 tokens pour un modèle qui en fait environ 230 | `llama-bench` génère 128 tokens, répète 5 fois et préchauffe par défaut — [README llama-bench](https://github.com/ggml-org/llama.cpp/blob/master/tools/llama-bench/README.md) ✔ | **Connu.** Notre seuil de 32 tokens va dans le même sens, en moins strict. |
 | **Dispersion à 2 exécutions** : IC95 de ±20 à 40 % pour 5 % d'écart réel | Propriété statistique connue (coefficient de Student de 12,7 à n=2). La référence de fait, `llama-bench`, répète 5 fois. | **Connu** |
-| **Débit bimodal à température 0** (Qwen 3.5 4B, Ministral 3 3B, MiniCPM5 2B, sur le portable seulement) | Rien trouvé | **Apparemment nouveau** |
+| **Débit bimodal en standard** (Qwen 3.5 4B, Ministral 3 3B, MiniCPM5 2B, sur le portable seulement) | NVIDIA documente Dynamic Boost, qui déplace de la puissance entre CPU et GPU selon la charge, sur secteur seulement — [README du pilote NVIDIA](https://download.nvidia.com/XFree86/Linux-x86_64/535.98/README/dynamicboost.html) ✔. Aucune source ne chiffre l'effet sur l'inférence. | **Mécanisme connu**, effet chiffré ici |
 
-**Pistes pour le débit bimodal**, de la plus à la moins plausible :
-1. **L'échantillonnage.** La bimodalité n'apparaît qu'en décodage glouton (température 0) et disparaît avec l'échantillonnage de l'éditeur. Le chemin de calcul côté CPU diffère entre ces deux modes, sur un processeur plus lent que celui de la tour. C'est notre hypothèse ; aucune source ne la documente.
-2. **Deux paliers de fonctionnement du GPU sous sa limite de puissance.** Notre relevé de fréquence, un par palier, est trop grossier pour les voir.
-3. **Un changement de noyau CUDA ou de capture de graphe d'une exécution à l'autre.**
+**Cause du débit bimodal** (tests du 26/09, poste au repos, sur secteur, en Turbo) :
+- **Ce n'est pas l'échantillonnage.** La mesure de vitesse du protocole standard tourne à température 0,7, pas 0. En dehors de la campagne, température 0, température 0,7 et paramètres de l'éditeur, avec ou sans raisonnement, donnent tous 72 à 74,6 tok/s sur Qwen 3.5 4B (78 générations, 38 chargements).
+- **C'est la limite de puissance du GPU.** Rejouée à l'identique, la campagne standard reproduit les deux régimes. Relevé `nvidia-smi` à 100 ms, les 18 générations mesurées se rangent sans exception :
 
-Tests proposés pour trancher, sur un même modèle :
-- **(a)** Relever `nvidia-smi --query-gpu=clocks.sm,power.draw,pstate,clocks_event_reasons.active --format=csv -lms 100` pendant les deux régimes.
-- **(b)** Comparer la température 0 à la température 0,7, sans raisonnement.
-- **(c)** Mesurer avec `llama-bench -r 10`, qui n'échantillonne pas comme Ollama.
+  | Régime | Plafond de puissance | Fréquence SM au plafond | Qwen 3.5 4B | MiniCPM5 2B |
+  |---|---|---|---|---|
+  | Lent | 80 W | 1 200 à 1 280 MHz | 61 à 62 tok/s | 113 à 120 tok/s |
+  | Rapide | 90 à 95 W | 1 480 à 1 600 MHz | 71 à 73 tok/s | 128 à 132 tok/s |
+
+  Le motif de bridage est le même dans les deux cas (`0x4`, limite de puissance logicielle) : c'est le plafond qui change. 80 W correspondent vraisemblablement à la puissance de base du GPU, et les 15 W au-dessus à Dynamic Boost.
+- **Le logiciel est hors de cause.** Entre un palier lent et un palier rapide, le serveur d'Ollama est lancé avec les mêmes arguments, les mêmes paramètres d'échantillonnage et le même placement mémoire, et réutilise autant de graphes CUDA. Son propre chronométrage donne 61,05 contre 70,83 tok/s. Le test (c) avec `llama-bench` n'apporterait rien de plus : il tournerait sous le même plafond.
+- **Le relevé du benchmark ne pouvait pas le voir.** `gpu_clock_mhz` est lu après la génération, sur un GPU déjà revenu au repos à 2,1 GHz. D'où la mention erronée de « fréquences hautes et stables » dans les résultats de la campagne.
+
+Reste ouvert : ce qui fait tomber le plafond à 80 W. Une charge sur 8 cœurs CPU ne l'abaisse qu'à 90 W (−3 % de débit). Les mesures isolées restent à 95 W. Seul l'enchaînement de la campagne standard (tests fonctionnels, recherche d'aiguille, rechargements du modèle toutes les dix secondes environ) le fait descendre à 80 W.
+
+Depuis, `benchmark_slm.py` relève la puissance et la fréquence pendant chaque génération (`gpu_power_plateau_w`, `gpu_sm_clock_gen_mhz`). Il avertit quand le plafond varie de plus de 5 W entre les générations d'un même modèle.
 
 ---
 
@@ -158,7 +163,7 @@ Tests proposés pour trancher, sur un même modèle :
 
 - **Répétitions** : passer à 3 exécutions en standard, ou publier la médiane, pour que les intervalles de vitesse deviennent exploitables. `llama-bench` en fait 5.
 - **Versions** : aligner la version d'Ollama sur les trois machines, pour réduire les écarts de qualité à température 0.
-- **Débit bimodal** : lancer les tests (a) à (c).
+- **Débit bimodal** : cause identifiée (§4). Deux options, à trancher : désactiver Dynamic Boost pendant les campagnes, pour un débit stable mais plus bas, ou remesurer les modèles signalés par le nouvel avertissement. Le réglage existe dans le panneau de configuration NVIDIA d'après la [page d'aide NVIDIA](https://nvidia.custhelp.com/app/answers/detail/a_id/5087/~/how-to-enable-or-disable-dynamic-boost-in-the-nvidia-control-panel) (non relue : accès refusé) ; sa présence sur ce portable reste à vérifier.
 - **OLMo 3 7B** : vérifier la variante servie par `olmo-3:7b`.
 - **Diffusion** : publier les mesures signalées comme données nouvelles, qui n'ont pas d'équivalent public connu. Il s'agit de Ling 3.0 Tiny, MiniCPM5, LFM 2.5, Gemma 4 E2B et E4B, Granite 4.2, du 1-bit sur CPU, et des courbes de débordement sur 6 Go.
 
@@ -172,6 +177,7 @@ Relues le 26/09 (✔) :
 - [Firethering, Bonsai 8B (chiffres PrismML)](https://firethering.com/bonsai-8b-1bit-llm/)
 - [README de llama-bench](https://github.com/ggml-org/llama.cpp/blob/master/tools/llama-bench/README.md)
 - [Microsoft Learn, System Sleep Criteria](https://learn.microsoft.com/en-us/windows/win32/power/system-sleep-criteria)
+- [NVIDIA, README du pilote Linux 535.98, « Dynamic Boost on Linux »](https://download.nvidia.com/XFree86/Linux-x86_64/535.98/README/dynamicboost.html)
 - [Cooper et al., « Accelerating the Mitigation of LLM Inference Nondeterminism Across GPU Architectures », arXiv 2609.25624, septembre 2026](https://arxiv.org/html/2609.25624)
 - [Thinking Machines, « Defeating Nondeterminism in LLM Inference », septembre 2025](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/)
 - Mesure locale : `nvidia-smi -q -d CLOCK` sur le poste (fréquence mémoire maximale de 7001 MHz)

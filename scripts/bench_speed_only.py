@@ -54,7 +54,8 @@ def measure(tag: str, contexts: list[int], args: argparse.Namespace) -> dict[int
             bs.logger.info(f"      ⚡ {ctx} : {bench['tokens_per_second']} tok/s | "
                            f"TTFT {bench['time_to_first_token_ms']}ms "
                            f"(prompt complet {bench['ttft_full_prompt_ms']}ms) | "
-                           f"GPU {bench['gpu_offload_pct']}% {bench['gpu_clock_mhz']:.0f}MHz")
+                           f"GPU {bench['gpu_offload_pct']}% {bench['gpu_sm_clock_gen_mhz']:.0f}MHz "
+                           f"sous {bench['gpu_power_plateau_w']:.0f}W")
             if bench.get("swap_delta_gb", 0) > bs.SWAP_DELTA_THRESHOLD_GB:
                 bs.logger.warning("      📉 SWAP disque détecté : paliers suivants abandonnés")
                 break
@@ -74,6 +75,7 @@ def summarize(by_ctx: dict[int, list[dict]], args: argparse.Namespace) -> dict:
             "model_memory_gb": max(r["model_memory_gb"] for r in runs),
             "gpu_offload_pct": min(r["gpu_offload_pct"] for r in runs),
             "gpu_clock_mhz": bs.dispersion([r["gpu_clock_mhz"] for r in runs], digits=0),
+            "gpu_power_plateau_w": bs.dispersion([r["gpu_power_plateau_w"] for r in runs], digits=0),
         }
     return {
         "date": datetime.now().strftime("%Y-%m-%d"),
