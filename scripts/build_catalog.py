@@ -17,6 +17,26 @@ CATALOG = ROOT / "config" / "models_catalog.json"
 KEEP = ("ollama_tag", "type", "editor", "size_gb", "params_tot", "params_act",
         "ctx", "capabilities", "role", "desc")
 
+LING_MODELFILE = (
+    'TEMPLATE """<role>SYSTEM</role>{{ if .System }}{{ .System }}\n'
+    "{{ end }}detailed thinking {{ if .Think }}on{{ else }}off{{ end }}<|role_end|>\n"
+    "{{- range $i, $_ := .Messages }}\n"
+    '{{- if eq .Role "user" }}<role>HUMAN</role>{{ .Content }}<|role_end|>\n'
+    '{{- else if eq .Role "assistant" }}<role>ASSISTANT</role>\n'
+    "{{ if .Thinking }}<think>{{ .Thinking }}</think>{{ else }}<think></think>{{ end }}"
+    "{{ .Content }}<|role_end|>\n"
+    '{{- else if eq .Role "tool" }}<role>OBSERVATION</role>\n'
+    "<tool_response>\n{{ .Content }}\n</tool_response><|role_end|>\n"
+    "{{- end }}\n"
+    "{{- end }}<role>ASSISTANT</role>\n"
+    '{{ if .Think }}<think>{{ else }}<think></think>{{ end }}"""\n'
+    'PARAMETER stop "<|role_end|>"\n'
+    'PARAMETER stop "<|endoftext|>"\n'
+    "PARAMETER temperature 1.0\n"
+    "PARAMETER top_p 0.95\n"
+    "PARAMETER top_k 20"
+)
+
 # Modèles absents de la bibliothèque Ollama : Ollama 0.34 refuse la redirection
 # du CDN Hugging Face ("blocked redirect to a different host"). On télécharge
 # donc le GGUF puis on l'importe avec le gabarit d'un modèle officiel voisin.
@@ -64,6 +84,21 @@ HF_FALLBACK = {
             "PARAMETER temperature 1.0\n"
             "PARAMETER top_p 0.95"
         ),
+    },
+    # Ling 3.0 Tiny : gabarit transcrit du chat_template.jinja d'inclusionAI.
+    # « detailed thinking on/off » dans le message système pilote le raisonnement.
+    "ling3-tiny:8b-q4_k_m": {
+        "repo": "inclusionAI/Ling-3.0-tiny-GGUF",
+        "file": "Ling-3.0-tiny-Q4_K_M.gguf",
+        "modelfile": LING_MODELFILE,
+    },
+    # Même fichier IQ4_XS que sur les machines à 6 Go de VRAM, pour comparer
+    # le matériel à quantification égale. GGUF postérieur au 17/08/2026 : les
+    # conversions antérieures (arch bailing-hybrid) ne se chargent pas.
+    "ling3-tiny:8b-iq4_xs": {
+        "repo": "bartowski/Ling-3.0-tiny-GGUF",
+        "file": "Ling-3.0-tiny-IQ4_XS.gguf",
+        "modelfile": LING_MODELFILE,
     },
 }
 
