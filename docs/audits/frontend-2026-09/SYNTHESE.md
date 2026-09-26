@@ -57,6 +57,8 @@ Quand les deux audits divergent, la gravité la plus haute l'emporte. La colonne
 | ID | Constat | Gravité | Vu sur | Origine | Story |
 |---|---|---|---|---|---|
 | E1 | Installation non reproductible. Aucune version figée, des doublons dans `requirements.txt`, et le `.venv` documenté ne lance pas l'app sur `poste-rtx3060`. Ragas est cassé ou non selon les versions (§2) | bloquant | les deux | rtx:F0, rtx:F2 (cause 1) | 1 |
+| E2 | La CI ne tourne jamais. `.github/workflows/tests.yml` ne se déclenche que sur `main` et `develop`, alors que la branche est `master`, et ses étapes de lint sont en `continue-on-error`. Seuls les déploiements Pages apparaissent dans `gh run list` | majeur | dépôt | synthèse | 1 |
+| E3 | 4 tests de `tests/unit` échouent sur `master` (`3dfdfda`). `test_inference_reelle_ollama` appelle le vrai Ollama (`qwen2.5:1.5b`) ; `test_get_langchain_model_mistral` et `test_pull_model_cloud_raises_error` ont des cibles de `patch` qui ne correspondent plus au code ; `test_get_all_languages` dépend du `data/models.json` local | majeur | elite | synthèse | 1 |
 | F1 | Import de documents RAG factice : `time.sleep` à la place de l'ingestion, puis « Indexation terminée avec succès ! » | bloquant | les deux | rtx:F1, elite:F-03 | 4 |
 | F2 | Benchmark RAG à 0/100 affiché comme un succès quand Ragas est indisponible | majeur | rtx | rtx:F2 (cause 2) | 5 |
 | F3 | Timeout d'inférence affiché comme une trace Python (`'NoneType' … 'output_tokens'`) : chat, labo et arena ne testent pas `result.error` | majeur | rtx (arena) | rtx:F3 | 5 |
@@ -114,7 +116,7 @@ C'est l'ordre d'exécution proposé pour la *Story Breakdown* de `bmad-spec`. **
 
 | id | Titre | Constats | Taille | Dépend de |
 |---|---|---|---|---|
-| 1 | Socle : installation figée, serveur local, banc de test sans Ollama | E1, F8 | M | — |
+| 1 | Socle : installation figée, serveur local, CI active, tests au vert sans Ollama | E1, E2, E3, F8 | M | — |
 | 2 | Thème Wavestone, icônes et accessibilité | U1–U7, U18, F14 | L | 1 |
 | 3 | Vocabulaire, rédaction et formats `fr-FR` | U8–U10 | M | 1 |
 | 4 | Ingestion RAG réelle | F1, F12 | M | 2, 3 |
@@ -134,6 +136,12 @@ Les stories 4 à 10 touchent souvent les mêmes fichiers (`arena.py`, `chat.py`,
    - Écrire un fichier de contraintes pour l'app, sans toucher au `.venv` du benchmark ni à `scripts/benchmark_slm.py`. La combinaison doit réussir `import ragas`, et la version de Streamlit doit supporter les réglages de thème de la story 2 : le vérifier dans la documentation de cette version, pas de mémoire. Supprimer les doublons de `requirements.txt`.
    - Créer `.streamlit/config.toml` avec `server.address = "localhost"` et documenter l'ouverture au réseau (D5).
    - Poser le banc de test : `streamlit.testing.v1.AppTest` sur les 5 pages, avec un `LLMProvider` simulé, dans `tests/app/`. Déclarer le marqueur `e2e`.
+   - Remettre `tests/unit` au vert dans un environnement sans Ollama ni `data/` (E3). Corriger la cible ou le marqueur, jamais l'assertion :
+     - `test_inference_reelle_ollama` passe en `integration` ;
+     - les deux tests de `test_llm_provider.py` patchent ce que le code appelle réellement (`LLMProvider._is_mistral_api_model`, et `ChatMistralAI` là où `mistral_provider` l'importe) ;
+     - `test_get_all_languages` reçoit un catalogue de test au lieu du `data/models.json` local.
+     - Si d'autres tests échouent dans la VM pour une raison d'environnement, même traitement, avec la raison dans le rapport de nuit.
+   - Faire tourner la CI sur `master` (déclencheurs `push` et `pull_request`) avec `tests/unit` et `tests/app`. Les étapes de lint restent non bloquantes : le code existant a 18 remarques ruff et 6 fichiers que black reformaterait (versions des hooks, 2026-09-26). Sa remise en forme toucherait des fichiers importés par le benchmark, elle n'est donc pas dans cette série.
    - Mettre à jour le README et `docs/TROUBLESHOOT.md`.
 2. **Thème.**
    - Partir de `DESIGN.md` (issu de `bmad-ux`) et de l'ébauche de `poste-rtx3060/UX.md` §4 : `[theme.light]`, `[theme.dark]`, `chartCategoricalColors`, `toolbarMode`, `st.logo`.
@@ -184,7 +192,11 @@ Elles reprennent CAP-1 à CAP-7 de `poste-rtx3060`, enrichies de l'audit `pro-el
 
 - **CAP-1 Installation reproductible, app confinée.**
   - *Intent :* un environnement créé à neuf lance toutes les pages avec toutes leurs fonctions, sans rien exposer au réseau.
-  - *Success :* installation depuis le fichier de contraintes, puis `import ragas` réussit, les 5 pages passent `AppTest`, et le démarrage n'annonce que `localhost`.
+  - *Success :*
+    - installation depuis le fichier de contraintes, puis `import ragas` réussit ;
+    - les 5 pages passent `AppTest` ;
+    - `tests/unit` et `tests/app` sont verts sans Ollama ni `data/`, et la CI les exécute sur chaque PR vers `master` ;
+    - le démarrage n'annonce que `localhost`.
 - **CAP-2 Ingestion RAG réelle.**
   - *Intent :* un document importé depuis l'interface est indexé et interrogeable.
   - *Success :* après l'upload d'un `.md`, le compteur augmente, et la question du document de test obtient la bonne réponse avec sa source.
@@ -226,6 +238,7 @@ Elles reprennent CAP-1 à CAP-7 de `poste-rtx3060`, enrichies de l'audit `pro-el
 - tests unitaires et `AppTest` sans Ollama (providers simulés) ;
 - aucun téléchargement de modèle dans les tests ;
 - ne jamais écrire dans la collection Chroma réelle ;
+- corriger un test, c'est corriger sa cible, ses données ou son marqueur, jamais affaiblir son assertion ;
 - pas de framework CSS : `config.toml` et composants natifs ;
 - polices servies localement ;
 - textes d'interface en français.
@@ -234,13 +247,13 @@ Elles reprennent CAP-1 à CAP-7 de `poste-rtx3060`, enrichies de l'audit `pro-el
 - nouveaux formats d'import ;
 - nouvelles fonctionnalités d'agent ;
 - refonte de l'architecture des pages ;
-- page « Résultats de benchmark », compatibilité modèle / RAM dans la gestion des modèles, export de session (elite:N-01 à N-03, voir §6) ;
+- pour cette série : page « Résultats de benchmark », compatibilité modèle / RAM dans la gestion des modèles, export de session (elite:N-01 à N-03, voir §6) ;
 - toute modification de la v2.
 
 ## 6. Hors de la série de nuit
 
 - **F15 (112 W de CodeCarbon)** demande le portable réel et ses sondes : c'est un spike à mener sur `pro-elitebook-x360`, pas dans une VM cloud.
-- **elite:N-01 à N-03** (page de résultats de benchmark, compatibilité mémoire dans la gestion des modèles, export de session) : il faut d'abord décider si elles vont dans la v1 ou dans la v2.
+- **elite:N-01 à N-03** (page de résultats de benchmark, compatibilité mémoire dans la gestion des modèles, export de session) : la v1 accepte désormais les nouveautés qui améliorent l'UI ou l'UX (règle d'`AGENTS.md`). Ce sont donc des candidates pour une série suivante, hors de cette nuit pour en limiter la durée.
 - **La validation visuelle** du thème et du lexique (D4) et **l'exécution de la suite e2e** avec de vrais modèles se font au matin, sur une machine avec Ollama.
 
 ## 7. Correspondance des identifiants
@@ -248,6 +261,7 @@ Elles reprennent CAP-1 à CAP-7 de `poste-rtx3060`, enrichies de l'audit `pro-el
 | Synthèse | poste-rtx3060 | pro-elitebook-x360 |
 |---|---|---|
 | E1 | F0, F2 (cause 1) | — (Ragas fonctionne) |
+| E2, E3 | — | — (relevés pendant la synthèse) |
 | F1 | F1 | F-03 |
 | F2 | F2 (cause 2) | — |
 | F3 | F3 | — |

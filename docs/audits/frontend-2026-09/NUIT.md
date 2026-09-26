@@ -65,7 +65,11 @@ Préparation :
 - Crée la branche claude/fiabilisation-frontend depuis master (ou reprends-la si elle existe).
 - Environnement Python : .venv-app. Commande de tests : `.venv-app/bin/python -m pytest tests/unit -q`,
   puis, dès que la story 1 les a créés, `tests/app` et la commande qu'elle documente.
-  Lint : `ruff check src tests`.
+  Lint : `ruff check src tests`, à titre informatif (non bloquant, voir SYNTHESE.md story 1).
+- Avant la story 1, lance les tests une fois et note les échecs dans le rapport de nuit : c'est la base.
+  Sur master, 4 tests de tests/unit échouent déjà (E3) ; d'autres peuvent échouer dans la VM
+  faute d'Ollama ou de data/. La story 1 doit laisser la suite entièrement verte.
+  Pour les stories suivantes, « rouge » veut dire : un test qui passait après la story 1 échoue.
 
 Boucle, pour chaque entrée de stories.yaml, dans l'ordre :
 1. Si stories/<id>-*.md existe déjà avec status: done, passe à la suivante (reprise).
@@ -75,8 +79,8 @@ Boucle, pour chaque entrée de stories.yaml, dans l'ordre :
    « Dossier de spec : _bmad-output/specs/spec-fiabilisation-frontend — story id : <id> ».
 4. Au retour, lis le status de stories/<id>-*.md. S'il vaut done :
    - si la story a changé les dépendances, réinstalle .venv-app depuis le fichier de contraintes ;
-   - lance les tests et ruff ;
-   - si c'est vert, `git push` ;
+   - lance les tests (et ruff, pour information) ;
+   - si les tests sont verts, `git push` ;
    - si c'est rouge, tente au plus une correction dans une nouvelle invocation de bmad-build-auto
      sur la même story. Si c'est toujours rouge, `git revert` des commits de la story, pousse,
      et note « annulée : tests rouges » avec la sortie.
