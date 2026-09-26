@@ -317,6 +317,11 @@ def cmd_export(args: argparse.Namespace) -> None:
     vendor = {n: v["benchmark_stats_vendor"] for n, v in db.items()
               if v.get("benchmark_stats_vendor")}
 
+    # Modèles trop lents ici pour le test complet : seule leur vitesse, par palier
+    # de contexte, a été mesurée (scripts/bench_speed_only.py).
+    speed_only = {n: v["benchmark_stats_speed_only"] for n, v in db.items()
+                  if v.get("benchmark_stats_speed_only")}
+
     sha = subprocess.run(["git", "log", "-1", "--format=%H", "--", "scripts/benchmark_slm.py"],
                          capture_output=True, text=True, cwd=ROOT).stdout.strip()
     dirty = subprocess.run(["git", "status", "--porcelain", "scripts/benchmark_slm.py"],
@@ -331,12 +336,15 @@ def cmd_export(args: argparse.Namespace) -> None:
     }
     if vendor:
         payload["models_vendor"] = vendor
+    if speed_only:
+        payload["models_speed_only"] = speed_only
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out = RESULTS_DIR / f"{profile['machine_id']}.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(results)} modèles exportés"
           + (f", dont {len(vendor)} avec la campagne éditeur" if vendor else "")
+          + (f", et {len(speed_only)} en vitesse seule" if speed_only else "")
           + f" -> {out}")
     if dirty:
         print("⚠️  scripts/benchmark_slm.py est modifié localement : commitez avant de comparer.")
