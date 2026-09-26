@@ -6,9 +6,9 @@
 - **Méthode** : parcours pilotés par Playwright (Chromium headless) sur `http://localhost:8501`, relecture du code quand un écran se comportait bizarrement
 - **Portée** : les 4 pages et leurs onglets. Seules les actions sans effet de bord durable ont été exercées : aucun téléchargement ni aucune suppression de modèle Ollama.
 
-Ce rapport a un jumeau, rédigé en parallèle sur une autre machine, dans `docs/audits/frontend-2026-09/<machine>/`. Les deux ont vocation à être fusionnés avant l'implémentation (voir le §4).
+Ce rapport a un jumeau, rédigé en parallèle sur une autre machine, dans `docs/audits/frontend-2026-09/<machine>/`. Les deux ont vocation à être fusionnés avant l'implémentation (voir le §4.5).
 
-L'audit UX et visuel (esthétique, accessibilité, cohérence, charte Wavestone) est dans [`UX.md`](UX.md). Il a été fait sur cette machine seulement, puisque le rendu ne dépend pas du matériel. Son §5 ajoute une étape `bmad-ux` et les stories 7 à 9 au plan ci-dessous.
+L'audit UX et visuel (esthétique, accessibilité, cohérence, charte Wavestone) est dans [`UX.md`](UX.md). Il a été fait sur cette machine seulement, puisque le rendu ne dépend pas du matériel. Le plan de remédiation du §4 couvre les deux audits.
 
 ## 1. Synthèse
 
@@ -133,51 +133,102 @@ PYTHONIOENCODING=utf-8 .venv-app/Scripts/python $P/t_agent_crew.py $P    # ~3 mi
 
 `t_rag_chat.py` et `t_rag_eval.py` supposent que `doc_test_rag.txt` a été ingéré dans la collection de l'interface, puis que le serveur a été redémarré (voir F7 et l'observation sur Chroma). `t_cleanup.py` vide la base par le bouton Reset. Ces scripts sont des outils d'audit, pas encore une suite de tests : c'est la story S6.
 
-## 4. Plan d'implémentation (BMAD 6.12)
+## 4. Plan de remédiation (BMAD 6.12)
+
+Ce plan couvre **l'ensemble des constats** : ceux de ce rapport (F0–F8, fonctionnels) et ceux de [`UX.md`](UX.md) (U1–U18, design, accessibilité, rédaction). La table du §4.4 vérifie qu'aucun n'est oublié.
 
 ### 4.1 Déroulé
 
-BMAD n'est pas encore installé dans ce dépôt. La version de référence est la 6.12.0, déjà en place dans `agentic-harness-training-demo-cloud`. Le plan suit sa chaîne courte : `bmad-spec` → `bmad-build` par story → `bmad-code-review`, puis `bmad-qa-generate-e2e-tests`. Un PRD et une architecture seraient disproportionnés pour une série de correctifs sur un existant.
+BMAD n'est pas encore installé dans ce dépôt. La version de référence est la 6.12.0, déjà en place dans `agentic-harness-training-demo-cloud`. Le plan suit sa chaîne courte, complétée par l'étape UX : `bmad-ux` → `bmad-spec` → `bmad-build` par story → `bmad-code-review`. Un PRD et une architecture seraient disproportionnés pour des correctifs sur un existant.
 
 | Étape | Qui / quoi | Entrée | Sortie |
 |---|---|---|---|
 | 0 | Installer BMAD 6.12 (`npx bmad-method install`), puis `bmad-project-context` pour poser le bloc AGENTS.md du dépôt | — | `_bmad/`, `AGENTS.md` |
-| 1 | **Fusion des audits**, hors BMAD : dédoublonner les constats des deux machines, garder la gravité la plus haute, conserver les deux reproductions | `docs/audits/frontend-2026-09/*/RAPPORT.md` | `docs/audits/frontend-2026-09/SYNTHESE.md` |
-| 1 bis | `bmad-ux` : produire `DESIGN.md` et `EXPERIENCE.md` à partir de `UX.md` | `UX.md`, `SYNTHESE.md` | `DESIGN.md`, `EXPERIENCE.md` (*companions* de la spec) |
-| 2 | `bmad-spec` : créer la spec `fiabilisation-frontend`, puis *Story Breakdown* | `SYNTHESE.md` | `SPEC.md` (CAP-1…), `stories.yaml` |
-| 3 | `bmad-build`, une story à la fois, une branche et une PR par story | story + `SPEC.md` | code, tests, PR |
-| 4 | `bmad-code-review` sur chaque PR avant fusion | diff | constats triés |
-| 5 | `bmad-qa-generate-e2e-tests` à partir des scripts `playwright/` | parcours validés | suite `tests/e2e/` |
-| 6 | Optionnel : `bmad-retrospective` en fin de série | — | leçons |
+| 1 | **Fusion des audits**, hors BMAD : dédoublonner les constats des deux machines, garder la gravité la plus haute, conserver les deux reproductions | `docs/audits/frontend-2026-09/*/RAPPORT.md` et `UX.md` | `docs/audits/frontend-2026-09/SYNTHESE.md` |
+| 2 | `bmad-ux` : fixer le thème, les *tokens*, les icônes, le lexique et les états (vide, erreur, confirmation) | `UX.md` (§4 direction de design), `SYNTHESE.md` | `DESIGN.md`, `EXPERIENCE.md` |
+| 3 | `bmad-spec` : créer la spec `fiabilisation-frontend` avec `DESIGN.md` et `EXPERIENCE.md` en *companions* adoptés, puis *Story Breakdown* | `SYNTHESE.md`, `DESIGN.md`, `EXPERIENCE.md` | `SPEC.md` (CAP-1 à CAP-7), `stories.yaml` |
+| 4 | `bmad-build`, une story à la fois, une branche et une PR par story | story + `SPEC.md` | code, tests, PR |
+| 5 | `bmad-code-review` sur chaque PR avant fusion | diff | constats triés |
+| 6 | `bmad-qa-generate-e2e-tests` pour la story 10 | scripts `playwright/` | suite `tests/e2e/` |
+| 7 | Optionnel : `bmad-retrospective` en fin de série | — | leçons |
 
 ### 4.2 Capacités proposées pour `SPEC.md`
 
-- **CAP-1 Installation reproductible du frontend** — *intent* : un environnement créé à neuf lance toutes les pages avec toutes leurs fonctions. *Success* : `uv venv --python 3.12` + installation des dépendances → Streamlit démarre et `import ragas` réussit (F0, F2 cause 1).
-- **CAP-2 Ingestion RAG réelle** — *intent* : un document importé depuis l'interface est indexé et interrogeable. *Success* : upload d'un `.txt` → compteur > 0 → la question du document de test obtient la bonne réponse avec sa source (F1, F7).
-- **CAP-3 Échecs visibles** — *intent* : aucun échec d'inférence ou d'évaluation n'est présenté comme un succès ni comme une trace Python. *Success* : un timeout affiche « Timeout (120 s) » et l'Arena continue avec les autres modèles ; une évaluation impossible affiche « non évalué », pas 0/100 (F2 cause 2, F3).
-- **CAP-4 Débit comparable au benchmark** — *intent* : le t/s affiché mesure la génération seule, comme `benchmark_slm.py`. *Success* : le premier message après chargement affiche un débit proche des messages suivants (±15 %), et le temps de chargement est affiché à part (F4).
-- **CAP-5 Défauts adaptés à la machine** — *intent* : un utilisateur qui ne touche à rien obtient une démo rapide. *Success* : sur `poste-rtx3060`, aucun modèle présélectionné ne dépasse ~4 Go d'empreinte, et la page Hardware affiche le GPU (F5, F6, F8).
+- **CAP-1 Installation reproductible du frontend** — *intent* : un environnement créé à neuf lance toutes les pages avec toutes leurs fonctions. *Success* : `uv venv --python 3.12` + installation des dépendances → Streamlit démarre et `import ragas` réussit.
+- **CAP-2 Ingestion RAG réelle** — *intent* : un document importé depuis l'interface est indexé et interrogeable. *Success* : upload d'un `.txt` → compteur > 0 → la question du document de test obtient la bonne réponse avec sa source.
+- **CAP-3 Échecs visibles, états vrais** — *intent* : aucun échec n'est présenté comme un succès ni comme une trace Python, et aucun indicateur n'est écrit en dur. *Success* :
+  - un timeout affiche « Timeout (120 s) » et l'Arena continue ;
+  - une évaluation impossible affiche « non évalué », pas 0/100 ;
+  - Ollama arrêté fait passer l'accueil à « Indisponible ».
+- **CAP-4 Débit comparable au benchmark** — *intent* : le t/s affiché mesure la génération seule, comme `benchmark_slm.py`. *Success* : le premier message après chargement affiche un débit à ±15 % des suivants, et le temps de chargement est affiché à part.
+- **CAP-5 Défauts adaptés à la machine** — *intent* : un utilisateur qui ne touche à rien obtient une démo rapide. *Success* : sur `poste-rtx3060`, aucun modèle présélectionné ne dépasse ~4 Go d'empreinte, et la page Hardware affiche le GPU.
+- **CAP-6 Interface à la charte, accessible et cohérente** — *intent* : l'interface ressemble à Wavestone et se lit sans effort. *Success* :
+  - zéro violation axe `color-contrast` ou `heading-order`, en clair comme en sombre ;
+  - un seul nom par module et par commande ;
+  - des formats `fr-FR` ;
+  - aucun emoji décoratif.
+- **CAP-7 Souveraineté visible, actions sensibles maîtrisées** — *intent* : l'utilisateur sait ce qui sort de la machine et valide ce qui est irréversible. *Success* :
+  - mode local par défaut ;
+  - un badge Local ou Cloud sur chaque modèle et chaque réponse ;
+  - envoi d'email et suppression de la base soumis à confirmation.
 
-**Contraintes à porter** : ne pas modifier le `.venv` du benchmark ni `scripts/benchmark_slm.py` ; tests unitaires sans Ollama (mocks) ; aucun téléchargement de modèle dans les tests.
-**Non-objectifs** : refonte visuelle, ajout de formats d'import, mode cloud.
+**Contraintes à porter** :
+- ne pas modifier le `.venv` du benchmark ni `scripts/benchmark_slm.py` ;
+- tests unitaires sans Ollama (mocks) ;
+- aucun téléchargement de modèle dans les tests ;
+- pas de framework CSS : on passe par `config.toml` et les composants natifs ;
+- polices servies localement, pas de CDN.
+
+**Non-objectifs** : ajout de formats d'import, nouvelles fonctionnalités d'agent, refonte de l'architecture des pages.
 
 ### 4.3 Stories proposées pour `stories.yaml`
 
-Ordre d'exécution de haut en bas. Chaque story vise un seul objectif livrable en une PR, conformément au *Scope Standard* de `bmad-build`.
+Ordre d'exécution de haut en bas.
+- **Les stories 1 à 3 sont transverses** : environnement, thème, libellés. Elles touchent toutes les pages. Les passer en premier évite que chaque correctif fonctionnel soit retouché deux fois, et que les PR se marchent dessus.
+- **Les stories 4 à 9** touchent souvent les mêmes fichiers (`arena.py`, `chat.py`, les pages). Mieux vaut donc les enchaîner que les paralléliser.
 
-| id | Titre | Constats | `spec_checkpoint` | `done_checkpoint` | Note pour `invoke_dev_with` |
+| id | Titre | Constats | Taille | `spec_checkpoint` | `done_checkpoint` | Note pour `invoke_dev_with` |
+|---|---|---|---|---|---|---|
+| 1 | Environnement frontend reproductible | F0, F2 (cause 1) | S | **oui** : fixer `ragas` ou `langchain-community` ; `requirements-app.txt` ou fichier de contraintes | non | Partir des versions du §3, qui marchent sauf Ragas. Documenter `.venv-app` dans le README et `docs/TROUBLESHOOT.md`. |
+| 2 | Thème Wavestone, icônes et accessibilité | U1–U7, U18, F8 | L | **oui** : valider la maquette issue de `bmad-ux` | **oui** : revue visuelle en clair et en sombre | Créer `.streamlit/config.toml` (ébauche en `UX.md` §4). Ajouter `st.logo`, et `toolbarMode = "viewer"`. Remplacer les emojis par des icônes Material. Supprimer les hex en dur (encart « base vide »). Rendre visible la rangée d'outils de l'agent. Nommer le bouton de la corbeille. |
+| 3 | Vocabulaire et rédaction unifiés | U8, U9, U10 | M | **oui** : valider le lexique d'`EXPERIENCE.md` | non | Un nom par module, identique dans le menu, la carte, le titre et l'onglet. Outils de l'agent en français. Utilitaire de formats `fr-FR` (nombres, unités, dates). Accorder les pluriels. |
+| 4 | Brancher l'ingestion RAG sur le moteur | F1, F7 | M | non | **oui** : démo manuelle d'un PDF réel | `UploadedFile` → fichier temporaire → `rag_engine.ingest_file`. Aligner le nom d'embedding par défaut de `RAGEngine` sur celui de la page. Afficher le nombre d'extraits réellement ajoutés. |
+| 5 | Échecs visibles et état de santé réel | F2 (cause 2), F3, U11 | M | non | non | Tester `result.error` avant `result.metrics` dans chat, labo et arena. `EvalResult` doit pouvoir porter « non évalué ». Brancher l'indicateur « Système » sur `LLMProvider.health_check()`. Tests unitaires avec un `InferenceResult` en erreur. |
+| 6 | Valeurs par défaut adaptées à la machine | F5, F6 | M | non | non | Choisir le défaut via `models.json` (empreinte ≤ VRAM disponible, le plus rapide), pour le chat, le labo, l'arena, les juges et les candidats RAG. Détecter le GPU via NVML, pas via torch. |
+| 7 | Souveraineté visible et actions sensibles | U12, U13, U14, U15 | M | **oui** : décisions produit (cloud par défaut, outil email) | non | Cloud désactivé par défaut et badge Local/Cloud. Deltas de `st.metric` remplacés par des légendes ou `st.badge`. Outil email décoché par défaut, avec confirmation humaine avant l'envoi. Confirmation avant le Reset de la base. |
+| 8 | Mesurer le débit sur `eval_duration` | F4 | S | **oui** : valider la définition avec `docs/METHODOLOGIE_CARBONE.md` | non | Même formule que `benchmark_slm.py`. Durée totale et temps de chargement affichés à part. |
+| 9 | Graphiques lisibles et justes | U16, U17 | M | non | non | Suivre le skill `dataviz`. Historique : vrai cumul ou barres par session, en mg, trous visibles, fenêtre de temps. Arena : légende de taille et vue tableau. Benchmark RAG : même échelle que le podium (/100). Palette via `chartCategoricalColors`. |
+| 10 | Suite e2e Playwright et accessibilité | tous | L | non | **oui** | Passer par `bmad-qa-generate-e2e-tests`. Ingérer via l'interface (piège Chroma). Petits modèles uniquement (Gemma 3 1B, Qwen 3.5 4B). axe-core en clair et en sombre, en ignorant `region` et `aria-allowed-attr` sur `.stSidebar`. Marqueur `e2e` exclu de la CI par défaut, car il faut Ollama. |
+
+**Tailles** : S (≤ ½ journée), M (~1 journée), L (1 à 2 journées), avec revue comprise.
+
+**Dépendances** :
+- 2 et 3 dépendent de 1 ;
+- 4 à 9 dépendent de 2 et 3 (thème et lexique en place) ;
+- 5 dépend de 1 (Ragas importable) ;
+- 10 vient en dernier.
+
+**Si le temps manque**, l'ordre de valeur est : 1, 4, 5 (le front ne ment plus et le RAG marche) → 7, 2 (confiance, image) → 3, 6, 9 → 8, 10.
+
+### 4.4 Couverture des constats
+
+| Constat | Story | Constat | Story | Constat | Story |
 |---|---|---|---|---|---|
-| 1 | Environnement frontend reproductible | F0, F2 (cause 1) | **oui** : choisir entre fixer `ragas` ou `langchain-community`, et entre `requirements-app.txt` et un fichier de contraintes | non | Partir des versions du §3, qui marchent sauf Ragas. Documenter `.venv-app` dans le README et `docs/TROUBLESHOOT.md`. |
-| 2 | Brancher l'ingestion RAG sur le moteur | F1, F7 | non | **oui** : démo manuelle d'un PDF réel | `UploadedFile` → fichier temporaire → `rag_engine.ingest_file`. Aligner le nom d'embedding par défaut de `RAGEngine` sur celui de la page. Afficher le nombre de chunks réellement ajoutés. |
-| 3 | Rendre visibles les échecs d'inférence et d'évaluation | F2 (cause 2), F3 | non | non | Tester `result.error` avant `result.metrics` dans chat, lab et arena. `EvalResult` doit pouvoir porter « non évalué ». Ajouter des tests unitaires avec un `InferenceResult` en erreur. |
-| 4 | Mesurer le débit sur `eval_duration` | F4 | **oui** : valider la définition avec `docs/METHODOLOGIE_CARBONE.md` | non | Même formule que `benchmark_slm.py`. Garder la durée totale et le temps de chargement comme métriques séparées. |
-| 5 | Valeurs par défaut et affichage matériel | F5, F6, F8 | non | non | Choisir le défaut via `models.json` (empreinte ≤ VRAM disponible, le plus rapide). Détecter le GPU via NVML. `bmad-build` peut proposer de scinder si la spec dépasse 1 600 tokens. |
-| 6 | Suite e2e Playwright de non-régression | tous | non | **oui** | Passer par `bmad-qa-generate-e2e-tests` plutôt que `bmad-build`. Ingérer via l'interface (piège Chroma). Petits modèles uniquement (Gemma 3 1B, Qwen 3.5 4B). Marqueur `e2e` exclu de la CI par défaut, car il faut Ollama. |
+| F0 | 1 | U1 | 2 | U10 | 3 |
+| F1 | 4 | U2 | 2 | U11 | 5 |
+| F2 | 1, 5 | U3 | 2 | U12 | 7 |
+| F3 | 5 | U4 | 2 | U13 | 7 |
+| F4 | 8 | U5 | 2 | U14 | 7 |
+| F5 | 6 | U6 (= F8) | 2 | U15 | 7 |
+| F6 | 6 | U7 | 2 | U16 | 9 |
+| F7 | 4 | U8 | 3 | U17 | 9 |
+| F8 | 2 | U9 | 3 | U18 | 2 |
 
-Les stories 2 et 3 dépendent de la 1 : sans Ragas importable, on ne peut pas distinguer « non évalué » d'« évalué ». Les stories 4 et 5 sont indépendantes et peuvent passer en parallèle.
+**Restent hors plan, comme questions ouvertes pour `bmad-spec`** : le badge « 💾 0.0 GB » du chat RAG, et les 771 mg CO₂ de Qwen 3.5 0.8B dans l'Arena (§2, observations).
 
-### 4.4 Pour la fusion avec l'autre machine
+### 4.5 Pour la fusion avec l'autre machine
 
-- Les identifiants `F0`–`F8` sont **locaux à ce rapport**. La synthèse les renumérote et garde une table de correspondance (`poste-rtx3060:F3` ↔ `<autre>:Fx`).
+- Les identifiants `F0`–`F8` et `U1`–`U18` sont **locaux à ce rapport**. La synthèse les renumérote et garde une table de correspondance (`poste-rtx3060:F3` ↔ `<autre>:Fx`).
 - Un constat vu sur une seule machine reste dans la synthèse, avec sa machine d'origine. Certains, comme F5 et F6, dépendent du matériel ou de la roue torch installée.
+- `UX.md` n'a pas de jumeau : le rendu ne dépend pas de la machine. Ses constats entrent tels quels dans la synthèse.
 - En cas de désaccord sur une cause, garder les deux hypothèses et marquer le point comme question ouverte dans `bmad-spec`, qui la reportera dans `open_questions`.

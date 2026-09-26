@@ -217,22 +217,20 @@ chartCategoricalColors = ["#7A5FEA", "#12A564", "#3B86DB", "#B07800"]
 - la numérotation « 01. / 02. » des modules, qui ne sont pas une séquence ;
 - le vert `#04F06A` en aplat de texte (1,54:1 avec du blanc) : il ne s'emploie qu'avec l'encre `#0A0A14` (12,83:1).
 
-## 5. Impact sur le plan BMAD
+## 5. Remédiation
 
-À intégrer dans la fusion (`SYNTHESE.md`) et dans le plan du `RAPPORT.md` :
+Le plan de remédiation est unique pour les deux audits. Il se trouve dans [`RAPPORT.md` §4](RAPPORT.md#4-plan-de-remédiation-bmad-612), et le §4.4 y affecte chaque constat U à une story. En résumé :
 
-1. **Insérer `bmad-ux` entre la fusion et `bmad-spec`.** Il part de ce document pour produire `DESIGN.md` (thème, *tokens*, icônes) et `EXPERIENCE.md` (vocabulaire, états vides, erreurs, confirmations). `bmad-spec` les reprend comme *companions* adoptés, sans les dupliquer.
-2. **Ajouter une capacité.** **CAP-6 Interface à la charte, accessible et honnête** — *intent* : l'interface ressemble à Wavestone, se lit sans effort et n'affirme rien de faux. *Success* : zéro violation axe `color-contrast` ou `heading-order` en clair comme en sombre ; un seul nom par module ; aucun indicateur en dur.
-3. **Ajouter trois stories, et en ajuster deux.**
-
-| id | Titre | Constats | `spec_checkpoint` | Note |
-|---|---|---|---|---|
-| 7 | Thème Wavestone et icônes | U1–U7, U18 | **oui** : valider la maquette issue de `bmad-ux` | `config.toml`, `st.logo`, icônes Material, suppression du CSS en dur. À placer tôt (juste après la story 1), puisque toutes les autres stories s'afficheront dans ce thème. |
-| 8 | Vocabulaire et rédaction unifiés | U8–U10 | **oui** : valider le lexique | Un lexique dans `EXPERIENCE.md`, puis un seul passage sur les libellés. Formats `fr-FR` centralisés dans un utilitaire. |
-| 9 | Graphiques lisibles et justes | U16, U17 | non | Suivre le skill `dataviz` : vrai cumul, unités en mg, trous visibles, vue tableau. |
-| 3 (étendue) | Échecs visibles | + U11 | — | Le vrai test de santé d'Ollama rejoint la gestion d'échec. |
-| 5 (étendue) | Défauts adaptés | + U12, U13, U14, U15 | **oui** : cloud et email sont des décisions produit | Cloud désactivé par défaut et badge Local/Cloud ; outil email désactivé et soumis à confirmation ; confirmation avant Reset. |
-| 6 (étendue) | Suite e2e | + axe | — | Lancer axe-core en thème clair et sombre dans la suite Playwright, en ignorant les règles propres à Streamlit (`region`, `aria-allowed-attr` sur `.stSidebar`). |
+- **Nouvelle étape `bmad-ux`**, entre la fusion et `bmad-spec`. Elle part de ce document pour produire `DESIGN.md` (thème, *tokens*, icônes) et `EXPERIENCE.md` (lexique, états vides, erreurs, confirmations), que la spec adopte comme *companions*.
+- **Deux capacités issues de cet audit** : CAP-6 « Interface à la charte, accessible et cohérente » et CAP-7 « Souveraineté visible, actions sensibles maîtrisées ».
+- **Stories concernées** :
+  - 2 : thème, icônes, accessibilité (U1–U7, U18) ;
+  - 3 : vocabulaire (U8–U10) ;
+  - 5 : états vrais (U11) ;
+  - 7 : souveraineté et actions sensibles (U12–U15) ;
+  - 9 : graphiques (U16, U17) ;
+  - 10 : axe-core dans la suite e2e.
+- **Les stories 2 et 3 passent en tête**, juste après l'environnement : elles touchent toutes les pages, et les correctifs fonctionnels s'écrivent ensuite directement dans le nouveau thème et le nouveau lexique.
 
 ## Captures
 
