@@ -1,0 +1,11 @@
+{
+  "name": "wavelocalai-front-audit-e2e",
+  "private": true,
+  "description": "Parcours Playwright de l'audit front du 2026-09-26",
+  "scripts": {
+    "e2e": "node e2e.js"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}
