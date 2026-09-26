@@ -1,5 +1,7 @@
 # Plan d'implémentation des correctifs (format BMAD)
 
+> **Remplacé par [`../SYNTHESE.md`](../SYNTHESE.md).** Conservé comme trace de l'audit de cette machine. Deux points sont notamment dépassés : la contrainte « même version de Streamlit » et le recours à `bmad-preview-ticketing`, absent de BMAD 6.12.
+
 > **Statut :** brouillon à fusionner avec l'audit de l'autre machine avant toute implémentation.
 > **Source :** [`rapport.md`](rapport.md). Les identifiants F-, U- et N- y sont définis.
 > **Format :** tickets conteneurs de BMAD (Requirements à identifiants stables, Outcome, Done when, Boundaries, Breakdown), vérifié sur [docs.bmad-method.org](https://docs.bmad-method.org/) le 2026-09-26.

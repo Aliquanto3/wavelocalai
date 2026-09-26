@@ -18,7 +18,7 @@ Il faut Ollama démarré, les modèles Gemma 3 1B, Granite 4.0 350M et Qwen 3.5 
 .venv\Scripts\python -m streamlit run src/app/Accueil.py --server.headless true --server.address localhost
 
 # 2. Dans un autre terminal
-cd docs\audits\2026-09-26-front\pro-elitebook-x360\e2e
+cd docs\audits\frontend-2026-09\pro-elitebook-x360\e2e
 $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 npm install
 node e2e.js --skip-arena

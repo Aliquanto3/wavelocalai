@@ -135,6 +135,8 @@ PYTHONIOENCODING=utf-8 .venv-app/Scripts/python $P/t_agent_crew.py $P    # ~3 mi
 
 ## 4. Plan de remédiation (BMAD 6.12)
 
+> **Remplacé par [`../SYNTHESE.md`](../SYNTHESE.md)**, qui fusionne ce plan avec l'audit de `pro-elitebook-x360`. Il est conservé comme trace.
+
 Ce plan couvre **l'ensemble des constats** : ceux de ce rapport (F0–F8, fonctionnels) et ceux de [`UX.md`](UX.md) (U1–U18, design, accessibilité, rédaction). La table du §4.4 vérifie qu'aucun n'est oublié.
 
 ### 4.1 Déroulé
