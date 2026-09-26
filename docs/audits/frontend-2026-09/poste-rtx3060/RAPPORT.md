@@ -8,6 +8,8 @@
 
 Ce rapport a un jumeau, rédigé en parallèle sur une autre machine, dans `docs/audits/frontend-2026-09/<machine>/`. Les deux ont vocation à être fusionnés avant l'implémentation (voir le §4).
 
+L'audit UX et visuel (esthétique, accessibilité, cohérence, charte Wavestone) est dans [`UX.md`](UX.md). Il a été fait sur cette machine seulement, puisque le rendu ne dépend pas du matériel. Son §5 ajoute une étape `bmad-ux` et les stories 7 à 9 au plan ci-dessous.
+
 ## 1. Synthèse
 
 Le frontend démarre, et la plupart des parcours marchent de bout en bout : chat, labo, arena, chat RAG, agent solo avec outils, équipe CrewAI.
@@ -141,6 +143,7 @@ BMAD n'est pas encore installé dans ce dépôt. La version de référence est l
 |---|---|---|---|
 | 0 | Installer BMAD 6.12 (`npx bmad-method install`), puis `bmad-project-context` pour poser le bloc AGENTS.md du dépôt | — | `_bmad/`, `AGENTS.md` |
 | 1 | **Fusion des audits**, hors BMAD : dédoublonner les constats des deux machines, garder la gravité la plus haute, conserver les deux reproductions | `docs/audits/frontend-2026-09/*/RAPPORT.md` | `docs/audits/frontend-2026-09/SYNTHESE.md` |
+| 1 bis | `bmad-ux` : produire `DESIGN.md` et `EXPERIENCE.md` à partir de `UX.md` | `UX.md`, `SYNTHESE.md` | `DESIGN.md`, `EXPERIENCE.md` (*companions* de la spec) |
 | 2 | `bmad-spec` : créer la spec `fiabilisation-frontend`, puis *Story Breakdown* | `SYNTHESE.md` | `SPEC.md` (CAP-1…), `stories.yaml` |
 | 3 | `bmad-build`, une story à la fois, une branche et une PR par story | story + `SPEC.md` | code, tests, PR |
 | 4 | `bmad-code-review` sur chaque PR avant fusion | diff | constats triés |
