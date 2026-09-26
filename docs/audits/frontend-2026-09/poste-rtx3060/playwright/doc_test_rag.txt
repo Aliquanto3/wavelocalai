@@ -1,0 +1,6 @@
+Fiche projet Hirondelle (document de test WaveLocalAI).
+Le projet Hirondelle a été lancé le 3 mars 2025 par l'équipe Data de Lyon.
+Son budget total est de 412 000 euros.
+La cheffe de projet s'appelle Margaux Delorme.
+L'objectif est de réduire de 30 % la consommation électrique des serveurs d'inférence.
+Le serveur pilote s'appelle "Martinet-7" et il est hébergé à Villeurbanne.

@@ -33,6 +33,7 @@ venv/
 env/
 .env/
 .venv/
+.venv-app/
 env.bak/
 venv.bak/
 
