@@ -26,6 +26,7 @@ import shutil
 import statistics
 import string
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -77,6 +78,9 @@ TOTAL_RAM_GB = round(psutil.virtual_memory().total / (1024**3), 2)
 DEFAULT_OUTPUT_TOKENS = 256
 # En deçà, le temps de génération mesuré tient surtout du bruit.
 MIN_TOKENS_FOR_SPEED = 32
+# Écart de plafond de puissance GPU entre générations d'un même modèle au-delà
+# duquel son débit mélange deux régimes (80 W contre 90-95 W sur le poste RTX 3060).
+GPU_POWER_SPREAD_W = 5
 DEFAULT_TIMEOUT_S = 300
 DEFAULT_RUNS = 1
 # Refroidissement entre modèles : sur un portable, une campagne longue fait
@@ -753,6 +757,8 @@ def get_csv_headers() -> list[str]:
         "swap_delta_gb",
         "gpu_temp_c",
         "gpu_clock_mhz",
+        "gpu_power_plateau_w",
+        "gpu_sm_clock_gen_mhz",
         "ollama_ram_usage_gb",
         "gpu_vram_usage_gb",
         "ram_peak_gb",
@@ -903,6 +909,79 @@ def get_gpu_thermals() -> tuple[float, float]:
         return float(temp), float(clock)
     except (ValueError, IndexError):
         return 0.0, 0.0
+
+
+def summarize_gpu_power(samples: list[tuple[float, float]]) -> dict:
+    """Plafond de puissance atteint et fréquence SM à ce plafond, d'après des
+    relevés (puissance W, fréquence SM MHz) pris pendant une génération.
+
+    Le plafond est le 90e centile de la puissance : la montée en charge des
+    premières centaines de millisecondes ne le tire pas vers le bas. La
+    fréquence est la médiane des relevés proches de ce plafond.
+    """
+    if len(samples) < 3:
+        return {"gpu_power_plateau_w": 0.0, "gpu_sm_clock_gen_mhz": 0.0}
+    powers = sorted(p for p, _ in samples)
+    plateau = powers[min(len(powers) - 1, int(0.9 * len(powers)))]
+    clocks = [c for p, c in samples if p >= plateau - 3]
+    return {
+        "gpu_power_plateau_w": round(plateau, 1),
+        "gpu_sm_clock_gen_mhz": round(statistics.median(clocks)),
+    }
+
+
+class GpuPowerSampler:
+    """Relève puissance et fréquence SM du GPU en arrière-plan pendant une génération.
+
+    Sur un portable, le plafond de puissance du GPU change d'une génération à
+    l'autre (Dynamic Boost : 80 W ou 90-95 W sur le poste RTX 3060) et le débit
+    avec lui, de 10 à 20 %. Un relevé ponctuel après la génération ne le voit
+    pas : le GPU est déjà revenu au repos, à pleine fréquence. On lit NVML dans
+    le processus plutôt que de lancer nvidia-smi en boucle, qui chargerait le
+    CPU et modifierait lui-même le partage de puissance.
+    """
+
+    def __init__(self, interval_s: float = 0.2):
+        self.interval_s = interval_s
+        self.samples: list[tuple[float, float, float]] = []  # (instant, W, MHz)
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._handle = None
+
+    def __enter__(self) -> "GpuPowerSampler":
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            self._nvml = pynvml
+            self._handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        except Exception:  # noqa: BLE001 — pas de GPU NVIDIA : pas de relevé
+            return self
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return self
+
+    def _run(self) -> None:
+        nvml = self._nvml
+        while not self._stop.is_set():
+            with contextlib.suppress(Exception):
+                self.samples.append((
+                    time.perf_counter(),
+                    nvml.nvmlDeviceGetPowerUsage(self._handle) / 1000,
+                    nvml.nvmlDeviceGetClockInfo(self._handle, nvml.NVML_CLOCK_SM),
+                ))
+            self._stop.wait(self.interval_s)
+
+    def __exit__(self, *exc) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=1)
+
+    def summary(self, since: float | None = None) -> dict:
+        """Résumé des relevés pris à partir de `since` (premier token : prefill exclu)."""
+        return summarize_gpu_power(
+            [(w, mhz) for t, w, mhz in self.samples if since is None or t >= since]
+        )
 
 
 def wait_for_cooldown(target_c: float, max_wait_s: float) -> dict:
@@ -1523,23 +1602,25 @@ def benchmark_inference(
             prompt_eval_duration_ns = 0
             load_duration_ns = 0
 
-            for chunk in stream:
-                if first_token_time is None:
-                    first_token_time = time.perf_counter()
+            with GpuPowerSampler() as power:
+                for chunk in stream:
+                    if first_token_time is None:
+                        first_token_time = time.perf_counter()
 
-                if hasattr(chunk, "message") and chunk.message.content:
-                    response_content += chunk.message.content
+                    if hasattr(chunk, "message") and chunk.message.content:
+                        response_content += chunk.message.content
 
-                # Récupérer les stats à la fin
-                if hasattr(chunk, "prompt_eval_count"):
-                    input_tokens = chunk.prompt_eval_count or input_tokens
-                if hasattr(chunk, "eval_count"):
-                    output_tokens = chunk.eval_count or output_tokens
-                eval_duration_ns = getattr(chunk, "eval_duration", None) or eval_duration_ns
-                prompt_eval_duration_ns = (
-                    getattr(chunk, "prompt_eval_duration", None) or prompt_eval_duration_ns
-                )
-                load_duration_ns = getattr(chunk, "load_duration", None) or load_duration_ns
+                    # Récupérer les stats à la fin
+                    if hasattr(chunk, "prompt_eval_count"):
+                        input_tokens = chunk.prompt_eval_count or input_tokens
+                    if hasattr(chunk, "eval_count"):
+                        output_tokens = chunk.eval_count or output_tokens
+                    eval_duration_ns = getattr(chunk, "eval_duration", None) or eval_duration_ns
+                    prompt_eval_duration_ns = (
+                        getattr(chunk, "prompt_eval_duration", None) or prompt_eval_duration_ns
+                    )
+                    load_duration_ns = getattr(chunk, "load_duration", None) or load_duration_ns
+            gpu_power = power.summary(since=first_token_time)
 
             if output_tokens == 0:
                 output_tokens = len(response_content.split())
@@ -1565,6 +1646,7 @@ def benchmark_inference(
             eval_duration_ns = 0
             prompt_eval_duration_ns = 0
             load_duration_ns = 0
+            gpu_power = summarize_gpu_power([])
 
         duration = time.perf_counter() - start_time
         ttft_wall_ms = int((first_token_time - start_time) * 1000) if first_token_time else 0
@@ -1659,6 +1741,7 @@ def benchmark_inference(
             "swap_delta_gb": round(psutil.swap_memory().used / (1024**3) - swap_start, 3),
             "gpu_temp_c": gpu_temp_c,
             "gpu_clock_mhz": gpu_clock_mhz,
+            **gpu_power,
             "ollama_ram_usage_gb": round(ram_model_usage, 3),
             "gpu_vram_usage_gb": round(gpu_vram_usage, 3),
             "ram_peak_gb": round(sys_ram_peak, 2),
@@ -1877,7 +1960,8 @@ def run_full_benchmark(
             f"{bench['tokens_per_second']} tok/s | "
             f"TTFT {bench['time_to_first_token_ms']}ms | "
             f"RAM {bench['ollama_ram_usage_gb']}GB | "
-            f"GPU {bench.get('gpu_temp_c', 0):.0f}°C {bench.get('gpu_clock_mhz', 0):.0f}MHz"
+            f"GPU {bench.get('gpu_temp_c', 0):.0f}°C | génération "
+            f"{bench.get('gpu_sm_clock_gen_mhz', 0):.0f}MHz sous {bench.get('gpu_power_plateau_w', 0):.0f}W"
         )
 
     # Le needle-in-haystack recharge le modèle après le déchargement opéré par
@@ -1928,6 +2012,8 @@ def _build_result_row(
         "swap_delta_gb": bench.get("swap_delta_gb", 0),
         "gpu_temp_c": bench.get("gpu_temp_c", 0),
         "gpu_clock_mhz": bench.get("gpu_clock_mhz", 0),
+        "gpu_power_plateau_w": bench.get("gpu_power_plateau_w", 0),
+        "gpu_sm_clock_gen_mhz": bench.get("gpu_sm_clock_gen_mhz", 0),
         "ollama_ram_usage_gb": bench.get("ollama_ram_usage_gb", 0),
         "gpu_vram_usage_gb": bench.get("gpu_vram_usage_gb", 0),
         "ram_peak_gb": bench.get("ram_peak_gb", 0),
@@ -2019,7 +2105,20 @@ def update_model_json(
         "instruction_following": dispersion(
             [r.get("instruction_following_score", 0) for r in per_run], digits=3),
         "gpu_clock_mhz": dispersion([r.get("gpu_clock_mhz", 0) for r in per_run], digits=0),
+        # Tous paliers entièrement sur GPU confondus : c'est là que le plafond
+        # variable du portable se lit (débit « bimodal » d'une génération à l'autre).
+        "gpu_power_plateau_w": dispersion([
+            r["gpu_power_plateau_w"] for r in timed
+            if r.get("gpu_power_plateau_w") and r.get("gpu_offload_pct") == 100
+        ], digits=0),
     }
+    plateaus = runs_stats["gpu_power_plateau_w"]
+    if plateaus.get("n", 0) > 1 and plateaus["max"] - plateaus["min"] > GPU_POWER_SPREAD_W:
+        logger.warning(
+            f"   ⚡ {model_name} : plafond GPU variable pendant les générations "
+            f"({plateaus['min']:.0f} à {plateaus['max']:.0f} W). Le débit moyen mélange "
+            f"deux régimes : voir gpu_power_plateau_w dans le CSV."
+        )
 
     # Scores de qualité : moyenne des exécutions. À température 0 elles sont
     # identiques ; en campagne « au mieux », prendre une seule exécution
