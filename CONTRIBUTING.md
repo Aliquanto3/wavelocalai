@@ -75,10 +75,15 @@ C'est ici que les **vérifications automatiques** se lancent.
     git commit -m "Type: Description courte de la modification"
     ```
 
-### Étape D : Envoyer (Push)
-Partagez votre code sur GitHub.
-* **VS Code :** Cliquez sur "Sync Changes".
-* **Terminal :** `git push`
+### Étape D : Envoyer (Push) et ouvrir une PR
+On ne pousse jamais sur `master`. Travaillez sur une branche préfixée (`fix/`, `feat/`, `docs/`, `chore/`, `bench/`, `audit/`), puis ouvrez une PR, fusionnée par *merge commit* (jamais de *squash*).
+* **VS Code :** Créez la branche, cliquez sur "Publish Branch", puis ouvrez la PR sur GitHub.
+* **Terminal :**
+    ```bash
+    git switch -c fix/ma-correction
+    git push -u origin fix/ma-correction
+    gh pr create
+    ```
 
 ---
 
@@ -104,9 +109,10 @@ Si votre commit est rejeté lors de l'Étape C, c'est généralement un hook qui
       ```
 
     * **Sur Windows (PowerShell) :**
-      Il est impératif de forcer l'encodage UTF-8 et d'utiliser le chemin complet si la commande n'est pas reconnue :
+      Le fichier doit être en UTF-8 **sans BOM** : sous Windows PowerShell 5.1, `Out-File -Encoding utf8` ajoute un BOM qui casse detect-secrets. Utilisez le chemin complet si la commande n'est pas reconnue :
       ```powershell
-      .venv\Scripts\detect-secrets.exe scan | Out-File -Encoding utf8 .secrets.baseline
+      $content = .venv\Scripts\detect-secrets.exe scan | Out-String
+      [System.IO.File]::WriteAllText("$(Get-Location)\.secrets.baseline", $content, [System.Text.UTF8Encoding]::new($false))
       ```
 
 ### Cas 3 : Erreur de style (Ruff)
@@ -125,7 +131,7 @@ git commit -m "Message urgent" --no-verify
 ## 🏗️ 5. Outils Avancés & Initialisation
 
 ### Audit via LLM
-Ce projet contient ses propres outils d'audit. Consultez le dossier **[`llm_review/`](llm_review/README.md)** pour utiliser nos prompts de validation.
+Ce projet contient ses propres outils d'audit. Consultez le dossier **[`llm_review/`](llm_review/README_LLM_Review.md)** pour utiliser nos prompts de validation.
 
 ### Publier un projet local sur GitHub (Première fois)
 Si vous partez de zéro :

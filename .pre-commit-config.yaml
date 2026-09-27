@@ -1,6 +1,10 @@
 # Configuration pre-commit pour WaveLocalAI
 # Installation : pip install pre-commit && pre-commit install
 
+# BMAD est du code tiers, régénéré à chaque mise à jour : ni formatage ni scan de secrets
+# (files-manifest.csv contient des empreintes SHA que detect-secrets prend pour des secrets).
+exclude: ^(_bmad/|\.claude/skills/bmad-)
+
 repos:
   # Hooks génériques
   - repo: https://github.com/pre-commit/pre-commit-hooks
