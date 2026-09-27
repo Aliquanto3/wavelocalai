@@ -1,6 +1,6 @@
 """
-Inference Arena Tab - Sprint 3 (Gamification & Podium)
-Mise à jour UX : Graphique Bubble Chart (Taille = CO2) + Labels enrichis.
+Onglet « Arène » de l'Arène des modèles : plusieurs modèles sur la même question, notés par
+un modèle juge. Graphique à bulles (taille = CO₂) et libellés directs.
 """
 
 import asyncio
@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.app.formatting import PLOTLY_SEPARATORS, format_unit
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceService
 from src.core.models_db import get_model_info
@@ -27,7 +28,7 @@ def _render_podium(results_data):
     winner = df.iloc[0]
     runner_up = df.iloc[1] if len(df) > 1 else None
 
-    st.header("Le Verdict")
+    st.header("Verdict")
 
     col_winner, col_chart = st.columns([1, 2])
 
@@ -39,8 +40,8 @@ def _render_podium(results_data):
         st.divider()
 
         c1, c2 = st.columns(2)
-        c1.metric("Score Juge", f"{winner['Note']}/100")
-        c2.metric("Vitesse", f"{winner['Débit (t/s)']} t/s")
+        c1.metric("Note du juge", f"{winner['Note']}/100")
+        c2.metric("Débit", format_unit(winner["Débit (t/s)"], "tokens/s"))
 
         # Comparaison (Reason to Win)
         if runner_up is not None:
@@ -49,18 +50,18 @@ def _render_podium(results_data):
 
             reason = ""
             if diff_score > 5:
-                reason = f"Plus intelligent (+{diff_score} pts)"
+                reason = f"Meilleure note (+{diff_score} points)"
             elif diff_speed > 5:
-                reason = f"Plus rapide (+{diff_speed:.1f} t/s)"
+                reason = f"Plus rapide (+{format_unit(diff_speed, 'tokens/s')})"
             elif winner["CO2 (mg)"] < runner_up["CO2 (mg)"]:
-                reason = "Plus écologique"
+                reason = "Moins de CO₂"
             else:
                 reason = "Meilleur équilibre"
 
             st.info(f"**Pourquoi ?** {reason}")
 
-        # Impact GreenOps (texte, sans code couleur par seuil)
-        st.caption(f"Impact : {winner['CO2 (mg)']:.2f} mgCO₂")
+        # CO₂ (texte, sans code couleur par seuil)
+        st.caption(f"CO₂ : {format_unit(winner['CO2 (mg)'], 'mg', 2)}")
 
     # --- GRAPHIQUE BUBBLE CHART (Plotly) ---
     with col_chart:
@@ -84,7 +85,7 @@ def _render_podium(results_data):
                 size = max(size, 25)
 
             # 3. LABEL DIRECT : Nom + CO2
-            label = f"<b>{row['Modèle']}</b><br>{co2_val:.1f} mgCO₂"
+            label = f"<b>{row['Modèle']}</b><br>{format_unit(co2_val, 'mg CO₂')}"
 
             fig.add_trace(
                 go.Scatter(
@@ -100,19 +101,24 @@ def _render_podium(results_data):
                     },
                     name=row["Modèle"],
                     hoverinfo="text",
-                    hovertext=f"<b>{row['Modèle']}</b><br>Score: {row['Note']}/100<br>Vitesse: {row['Débit (t/s)']} t/s<br>CO2: {co2_val} mg",
+                    hovertext=(
+                        f"<b>{row['Modèle']}</b><br>Note : {row['Note']}/100"
+                        f"<br>Débit : {format_unit(row['Débit (t/s)'], 'tokens/s')}"
+                        f"<br>CO₂ : {format_unit(co2_val, 'mg', 2)}"
+                    ),
                 )
             )
 
         fig.update_layout(
-            title="Matrice Performance vs Impact (Taille du point = CO₂)",
-            xaxis_title="Vitesse (Tokens/sec)",
-            yaxis_title="Qualité (Note Juge /100)",
+            title="Qualité selon le débit (taille du point = CO₂)",
+            xaxis_title="Débit (tokens/s)",
+            yaxis_title="Note du juge (/100)",
             yaxis={"range": [0, 110]},  # Marge en haut pour les labels
             xaxis={"showgrid": True},
             height=380,
             margin={"l": 20, "r": 20, "t": 40, "b": 20},
             showlegend=False,
+            separators=PLOTLY_SEPARATORS,
         )
         st.plotly_chart(fig, width="stretch")
 
@@ -123,9 +129,9 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
     col_conf, col_prompt = st.columns([1, 2])
 
     with col_conf:
-        st.header("1. Les Combattants")
+        st.header("Modèles")
         selected_arena_displays = st.multiselect(
-            "Sélectionner Modèles",
+            "Modèles à comparer",
             options=sorted_display_names,
             default=sorted_display_names[:2] if len(sorted_display_names) >= 2 else None,
             label_visibility="collapsed",
@@ -133,7 +139,7 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
         selected_arena_tags = [display_to_tag[d] for d in selected_arena_displays]
         selected_arena_friendlies = [tag_to_friendly[t] for t in selected_arena_tags]
 
-        with st.expander("Options du Juge (Arbitre)", expanded=False):
+        with st.expander("Réglages du juge", expanded=False):
             judge_options = sorted_display_names
             def_idx = 0
             for i, n in enumerate(judge_options):
@@ -141,7 +147,7 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
                     def_idx = i
                     break
 
-            judge_display = st.selectbox("Modèle Arbitre", judge_options, index=def_idx)
+            judge_display = st.selectbox("Modèle juge", judge_options, index=def_idx)
             judge_tag = display_to_tag.get(judge_display)
 
             default_judge_prompt = """Agis comme un juge impartial.
@@ -154,10 +160,10 @@ Format : Uniquement le chiffre (ex: 85)."""
             judge_sys = st.text_area("Critères de notation", value=default_judge_prompt, height=150)
 
     with col_prompt:
-        st.header("2. Le Défi")
+        st.header("Question")
         arena_prompt = st.text_area(
-            "Votre challenge",
-            value="Explique le concept de 'Dette Technique' à un enfant de 10 ans avec une métaphore filée.",
+            "Question posée aux modèles",
+            value="Explique le concept de « dette technique » à un enfant de 10 ans avec une métaphore filée.",
             height=100,
             label_visibility="collapsed",
         )
@@ -165,14 +171,14 @@ Format : Uniquement le chiffre (ex: 85)."""
         btn_col1, btn_col2 = st.columns([1, 3])
         with btn_col1:
             start_btn = st.button(
-                "FIGHT !",
+                "Lancer la comparaison",
                 type="primary",
                 width="stretch",
                 disabled=not selected_arena_tags,
             )
         with btn_col2:
             if not selected_arena_tags:
-                st.caption("Sélectionnez au moins 2 modèles.")
+                st.caption("Choisissez au moins 2 modèles.")
 
     # --- 3. EXÉCUTION ---
     if start_btn and selected_arena_tags and arena_prompt:
@@ -181,14 +187,14 @@ Format : Uniquement le chiffre (ex: 85)."""
         results_data = []
         model_responses = {}
 
-        status_box = st.status("Ouverture de l'arène...", expanded=True)
+        status_box = st.status("Comparaison en cours…", expanded=True)
         prog_bar = status_box.progress(0.0)
 
         total_steps = len(selected_arena_tags)
 
         for i, tag in enumerate(selected_arena_tags):
             friendly_name = selected_arena_friendlies[i]
-            status_box.write(f"**{friendly_name}** entre sur le ring...")
+            status_box.write(f"Génération par **{friendly_name}**…")
 
             try:
                 # 1. INFERENCE
@@ -215,7 +221,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 # 3. NOTATION JUGE
                 score = 0
                 if judge_tag:
-                    status_box.write(f"Le juge délibère pour {friendly_name}...")
+                    status_box.write(f"Notation de {friendly_name} par le juge…")
                     eval_p = judge_sys.replace("{prompt}", arena_prompt).replace(
                         "{response}", result.clean_text
                     )
@@ -246,18 +252,18 @@ Format : Uniquement le chiffre (ex: 85)."""
                 }
 
             except Exception as e:
-                status_box.error(f"KO {friendly_name}: {e}")
+                status_box.error(f"Échec de {friendly_name} : {e}")
 
             prog_bar.progress((i + 1) / total_steps)
 
-        status_box.update(label="Combat terminé !", state="complete", expanded=False)
+        status_box.update(label="Comparaison terminée", state="complete", expanded=False)
 
         # --- 4. RÉSULTATS ---
         if results_data:
             _render_podium(results_data)
 
             st.divider()
-            st.header("Détails des Copies")
+            st.header("Réponses des modèles")
 
             if len(model_responses) == 2:
                 c1, c2 = st.columns(2)
@@ -266,11 +272,11 @@ Format : Uniquement le chiffre (ex: 85)."""
                 )
                 for idx, (name, data) in enumerate(sorted_items):
                     with c1 if idx == 0 else c2, st.container(border=True):
-                        st.markdown(f"**{name}** (Note: {data['score']})")
+                        st.markdown(f"**{name}** (note : {data['score']}/100)")
                         st.caption(data["text"])
             else:
                 for name, data in sorted(
                     model_responses.items(), key=lambda x: x[1]["score"], reverse=True
                 ):
-                    with st.expander(f"{name} - {data['score']}/100"):
+                    with st.expander(f"{name} · {data['score']}/100"):
                         st.markdown(data["text"])

@@ -9,6 +9,15 @@ from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
 logger = logging.getLogger(__name__)
 
 
+def _gb(value: float, singular: str = "", plural: str = "") -> str:
+    """Quantité en Go au format fr-FR (« 1,2 Go »), suivie au besoin d'un mot accordé à la
+    valeur affichée (singulier sous 2). Pas d'import de src/app : src/core reste sans UI."""
+    shown = round(value, 1) or 0.0  # pas de « -0,0 »
+    text = f"{shown:.1f}".replace(".", ",") + "\u00a0Go"
+    word = singular if abs(shown) < 2 else plural
+    return f"{text} {word}" if word else text
+
+
 class ResourceCheckResult:
     def __init__(
         self,
@@ -146,18 +155,21 @@ class ResourceManager:
         # 4. Verdict final
         if safe_available_ram >= total_ram_needed:
             msg = (
-                f"Ressources suffisantes. "
-                f"Besoin: {total_ram_needed:.2f}GB ({n_instances}x {unit_ram:.2f}GB). "
-                f"Dispo (safe): {safe_available_ram:.2f}GB."
+                "Mémoire vive suffisante : environ "
+                f"{_gb(total_ram_needed, 'nécessaire', 'nécessaires')} "
+                f"({n_instances} × {_gb(unit_ram)}), "
+                f"{_gb(safe_available_ram, 'disponible', 'disponibles')} "
+                "hors réserve système."
             )
             logger.info(msg)
             return ResourceCheckResult(True, msg, total_ram_needed, available_ram)
         else:
             msg = (
-                f"RAM Insuffisante ! Risque de crash. "
-                f"Besoin: {total_ram_needed:.2f}GB. "
-                f"Dispo réelle: {available_ram:.2f}GB (Buffer sécu {SYSTEM_RAM_BUFFER_GB}GB déduit). "
-                f"Essayez de libérer la RAM via le bouton dans la sidebar."
+                "Mémoire vive insuffisante : environ "
+                f"{_gb(total_ram_needed, 'nécessaire', 'nécessaires')}, "
+                f"{_gb(available_ram, 'libre', 'libres')} dont "
+                f"{_gb(SYSTEM_RAM_BUFFER_GB, 'réservé', 'réservés')} au système. "
+                "Choisissez un modèle plus petit ou libérez la mémoire depuis la barre latérale."
             )
             logger.warning(msg)
             return ResourceCheckResult(False, msg, total_ram_needed, available_ram)

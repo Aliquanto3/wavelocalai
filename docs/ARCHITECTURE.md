@@ -50,7 +50,7 @@ Le moteur RAG utilise le **Pattern Strategy** pour permettre le changement d'alg
 ## Ajouter une fonctionnalité
 
 1.  **Backend :** Créer la logique dans `src/core/` (ex: `rag_engine.py`).
-2.  **Interface :** Créer une nouvelle page dans `src/app/pages/` (ex: `03_RAG_Knowledge.py`).
+2.  **Interface :** Créer une nouvelle page dans `src/app/views/` (ex: `03_RAG_Knowledge.py`), puis la déclarer dans `src/app/modules.py` (nom, icône, chemin d'URL) : le routeur `src/app/Accueil.py` construit le menu `st.navigation` à partir de cette liste. Ne pas recréer de dossier `src/app/pages/` : Streamlit repasserait en mode multipage historique.
 3.  **Dépendances :** Mettre à jour `requirements.txt` si nécessaire.
 
 ### Nouveaux Modules (Décembre 2025)

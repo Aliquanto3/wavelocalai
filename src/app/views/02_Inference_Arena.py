@@ -6,46 +6,26 @@ from src.app.tabs.inference.arena import render_arena_tab
 from src.app.tabs.inference.chat import render_chat_tab
 from src.app.tabs.inference.lab import render_lab_tab
 from src.app.tabs.inference.manager import render_manager_tab
-from src.app.ui import FAVICON_PATH, model_options, render_logo
+from src.app.modules import ARENA
+from src.app.ui import FAVICON_PATH, model_options
 from src.core.llm_provider import LLMProvider
 
 # --- Configuration de la Page ---
-st.set_page_config(page_title="Inférence & Arena", page_icon=FAVICON_PATH, layout="wide")
-render_logo()
+st.set_page_config(page_title=ARENA.title, page_icon=FAVICON_PATH, layout="wide")
+
+# Contrôle global « Autoriser le cloud », rendu par le routeur (Accueil.py).
+cloud_enabled = st.session_state.get("cloud_enabled", True)
 
 # ==========================================
-# 1. SIDEBAR & CONFIGURATION GLOBALE
-# ==========================================
-with st.sidebar:
-    st.header("Configuration")
-
-    # Global Cloud Toggle (Persistant)
-    if "cloud_enabled" not in st.session_state:
-        st.session_state.cloud_enabled = True
-
-    cloud_enabled = st.toggle(
-        "Activer Cloud (Mistral)",
-        value=st.session_state.cloud_enabled,
-        help="Si désactivé, seuls les modèles locaux (Ollama) seront accessibles.",
-    )
-    st.session_state.cloud_enabled = cloud_enabled
-    st.divider()
-
-    if not cloud_enabled:
-        st.caption("Mode Local Strict")
-    else:
-        st.caption("Mode Hybride (Local / Cloud)")
-
-# ==========================================
-# 2. CHARGEMENT CENTRALISÉ DES MODÈLES
+# CHARGEMENT CENTRALISÉ DES MODÈLES
 # ==========================================
 installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled)
 
 # Maps pour les sélecteurs (libellés « Nom · Local » / « Nom · Cloud »)
 display_to_tag, tag_to_friendly, sorted_display_names = model_options(installed_models_list)
 
-st.title("Inférence & Model Arena")
-st.caption("Benchmark technique et fonctionnel des SLM.")
+st.title(ARENA.title)
+st.caption("Converser avec un modèle, tester un scénario, comparer des modèles et les installer.")
 
 # --- SESSION STATE INITIALIZATION ---
 if "messages" not in st.session_state:
@@ -57,7 +37,7 @@ if "lab_metrics" not in st.session_state:
 
 # --- TABS ---
 tab_chat, tab_lab, tab_arena, tab_manager = st.tabs(
-    ["Chat Libre", "Labo de Tests", "Arena", "Gestion Modèles"]
+    ["Chat libre", "Banc d'essai", "Arène", "Gestion des modèles"]
 )
 
 # ==========================================

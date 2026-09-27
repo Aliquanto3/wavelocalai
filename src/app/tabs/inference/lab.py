@@ -1,12 +1,13 @@
 """
-Inference Lab Tab - Sprint 2 (Ergonomie & Clarté)
-Refonte UX : Layout 2 colonnes (Input vs Output), Métriques en tête de résultat.
+Onglet « Banc d'essai » de l'Arène des modèles : un scénario, un modèle, une réponse mesurée.
+Deux colonnes (configuration, résultat), métriques sous le résultat.
 """
 
 import asyncio
 
 import streamlit as st
 
+from src.app.formatting import format_duration, format_number, format_unit
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceCallbacks, InferenceService
 from src.core.models_db import get_model_info
@@ -18,7 +19,7 @@ USE_CASES = {
         "system": """Tu es un expert en analyse de sentiment. Réponds UNIQUEMENT avec un JSON : {"sentiment": "Positif"|"Neutre"|"Négatif", "categorie": "..."}.""",
         "user": """Analyse ce feedback : "La formation était top, mais la salle trop chaude." """,
     },
-    "Traduction Technique": {
+    "Traduction technique": {
         "system": 'Traduis en Anglais, Espagnol, Allemand. Format JSON : {"en": "...", "es": "...", "de": "..."}.',
         "user": "L'inférence locale garantit la confidentialité des données.",
     },
@@ -26,11 +27,11 @@ USE_CASES = {
         "system": "Extrais les entités (Date, Montant, Vendeur). Réponds UNIQUEMENT en JSON.",
         "user": "Facture du 12/12/2024 de Wavestone pour 500€.",
     },
-    "Assistant Code (Python)": {
+    "Assistant de code (Python)": {
         "system": "Tu es un expert Python. Génère du code typé et documenté.",
         "user": "Fonction asynchrone pour appeler une API REST avec retry.",
     },
-    "Raisonnement (CoT)": {
+    "Raisonnement pas à pas": {
         "system": "Utilise la méthode Chain of Thought : pense étape par étape avant de répondre.",
         "user": "J'ai 3 pommes. J'en mange une. J'en achète deux. J'en jette une. Combien m'en reste-t-il ?",
     },
@@ -48,38 +49,43 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
     # === COLONNE GAUCHE : CONFIGURATION ===
     with col_input:
-        st.header("1. Configuration")
+        st.header("Configuration")
 
         # Sélection Modèle & Cas
         lab_model_display = st.selectbox("Modèle", sorted_display_names, key="lab_model_select")
         lab_model_tag = display_to_tag.get(lab_model_display)
-        lab_model_friendly = tag_to_friendly.get(lab_model_tag, "Inconnu")
+        lab_model_friendly = tag_to_friendly.get(lab_model_tag, "Modèle inconnu")
 
-        selected_use_case = st.selectbox("Scénario Prédéfini", list(USE_CASES.keys()))
+        selected_use_case = st.selectbox("Scénario prédéfini", list(USE_CASES.keys()))
         default_sys = USE_CASES[selected_use_case]["system"]
         default_user = USE_CASES[selected_use_case]["user"]
 
         # Paramètres avancés cachés
-        with st.expander("Paramètres (System & Temp)", expanded=False):
-            system_prompt = st.text_area("System Prompt", value=default_sys, height=100)
+        with st.expander("Réglages avancés", expanded=False):
+            system_prompt = st.text_area(
+                "Consigne système",
+                value=default_sys,
+                height=100,
+                help="Prompt système : consigne donnée au modèle avant la question.",
+            )
             lab_temp = st.slider("Température", 0.0, 1.0, 0.2)
 
         # Zone de Prompt User
-        st.markdown("**Entrée Utilisateur**")
+        st.markdown("**Entrée utilisateur**")
         user_prompt = st.text_area(
-            "Votre prompt", value=default_user, height=200, label_visibility="collapsed"
+            "Entrée utilisateur", value=default_user, height=200, label_visibility="collapsed"
         )
 
         # Bouton Action
-        if st.button("Lancer le Test", type="primary", width="stretch"):
+        if st.button("Lancer le test", type="primary", width="stretch"):
             if lab_model_tag:
                 st.session_state.lab_trigger = True
             else:
-                st.warning("Sélectionnez un modèle.")
+                st.warning("Choisissez un modèle.")
 
     # === COLONNE DROITE : RÉSULTAT ===
     with col_output:
-        st.header("2. Résultat & Analyse")
+        st.header("Résultat")
 
         # Container de résultat
         res_container = st.container(border=True)
@@ -99,7 +105,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
                 callbacks = InferenceCallbacks(on_token=on_token)
 
                 # RUN
-                with st.spinner("Génération..."):
+                with st.spinner("Génération…"):
                     result = asyncio.run(
                         InferenceService.run_inference(
                             model_tag=lab_model_tag,
@@ -153,11 +159,11 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
             # Affichage en Grid
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Vitesse", f"{m.tokens_per_second:.1f} t/s")
-            c2.metric("Impact", f"{carbon_mg:.2f} mgCO₂")
-            c3.metric("Latence", f"{m.total_duration_s:.2f} s")
-            c4.metric("Tokens", f"{m.output_tokens}")
+            c1.metric("Débit", format_unit(m.tokens_per_second, "tokens/s"))
+            c2.metric("CO₂", format_unit(carbon_mg, "mg", 2))
+            c3.metric("Durée totale", format_duration(m.total_duration_s))
+            c4.metric("Tokens générés", format_number(m.output_tokens, 0))
 
         else:
             with res_container:
-                st.info("Configurez et lancez le test pour voir le résultat.")
+                st.info("Choisissez un scénario, puis lancez le test pour voir le résultat.")

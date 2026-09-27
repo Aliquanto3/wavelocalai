@@ -1,6 +1,6 @@
 """
-Inference Manager Tab - Sprint 1 (App Store Look & Onboarding)
-Mise à jour UX : Filtres intelligents, Ordre menu, Tooltips techniques.
+Onglet « Gestion des modèles » de l'Arène des modèles : modèles installés, filtres par
+capacité, installation depuis le catalogue ou par tag Ollama.
 """
 
 import contextlib
@@ -9,6 +9,7 @@ import time
 import pandas as pd
 import streamlit as st
 
+from src.app.formatting import pluralize
 from src.core.llm_provider import LLMProvider
 from src.core.models_db import (
     get_all_friendly_names,
@@ -50,18 +51,18 @@ def _parse_size_to_float(val: str) -> float:
 
 # Options du sélecteur d'installation et des filtres : valeurs comparées par égalité,
 # définies une seule fois.
-CATALOG_PLACEHOLDER = "Sélectionner dans le catalogue..."
-MANUAL_TAG_OPTION = "Autre (Tag Ollama Manuel)"
+CATALOG_PLACEHOLDER = "Choisir dans le catalogue…"
+MANUAL_TAG_OPTION = "Autre (tag Ollama saisi à la main)"
 
 FILTER_ALL = "Tout"
 FILTER_REASONING = "Raisonnement"
-FILTER_TOOLS = "Tools"
+FILTER_TOOLS = "Outils"
 FILTER_FAST = "Rapide"
 FILTER_CLOUD = "Cloud"
 
 
 # --- 2. MODAL DE TÉLÉCHARGEMENT ---
-@st.dialog("Installer un nouveau Modèle")
+@st.dialog("Ajouter un modèle")
 def open_download_modal(installed_names: list):
     st.caption("Téléchargez des modèles depuis la bibliothèque Ollama ou le catalogue Wavestone.")
 
@@ -83,7 +84,9 @@ def open_download_modal(installed_names: list):
 
         target_tag = ""
         if choice == MANUAL_TAG_OPTION:
-            target_tag = st.text_input("Tag (ex: llama3:8b)", help="Voir ollama.com/library")
+            target_tag = st.text_input(
+                "Tag Ollama (par exemple llama3:8b)", help="Liste des tags : ollama.com/library"
+            )
         elif choice != CATALOG_PLACEHOLDER:
             info = get_model_info(choice)
             if info:
@@ -94,21 +97,22 @@ def open_download_modal(installed_names: list):
             info = get_model_info(choice)
             if info:
                 st.info(
-                    f"**Specs**\n\nCtx: {info.get('ctx','?')}\nParams: {info.get('params_tot','?')}"
+                    f"**Caractéristiques**\n\nContexte : {info.get('ctx', '?')}\n"
+                    f"Paramètres : {info.get('params_tot', '?')}"
                 )
 
     st.divider()
 
     # Bouton d'action
     if st.button(
-        "Lancer l'installation",
+        "Ajouter le modèle",
         type="primary",
         icon=":material/download:",
         width="stretch",
         disabled=not target_tag,
     ):
-        status_box = st.status(f"Installation de **{target_tag}**...", expanded=True)
-        pbar = status_box.progress(0, text="Connexion...")
+        status_box = st.status(f"Ajout de **{target_tag}**…", expanded=True)
+        pbar = status_box.progress(0, text="Connexion…")
 
         try:
             for progress in LLMProvider.pull_model(target_tag):
@@ -118,14 +122,14 @@ def open_download_modal(installed_names: list):
                 else:
                     pbar.progress(0.5, text=progress["status"])
 
-            pbar.progress(1.0, text="Terminé !")
-            status_box.update(label="Modèle installé avec succès !", state="complete")
+            pbar.progress(1.0, text="Terminé")
+            status_box.update(label="Modèle ajouté", state="complete")
             time.sleep(1)
             st.rerun()
 
         except Exception as e:
-            status_box.update(label="Échec", state="error")
-            st.error(f"Erreur : {str(e)}")
+            status_box.update(label="Échec de l'ajout", state="error")
+            st.error(f"Le modèle n'a pas pu être ajouté : {e}")
 
 
 # --- 3. RENDU PRINCIPAL ---
@@ -137,8 +141,11 @@ def render_manager_tab(installed_models_list: list):
     # EN-TÊTE ACTIONNABLE
     c_title, c_add, c_refresh = st.columns([3, 1, 0.8])
     with c_title:
-        st.header("Mes Modèles Locaux")
-        st.caption(f"{len(installed_models_list)} modèles installés et prêts à l'emploi.")
+        st.header("Modèles disponibles")
+        count = pluralize(
+            len(installed_models_list), "modèle prêt à l'emploi", "modèles prêts à l'emploi"
+        )
+        st.caption(f"{count}.")
     with c_refresh:
         if st.button("Rafraîchir", icon=":material/refresh:", help="Rafraîchir la liste"):
             st.rerun()
@@ -214,13 +221,15 @@ def render_manager_tab(installed_models_list: list):
 
             row = {
                 "Nom": card["name"],
-                "Format": "API" if is_cloud else "Local",
+                "Format": "Cloud" if is_cloud else "Local",
                 "Vitesse": speed,
-                "RAM": ram,
+                # Valeur inconnue (0) → absente (None), affichée vide plutôt que « 0,0 ».
+                "RAM": ram or None,
                 "CO2": co2_mg,
                 "Params": _parse_params_to_float(
                     info.get("params_act") or info.get("params_tot", "0")
-                ),
+                )
+                or None,
                 "Contexte": int(info.get("ctx", 0)) if str(info.get("ctx", "0")).isdigit() else 0,
                 "Capacités": " · ".join(caps),
                 "Tag": m["model"],
@@ -237,38 +246,44 @@ def render_manager_tab(installed_models_list: list):
                 column_order=["Nom", "Format", "Vitesse", "RAM", "CO2", "Params", "Capacités"],
                 column_config={
                     "Nom": st.column_config.TextColumn(
-                        "Modèle", width="medium", help="Nom commercial du modèle (Friendly Name)."
+                        "Modèle", width="medium", help="Nom usuel du modèle."
                     ),
                     "Format": st.column_config.TextColumn(
                         "Type",
                         width="small",
-                        help="API = Modèle distant (Mistral/OpenAI) via Internet.\nLocal = Modèle tournant sur votre machine (Ollama).",
+                        help="Cloud : modèle distant (Mistral, OpenAI), joint par Internet.\n"
+                        "Local : modèle qui tourne sur cette machine (Ollama).",
                     ),
                     "Vitesse": st.column_config.ProgressColumn(
-                        "Vitesse (t/s)",
-                        format="%.1f t/s",
+                        "Débit (tokens/s)",
+                        # Entier : aucun séparateur décimal à localiser.
+                        format="%.0f",
                         min_value=0,
                         max_value=100,
-                        help="Tokens par seconde (Débit). Plus la barre est pleine, plus la génération est rapide.",
+                        help="Tokens générés par seconde. Plus la barre est pleine, plus la "
+                        "génération est rapide.",
                     ),
+                    # Colonnes numériques (tri numérique) au format de la locale du
+                    # navigateur : virgule décimale sur un poste en français.
                     "RAM": st.column_config.NumberColumn(
-                        "RAM (GB)",
-                        format="%.1f GB",
-                        help="Mémoire vive (VRAM/RAM) occupée par le modèle une fois chargé.",
+                        "Mémoire (Go)",
+                        format="localized",
+                        help="Mémoire vive (ou vidéo) occupée par le modèle une fois chargé.",
                     ),
                     "CO2": st.column_config.NumberColumn(
-                        "CO₂ (mg/1k)",
-                        format="%.1f mg",
-                        help="Estimation de l'impact carbone pour 1000 tokens générés (ACV pour Cloud, Scope 2 pour Local).",
+                        "CO₂ (mg pour 1 000 tokens)",
+                        format="localized",
+                        help="Estimation de l'impact carbone pour 1 000 tokens générés.",
                     ),
                     "Params": st.column_config.NumberColumn(
-                        "Params (B)",
-                        format="%.1f B",
-                        help="Nombre de paramètres (milliards). Indique la complexité et la 'culture' du modèle.",
+                        "Paramètres (milliards)",
+                        format="localized",
+                        help="Nombre de paramètres, en milliards.",
                     ),
                     "Capacités": st.column_config.TextColumn(
-                        "Badge",
-                        help="Outils = Supporte les Outils/Function Calling.\nRaisonnement = Fort en raisonnement logique.\nCloud = Modèle Cloud.",
+                        "Capacités",
+                        help="Outils : sait appeler des outils (function calling).\n"
+                        "Raisonnement : bon en raisonnement logique.\nCloud : modèle distant.",
                     ),
                 },
                 width="stretch",
@@ -281,6 +296,6 @@ def render_manager_tab(installed_models_list: list):
 
     # BOUTON D'AJOUT (En dessous du titre mais logique définie ici pour utiliser installed_names)
     with c_add:
-        if st.button("Ajouter un Modèle", type="primary", icon=":material/add:", width="stretch"):
+        if st.button("Ajouter un modèle", type="primary", icon=":material/add:", width="stretch"):
             # On passe la liste des noms installés au modal pour filtrage
             open_download_modal(installed_friendly_names)

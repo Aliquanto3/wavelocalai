@@ -1,6 +1,6 @@
 """
-Inference Chat Tab - Sprint 2 (Immersive & Badges)
-Refonte UX : Suppression sidebar, Header horizontal, Badges GreenOps visuels.
+Onglet « Chat libre » de l'Arène des modèles : conversation avec un modèle et métadonnées
+(CO₂, débit, durée) sous chaque réponse.
 """
 
 import asyncio
@@ -8,7 +8,9 @@ import time
 
 import streamlit as st
 
-# --- Import SSOT GreenOps ---
+from src.app.formatting import format_duration, format_unit
+
+# --- Import SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceCallbacks, InferenceService
 from src.core.models_db import get_model_info
@@ -43,8 +45,8 @@ def _render_message_footer(metrics: dict):
         return
 
     st.caption(
-        f"{metrics['co2_mg']:.2f} mgCO₂ · {metrics['speed']:.1f} t/s · "
-        f"{metrics['duration']:.2f}s"
+        f"{format_unit(metrics['co2_mg'], 'mgCO₂', 2)} · "
+        f"{format_unit(metrics['speed'], 'tokens/s')} · {format_duration(metrics['duration'])}"
     )
 
 
@@ -53,12 +55,12 @@ def render_chat_tab(
 ):
     # --- 1. HEADER DE CONTRÔLE (Horizontal) ---
     with st.container(border=True):
-        c_mod, c_temp, c_stat, c_reset = st.columns([3, 2, 2, 1])
+        c_mod, c_temp, c_stat, c_reset = st.columns([3, 2, 2, 2])
 
         with c_mod:
             # Sélecteur Modèle
             local_display = st.selectbox(
-                "Modèle Actif",
+                "Modèle actif",
                 sorted_display_names,
                 index=(
                     sorted_display_names.index(selected_display)
@@ -71,7 +73,14 @@ def render_chat_tab(
 
         with c_temp:
             # Température compacte
-            temp = st.slider("Créativité", 0.0, 1.0, 0.7, label_visibility="collapsed")
+            temp = st.slider(
+                "Créativité",
+                0.0,
+                1.0,
+                0.7,
+                label_visibility="collapsed",
+                help="Température : plus elle est haute, plus les réponses varient.",
+            )
 
         with c_stat:
             # Mini Stats Session
@@ -80,10 +89,10 @@ def render_chat_tab(
                 if m.get("role") == "assistant" and "metrics_data" in m:
                     total_co2_mg += m["metrics_data"].get("co2_mg", 0.0)
 
-            st.caption(f"Session: **{total_co2_mg:.1f} mgCO₂**")
+            st.caption(f"Session : **{format_unit(total_co2_mg, 'mgCO₂')}**")
 
         with c_reset:
-            if st.button("Effacer", icon=":material/delete:", help="Effacer l'historique"):
+            if st.button("Effacer la conversation", icon=":material/delete:", width="stretch"):
                 st.session_state.messages = []
                 st.rerun()
 
@@ -92,16 +101,16 @@ def render_chat_tab(
 
     with chat_container:
         if not st.session_state.messages:
-            st.header("Playground Inférence", anchor=False, text_alignment="center")
+            st.header("Chat libre", anchor=False, text_alignment="center")
             st.caption(
-                "Testez la réactivité et l'impact écologique des modèles en direct.",
+                "Testez la réactivité et l'impact environnemental d'un modèle en direct.",
                 text_alignment="center",
             )
 
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 if msg.get("thought"):
-                    with st.expander("Pensée (CoT)", expanded=False):
+                    with st.expander("Raisonnement", expanded=False):
                         st.markdown(msg["thought"])
 
                 st.markdown(msg["content"])
@@ -111,7 +120,7 @@ def render_chat_tab(
                     _render_message_footer(msg["metrics_data"])
 
     # --- 3. INPUT USER ---
-    if prompt := st.chat_input("Votre message..."):
+    if prompt := st.chat_input("Écrivez votre message"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -143,7 +152,7 @@ def render_chat_tab(
             if result.thought:
                 msg_container.empty()
                 with msg_container.container():
-                    with st.expander("Pensée", expanded=True):
+                    with st.expander("Raisonnement", expanded=True):
                         st.markdown(result.thought)
                     st.markdown(result.clean_text)
 

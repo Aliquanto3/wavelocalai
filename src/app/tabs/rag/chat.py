@@ -1,10 +1,9 @@
 """
-RAG Chat Tab - Sprint 2 (UX & GreenOps Inline)
-Changements :
-- Suppression de la colonne latérale de debug.
-- Intégration des sources dans un expander sous la réponse.
-- Affichage des métriques (Temps, CO2, RAM) en "Badges" sous le message.
-- Persistance complète des métadonnées dans l'historique.
+Onglet « Discussion » de l'Assistant documentaire.
+
+- Sources dans un expander replié sous chaque réponse.
+- Métadonnées (durée, mémoire, CO₂) sous chaque réponse.
+- Métadonnées conservées dans l'historique.
 """
 
 import asyncio
@@ -12,7 +11,9 @@ import time
 
 import streamlit as st
 
-# --- SSOT GreenOps ---
+from src.app.formatting import format_duration, format_gb, format_number, format_unit, pluralize
+
+# --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
@@ -28,7 +29,7 @@ def render_rag_chat_tab(
     c_sel, c_space = st.columns([1, 2])
     with c_sel:
         selected_display = st.selectbox(
-            "Modèle Actif",
+            "Modèle actif",
             sorted_display_names,
             key="rag_chat_select",
             label_visibility="collapsed",
@@ -57,12 +58,18 @@ def render_rag_chat_tab(
 
                 # C1. Sources (Expander)
                 if msg.get("sources"):
-                    with st.expander(f"{len(msg['sources'])} Sources utilisées", expanded=False):
+                    sources_label = pluralize(
+                        len(msg["sources"]), "source utilisée", "sources utilisées"
+                    )
+                    with st.expander(sources_label, expanded=False):
                         for idx, doc in enumerate(msg["sources"]):
                             score = doc.metadata.get("score", 0)
-                            src_name = doc.metadata.get("source", "Doc inconnu")
-                            st.caption(f"**Source {idx+1}** : {src_name} (Pertinence: {score:.2f})")
-                            st.text(doc.page_content[:400] + "...")
+                            src_name = doc.metadata.get("source", "Document inconnu")
+                            st.caption(
+                                f"**Source {idx + 1}** : {src_name} "
+                                f"(pertinence : {format_number(score, 2)})"
+                            )
+                            st.text(doc.page_content[:400] + "…")
 
                 # C2. Métriques & Actions (Badges)
                 c_meta1, c_meta2 = st.columns([3, 1])
@@ -71,14 +78,14 @@ def render_rag_chat_tab(
                     badges = []
                     if "metrics" in msg:
                         m = msg["metrics"]
-                        badges.append(f"{m.get('total_time', 0):.1f}s")
+                        badges.append(format_duration(m.get("total_time", 0)))
                         if "ram_gb" in m:
-                            badges.append(f"{m['ram_gb']:.1f} GB")
+                            badges.append(format_gb(m["ram_gb"]))
                         if "carbon_mg" in m:
-                            badges.append(f"{m['carbon_mg']:.2f} mgCO₂")
+                            badges.append(format_unit(m["carbon_mg"], "mgCO₂", 2))
 
                     if badges:
-                        st.caption(" | ".join(badges))
+                        st.caption(" · ".join(badges))
 
                 with c_meta2:
                     # Bouton de téléchargement avec CLÉ UNIQUE
@@ -92,7 +99,7 @@ def render_rag_chat_tab(
                     )
 
     # 3. INPUT UTILISATEUR
-    if prompt := st.chat_input("Posez une question à vos documents..."):
+    if prompt := st.chat_input("Posez une question à vos documents"):
         # Ajout message user
         st.session_state.rag_messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -101,7 +108,7 @@ def render_rag_chat_tab(
         # 4. RÉPONSE ASSISTANT
         with st.chat_message("assistant"):
             resp_container = st.empty()
-            status_box = st.status("Recherche & Réflexion...", expanded=True)
+            status_box = st.status("Recherche dans vos documents…", expanded=True)
 
             t_start_pipeline = time.perf_counter()
 
@@ -110,16 +117,17 @@ def render_rag_chat_tab(
                 # Feedback dynamique sur la stratégie
                 strat_name = rag_engine.strategy.__class__.__name__
                 if "HyDE" in strat_name:
-                    status_box.write("HyDE : Génération hypothétique...")
+                    status_box.write("Rédaction d'une réponse hypothétique pour la recherche…")
                 elif "SelfRAG" in strat_name:
-                    status_box.write("Self-RAG : Analyse critique...")
+                    status_box.write("Vérification de la pertinence des extraits…")
                 else:
-                    status_box.write("Naive RAG : Recherche vectorielle...")
+                    status_box.write("Recherche des extraits les plus proches…")
 
                 t_ret = time.perf_counter()
                 retrieved = rag_engine.search(prompt, k=k_retrieval)
                 d_ret = time.perf_counter() - t_ret
-                status_box.write(f"{len(retrieved)} documents trouvés ({d_ret:.2f}s)")
+                found = pluralize(len(retrieved), "extrait trouvé", "extraits trouvés")
+                status_box.write(f"{found} ({format_duration(d_ret)})")
 
                 # B. Préparation Prompt
                 context_text = "\n\n".join([doc.page_content for doc in retrieved])
@@ -132,7 +140,7 @@ def render_rag_chat_tab(
                 ]
 
                 # C. Génération (Streaming)
-                status_box.write(f"Génération avec {friendly_name}...")
+                status_box.write(f"Génération avec {friendly_name}…")
 
                 async def run_gen():
                     full_txt = ""
@@ -158,11 +166,11 @@ def render_rag_chat_tab(
                 # Affichage Final
                 resp_container.empty()
                 if thought:
-                    with st.expander("CoT", expanded=True):
+                    with st.expander("Raisonnement", expanded=True):
                         st.markdown(thought)
                 st.markdown(clean)
 
-                # E. Calculs GreenOps (SSOT)
+                # E. Calculs carbone (SSOT)
                 carbon_mg = 0.0
                 ram_gb = 0.0
                 if metrics_obj:
@@ -206,4 +214,4 @@ def render_rag_chat_tab(
 
             except Exception as e:
                 status_box.update(label="Erreur", state="error")
-                st.error(f"Erreur Pipeline : {e}")
+                st.error(f"La réponse n'a pas pu être générée : {e}")

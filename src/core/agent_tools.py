@@ -799,59 +799,60 @@ AVAILABLE_TOOLS = [
     system_monitor,
 ]
 
-# Métadonnées des outils pour l'UI
+# Métadonnées des outils pour l'UI. « name » est le nom affiché (lexique d'EXPERIENCE.md) ;
+# la clé reste l'identifiant interne de l'outil.
 TOOLS_METADATA = {
     "get_current_time": {
-        "name": "Time",
+        "name": "Heure",
         "description": "Heure système",
         "category": "system",
         "requires_config": False,
     },
     "calculator": {
-        "name": "Calculator",
+        "name": "Calculatrice",
         "description": "Calculs mathématiques",
         "category": "computation",
         "requires_config": False,
     },
     "search_wavestone_internal": {
-        "name": "Wavestone Search",
+        "name": "Recherche interne Wavestone",
         "description": "Base interne simulée",
         "category": "data",
         "requires_config": False,
     },
     "send_email": {
-        "name": "Email Sender",
+        "name": "Envoi d'email",
         "description": "Envoi d'emails",
         "category": "communication",
         "requires_config": True,
         "config_vars": ["SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD"],
     },
     "analyze_csv": {
-        "name": "Data Analyzer",
+        "name": "Analyse de données",
         "description": "Analyse CSV/Excel",
         "category": "data",
         "requires_config": False,
     },
     "generate_document": {
-        "name": "Document Generator",
+        "name": "Génération de document",
         "description": "Création de DOCX",
         "category": "output",
         "requires_config": False,
     },
     "generate_chart": {
-        "name": "Chart Generator",
+        "name": "Génération de graphique",
         "description": "Graphiques PNG",
         "category": "output",
         "requires_config": False,
     },
     "generate_markdown_report": {
-        "name": "Markdown Report",
+        "name": "Rapport Markdown",
         "description": "Rapports MD",
         "category": "output",
         "requires_config": False,
     },
     "system_monitor": {
-        "name": "System Monitor",
+        "name": "Moniteur système",
         "description": "Métriques système",
         "category": "system",
         "requires_config": False,

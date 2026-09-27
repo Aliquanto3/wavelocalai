@@ -42,13 +42,15 @@ EXPECTED_THEME = {
 EXTRA_THEME_KEYS = {"light": {"greenTextColor"}, "dark": set()}
 FONT_STACK = "Aptos, Inter, sans-serif"
 
-# Une icône Material par module, jamais partagée (EXPERIENCE.md, Information Architecture),
-# portée par le lien de l'accueil. Le favicon est un fichier local commun (FAVICON_PATH).
+# Une icône Material par page, jamais partagée (EXPERIENCE.md, Information Architecture),
+# déclarée une seule fois dans src/app/modules.py (menu et liens de l'accueil). Le favicon est
+# un fichier local commun (FAVICON_PATH).
 MODULE_ICONS = {
-    "pages/01_Socle_Hardware.py": "eco",
-    "pages/02_Inference_Arena.py": "leaderboard",
-    "pages/03_RAG_Knowledge.py": "description",
-    "pages/04_Agent_Lab.py": "smart_toy",
+    "home.py": "home",
+    "views/01_Socle_Hardware.py": "eco",
+    "views/02_Inference_Arena.py": "leaderboard",
+    "views/03_RAG_Knowledge.py": "description",
+    "views/04_Agent_Lab.py": "smart_toy",
 }
 
 # Pictogrammes emoji : « ‼ », « ⁉ », « ℹ », flèches (sauf « → »), symboles techniques, formes
@@ -190,7 +192,9 @@ def test_tool_display_names_have_no_emoji():
 
 def test_page_icons_are_local_files():
     """Aucun page_icon Material : le navigateur le téléchargerait depuis fonts.gstatic.com."""
-    for path in [APP_DIR / "Accueil.py", *sorted((APP_DIR / "pages").glob("*.py"))]:
+    pages = [APP_DIR / "Accueil.py", APP_DIR / "home.py", *sorted((APP_DIR / "views").glob("*.py"))]
+    assert len(pages) == 6
+    for path in pages:
         source = path.read_text(encoding="utf-8")
         assert "page_icon=FAVICON_PATH" in source, path.name
         assert not re.search(r"page_icon\s*=\s*[\"']:material/", source), path.name
@@ -202,19 +206,35 @@ def test_page_icons_are_local_files():
 
 
 def test_module_icons_are_material_and_not_shared():
-    """Chaque module a sa propre icône Material, portée par son lien depuis l'accueil et
-    utilisée nulle part ailleurs."""
-    accueil = (APP_DIR / "Accueil.py").read_text(encoding="utf-8")
+    """Chaque page a sa propre icône Material, déclarée une fois dans modules.py avec le fichier
+    de la page, portée par le menu et le lien de l'accueil, et utilisée nulle part ailleurs."""
+    from src.app.modules import HOME_ICON, MODULES
+
+    declared = {"home.py": HOME_ICON} | {m.path: m.icon for m in MODULES}
+    assert declared == {page: f":material/{icon}:" for page, icon in MODULE_ICONS.items()}
+
+    modules_src = (APP_DIR / "modules.py").read_text(encoding="utf-8")
     for page, icon in MODULE_ICONS.items():
-        assert re.search(rf'"{re.escape(page)}".*?icon=":material/{icon}:"', accueil, re.S)
-        assert accueil.count(f":material/{icon}:") == 1, page
+        assert modules_src.count(f":material/{icon}:") == 1, page
+
+    # Le routeur et l'accueil lisent l'icône dans modules.py, jamais en dur.
+    accueil = (APP_DIR / "Accueil.py").read_text(encoding="utf-8")
+    home = (APP_DIR / "home.py").read_text(encoding="utf-8")
+    assert "icon=module.icon" in accueil and "icon=HOME_ICON" in accueil
+    assert "icon=module.icon" in home
 
     for path in _app_sources():
-        if path.name == "Accueil.py":
+        if path.name == "modules.py":
             continue
         source = path.read_text(encoding="utf-8")
         for page, icon in MODULE_ICONS.items():
             assert f":material/{icon}:" not in source, f"{path.name} réutilise l'icône de {page}"
+
+
+def test_no_legacy_pages_directory():
+    """Aucun dossier pages/ à côté du point d'entrée : Streamlit exécuterait alors la première
+    requête sans le routeur st.navigation (anciens noms, pas de contrôle cloud)."""
+    assert not (APP_DIR / "pages").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +268,7 @@ def test_page_has_single_title_without_emoji(page):
 
 def test_agent_solo_shows_all_nine_tools():
     """Agent seul : les 9 outils sont proposés en pastilles, repliables sur plusieurs lignes."""
-    at = _run("pages/04_Agent_Lab.py")
+    at = _run("views/04_Agent_Lab.py")
     try:
         assert not at.exception, [e.value for e in at.exception]
         pills = [p for p in at.button_group if p.label == "Outils"]
@@ -259,7 +279,7 @@ def test_agent_solo_shows_all_nine_tools():
 
 
 def test_agent_lab_model_order_and_tool_log_states(monkeypatch):
-    """Agent Lab : modèles aux outils vérifiés d'abord (cloud avant local), puis les autres ;
+    """Agents autonomes : modèles aux outils vérifiés d'abord (cloud avant local), puis les autres ;
     l'état d'un journal d'outil vient du champ « done », pas du texte."""
     from src.core.llm_provider import LLMProvider
     from tests.app.conftest import FAKE_LOCAL_MODELS
@@ -272,7 +292,7 @@ def test_agent_lab_model_order_and_tool_log_states(monkeypatch):
         staticmethod(lambda cloud_enabled=True: [dict(m) for m in models]),
     )
 
-    at = AppTest.from_file(str(APP_DIR / "pages/04_Agent_Lab.py"), default_timeout=RENDER_TIMEOUT_S)
+    at = AppTest.from_file(str(APP_DIR / "views/04_Agent_Lab.py"), default_timeout=RENDER_TIMEOUT_S)
     at.session_state["agent_messages"] = [
         {"role": "user", "content": "Demande"},
         {
@@ -302,7 +322,8 @@ def test_agent_lab_model_order_and_tool_log_states(monkeypatch):
             "Gemma 3 1B · Local",
         ]
 
+        # Libellé = nom affiché de l'outil (lexique), pas son identifiant interne.
         states = {s.label: s.state for s in at.status}
-        assert states == {"calculator": "complete", "system_monitor": "running"}
+        assert states == {"Calculatrice": "complete", "Moniteur système": "running"}
     finally:
         _stop_tracker(at)

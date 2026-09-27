@@ -7,7 +7,15 @@ import plotly.express as px
 import psutil
 import streamlit as st
 
-from src.app.ui import FAVICON_PATH, render_logo
+from src.app.formatting import (
+    NBSP,
+    PLOTLY_SEPARATORS,
+    format_number,
+    format_percent,
+    format_unit,
+)
+from src.app.modules import SOBRIETY
+from src.app.ui import FAVICON_PATH
 
 # --- IMPORT DYNAMIQUE ---
 try:
@@ -22,16 +30,15 @@ except ImportError:
 
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Socle Hardware", page_icon=FAVICON_PATH, layout="wide")
-render_logo()
+st.set_page_config(page_title=SOBRIETY.title, page_icon=FAVICON_PATH, layout="wide")
 
 # --- FONCTIONS UTILITAIRES ---
 
 
 def get_device_info():
-    """Détecte intelligemment le type de 'Moteur' (CPU/CUDA/MPS)."""
-    device_type = "CPU Only"
-    device_details = "Standard x64/ARM"
+    """Détecte le moteur de calcul (processeur, CUDA ou MPS)."""
+    device_type = "Processeur seul"
+    device_details = "Processeur x64 ou ARM"
 
     try:
         import torch
@@ -71,107 +78,94 @@ if "tracker" not in st.session_state and GreenTracker:
 # UI PRINCIPALE
 # ==========================================
 
-st.title("Cockpit GreenOps & Hardware")
-st.caption("Monitoring de l'infrastructure hôte (Scope 2 - Électricité).")
+st.title(SOBRIETY.title)
+st.caption("La machine hôte, sa charge et les émissions de CO₂ de sa consommation électrique.")
 
 st.divider()
 
 # --- 1. TÉLÉMÉTRIE TEMPS RÉEL ---
-st.header("1. Santé du Système")
+st.header("Santé du système")
 
 cpu_val, ram_pct, ram_used, ram_total = get_true_system_metrics()
 device_type, device_details = get_device_info()
 
-# Logique de sécurité dynamique (Cohérence avec Accueil.py)
-# Utilise le state global défini dans Accueil.py
+# Mode lu dans le contrôle global « Autoriser le cloud » (barre latérale commune).
 if st.session_state.get("cloud_enabled", True):
-    sec_value = "Hybride"
-    sec_delta = "API Active"
-    sec_help = (
-        "Attention : Des flux sortants vers Mistral/OpenAI sont autorisés par le réglage global."
-    )
-    sec_color = "normal"
+    mode_value = "Cloud"
+    mode_help = "Le cloud est autorisé : des données peuvent partir vers Mistral ou OpenAI."
 else:
-    sec_value = "Confiné"
-    sec_delta = "Offline"
-    sec_help = (
-        "Sécurisé : Aucun flux sortant vers des API publiques. Le mode local strict est activé."
-    )
-    sec_color = "normal"
+    mode_value = "Local"
+    mode_help = "Aucune donnée ne part vers un service cloud : seuls les modèles locaux tournent."
 
 with st.container(border=True):
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         st.metric(
-            label="Processeur (CPU)",
-            value=f"{cpu_val}%",
-            delta="Charge Actuelle",
-            delta_color="inverse" if cpu_val > 80 else "normal",
+            label="Processeur",
+            value=format_percent(cpu_val),
+            help="Charge actuelle du processeur",
         )
 
     with c2:
         st.metric(
-            label="Mémoire (RAM)",
-            value=f"{ram_pct}%",
-            delta=f"{ram_used}/{ram_total} GB",
-            delta_color="inverse" if ram_pct > 85 else "normal",
+            label="Mémoire",
+            value=f"{format_number(ram_used)} / {format_number(ram_total)}{NBSP}Go",
+            help=f"Mémoire vive utilisée / totale, soit {format_percent(ram_pct)}",
         )
 
     with c3:
         st.metric(
-            label="Accélérateur AI",
+            label="Accélérateur IA",
             value="Actif",
-            delta=device_type,
             help=f"Moteur de calcul détecté : {device_details}",
         )
+        st.caption(device_type)
 
     with c4:
-        st.metric(
-            label="Sécurité Données",
-            value=sec_value,
-            delta=sec_delta,
-            delta_color=sec_color,
-            help=sec_help,
-        )
+        st.metric(label="Mode", value=mode_value, help=mode_help)
 
 # --- 2. GREEN OPS MONITORING ---
-st.header("2. Empreinte Carbone (Machine)")
+st.header("Empreinte carbone")
 
 col_live, col_hist = st.columns([1, 2])
 
 with col_live, st.container(border=True):
-    st.subheader("Session Actuelle")
+    st.subheader("Session en cours")
 
     if st.session_state.get("tracker") and st.session_state.tracker._is_running:
-        st.success("Tracking Actif (CodeCarbon)")
-        st.caption("Mesure basée sur le TDP matériel et le mix électrique local.")
+        st.success("Suivi carbone actif")
+        st.caption(
+            "Mesure fondée sur la puissance du matériel et le mix électrique local.",
+            help="Mesure CodeCarbon",
+        )
 
-        if st.button("Arrêter & Sauvegarder", icon=":material/stop_circle:", width="stretch"):
+        if st.button("Arrêter et enregistrer", icon=":material/stop_circle:", width="stretch"):
             em = st.session_state.tracker.stop()
             st.session_state.last_emissions = em
             st.rerun()
     else:
-        st.warning("Tracking en pause")
+        st.warning("Suivi carbone en pause")
         if "last_emissions" in st.session_state:
             em = st.session_state.last_emissions
             km, phones = get_co2_equivalencies(em)
 
-            st.metric("Total Session", f"{em:.5f} kgCO₂")
-            st.caption(f"soit ~ **{km:.4f} km** en voiture")
+            st.metric("Total de la session", format_unit(em, "kgCO₂", 5))
+            st.caption(f"soit environ {format_unit(km, 'km', 4)} en voiture")
 
         if st.session_state.get("tracker") and st.button(
-            "Reprendre le tracking", icon=":material/play_circle:", width="stretch"
+            "Reprendre le suivi", icon=":material/play_circle:", width="stretch"
         ):
             st.session_state.tracker.start()
             st.rerun()
 
     st.info(
-        "**Note :** Ceci mesure la consommation électrique de votre PC. L'impact 'par token' affiché dans les autres onglets est une estimation théorique (Scope 3)."
+        "Cette mesure porte sur la consommation électrique de cette machine. L'impact par "
+        "réponse affiché dans les autres modules est une estimation théorique."
     )
 
 with col_hist:
-    st.subheader("Historique d'Émissions")
+    st.subheader("Historique des émissions")
     try:
         csv_path = get_emissions_path()
         df_emissions = pd.read_csv(csv_path)
@@ -184,32 +178,39 @@ with col_hist:
                 df_chart,
                 x="timestamp",
                 y="emissions",
-                title="Cumul CO2 (kg) au fil du temps",
-                labels={"emissions": "Emissions (kg)", "timestamp": "Temps"},
+                title="Émissions de CO₂ par session (kg)",
+                labels={"emissions": "Émissions (kg CO₂)", "timestamp": "Date"},
             )
-            fig.update_layout(height=250, margin={"l": 20, "r": 20, "t": 30, "b": 20})
+            # Formats fr-FR sans locale Plotly (chargée depuis un CDN) : date numérique,
+            # virgule décimale, espace fine pour les milliers.
+            fig.update_layout(
+                height=250,
+                margin={"l": 20, "r": 20, "t": 30, "b": 20},
+                separators=PLOTLY_SEPARATORS,
+            )
+            fig.update_xaxes(tickformat="%d/%m %H:%M", hoverformat="%d/%m/%Y %H:%M")
 
             st.plotly_chart(fig, width="stretch")
         else:
-            st.info("Pas assez de données pour afficher l'historique.")
+            st.info("Aucune session mesurée pour l'instant.")
     except Exception as e:
         st.warning(f"Impossible de charger l'historique : {e}")
 
 # --- 3. SPÉCIFICATIONS TECHNIQUES ---
-st.header("3. Carte d'Identité Technique")
+st.header("Carte d'identité technique")
 
-with st.expander("Voir les détails complets", expanded=False):
+with st.expander("Afficher les détails", expanded=False):
     sys_info = {}
     try:
-        sys_info["OS"] = f"{platform.system()} {platform.release()}"
-        sys_info["Machine"] = platform.machine()
-        sys_info["Hostname"] = socket.gethostname()
+        sys_info["Système d'exploitation"] = f"{platform.system()} {platform.release()}"
+        sys_info["Architecture"] = platform.machine()
+        sys_info["Nom de la machine"] = socket.gethostname()
         sys_info["Python"] = sys.version.split()[0]
-        sys_info["CPU Cores"] = psutil.cpu_count(logical=True)
+        sys_info["Cœurs logiques"] = psutil.cpu_count(logical=True)
     except Exception:
         # Optionnel : loguer l'erreur pour le débogage
         # print(f"Erreur lors de la lecture du système: {e}")
-        sys_info["Status"] = "Erreur lecture système"
+        sys_info["État"] = "Erreur de lecture du système"
 
     st.json(sys_info)
 

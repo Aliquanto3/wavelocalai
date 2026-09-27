@@ -13,10 +13,10 @@ RENDER_TIMEOUT_S = 120
 
 PAGES = [
     "Accueil.py",
-    "pages/01_Socle_Hardware.py",
-    "pages/02_Inference_Arena.py",
-    "pages/03_RAG_Knowledge.py",
-    "pages/04_Agent_Lab.py",
+    "views/01_Socle_Hardware.py",
+    "views/02_Inference_Arena.py",
+    "views/03_RAG_Knowledge.py",
+    "views/04_Agent_Lab.py",
 ]
 
 
