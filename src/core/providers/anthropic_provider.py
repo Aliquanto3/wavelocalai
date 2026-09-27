@@ -106,7 +106,7 @@ class AnthropicProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API Anthropic."""
 
         if not self.is_available:
-            yield "❌ Erreur : Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
+            yield "Erreur : Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
             return
 
         # Anthropic utilise un format différent pour le system prompt

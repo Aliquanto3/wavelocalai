@@ -116,7 +116,8 @@ class TestFriendlyNameConversion:
 
         # Devrait nettoyer le nom
         assert "hf.co" not in friendly
-        assert "📦" in friendly  # Emoji pour modèle manuel
+        # Nom du fichier GGUF, sans emoji de marquage
+        assert friendly == "Qwen2.5-7B-Instruct-GGUF:IQ3_M"
 
     def test_unknown_tag_simple(self):
         """Test conversion d'un tag simple inconnu."""

@@ -48,8 +48,20 @@ def _parse_size_to_float(val: str) -> float:
         return 0.0
 
 
+# Options du sélecteur d'installation et des filtres : valeurs comparées par égalité,
+# définies une seule fois.
+CATALOG_PLACEHOLDER = "Sélectionner dans le catalogue..."
+MANUAL_TAG_OPTION = "Autre (Tag Ollama Manuel)"
+
+FILTER_ALL = "Tout"
+FILTER_REASONING = "Raisonnement"
+FILTER_TOOLS = "Tools"
+FILTER_FAST = "Rapide"
+FILTER_CLOUD = "Cloud"
+
+
 # --- 2. MODAL DE TÉLÉCHARGEMENT ---
-@st.dialog("⬇️ Installer un nouveau Modèle")
+@st.dialog("Installer un nouveau Modèle")
 def open_download_modal(installed_names: list):
     st.caption("Téléchargez des modèles depuis la bibliothèque Ollama ou le catalogue Wavestone.")
 
@@ -65,23 +77,20 @@ def open_download_modal(installed_names: list):
         filtered_suggestions = [s for s in all_suggestions if s.lower() not in installed_set]
 
         # 3. Construction du menu avec l'ordre demandé
-        options = [
-            "✨ Sélectionner dans le catalogue...",
-            "🛠️ Autre (Tag Ollama Manuel)",
-        ] + filtered_suggestions
+        options = [CATALOG_PLACEHOLDER, MANUAL_TAG_OPTION] + filtered_suggestions
 
         choice = st.selectbox("Modèle", options, label_visibility="collapsed")
 
         target_tag = ""
-        if choice == "🛠️ Autre (Tag Ollama Manuel)":
+        if choice == MANUAL_TAG_OPTION:
             target_tag = st.text_input("Tag (ex: llama3:8b)", help="Voir ollama.com/library")
-        elif choice != "✨ Sélectionner dans le catalogue...":
+        elif choice != CATALOG_PLACEHOLDER:
             info = get_model_info(choice)
             if info:
                 target_tag = info["ollama_tag"]
 
     with col_info:
-        if choice not in ["✨ Sélectionner dans le catalogue...", "🛠️ Autre (Tag Ollama Manuel)"]:
+        if choice not in [CATALOG_PLACEHOLDER, MANUAL_TAG_OPTION]:
             info = get_model_info(choice)
             if info:
                 st.info(
@@ -92,7 +101,11 @@ def open_download_modal(installed_names: list):
 
     # Bouton d'action
     if st.button(
-        "⬇️ Lancer l'installation", type="primary", use_container_width=True, disabled=not target_tag
+        "Lancer l'installation",
+        type="primary",
+        icon=":material/download:",
+        width="stretch",
+        disabled=not target_tag,
     ):
         status_box = st.status(f"Installation de **{target_tag}**...", expanded=True)
         pbar = status_box.progress(0, text="Connexion...")
@@ -106,12 +119,12 @@ def open_download_modal(installed_names: list):
                     pbar.progress(0.5, text=progress["status"])
 
             pbar.progress(1.0, text="Terminé !")
-            status_box.update(label="✅ Modèle installé avec succès !", state="complete")
+            status_box.update(label="Modèle installé avec succès !", state="complete")
             time.sleep(1)
             st.rerun()
 
         except Exception as e:
-            status_box.update(label="❌ Échec", state="error")
+            status_box.update(label="Échec", state="error")
             st.error(f"Erreur : {str(e)}")
 
 
@@ -122,21 +135,21 @@ def render_manager_tab(installed_models_list: list):
     installed_friendly_names = []
 
     # EN-TÊTE ACTIONNABLE
-    c_title, c_add, c_refresh = st.columns([3, 1, 0.5])
+    c_title, c_add, c_refresh = st.columns([3, 1, 0.8])
     with c_title:
-        st.markdown("### 📦 Mes Modèles Locaux")
+        st.header("Mes Modèles Locaux")
         st.caption(f"{len(installed_models_list)} modèles installés et prêts à l'emploi.")
     with c_refresh:
-        if st.button("🔄", help="Rafraîchir la liste"):
+        if st.button("Rafraîchir", icon=":material/refresh:", help="Rafraîchir la liste"):
             st.rerun()
 
     st.divider()
 
     # FILTRES RAPIDES (PILLS)
-    filter_options = ["Tout", "🧠 Raisonnement", "🛠️ Tools", "⚡ Rapide", "☁️ Cloud"]
+    filter_options = [FILTER_ALL, FILTER_REASONING, FILTER_TOOLS, FILTER_FAST, FILTER_CLOUD]
     try:
         selection = st.pills(
-            "Filtrer par capacité", filter_options, default="Tout", selection_mode="single"
+            "Filtrer par capacité", filter_options, default=FILTER_ALL, selection_mode="single"
         )
     except AttributeError:
         selection = st.radio("Filtre", filter_options, horizontal=True)
@@ -157,20 +170,20 @@ def render_manager_tab(installed_models_list: list):
             is_cloud = card["is_cloud"]
 
             if (
-                selection == "☁️ Cloud"
+                selection == FILTER_CLOUD
                 and not is_cloud
                 or (
-                    selection == "🧠 Raisonnement"
+                    selection == FILTER_REASONING
                     and stats.get("quality_scores", {}).get("reasoning_avg", 0) < 0.6
                 )
                 or (
-                    selection == "🛠️ Tools"
+                    selection == FILTER_TOOLS
                     and stats.get("tool_capability", {}).get("success_rate", 0) < 0.8
                 )
-                or selection == "⚡ Rapide"
+                or selection == FILTER_FAST
                 and stats.get("avg_ttft_ms", 9999) > 800
-                or selection != "Tout"
-                and selection != "☁️ Cloud"
+                or selection != FILTER_ALL
+                and selection != FILTER_CLOUD
                 and is_cloud
             ):
                 keep = False
@@ -193,11 +206,11 @@ def render_manager_tab(installed_models_list: list):
 
             caps = []
             if stats.get("tool_capability", {}).get("success_rate", 0) > 0.9:
-                caps.append("🛠️")
+                caps.append("Outils")
             if stats.get("quality_scores", {}).get("reasoning_avg", 0) > 0.7:
-                caps.append("🧠")
+                caps.append("Raisonnement")
             if is_cloud:
-                caps.append("☁️")
+                caps.append("Cloud")
 
             row = {
                 "Nom": card["name"],
@@ -209,7 +222,7 @@ def render_manager_tab(installed_models_list: list):
                     info.get("params_act") or info.get("params_tot", "0")
                 ),
                 "Contexte": int(info.get("ctx", 0)) if str(info.get("ctx", "0")).isdigit() else 0,
-                "Capacités": " ".join(caps),
+                "Capacités": " · ".join(caps),
                 "Tag": m["model"],
             }
             table_data.append(row)
@@ -255,10 +268,10 @@ def render_manager_tab(installed_models_list: list):
                     ),
                     "Capacités": st.column_config.TextColumn(
                         "Badge",
-                        help="🛠️ = Supporte les Outils/Function Calling.\n🧠 = Fort en raisonnement logique.\n☁️ = Modèle Cloud.",
+                        help="Outils = Supporte les Outils/Function Calling.\nRaisonnement = Fort en raisonnement logique.\nCloud = Modèle Cloud.",
                     ),
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -268,6 +281,6 @@ def render_manager_tab(installed_models_list: list):
 
     # BOUTON D'AJOUT (En dessous du titre mais logique définie ici pour utiliser installed_names)
     with c_add:
-        if st.button("➕ Ajouter un Modèle", type="primary", use_container_width=True):
+        if st.button("Ajouter un Modèle", type="primary", icon=":material/add:", width="stretch"):
             # On passe la liste des noms installés au modal pour filtrage
             open_download_modal(installed_friendly_names)

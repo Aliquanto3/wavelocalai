@@ -50,23 +50,23 @@ class TestEmailSender:
     def test_email_validation_invalid_address(self):
         """Test rejet des adresses invalides."""
         result = _send_email_impl("invalid_email", "Subject", "Body")
-        assert "❌" in result
+        assert "Erreur" in result
         assert "invalide" in result.lower()
 
     def test_email_validation_empty_subject(self):
         """Test rejet des sujets vides."""
         result = _send_email_impl("test@example.com", "", "Body")
-        assert "❌" in result
+        assert "Erreur" in result
 
     def test_email_validation_empty_body(self):
         """Test rejet des corps vides."""
         result = _send_email_impl("test@example.com", "Subject", "")
-        assert "❌" in result
+        assert "Erreur" in result
 
     def test_email_requires_smtp_config(self):
         """Test que SMTP doit être configuré."""
         result = _send_email_impl("test@example.com", "Subject", "Body")
-        assert "❌" in result or "⚠️" in result
+        assert "Erreur" in result or "Attention" in result
 
 
 class TestCSVAnalyzer:
@@ -94,7 +94,7 @@ class TestCSVAnalyzer:
     def test_csv_file_not_found(self):
         """Test erreur si fichier inexistant."""
         result = _analyze_csv_impl("nonexistent.csv", "aperçu")
-        assert "❌" in result
+        assert "Erreur" in result
 
     def test_csv_invalid_format(self):
         """Test erreur si format non supporté."""
@@ -110,7 +110,7 @@ class TestCSVAnalyzer:
 
         try:
             result = _analyze_csv_impl(bad_file, "aperçu")
-            assert "❌" in result
+            assert "Erreur" in result
             assert "non supporté" in result.lower()
         finally:
             # Cleanup garanti
@@ -120,7 +120,7 @@ class TestCSVAnalyzer:
         """Test aperçu des données."""
         result = _analyze_csv_impl(temp_csv, "aperçu")
 
-        assert "📊" in result
+        assert "Analyse de" in result
         assert "Lignes" in result
         assert "Colonnes" in result
         assert "name" in result  # Nom de colonne
@@ -152,7 +152,7 @@ class TestDocumentGenerator:
             title="Test Document", content="## Section 1\n\nContenu de test."
         )
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".docx" in result
 
         # Vérifier que le fichier existe
@@ -184,7 +184,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "bar", "Test Chart")
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".png" in result
 
         # Vérifier que le fichier existe
@@ -200,7 +200,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "line", "Test Line")
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".png" in result
 
         filepath = result.split(":")[-1].strip()
@@ -212,7 +212,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "pie", "Test Pie")
 
-        assert "✅" in result
+        assert "créé" in result
         filepath = result.split(":")[-1].strip()
         Path(filepath).unlink(missing_ok=True)
 
@@ -220,7 +220,7 @@ class TestChartGenerator:
         """Test erreur avec JSON invalide."""
         result = _generate_chart_impl("not json", "bar", "Test")
 
-        assert "❌" in result
+        assert "Erreur" in result
         assert "JSON invalide" in result
 
     def test_chart_invalid_type(self):
@@ -228,7 +228,7 @@ class TestChartGenerator:
         data = json.dumps({"labels": ["A"], "values": [10]})
         result = _generate_chart_impl(data, "invalid_type", "Test")
 
-        assert "❌" in result
+        assert "Erreur" in result
         assert "non supporté" in result
 
 
@@ -243,7 +243,7 @@ class TestMarkdownReport:
 
         result = _generate_markdown_report_impl("Test Report", sections)
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".md" in result
 
         # Vérifier contenu
@@ -262,7 +262,7 @@ class TestMarkdownReport:
         """Test avec contenu texte simple (pas JSON)."""
         result = _generate_markdown_report_impl("Simple Report", "Juste du texte simple")
 
-        assert "✅" in result
+        assert "créé" in result
 
         filepath = result.split(":")[-1].strip()
         content = Path(filepath).read_text(encoding="utf-8")

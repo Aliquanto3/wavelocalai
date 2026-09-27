@@ -75,7 +75,7 @@ class MistralProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API Mistral."""
 
         if not self.is_available:
-            yield "❌ Erreur : Provider Mistral non disponible (clé API manquante ou SDK non installé)."
+            yield "Erreur : Provider Mistral non disponible (clé API manquante ou SDK non installé)."
             return
 
         final_messages = messages.copy()

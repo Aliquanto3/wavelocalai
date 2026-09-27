@@ -6,28 +6,18 @@ from src.app.tabs.inference.arena import render_arena_tab
 from src.app.tabs.inference.chat import render_chat_tab
 from src.app.tabs.inference.lab import render_lab_tab
 from src.app.tabs.inference.manager import render_manager_tab
+from src.app.ui import FAVICON_PATH, model_options, render_logo
 from src.core.llm_provider import LLMProvider
-from src.core.models_db import get_friendly_name_from_tag
 
 # --- Configuration de la Page ---
-st.set_page_config(page_title="Inférence & Arena", page_icon="🧠", layout="wide")
-
-# --- CSS Custom ---
-st.markdown(
-    """
-<style>
-    [data-testid="stMetricValue"] { font-size: 24px; }
-    .stTextArea textarea { font-family: monospace; }
-</style>
-""",
-    unsafe_allow_html=True,
-)
+st.set_page_config(page_title="Inférence & Arena", page_icon=FAVICON_PATH, layout="wide")
+render_logo()
 
 # ==========================================
 # 1. SIDEBAR & CONFIGURATION GLOBALE
 # ==========================================
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("Configuration")
 
     # Global Cloud Toggle (Persistant)
     if "cloud_enabled" not in st.session_state:
@@ -42,33 +32,19 @@ with st.sidebar:
     st.divider()
 
     if not cloud_enabled:
-        st.caption("🔒 Mode Local Strict")
+        st.caption("Mode Local Strict")
     else:
-        st.caption("☁️ Mode Hybride (Local / Cloud)")
+        st.caption("Mode Hybride (Local / Cloud)")
 
 # ==========================================
 # 2. CHARGEMENT CENTRALISÉ DES MODÈLES
 # ==========================================
 installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled)
 
+# Maps pour les sélecteurs (libellés « Nom · Local » / « Nom · Cloud »)
+display_to_tag, tag_to_friendly, sorted_display_names = model_options(installed_models_list)
 
-def format_model_label(model_data):
-    """Helper pour l'affichage avec icônes dans les SelectBox"""
-    tag = model_data["model"]
-    is_cloud = model_data.get("type") == "cloud"
-    friendly = get_friendly_name_from_tag(tag)
-    icon = "☁️" if is_cloud else "💻"
-    return f"{icon} {friendly}"
-
-
-# Maps pour les sélecteurs
-display_to_tag = {format_model_label(m): m["model"] for m in installed_models_list}
-tag_to_friendly = {
-    m["model"]: get_friendly_name_from_tag(m["model"]) for m in installed_models_list
-}
-sorted_display_names = sorted(display_to_tag.keys())
-
-st.title("🧠 Inférence & Model Arena")
+st.title("Inférence & Model Arena")
 st.caption("Benchmark technique et fonctionnel des SLM.")
 
 # --- SESSION STATE INITIALIZATION ---
@@ -81,7 +57,7 @@ if "lab_metrics" not in st.session_state:
 
 # --- TABS ---
 tab_chat, tab_lab, tab_arena, tab_manager = st.tabs(
-    ["💬 Chat Libre", "🧪 Labo de Tests", "⚔️ Arena", "⚙️ Gestion Modèles"]
+    ["Chat Libre", "Labo de Tests", "Arena", "Gestion Modèles"]
 )
 
 # ==========================================

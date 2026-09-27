@@ -38,37 +38,13 @@ def _calculate_metrics(metrics, model_friendly_name: str):
 
 
 def _render_message_footer(metrics: dict):
-    """Affiche des badges stylisés sous le message."""
+    """Affiche la ligne de métadonnées sous le message (texte, sans code couleur par seuil)."""
     if not metrics:
         return
 
-    co2 = metrics["co2_mg"]
-    speed = metrics["speed"]
-
-    # Code couleur dynamique pour le CO2
-    if co2 < 10:
-        color = "#d1fae5"  # Vert clair
-    elif co2 < 50:
-        color = "#fef3c7"  # Jaune
-    else:
-        color = "#fee2e2"  # Rouge clair
-    text_color = "#065f46" if co2 < 10 else ("#92400e" if co2 < 50 else "#991b1b")
-
-    st.markdown(
-        f"""
-        <div style="display: flex; gap: 10px; margin-top: 8px; font-size: 0.85em; font-family: monospace;">
-            <span style="background-color: {color}; color: {text_color}; padding: 2px 8px; border-radius: 12px; font-weight: bold;">
-                🌱 {co2:.2f} mgCO₂
-            </span>
-            <span style="background-color: #f3f4f6; color: #374151; padding: 2px 8px; border-radius: 12px;">
-                ⚡ {speed:.1f} t/s
-            </span>
-            <span style="color: #9ca3af; padding: 2px;">
-                ⏱️ {metrics['duration']:.2f}s
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        f"{metrics['co2_mg']:.2f} mgCO₂ · {metrics['speed']:.1f} t/s · "
+        f"{metrics['duration']:.2f}s"
     )
 
 
@@ -82,7 +58,7 @@ def render_chat_tab(
         with c_mod:
             # Sélecteur Modèle
             local_display = st.selectbox(
-                "🤖 Modèle Actif",
+                "Modèle Actif",
                 sorted_display_names,
                 index=(
                     sorted_display_names.index(selected_display)
@@ -104,10 +80,10 @@ def render_chat_tab(
                 if m.get("role") == "assistant" and "metrics_data" in m:
                     total_co2_mg += m["metrics_data"].get("co2_mg", 0.0)
 
-            st.caption(f"📊 Session: **{total_co2_mg:.1f} mgCO₂**")
+            st.caption(f"Session: **{total_co2_mg:.1f} mgCO₂**")
 
         with c_reset:
-            if st.button("🗑️", help="Effacer l'historique"):
+            if st.button("Effacer", icon=":material/delete:", help="Effacer l'historique"):
                 st.session_state.messages = []
                 st.rerun()
 
@@ -116,20 +92,16 @@ def render_chat_tab(
 
     with chat_container:
         if not st.session_state.messages:
-            st.markdown(
-                """
-                <div style="text-align: center; color: gray; margin-top: 50px; margin-bottom: 50px;">
-                    <h3>💬 Playground Inférence</h3>
-                    <p>Testez la réactivité et l'impact écologique des modèles en direct.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            st.header("Playground Inférence", anchor=False, text_alignment="center")
+            st.caption(
+                "Testez la réactivité et l'impact écologique des modèles en direct.",
+                text_alignment="center",
             )
 
         for msg in st.session_state.messages:
-            with st.chat_message(msg["role"], avatar="🧑‍💻" if msg["role"] == "user" else "🤖"):
+            with st.chat_message(msg["role"]):
                 if msg.get("thought"):
-                    with st.expander("💭 Pensée (CoT)", expanded=False):
+                    with st.expander("Pensée (CoT)", expanded=False):
                         st.markdown(msg["thought"])
 
                 st.markdown(msg["content"])
@@ -141,10 +113,10 @@ def render_chat_tab(
     # --- 3. INPUT USER ---
     if prompt := st.chat_input("Votre message..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="🧑‍💻"):
+        with st.chat_message("user"):
             st.markdown(prompt)
 
-        with st.chat_message("assistant", avatar="🤖"):
+        with st.chat_message("assistant"):
             msg_container = st.empty()
 
             # Placeholder pour le stream
@@ -171,7 +143,7 @@ def render_chat_tab(
             if result.thought:
                 msg_container.empty()
                 with msg_container.container():
-                    with st.expander("💭 Pensée", expanded=True):
+                    with st.expander("Pensée", expanded=True):
                         st.markdown(result.thought)
                     st.markdown(result.clean_text)
 

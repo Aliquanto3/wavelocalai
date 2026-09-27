@@ -27,20 +27,14 @@ def _render_podium(results_data):
     winner = df.iloc[0]
     runner_up = df.iloc[1] if len(df) > 1 else None
 
-    st.markdown("### 🏆 Le Verdict")
+    st.header("Le Verdict")
 
     col_winner, col_chart = st.columns([1, 2])
 
     # --- CARTE DU VAINQUEUR ---
     with col_winner, st.container(border=True):
-        st.markdown(
-            "<div style='text-align: center; font-size: 1.2rem;'>🥇 Vainqueur</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"<h2 style='text-align: center; color: #F59E0B;'>{winner['Modèle']}</h2>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("Vainqueur", text_alignment="center")
+        st.subheader(winner["Modèle"], anchor=False, text_alignment="center")
 
         st.divider()
 
@@ -65,10 +59,8 @@ def _render_podium(results_data):
 
             st.info(f"**Pourquoi ?** {reason}")
 
-        # Badge GreenOps
-        co2 = winner["CO2 (mg)"]
-        color = "green" if co2 < 10 else ("orange" if co2 < 50 else "red")
-        st.caption(f"🌍 Impact : :{color}[{co2:.2f} mgCO₂]")
+        # Impact GreenOps (texte, sans code couleur par seuil)
+        st.caption(f"Impact : {winner['CO2 (mg)']:.2f} mgCO₂")
 
     # --- GRAPHIQUE BUBBLE CHART (Plotly) ---
     with col_chart:
@@ -77,8 +69,8 @@ def _render_podium(results_data):
         for i, row in df.iterrows():
             is_winner = i == 0
 
-            # 1. COULEUR : Distinction Vainqueur (Or) vs Autres (Gris/Bleuté)
-            color = "#F59E0B" if is_winner else "#60A5FA"
+            # 1. FORME : Distinction Vainqueur (étoile) vs Autres (cercle) ; la couleur de
+            # chaque série vient de la palette du thème (chartCategoricalColors).
             symbol = "star" if is_winner else "circle"
 
             # 2. TAILLE (Bubble Logic) : Proportionnelle au CO2
@@ -92,7 +84,7 @@ def _render_podium(results_data):
                 size = max(size, 25)
 
             # 3. LABEL DIRECT : Nom + CO2
-            label = f"<b>{row['Modèle']}</b><br>🌱 {co2_val:.1f} mg"
+            label = f"<b>{row['Modèle']}</b><br>{co2_val:.1f} mgCO₂"
 
             fig.add_trace(
                 go.Scatter(
@@ -102,12 +94,10 @@ def _render_podium(results_data):
                     text=[label],
                     textposition="top center",
                     marker={
-                        "size": size,  # Ligne 126
-                        "color": color,
+                        "size": size,
                         "symbol": symbol,
-                        "line": {"width": 1, "color": "white"},  # Ligne 129 corrigée
                         "opacity": 0.9,
-                    },  # Ligne 131
+                    },
                     name=row["Modèle"],
                     hoverinfo="text",
                     hovertext=f"<b>{row['Modèle']}</b><br>Score: {row['Note']}/100<br>Vitesse: {row['Débit (t/s)']} t/s<br>CO2: {co2_val} mg",
@@ -124,7 +114,7 @@ def _render_podium(results_data):
             margin={"l": 20, "r": 20, "t": 40, "b": 20},
             showlegend=False,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
@@ -133,7 +123,7 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
     col_conf, col_prompt = st.columns([1, 2])
 
     with col_conf:
-        st.subheader("1. Les Combattants")
+        st.header("1. Les Combattants")
         selected_arena_displays = st.multiselect(
             "Sélectionner Modèles",
             options=sorted_display_names,
@@ -143,7 +133,7 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
         selected_arena_tags = [display_to_tag[d] for d in selected_arena_displays]
         selected_arena_friendlies = [tag_to_friendly[t] for t in selected_arena_tags]
 
-        with st.expander("⚖️ Options du Juge (Arbitre)", expanded=False):
+        with st.expander("Options du Juge (Arbitre)", expanded=False):
             judge_options = sorted_display_names
             def_idx = 0
             for i, n in enumerate(judge_options):
@@ -164,7 +154,7 @@ Format : Uniquement le chiffre (ex: 85)."""
             judge_sys = st.text_area("Critères de notation", value=default_judge_prompt, height=150)
 
     with col_prompt:
-        st.subheader("2. Le Défi")
+        st.header("2. Le Défi")
         arena_prompt = st.text_area(
             "Votre challenge",
             value="Explique le concept de 'Dette Technique' à un enfant de 10 ans avec une métaphore filée.",
@@ -175,14 +165,14 @@ Format : Uniquement le chiffre (ex: 85)."""
         btn_col1, btn_col2 = st.columns([1, 3])
         with btn_col1:
             start_btn = st.button(
-                "⚔️ FIGHT !",
+                "FIGHT !",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
                 disabled=not selected_arena_tags,
             )
         with btn_col2:
             if not selected_arena_tags:
-                st.caption("👈 Sélectionnez au moins 2 modèles.")
+                st.caption("Sélectionnez au moins 2 modèles.")
 
     # --- 3. EXÉCUTION ---
     if start_btn and selected_arena_tags and arena_prompt:
@@ -191,14 +181,14 @@ Format : Uniquement le chiffre (ex: 85)."""
         results_data = []
         model_responses = {}
 
-        status_box = st.status("🏟️ Ouverture de l'arène...", expanded=True)
+        status_box = st.status("Ouverture de l'arène...", expanded=True)
         prog_bar = status_box.progress(0.0)
 
         total_steps = len(selected_arena_tags)
 
         for i, tag in enumerate(selected_arena_tags):
             friendly_name = selected_arena_friendlies[i]
-            status_box.write(f"🥊 **{friendly_name}** entre sur le ring...")
+            status_box.write(f"**{friendly_name}** entre sur le ring...")
 
             try:
                 # 1. INFERENCE
@@ -225,7 +215,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 # 3. NOTATION JUGE
                 score = 0
                 if judge_tag:
-                    status_box.write(f"   ⚖️ Le juge délibère pour {friendly_name}...")
+                    status_box.write(f"Le juge délibère pour {friendly_name}...")
                     eval_p = judge_sys.replace("{prompt}", arena_prompt).replace(
                         "{response}", result.clean_text
                     )
@@ -256,18 +246,18 @@ Format : Uniquement le chiffre (ex: 85)."""
                 }
 
             except Exception as e:
-                status_box.error(f"❌ KO {friendly_name}: {e}")
+                status_box.error(f"KO {friendly_name}: {e}")
 
             prog_bar.progress((i + 1) / total_steps)
 
-        status_box.update(label="✅ Combat terminé !", state="complete", expanded=False)
+        status_box.update(label="Combat terminé !", state="complete", expanded=False)
 
         # --- 4. RÉSULTATS ---
         if results_data:
             _render_podium(results_data)
 
             st.divider()
-            st.subheader("📝 Détails des Copies")
+            st.header("Détails des Copies")
 
             if len(model_responses) == 2:
                 c1, c2 = st.columns(2)

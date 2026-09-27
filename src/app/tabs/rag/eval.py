@@ -29,16 +29,16 @@ def render_rag_eval_tab(
     # EN-TÊTE
     c_title, c_badge = st.columns([3, 1])
     with c_title:
-        st.subheader("⚖️ Dashboard d'Évaluation (LLM-as-a-Judge)")
+        st.header("Dashboard d'Évaluation (LLM-as-a-Judge)")
         st.caption("Benchmark comparatif : Qualité vs Impact Environnemental.")
     with c_badge:
         # Petit badge informatif
         st.info(
-            "💡 **GreenOps** : Le but est de trouver le modèle le plus léger possible qui maintient une qualité acceptable."
+            "**GreenOps** : Le but est de trouver le modèle le plus léger possible qui maintient une qualité acceptable."
         )
 
     if not eval_engine:
-        st.error("⚠️ Le moteur d'évaluation (Ragas) n'est pas installé.")
+        st.error("Le moteur d'évaluation (Ragas) n'est pas installé.")
         return
 
     st.divider()
@@ -47,7 +47,7 @@ def render_rag_eval_tab(
     col_conf, col_run = st.columns([1, 2])
 
     with col_conf:
-        st.markdown("#### 1. Candidats")
+        st.subheader("1. Candidats")
         candidate_displays = st.multiselect(
             "Sélectionner les modèles à tester",
             sorted_display_names,
@@ -56,7 +56,7 @@ def render_rag_eval_tab(
         )
         candidate_tags = [display_to_tag[d] for d in candidate_displays]
 
-        st.markdown("#### 2. Juge")
+        st.subheader("2. Juge")
         # Auto-select a smart model as judge
         default_judge_idx = 0
         for i, d in enumerate(sorted_display_names):
@@ -67,14 +67,14 @@ def render_rag_eval_tab(
         judge_tag = display_to_tag.get(judge_display)
 
     with col_run:
-        st.markdown("#### 3. Question de Référence")
+        st.subheader("3. Question de Référence")
         query = st.text_area(
             "Entrez une question complexe nécessitant le contexte documentaire",
             "Quels sont les risques principaux mentionnés dans le document ?",
             height=100,
         )
 
-        run_btn = st.button("🚀 Lancer le Benchmark", type="primary", use_container_width=True)
+        run_btn = st.button("Lancer le Benchmark", type="primary", width="stretch")
 
     # 2. LOGIQUE D'EXÉCUTION
     if run_btn:
@@ -83,12 +83,12 @@ def render_rag_eval_tab(
             st.stop()
 
         # A. Retrieval Commun (Pour équité)
-        with st.spinner("🔍 Récupération du contexte commun..."):
+        with st.spinner("Récupération du contexte commun..."):
             try:
                 retrieved_docs = rag_engine.search(query, k=3)
                 contexts = [doc.page_content for doc in retrieved_docs]
                 if not contexts:
-                    st.warning("⚠️ Aucun document trouvé. L'évaluation risque d'être faussée.")
+                    st.warning("Aucun document trouvé. L'évaluation risque d'être faussée.")
             except Exception as e:
                 st.error(f"Erreur Retrieval : {e}")
                 st.stop()
@@ -97,7 +97,7 @@ def render_rag_eval_tab(
         results_raw = []  # Pour les graphiques (floats)
         detailed_responses = {}
 
-        prog_container = st.status("📊 Benchmark en cours...", expanded=True)
+        prog_container = st.status("Benchmark en cours...", expanded=True)
         total_steps = len(candidate_tags)
         prog_bar = prog_container.progress(0.0)
 
@@ -117,7 +117,7 @@ def render_rag_eval_tab(
 
         for i, c_tag in enumerate(candidate_tags):
             c_friendly = tag_to_friendly[c_tag]
-            prog_container.write(f"▶️ Test de **{c_friendly}**...")
+            prog_container.write(f"Test de **{c_friendly}**...")
 
             try:
                 # Génération
@@ -152,7 +152,7 @@ def render_rag_eval_tab(
                         )
 
                 # Notation Juge
-                prog_container.write("   ⚖️ Le juge délibère...")
+                prog_container.write("Le juge délibère...")
                 eval_result = eval_engine.evaluate_single_turn(
                     query=query,
                     response=clean_answer,
@@ -181,7 +181,7 @@ def render_rag_eval_tab(
 
             prog_bar.progress((i + 1) / total_steps)
 
-        prog_container.update(label="✅ Benchmark Terminé !", state="complete", expanded=False)
+        prog_container.update(label="Benchmark Terminé !", state="complete", expanded=False)
 
         # 3. VISUALISATION & PODIUM
         if results_raw:
@@ -190,16 +190,15 @@ def render_rag_eval_tab(
             st.divider()
 
             # A. PODIUM (Top 3 Scores)
-            st.markdown("### 🏆 Le Podium Qualité")
+            st.subheader("Le Podium Qualité")
             df_sorted = df.sort_values("Score", ascending=False).reset_index(drop=True)
 
             cols_podium = st.columns(3)
-            medals = ["🥇", "🥈", "🥉"]
 
             for i in range(min(3, len(df_sorted))):
                 row = df_sorted.iloc[i]
                 with cols_podium[i], st.container(border=True):
-                    st.markdown(f"#### {medals[i]} {row['Modèle']}")
+                    st.markdown(f"**{i + 1}. {row['Modèle']}**")
                     s_percent = row["Score"] * 100
                     st.metric("Score Global", f"{s_percent:.0f}/100")
                     st.caption(f"Coût : {row['CO2_mg']:.2f} mgCO₂")
@@ -211,7 +210,7 @@ def render_rag_eval_tab(
             # Axe Y : Qualité (On veut le plus haut possible -> en haut)
             # Le "Sweet Spot" est en haut à gauche.
 
-            st.markdown("### 🎯 Matrice de Décision : Qualité vs Impact")
+            st.subheader("Matrice de Décision : Qualité vs Impact")
             st.caption(
                 "Le modèle idéal se situe en **haut à gauche** (Haute Qualité, Faible Impact)."
             )
@@ -237,10 +236,10 @@ def render_rag_eval_tab(
                 .interactive()
             )
 
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
 
             # C. TABLEAU DÉTAILLÉ
-            st.markdown("### 📝 Données Détaillées")
+            st.subheader("Données Détaillées")
 
             # Formatage pour l'affichage tableau uniquement
             df_display = df.copy()
@@ -260,19 +259,19 @@ def render_rag_eval_tab(
                     "Score": None,
                 },
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
 
             # D. RÉPONSES TEXTUELLES
-            st.markdown("### 🔍 Analyse des Réponses")
-            with st.expander("📄 Voir le Contexte Documentaire utilisé", expanded=False):
+            st.subheader("Analyse des Réponses")
+            with st.expander("Voir le Contexte Documentaire utilisé", expanded=False):
                 for k, ctx in enumerate(contexts):
                     st.text(f"--- Chunk {k+1} ---\n{ctx[:300]}...")
 
             for name, data in detailed_responses.items():
                 with st.expander(f"Réponse de {name}"):
                     if data["thought"]:
-                        st.info(f"💭 **Pensée:**\n{data['thought']}")
+                        st.info(f"**Pensée:**\n{data['thought']}")
                     st.markdown(data["text"])
 
         else:

@@ -85,26 +85,26 @@ def _calculate_safe(expression: str) -> str:
     """
     # 1. Validation de la longueur
     if len(expression) > 100:
-        return "❌ Erreur : Expression trop longue (max 100 caractères)"
+        return "Erreur : Expression trop longue (max 100 caractères)"
 
     # 2. Nettoyage préventif des espaces multiples
     expression = " ".join(expression.split())
 
     # 3. Protection contre les expressions vides
     if not expression.strip():
-        return "❌ Erreur : Expression vide"
+        return "Erreur : Expression vide"
 
     # 4. Whitelist STRICTE
     if not re.match(r"^[\d\s+\-*/().]+$", expression):
-        return "❌ Erreur : Caractères non autorisés. Utilisez uniquement : + - * / ( ) et nombres"
+        return "Erreur : Caractères non autorisés. Utilisez uniquement : + - * / ( ) et nombres"
 
     # 5. Détection d'opérateurs consécutifs
     if re.search(r"[+\-*/]{2,}", expression):
-        return "❌ Erreur : Opérateurs consécutifs détectés"
+        return "Erreur : Opérateurs consécutifs détectés"
 
     # 6. Vérification des parenthèses équilibrées
     if expression.count("(") != expression.count(")"):
-        return "❌ Erreur : Parenthèses non équilibrées"
+        return "Erreur : Parenthèses non équilibrées"
 
     try:
         # 7. Évaluation avec TIMEOUT de 2 secondes
@@ -115,14 +115,14 @@ def _calculate_safe(expression: str) -> str:
 
         # 8. Validation du résultat
         if not isinstance(result, (int, float)):
-            return "❌ Erreur : Résultat invalide"
+            return "Erreur : Résultat invalide"
 
         # 9. Détection des valeurs spéciales (inf, nan)
         if result == float("inf") or result == float("-inf"):
-            return "❌ Erreur : Résultat infini (division par zéro ou overflow)"
+            return "Erreur : Résultat infini (division par zéro ou overflow)"
 
         if result != result:  # Test pour NaN
-            return "❌ Erreur : Résultat indéfini (NaN)"
+            return "Erreur : Résultat indéfini (NaN)"
 
         # 10. Formatage du résultat
         if isinstance(result, float):
@@ -134,16 +134,16 @@ def _calculate_safe(expression: str) -> str:
         return str(result)
 
     except FunctionTimedOut:
-        return "❌ Erreur : Calcul trop long (timeout 2s). Simplifiez l'expression"
+        return "Erreur : Calcul trop long (timeout 2s). Simplifiez l'expression"
 
     except ZeroDivisionError:
-        return "❌ Erreur : Division par zéro"
+        return "Erreur : Division par zéro"
 
     except (ValueError, SyntaxError) as e:
-        return f"❌ Erreur de syntaxe : {str(e)}"
+        return f"Erreur de syntaxe : {str(e)}"
 
     except Exception as e:
-        return f"❌ Erreur de calcul : {str(e)}"
+        return f"Erreur de calcul : {str(e)}"
 
 
 def _get_current_time_impl() -> str:
@@ -191,17 +191,17 @@ def _send_email_impl(to: str, subject: str, body: str) -> str:
     """
     # Validation des inputs
     if not to or "@" not in to:
-        return "❌ Erreur : Adresse email invalide"
+        return "Erreur : Adresse email invalide"
 
     if not subject or len(subject) > 200:
-        return "❌ Erreur : Sujet manquant ou trop long (max 200 caractères)"
+        return "Erreur : Sujet manquant ou trop long (max 200 caractères)"
 
     if not body or len(body) > 10000:
-        return "❌ Erreur : Corps du message manquant ou trop long (max 10000 caractères)"
+        return "Erreur : Corps du message manquant ou trop long (max 10000 caractères)"
 
     # Vérification de la configuration SMTP
     if not SMTP_USER or not SMTP_PASSWORD:
-        return "⚠️ Configuration SMTP manquante. Configurez SMTP_USER et SMTP_PASSWORD dans .env"
+        return "Attention : Configuration SMTP manquante. Configurez SMTP_USER et SMTP_PASSWORD dans .env"
 
     try:
         # Création du message
@@ -220,16 +220,16 @@ def _send_email_impl(to: str, subject: str, body: str) -> str:
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
 
-        return f"✅ Email envoyé avec succès à {to}"
+        return f"Email envoyé avec succès à {to}"
 
     except smtplib.SMTPAuthenticationError:
-        return "❌ Erreur d'authentification SMTP. Vérifiez vos identifiants."
+        return "Erreur d'authentification SMTP. Vérifiez vos identifiants."
 
     except smtplib.SMTPException as e:
-        return f"❌ Erreur SMTP : {str(e)}"
+        return f"Erreur SMTP : {str(e)}"
 
     except Exception as e:
-        return f"❌ Erreur lors de l'envoi de l'email : {str(e)}"
+        return f"Erreur lors de l'envoi de l'email : {str(e)}"
 
 
 def _analyze_csv_impl(filepath: str, query: str) -> str:
@@ -246,17 +246,17 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
     # Validation du chemin
     path = Path(filepath)
     if not path.exists():
-        return f"❌ Fichier non trouvé : {filepath}"
+        return f"Erreur : Fichier non trouvé : {filepath}"
 
     if path.suffix.lower() not in [".csv", ".xlsx", ".xls"]:
-        return "❌ Format non supporté. Utilisez .csv, .xlsx ou .xls"
+        return "Erreur : Format non supporté. Utilisez .csv, .xlsx ou .xls"
 
     try:
         # Lecture du fichier
         df = pd.read_csv(filepath) if path.suffix.lower() == ".csv" else pd.read_excel(filepath)
 
         # Informations de base
-        info = f"📊 **Analyse de {path.name}**\n\n"
+        info = f"**Analyse de {path.name}**\n\n"
         info += f"- Lignes : {len(df)}\n"
         info += f"- Colonnes : {len(df.columns)}\n"
         info += f"- Colonnes disponibles : {', '.join(df.columns.tolist())}\n\n"
@@ -283,10 +283,10 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
                         mean_val = df[col].mean()
                         info += f"**Moyenne de '{col}' :** {mean_val:.2f}"
                     else:
-                        info += f"❌ La colonne '{col}' n'est pas numérique"
+                        info += f"Erreur : La colonne '{col}' n'est pas numérique"
                     break
             else:
-                info += "⚠️ Aucune colonne spécifique détectée. Voici les moyennes de toutes les colonnes numériques :\n"
+                info += "Attention : Aucune colonne spécifique détectée. Voici les moyennes de toutes les colonnes numériques :\n"
                 info += df.mean(numeric_only=True).to_string()
 
         # Cas 4 : Somme
@@ -297,10 +297,10 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
                         sum_val = df[col].sum()
                         info += f"**Somme de '{col}' :** {sum_val:.2f}"
                     else:
-                        info += f"❌ La colonne '{col}' n'est pas numérique"
+                        info += f"Erreur : La colonne '{col}' n'est pas numérique"
                     break
             else:
-                info += "⚠️ Aucune colonne spécifique détectée. Voici les sommes :\n"
+                info += "Attention : Aucune colonne spécifique détectée. Voici les sommes :\n"
                 info += df.sum(numeric_only=True).to_string()
 
         # Cas 5 : Comptage
@@ -315,15 +315,15 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
 
         # Cas par défaut : Info générale
         else:
-            info += "⚠️ Requête non comprise. Reformulez avec : 'aperçu', 'moyenne de X', 'somme de X', 'stats', etc."
+            info += "Attention : Requête non comprise. Reformulez avec : 'aperçu', 'moyenne de X', 'somme de X', 'stats', etc."
 
         return info
 
     except pd.errors.EmptyDataError:
-        return "❌ Fichier vide"
+        return "Erreur : Fichier vide"
 
     except Exception as e:
-        return f"❌ Erreur lors de l'analyse : {str(e)}"
+        return f"Erreur lors de l'analyse : {str(e)}"
 
 
 def _generate_document_impl(title: str, content: str, filename: str = None) -> str:
@@ -400,10 +400,10 @@ def _generate_document_impl(title: str, content: str, filename: str = None) -> s
         filepath = OUTPUT_DIR / filename
         doc.save(str(filepath))
 
-        return f"✅ Document créé : {filepath}"
+        return f"Document créé : {filepath}"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du document : {str(e)}"
+        return f"Erreur lors de la création du document : {str(e)}"
 
 
 def _generate_chart_impl(
@@ -426,13 +426,13 @@ def _generate_chart_impl(
         data = json.loads(data_json)
 
         if "labels" not in data or "values" not in data:
-            return '❌ Format JSON invalide. Utilisez : {"labels": [...], "values": [...]}'
+            return 'Erreur : Format JSON invalide. Utilisez : {"labels": [...], "values": [...]}'
 
         labels = data["labels"]
         values = data["values"]
 
         if len(labels) != len(values):
-            return "❌ Le nombre de labels et de valeurs doit être identique"
+            return "Erreur : Le nombre de labels et de valeurs doit être identique"
 
         # Création du graphique
         plt.figure(figsize=(10, 6))
@@ -450,9 +450,7 @@ def _generate_chart_impl(
             plt.pie(values, labels=labels, autopct="%1.1f%%", startangle=90)
 
         else:
-            return (
-                f"❌ Type de graphique non supporté : {chart_type}. Utilisez 'bar', 'line' ou 'pie'"
-            )
+            return f"Erreur : Type de graphique non supporté : {chart_type}. Utilisez 'bar', 'line' ou 'pie'"
 
         plt.title(title, fontsize=14, fontweight="bold")
         plt.tight_layout()
@@ -471,13 +469,13 @@ def _generate_chart_impl(
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()
 
-        return f"✅ Graphique créé : {filepath}"
+        return f"Graphique créé : {filepath}"
 
     except json.JSONDecodeError:
-        return "❌ Format JSON invalide"
+        return "Erreur : Format JSON invalide"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du graphique : {str(e)}"
+        return f"Erreur lors de la création du graphique : {str(e)}"
 
 
 def _generate_markdown_report_impl(title: str, sections: str, filename: str = None) -> str:
@@ -520,13 +518,13 @@ def _generate_markdown_report_impl(title: str, sections: str, filename: str = No
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(report)
 
-        return f"✅ Rapport Markdown créé : {filepath}"
+        return f"Rapport Markdown créé : {filepath}"
 
     except json.JSONDecodeError:
-        return "❌ Format JSON invalide pour les sections"
+        return "Erreur : Format JSON invalide pour les sections"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du rapport : {str(e)}"
+        return f"Erreur lors de la création du rapport : {str(e)}"
 
 
 def _system_monitor_impl() -> str:
@@ -557,7 +555,7 @@ def _system_monitor_impl() -> str:
         disk_percent = disk.percent
 
         # Construction du rapport
-        report = "📊 **Monitoring Système**\n\n"
+        report = "**Monitoring Système**\n\n"
 
         report += "### CPU\n"
         report += f"- Utilisation : {cpu_percent}%\n"
@@ -576,19 +574,19 @@ def _system_monitor_impl() -> str:
 
         # Alertes
         if ram_percent > 90:
-            report += "⚠️ **ALERTE** : RAM critique (>90%)\n"
+            report += "**ALERTE** : RAM critique (>90%)\n"
         elif ram_percent > 80:
-            report += "⚠️ RAM élevée (>80%)\n"
+            report += "Attention : RAM élevée (>80%)\n"
 
         if disk_percent > 90:
-            report += "⚠️ **ALERTE** : Disque critique (>90%)\n"
+            report += "**ALERTE** : Disque critique (>90%)\n"
         elif disk_percent > 80:
-            report += "⚠️ Disque élevé (>80%)\n"
+            report += "Attention : Disque élevé (>80%)\n"
 
         return report
 
     except Exception as e:
-        return f"❌ Erreur lors du monitoring : {str(e)}"
+        return f"Erreur lors du monitoring : {str(e)}"
 
 
 # ========================================
@@ -804,56 +802,56 @@ AVAILABLE_TOOLS = [
 # Métadonnées des outils pour l'UI
 TOOLS_METADATA = {
     "get_current_time": {
-        "name": "🕒 Time",
+        "name": "Time",
         "description": "Heure système",
         "category": "system",
         "requires_config": False,
     },
     "calculator": {
-        "name": "🧮 Calculator",
+        "name": "Calculator",
         "description": "Calculs mathématiques",
         "category": "computation",
         "requires_config": False,
     },
     "search_wavestone_internal": {
-        "name": "🏢 Wavestone Search",
+        "name": "Wavestone Search",
         "description": "Base interne simulée",
         "category": "data",
         "requires_config": False,
     },
     "send_email": {
-        "name": "📧 Email Sender",
+        "name": "Email Sender",
         "description": "Envoi d'emails",
         "category": "communication",
         "requires_config": True,
         "config_vars": ["SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD"],
     },
     "analyze_csv": {
-        "name": "📊 Data Analyzer",
+        "name": "Data Analyzer",
         "description": "Analyse CSV/Excel",
         "category": "data",
         "requires_config": False,
     },
     "generate_document": {
-        "name": "📝 Document Generator",
+        "name": "Document Generator",
         "description": "Création de DOCX",
         "category": "output",
         "requires_config": False,
     },
     "generate_chart": {
-        "name": "📈 Chart Generator",
+        "name": "Chart Generator",
         "description": "Graphiques PNG",
         "category": "output",
         "requires_config": False,
     },
     "generate_markdown_report": {
-        "name": "📋 Markdown Report",
+        "name": "Markdown Report",
         "description": "Rapports MD",
         "category": "output",
         "requires_config": False,
     },
     "system_monitor": {
-        "name": "💾 System Monitor",
+        "name": "System Monitor",
         "description": "Métriques système",
         "category": "system",
         "requires_config": False,

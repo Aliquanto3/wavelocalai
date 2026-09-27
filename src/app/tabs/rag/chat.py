@@ -28,7 +28,7 @@ def render_rag_chat_tab(
     c_sel, c_space = st.columns([1, 2])
     with c_sel:
         selected_display = st.selectbox(
-            "🤖 Modèle Actif",
+            "Modèle Actif",
             sorted_display_names,
             key="rag_chat_select",
             label_visibility="collapsed",
@@ -44,7 +44,7 @@ def render_rag_chat_tab(
         with st.chat_message(msg["role"]):
             # A. Affichage Pensée (CoT)
             if msg.get("thought"):
-                with st.expander("💭 Raisonnement", expanded=False):
+                with st.expander("Raisonnement", expanded=False):
                     st.markdown(msg["thought"])
 
             # B. Contenu Principal
@@ -53,11 +53,11 @@ def render_rag_chat_tab(
             # C. Zone Métadonnées (Uniquement pour l'assistant)
             if msg["role"] == "assistant":
                 # Ligne de séparation discrète
-                st.markdown("---")
+                st.divider()
 
                 # C1. Sources (Expander)
                 if msg.get("sources"):
-                    with st.expander(f"📚 {len(msg['sources'])} Sources utilisées", expanded=False):
+                    with st.expander(f"{len(msg['sources'])} Sources utilisées", expanded=False):
                         for idx, doc in enumerate(msg["sources"]):
                             score = doc.metadata.get("score", 0)
                             src_name = doc.metadata.get("source", "Doc inconnu")
@@ -71,11 +71,11 @@ def render_rag_chat_tab(
                     badges = []
                     if "metrics" in msg:
                         m = msg["metrics"]
-                        badges.append(f"⏱️ {m.get('total_time', 0):.1f}s")
+                        badges.append(f"{m.get('total_time', 0):.1f}s")
                         if "ram_gb" in m:
-                            badges.append(f"💾 {m['ram_gb']:.1f} GB")
+                            badges.append(f"{m['ram_gb']:.1f} GB")
                         if "carbon_mg" in m:
-                            badges.append(f"🌱 {m['carbon_mg']:.2f} mgCO₂")
+                            badges.append(f"{m['carbon_mg']:.2f} mgCO₂")
 
                     if badges:
                         st.caption(" | ".join(badges))
@@ -83,11 +83,12 @@ def render_rag_chat_tab(
                 with c_meta2:
                     # Bouton de téléchargement avec CLÉ UNIQUE
                     st.download_button(
-                        "📥 MD",
+                        "Télécharger",
                         msg["content"],
                         file_name=f"rag_response_{i}.md",
                         key=f"dl_rag_{i}",
-                        help="Télécharger la réponse",
+                        icon=":material/download:",
+                        help="Télécharger la réponse en Markdown",
                     )
 
     # 3. INPUT UTILISATEUR
@@ -100,7 +101,7 @@ def render_rag_chat_tab(
         # 4. RÉPONSE ASSISTANT
         with st.chat_message("assistant"):
             resp_container = st.empty()
-            status_box = st.status("🚀 Recherche & Réflexion...", expanded=True)
+            status_box = st.status("Recherche & Réflexion...", expanded=True)
 
             t_start_pipeline = time.perf_counter()
 
@@ -109,16 +110,16 @@ def render_rag_chat_tab(
                 # Feedback dynamique sur la stratégie
                 strat_name = rag_engine.strategy.__class__.__name__
                 if "HyDE" in strat_name:
-                    status_box.write("🔮 HyDE : Génération hypothétique...")
+                    status_box.write("HyDE : Génération hypothétique...")
                 elif "SelfRAG" in strat_name:
-                    status_box.write("⚖️ Self-RAG : Analyse critique...")
+                    status_box.write("Self-RAG : Analyse critique...")
                 else:
-                    status_box.write("🔍 Naive RAG : Recherche vectorielle...")
+                    status_box.write("Naive RAG : Recherche vectorielle...")
 
                 t_ret = time.perf_counter()
                 retrieved = rag_engine.search(prompt, k=k_retrieval)
                 d_ret = time.perf_counter() - t_ret
-                status_box.write(f"✅ {len(retrieved)} documents trouvés ({d_ret:.2f}s)")
+                status_box.write(f"{len(retrieved)} documents trouvés ({d_ret:.2f}s)")
 
                 # B. Préparation Prompt
                 context_text = "\n\n".join([doc.page_content for doc in retrieved])
@@ -131,7 +132,7 @@ def render_rag_chat_tab(
                 ]
 
                 # C. Génération (Streaming)
-                status_box.write(f"🧠 Génération avec {friendly_name}...")
+                status_box.write(f"Génération avec {friendly_name}...")
 
                 async def run_gen():
                     full_txt = ""
@@ -149,7 +150,7 @@ def render_rag_chat_tab(
 
                 # Fin du process
                 total_duration = time.perf_counter() - t_start_pipeline
-                status_box.update(label="✅ Terminé", state="complete", expanded=False)
+                status_box.update(label="Terminé", state="complete", expanded=False)
 
                 # D. Traitement Post-Génération
                 thought, clean = extract_thought(full_resp)
@@ -157,7 +158,7 @@ def render_rag_chat_tab(
                 # Affichage Final
                 resp_container.empty()
                 if thought:
-                    with st.expander("💭 CoT", expanded=True):
+                    with st.expander("CoT", expanded=True):
                         st.markdown(thought)
                 st.markdown(clean)
 
@@ -204,5 +205,5 @@ def render_rag_chat_tab(
                 st.rerun()
 
             except Exception as e:
-                status_box.update(label="❌ Erreur", state="error")
+                status_box.update(label="Erreur", state="error")
                 st.error(f"Erreur Pipeline : {e}")

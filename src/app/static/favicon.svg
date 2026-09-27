@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Favicon local (aucun téléchargement externe) : « W » blanc sur primary de DESIGN.md. -->
+  <rect width="64" height="64" rx="12" fill="#451DC7"/>
+  <path d="M12 18 L22 48 L32 26 L42 48 L52 18" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

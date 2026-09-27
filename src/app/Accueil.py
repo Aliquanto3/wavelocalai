@@ -11,18 +11,21 @@ try:
 except ImportError:
     GreenTracker = None
 
-# --- CONFIGURATION INITIALE ---
-st.set_page_config(
-    page_title="WaveLocalAI | GenAI Souveraine",
-    page_icon="🌊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 # --- SETUP PATH & LOGGING ---
 root_path = Path(__file__).parent.parent.parent
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
+
+from src.app.ui import FAVICON_PATH, render_logo  # noqa: E402  (après l'ajout de la racine)
+
+# --- CONFIGURATION INITIALE ---
+st.set_page_config(
+    page_title="WaveLocalAI | GenAI Souveraine",
+    page_icon=FAVICON_PATH,
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+render_logo()
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +64,8 @@ def get_system_health():
 
 def main():
     # --- HERO SECTION ---
-    st.title("🌊 WaveLocalAI Workbench")
-    st.markdown(
-        "### Le démonstrateur d'IA Générative **Souveraine**, **Frugale** et **Sécurisée**."
-    )
+    st.title("WaveLocalAI Workbench")
+    st.markdown("Le démonstrateur d'IA Générative **Souveraine**, **Frugale** et **Sécurisée**.")
 
     st.divider()
 
@@ -74,18 +75,18 @@ def main():
     # Logique d'affichage Confidentialité
     # Elle lit directement la st.session_state mise à jour par le callback
     if st.session_state.cloud_enabled:
-        privacy_label = "Mode Hybride ☁️"
+        privacy_label = "Mode Hybride"
         privacy_val = "API Active"
-        privacy_help = "⚠️ Attention : Les modèles Cloud (Mistral/OpenAI) sont activés. Les données envoyées à ces modèles quittent votre infrastructure."
+        privacy_help = "Attention : Les modèles Cloud (Mistral/OpenAI) sont activés. Les données envoyées à ces modèles quittent votre infrastructure."
     else:
         privacy_label = "Confidentialité"
-        privacy_val = "100% Local 🔒"
-        privacy_help = "✅ Sécurisé : Tous les modèles tournent sur cette machine (Ollama). Aucune donnée ne sort."
+        privacy_val = "100% Local"
+        privacy_help = "Sécurisé : Tous les modèles tournent sur cette machine (Ollama). Aucune donnée ne sort."
 
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
 
     with col_kpi1:
-        st.metric("Système", "Opérationnel 🟢", help="Tous les services sont actifs")
+        st.metric("Système", "Opérationnel", help="Tous les services sont actifs")
     with col_kpi2:
         st.metric("Charge CPU", f"{cpu}%", help="Charge actuelle du processeur")
     with col_kpi3:
@@ -96,57 +97,49 @@ def main():
     st.divider()
 
     # --- NAVIGATION GRID (2x2) ---
-    st.subheader("📍 Modules d'exploration")
+    st.header("Modules d'exploration")
 
     row1_1, row1_2 = st.columns(2)
     row2_1, row2_2 = st.columns(2)
 
     # CARD 1 : HARDWARE
     with row1_1, st.container(border=True):
-        c_ico, c_txt = st.columns([1, 5])
-        with c_ico:
-            st.markdown("# 🔋")
-        with c_txt:
-            st.markdown("#### 01. Cockpit GreenOps")
-            st.caption(
-                "Monitoring temps réel de la consommation énergétique et des ressources machine."
-            )
-            st.page_link("pages/01_Socle_Hardware.py", label="Accéder au Cockpit", icon="📊")
+        st.subheader("01. Cockpit GreenOps")
+        st.caption(
+            "Monitoring temps réel de la consommation énergétique et des ressources machine."
+        )
+        st.page_link(
+            "pages/01_Socle_Hardware.py", label="Accéder au Cockpit", icon=":material/eco:"
+        )
 
     # CARD 2 : INFERENCE
     with row1_2, st.container(border=True):
-        c_ico, c_txt = st.columns([1, 5])
-        with c_ico:
-            st.markdown("# 🧠")
-        with c_txt:
-            st.markdown("#### 02. Inférence & Arena")
-            st.caption(
-                "Benchmark et chat avec des modèles SLM quantizés (Llama 3, Mistral, Gemma)."
-            )
-            st.page_link("pages/02_Inference_Arena.py", label="Entrer dans l'Arène", icon="⚔️")
+        st.subheader("02. Inférence & Arena")
+        st.caption("Benchmark et chat avec des modèles SLM quantizés (Llama 3, Mistral, Gemma).")
+        st.page_link(
+            "pages/02_Inference_Arena.py",
+            label="Entrer dans l'Arène",
+            icon=":material/leaderboard:",
+        )
 
     # CARD 3 : RAG
     with row2_1, st.container(border=True):
-        c_ico, c_txt = st.columns([1, 5])
-        with c_ico:
-            st.markdown("# 📚")
-        with c_txt:
-            st.markdown("#### 03. Base de Connaissance (RAG)")
-            st.caption("Interrogation documentaire sécurisée sans fuite de données.")
-            st.page_link("pages/03_RAG_Knowledge.py", label="Gérer les Documents", icon="📂")
+        st.subheader("03. Base de Connaissance (RAG)")
+        st.caption("Interrogation documentaire sécurisée sans fuite de données.")
+        st.page_link(
+            "pages/03_RAG_Knowledge.py", label="Gérer les Documents", icon=":material/description:"
+        )
 
     # CARD 4 : AGENTS
     with row2_2, st.container(border=True):
-        c_ico, c_txt = st.columns([1, 5])
-        with c_ico:
-            st.markdown("# 🤖")
-        with c_txt:
-            st.markdown("#### 04. Agents Autonomes")
-            st.caption("Orchestration d'équipes d'agents pour des tâches complexes (CrewAI).")
-            st.page_link("pages/04_Agent_Lab.py", label="Lancer les Agents", icon="🚀")
+        st.subheader("04. Agents Autonomes")
+        st.caption("Orchestration d'équipes d'agents pour des tâches complexes (CrewAI).")
+        st.page_link(
+            "pages/04_Agent_Lab.py", label="Lancer les Agents", icon=":material/smart_toy:"
+        )
 
     # --- FOOTER ---
-    st.markdown("---")
+    st.divider()
 
     # Toggle global pour contrôler la confidentialité depuis l'accueil
     c_toggle, c_copyright = st.columns([1, 3])
@@ -161,7 +154,7 @@ def main():
             help="Désactivez pour forcer un mode strictement local sur toutes les pages.",
         )
         if not st.session_state.cloud_enabled:
-            st.caption("🔒 Mode Local Strict activé")
+            st.caption("Mode Local Strict activé")
 
     with c_copyright:
         st.caption("© 2025 WaveLocalAI - Wavestone Tech Lab | v2.0.0 (Stable)")

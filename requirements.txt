@@ -4,7 +4,7 @@
 # Après toute modification de ce fichier, régénérer constraints.txt (commande en en-tête).
 
 # --- Frontend & UI ---
-streamlit>=1.40.0
+streamlit>=1.64.0
 watchdog>=4.0.0
 plotly>=5.18.0
 

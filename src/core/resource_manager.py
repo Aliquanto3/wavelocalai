@@ -146,7 +146,7 @@ class ResourceManager:
         # 4. Verdict final
         if safe_available_ram >= total_ram_needed:
             msg = (
-                f"✅ Ressources suffisantes. "
+                f"Ressources suffisantes. "
                 f"Besoin: {total_ram_needed:.2f}GB ({n_instances}x {unit_ram:.2f}GB). "
                 f"Dispo (safe): {safe_available_ram:.2f}GB."
             )
@@ -154,10 +154,10 @@ class ResourceManager:
             return ResourceCheckResult(True, msg, total_ram_needed, available_ram)
         else:
             msg = (
-                f"⛔ RAM Insuffisante ! Risque de crash. "
+                f"RAM Insuffisante ! Risque de crash. "
                 f"Besoin: {total_ram_needed:.2f}GB. "
                 f"Dispo réelle: {available_ram:.2f}GB (Buffer sécu {SYSTEM_RAM_BUFFER_GB}GB déduit). "
-                f"💡 Essayez de libérer la RAM via le bouton dans la sidebar."
+                f"Essayez de libérer la RAM via le bouton dans la sidebar."
             )
             logger.warning(msg)
             return ResourceCheckResult(False, msg, total_ram_needed, available_ram)

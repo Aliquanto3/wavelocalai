@@ -14,27 +14,27 @@ from src.core.utils import extract_params_billions as _extract_params_billions
 
 # --- DONNÉES SCÉNARIOS ---
 USE_CASES = {
-    "📊 Classification (JSON)": {
+    "Classification (JSON)": {
         "system": """Tu es un expert en analyse de sentiment. Réponds UNIQUEMENT avec un JSON : {"sentiment": "Positif"|"Neutre"|"Négatif", "categorie": "..."}.""",
         "user": """Analyse ce feedback : "La formation était top, mais la salle trop chaude." """,
     },
-    "🇬🇧 Traduction Technique": {
+    "Traduction Technique": {
         "system": 'Traduis en Anglais, Espagnol, Allemand. Format JSON : {"en": "...", "es": "...", "de": "..."}.',
         "user": "L'inférence locale garantit la confidentialité des données.",
     },
-    "📄 Extraction (JSON)": {
+    "Extraction (JSON)": {
         "system": "Extrais les entités (Date, Montant, Vendeur). Réponds UNIQUEMENT en JSON.",
         "user": "Facture du 12/12/2024 de Wavestone pour 500€.",
     },
-    "💻 Assistant Code (Python)": {
+    "Assistant Code (Python)": {
         "system": "Tu es un expert Python. Génère du code typé et documenté.",
         "user": "Fonction asynchrone pour appeler une API REST avec retry.",
     },
-    "🧮 Raisonnement (CoT)": {
+    "Raisonnement (CoT)": {
         "system": "Utilise la méthode Chain of Thought : pense étape par étape avant de répondre.",
         "user": "J'ai 3 pommes. J'en mange une. J'en achète deux. J'en jette une. Combien m'en reste-t-il ?",
     },
-    "📝 Résumé": {
+    "Résumé": {
         "system": "Fais un résumé exécutif en bullet points.",
         "user": "Compte rendu de réunion : Le projet est en retard à cause de la validation API. On décale la livraison de 2 semaines.",
     },
@@ -48,7 +48,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
     # === COLONNE GAUCHE : CONFIGURATION ===
     with col_input:
-        st.subheader("1. Configuration")
+        st.header("1. Configuration")
 
         # Sélection Modèle & Cas
         lab_model_display = st.selectbox("Modèle", sorted_display_names, key="lab_model_select")
@@ -60,7 +60,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
         default_user = USE_CASES[selected_use_case]["user"]
 
         # Paramètres avancés cachés
-        with st.expander("⚙️ Paramètres (System & Temp)", expanded=False):
+        with st.expander("Paramètres (System & Temp)", expanded=False):
             system_prompt = st.text_area("System Prompt", value=default_sys, height=100)
             lab_temp = st.slider("Température", 0.0, 1.0, 0.2)
 
@@ -71,7 +71,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
         )
 
         # Bouton Action
-        if st.button("🚀 Lancer le Test", type="primary", use_container_width=True):
+        if st.button("Lancer le Test", type="primary", width="stretch"):
             if lab_model_tag:
                 st.session_state.lab_trigger = True
             else:
@@ -79,7 +79,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
     # === COLONNE DROITE : RÉSULTAT ===
     with col_output:
-        st.subheader("2. Résultat & Analyse")
+        st.header("2. Résultat & Analyse")
 
         # Container de résultat
         res_container = st.container(border=True)
@@ -113,10 +113,10 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
                 # Affichage Final (Clean)
                 placeholder.empty()
                 if result.thought:
-                    with st.expander("💭 Raisonnement du modèle", expanded=True):
+                    with st.expander("Raisonnement du modèle", expanded=True):
                         st.markdown(result.thought)
 
-                st.markdown("### Réponse")
+                st.subheader("Réponse")
                 st.markdown(result.clean_text)
 
                 # Sauvegarde état pour affichage persistant
@@ -128,9 +128,9 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
             res = st.session_state.lab_last_result
             with res_container:
                 if res.thought:
-                    with st.expander("💭 Raisonnement du modèle", expanded=False):
+                    with st.expander("Raisonnement du modèle", expanded=False):
                         st.markdown(res.thought)
-                st.markdown("### Réponse")
+                st.subheader("Réponse")
                 st.markdown(res.clean_text)
 
         # === ZONE MÉTRIQUES (Sous le résultat) ===
@@ -153,11 +153,11 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
             # Affichage en Grid
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("⚡ Vitesse", f"{m.tokens_per_second:.1f} t/s")
-            c2.metric("🌱 Impact", f"{carbon_mg:.2f} mg")
-            c3.metric("⏱️ Latence", f"{m.total_duration_s:.2f} s")
-            c4.metric("📝 Tokens", f"{m.output_tokens}")
+            c1.metric("Vitesse", f"{m.tokens_per_second:.1f} t/s")
+            c2.metric("Impact", f"{carbon_mg:.2f} mgCO₂")
+            c3.metric("Latence", f"{m.total_duration_s:.2f} s")
+            c4.metric("Tokens", f"{m.output_tokens}")
 
         else:
             with res_container:
-                st.info("👈 Configurez et lancez le test pour voir le résultat.")
+                st.info("Configurez et lancez le test pour voir le résultat.")

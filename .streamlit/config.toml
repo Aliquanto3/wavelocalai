@@ -1,12 +1,63 @@
 # Configuration Streamlit versionnée du démonstrateur.
-# Le thème (charte Wavestone) sera ajouté dans une story dédiée.
+# Charte Wavestone : tokens de _bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md.
+# Chaque clé existe dans Streamlit 1.64.0 (streamlit/config.py).
+
+[client]
+# Ni bouton « Deploy » ni menu de développement ; le choix du thème reste dans le menu.
+toolbarMode = "viewer"
 
 [server]
 # Le serveur n'écoute que sur la machine locale : aucune URL réseau n'est annoncée.
 # Pour une démonstration sur le réseau, l'ouvrir explicitement :
 #   streamlit run src/app/Accueil.py --server.address 0.0.0.0
 address = "localhost"
+# Sert src/app/static/ (dossier « static » à côté du script principal) sous app/static/ :
+# police Inter et wordmark, sans CDN.
+enableStaticServing = true
 
 [browser]
 # Pas de télémétrie d'usage envoyée à Streamlit.
 gatherUsageStats = false
+
+# Thème commun. Avec [theme.light] et [theme.dark] définis, Streamlit 1.64 crée un thème
+# « Custom Theme Auto » qui suit prefers-color-scheme : clair par défaut, sombre si le
+# système le demande ; le menu permet de forcer l'un ou l'autre.
+[theme]
+baseRadius = "12px"
+# Aptos si elle est installée (Office), sinon Inter servie localement, sinon sans-serif.
+font = "Aptos, Inter, sans-serif"
+headingFont = "Aptos, Inter, sans-serif"
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/InterVariable.woff2"
+weight = "100 900"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Inter"
+url = "app/static/fonts/InterVariable-Italic.woff2"
+weight = "100 900"
+style = "italic"
+
+[theme.light]
+primaryColor = "#451DC7"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F5FA"
+textColor = "#0A0A14"
+borderColor = "#E6E6EC"
+linkColor = "#451DC7"
+chartCategoricalColors = ["#6A4DE6", "#0E9F5E", "#2F7FD8", "#C98A00"]
+# Hors tableau Colors de DESIGN.md : texte vert natif (st.success, deltas de st.metric).
+# Le défaut de Streamlit (#158237) fait 4,49:1 sur son fond vert (4,03:1 dans la barre
+# latérale) ; cette valeur dépasse 5,2:1 sur tous ces fonds. À valider avec la charte.
+greenTextColor = "#0C6E3C"
+
+[theme.dark]
+primaryColor = "#6A4DE6"
+backgroundColor = "#0A0A14"
+secondaryBackgroundColor = "#16162A"
+textColor = "#F6F5FA"
+borderColor = "#2E2E44"
+linkColor = "#9B85F0"
+chartCategoricalColors = ["#7A5FEA", "#12A564", "#3B86DB", "#B07800"]

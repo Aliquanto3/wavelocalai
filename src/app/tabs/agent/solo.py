@@ -1,7 +1,7 @@
 """
 Solo Agent Tab - Sprint 1 (UX Refonte)
 Modifications :
-- Indicateur GreenOps coloré (Vert/Orange/Rouge)
+- Indicateur GreenOps (texte, sans code couleur par seuil)
 - Empty State avec cartes d'action (Suggestions)
 - UI allégée
 - FIX: Structure PROMPT_LIBRARY alignée avec les tests
@@ -16,34 +16,31 @@ from src.core.utils import extract_thought
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {
-    "📊 Analyse": {
+    "Analyse": {
         "Benchmark CSV": {
             "prompt": "Analyse 'data/benchmarks_data.csv', donne un aperçu et la moyenne de ram_usage_gb",
-            "required_tools": [
-                "analyze_csv",
-                "calculator",
-            ],  # ✅ CORRIGÉ : "tools" → "required_tools"
-            "description": "Analyse d'un fichier CSV benchmark avec calculs statistiques",  # ✅ AJOUTÉ
+            "required_tools": ["analyze_csv", "calculator"],
+            "description": "Analyse d'un fichier CSV benchmark avec calculs statistiques",
         },
         "Audit Système": {
             "prompt": "Vérifie le système (CPU/RAM) et génère un graphique d'état.",
-            "required_tools": ["system_monitor", "generate_chart"],  # ✅ CORRIGÉ
-            "description": "Diagnostic système complet avec visualisation graphique",  # ✅ AJOUTÉ
+            "required_tools": ["system_monitor", "generate_chart"],
+            "description": "Diagnostic système complet avec visualisation graphique",
         },
     },
-    "📄 Rédaction": {
+    "Rédaction": {
         "Rapport Word": {
             "prompt": "Crée un document Word sur 'L'impact des SLM' (Intro/Dev/Concl).",
-            "required_tools": ["generate_document"],  # ✅ CORRIGÉ
-            "description": "Génération d'un rapport professionnel au format DOCX",  # ✅ AJOUTÉ
+            "required_tools": ["generate_document"],
+            "description": "Génération d'un rapport professionnel au format DOCX",
         },
         "Synthèse Markdown": {
             "prompt": "Fais un rapport Markdown sur l'état système actuel.",
-            "required_tools": ["system_monitor", "generate_markdown_report"],  # ✅ CORRIGÉ
-            "description": "Rapport technique système au format Markdown",  # ✅ AJOUTÉ
+            "required_tools": ["system_monitor", "generate_markdown_report"],
+            "description": "Rapport technique système au format Markdown",
         },
     },
-    "🚀 Workflow": {
+    "Workflow": {
         "Full Pipeline": {
             "prompt": "1) Check système 2) Analyse 'data/benchmarks_data.csv' 3) Graphique perf 4) Rapport DOCX.",
             "required_tools": [
@@ -51,15 +48,15 @@ PROMPT_LIBRARY = {
                 "analyze_csv",
                 "generate_chart",
                 "generate_document",
-            ],  # ✅ CORRIGÉ
-            "description": "Pipeline complet : audit → analyse → visualisation → documentation",  # ✅ AJOUTÉ
+            ],
+            "description": "Pipeline complet : audit → analyse → visualisation → documentation",
         },
     },
 }
 
 
 # --- MODAL: PROMPT LIBRARY ---
-@st.dialog("📚 Bibliothèque de Prompts")
+@st.dialog("Bibliothèque de Prompts")
 def open_prompt_library():
     st.caption("Sélectionnez un scénario pour pré-configurer l'agent.")
 
@@ -71,9 +68,9 @@ def open_prompt_library():
             with cols[i % 2], st.container(border=True):
                 st.markdown(f"**{title}**")
                 st.caption(data["prompt"][:60] + "...")
-                if st.button("Utiliser", key=f"use_{title}", use_container_width=True):
+                if st.button("Utiliser", key=f"use_{title}", width="stretch"):
                     st.session_state.use_prompt = data["prompt"]
-                    # Auto-select tools (✅ Utilise maintenant "required_tools")
+                    # Auto-select tools (required_tools)
                     if "selected_tools" not in st.session_state:
                         st.session_state.selected_tools = []
                     for t in data.get("required_tools", []):
@@ -92,11 +89,12 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
     with c1:
         # Model Selector
-        selected_label = st.selectbox("🧠 Modèle", sorted_labels, label_visibility="collapsed")
+        selected_label = st.selectbox("Modèle", sorted_labels, label_visibility="collapsed")
         selected_tag = display_to_tag[selected_label]
 
     with c2:
-        # Tool Selector (Pills)
+        # Tool Selector (Pills) : wrap=True replie les 9 pastilles sur plusieurs lignes au lieu
+        # de les faire défiler sur une seule (5 sur 9 masquées à 1440 px sinon).
         tool_map = {meta["name"]: name for name, meta in TOOLS_METADATA.items()}
         tool_display_names = list(tool_map.keys())
 
@@ -116,6 +114,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                 default=current_display,
                 selection_mode="multi",
                 label_visibility="collapsed",
+                wrap=True,
             )
         except Exception:
             # Optionnel : loguer l'erreur pour le débogage
@@ -128,7 +127,12 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
     with c3:
         # Library Button
-        if st.button("📂 Prompts", help="Ouvrir la bibliothèque", use_container_width=True):
+        if st.button(
+            "Prompts",
+            icon=":material/library_books:",
+            help="Ouvrir la bibliothèque",
+            width="stretch",
+        ):
             open_prompt_library()
 
     st.divider()
@@ -139,45 +143,41 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
     with chat_container:
         # EMPTY STATE AMÉLIORÉ
         if not st.session_state.agent_messages:
-            st.markdown(
-                """
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h3>👋 Bonjour !</h3>
-                    <p style="color: gray;">L'agent est prêt. Choisissez une action rapide ou tapez votre demande.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            st.header("👋 Bonjour !", anchor=False, text_alignment="center")
+            st.caption(
+                "L'agent est prêt. Choisissez une action rapide ou tapez votre demande.",
+                text_alignment="center",
             )
 
             # Quick Actions (Cartes)
             ac1, ac2, ac3 = st.columns(3)
             with ac1, st.container(border=True):
-                st.markdown("**📊 Audit Système**")
-                if st.button("Lancer l'audit", key="start_audit", use_container_width=True):
+                st.markdown("**Audit Système**")
+                if st.button("Lancer l'audit", key="start_audit", width="stretch"):
                     st.session_state.use_prompt = (
                         "Vérifie l'état du système (CPU/RAM) et fais un résumé."
                     )
                     st.rerun()
             with ac2, st.container(border=True):
-                st.markdown("**📊 Analyse CSV**")
-                if st.button("Analyser Data", key="start_csv", use_container_width=True):
+                st.markdown("**Analyse CSV**")
+                if st.button("Analyser Data", key="start_csv", width="stretch"):
                     st.session_state.use_prompt = (
                         "Analyse data/benchmarks_data.csv et donne les tendances."
                     )
                     st.rerun()
             with ac3, st.container(border=True):
-                st.markdown("**🌱 Conscience**")
+                st.markdown("**Conscience**")
                 st.caption("Les requêtes locales consomment moins de CO2.")
 
         # LOOP MESSAGES
         for i, msg in enumerate(st.session_state.agent_messages):
             with st.chat_message(msg["role"]):
                 if msg.get("type") == "tool_log":
-                    status_state = "complete" if "✅" in msg["content"] else "running"
-                    with st.status(f"🛠️ {msg['tool']}", state=status_state):
-                        st.code(msg["content"])
+                    status_state = "complete" if msg.get("done") else "running"
+                    # Pas de « with » : à sa sortie, st.status passe de running à complete.
+                    st.status(msg["tool"], state=status_state).code(msg["content"])
                 elif msg.get("thought"):
-                    with st.expander("💭 Raisonnement", expanded=False):
+                    with st.expander("Raisonnement", expanded=False):
                         st.markdown(msg["thought"])
 
                 if msg.get("content"):
@@ -188,28 +188,17 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                         col_d1, col_d2 = st.columns([1, 5])
                         with col_d1:
                             st.download_button(
-                                "📥",
+                                "Télécharger",
                                 msg["content"],
                                 file_name=f"result_agent_{i}.md",
+                                icon=":material/download:",
                                 help="Télécharger en Markdown",
                                 key=f"dl_btn_{i}",
                             )
-                        # GREENOPS DISPLAY AMÉLIORÉ
+                        # GREENOPS : texte, sans code couleur par seuil
                         if "carbon_mg" in msg:
-                            val = msg["carbon_mg"]
-                            # Logique couleur
-                            if val < 50:
-                                color_style = "color:green; font-weight:bold;"
-                            elif val < 500:
-                                color_style = "color:orange; font-weight:bold;"
-                            else:
-                                color_style = "color:red; font-weight:bold;"
-
                             with col_d2:
-                                st.markdown(
-                                    f"<span style='{color_style}'>🌱 {val:.2f} mgCO₂</span>",
-                                    unsafe_allow_html=True,
-                                )
+                                st.caption(f"{msg['carbon_mg']:.2f} mgCO₂")
 
     # --- 3. INPUT & EXECUTION ---
     user_input = st.chat_input("Votre instruction...")
@@ -224,12 +213,12 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
     if final_prompt:
         if not selected_tag:
-            st.toast("❌ Aucun modèle sélectionné", icon="🚫")
+            st.toast("Aucun modèle sélectionné", icon=":material/error:")
             st.stop()
 
         check = ResourceManager.check_resources(selected_tag, n_instances=1)
         if not check.allowed:
-            st.error(f"⚠️ {check.message}")
+            st.error(check.message)
             st.stop()
 
         st.session_state.agent_messages.append({"role": "user", "content": final_prompt})
@@ -240,7 +229,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
             # L'agent n'affiche rien tant qu'il n'a pas commencé à générer
             # On affiche un placeholder de status vide pour le remplissage
             status_placeholder = st.empty()
-            status_box = status_placeholder.status("🧠 L'agent réfléchit...", expanded=True)
+            status_box = status_placeholder.status("L'agent réfléchit...", expanded=True)
 
             engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
             full_resp = ""
@@ -259,7 +248,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                     ev_type = event["type"]
 
                     if ev_type == "tool_call":
-                        status_box.write(f"🔨 **{event['tool']}** (Arguments: {event['args']})")
+                        status_box.write(f"**{event['tool']}** (Arguments: {event['args']})")
                         log_content = f"Args: {event['args']}\nEn attente du résultat..."
 
                         # Création d'un placeholder de log pour la mise à jour
@@ -277,36 +266,40 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
                         # Mise à jour du dernier log créé
                         if current_tool_log:
-                            # Ajout d'une marque de succès pour le log
-                            current_tool_log["content"] = f"✅ Résultat de l'outil:\n{content}"
+                            # Marque de fin explicite (lue par le rendu du log, pas le texte)
+                            current_tool_log["content"] = f"Résultat de l'outil:\n{content}"
+                            current_tool_log["done"] = True
 
-                        status_box.write("✅ Résultat de l'outil reçu.")
+                        status_box.write("Résultat de l'outil reçu.")
 
                         if ".png" in content or ".jpg" in content:
                             if "outputs/" in content:
                                 st.image(content.strip())
-                                st.toast("🖼️ Image générée !", icon="✨")
+                                st.toast("Image générée !", icon=":material/image:")
                         elif len(content) > 500:
-                            st.toast("📄 Document généré/analysé, voir log technique.", icon="📚")
+                            st.toast(
+                                "Document généré/analysé, voir log technique.",
+                                icon=":material/article:",
+                            )
 
                     elif ev_type == "final_answer":
                         # Mise à jour de la boîte de statut uniquement à la fin
                         status_placeholder.empty()
-                        status_box = st.status("✅ Terminé", state="complete", expanded=False)
+                        status_box = st.status("Terminé", state="complete", expanded=False)
 
                         thought, clean = extract_thought(event["content"])
                         full_resp = clean
                         if thought:
-                            with st.expander("💭 Voir le raisonnement"):
+                            with st.expander("Voir le raisonnement"):
                                 st.markdown(thought)
                         st.markdown(full_resp)
 
                     elif ev_type == "error":
                         status_placeholder.empty()
-                        status_box = st.status("❌ Erreur", state="error")
+                        status_box = st.status("Erreur", state="error")
                         st.error(event["content"])
 
                 # ... (Carbon Calc et st.rerun inchangés) ...
             except Exception as e:
-                status_box.update(label="💥 Crash", state="error")
+                status_box.update(label="Crash", state="error")
                 st.error(f"Erreur critique : {e}")

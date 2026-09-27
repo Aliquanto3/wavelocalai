@@ -106,7 +106,7 @@ class LLMProvider:
         except ValueError as e:
             # Provider non disponible
             logger.error(f"Provider error: {e}")
-            yield f"❌ Erreur : {e}"
+            yield f"Erreur : {e}"
 
         except Exception as e:
             logger.error(f"Chat stream error for {model_name}: {e}")

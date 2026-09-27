@@ -40,9 +40,9 @@ class LLMProviderFactory:
         mistral = MistralProvider()
         if mistral.is_available:
             self._providers["mistral"] = mistral
-            logger.info("✅ Provider Mistral initialisé")
+            logger.info("Provider Mistral initialisé")
         else:
-            logger.debug("ℹ️ Provider Mistral non disponible (clé API manquante)")
+            logger.debug("Provider Mistral non disponible (clé API manquante)")
 
         # Provider OpenAI (si configuré)
         from src.core.providers.openai_provider import OpenAIProvider
@@ -50,9 +50,9 @@ class LLMProviderFactory:
         openai_provider = OpenAIProvider()
         if openai_provider.is_available:
             self._providers["openai"] = openai_provider
-            logger.info("✅ Provider OpenAI initialisé")
+            logger.info("Provider OpenAI initialisé")
         else:
-            logger.debug("ℹ️ Provider OpenAI non disponible (clé API manquante)")
+            logger.debug("Provider OpenAI non disponible (clé API manquante)")
 
         # Provider Anthropic (si configuré)
         from src.core.providers.anthropic_provider import AnthropicProvider
@@ -60,9 +60,9 @@ class LLMProviderFactory:
         anthropic_provider = AnthropicProvider()
         if anthropic_provider.is_available:
             self._providers["anthropic"] = anthropic_provider
-            logger.info("✅ Provider Anthropic initialisé")
+            logger.info("Provider Anthropic initialisé")
         else:
-            logger.debug("ℹ️ Provider Anthropic non disponible (clé API manquante)")
+            logger.debug("Provider Anthropic non disponible (clé API manquante)")
 
     def get_provider(self, model_tag: str) -> ILLMProvider:
         """
@@ -149,7 +149,7 @@ class LLMProviderFactory:
             provider: Instance du provider
         """
         self._providers[name] = provider
-        logger.info(f"✅ Provider '{name}' enregistré")
+        logger.info(f"Provider '{name}' enregistré")
 
     def health_check_all(self) -> dict[str, bool]:
         """

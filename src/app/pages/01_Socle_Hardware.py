@@ -7,6 +7,8 @@ import plotly.express as px
 import psutil
 import streamlit as st
 
+from src.app.ui import FAVICON_PATH, render_logo
+
 # --- IMPORT DYNAMIQUE ---
 try:
     from src.core.config import get_emissions_path
@@ -20,7 +22,8 @@ except ImportError:
 
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Socle Hardware", page_icon="🔋", layout="wide")
+st.set_page_config(page_title="Socle Hardware", page_icon=FAVICON_PATH, layout="wide")
+render_logo()
 
 # --- FONCTIONS UTILITAIRES ---
 
@@ -34,10 +37,10 @@ def get_device_info():
         import torch
 
         if torch.cuda.is_available():
-            device_type = "🚀 GPU NVIDIA (CUDA)"
+            device_type = "GPU NVIDIA (CUDA)"
             device_details = torch.cuda.get_device_name(0)
         elif torch.backends.mps.is_available():
-            device_type = "🍎 Apple Silicon (MPS)"
+            device_type = "Apple Silicon (MPS)"
             device_details = "Metal Performance Shaders"
     except ImportError:
         pass
@@ -68,13 +71,13 @@ if "tracker" not in st.session_state and GreenTracker:
 # UI PRINCIPALE
 # ==========================================
 
-st.title("🔋 Cockpit GreenOps & Hardware")
+st.title("Cockpit GreenOps & Hardware")
 st.caption("Monitoring de l'infrastructure hôte (Scope 2 - Électricité).")
 
 st.divider()
 
 # --- 1. TÉLÉMÉTRIE TEMPS RÉEL ---
-st.subheader("1. Santé du Système")
+st.header("1. Santé du Système")
 
 cpu_val, ram_pct, ram_used, ram_total = get_true_system_metrics()
 device_type, device_details = get_device_info()
@@ -82,17 +85,17 @@ device_type, device_details = get_device_info()
 # Logique de sécurité dynamique (Cohérence avec Accueil.py)
 # Utilise le state global défini dans Accueil.py
 if st.session_state.get("cloud_enabled", True):
-    sec_value = "Hybride ☁️"
+    sec_value = "Hybride"
     sec_delta = "API Active"
     sec_help = (
-        "⚠️ Attention : Des flux sortants vers Mistral/OpenAI sont autorisés par le réglage global."
+        "Attention : Des flux sortants vers Mistral/OpenAI sont autorisés par le réglage global."
     )
     sec_color = "normal"
 else:
-    sec_value = "Confiné 🔒"
+    sec_value = "Confiné"
     sec_delta = "Offline"
     sec_help = (
-        "✅ Sécurisé : Aucun flux sortant vers des API publiques. Le mode local strict est activé."
+        "Sécurisé : Aucun flux sortant vers des API publiques. Le mode local strict est activé."
     )
     sec_color = "normal"
 
@@ -133,18 +136,18 @@ with st.container(border=True):
         )
 
 # --- 2. GREEN OPS MONITORING ---
-st.subheader("2. Empreinte Carbone (Machine)")
+st.header("2. Empreinte Carbone (Machine)")
 
 col_live, col_hist = st.columns([1, 2])
 
 with col_live, st.container(border=True):
-    st.markdown("#### 🌍 Session Actuelle")
+    st.subheader("Session Actuelle")
 
     if st.session_state.get("tracker") and st.session_state.tracker._is_running:
         st.success("Tracking Actif (CodeCarbon)")
         st.caption("Mesure basée sur le TDP matériel et le mix électrique local.")
 
-        if st.button("⏹️ Arrêter & Sauvegarder", use_container_width=True):
+        if st.button("Arrêter & Sauvegarder", icon=":material/stop_circle:", width="stretch"):
             em = st.session_state.tracker.stop()
             st.session_state.last_emissions = em
             st.rerun()
@@ -155,20 +158,20 @@ with col_live, st.container(border=True):
             km, phones = get_co2_equivalencies(em)
 
             st.metric("Total Session", f"{em:.5f} kgCO₂")
-            st.caption(f"soit ~ **{km:.4f} km** en voiture 🚗")
+            st.caption(f"soit ~ **{km:.4f} km** en voiture")
 
         if st.session_state.get("tracker") and st.button(
-            "▶️ Reprendre le tracking", use_container_width=True
+            "Reprendre le tracking", icon=":material/play_circle:", width="stretch"
         ):
             st.session_state.tracker.start()
             st.rerun()
 
     st.info(
-        "💡 **Note :** Ceci mesure la consommation électrique de votre PC. L'impact 'par token' affiché dans les autres onglets est une estimation théorique (Scope 3)."
+        "**Note :** Ceci mesure la consommation électrique de votre PC. L'impact 'par token' affiché dans les autres onglets est une estimation théorique (Scope 3)."
     )
 
 with col_hist:
-    st.markdown("#### 📊 Historique d'Émissions")
+    st.subheader("Historique d'Émissions")
     try:
         csv_path = get_emissions_path()
         df_emissions = pd.read_csv(csv_path)
@@ -183,21 +186,19 @@ with col_hist:
                 y="emissions",
                 title="Cumul CO2 (kg) au fil du temps",
                 labels={"emissions": "Emissions (kg)", "timestamp": "Temps"},
-                template="plotly_white",
             )
-            fig.update_traces(line_color="#10B981", fillcolor="rgba(16, 185, 129, 0.2)")
             fig.update_layout(height=250, margin={"l": 20, "r": 20, "t": 30, "b": 20})
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("Pas assez de données pour afficher l'historique.")
     except Exception as e:
         st.warning(f"Impossible de charger l'historique : {e}")
 
 # --- 3. SPÉCIFICATIONS TECHNIQUES ---
-st.subheader("3. Carte d'Identité Technique")
+st.header("3. Carte d'Identité Technique")
 
-with st.expander("🔎 Voir les détails complets", expanded=False):
+with st.expander("Voir les détails complets", expanded=False):
     sys_info = {}
     try:
         sys_info["OS"] = f"{platform.system()} {platform.release()}"
@@ -216,5 +217,5 @@ with st.expander("🔎 Voir les détails complets", expanded=False):
 st.divider()
 c_ref, c_spacer = st.columns([1, 5])
 with c_ref:
-    if st.button("🔄 Rafraîchir"):
+    if st.button("Rafraîchir", icon=":material/refresh:"):
         st.rerun()

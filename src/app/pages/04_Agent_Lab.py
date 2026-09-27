@@ -6,12 +6,14 @@ import streamlit as st
 
 from src.app.tabs.agent.crew import render_agent_crew_tab
 from src.app.tabs.agent.solo import render_agent_solo_tab
+from src.app.ui import FAVICON_PATH, model_label, render_logo
 from src.core.llm_provider import LLMProvider
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 
 nest_asyncio.apply()
 
-st.set_page_config(page_title="Agent Lab", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="Agent Lab", page_icon=FAVICON_PATH, layout="wide")
+render_logo()
 
 # --- INITIALISATION GLOBALE ---
 if "agent_messages" not in st.session_state:
@@ -20,14 +22,12 @@ if "carbon_budget" not in st.session_state:
     st.session_state.carbon_budget = 100.0  # Budget arbitraire pour la session (Gamification)
 
 # --- HEADER ---
-col_title, col_status = st.columns([3, 1])
-with col_title:
-    st.title("🧪 Agent Lab")
-    st.caption("Orchestration d'IA Locale : Solo (LangGraph) & Équipes (CrewAI)")
+st.title("Agent Lab")
+st.caption("Orchestration d'IA Locale : Solo (LangGraph) & Équipes (CrewAI)")
 
 # --- SIDEBAR : COCKPIT GREENOPS ---
 with st.sidebar:
-    st.header("⚙️ Pilote")
+    st.header("Pilote")
 
     # A. Paramètres Modèles
     if "cloud_enabled" not in st.session_state:
@@ -53,17 +53,12 @@ with st.sidebar:
     st.divider()
 
     # C. Santé Système (Kritik pour 2.8GB RAM)
-    st.subheader("🖥️ Santé Système")
+    st.subheader("Santé Système")
 
     # Récupération RAM Live
     avail_ram = psutil.virtual_memory().available / (1024**3)
     total_ram = psutil.virtual_memory().total / (1024**3)
     percent_used = psutil.virtual_memory().percent
-
-    # Jauge colorée selon le danger
-    ram_color = "normal"
-    if avail_ram < 4.0:
-        ram_color = "off"  # Gris/Rouge selon theme
 
     st.metric(
         "RAM Disponible",
@@ -74,11 +69,11 @@ with st.sidebar:
     st.caption(f"Utilisation : {percent_used}% de {total_ram:.0f} GB")
 
     if avail_ram < 1.0:
-        st.error("⚠️ RAM CRITIQUE ! Risque de crash.")
+        st.error("RAM CRITIQUE ! Risque de crash.")
 
-    # Bouton de Purge (Mise en avant si critique)
-    btn_type = "primary" if avail_ram < 3.0 else "secondary"
-    if st.button("🧹 Purger Mémoire & VRAM", type=btn_type, use_container_width=True):
+    # Bouton de Purge (secondaire : l'alerte RAM ci-dessus signale l'urgence, et l'action
+    # principale de la vue reste celle du module)
+    if st.button("Purger Mémoire & VRAM", icon=":material/memory:", width="stretch"):
         try:
             import gc
 
@@ -91,7 +86,7 @@ with st.sidebar:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-            st.toast("🧹 Mémoire libérée !", icon="✨")
+            st.toast("Mémoire libérée !", icon=":material/check_circle:")
             time.sleep(1)
             st.rerun()
         except Exception as e:
@@ -99,7 +94,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("🗑️ Reset Chat", use_container_width=True):
+    if st.button("Reset Chat", icon=":material/delete:", width="stretch"):
         st.session_state.agent_messages = []
         st.rerun()
 
@@ -113,16 +108,23 @@ for m in installed:
     friendly = get_friendly_name_from_tag(tag)
     info = get_model_info(friendly)
     is_verified = info and "tools" in info.get("capabilities", [])
-    prefix = "☁️" if m.get("type") in ["api", "cloud"] else ("✅" if is_verified else "⚠️")
-    label = f"{prefix} {friendly}"
+    is_cloud = m.get("type") in ["api", "cloud"]
+    # Clé de tri : cloud puis local, puis nom (ordre inchangé depuis les anciens préfixes).
+    label = model_label(friendly, is_cloud)
     if is_verified:
-        verified_models.append((label, tag))
+        # Remplace l'ancien marqueur emoji : support des outils vérifié dans le catalogue.
+        label += " · outils vérifiés"
+    entry = ((not is_cloud, friendly), label, tag)
+    if is_verified:
+        verified_models.append(entry)
     else:
-        other_models.append((label, tag))
+        other_models.append(entry)
 
-sorted_options = sorted(verified_models, key=lambda x: x[0]) + sorted(
-    other_models, key=lambda x: x[0]
-)
+sorted_options = [
+    (label, tag)
+    for _, label, tag in sorted(verified_models, key=lambda e: e[0])
+    + sorted(other_models, key=lambda e: e[0])
+]
 display_to_tag = dict(sorted_options)
 sorted_labels = [label for label, tag in sorted_options]
 
