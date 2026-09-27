@@ -80,7 +80,9 @@ llm_review/exports/
 
 # ✅ NOUVEAUX AJOUTS (Tests & Benchmarks)
 # Données de tests qui peuvent contenir des infos sensibles
-tests/fixtures/
+tests/fixtures/*
+# Catalogue synthétique versionné pour les tests (aucune donnée réelle)
+!tests/fixtures/models_catalog_test.json
 tests/data/
 benchmarks_data.csv
 benchmark_report.md

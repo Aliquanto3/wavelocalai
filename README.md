@@ -33,35 +33,53 @@ WaveLocalAI est un **proof of concept** conçu pour :
 
 ### Installation (5 min)
 
+L'application s'installe dans son propre environnement, `.venv-app`, distinct du `.venv` réservé au banc de benchmark sur certaines machines. Les versions exactes sont figées dans `constraints.txt` : toujours installer avec `-c constraints.txt`.
+
 ```bash
 # 1. Cloner le projet
 git clone https://github.com/Aliquanto3/wavelocalai.git
 cd wavelocalai
 
-# 2. Créer l'environnement virtuel
-python -m venv .venv
+# 2. Créer l'environnement virtuel de l'application
+python -m venv .venv-app
 
-# 3. Installer les dépendances (Windows)
-.venv\Scripts\python -m pip install -r requirements.txt
+# 3. Installer les dépendances aux versions figées (Windows)
+.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
 
 # Mac/Linux
-.venv/bin/python -m pip install -r requirements.txt
+.venv-app/bin/python -m pip install -r requirements.txt -c constraints.txt
 
 # 4. Configurer (optionnel)
 cp .env.example .env
 # Éditer .env pour ajouter MISTRAL_API_KEY si souhaité
 
-# 5. Installer les outils agents (nouveaux)
-.venv\Scripts\python -m pip install python-docx matplotlib openpyxl xlrd langchain-mistralai
-
-# 6. Télécharger un modèle local
+# 5. Télécharger un modèle local
 ollama pull qwen2.5:1.5b
 
-# 7. Lancer l'application
-.venv\Scripts\python -m streamlit run src/app/Accueil.py
+# 6. Lancer l'application, depuis la racine du dépôt (Windows)
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py
 ```
 
-🎉 **L'interface s'ouvre sur http://localhost:8501**
+L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Lancer depuis la racine du dépôt : Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le fichier n'est pas lu et le serveur écoute sur le réseau.
+
+**Ouvrir l'application sur le réseau** (démonstration depuis un autre poste) est un choix explicite, à faire au lancement uniquement, sur un réseau de confiance :
+
+```bash
+# Windows
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+```
+
+Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau.
+
+**Mettre à jour une dépendance** : modifier `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier (`uv pip compile requirements.txt --universal --python-version 3.10 -o constraints.txt`) et vérifier par une installation réelle.
+
+**Tests** : `python -m pytest tests/unit tests/app` tourne sans Ollama, clé d'API ni réseau. `tests/integration` exige Ollama et `qwen2.5:1.5b` ; les tests marqués `e2e` sont exclus par défaut (`-m e2e` pour les lancer).
 
 ---
 
@@ -136,11 +154,14 @@ ollama pull qwen2.5:1.5b
 ## 🧪 Tests & Qualité
 
 ```bash
-# Lancer les tests unitaires
-pytest tests/unit/ -v
+# Tests unitaires et rendu des pages (sans Ollama, clé d'API ni réseau)
+python -m pytest tests/unit tests/app
 
-# Tests avec couverture
-pytest tests/ --cov=src.core --cov-report=html
+# Avec couverture
+python -m pytest tests/unit tests/app --cov=src.core --cov-report=html
+
+# Tests d'intégration (exigent Ollama et qwen2.5:1.5b)
+python -m pytest tests/integration -m integration
 
 # Linting
 ruff check src/ tests/

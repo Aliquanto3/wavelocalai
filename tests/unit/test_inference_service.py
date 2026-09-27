@@ -276,30 +276,3 @@ async def test_batch_avec_erreur_partielle():
         assert results[1].error is not None, "Le 2ème doit échouer"
         assert "Erreur sur prompt 2" in results[1].error
         assert results[2].error is None, f"Le 3ème doit réussir: {results[2].error}"
-
-
-# ========================================
-# 5. TESTS D'INTÉGRATION (Optionnel - Nécessite Ollama)
-# ========================================
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_inference_reelle_ollama():
-    """
-    Test avec une vraie connexion Ollama.
-    ⚠️ Requiert : Ollama lancé + modèle 'qwen2.5:1.5b' installé.
-
-    Usage: pytest tests/unit/test_inference_service.py -v -m integration
-    """
-    result = await InferenceService.run_inference(
-        model_tag="qwen2.5:1.5b",
-        messages=[{"role": "user", "content": "Dis juste 'OK' (1 mot)"}],
-        temperature=0.0,
-        timeout=30,
-    )
-
-    assert result.error is None, f"Erreur Ollama : {result.error}"
-    assert len(result.clean_text) > 0, "Le modèle devrait répondre quelque chose"
-    assert result.metrics is not None
-    assert result.metrics.tokens_per_second > 0

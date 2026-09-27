@@ -1,0 +1,12 @@
+# Configuration Streamlit versionnée du démonstrateur.
+# Le thème (charte Wavestone) sera ajouté dans une story dédiée.
+
+[server]
+# Le serveur n'écoute que sur la machine locale : aucune URL réseau n'est annoncée.
+# Pour une démonstration sur le réseau, l'ouvrir explicitement :
+#   streamlit run src/app/Accueil.py --server.address 0.0.0.0
+address = "localhost"
+
+[browser]
+# Pas de télémétrie d'usage envoyée à Streamlit.
+gatherUsageStats = false

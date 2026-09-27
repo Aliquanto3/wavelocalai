@@ -15,8 +15,12 @@ from src.core.models_db import get_cloud_models_from_db
 logger = logging.getLogger(__name__)
 
 # Import conditionnel de Mistral
+# mistralai 2.x a déplacé la classe Mistral dans mistralai.client.
 try:
-    from mistralai import Mistral
+    try:
+        from mistralai import Mistral
+    except ImportError:
+        from mistralai.client import Mistral
 
     MISTRAL_AVAILABLE = True
 except ImportError:

@@ -9,6 +9,14 @@ import pytest
 from src.core.green_monitor import GreenTracker
 
 
+@pytest.fixture(autouse=True)
+def isolated_logs_dir(tmp_path, monkeypatch):
+    """Redirige les écritures CodeCarbon (emissions.csv) vers un dossier temporaire
+    au lieu de data/logs."""
+    monkeypatch.setattr("src.core.green_monitor.LOGS_DIR", tmp_path)
+    return tmp_path
+
+
 class TestGreenTrackerContextManager:
     """Tests du Context Manager."""
 

@@ -17,55 +17,76 @@ Ce guide détaille l'installation de **WaveLocalAI** sur un poste de travail sta
 En entreprise, l'exécution de scripts (`activate.ps1` ou `.bat`) est souvent bloquée par les politiques de sécurité. Nous recommandons la méthode de l'**Invocation Directe**.
 
 ### A. Création de l'environnement
-Pour ne pas polluer votre Python global :
+Pour ne pas polluer votre Python global, l'application a son propre environnement, `.venv-app` (ignoré par git). Sur certaines machines, `.venv` est réservé au banc de benchmark et ne contient que ses dépendances : ne jamais y installer `requirements.txt`.
 
 ```bash
 # À la racine du projet
-python -m venv .venv
+python -m venv .venv-app
 ```
 
 ### B. Installation des dépendances (Méthode Robuste)
-Au lieu d'activer l'environnement, nous appelons directement son exécutable Python.
+Au lieu d'activer l'environnement, nous appelons directement son exécutable Python. Les versions exactes sont figées dans `constraints.txt` (généré par `uv pip compile`, valable de Python 3.10 à 3.12 sur Windows, macOS et Linux) : toujours installer avec `-c constraints.txt`.
 
 **Sous Windows (PowerShell/CMD) :**
 ```bash
 # 1. Mise à jour de pip
-.venv\Scripts\python -m pip install --upgrade pip
+.venv-app\Scripts\python -m pip install --upgrade pip
 
-# 2. Installation des dépendances
-.venv\Scripts\python -m pip install -r requirements.txt
+# 2. Installation des dépendances aux versions figées
+.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
 ```
 
 **Sous Mac/Linux :**
 ```bash
-.venv/bin/python -m pip install -r requirements.txt
+.venv-app/bin/python -m pip install -r requirements.txt -c constraints.txt
 ```
+
+Avec `uv`, la commande équivalente est `uv pip install --python .venv-app -r requirements.txt -c constraints.txt`.
+
+**Mettre à jour une dépendance :** modifier `requirements.txt`, régénérer `constraints.txt` avec la commande inscrite en tête du fichier, puis vérifier par une installation réelle (au minimum `python -c "import ragas, streamlit"` et `python -m pytest tests/unit tests/app`).
 
 ### C. Gestion des Modèles
 Utilisez le script d'administration pour pré-charger les modèles validés :
 
 ```bash
 # Windows
-.venv\Scripts\python scripts/setup_models.py
+.venv-app\Scripts\python scripts/setup_models.py
 
 # Mac/Linux
-.venv/bin/python scripts/setup_models.py
+.venv-app/bin/python scripts/setup_models.py
 ```
 
 ### D. Lancement de l'Application
 ```bash
 # Windows
-.venv\Scripts\python -m streamlit run src/app/Accueil.py
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py
 ```
+
+Par défaut, le serveur n'écoute que sur la machine locale : `.streamlit/config.toml` fixe `server.address = "localhost"` et coupe la télémétrie Streamlit (`browser.gatherUsageStats = false`). Seule l'URL `http://localhost:8501` est annoncée. Lancer depuis la racine du dépôt : Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le fichier n'est pas lu et le serveur écoute sur le réseau.
+
+**Ouverture réseau (choix explicite) :** pour une démonstration depuis un autre poste, et uniquement sur un réseau de confiance, lancer avec :
+
+```bash
+# Windows
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+```
+
+Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles à tout poste du réseau.
 
 ---
 
 ## 3. 🚨 Troubleshooting (Résolution des Problèmes)
 
 ### 🔴 Problème : "Impossible d'exécuter le script / Access Denied"
-* **Symptôme :** Erreur rouge dans PowerShell en tentant de faire `.venv\Scripts\activate`.
+* **Symptôme :** Erreur rouge dans PowerShell en tentant de faire `.venv-app\Scripts\activate`.
 * **Cause :** La *Execution Policy* de votre machine interdit les scripts non signés.
-* **Solution :** N'essayez pas d'activer l'environnement. Utilisez la méthode décrite ci-dessus en préfixant toutes vos commandes par `.venv\Scripts\python`.
+* **Solution :** N'essayez pas d'activer l'environnement. Utilisez la méthode décrite ci-dessus en préfixant toutes vos commandes par `.venv-app\Scripts\python`.
 
 ### 🔴 Problème : "ModuleNotFoundError: No module named 'distutils'"
 * **Symptôme :** Crash au lancement, mentionnant `GPUtil`.
@@ -73,16 +94,24 @@ Utilisez le script d'administration pour pré-charger les modèles validés :
 * **Solution :**
     1.  Assurez-vous que `setuptools` est installé :
         ```bash
-        .venv\Scripts\python -m pip install setuptools
+        .venv-app\Scripts\python -m pip install setuptools
         ```
     2.  Le code de `src/core/green_monitor.py` a été patché pour ignorer cette erreur.
 
+### 🔴 Problème : `import ragas` échoue (`langchain_community.chat_models.vertexai`)
+* **Symptôme :** `ModuleNotFoundError: No module named 'langchain_community.chat_models.vertexai'` à l'ouverture du module RAG ou au lancement des tests.
+* **Cause :** `langchain-community` 0.4.2 a retiré ce module, que `ragas` 0.4.3 importe encore.
+* **Solution :** Réinstaller avec les contraintes, qui figent une version compatible (0.4.1) ; `requirements.txt` exclut 0.4.2 :
+    ```bash
+    .venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
+    ```
+
 ### 🔴 Problème : "ModuleNotFoundError: No module named 'langchain_ollama'"
 * **Symptôme :** Crash lors de l'ouverture de l'onglet **04 Agent Lab**.
-* **Cause :** Il manque une librairie spécifique aux agents.
-* **Solution :** Installez le paquet manquant :
+* **Cause :** Il manque une librairie spécifique aux agents (installation faite sans `requirements.txt` complet).
+* **Solution :** Réinstallez les dépendances aux versions figées :
     ```bash
-    .venv\Scripts\python -m pip install langchain-ollama
+    .venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
     ```
 
 ### 🔴 Problème : "Error 400: Model does not support tools"

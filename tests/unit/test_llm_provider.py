@@ -10,6 +10,26 @@ import pytest
 
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
+from src.core.providers.provider_factory import LLMProviderFactory
+
+
+@pytest.fixture(autouse=True)
+def isolated_provider_factory():
+    """Factory neuve à chaque test, sans clé d'API réelle (.env ignoré) : aucun appel réseau.
+
+    La factory est un singleton de classe dont le registre _providers est partagé :
+    sans cette isolation, un provider Mistral créé avec une fausse clé par un test
+    reste enregistré et health_check() appelle ensuite l'API Mistral.
+    """
+    with (
+        patch("src.core.providers.mistral_provider.MISTRAL_API_KEY", None),
+        patch("src.core.providers.openai_provider.OPENAI_API_KEY", ""),
+        patch("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", ""),
+        patch("src.core.providers.provider_factory._factory", None),
+        patch.object(LLMProviderFactory, "_instance", None),
+        patch.dict(LLMProviderFactory._providers, clear=True),
+    ):
+        yield
 
 
 class TestLLMProviderListModels:
@@ -149,12 +169,15 @@ class TestLLMProviderLangChain:
 
     def test_get_langchain_model_mistral(self):
         """Test création d'un modèle LangChain Mistral."""
+        # provider_factory importe is_api_model par nom : c'est là qu'il faut le patcher.
+        # La factory est un singleton de classe : on repart d'une instance neuve.
         with (
-            patch("src.core.model_detector.is_api_model", return_value=True),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=True),
             patch("src.core.providers.mistral_provider.MISTRAL_API_KEY", "fake-key"),
             patch("src.core.providers.mistral_provider.MISTRAL_AVAILABLE", True),
             patch("langchain_mistralai.ChatMistralAI") as mock_chat,
             patch("src.core.providers.provider_factory._factory", None),
+            patch.object(LLMProviderFactory, "_instance", None),
         ):
 
             mock_chat.return_value = MagicMock()
@@ -186,8 +209,9 @@ class TestLLMProviderPullModel:
 
     def test_pull_model_cloud_raises_error(self):
         """Test qu'on ne peut pas télécharger un modèle cloud."""
+        # llm_provider importe is_api_model par nom : on patche la méthode qui l'utilise.
         with (
-            patch("src.core.model_detector.is_api_model", return_value=True),
+            patch.object(LLMProvider, "_is_mistral_api_model", return_value=True),
             pytest.raises(ValueError, match="Impossible de télécharger"),
         ):
             LLMProvider.pull_model("mistral-large-2512")
