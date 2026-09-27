@@ -62,3 +62,22 @@ def test_constraints_cover_requirements():
             assert req.specifier.contains(
                 version, prereleases=True
             ), f"{req.name}=={version} ne satisfait pas « {req.specifier} » (requirements.txt)"
+
+
+def test_ci_runs_unit_and_app_tests_on_master():
+    """La CI tourne sur chaque push et chaque PR vers master, et son étape de tests (sans
+    continue-on-error) lance tests/unit et tests/app (E2)."""
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT_DIR / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    )
+    # YAML 1.1 : la clé « on » est lue comme le booléen True.
+    triggers = workflow.get("on", workflow.get(True))
+    assert "master" in triggers["push"]["branches"]
+    assert "master" in triggers["pull_request"]["branches"]
+    steps = workflow["jobs"]["test"]["steps"]
+    runs = [s for s in steps if "pytest" in (s.get("run") or "")]
+    assert runs, "aucune étape pytest dans le job test"
+    assert all(not s.get("continue-on-error") for s in runs)
+    assert any("tests/unit" in s["run"] and "tests/app" in s["run"] for s in runs)

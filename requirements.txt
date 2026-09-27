@@ -70,6 +70,11 @@ pytest
 pytest-asyncio
 pytest-cov
 pytest-mock
+# Parcours navigateur (tests/e2e, marqueur e2e, exclus par défaut) : Playwright, et axe-core
+# embarqué par axe-playwright-python (aucun CDN). Versions vérifiées sur PyPI et installées.
+# Le navigateur s'installe à part, hors des tests : python -m playwright install chromium
+playwright>=1.63.0
+axe-playwright-python>=0.1.8
 # Qualité du code & Sécurité (Hooks Git)
 pre-commit
 detect-secrets
