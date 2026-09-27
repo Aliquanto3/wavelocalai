@@ -89,6 +89,13 @@ def format_unit(value, unit: str, decimals: int = 1) -> str:
     return number if number == MISSING else f"{number}{NBSP}{unit}"
 
 
+def format_throughput(tokens_per_second, estimated: bool = False) -> str:
+    """Débit : « 78,5 tokens/s », suivi de « (estimé) » s'il est calculé sur la durée murale
+    de l'appel plutôt que sur la seule génération."""
+    text = format_unit(tokens_per_second, "tokens/s")
+    return f"{text} (estimé)" if estimated and text != MISSING else text
+
+
 def format_percent(value, decimals: int = 1) -> str:
     """Pourcentage exprimé en points (8.1 pour 8,1 %) : « 8,1 % »."""
     return format_unit(value, "%", decimals)
@@ -150,3 +157,76 @@ def pluralize(count, singular: str, plural: str | None = None) -> str:
     word = singular if abs(shown) < 2 else (plural or f"{singular}s")
     decimals = 0 if shown.is_integer() else 1
     return f"{format_number(shown, decimals)}{NBSP}{word}"
+
+
+# ---------------------------------------------------------------------------
+# CO₂ (EXPERIENCE.md, « Chiffres ») : valeurs en grammes, comme GreenTracker.stop() et
+# CarbonCalculator ; mg sous 1 g, g au-delà, kg au-delà de 1 000 g ; une seule unité dans une
+# même comparaison.
+# ---------------------------------------------------------------------------
+
+# Grammes par unité affichable.
+CO2_UNITS = {"mg": 1e-3, "g": 1.0, "kg": 1e3}
+MG_PER_G = 1000.0
+G_PER_KG = 1000.0
+
+
+def mg_to_grams(milligrams) -> float | None:
+    """Milligrammes → grammes : 420 → 0.42. None si la valeur est absente ou invalide."""
+    number = _to_finite(milligrams)
+    return None if number is None else number / MG_PER_G
+
+
+def grams_to_kg(grams) -> float | None:
+    """Grammes → kilogrammes : 0.42 → 0.00042. None si la valeur est absente ou invalide."""
+    number = _to_finite(grams)
+    return None if number is None else number / G_PER_KG
+
+
+def _round_significant(number: float, digits: int = 3) -> float:
+    """Arrondi à `digits` chiffres significatifs, comme l'affichage (partie entière gardée)."""
+    return _round(number, _significant_decimals(number, digits))
+
+
+def co2_unit(grams) -> str:
+    """Unité d'une masse de CO₂ en grammes : « mg » sous 1 g, « g » jusqu'à 1 000 g exclus,
+    « kg » au-delà. Choisie après arrondi : 0,9996 g s'affiche « 1 gCO₂ », pas « 1 000 mg ».
+    « mg » pour une valeur absente."""
+    number = _to_finite(grams)
+    if number is None:
+        return "mg"
+    magnitude = abs(_round_significant(number))
+    if magnitude < 1:
+        return "mg"
+    if magnitude < G_PER_KG:
+        return "g"
+    return "kg"
+
+
+def common_co2_unit(values_g) -> str:
+    """Unité commune à une comparaison (Arène, évaluation) : celle de la plus petite valeur
+    non nulle, en grammes. Toutes les lignes s'affichent dans la même unité, et la plus petite
+    garde ses trois chiffres significatifs avec au plus trois décimales (limite des colonnes
+    `format="localized"` des tableaux Streamlit) : 7,6 mg et 1,14 g → « 7,6 » et « 1 140 » mg,
+    jamais « 0,008 » g."""
+    numbers = [abs(n) for n in (_to_finite(v) for v in values_g) if n]
+    return co2_unit(min(numbers)) if numbers else "mg"
+
+
+def co2_in_unit(grams, unit: str) -> float | None:
+    """Masse de CO₂ en grammes exprimée dans `unit` (« mg », « g », « kg »)."""
+    number = _to_finite(grams)
+    if number is None or unit not in CO2_UNITS:
+        return None
+    return number / CO2_UNITS[unit]
+
+
+def format_co2(grams, unit: str | None = None) -> str:
+    """Masse de CO₂ donnée en grammes : 0.42 → « 420 mgCO₂ », 12 → « 12 gCO₂ »,
+    1234 → « 1,23 kgCO₂ » (trois chiffres significatifs au plus). `unit` impose l'unité
+    d'une comparaison (voir `common_co2_unit`). « — » pour une valeur absente."""
+    chosen = unit if unit in CO2_UNITS else co2_unit(grams)
+    value = co2_in_unit(grams, chosen)
+    if value is None:
+        return MISSING
+    return f"{format_significant(value)}{NBSP}{chosen}CO₂"

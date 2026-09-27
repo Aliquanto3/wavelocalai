@@ -11,7 +11,14 @@ import time
 
 import streamlit as st
 
-from src.app.formatting import format_duration, format_gb, format_number, format_unit, pluralize
+from src.app.formatting import (
+    format_co2,
+    format_duration,
+    format_gb,
+    format_number,
+    mg_to_grams,
+    pluralize,
+)
 from src.app.states import (
     LOADING_HINT,
     LOADING_LABEL,
@@ -93,7 +100,7 @@ def render_rag_chat_tab(
                         if "ram_gb" in m:
                             badges.append(format_gb(m["ram_gb"]))
                         if "carbon_mg" in m:
-                            badges.append(format_unit(m["carbon_mg"], "mgCO₂", 2))
+                            badges.append(format_co2(mg_to_grams(m["carbon_mg"])))
 
                     if badges:
                         st.caption(" · ".join(badges))

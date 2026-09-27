@@ -11,7 +11,7 @@ import ollama
 from langchain_ollama import ChatOllama
 
 from src.core.interfaces import ILLMProvider
-from src.core.metrics import InferenceMetrics, MetricsCalculator
+from src.core.metrics import InferenceMetrics, MetricsCalculator, ollama_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,7 @@ class OllamaProvider(ILLMProvider):
 
         timer = MetricsCalculator()
         full_text = ""
-        eval_count = 0
-        prompt_eval_count = 0
-        load_duration = 0
+        final_chunk = None
 
         # Créer un nouveau client pour chaque requête (évite "Event loop is closed")
         client = self._create_async_client()
@@ -116,11 +114,9 @@ class OllamaProvider(ILLMProvider):
                         full_text += content
                         yield content
 
-                    # Métriques finales
+                    # Chunk final : porte les compteurs et les durées d'Ollama.
                     if chunk.get("done"):
-                        eval_count = chunk.get("eval_count", len(full_text) // 4)
-                        prompt_eval_count = chunk.get("prompt_eval_count", 0)
-                        load_duration = chunk.get("load_duration", 0)
+                        final_chunk = chunk
                 else:
                     # Format objet Pydantic
                     content = getattr(chunk, "message", None)
@@ -131,24 +127,17 @@ class OllamaProvider(ILLMProvider):
                             yield text
 
                     if getattr(chunk, "done", False):
-                        eval_count = getattr(chunk, "eval_count", len(full_text) // 4)
-                        prompt_eval_count = getattr(chunk, "prompt_eval_count", 0)
-                        load_duration = getattr(chunk, "load_duration", 0)
+                        final_chunk = chunk
 
             timer.stop()
 
-            # Calcul des métriques
-            duration = timer.duration
-            tokens_per_second = eval_count / duration if duration > 0 else 0
-
-            yield InferenceMetrics(
-                model_name=model_name,
-                input_tokens=prompt_eval_count,
-                output_tokens=eval_count,
-                total_duration_s=round(duration, 2),
-                load_duration_s=round(load_duration / 1e9, 2) if load_duration else 0,
-                tokens_per_second=round(tokens_per_second, 1),
-                carbon_g=0.0,
+            # Débit = eval_count / eval_duration (D3, comme scripts/benchmark_slm.py) ;
+            # chargement et durée totale à part.
+            yield ollama_metrics(
+                model_name,
+                final_chunk,
+                wall_duration_s=timer.duration,
+                fallback_output_tokens=len(full_text) // 4,
             )
 
         except Exception as e:

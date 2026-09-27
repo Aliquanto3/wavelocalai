@@ -157,7 +157,9 @@ def fake_inference(monkeypatch):
     """
     InferenceService.run_inference simulé, sans Ollama : réponse mesurée par défaut, délai
     dépassé pour les tags de `timeouts`, erreur pour ceux de `errors`. Le juge de l'Arène
-    (prompt « juge impartial ») répond `judge_reply`, ou échoue si `judge_error`.
+    (prompt « juge impartial ») répond `judge_reply`, ou échoue si `judge_error`. Métriques
+    d'un appel Ollama (chargement et durée de génération mesurés) ; `output_tokens` fixe les
+    tokens générés par tag (40 par défaut).
     """
     from src.core.inference_service import InferenceResult, InferenceService
     from src.core.metrics import InferenceMetrics
@@ -169,6 +171,7 @@ def fake_inference(monkeypatch):
         judge_error=False,
         calls=[],
         answer="Réponse simulée.",
+        output_tokens={},
     )
 
     async def run_inference(
@@ -209,10 +212,12 @@ def fake_inference(monkeypatch):
             metrics=InferenceMetrics(
                 model_name=model_tag,
                 input_tokens=12,
-                output_tokens=40,
+                output_tokens=state.output_tokens.get(model_tag, 40),
                 total_duration_s=1.6,
                 load_duration_s=0.1,
                 tokens_per_second=25.0,
+                load_measured=True,
+                eval_duration_s=1.6,
             ),
         )
 

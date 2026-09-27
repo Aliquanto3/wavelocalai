@@ -13,7 +13,17 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from src.app.formatting import MISSING, NBSP, NNBSP, format_number, format_unit, pluralize
+from src.app.formatting import (
+    MISSING,
+    NBSP,
+    NNBSP,
+    co2_in_unit,
+    common_co2_unit,
+    format_co2,
+    format_number,
+    mg_to_grams,
+    pluralize,
+)
 from src.app.states import NOT_EVALUATED, render_error, render_no_models
 
 # --- SSOT carbone ---
@@ -252,6 +262,9 @@ def render_rag_eval_tab(
             df_scored = df[scored_mask].sort_values("Score", ascending=False)
             df_unscored = df[~scored_mask]
 
+            # Une seule unité de CO₂ pour le podium, le graphique et le tableau (EXPERIENCE.md).
+            co2_unit = common_co2_unit(mg_to_grams(v) for v in df["CO2_mg"])
+
             st.subheader("Podium de la qualité")
             if df_scored.empty:
                 st.info(
@@ -266,7 +279,7 @@ def render_rag_eval_tab(
                     with cols_podium[i], st.container(border=True):
                         st.markdown(f"**{i + 1}. {row['Modèle']}**")
                         st.metric("Note globale", _format_ratio(row["Score"]))
-                        st.caption(f"CO₂ : {format_unit(row['CO2_mg'], 'mg', 2)}")
+                        st.caption(f"CO₂ : {format_co2(mg_to_grams(row['CO2_mg']), co2_unit)}")
 
             for _, row in df_unscored.iterrows():
                 st.caption(
@@ -288,13 +301,16 @@ def render_rag_eval_tab(
                 )
 
                 # Note sur /100 pour l'axe et l'infobulle (une seule échelle, EXPERIENCE.md).
-                df_chart = df_scored.assign(Note=df_scored["Score"].astype(float) * 100)
+                df_chart = df_scored.assign(
+                    Note=df_scored["Score"].astype(float) * 100,
+                    CO2=[co2_in_unit(mg_to_grams(v), co2_unit) for v in df_scored["CO2_mg"]],
+                )
 
                 chart = (
-                    alt.Chart(df_chart[["Modèle", "Note", "CO2_mg", "Latence_s"]])
+                    alt.Chart(df_chart[["Modèle", "Note", "CO2", "Latence_s"]])
                     .mark_circle(size=150)
                     .encode(
-                        x=alt.X("CO2_mg", title="CO₂ (mg), plus bas est mieux"),
+                        x=alt.X("CO2", title=f"CO₂ ({co2_unit}), plus bas est mieux"),
                         y=alt.Y(
                             "Note",
                             title="Note globale (/100), plus haut est mieux",
@@ -304,7 +320,8 @@ def render_rag_eval_tab(
                         tooltip=[
                             "Modèle",
                             alt.Tooltip("Note", title="Note (/100)", format=".0f"),
-                            alt.Tooltip("CO2_mg", title="CO₂ (mg)", format=".2f"),
+                            # Trois chiffres significatifs, sans zéros finaux.
+                            alt.Tooltip("CO2", title=f"CO₂ ({co2_unit})", format=".3~r"),
                             alt.Tooltip("Latence_s", title="Durée (s)", format=".2f"),
                         ],
                     )
@@ -328,7 +345,7 @@ def render_rag_eval_tab(
                     "Note": _to_100(df_table["Score"]),
                     "Fidélité": _to_100(df_table["Fidélité"]),
                     "Pertinence": _to_100(df_table["Pertinence"]),
-                    "CO₂": df_table["CO2_mg"],
+                    "CO₂": [co2_in_unit(mg_to_grams(v), co2_unit) for v in df_table["CO2_mg"]],
                     "Durée": df_table["Latence_s"],
                     "Mémoire": df_table["RAM_GB"],
                     "Statut": [
@@ -359,7 +376,7 @@ def render_rag_eval_tab(
                         format="localized",
                         help="Answer relevancy (Ragas) : la réponse traite la question posée.",
                     ),
-                    "CO₂": st.column_config.NumberColumn("CO₂ (mg)", format="localized"),
+                    "CO₂": st.column_config.NumberColumn(f"CO₂ ({co2_unit})", format="localized"),
                     "Durée": st.column_config.NumberColumn("Durée (s)", format="localized"),
                     "Mémoire": st.column_config.NumberColumn("Mémoire (Go)", format="localized"),
                     "Statut": st.column_config.TextColumn(

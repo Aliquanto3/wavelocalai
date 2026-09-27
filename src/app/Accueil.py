@@ -22,7 +22,7 @@ from src.app.states import ollama_available, render_ollama_down_alert  # noqa: E
 from src.app.ui import FAVICON_PATH, render_logo  # noqa: E402  (après l'ajout de la racine)
 
 try:
-    from src.core.green_monitor import GreenTracker
+    from src.core.green_monitor import SESSION_PROJECT, GreenTracker
 except ImportError:
     GreenTracker = None
 
@@ -52,7 +52,7 @@ page = st.navigation(pages)
 # --- SUIVI CARBONE DE LA SESSION (singleton) ---
 # Dans le routeur, exécuté à chaque page : un lien direct vers un module lance aussi le suivi.
 if "tracker" not in st.session_state and GreenTracker:
-    st.session_state.tracker = GreenTracker(project_name="wavelocal_session")
+    st.session_state.tracker = GreenTracker(project_name=SESSION_PROJECT)
     st.session_state.tracker.start()
     st.session_state.tracking_active = True
 

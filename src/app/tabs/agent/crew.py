@@ -18,11 +18,11 @@ import graphviz
 import psutil
 import streamlit as st
 
-from src.app.formatting import format_duration, format_gb, format_unit, pluralize
+from src.app.formatting import format_co2, format_duration, format_gb, pluralize
 from src.app.states import render_error, render_no_models
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
-from src.core.green_monitor import GreenTracker
+from src.core.green_monitor import CREW_PROJECT, GreenTracker
 from src.core.model_profiles import estimate_mission_ram_gb, get_ram_risk_level
 
 # ========================================
@@ -437,7 +437,7 @@ def render_agent_crew_tab(
 
         with redirect_stdout(output_capture):
             t_start = time.perf_counter()
-            tracker = GreenTracker("crew_mission")
+            tracker = GreenTracker(CREW_PROJECT)
             tracker.start()
 
             ram_start = psutil.virtual_memory().used
@@ -460,13 +460,13 @@ def render_agent_crew_tab(
                 result = crew.kickoff()
 
                 stop_evt.set()
-                emissions_mg = tracker.stop() * 1000.0
+                emissions_g = tracker.stop()  # GreenTracker.stop() renvoie des grammes
                 t_end = time.perf_counter()
                 ram_gb_peak_delta = (peak_container["val"] - ram_start) / (1024**3)
 
                 # UPDATE BUDGET GAMIFICATION
                 if "carbon_budget" in st.session_state:
-                    impact_percent = emissions_mg / 1000.0  # 1g = 1% arbitraire
+                    impact_percent = emissions_g  # 1g = 1% arbitraire
                     st.session_state.carbon_budget -= impact_percent
 
                 status_box.update(label="Mission terminée", state="complete", expanded=False)
@@ -477,7 +477,7 @@ def render_agent_crew_tab(
                 k1.metric("Durée totale", format_duration(t_end - t_start))
                 k2.metric("Pic de mémoire", format_gb(ram_gb_peak_delta, 2))
                 # Texte, sans code couleur par seuil ; déduit du budget carbone de la session.
-                k3.metric("CO₂", format_unit(emissions_mg, "mg", 2))
+                k3.metric("CO₂", format_co2(emissions_g))
 
                 k4.download_button(
                     "Télécharger",

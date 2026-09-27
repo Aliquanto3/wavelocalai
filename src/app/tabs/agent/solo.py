@@ -8,7 +8,7 @@ Mode « Agent seul » des Agents autonomes.
 
 import streamlit as st
 
-from src.app.formatting import format_unit
+from src.app.formatting import format_co2, mg_to_grams
 from src.app.states import (
     LOADING_HINT,
     LOADING_LABEL,
@@ -217,7 +217,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                         # GREENOPS : texte, sans code couleur par seuil
                         if "carbon_mg" in msg:
                             with col_d2:
-                                st.caption(format_unit(msg["carbon_mg"], "mgCO₂", 2))
+                                st.caption(format_co2(mg_to_grams(msg["carbon_mg"])))
 
     # --- 3. INPUT & EXECUTION ---
     user_input = st.chat_input("Décrivez la tâche à confier à l'agent")

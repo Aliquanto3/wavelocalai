@@ -162,3 +162,122 @@ class TestGreenTrackerRobustness:
         assert tracker2._is_running  # tracker2 ne doit pas être affecté
 
         tracker2.stop()
+
+
+# ---------------------------------------------------------------------------
+# Fichier d'émissions de l'app (story 6) : écrit par le suivi, lu par l'historique
+# ---------------------------------------------------------------------------
+
+CSV_HEADER = "timestamp,project_name,run_id,duration,emissions\n"
+
+
+class TestAppEmissionsFile:
+    def test_tracker_writes_file_read_by_history(self, isolated_logs_dir):
+        """CAP-4 : la ligne lue par l'historique est celle du tracker ; ses grammes égalent
+        ceux renvoyés par stop() (écart < 5 %)."""
+        from src.core.green_monitor import SESSION_PROJECT, app_emissions_path, read_app_emissions
+
+        tracker = GreenTracker(SESSION_PROJECT)
+        tracker.start()
+        time.sleep(0.2)
+        emissions_g = tracker.stop()
+
+        assert app_emissions_path() == isolated_logs_dir / "emissions.csv"
+        assert app_emissions_path().is_file()
+
+        history = read_app_emissions()
+        assert list(history["project_name"]) == [SESSION_PROJECT]
+        logged_g = history["emissions_g"].iloc[-1]
+        assert logged_g == pytest.approx(emissions_g, rel=0.05, abs=1e-12)
+
+    def test_history_path_is_not_benchmark_file(self, isolated_logs_dir):
+        """Le fichier de l'app (logs/emissions.csv) n'est pas celui du benchmark
+        (logs/emissions/emissions.csv) : comparaison des chemins relatifs à leur LOGS_DIR, que
+        la redirection de test ne masque pas."""
+        from pathlib import Path
+
+        from src.core import config
+        from src.core import green_monitor
+
+        app_rel = green_monitor.app_emissions_path().relative_to(green_monitor.LOGS_DIR)
+        bench_rel = Path(config.get_emissions_path()).relative_to(config.LOGS_DIR)
+
+        assert Path(config.EMISSIONS_DIR) != Path(config.LOGS_DIR)
+        assert app_rel == Path("emissions.csv")
+        assert bench_rel == Path("emissions") / "emissions.csv"
+        assert app_rel != bench_rel
+
+    def test_history_keeps_only_session_project(self, isolated_logs_dir):
+        """Seul le suivi de session : équipe d'agents, audit et script d'audit (« codecarbon »)
+        recouvrent la même période et sont ignorés."""
+        from src.core.green_monitor import read_app_emissions
+
+        (isolated_logs_dir / "emissions.csv").write_text(
+            CSV_HEADER
+            + "2026-09-26T09:15:00,wavelocal_session,a,10,0.00042\n"
+            + "2026-09-26T09:20:00,codecarbon,b,10,0.5\n"
+            + "2026-09-26T09:25:00,crew_mission,c,10,0.0012\n"
+            + "2026-09-26T09:26:00,wavelocal_audit,d,10,0.0013\n",
+            encoding="utf-8",
+        )
+        history = read_app_emissions()
+
+        assert list(history["project_name"]) == ["wavelocal_session"]
+        assert list(history["emissions_g"]) == pytest.approx([0.42])
+        assert history["timestamp"].iloc[0].hour == 9
+
+    def test_history_keeps_last_row_per_run(self, isolated_logs_dir):
+        """Après « Reprendre le suivi », stop() ajoute une ligne cumulée au même run_id : seule
+        la dernière compte."""
+        from src.core.green_monitor import read_app_emissions
+
+        (isolated_logs_dir / "emissions.csv").write_text(
+            CSV_HEADER
+            + "2026-09-26T09:15:00,wavelocal_session,run1,10,0.0004\n"
+            + "2026-09-26T09:18:00,wavelocal_session,run2,10,0.0002\n"
+            + "2026-09-26T09:30:00,wavelocal_session,run1,25,0.0009\n",
+            encoding="utf-8",
+        )
+        history = read_app_emissions()
+
+        assert list(history["emissions_g"]) == pytest.approx([0.2, 0.9])
+
+    def test_history_drops_unreadable_rows_and_sorts_by_date(self, isolated_logs_dir):
+        from src.core.green_monitor import read_app_emissions
+
+        (isolated_logs_dir / "emissions.csv").write_text(
+            CSV_HEADER
+            + "2026-09-26T10:00:00,wavelocal_session,r3,10,0.0003\n"
+            + "pas une date,wavelocal_session,r4,10,0.0005\n"
+            + "2026-09-26T09:00:00,wavelocal_session,r1,10,0.0001\n"
+            + "2026-09-26T09:30:00,wavelocal_session,r2,10,illisible\n",
+            encoding="utf-8",
+        )
+        history = read_app_emissions()
+
+        assert list(history["emissions_g"]) == pytest.approx([0.1, 0.3])
+        assert history["timestamp"].is_monotonic_increasing
+
+    def test_history_malformed_file_raises_readable_error(self, isolated_logs_dir):
+        """Ligne mal formée (colonnes en trop) : erreur au message lisible, pas ParserError."""
+        from src.core.green_monitor import EmissionsHistoryError, read_app_emissions
+
+        (isolated_logs_dir / "emissions.csv").write_text(
+            CSV_HEADER
+            + "2026-09-26T09:00:00,wavelocal_session,r1,10,0.0001\n"
+            + "2026-09-26T09:05:00,wavelocal_session,r2,10,0.0002,x,y,z\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(EmissionsHistoryError, match="mal formé"):
+            read_app_emissions()
+
+    def test_history_without_file_is_empty(self, isolated_logs_dir):
+        from src.core.green_monitor import read_app_emissions
+
+        assert read_app_emissions().empty
+
+    def test_history_with_empty_file_is_empty(self, isolated_logs_dir):
+        from src.core.green_monitor import read_app_emissions
+
+        (isolated_logs_dir / "emissions.csv").write_text("", encoding="utf-8")
+        assert read_app_emissions().empty

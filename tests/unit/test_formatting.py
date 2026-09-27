@@ -11,14 +11,21 @@ from src.app.formatting import (
     MISSING,
     NBSP,
     NNBSP,
+    co2_in_unit,
+    co2_unit,
+    common_co2_unit,
+    format_co2,
     format_date,
     format_duration,
     format_gb,
     format_number,
     format_percent,
     format_significant,
+    format_throughput,
     format_time,
     format_unit,
+    grams_to_kg,
+    mg_to_grams,
     pluralize,
 )
 
@@ -137,3 +144,94 @@ def test_nat_is_dash():
     assert format_time(pd.NaT) == MISSING
     assert format_number(pd.NaT) == MISSING
     assert format_duration(pd.NaT) == MISSING
+
+
+# ---------------------------------------------------------------------------
+# CO₂ (story 6) : grammes du suivi → mg / g / kg, une unité par comparaison
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("grams", "expected"),
+    [
+        (0.42, f"420{NBSP}mgCO₂"),
+        (0.5, f"500{NBSP}mgCO₂"),
+        (12, f"12{NBSP}gCO₂"),
+        (1234, f"1,23{NBSP}kgCO₂"),
+        (0.0076, f"7,6{NBSP}mgCO₂"),
+        (0, f"0{NBSP}mgCO₂"),
+        # Unité choisie après arrondi à trois chiffres significatifs.
+        (0.9996, f"1{NBSP}gCO₂"),
+        (999.6, f"1{NBSP}kgCO₂"),
+        (1000, f"1{NBSP}kgCO₂"),
+    ],
+)
+def test_co2_unit_rule(grams, expected):
+    assert format_co2(grams) == expected
+
+
+@pytest.mark.parametrize("value", [None, "abc", float("nan"), float("inf")])
+def test_co2_missing(value):
+    assert format_co2(value) == MISSING
+
+
+def test_co2_subscript_and_no_ascii_co2():
+    assert "CO₂" in format_co2(0.42)
+    assert "CO2" not in format_co2(0.42)
+
+
+def test_co2_imposed_unit():
+    assert format_co2(0.0076, "g") == f"0,0076{NBSP}gCO₂"
+    assert format_co2(1.14, "mg") == f"1{NNBSP}140{NBSP}mgCO₂"
+
+
+def test_grams_to_kg():
+    """GreenTracker.stop() renvoie des grammes : 0,42 g = 0,00042 kg."""
+    assert grams_to_kg(0.42) == pytest.approx(0.00042)
+    assert grams_to_kg(1234) == pytest.approx(1.234)
+    assert grams_to_kg(None) is None
+
+
+def test_mg_to_grams():
+    assert mg_to_grams(420) == pytest.approx(0.42)
+    assert mg_to_grams("x") is None
+
+
+def test_co2_unit_choice():
+    assert co2_unit(0.42) == "mg"
+    assert co2_unit(12) == "g"
+    assert co2_unit(1234) == "kg"
+    assert co2_unit(None) == "mg"
+
+
+def test_common_co2_unit_same_for_all_rows():
+    """Arène à 3 modèles : une seule unité, celle de la plus petite valeur non nulle ; la plus
+    petite garde ses chiffres significatifs (≤ 3 décimales, limite des tableaux Streamlit)."""
+    values = [0.0076, 0.42, 1.14]
+    unit = common_co2_unit(values)
+    assert unit == "mg"
+    assert [format_co2(v, unit) for v in values] == [
+        f"7,6{NBSP}mgCO₂",
+        f"420{NBSP}mgCO₂",
+        f"1{NNBSP}140{NBSP}mgCO₂",
+    ]
+    assert [round(co2_in_unit(v, unit), 3) for v in values] == [7.6, 420, 1140]
+    assert common_co2_unit([1.14, 11.4]) == "g"
+    assert common_co2_unit([1500, 3000]) == "kg"
+    # Zéro et valeurs absentes ignorés.
+    assert common_co2_unit([0, None, 12]) == "g"
+    assert common_co2_unit([0, None]) == "mg"
+    assert common_co2_unit([]) == "mg"
+
+
+def test_throughput():
+    assert format_throughput(78.5) == f"78,5{NBSP}tokens/s"
+    assert format_throughput(25, estimated=True) == f"25,0{NBSP}tokens/s (estimé)"
+    assert format_throughput(None, estimated=True) == MISSING
+
+
+def test_co2_in_unit():
+    assert co2_in_unit(0.42, "mg") == pytest.approx(420)
+    assert co2_in_unit(1234, "kg") == pytest.approx(1.234)
+    assert co2_in_unit(None, "mg") is None
+    assert co2_in_unit(1, "t") is None

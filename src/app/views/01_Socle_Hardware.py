@@ -2,7 +2,6 @@ import platform
 import socket
 import sys
 
-import pandas as pd
 import plotly.express as px
 import psutil
 import streamlit as st
@@ -10,9 +9,11 @@ import streamlit as st
 from src.app.formatting import (
     NBSP,
     PLOTLY_SEPARATORS,
+    format_co2,
     format_number,
     format_percent,
-    format_unit,
+    format_significant,
+    grams_to_kg,
 )
 from src.app.modules import SOBRIETY
 from src.app.ui import FAVICON_PATH
@@ -20,14 +21,22 @@ from src.core.accelerator import KIND_APPLE, KIND_NVIDIA, detect_accelerator
 
 # --- IMPORT DYNAMIQUE ---
 try:
-    from src.core.config import get_emissions_path
-    from src.core.green_monitor import GreenTracker, HardwareMonitor
+    from src.core.green_monitor import (
+        AUDIT_PROJECT,
+        GreenTracker,
+        HardwareMonitor,
+        read_app_emissions,
+    )
 except ImportError:
+    AUDIT_PROJECT = None
     GreenTracker = None
     HardwareMonitor = None
+    read_app_emissions = None
 
-    def get_emissions_path():
-        return "emissions.csv"
+# Suivi carbone absent (CodeCarbon non installé) : ni mesure ni historique.
+TRACKING_UNAVAILABLE = (
+    "Suivi carbone indisponible : le module de mesure (CodeCarbon) n'a pas pu être chargé."
+)
 
 
 # --- CONFIGURATION ---
@@ -62,7 +71,8 @@ def get_true_system_metrics():
 
 
 def get_co2_equivalencies(emissions_kg):
-    """Calcule des équivalences parlantes."""
+    """Équivalences parlantes d'une masse de CO₂ en kilogrammes (convertir d'abord les
+    grammes de GreenTracker.stop() avec grams_to_kg)."""
     km_car = emissions_kg / 0.110  # Moyenne voiture thermique
     smartphones = (emissions_kg * 1000) / 5  # Charge smartphone ~5g CO2
     return km_car, smartphones
@@ -70,7 +80,7 @@ def get_co2_equivalencies(emissions_kg):
 
 # --- INIT TRACKER ---
 if "tracker" not in st.session_state and GreenTracker:
-    st.session_state.tracker = GreenTracker(project_name="wavelocal_audit")
+    st.session_state.tracker = GreenTracker(project_name=AUDIT_PROJECT)
     st.session_state.tracker.start()
 
 # ==========================================
@@ -139,14 +149,20 @@ with col_live, st.container(border=True):
             em = st.session_state.tracker.stop()
             st.session_state.last_emissions = em
             st.rerun()
+    elif GreenTracker is None:
+        st.warning(TRACKING_UNAVAILABLE)
     else:
         st.warning("Suivi carbone en pause")
         if "last_emissions" in st.session_state:
-            em = st.session_state.last_emissions
-            km, phones = get_co2_equivalencies(em)
+            # GreenTracker.stop() renvoie des grammes ; les équivalences prennent des kg.
+            em_g = st.session_state.last_emissions
+            em_kg = grams_to_kg(em_g)
 
-            st.metric("Total de la session", format_unit(em, "kgCO₂", 5))
-            st.caption(f"soit environ {format_unit(km, 'km', 4)} en voiture")
+            st.metric("Total de la session", format_co2(em_g))
+            # Valeur absente : pas d'équivalence (jamais « 0 km »).
+            if em_kg is not None:
+                km, phones = get_co2_equivalencies(em_kg)
+                st.caption(f"soit environ {format_significant(km)}{NBSP}km en voiture")
 
         if st.session_state.get("tracker") and st.button(
             "Reprendre le suivi", icon=":material/play_circle:", width="stretch"
@@ -162,11 +178,13 @@ with col_live, st.container(border=True):
 with col_hist:
     st.subheader("Historique des émissions")
     try:
-        csv_path = get_emissions_path()
-        df_emissions = pd.read_csv(csv_path)
+        # Sessions de l'app, lues dans le fichier écrit par le suivi (GreenTracker) ; jamais
+        # le fichier du benchmark.
+        df_emissions = read_app_emissions() if read_app_emissions else None
 
-        if not df_emissions.empty:
-            df_emissions["timestamp"] = pd.to_datetime(df_emissions["timestamp"])
+        if df_emissions is None:
+            st.warning(TRACKING_UNAVAILABLE)
+        elif not df_emissions.empty:
             df_chart = df_emissions.tail(50)
 
             fig = px.area(
@@ -174,7 +192,7 @@ with col_hist:
                 x="timestamp",
                 y="emissions",
                 title="Émissions de CO₂ par session (kg)",
-                labels={"emissions": "Émissions (kg CO₂)", "timestamp": "Date"},
+                labels={"emissions": "Émissions (kgCO₂)", "timestamp": "Date"},
             )
             # Formats fr-FR sans locale Plotly (chargée depuis un CDN) : date numérique,
             # virgule décimale, espace fine pour les milliers.

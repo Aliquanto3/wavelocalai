@@ -11,11 +11,22 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.app.formatting import PLOTLY_SEPARATORS, format_unit, pluralize
+from src.app.formatting import (
+    PLOTLY_SEPARATORS,
+    co2_in_unit,
+    common_co2_unit,
+    format_co2,
+    format_duration,
+    format_throughput,
+    format_unit,
+    mg_to_grams,
+    pluralize,
+)
 from src.app.states import (
     LOADING_HINT,
     LOADING_LABEL,
     NOT_EVALUATED,
+    THROUGHPUT_HELP,
     inference_failure_label,
     render_error,
     render_no_models,
@@ -121,14 +132,37 @@ def _status_label(row: dict) -> str:
     return row["reason"]
 
 
-def _render_results_table(ranked: list[dict]) -> None:
-    """Tableau de tous les modèles, échecs compris : chaque ligne dit son statut."""
+def co2_unit_of(rows: list[dict]) -> str:
+    """Unité de CO₂ commune à toutes les lignes d'une comparaison (EXPERIENCE.md)."""
+    return common_co2_unit(mg_to_grams(r.get("CO2 (mg)")) for r in rows)
+
+
+def _co2_label(row: dict, unit: str) -> str:
+    """CO₂ d'une ligne dans l'unité de la comparaison : « 7,6 mgCO₂ »."""
+    return format_co2(mg_to_grams(row.get("CO2 (mg)")), unit)
+
+
+def _timings_label(row: dict) -> str:
+    """« Chargement 8 s · Durée totale 10 s » ; sans chargement pour un modèle cloud."""
+    parts = []
+    if _num(row.get("Chargement (s)")) is not None:
+        parts.append(f"Chargement {format_duration(row['Chargement (s)'])}")
+    if _num(row.get("Durée totale (s)")) is not None:
+        parts.append(f"Durée totale {format_duration(row['Durée totale (s)'])}")
+    return " · ".join(parts)
+
+
+def _render_results_table(ranked: list[dict], unit: str) -> None:
+    """Tableau de tous les modèles, échecs compris : chaque ligne dit son statut. CO₂ dans
+    l'unité commune `unit` ; chargement et durée totale à part du débit."""
     df = pd.DataFrame(
         {
             "Modèle": [r["Modèle"] for r in ranked],
             "Note": [_note_label(r) for r in ranked],
             "Débit": [r.get("Débit (t/s)") for r in ranked],
-            "CO₂": [r.get("CO2 (mg)") for r in ranked],
+            "Chargement": [r.get("Chargement (s)") for r in ranked],
+            "Durée totale": [r.get("Durée totale (s)") for r in ranked],
+            "CO₂": [co2_in_unit(mg_to_grams(r.get("CO2 (mg)")), unit) for r in ranked],
             "Statut": [_status_label(r) for r in ranked],
         }
     )
@@ -139,8 +173,16 @@ def _render_results_table(ranked: list[dict]) -> None:
             "Note": st.column_config.TextColumn(
                 "Note (/100)", help="« non évalué » : le juge n'a pas pu noter la réponse."
             ),
-            "Débit": st.column_config.NumberColumn("Débit (tokens/s)", format="localized"),
-            "CO₂": st.column_config.NumberColumn("CO₂ (mg)", format="localized"),
+            "Débit": st.column_config.NumberColumn(
+                "Débit (tokens/s)", format="localized", help=THROUGHPUT_HELP
+            ),
+            "Chargement": st.column_config.NumberColumn(
+                "Chargement (s)",
+                format="localized",
+                help="Chargement du modèle en mémoire (vide pour un modèle cloud).",
+            ),
+            "Durée totale": st.column_config.NumberColumn("Durée totale (s)", format="localized"),
+            "CO₂": st.column_config.NumberColumn(f"CO₂ ({unit})", format="localized"),
             "Statut": st.column_config.TextColumn("Statut", width="large"),
         },
         hide_index=True,
@@ -157,6 +199,8 @@ def _render_podium(results_data):
     scored, not_evaluated, failed = rank_results(results_data)
     if not scored and not not_evaluated:
         return
+    # Une seule unité de CO₂ pour toute la comparaison (tableau, vainqueur, graphique).
+    unit = co2_unit_of(results_data)
 
     st.header("Verdict")
 
@@ -165,7 +209,7 @@ def _render_podium(results_data):
             "Le juge n'a pu noter aucune réponse : pas de vainqueur. Comparez le débit et le "
             "CO₂ dans le tableau."
         )
-        _render_results_table(not_evaluated + failed)
+        _render_results_table(not_evaluated + failed, unit)
         return
 
     df = pd.DataFrame(scored).reset_index(drop=True)
@@ -183,7 +227,11 @@ def _render_podium(results_data):
 
         c1, c2 = st.columns(2)
         c1.metric("Note du juge", f"{winner['Note']}/100")
-        c2.metric("Débit", format_unit(winner["Débit (t/s)"], "tokens/s"))
+        c2.metric(
+            "Débit",
+            format_throughput(winner["Débit (t/s)"], bool(winner.get("Débit estimé"))),
+            help=THROUGHPUT_HELP,
+        )
 
         # Comparaison (Reason to Win)
         if runner_up is not None:
@@ -208,8 +256,11 @@ def _render_podium(results_data):
 
             st.info(f"**Pourquoi ?** {reason}")
 
-        # CO₂ (texte, sans code couleur par seuil)
-        st.caption(f"CO₂ : {format_unit(winner['CO2 (mg)'], 'mg', 2)}")
+        # CO₂ (texte, sans code couleur par seuil), chargement et durée totale à part.
+        st.caption(f"CO₂ : {_co2_label(winner, unit)}")
+        timings = _timings_label(winner)
+        if timings:
+            st.caption(timings)
 
     # --- GRAPHIQUE BUBBLE CHART (Plotly) ---
     with col_chart:
@@ -233,7 +284,7 @@ def _render_podium(results_data):
                 size = max(size, 25)
 
             # 3. LABEL DIRECT : Nom + CO2
-            label = f"<b>{row['Modèle']}</b><br>{format_unit(co2_val, 'mg CO₂')}"
+            label = f"<b>{row['Modèle']}</b><br>{_co2_label(row, unit)}"
 
             fig.add_trace(
                 go.Scatter(
@@ -251,8 +302,10 @@ def _render_podium(results_data):
                     hoverinfo="text",
                     hovertext=(
                         f"<b>{row['Modèle']}</b><br>Note : {row['Note']}/100"
-                        f"<br>Débit : {format_unit(row['Débit (t/s)'], 'tokens/s')}"
-                        f"<br>CO₂ : {format_unit(co2_val, 'mg', 2)}"
+                        "<br>Débit : "
+                        f"{format_throughput(row['Débit (t/s)'], bool(row.get('Débit estimé')))}"
+                        f"<br>CO₂ : {_co2_label(row, unit)}"
+                        + (f"<br>{_timings_label(row)}" if _timings_label(row) else "")
                     ),
                 )
             )
@@ -270,7 +323,7 @@ def _render_podium(results_data):
         )
         st.plotly_chart(fig, width="stretch")
 
-    _render_results_table(scored + not_evaluated + failed)
+    _render_results_table(scored + not_evaluated + failed, unit)
 
 
 def _write_loading_note(status_box, tag: str, friendly_name: str) -> None:
@@ -400,6 +453,8 @@ Format : Uniquement le chiffre (ex: 85)."""
                             "Modèle": friendly_name,
                             "Note": None,
                             "Débit (t/s)": None,
+                            "Chargement (s)": None,
+                            "Durée totale (s)": None,
                             "CO2 (mg)": None,
                             "status": STATUS_FAILED,
                             "reason": label,
@@ -440,7 +495,14 @@ Format : Uniquement le chiffre (ex: 85)."""
                     {
                         "Modèle": friendly_name,
                         "Note": score,
+                        # Débit = eval_count / eval_duration pour Ollama (D3).
                         "Débit (t/s)": None if m is None else round(m.tokens_per_second, 1),
+                        "Débit estimé": m is not None and m.throughput_estimated,
+                        # Chargement mesuré par Ollama seulement (vide pour le cloud).
+                        "Chargement (s)": (
+                            m.load_duration_s if m is not None and m.load_measured else None
+                        ),
+                        "Durée totale (s)": None if m is None else m.total_duration_s,
                         "CO2 (mg)": None if impact_mg is None else round(impact_mg, 2),
                         "status": STATUS_NOT_EVALUATED if score is None else STATUS_SCORED,
                         "reason": reason,
@@ -461,6 +523,8 @@ Format : Uniquement le chiffre (ex: 85)."""
                         "Modèle": friendly_name,
                         "Note": None,
                         "Débit (t/s)": None,
+                        "Chargement (s)": None,
+                        "Durée totale (s)": None,
                         "CO2 (mg)": None,
                         "status": STATUS_FAILED,
                         "reason": "Échec inattendu",

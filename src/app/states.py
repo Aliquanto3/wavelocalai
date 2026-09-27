@@ -31,6 +31,13 @@ LOADING_HINT = "Le premier appel est plus long : le modèle doit d'abord être c
 LOADED_LABEL = "Modèle chargé en mémoire"
 LOADING_FAILED_LABEL = "Génération interrompue"
 
+# Débit (D3) : ce qu'il mesure, en aide des métriques et colonnes « Débit ».
+THROUGHPUT_HELP = (
+    "Tokens générés par seconde de génération, hors chargement du modèle et lecture de la "
+    "question (comme le banc de benchmark). « estimé » : durée de génération non fournie "
+    "(modèle cloud), débit calculé sur la durée totale de l'appel."
+)
+
 # --- Aucun modèle ---
 MANAGER_TAB_LABEL = "Gestion des modèles"
 NO_MODEL_IN_ARENA = (

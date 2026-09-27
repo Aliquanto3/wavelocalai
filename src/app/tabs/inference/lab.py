@@ -7,8 +7,9 @@ import asyncio
 
 import streamlit as st
 
-from src.app.formatting import format_duration, format_number, format_unit
+from src.app.formatting import format_co2, format_duration, format_number, format_throughput
 from src.app.states import (
+    THROUGHPUT_HELP,
     finish_loading_status,
     render_inference_error,
     render_no_models,
@@ -61,7 +62,8 @@ def _render_result_text(res, expanded_thought: bool, model_tag: str | None = Non
 
 
 def _render_metrics(res, model_name: str) -> None:
-    """Débit, CO₂, durée et tokens sous le résultat ; rien si l'inférence n'a pas de mesures."""
+    """Débit, CO₂, chargement, durée totale et tokens sous le résultat ; rien si l'inférence
+    n'a pas de mesures. « Chargement » seulement quand le fournisseur le mesure (Ollama)."""
     m = res.metrics
     if res.error or m is None:
         return
@@ -71,19 +73,25 @@ def _render_metrics(res, model_name: str) -> None:
 
     # Calcul CO2
     is_api = info.get("type") == "api"
-    carbon_mg = 0.0
     if is_api and m.output_tokens > 0:
         p = _extract_params_billions(info.get("params_act") or info.get("params_tot", "0"))
-        carbon_mg = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
+        carbon_g = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens)
     else:
-        carbon_mg = CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
+        carbon_g = CarbonCalculator.compute_local_theoretical_g(m.output_tokens)
 
-    # Affichage en Grid
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Débit", format_unit(m.tokens_per_second, "tokens/s"))
-    c2.metric("CO₂", format_unit(carbon_mg, "mg", 2))
-    c3.metric("Durée totale", format_duration(m.total_duration_s))
-    c4.metric("Tokens générés", format_number(m.output_tokens, 0))
+    # Affichage en grille ; débit = eval_count / eval_duration pour Ollama (D3).
+    cells = [
+        ("Débit", format_throughput(m.tokens_per_second, m.throughput_estimated), THROUGHPUT_HELP),
+        ("CO₂", format_co2(carbon_g), None),
+    ]
+    if m.load_measured:
+        cells.append(("Chargement", format_duration(m.load_duration_s), None))
+    cells += [
+        ("Durée totale", format_duration(m.total_duration_s), None),
+        ("Tokens générés", format_number(m.output_tokens, 0), None),
+    ]
+    for col, (label, value, help_text) in zip(st.columns(len(cells)), cells, strict=True):
+        col.metric(label, value, help=help_text)
 
 
 def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):

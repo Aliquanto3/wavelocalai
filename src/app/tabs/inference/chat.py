@@ -1,6 +1,6 @@
 """
 Onglet « Chat libre » de l'Arène des modèles : conversation avec un modèle et métadonnées
-(CO₂, débit, durée) sous chaque réponse.
+(CO₂, débit, chargement, durée totale) sous chaque réponse.
 """
 
 import asyncio
@@ -8,8 +8,9 @@ import time
 
 import streamlit as st
 
-from src.app.formatting import format_duration, format_unit
+from src.app.formatting import format_co2, format_duration, format_throughput, mg_to_grams
 from src.app.states import (
+    THROUGHPUT_HELP,
     finish_loading_status,
     inference_error_message,
     render_error,
@@ -41,8 +42,12 @@ def _calculate_metrics(metrics, model_friendly_name: str):
 
     return {
         "co2_mg": carbon_g * 1000.0,  # Conversion directe en mg
+        # Débit = eval_count / eval_duration pour Ollama (D3).
         "speed": metrics.tokens_per_second,
+        "speed_estimated": metrics.throughput_estimated,
         "duration": metrics.total_duration_s,
+        # Chargement du modèle : mesuré par Ollama seulement (None pour le cloud).
+        "load": metrics.load_duration_s if metrics.load_measured else None,
     }
 
 
@@ -64,10 +69,14 @@ def _render_message_footer(metrics: dict):
     if not metrics:
         return
 
-    st.caption(
-        f"{format_unit(metrics['co2_mg'], 'mgCO₂', 2)} · "
-        f"{format_unit(metrics['speed'], 'tokens/s')} · {format_duration(metrics['duration'])}"
-    )
+    parts = [
+        format_co2(mg_to_grams(metrics.get("co2_mg"))),
+        format_throughput(metrics.get("speed"), metrics.get("speed_estimated", False)),
+    ]
+    if metrics.get("load") is not None:
+        parts.append(f"Chargement {format_duration(metrics['load'])}")
+    parts.append(f"Durée totale {format_duration(metrics.get('duration'))}")
+    st.caption(" · ".join(parts), help=THROUGHPUT_HELP)
 
 
 def render_chat_tab(
@@ -113,7 +122,7 @@ def render_chat_tab(
                 if m.get("role") == "assistant" and "metrics_data" in m:
                     total_co2_mg += m["metrics_data"].get("co2_mg", 0.0)
 
-            st.caption(f"Session : **{format_unit(total_co2_mg, 'mgCO₂')}**")
+            st.caption(f"Session : **{format_co2(mg_to_grams(total_co2_mg))}**")
 
         with c_reset:
             if st.button("Effacer la conversation", icon=":material/delete:", width="stretch"):
