@@ -42,26 +42,45 @@ def _parse_requirement_lines(path):
             yield line
 
 
+# Environnements de la matrice CI (Python 3.10 à 3.12, trois OS), plus 3.13.
+_CI_ENVIRONMENTS = [
+    {
+        "python_version": version,
+        "python_full_version": f"{version}.0",
+        "sys_platform": platform,
+        "platform_system": system,
+    }
+    for version in ("3.10", "3.11", "3.12", "3.13")
+    for platform, system in (("linux", "Linux"), ("win32", "Windows"), ("darwin", "Darwin"))
+]
+
+
 def test_constraints_cover_requirements():
     """constraints.txt fige chaque dépendance directe de requirements.txt, à une version
-    qui satisfait le spécificateur déclaré."""
+    qui satisfait le spécificateur déclaré, dans chaque environnement où les deux
+    marqueurs s'appliquent."""
     pinned = {}
     for line in _parse_requirement_lines(ROOT_DIR / "constraints.txt"):
-        spec = line.split(";", 1)[0].strip()
-        if "==" not in spec:
+        pin = Requirement(line)
+        (spec,) = pin.specifier
+        if spec.operator != "==":
             continue
-        name, version = spec.split("==", 1)
-        pinned.setdefault(canonicalize_name(name), []).append(version.strip())
+        pinned.setdefault(canonicalize_name(pin.name), []).append((spec.version, pin.marker))
 
     for line in _parse_requirement_lines(ROOT_DIR / "requirements.txt"):
         req = Requirement(line)
         name = canonicalize_name(req.name)
 
         assert name in pinned, f"{req.name} n'a pas de ligne nom==version dans constraints.txt"
-        for version in pinned[name]:
-            assert req.specifier.contains(
-                version, prereleases=True
-            ), f"{req.name}=={version} ne satisfait pas « {req.specifier} » (requirements.txt)"
+        for env in _CI_ENVIRONMENTS:
+            if req.marker and not req.marker.evaluate(env):
+                continue
+            versions = [v for v, marker in pinned[name] if not marker or marker.evaluate(env)]
+            assert versions, f"{req.name} n'est figé pour aucune version dans {env}"
+            for version in versions:
+                assert req.specifier.contains(
+                    version, prereleases=True
+                ), f"{req.name}=={version} ne satisfait pas « {req.specifier} » ({env})"
 
 
 def test_ci_runs_unit_and_app_tests_on_master():

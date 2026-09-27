@@ -5,7 +5,6 @@ Usage: pytest tests/unit/test_metrics.py -v
 
 import asyncio
 import re
-import time
 from pathlib import Path
 
 import pytest
@@ -58,38 +57,39 @@ class TestInferenceMetrics:
 class TestMetricsCalculator:
     """Tests de MetricsCalculator (chronomètre)."""
 
-    def test_duration_calculation(self):
+    @staticmethod
+    def _fake_clock(monkeypatch, *ticks):
+        """Horloge scriptée : la durée ne dépend plus de la charge du runner CI."""
+        values = iter(ticks)
+        monkeypatch.setattr("src.core.metrics.time.perf_counter", lambda: next(values))
+
+    def test_duration_calculation(self, monkeypatch):
         """Test mesure de durée."""
+        self._fake_clock(monkeypatch, 10.0, 10.1)
         calc = MetricsCalculator()
 
         calc.start()
-        time.sleep(0.1)  # Attend 100ms
         calc.stop()
 
-        duration = calc.duration
+        assert calc.duration == pytest.approx(0.1)
 
-        # Devrait être proche de 0.1s (tolérance de 50ms)
-        assert 0.05 < duration < 0.15
-
-    def test_multiple_measurements(self):
+    def test_multiple_measurements(self, monkeypatch):
         """Test mesures multiples."""
+        self._fake_clock(monkeypatch, 1.0, 1.05, 2.0, 2.1)
         calc = MetricsCalculator()
 
         # Premier chrono
         calc.start()
-        time.sleep(0.05)
         calc.stop()
         duration1 = calc.duration
 
         # Deuxième chrono (réinitialisation)
         calc.start()
-        time.sleep(0.1)
         calc.stop()
         duration2 = calc.duration
 
-        # La deuxième mesure devrait être différente
-        assert duration2 > duration1
-        assert 0.08 < duration2 < 0.15
+        assert duration1 == pytest.approx(0.05)
+        assert duration2 == pytest.approx(0.1)
 
     def test_duration_before_stop(self):
         """Test accès à duration avant stop."""

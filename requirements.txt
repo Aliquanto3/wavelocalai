@@ -49,6 +49,9 @@ py-cpuinfo>=9.0.0
 
 # --- RAG & Vector Store ---
 chromadb>=0.4.22
+# onnxruntime (dépendance de chromadb) n'a plus de wheel cp310 à partir de 1.24 : version par Python
+onnxruntime<1.24 ; python_version < "3.11"
+onnxruntime>=1.24 ; python_version >= "3.11"
 pypdf>=4.0.0
 sentence-transformers>=3.0.0
 langchain-huggingface>=0.0.1
