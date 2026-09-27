@@ -279,8 +279,9 @@ def test_agent_solo_shows_all_nine_tools():
 
 
 def test_agent_lab_model_order_and_tool_log_states(monkeypatch):
-    """Agents autonomes : modèles aux outils vérifiés d'abord (cloud avant local), puis les autres ;
-    l'état d'un journal d'outil vient du champ « done », pas du texte."""
+    """Agents autonomes : locaux avant cloud, puis ceux qui tiennent en mémoire, puis outils
+    vérifiés d'abord (règle des choix par défaut) : un cloud aux outils vérifiés reste après
+    les locaux ; l'état d'un journal d'outil vient du champ « done », pas du texte."""
     from src.core.llm_provider import LLMProvider
     from tests.app.conftest import FAKE_LOCAL_MODELS
 
@@ -317,10 +318,12 @@ def test_agent_lab_model_order_and_tool_log_states(monkeypatch):
 
         (select,) = [s for s in at.selectbox if s.label == "Modèle"]
         assert select.options == [
-            "Mistral Large · Cloud · outils vérifiés",
             "Qwen 2.5 1.5B · Local · outils vérifiés",
             "Gemma 3 1B · Local",
+            "Mistral Large · Cloud · outils vérifiés",
         ]
+        # Modèle proposé par défaut : le premier de la liste.
+        assert select.value == "Qwen 2.5 1.5B · Local · outils vérifiés"
 
         # Libellé = nom affiché de l'outil (lexique), pas son identifiant interne.
         states = {s.label: s.state for s in at.status}

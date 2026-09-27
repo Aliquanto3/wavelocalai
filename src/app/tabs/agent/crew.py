@@ -195,7 +195,7 @@ def render_crew_diagram(agents):
 
 
 @st.dialog("Charger une équipe")
-def open_crew_library(installed_models_list):
+def open_crew_library(default_tag: str):
     st.caption("Choisissez une équipe préconfigurée : ses agents et sa mission sont préremplis.")
     for cat, workflows in CREW_PROMPT_LIBRARY.items():
         st.subheader(f"{cat}")
@@ -205,7 +205,6 @@ def open_crew_library(installed_models_list):
                 st.markdown(f"**{name}**")
                 st.caption(data["description"])
                 if st.button("Charger", key=f"load_{name}", width="stretch"):
-                    default_tag = installed_models_list[0]["model"] if installed_models_list else ""
                     st.session_state.crew_agents = []
                     for agent in data["suggested_crew"]:
                         st.session_state.crew_agents.append(
@@ -232,17 +231,18 @@ def open_crew_library(installed_models_list):
 # ========================================
 
 
-def render_agent_crew_tab(
-    installed_models_list: list, display_to_tag: dict, sorted_labels: list, avail_ram_gb: float
-):
+def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_gb: float):
 
     if not sorted_labels:
         render_no_models()
         return
 
+    # Modèle par défaut d'un agent : le premier de la liste triée (local avant cloud, qui
+    # tient en mémoire, outils vérifiés, puis le plus rapide), pas l'ordre brut du fournisseur.
+    default_tag = display_to_tag.get(sorted_labels[0], "")
+
     # Init session_state
     if "crew_agents" not in st.session_state:
-        default_tag = installed_models_list[0]["model"] if installed_models_list else ""
         st.session_state.crew_agents = [
             {
                 "role": "Analyste principal",
@@ -274,7 +274,7 @@ def render_agent_crew_tab(
             st.caption(friendly_lbl)
         with c_dash_3:
             if st.button("Charger une équipe", icon=":material/library_books:", width="stretch"):
-                open_crew_library(installed_models_list)
+                open_crew_library(default_tag)
 
     # --- B. CONFIGURATION ---
     with st.expander("Configurer l'équipe", expanded=False):
@@ -368,12 +368,11 @@ def render_agent_crew_tab(
         with tabs[n_agents]:
             st.info("Ajoutez un agent à la fin de l'enchaînement.")
             if st.button("Ajouter un agent", icon=":material/person_add:"):
-                def_tag = installed_models_list[0]["model"] if installed_models_list else ""
                 st.session_state.crew_agents.append(
                     {
                         "role": "Nouvel expert",
                         "goal": "Réaliser une tâche spécifique",
-                        "model_tag": def_tag,
+                        "model_tag": default_tag,
                         "backstory": "Expert qualifié.",
                         "tools": [],
                     }

@@ -15,6 +15,7 @@ from streamlit.errors import StreamlitPageNotFoundError
 from src.app.formatting import format_duration
 from src.app.modules import ARENA
 from src.core.llm_provider import LLMProvider
+from src.core.model_defaults import JUDGE_MIN_PARAMS_B
 from src.core.model_detector import is_api_model
 
 # --- Service indisponible ---
@@ -50,6 +51,33 @@ NO_MODEL_ELSEWHERE = (
 
 # --- Évaluation impossible ---
 NOT_EVALUATED = "non évalué"
+
+# --- Juge par défaut et fiabilité de sa note ---
+# Moins de ~4B paramètres actifs, ou taille inconnue : deux causes, deux textes.
+WEAK_JUDGE_SMALL = (
+    f"Note peu fiable : le juge {{name}} a moins de {JUDGE_MIN_PARAMS_B:g} milliards de "
+    "paramètres actifs."
+)
+WEAK_JUDGE_UNKNOWN = "Note peu fiable : la taille du juge {name} est inconnue."
+# Conseil ajouté à l'avertissement, selon qu'un juge fiable tient en mémoire ou non.
+STRONGER_JUDGE_ADVICE = (
+    f"Choisissez un juge d'au moins {JUDGE_MIN_PARAMS_B:g} milliards de paramètres : un tel "
+    "modèle tient en mémoire."
+)
+NO_STRONGER_JUDGE_ADVICE = "Aucun juge plus gros ne tient en mémoire : lisez la note avec prudence."
+JUDGE_UNFIT_WARNING = (
+    "Le juge {name} ne tient pas en mémoire : la notation risque d'échouer ou de ralentir la "
+    "machine."
+)
+JUDGE_SELF_CAPTION = (
+    "Le juge {name} fait partie des modèles évalués : il note aussi sa propre réponse."
+)
+# Aide du sélecteur de juge, selon la situation de la machine.
+JUDGE_HELP_FITS = "Par défaut, le plus gros modèle local qui tient en mémoire."
+JUDGE_HELP_NONE_FITS = (
+    "Aucun modèle local ne tient en mémoire : par défaut, le plus petit modèle local."
+)
+JUDGE_HELP_NO_LOCAL = "Aucun modèle local installé : choisissez le juge parmi les modèles proposés."
 
 TECH_DETAILS_LABEL = "Détails techniques"
 

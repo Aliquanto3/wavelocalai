@@ -7,7 +7,7 @@ from src.app.tabs.inference.chat import render_chat_tab
 from src.app.tabs.inference.lab import render_lab_tab
 from src.app.tabs.inference.manager import render_manager_tab
 from src.app.modules import ARENA
-from src.app.ui import FAVICON_PATH, model_options
+from src.app.ui import FAVICON_PATH, model_menu
 from src.core.llm_provider import LLMProvider
 
 # --- Configuration de la Page ---
@@ -21,8 +21,14 @@ cloud_enabled = st.session_state.get("cloud_enabled", True)
 # ==========================================
 installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled)
 
-# Maps pour les sélecteurs (libellés « Nom · Local » / « Nom · Cloud »)
-display_to_tag, tag_to_friendly, sorted_display_names = model_options(installed_models_list)
+# Sélecteurs : libellés « Nom · Local » / « Nom · Cloud », locaux d'abord, le modèle local le
+# plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).
+menu = model_menu(installed_models_list)
+display_to_tag, tag_to_friendly, sorted_display_names = (
+    menu.display_to_tag,
+    menu.tag_to_friendly,
+    menu.labels,
+)
 
 st.title(ARENA.title)
 st.caption("Converser avec un modèle, tester un scénario, comparer des modèles et les installer.")
@@ -44,7 +50,7 @@ tab_chat, tab_lab, tab_arena, tab_manager = st.tabs(
 # APPEL DES MODULES
 # ==========================================
 with tab_chat:
-    # On calcule une valeur par défaut pour le chat (premier modèle de la liste)
+    # Modèle par défaut : le premier de la liste triée (le plus rapide qui tient en mémoire)
     default_selected_display = sorted_display_names[0] if sorted_display_names else None
     default_selected_tag = display_to_tag.get(default_selected_display)
 
@@ -68,6 +74,7 @@ with tab_arena:
         sorted_display_names=sorted_display_names,
         display_to_tag=display_to_tag,
         tag_to_friendly=tag_to_friendly,
+        menu=menu,
     )
 
 with tab_manager:

@@ -41,6 +41,10 @@ FAKE_LOCAL_MODELS = [
     },
 ]
 
+# Mémoire vive disponible simulée (Go) : l'ordre des sélecteurs et les choix par défaut
+# (src/core/model_defaults.py) ne dépendent pas de la machine qui lance les tests.
+FAKE_AVAILABLE_GB = 16.0
+
 
 @pytest.fixture(autouse=True)
 def offline_app_env(tmp_path, monkeypatch):
@@ -70,6 +74,11 @@ def offline_app_env(tmp_path, monkeypatch):
         staticmethod(lambda cloud_enabled=True: [dict(m) for m in FAKE_LOCAL_MODELS]),
     )
     monkeypatch.setattr(LLMProvider, "health_check", staticmethod(lambda: {"ollama": True}))
+    # Choix par défaut : mémoire fixe, et aucun catalogue versionné (config/models_catalog.json,
+    # réécrit par scripts/build_catalog.py) ; empreintes estimées depuis le catalogue de test.
+    monkeypatch.setattr("src.app.ui.available_memory_gb", lambda: FAKE_AVAILABLE_GB)
+    monkeypatch.setattr(LLMProvider, "loaded_models_ram_gb", staticmethod(lambda timeout=2.0: 0.0))
+    monkeypatch.setattr("src.core.model_defaults.load_versioned_catalog", lambda path=None: {})
     # État d'Ollama (accueil, alerte en tête de module) et modèles en mémoire : simulés.
     # L'état est mis en cache par st.cache_data, partagé entre les AppTest du processus.
     monkeypatch.setattr(LLMProvider, "ollama_available", staticmethod(lambda timeout=2.0: True))

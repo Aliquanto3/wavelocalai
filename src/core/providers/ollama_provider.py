@@ -6,6 +6,7 @@ Provider Ollama pour les modèles locaux.
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
+from urllib.parse import urlsplit
 
 import ollama
 from langchain_ollama import ChatOllama
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)
 # Délai des appels d'état (santé, modèles en mémoire), en secondes : court, pour ne jamais
 # bloquer l'affichage quand Ollama est arrêté.
 STATUS_TIMEOUT_S = 2.0
+
+# Hôtes Ollama situés sur cette machine.
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 class OllamaProvider(ILLMProvider):
@@ -208,6 +212,38 @@ class OllamaProvider(ILLMProvider):
         except Exception as e:
             logger.debug(f"ollama ps impossible ({self._base_url}) : {e}")
             return None
+
+    def is_local_host(self) -> bool:
+        """Hôte Ollama sur cette machine (localhost, 127.0.0.1, ::1, ou hôte par défaut)."""
+        url = self._base_url or "http://localhost:11434"
+        host = urlsplit(url if "//" in url else f"//{url}").hostname
+        return host in LOCAL_HOSTS
+
+    def loaded_models_ram_gb(self, timeout: float = STATUS_TIMEOUT_S) -> float:
+        """Mémoire vive (Go) de cette machine occupée par les modèles déjà chargés dans Ollama
+        (`ollama ps`) : taille chargée moins la part en mémoire vidéo. 0.0 si l'hôte Ollama
+        est distant (sa mémoire n'est pas celle de cette machine) ou si l'état est inconnu.
+
+        Limite : en mémoire unifiée (Apple Silicon), Ollama annonce `size_vram == size`,
+        alors que le modèle occupe bien la mémoire vive ; il compte ici pour 0 et un modèle
+        résident peut y être déclassé (erreur prudente). Ne lève jamais."""
+        try:
+            if not self.is_local_host():
+                return 0.0
+            response = self._create_client(timeout).ps()
+            raw_models = (
+                response.models if hasattr(response, "models") else response.get("models", [])
+            )
+            total = 0.0
+            for m in raw_models or []:
+                get = m.get if isinstance(m, dict) else lambda k, _m=m: getattr(_m, k, None)
+                size = get("size") or 0
+                vram = get("size_vram") or 0
+                total += max(float(size) - float(vram), 0.0)
+            return total / (1024**3)
+        except Exception as e:
+            logger.debug(f"ollama ps impossible ({self._base_url}) : {e}")
+            return 0.0
 
 
 def _normalize_tag(tag: str) -> str:

@@ -8,7 +8,7 @@ from src.app.tabs.agent.crew import render_agent_crew_tab
 from src.app.tabs.agent.solo import render_agent_solo_tab
 from src.app.formatting import format_gb, format_percent, format_unit
 from src.app.modules import AGENTS
-from src.app.ui import FAVICON_PATH, model_label
+from src.app.ui import FAVICON_PATH, model_menu
 from src.core.llm_provider import LLMProvider
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 
@@ -95,31 +95,22 @@ with st.sidebar:
 
 # --- PRÉPARATION DATA ---
 installed = LLMProvider.list_models(cloud_enabled=st.session_state.get("cloud_enabled", True))
-verified_models = []
-other_models = []
+# Ordre : locaux avant cloud, puis ceux qui tiennent en mémoire, puis outils vérifiés, puis
+# la règle commune (le plus rapide en tête) : un modèle cloud ou un local qui ne tient pas ne
+# devient jamais le modèle par défaut parce que ses outils sont vérifiés. Tri stable.
+menu = model_menu(installed, cloud_types=("api", "cloud"))
+options = []
+for label in menu.labels:
+    tag = menu.display_to_tag[label]
+    choice = menu.choices[label]
+    # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
+    info = get_model_info(get_friendly_name_from_tag(tag))
+    is_verified = bool(info and "tools" in info.get("capabilities", []))
+    # Remplace l'ancien marqueur emoji : support des outils vérifié dans le catalogue.
+    shown = f"{label} · outils vérifiés" if is_verified else label
+    options.append(((choice.is_cloud, not choice.fits, not is_verified), shown, tag))
 
-for m in installed:
-    tag = m["model"]
-    friendly = get_friendly_name_from_tag(tag)
-    info = get_model_info(friendly)
-    is_verified = info and "tools" in info.get("capabilities", [])
-    is_cloud = m.get("type") in ["api", "cloud"]
-    # Clé de tri : cloud puis local, puis nom (ordre inchangé depuis les anciens préfixes).
-    label = model_label(friendly, is_cloud)
-    if is_verified:
-        # Remplace l'ancien marqueur emoji : support des outils vérifié dans le catalogue.
-        label += " · outils vérifiés"
-    entry = ((not is_cloud, friendly), label, tag)
-    if is_verified:
-        verified_models.append(entry)
-    else:
-        other_models.append(entry)
-
-sorted_options = [
-    (label, tag)
-    for _, label, tag in sorted(verified_models, key=lambda e: e[0])
-    + sorted(other_models, key=lambda e: e[0])
-]
+sorted_options = [(label, tag) for _, label, tag in sorted(options, key=lambda o: o[0])]
 display_to_tag = dict(sorted_options)
 sorted_labels = [label for label, tag in sorted_options]
 
@@ -128,4 +119,4 @@ if agent_mode == MODE_SOLO:
     render_agent_solo_tab(sorted_labels, display_to_tag)
 else:
     # On passe la RAM dispo à Crew pour le calcul prédictif
-    render_agent_crew_tab(installed, display_to_tag, sorted_labels, avail_ram_gb=avail_ram)
+    render_agent_crew_tab(display_to_tag, sorted_labels, avail_ram_gb=avail_ram)

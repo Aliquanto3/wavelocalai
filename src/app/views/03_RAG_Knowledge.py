@@ -15,7 +15,7 @@ from src.app.tabs.rag.eval import render_rag_eval_tab
 from src.app.formatting import pluralize
 from src.app.modules import DOCUMENTS
 from src.app.rag_upload import escape_markdown, ingest_uploaded_files
-from src.app.ui import FAVICON_PATH, model_options
+from src.app.ui import FAVICON_PATH, model_menu
 from src.core.config import DATA_DIR
 from src.core.eval_engine import EvalEngine
 from src.core.llm_provider import LLMProvider
@@ -260,8 +260,12 @@ else:
         cloud_enabled=st.session_state.get("cloud_enabled", True)
     )
 
-    display_to_tag, tag_to_friendly, sorted_display_names = model_options(
-        installed_models_list, cloud_types=("cloud", "api")
+    # Locaux d'abord, le plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).
+    menu = model_menu(installed_models_list, cloud_types=("cloud", "api"))
+    display_to_tag, tag_to_friendly, sorted_display_names = (
+        menu.display_to_tag,
+        menu.tag_to_friendly,
+        menu.labels,
     )
 
     tab_chat, tab_eval = st.tabs(["Discussion", "Évaluation de la qualité"])
@@ -282,4 +286,5 @@ else:
             display_to_tag,
             tag_to_friendly,
             sorted_display_names,
+            menu=menu,
         )

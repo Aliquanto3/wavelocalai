@@ -31,11 +31,22 @@ from src.app.states import (
     render_error,
     render_no_models,
 )
+from src.app.ui import (
+    ModelMenu,
+    judge_help,
+    judge_self_caption,
+    judge_warnings,
+    weak_judge_text,
+)
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceService
 from src.core.llm_provider import LLMProvider
-from src.core.models_db import get_model_info
+from src.core.model_defaults import ARENA_MIN_MODELS
+from src.core.models_db import get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
+
+# Lancement désactivé sous ARENA_MIN_MODELS modèles : légende qui nomme le prérequis.
+MIN_MODELS_CAPTION = f"Choisissez au moins {ARENA_MIN_MODELS} modèles."
 
 # Statut d'une ligne de résultats.
 STATUS_SCORED = "scored"
@@ -354,7 +365,20 @@ def _judge(status_box, judge_tag, judge_name, judge_sys, prompt, answer):
     return score, None, None
 
 
-def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
+def render_arena_tab(
+    sorted_display_names: list,
+    display_to_tag: dict,
+    tag_to_friendly: dict,
+    menu: ModelMenu | None = None,
+):
+    """
+    Onglet « Arène ». `menu` (src/app/ui.py) porte les choix par défaut adaptés à la
+    machine : libellés présélectionnés (petits modèles locaux qui tiennent en mémoire, hors
+    juge), juge par défaut (plus gros modèle local fiable qui tient) et ce que la règle sait
+    de chaque modèle (avertissements du juge).
+    """
+    preselected = menu.arena_defaults if menu else []
+    judge_default = menu.judge_default if menu else None
 
     if not sorted_display_names:
         render_no_models(in_arena=True)
@@ -368,7 +392,7 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
         selected_arena_displays = st.multiselect(
             "Modèles à comparer",
             options=sorted_display_names,
-            default=sorted_display_names[:2] if len(sorted_display_names) >= 2 else None,
+            default=[d for d in (preselected or []) if d in sorted_display_names],
             label_visibility="collapsed",
         )
         selected_arena_tags = [display_to_tag[d] for d in selected_arena_displays]
@@ -376,13 +400,13 @@ def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_fr
 
         with st.expander("Réglages du juge", expanded=False):
             judge_options = sorted_display_names
-            def_idx = 0
-            for i, n in enumerate(judge_options):
-                if "mistral" in n.lower() or "llama" in n.lower():
-                    def_idx = i
-                    break
-
-            judge_display = st.selectbox("Modèle juge", judge_options, index=def_idx)
+            def_idx = judge_options.index(judge_default) if judge_default in judge_options else 0
+            judge_display = st.selectbox(
+                "Modèle juge",
+                judge_options,
+                index=def_idx,
+                help=judge_help(menu),
+            )
             judge_tag = display_to_tag.get(judge_display)
 
             default_judge_prompt = """Agis comme un juge impartial.
@@ -394,6 +418,14 @@ Critères : Précision, Concision, Respect des consignes.
 Format : Uniquement le chiffre (ex: 85)."""
             judge_sys = st.text_area("Critères de notation", value=default_judge_prompt, height=150)
 
+        # Hors de l'expander replié : les avertissements restent visibles.
+        for warning in judge_warnings(menu, judge_display):
+            st.warning(warning)
+        self_caption = judge_self_caption(tag_to_friendly, judge_tag, selected_arena_tags)
+        if self_caption:
+            st.caption(self_caption)
+        weak_text = weak_judge_text(menu, judge_display)
+
     with col_prompt:
         st.header("Question")
         arena_prompt = st.text_area(
@@ -403,20 +435,21 @@ Format : Uniquement le chiffre (ex: 85)."""
             label_visibility="collapsed",
         )
 
+        enough_models = len(selected_arena_tags) >= ARENA_MIN_MODELS
         btn_col1, btn_col2 = st.columns([1, 3])
         with btn_col1:
             start_btn = st.button(
                 "Lancer la comparaison",
                 type="primary",
                 width="stretch",
-                disabled=not selected_arena_tags,
+                disabled=not enough_models,
             )
         with btn_col2:
-            if not selected_arena_tags:
-                st.caption("Choisissez au moins 2 modèles.")
+            if not enough_models:
+                st.caption(MIN_MODELS_CAPTION)
 
     # --- 3. EXÉCUTION ---
-    if start_btn and selected_arena_tags and arena_prompt:
+    if start_btn and enough_models and arena_prompt:
         st.divider()
 
         results_data = []
@@ -467,7 +500,8 @@ Format : Uniquement le chiffre (ex: 85)."""
                 m = result.metrics
 
                 # 2. CALCUL GREENOPS
-                info = get_model_info(friendly_name) or {}
+                # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
+                info = get_model_info(get_friendly_name_from_tag(tag)) or {}
                 raw_params = info.get("params_act") or info.get("params_tot", "0")
                 p = _extract_params_billions(raw_params)
 
@@ -554,6 +588,10 @@ Format : Uniquement le chiffre (ex: 85)."""
             )
             return
 
+        # La note du vainqueur et du podium vient du juge : ses limites l'accompagnent.
+        for caption in (weak_text, self_caption):
+            if caption:
+                st.caption(caption)
         _render_podium(results_data)
         if failure_details:
             with st.expander("Détails techniques", expanded=False):

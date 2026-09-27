@@ -25,12 +25,19 @@ from src.app.formatting import (
     pluralize,
 )
 from src.app.states import NOT_EVALUATED, render_error, render_no_models
+from src.app.ui import (
+    ModelMenu,
+    judge_help,
+    judge_self_caption,
+    judge_warnings,
+    weak_judge_text,
+)
 
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
-from src.core.models_db import extract_thought, get_model_info
+from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
 
 # Locale Vega (fr-FR) passée dans la spécification : aucune locale chargée depuis un CDN.
@@ -61,8 +68,14 @@ def _to_100(series: pd.Series) -> pd.Series:
 
 
 def render_rag_eval_tab(
-    rag_engine, eval_engine, display_to_tag, tag_to_friendly, sorted_display_names
+    rag_engine,
+    eval_engine,
+    display_to_tag,
+    tag_to_friendly,
+    sorted_display_names,
+    menu: ModelMenu | None = None,
 ):
+    judge_default = menu.judge_default if menu else None
 
     # EN-TÊTE
     c_title, c_badge = st.columns([3, 1])
@@ -94,23 +107,39 @@ def render_rag_eval_tab(
 
     with col_conf:
         st.subheader("Modèles évalués")
+        # Par défaut : le modèle proposé en premier, sauf le juge (il ne note pas sa propre
+        # réponse) quand un autre modèle est disponible.
+        default_candidates = [d for d in sorted_display_names if d != judge_default][:1] or [
+            sorted_display_names[0]
+        ]
         candidate_displays = st.multiselect(
             "Modèles évalués",
             sorted_display_names,
-            default=[sorted_display_names[0]] if sorted_display_names else None,
+            default=default_candidates,
             label_visibility="collapsed",
         )
         candidate_tags = [display_to_tag[d] for d in candidate_displays]
 
         st.subheader("Juge")
-        # Auto-select a smart model as judge
-        default_judge_idx = 0
-        for i, d in enumerate(sorted_display_names):
-            if "mistral" in d.lower() or "gpt" in d.lower() or "large" in d.lower():
-                default_judge_idx = i
-
-        judge_display = st.selectbox("Modèle juge", sorted_display_names, index=default_judge_idx)
+        # Par défaut : le plus gros modèle local qui tient en mémoire (model_defaults).
+        default_judge_idx = (
+            sorted_display_names.index(judge_default)
+            if judge_default in sorted_display_names
+            else 0
+        )
+        judge_display = st.selectbox(
+            "Modèle juge",
+            sorted_display_names,
+            index=default_judge_idx,
+            help=judge_help(menu),
+        )
         judge_tag = display_to_tag.get(judge_display)
+        for warning in judge_warnings(menu, judge_display):
+            st.warning(warning)
+        self_caption = judge_self_caption(tag_to_friendly, judge_tag, candidate_tags)
+        if self_caption:
+            st.caption(self_caption)
+        weak_text = weak_judge_text(menu, judge_display)
 
     with col_run:
         st.subheader("Question de référence")
@@ -179,7 +208,8 @@ def render_rag_eval_tab(
 
                 # Calcul Carbone (SSOT)
                 carbon_mg = 0.0
-                info = get_model_info(c_friendly) or {}
+                # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
+                info = get_model_info(get_friendly_name_from_tag(c_tag)) or {}
                 ram_gb = 0.0
 
                 if metrics_obj:
@@ -266,6 +296,10 @@ def render_rag_eval_tab(
             co2_unit = common_co2_unit(mg_to_grams(v) for v in df["CO2_mg"])
 
             st.subheader("Podium de la qualité")
+            # Les notes viennent du juge : ses limites accompagnent le podium.
+            for caption in (weak_text, self_caption):
+                if caption:
+                    st.caption(caption)
             if df_scored.empty:
                 st.info(
                     "Aucune réponse n'a pu être notée : pas de podium. La raison est indiquée "

@@ -184,3 +184,19 @@ class LLMProvider:
             return provider.is_model_loaded(model_name, timeout=timeout)
         except Exception:
             return None
+
+    @staticmethod
+    def loaded_models_ram_gb(timeout: float = 2.0) -> float:
+        """
+        Mémoire vive (Go) occupée par les modèles déjà chargés dans Ollama : rajoutée à la
+        mémoire disponible pour qu'un modèle résident ne soit pas déclassé par les choix par
+        défaut. 0.0 si Ollama est absent, injoignable ou sur un autre hôte ; ne lève jamais
+        d'exception.
+        """
+        try:
+            provider = LLMProvider._ollama_provider()
+            if provider is None or not hasattr(provider, "loaded_models_ram_gb"):
+                return 0.0
+            return float(provider.loaded_models_ram_gb(timeout=timeout))
+        except Exception:
+            return 0.0

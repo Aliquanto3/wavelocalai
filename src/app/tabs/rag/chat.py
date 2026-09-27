@@ -31,7 +31,7 @@ from src.app.states import (
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
-from src.core.models_db import extract_thought, get_model_info
+from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
 
 
@@ -212,7 +212,8 @@ def render_rag_chat_tab(
                 carbon_mg = 0.0
                 ram_gb = 0.0
                 if metrics_obj:
-                    info = get_model_info(friendly_name) or {}
+                    # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
+                    info = get_model_info(get_friendly_name_from_tag(selected_tag)) or {}
 
                     # 1. RAM
                     ram_gb = metrics_obj.model_size_gb or 0.0

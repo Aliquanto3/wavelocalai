@@ -10,44 +10,15 @@ import pandas as pd
 import streamlit as st
 
 from src.app.formatting import pluralize
+from src.app.ui import MEMORY_SNAPSHOT_KEY
 from src.core.llm_provider import LLMProvider
+from src.core.model_defaults import parse_size_gb
 from src.core.models_db import (
     get_all_friendly_names,
     get_model_card,
     get_model_info,
 )
-
-
-# --- 1. HELPERS DE PARSING (Pour le tri) ---
-def _parse_params_to_float(val: str | int | float) -> float:
-    if isinstance(val, (int, float)):
-        return float(val)
-    if not val or not isinstance(val, str):
-        return 0.0
-    s = val.upper().strip().replace(" ", "")
-    try:
-        if "X" in s and "B" in s:
-            parts = s.replace("B", "").split("X")
-            return float(parts[0]) * float(parts[1])
-        if s.endswith("B"):
-            return float(s[:-1])
-        if s.endswith("M"):
-            return float(s[:-1]) / 1000.0
-        if s.isdigit():
-            return float(s)
-    except Exception:
-        pass
-    return 0.0
-
-
-def _parse_size_to_float(val: str) -> float:
-    if not val or not isinstance(val, str):
-        return 0.0
-    try:
-        return float(val.lower().replace("gb", "").replace("mb", "").strip())
-    except Exception:
-        return 0.0
-
+from src.core.utils import extract_params_billions
 
 # Options du sélecteur d'installation et des filtres : valeurs comparées par égalité,
 # définies une seule fois.
@@ -124,6 +95,8 @@ def open_download_modal(installed_names: list):
 
             pbar.progress(1.0, text="Terminé")
             status_box.update(label="Modèle ajouté", state="complete")
+            # Mémoire et modèles installés ont changé : choix par défaut recalculés.
+            st.session_state.pop(MEMORY_SNAPSHOT_KEY, None)
             time.sleep(1)
             st.rerun()
 
@@ -148,6 +121,7 @@ def render_manager_tab(installed_models_list: list):
         st.caption(f"{count}.")
     with c_refresh:
         if st.button("Rafraîchir", icon=":material/refresh:", help="Rafraîchir la liste"):
+            st.session_state.pop(MEMORY_SNAPSHOT_KEY, None)
             st.rerun()
 
     st.divider()
@@ -206,7 +180,7 @@ def render_manager_tab(installed_models_list: list):
 
             ram = stats.get("ram_usage_at_max_ctx_gb", 0.0)
             if ram == 0:
-                ram = _parse_size_to_float(card.get("size_str", ""))
+                ram = parse_size_gb(card.get("size_str", ""))
 
             co2_kg = stats.get("avg_co2_per_1k_tokens", 0)
             co2_mg = co2_kg * 1_000_000 if co2_kg else None
@@ -226,7 +200,7 @@ def render_manager_tab(installed_models_list: list):
                 # Valeur inconnue (0) → absente (None), affichée vide plutôt que « 0,0 ».
                 "RAM": ram or None,
                 "CO2": co2_mg,
-                "Params": _parse_params_to_float(
+                "Params": extract_params_billions(
                     info.get("params_act") or info.get("params_tot", "0")
                 )
                 or None,
