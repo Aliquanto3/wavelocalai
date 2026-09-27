@@ -3,6 +3,11 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from src.core.telemetry import disable_telemetry
+
+# Ragas lit RAGAS_DO_NOT_TRACK : à couper avant son import (sinon t.explodinggradients.com).
+disable_telemetry()
+
 # Ragas Imports
 try:
     from datasets import Dataset

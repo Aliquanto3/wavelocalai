@@ -111,3 +111,47 @@
     Note 11 de SYNTHESE.md §4. Dépend des stories 1 à 10. Ces tests exigent Ollama : ils sont
     écrits cette nuit et exécutés au matin sur un poste local ; dans la VM, vérifier seulement
     qu'ils sont collectés et exclus par défaut.
+- id: "12"
+  title: "Souveraineté et CO₂ : télémétries coupées, CO₂ cloud juste"
+  description: >-
+    Correctifs du diagnostic poste-rtx3060 (27/09) : aucune télémétrie ne quitte la machine
+    (Ragas, Chroma et autres coupées en un seul endroit au démarrage de l'app), et le CO₂ d'une
+    réponse cloud de la Discussion calculé avec la fiche du bon modèle.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Constats : DNS t.explodinggradients.com pendant l'évaluation RAG (Ragas 0.4.3 ne lit que
+    RAGAS_DO_NOT_TRACK) ; chat.py:228 passe le libellé du sélecteur à _calculate_metrics.
+    Ne pas ajouter RAGAS_DO_NOT_TRACK à APP_ENV des tests e2e : la garde réseau doit protéger l'app.
+- id: "13"
+  title: "Tests e2e fiables sur un vrai poste"
+  description: >-
+    Les quatre tests e2e qui échouent à coup sûr sur poste-rtx3060 attendent le rerun du
+    serveur au lieu d'un état du navigateur, et la mesure de débit porte sur une vraie réponse.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    test_agents.py (_switch_mode), test_arena.py (débit sous la consigne JSON par défaut,
+    attentes après multiselect_clear et pick_model), test_arena_timeout.py:88-91. Dépend de la story 11.
+- id: "14"
+  title: "Couleur primaire du thème sombre lisible"
+  description: >-
+    Primaire sombre #8468EC à la place de #6A4DE6 (curseur et pastilles au-dessus de 4,5:1),
+    puis vérification axe des boutons principaux en sombre (texte blanc à 4,06:1).
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Décision de l'utilisateur du 27/09 (question ouverte 1 du rapport de nuit). DESIGN.md et
+    .streamlit/config.toml ; toute violation restante est mesurée et notée, jamais corrigée par CSS.
+- id: "15"
+  title: "Juge et modèle par défaut choisis d'après le benchmark du poste"
+  description: >-
+    Juge par défaut : cloud le plus capable quand le cloud est autorisé et configuré ; sinon le
+    juge local le plus précis d'après le benchmark de ce poste, à plus de 10 tokens/s, avec le
+    plancher de 4B. Modèle proposé par défaut : jamais un modèle de raisonnement (« thinking »).
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Décisions du 27/09 : précision = moyenne de reasoning_avg et instruction_following_avg ;
+    plancher 4B conservé ; juge cloud le plus capable parmi les fournisseurs configurés.
+    Poste identifié par benchmarks/results/<machine_id>.json. Dépend de la story 7.

@@ -89,6 +89,11 @@ def install_network_audit(log_path: Path) -> None:
 def redirect_data(data_dir: Path) -> None:
     """Redirige vers `data_dir` toutes les écritures que l'app peut faire pendant les
     parcours (attributs de module lus à l'appel ; aucun fichier de src/ modifié)."""
+    # Même ordre que l'app (Accueil.py) : télémétries coupées avant tout import de src.
+    from src.core.telemetry import disable_telemetry
+
+    disable_telemetry()
+
     import src.core.agent_tools as agent_tools
     import src.core.config as config
     import src.core.green_monitor as green_monitor

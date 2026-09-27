@@ -132,6 +132,50 @@ def test_agent_carbon_cloud_and_local():
     assert answer_carbon_mg("qwen2.5:1.5b", None) is None
 
 
+def test_chat_carbon_uses_catalog_entry_not_selector_label():
+    """Discussion : la fiche du modèle est trouvée par son tag (nom du catalogue), pas par le
+    libellé « Nom · Cloud » du sélecteur ; la formule suit l'origine réelle du modèle."""
+    from types import SimpleNamespace
+
+    from src.app.tabs.inference.chat import _calculate_metrics
+
+    metrics = SimpleNamespace(
+        output_tokens=100,
+        tokens_per_second=10.0,
+        throughput_estimated=False,
+        total_duration_s=1.0,
+        load_duration_s=None,
+        load_measured=False,
+    )
+    cloud_mg = CarbonCalculator.compute_mistral_impact_g(123.0, 100) * 1000
+    local_mg = CarbonCalculator.compute_local_theoretical_g(100) * 1000
+    assert _calculate_metrics(metrics, "mistral-large-2512", True)["co2_mg"] == pytest.approx(
+        cloud_mg
+    )
+    # Origine inconnue : le type du catalogue décide.
+    assert _calculate_metrics(metrics, "mistral-large-2512")["co2_mg"] == pytest.approx(cloud_mg)
+    assert _calculate_metrics(metrics, "qwen2.5:1.5b", False)["co2_mg"] == pytest.approx(local_mg)
+    # Cloud hors catalogue (tag distant) : CO₂ inconnu, jamais 0.
+    assert _calculate_metrics(metrics, "modele-inconnu:cloud", True)["co2_mg"] is None
+
+
+def test_chat_passes_tag_and_origin_to_carbon():
+    """Le défaut du 27/09 était à l'appel : le libellé du sélecteur au lieu du tag."""
+    import ast
+    import inspect
+
+    from src.app.tabs.inference import chat
+
+    calls = [
+        node
+        for node in ast.walk(ast.parse(inspect.getsource(chat)))
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "_calculate_metrics"
+    ]
+    assert calls
+    for call in calls:
+        assert [getattr(a, "id", None) for a in call.args[1:]] == ["active_tag", "active_is_cloud"]
+
+
 def test_agent_carbon_follows_real_origin_and_rejects_bad_input():
     """Formule choisie par l'origine réelle (celle du badge), pas le seul catalogue ; modèle
     absent, tokens NaN ou infinis : CO₂ inconnu, jamais d'exception."""

@@ -17,6 +17,11 @@ root_path = Path(__file__).parent.parent.parent
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
+# Avant tout import de src : les bibliothèques lisent leur variable de télémétrie à l'import.
+from src.core.telemetry import disable_telemetry  # noqa: E402
+
+disable_telemetry()
+
 from src.app.modules import HOME_ICON, HOME_TITLE, MODULES  # noqa: E402
 from src.app.states import ollama_available, render_ollama_down_alert  # noqa: E402
 from src.app.ui import (  # noqa: E402  (après l'ajout de la racine)

@@ -68,14 +68,9 @@ VIEWPORT = {"width": 1440, "height": 1100}
 APP_ENV = {
     "HF_HUB_OFFLINE": "1",
     "TRANSFORMERS_OFFLINE": "1",
-    "HF_HUB_DISABLE_TELEMETRY": "1",
-    "ANONYMIZED_TELEMETRY": "False",
-    "CREWAI_DISABLE_TELEMETRY": "true",
-    "OTEL_SDK_DISABLED": "true",
+    # Télémétries des bibliothèques : coupées par l'app elle-même (src/core/telemetry.py),
+    # jamais ici, pour que la garde réseau vérifie l'app (tests/unit/test_telemetry.py).
     "LITELLM_LOCAL_MODEL_COST_MAP": "True",
-    "LANGCHAIN_TRACING_V2": "false",
-    "LANGSMITH_TRACING": "false",
-    "DO_NOT_TRACK": "1",
     "STREAMLIT_BROWSER_GATHER_USAGE_STATS": "false",
     "MISTRAL_API_KEY": "",
     "OPENAI_API_KEY": "",
