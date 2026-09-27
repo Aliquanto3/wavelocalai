@@ -168,7 +168,8 @@ def fake_inference(monkeypatch):
     dépassé pour les tags de `timeouts`, erreur pour ceux de `errors`. Le juge de l'Arène
     (prompt « juge impartial ») répond `judge_reply`, ou échoue si `judge_error`. Métriques
     d'un appel Ollama (chargement et durée de génération mesurés) ; `output_tokens` fixe les
-    tokens générés par tag (40 par défaut).
+    tokens générés par tag (40 par défaut), `throughput` le débit par tag (25 tokens/s par
+    défaut).
     """
     from src.core.inference_service import InferenceResult, InferenceService
     from src.core.metrics import InferenceMetrics
@@ -181,6 +182,7 @@ def fake_inference(monkeypatch):
         calls=[],
         answer="Réponse simulée.",
         output_tokens={},
+        throughput={},
     )
 
     async def run_inference(
@@ -224,7 +226,7 @@ def fake_inference(monkeypatch):
                 output_tokens=state.output_tokens.get(model_tag, 40),
                 total_duration_s=1.6,
                 load_duration_s=0.1,
-                tokens_per_second=25.0,
+                tokens_per_second=state.throughput.get(model_tag, 25.0),
                 load_measured=True,
                 eval_duration_s=1.6,
             ),

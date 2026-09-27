@@ -13,6 +13,15 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from src.app.charts import (
+    ink_expr,
+    palette_size,
+    remember_entity_slots,
+    slot_symbol,
+    stacked_labels,
+    vega_color_domain,
+    zero_based_range,
+)
 from src.app.formatting import (
     MISSING,
     NBSP,
@@ -68,6 +77,101 @@ def _is_scored(value) -> bool:
 def _to_100(series: pd.Series) -> pd.Series:
     """Scores 0-1 → /100 arrondis ; « non évalué » reste vide (jamais 0)."""
     return pd.to_numeric(series, errors="coerce").mul(100).round()
+
+
+# Écart vertical minimal entre deux étiquettes d'un même côté (unités de l'échelle /100).
+_LABEL_GAP = 8.0
+
+
+def _quality_matrix(df_scored: pd.DataFrame, slots: dict[str, int], co2_unit: str):
+    """
+    Matrice qualité (note /100) selon le CO₂, un point par modèle noté.
+
+    - Axe CO₂ depuis 0, graduations bornées (un seul point : pas de graduation au dixième).
+    - Échelle /100 comme le podium.
+    - Couleur et forme liées au modèle (`slots`, place de chaque nom dans la palette) :
+      au-delà de la palette, la forme distingue les modèles de même couleur ; légende dès
+      2 modèles.
+    - Chaque point étiqueté du nom complet, du côté intérieur du cadre, en couleur de texte
+      du thème ; étiquettes empilées sans chevauchement (`stacked_labels`) et reliées à leur
+      point par un trait quand elles s'en écartent.
+    - Ni zoom ni déplacement (pas de `.interactive()`) : les étiquettes restent dans le cadre
+      calculé pour elles.
+    """
+    # Note sur /100 pour l'axe et l'infobulle (une seule échelle, EXPERIENCE.md).
+    co2 = [co2_in_unit(mg_to_grams(v), co2_unit) for v in df_scored["CO2_mg"]]
+    notes = list(df_scored["Score"].astype(float) * 100)
+    x_upper = zero_based_range(co2, headroom=0.25)[1]
+    labels = stacked_labels(list(zip(co2, notes, strict=True)), x_upper, gap=_LABEL_GAP)
+    df_chart = df_scored.assign(
+        Note=notes,
+        CO2=co2,
+        Côté=[label.side if label else "right" for label in labels],
+        label_y=[label.y if label else note for label, note in zip(labels, notes, strict=True)],
+    )[["Modèle", "Note", "CO2", "Latence_s", "Côté", "label_y"]]
+
+    names = list(df_chart["Modèle"])
+    n_colors = palette_size()
+    legend = alt.Legend(values=names, labelLimit=0) if len(names) >= 2 else None
+    color = alt.Color(
+        "Modèle", title="Modèle", scale=alt.Scale(domain=vega_color_domain(slots)), legend=legend
+    )
+    shape = alt.Shape(
+        "Modèle",
+        title="Modèle",
+        scale=alt.Scale(
+            domain=names, range=[slot_symbol(slots.get(name, 0), n_colors) for name in names]
+        ),
+        legend=legend,
+    )
+    x = alt.X(
+        "CO2",
+        title=f"CO₂ ({co2_unit}), plus bas est mieux",
+        scale=alt.Scale(domain=[0, x_upper], nice=True),
+        axis=alt.Axis(tickCount=5),
+    )
+
+    def y(field: str) -> alt.Y:
+        # Même titre, même échelle pour les points et leurs étiquettes : un seul axe y.
+        return alt.Y(
+            field,
+            title="Note globale (/100), plus haut est mieux",
+            scale=alt.Scale(domain=[0, 100]),
+            axis=alt.Axis(values=[0, 20, 40, 60, 80, 100]),
+        )
+
+    base = alt.Chart(df_chart)
+    points = base.mark_point(
+        filled=True, size=150, opacity=1, stroke={"expr": "background"}, strokeWidth=2
+    ).encode(
+        x=x,
+        y=y("Note"),
+        color=color,
+        shape=shape,
+        tooltip=[
+            "Modèle",
+            alt.Tooltip("Note", title="Note (/100)", format=".0f"),
+            # Trois chiffres significatifs, sans zéros finaux.
+            alt.Tooltip("CO2", title=f"CO₂ ({co2_unit})", format=".3~r"),
+            alt.Tooltip("Latence_s", title="Durée (s)", format=".2f"),
+        ],
+    )
+    ink = ink_expr() or alt.Undefined
+    # Trait du point à son étiquette, seulement si l'étiquette a été décalée.
+    leaders = (
+        base.transform_filter("abs(datum.label_y - datum.Note) > 0.5")
+        .mark_rule(color=ink, opacity=0.5)
+        .encode(x=x, y=y("Note"), y2="label_y")
+    )
+    # Étiquette à droite du point dans la moitié gauche de l'axe, à gauche sinon.
+    texts = [
+        base.transform_filter(alt.datum["Côté"] == side)
+        .mark_text(align=align, dx=dx, baseline="middle", color=ink)
+        .encode(x=x, y=y("label_y"), text="Modèle")
+        for side, align, dx in (("right", "left", 12), ("left", "right", -12))
+    ]
+    # Virgule décimale et espace fine des milliers (locale Vega, sans CDN).
+    return alt.layer(points, leaders, *texts).configure(locale=VEGA_LOCALE)
 
 
 def render_rag_eval_tab(
@@ -346,36 +450,12 @@ def render_rag_eval_tab(
                     "Le modèle idéal se situe en **haut à gauche** : qualité haute, CO₂ faible."
                 )
 
-                # Note sur /100 pour l'axe et l'infobulle (une seule échelle, EXPERIENCE.md).
-                df_chart = df_scored.assign(
-                    Note=df_scored["Score"].astype(float) * 100,
-                    CO2=[co2_in_unit(mg_to_grams(v), co2_unit) for v in df_scored["CO2_mg"]],
-                )
-
-                chart = (
-                    alt.Chart(df_chart[["Modèle", "Note", "CO2", "Latence_s"]])
-                    .mark_circle(size=150)
-                    .encode(
-                        x=alt.X("CO2", title=f"CO₂ ({co2_unit}), plus bas est mieux"),
-                        y=alt.Y(
-                            "Note",
-                            title="Note globale (/100), plus haut est mieux",
-                            scale=alt.Scale(domain=[0, 100]),
-                        ),
-                        color="Modèle",
-                        tooltip=[
-                            "Modèle",
-                            alt.Tooltip("Note", title="Note (/100)", format=".0f"),
-                            # Trois chiffres significatifs, sans zéros finaux.
-                            alt.Tooltip("CO2", title=f"CO₂ ({co2_unit})", format=".3~r"),
-                            alt.Tooltip("Latence_s", title="Durée (s)", format=".2f"),
-                        ],
-                    )
-                    .interactive()
-                    # Virgule décimale et espace fine des milliers (locale Vega, sans CDN).
-                    .configure(locale=VEGA_LOCALE)
-                )
-
+                # Couleur par modèle (tag), dans l'ordre stable des modèles évalués (échecs et
+                # « non évalué » compris), registre commun à l'Arène : ni la note ni un modèle
+                # écarté ne la changent.
+                tag_slots = remember_entity_slots(candidate_tags)
+                slots = {tag_to_friendly[t]: slot for t, slot in tag_slots.items()}
+                chart = _quality_matrix(df_scored, slots, co2_unit)
                 st.altair_chart(chart, width="stretch")
 
             # C. TABLEAU DÉTAILLÉ

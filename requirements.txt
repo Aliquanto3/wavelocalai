@@ -6,7 +6,7 @@
 # --- Frontend & UI ---
 streamlit>=1.64.0
 watchdog>=4.0.0
-plotly>=5.18.0
+plotly>=5.19.0
 
 # --- AI Core & Orchestration ---
 langchain>=0.3.0

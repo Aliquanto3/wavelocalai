@@ -9,10 +9,14 @@ Usage: python -m pytest tests/app/test_figures.py -v
 
 import base64
 import json
+import re
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
+from streamlit.dataframe_util import convert_arrow_bytes_to_pandas_df
 
+from src.app.charts import THEME_CATEGORY_TOKENS, THEME_TEXT_TOKEN
 from src.app.formatting import NBSP, NNBSP
 from src.app.states import THROUGHPUT_HELP
 from src.app.ui import badge_markdown
@@ -108,10 +112,35 @@ def _decode(values):
     return list(values)
 
 
-def _chart_values(at):
+def _history_figure(at):
     (chart,) = at.get("plotly_chart")
-    figure = json.loads(chart.proto.spec)
+    return json.loads(chart.proto.spec)
+
+
+def _chart_values(at):
+    figure = _history_figure(at)
     return [v for trace in figure["data"] for v in _decode(trace["y"])]
+
+
+def _axis_title(axis: dict) -> str:
+    """Titre d'un axe ou d'une figure (layout), texte seul."""
+    title = axis.get("title")
+    return title.get("text") if isinstance(title, dict) else title
+
+
+def _stamp(delta: timedelta) -> str:
+    """Horodatage local relatif à maintenant (les fenêtres de temps partent de l'heure
+    courante : des dates fixes sortiraient de la fenêtre par défaut avec le temps)."""
+    return (datetime.now() - delta).isoformat(timespec="seconds")
+
+
+def _write_sessions(env, sessions):
+    """Écrit le fichier du suivi : (écart avec maintenant, grammes) par session."""
+    rows = "".join(
+        f"{_stamp(delta)},wavelocal_session,run{i},10,{grams / 1000}\n"
+        for i, (delta, grams) in enumerate(sessions)
+    )
+    (env / "logs" / "emissions.csv").write_text(CSV_HEADER + rows, encoding="utf-8")
 
 
 def test_history_without_file():
@@ -125,31 +154,33 @@ def test_history_without_file():
 
 def test_history_reads_tracker_file_and_ignores_benchmark(offline_app_env):
     """L'historique lit le fichier du suivi (logs/emissions.csv), suivi de session seulement ;
-    le fichier du benchmark (logs/emissions/emissions.csv) est ignoré."""
+    le fichier du benchmark (logs/emissions/emissions.csv) est ignoré. Valeurs en mg."""
     logs_dir = offline_app_env / "logs"
     (logs_dir / "emissions.csv").write_text(
         CSV_HEADER
-        + "2026-09-26T09:15:00,wavelocal_session,a,10,0.00042\n"
-        + "2026-09-26T09:30:00,wavelocal_audit,b,10,0.00081\n"
-        + "2026-09-26T09:35:00,crew_mission,c,10,0.0005\n"
-        + "2026-09-26T09:40:00,codecarbon,d,10,0.9\n"
-        + "2026-09-26T09:45:00,wavelocal_session,e,10,0.00063\n",
+        + f"{_stamp(timedelta(hours=5))},wavelocal_session,a,10,0.00042\n"
+        + f"{_stamp(timedelta(hours=4))},wavelocal_audit,b,10,0.00081\n"
+        + f"{_stamp(timedelta(hours=3))},crew_mission,c,10,0.0005\n"
+        + f"{_stamp(timedelta(hours=2))},codecarbon,d,10,0.9\n"
+        + f"{_stamp(timedelta(hours=1))},wavelocal_session,e,10,0.00063\n",
         encoding="utf-8",
     )
     bench_dir = logs_dir / "emissions"
     bench_dir.mkdir()
     (bench_dir / "emissions.csv").write_text(
-        CSV_HEADER + "2026-09-26T10:00:00,benchmark_slm,f,10,0.777\n", encoding="utf-8"
+        CSV_HEADER + f"{_stamp(timedelta(minutes=30))},benchmark_slm,f,10,0.777\n",
+        encoding="utf-8",
     )
 
     at = _hardware_page(FakeTracker(0.0))
 
-    assert _chart_values(at) == pytest.approx([0.00042, 0.00063])
+    assert _chart_values(at) == pytest.approx([420, 630])
 
 
 def test_history_matches_real_tracker(offline_app_env):
     """CAP-4 : le CO₂ affiché (stop()) et la ligne lue par l'historique viennent du même
     tracker, dans le même fichier : écart < 5 %."""
+    from src.app.formatting import CO2_UNITS
     from src.core.green_monitor import SESSION_PROJECT, GreenTracker
 
     tracker = GreenTracker(SESSION_PROJECT)
@@ -158,8 +189,109 @@ def test_history_matches_real_tracker(offline_app_env):
 
     at = _hardware_page(FakeTracker(0.0, running=False), last_emissions=emissions_g)
 
-    (logged_kg,) = _chart_values(at)
-    assert logged_kg * 1000 == pytest.approx(emissions_g, rel=0.05, abs=1e-12)
+    (logged,) = _chart_values(at)
+    unit = _axis_title(_history_figure(at)["layout"]["yaxis"]).removeprefix("CO₂ (")[:-1]
+    assert logged * CO2_UNITS[unit] == pytest.approx(emissions_g, rel=0.05, abs=1e-12)
+
+
+def test_history_bars_per_session_in_rule_unit(offline_app_env):
+    """Sessions de 0,42 g, 0,63 g et 1,2 g : barres par session, en mg (unité de la règle),
+    titre qui dit ce qui est tracé, unité dans le titre d'axe, un seul axe y."""
+    _write_sessions(
+        offline_app_env,
+        [(timedelta(hours=3), 0.42), (timedelta(hours=2), 0.63), (timedelta(hours=1), 1.2)],
+    )
+    at = _hardware_page(FakeTracker(0.0))
+
+    figure = _history_figure(at)
+    (trace,) = figure["data"]
+    assert trace["type"] == "bar"
+    assert "fill" not in trace and "line" not in trace
+    # Une seule série : première couleur de la palette du thème (jeton, jamais un hex).
+    assert trace["marker"]["color"] == THEME_CATEGORY_TOKENS[0]
+    assert _decode(trace["y"]) == pytest.approx([420, 630, 1200])
+    layout = figure["layout"]
+    assert _axis_title(layout) == "Émissions de CO₂ par session"
+    assert _axis_title(layout["yaxis"]) == "CO₂ (mg)"
+    assert "yaxis2" not in layout
+    assert layout["separators"] == f",{NNBSP}"
+    # Info-bulle : date et CO₂ au format fr-FR ; dates numériques sur l'axe.
+    assert re.fullmatch(rf"\d\d/\d\d/\d{{4}} \d\d:\d\d<br>420{NBSP}mgCO₂", trace["hovertext"][0])
+    assert trace["hovertext"][2].endswith(f"<br>1{NNBSP}200{NBSP}mgCO₂")
+    formats = {stop["value"] for stop in layout["xaxis"]["tickformatstops"]}
+    assert formats == {"%d/%m %H:%M", "%d/%m"}
+
+
+def test_history_gap_between_sessions_stays_empty(offline_app_env):
+    """Sessions à deux heures d'écart, rien entre : deux barres séparées, sans liaison (ni
+    ligne ni aire) ; aucune barre ne s'étend jusqu'à sa voisine."""
+    _write_sessions(offline_app_env, [(timedelta(hours=3), 0.42), (timedelta(hours=1), 0.63)])
+    at = _hardware_page(FakeTracker(0.0))
+
+    (trace,) = _history_figure(at)["data"]
+    assert trace["type"] == "bar" and trace.get("mode") is None
+    first, second = (datetime.fromisoformat(x) for x in trace["x"])
+    gap_ms = (second - first).total_seconds() * 1000
+    widths = _decode(trace["width"])
+    # Deux demi-barres ne couvrent pas l'écart : un vide reste visible entre elles.
+    assert widths[0] / 2 + widths[1] / 2 < gap_ms
+
+
+def _period(at):
+    (control,) = [b for b in at.button_group if b.label == "Période"]
+    return control
+
+
+def test_history_time_window(offline_app_env):
+    """Sessions sur 40 jours : 7 derniers jours par défaut, puis 30 jours, puis tout ; la
+    fenêtre est choisie par l'utilisateur."""
+    _write_sessions(
+        offline_app_env,
+        [(timedelta(days=40), 1.2), (timedelta(days=10), 0.63), (timedelta(days=1), 0.42)],
+    )
+    at = _hardware_page(FakeTracker(0.0))
+
+    assert _period(at).options == ["7 derniers jours", "30 derniers jours", "Tout"]
+    assert _period(at).value == "7 derniers jours"
+    assert _chart_values(at) == pytest.approx([420])
+
+    _period(at).set_value("30 derniers jours").run()
+    assert _chart_values(at) == pytest.approx([630, 420])
+
+    _period(at).set_value("Tout").run()
+    assert _chart_values(at) == pytest.approx([1200, 630, 420])
+    # « Tout » : l'année sur l'axe des dates.
+    formats = {s["value"] for s in _history_figure(at)["layout"]["xaxis"]["tickformatstops"]}
+    assert formats == {"%d/%m/%Y %H:%M", "%d/%m/%Y"}
+
+
+def test_history_empty_window(offline_app_env):
+    """Aucune session sur la période choisie : message dédié, pas de graphique vide ; la
+    fenêtre reste modifiable."""
+    _write_sessions(offline_app_env, [(timedelta(days=40), 0.42)])
+    at = _hardware_page(FakeTracker(0.0))
+
+    # Des sessions plus anciennes existent : le message les compte et invite à « Tout ».
+    assert (
+        f"Aucune session sur cette période. 1{NBSP}session plus ancienne : choisissez « Tout » "
+        "pour les afficher." in [i.value for i in at.info]
+    )
+    assert "Aucune session mesurée pour l'instant." not in [i.value for i in at.info]
+    assert not at.get("plotly_chart")
+
+    _period(at).set_value("Tout").run()
+    assert _chart_values(at) == pytest.approx([420])
+
+
+def test_history_table_view(offline_app_env):
+    """Vue tableau repliée sous le graphique : date et CO₂ dans l'unité du graphique."""
+    _write_sessions(offline_app_env, [(timedelta(hours=2), 0.42), (timedelta(hours=1), 1.2)])
+    at = _hardware_page(FakeTracker(0.0))
+
+    (expander,) = [e for e in at.expander if e.label == "Voir les données"]
+    (table,) = expander.dataframe
+    assert list(table.value["CO₂"]) == pytest.approx([420, 1200])
+    assert json.loads(table.proto.columns)["CO₂"]["label"] == "CO₂ (mg)"
 
 
 def test_malformed_history_shows_readable_warning(offline_app_env):
@@ -282,9 +414,10 @@ def test_chat_session_total(fake_inference, run_page):
 
 
 def _bubble_texts(at):
+    """Étiquettes directes des points de la matrice de l'Arène (annotations reliées)."""
     (chart,) = at.get("plotly_chart")
     figure = json.loads(chart.proto.spec)
-    return [t for trace in figure["data"] for t in trace["text"]]
+    return [a["text"] for a in figure["layout"].get("annotations", [])]
 
 
 def test_arena_same_co2_unit_for_all_rows(fake_inference, run_page):
@@ -312,6 +445,178 @@ def test_arena_same_co2_unit_for_all_rows(fake_inference, run_page):
     assert sorted(texts) == sorted(
         f"<b>{name}</b><br>{expected[tag]}" for name, tag in names.items()
     )
+
+
+# ---------------------------------------------------------------------------
+# Arène des modèles : matrice note / débit lisible et juste (story 10)
+# ---------------------------------------------------------------------------
+
+GRANITE = {
+    "model": "granite4:3b",
+    "size": 2_100_000_000,
+    "digest": "3" * 64,
+    "details": {"family": "granite", "parameter_size": "3B", "quantization_level": "Q4_K_M"},
+    "type": "local",
+    "provider": "ollama",
+}
+GRANITE_NAME = "Granite 4.0 3B Instruct"
+
+
+@pytest.fixture
+def granite_installed(monkeypatch):
+    """Trois modèles locaux installés, dont un au nom long du catalogue."""
+    from src.core.llm_provider import LLMProvider
+    from src.core.models_db import MODELS_DB
+
+    MODELS_DB[GRANITE_NAME] = {
+        **MODELS_DB["Qwen 2.5 1.5B"],
+        "ollama_tag": GRANITE["model"],
+        "editor": "IBM",
+        "params_tot": "3B",
+        "params_act": "3B",
+    }
+    models = [*FAKE_LOCAL_MODELS, GRANITE]
+    monkeypatch.setattr(
+        LLMProvider,
+        "list_models",
+        staticmethod(lambda cloud_enabled=True: [dict(m) for m in models]),
+    )
+    return models
+
+
+def _arena_figure(at):
+    (chart,) = at.get("plotly_chart")
+    return json.loads(chart.proto.spec)
+
+
+def _traces_by_name(figure):
+    return {trace["name"]: trace for trace in figure["data"]}
+
+
+def test_arena_matrix_axes_legends_and_labels(granite_installed, fake_inference, run_page):
+    """3 modèles à 5,8, 5,9 et 6,0 tokens/s : axe du débit depuis 0, légende des modèles,
+    légende de taille (CO₂), étiquettes vers l'intérieur du cadre, nom long complet."""
+    speeds = {"qwen2.5:1.5b": 5.8, "gemma3:1b": 5.9, GRANITE["model"]: 6.0}
+    fake_inference.throughput.update(speeds)
+    fake_inference.output_tokens.update(
+        {"qwen2.5:1.5b": 40, "gemma3:1b": 80, GRANITE["model"]: 160}
+    )
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, granite_installed)
+
+    figure = _arena_figure(at)
+    layout = figure["layout"]
+    # Un seul axe y, sur /100 ; axe du débit de 0 au maximum plus une marge.
+    assert "yaxis2" not in layout
+    assert layout["xaxis"]["range"][0] == 0
+    assert layout["xaxis"]["range"][1] == pytest.approx(6.0 * 1.15)
+    assert layout["yaxis"]["tickvals"] == [0, 20, 40, 60, 80, 100]
+    assert "CO₂" in layout["title"]["text"]
+
+    # Légende des modèles, noms complets (graphique, légende et tableau).
+    assert layout["showlegend"] is True
+    traces = _traces_by_name(figure)
+    names = [_friendly(m) for m in granite_installed]
+    assert GRANITE_NAME in names
+    assert sorted(traces) == sorted(names)
+    assert all(trace["mode"] == "markers" for trace in traces.values())
+    assert GRANITE_NAME in set(_results_table(at)["Modèle"])
+
+    # Étiquettes directes : nom complet et CO₂, reliées à leur point, du côté intérieur (les
+    # points sont dans la moitié droite de l'axe), sans chevauchement (notes toutes à 85).
+    annotations = layout["annotations"]
+    assert sorted(a["text"].split("<br>")[0] for a in annotations) == sorted(
+        f"<b>{name}</b>" for name in names
+    )
+    for annotation in annotations:
+        assert annotation["showarrow"] is True
+        assert annotation["font"]["color"] == THEME_TEXT_TOKEN
+        assert annotation["xanchor"] == "right" and annotation["ax"] < 0
+        assert annotation["ayref"] == "y" and 0 <= annotation["ay"] <= 100
+    label_ys = sorted(a["ay"] for a in annotations)
+    assert all(b - a >= 13 - 1e-9 for a, b in zip(label_ys[:-1], label_ys[1:], strict=True))
+
+    # Légende de taille : surface proportionnelle au CO₂ (40, 80, 160 tokens).
+    sizes = {name: trace["marker"]["size"] for name, trace in traces.items()}
+    qwen, gemma = (_friendly(m) for m in FAKE_LOCAL_MODELS)
+    assert sizes[GRANITE_NAME] == pytest.approx(44)
+    assert sizes[gemma] == pytest.approx(44 / 2**0.5)
+    assert sizes[qwen] == pytest.approx(22)
+    assert f"Taille du point : CO₂ de la réponse, de 7,6{NBSP}mgCO₂ à 30,4{NBSP}mgCO₂." in " ".join(
+        _captions(at)
+    )
+
+
+def test_arena_winner_star_and_minimum_size(fake_inference, run_page):
+    """Le vainqueur (le plus rapide, le moins de CO₂) : étoile sur sa trace seulement, au moins
+    25 px même si son CO₂ donnerait un point minuscule ; la légende de taille le dit.
+    Légende des modèles horizontale sous le graphique."""
+    small, big = (m["model"] for m in FAKE_LOCAL_MODELS)
+    fake_inference.throughput.update({small: 30.0, big: 20.0})
+    fake_inference.output_tokens.update({small: 10, big: 1000})
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    figure = _arena_figure(at)
+    traces = _traces_by_name(figure)
+    winner, other = (_friendly(m) for m in FAKE_LOCAL_MODELS)
+    assert traces[winner]["marker"]["symbol"] == "star"
+    assert traces[other]["marker"]["symbol"] != "star"
+    assert traces[winner]["marker"]["size"] == pytest.approx(25)
+    assert traces[other]["marker"]["size"] == pytest.approx(44)
+    assert any(f"au moins 25{NBSP}px quel que soit son CO₂" in c for c in _captions(at))
+
+    legend = figure["layout"]["legend"]
+    assert legend["orientation"] == "h"
+    assert legend["yref"] == "container" and legend["yanchor"] == "bottom"
+
+
+def test_arena_colors_follow_the_model(three_models, fake_inference, run_page):
+    """Modèles A, B, C puis B, C seulement : B et C gardent leur couleur. Couleurs de la
+    palette du thème (jetons remplacés par Streamlit), jamais en dur, distinctes."""
+    from tests.app.conftest import THIRD_LOCAL_MODEL
+
+    models = [*FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL]
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, models)
+    first = {n: t["marker"]["color"] for n, t in _traces_by_name(_arena_figure(at)).items()}
+    assert len(set(first.values())) == 3
+    assert set(first.values()) <= set(THEME_CATEGORY_TOKENS[:4])
+
+    _run_arena(at, models[1:])
+    second = {n: t["marker"]["color"] for n, t in _traces_by_name(_arena_figure(at)).items()}
+    assert set(second) == {_friendly(m) for m in models[1:]}
+    assert second == {name: first[name] for name in second}
+
+
+def test_arena_color_ignores_rank_and_failures(three_models, fake_inference, run_page):
+    """Un modèle en échec n'est pas tracé : les autres gardent la couleur de leur place dans
+    la sélection, pas celle de leur rang."""
+    from tests.app.conftest import THIRD_LOCAL_MODEL
+
+    models = [*FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL]
+    fake_inference.timeouts.add(models[0]["model"])
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, models)
+
+    colors = {n: t["marker"]["color"] for n, t in _traces_by_name(_arena_figure(at)).items()}
+    assert colors == {
+        _friendly(models[1]): THEME_CATEGORY_TOKENS[1],
+        _friendly(models[2]): THEME_CATEGORY_TOKENS[2],
+    }
+
+
+def test_arena_single_scored_model_has_no_legend_box(fake_inference, run_page):
+    """Un seul modèle noté (l'autre en échec) : une série, pas de boîte de légende ; le
+    titre et l'étiquette le nomment."""
+    fake_inference.timeouts.add(FAKE_LOCAL_MODELS[1]["model"])
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    figure = _arena_figure(at)
+    assert figure["layout"]["showlegend"] is False
+    (annotation,) = figure["layout"]["annotations"]
+    assert annotation["text"].startswith(f"<b>{_friendly(FAKE_LOCAL_MODELS[0])}</b>")
 
 
 # ---------------------------------------------------------------------------
@@ -383,3 +688,123 @@ def test_documents_evaluation_common_co2_unit(
     spec = json.dumps(_vega_spec(at), ensure_ascii=False)
     assert f"CO₂ ({unit}), plus bas est mieux" in spec
     assert f'"title": "CO₂ ({unit})"' in spec
+
+
+@pytest.fixture
+def evaluation(monkeypatch, indexed_base):
+    """Évaluation simulée : notes Ragas fixes (0,9 puis 0,8…), 20 tokens par réponse."""
+    from src.core.eval_engine import EvalEngine, EvalResult
+    from src.core.llm_provider import LLMProvider
+
+    scores = iter([EvalResult(0.9, 0.9, 0.9), EvalResult(0.8, 0.8, 0.8)] * 3)
+    monkeypatch.setattr(EvalEngine, "evaluate_single_turn", lambda self, **kw: next(scores))
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(_rag_stream()))
+
+
+def _layers(spec):
+    """Couches (point, étiquettes) de la matrice de l'évaluation."""
+    points = next(layer for layer in spec["layer"] if layer["mark"]["type"] == "point")
+    labels = [layer for layer in spec["layer"] if layer["mark"]["type"] == "text"]
+    return points, labels
+
+
+def test_documents_evaluation_single_model_matrix(evaluation, run_page):
+    """Un seul modèle noté : axe CO₂ depuis 0 avec quelques graduations, point étiqueté du
+    nom du modèle, échelle /100 comme le podium, pas de boîte de légende pour une série."""
+    at = run_page(RAG_PAGE)
+    _run_evaluation(at, FAKE_LOCAL_MODELS[:1])
+
+    spec = _vega_spec(at)
+    points, labels = _layers(spec)
+    x = points["encoding"]["x"]
+    assert x["scale"]["domain"][0] == 0
+    # 3,8 mg : domaine [0 ; 4,75] arrondi, cinq graduations au plus (pas de pas au dixième).
+    assert x["scale"]["domain"][1] == pytest.approx(3.8 * 1.25)
+    assert x["axis"]["tickCount"] == 5
+    y = points["encoding"]["y"]
+    assert y["scale"]["domain"] == [0, 100]
+    assert y["axis"]["values"] == [0, 20, 40, 60, 80, 100]
+    assert points["encoding"]["color"]["legend"] is None
+
+    # Étiquette directe du point, en couleur de texte du thème (jamais la couleur de série).
+    assert {label["encoding"]["text"]["field"] for label in labels} == {"Modèle"}
+    assert all("expr" in label["mark"]["color"] for label in labels)
+    (chart,) = at.get("vega_lite_chart")
+    (dataset,) = chart.proto.datasets
+    data = convert_arrow_bytes_to_pandas_df(dataset.data.data)
+    assert list(data["Modèle"]) == [_friendly(FAKE_LOCAL_MODELS[0])]
+    assert list(data["Côté"]) == ["left"]
+
+    # Côté de l'étiquette : à gauche du point (alignée à droite, dx < 0) dans la moitié
+    # droite de l'axe, et l'inverse.
+    by_side = {label["transform"][0]["filter"]: label["mark"] for label in labels}
+    left = next(mark for f, mark in by_side.items() if "'left'" in str(f) or '"left"' in str(f))
+    right = next(mark for f, mark in by_side.items() if "'right'" in str(f) or '"right"' in str(f))
+    assert left["align"] == "right" and left["dx"] < 0
+    assert right["align"] == "left" and right["dx"] > 0
+
+
+def test_documents_evaluation_colors_follow_the_model(evaluation, run_page):
+    """Deux modèles : légende des séries, puis le second seul garde sa couleur (sa place dans
+    le domaine de couleur) ; noms complets dans la légende."""
+    names = [_friendly(m) for m in FAKE_LOCAL_MODELS]
+    at = run_page(RAG_PAGE)
+    _run_evaluation(at, FAKE_LOCAL_MODELS)
+
+    points, _ = _layers(_vega_spec(at))
+    color = points["encoding"]["color"]
+    assert color["scale"]["domain"][:2] == names
+    assert color["legend"]["values"] == names
+    assert color["legend"]["labelLimit"] == 0
+
+    _run_evaluation(at, FAKE_LOCAL_MODELS[1:])
+    points, _ = _layers(_vega_spec(at))
+    domain = points["encoding"]["color"]["scale"]["domain"]
+    # Même place (index 1) : même couleur de la palette du thème ; la place 0 reste vide.
+    assert domain.index(names[1]) == 1
+    assert names[0] not in domain
+
+
+def _eval_matrix(names, scores, co2_mg):
+    """Matrice de l'évaluation construite directement (données simulées, sans page)."""
+    import pandas as pd
+
+    from src.app.tabs.rag.eval import _quality_matrix
+
+    df = pd.DataFrame(
+        {"Modèle": names, "Score": scores, "CO2_mg": co2_mg, "Latence_s": [1.0] * len(names)}
+    )
+    spec = _quality_matrix(df, {name: i for i, name in enumerate(names)}, "mg").to_dict()
+    return spec, df
+
+
+def test_documents_evaluation_more_models_than_colors():
+    """6 modèles pour 4 couleurs : la forme distingue ceux qui partagent une couleur, dans la
+    légende comme sur le graphique."""
+    names = [f"Modèle {i}" for i in range(6)]
+    spec, _ = _eval_matrix(names, [0.9, 0.8, 0.7, 0.6, 0.5, 0.4], [1, 2, 3, 4, 5, 6])
+    points, _ = _layers(spec)
+    shape = points["encoding"]["shape"]
+    assert shape["scale"]["domain"] == names
+    assert shape["scale"]["range"] == ["circle"] * 4 + ["square"] * 2
+    assert shape["legend"] == points["encoding"]["color"]["legend"]
+    # Chaque paire (couleur, forme) est unique.
+    color_domain = points["encoding"]["color"]["scale"]["domain"]
+    pairs = {
+        (color_domain.index(n) % 4, s) for n, s in zip(names, shape["scale"]["range"], strict=True)
+    }
+    assert len(pairs) == 6
+
+
+def test_documents_evaluation_labels_do_not_overlap():
+    """Deux modèles au même CO₂ et aux notes proches (90 et 88) : étiquettes empilées à 8
+    points d'écart au moins, reliées à leur point par un trait."""
+    spec, _ = _eval_matrix(["Granite 4.0 3B Instruct", "Gemma 3 1B"], [0.9, 0.88], [3.8, 3.8])
+    (rows,) = spec["datasets"].values()
+    label_ys = sorted(row["label_y"] for row in rows)
+    assert label_ys[1] - label_ys[0] >= 8 - 1e-9
+    assert all(0 <= y <= 100 for y in label_ys)
+    _, labels = _layers(spec)
+    assert {label["encoding"]["y"]["field"] for label in labels} == {"label_y"}
+    rules = [layer for layer in spec["layer"] if layer["mark"]["type"] == "rule"]
+    assert rules and rules[0]["encoding"]["y2"]["field"] == "label_y"

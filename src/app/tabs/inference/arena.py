@@ -1,6 +1,7 @@
 """
 Onglet « Arène » de l'Arène des modèles : plusieurs modèles sur la même question, notés par
-un modèle juge. Graphique à bulles (taille = CO₂) et libellés directs.
+un modèle juge. Matrice note / débit (taille = CO₂, couleur par modèle), légendes, libellés
+directs et tableau.
 """
 
 import asyncio
@@ -11,7 +12,21 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.app.charts import (
+    THEME_GRAY_TOKEN,
+    THEME_SURFACE_TOKEN,
+    THEME_TEXT_TOKEN,
+    bubble_sizes,
+    palette_size,
+    remember_entity_slots,
+    size_legend_text,
+    slot_color,
+    slot_symbol,
+    stacked_labels,
+    zero_based_range,
+)
 from src.app.formatting import (
+    NBSP,
     PLOTLY_SEPARATORS,
     co2_in_unit,
     common_co2_unit,
@@ -48,6 +63,9 @@ from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import ARENA_MIN_MODELS
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
+
+# Diamètre minimal de l'étoile du vainqueur (px) : visible même s'il a le moins de CO₂.
+WINNER_MIN_PX = 25.0
 
 # Lancement désactivé sous ARENA_MIN_MODELS modèles : légende qui nomme le prérequis.
 MIN_MODELS_CAPTION = f"Choisissez au moins {ARENA_MIN_MODELS} modèles."
@@ -218,8 +236,114 @@ def _render_results_table(ranked: list[dict], unit: str) -> None:
     )
 
 
+def _hover_text(row, unit: str) -> str:
+    timings = _timings_label(row)
+    return (
+        f"<b>{row['Modèle']}</b><br>Note : {row['Note']}/100"
+        f"<br>Débit : {format_throughput(row['Débit (t/s)'], bool(row.get('Débit estimé')))}"
+        f"<br>CO₂ : {_co2_label(row, unit)}" + (f"<br>{timings}" if timings else "")
+    )
+
+
+# Écart horizontal entre le bord d'un point et son étiquette (px).
+_LABEL_OFFSET_PX = 28
+
+
+def _quality_matrix(df: pd.DataFrame, slots: dict[str, int], unit: str) -> go.Figure:
+    """
+    Matrice qualité (note /100) selon le débit, une trace par modèle noté (`df`, classé).
+
+    - Axes depuis 0 : jamais resserrés sur les seules valeurs (5,8 à 6 tokens/s).
+    - Couleur et forme liées au modèle (`slots`, par tag), étoile pour le vainqueur.
+    - Taille du point = CO₂ (surface proportionnelle), légende de taille sous le graphique ;
+      l'étoile du vainqueur garde au moins WINNER_MIN_PX.
+    - Nom complet et CO₂ en étiquette directe, reliée à son point, du côté intérieur du cadre
+      et empilée sans chevauchement quand les points sont proches ; légende des modèles dès
+      2 séries.
+    """
+    n_colors = palette_size()
+    x_range = zero_based_range(df["Débit (t/s)"])
+    sizes = bubble_sizes(df["CO2 (mg)"])
+    sizes[0] = max(sizes[0], WINNER_MIN_PX)
+    points = [(_num(row["Débit (t/s)"]), _num(row["Note"])) for _, row in df.iterrows()]
+    labels = stacked_labels(points, x_range[1])
+    fig = go.Figure()
+    for i, row in df.iterrows():
+        slot = slots.get(row.get("tag"), i)
+        x, y = points[i]
+        fig.add_trace(
+            go.Scatter(
+                x=[x],
+                y=[y],
+                mode="markers",
+                name=row["Modèle"],
+                marker={
+                    "size": sizes[i],
+                    "symbol": "star" if i == 0 else slot_symbol(slot, n_colors),
+                    "color": slot_color(slot, n_colors),
+                    "opacity": 0.9,
+                    # Anneau de 2 px couleur du fond : points superposés distincts.
+                    "line": {"width": 2, "color": THEME_SURFACE_TOKEN},
+                },
+                cliponaxis=False,
+                hoverinfo="text",
+                hovertext=[_hover_text(row, unit)],
+            )
+        )
+        label = labels[i]
+        if label is None:
+            continue
+        # Étiquette en couleur de texte du thème (jamais la couleur de la série), reliée au
+        # point par un trait gris qui part du bord du point.
+        offset = sizes[i] / 2 + _LABEL_OFFSET_PX
+        fig.add_annotation(
+            x=x,
+            y=y,
+            text=f"<b>{row['Modèle']}</b><br>{_co2_label(row, unit)}",
+            ax=-offset if label.side == "left" else offset,
+            axref="pixel",
+            ay=label.y,
+            ayref="y",
+            xanchor="right" if label.side == "left" else "left",
+            yanchor="middle",
+            align="right" if label.side == "left" else "left",
+            font={"color": THEME_TEXT_TOKEN},
+            showarrow=True,
+            arrowhead=0,
+            arrowwidth=1,
+            arrowcolor=THEME_GRAY_TOKEN,
+            standoff=sizes[i] / 2,
+        )
+
+    fig.update_layout(
+        title="Note du juge selon le débit (taille du point = CO₂)",
+        height=460,
+        margin={"l": 20, "r": 20, "t": 50, "b": 20},
+        showlegend=len(df) >= 2,
+        # Légende horizontale sous le graphique : toute la largeur de la colonne au tracé.
+        legend={
+            "title": {"text": "Modèle"},
+            "itemsizing": "constant",
+            "orientation": "h",
+            "xref": "container",
+            "x": 0,
+            "xanchor": "left",
+            "yref": "container",
+            "y": 0,
+            "yanchor": "bottom",
+        },
+        separators=PLOTLY_SEPARATORS,
+    )
+    fig.update_xaxes(title="Débit (tokens/s)", range=x_range, showgrid=True, zeroline=True)
+    # Échelle /100 seulement, sans graduation au-delà ; marge pour les points à 0 et 100.
+    fig.update_yaxes(
+        title="Note du juge (/100)", range=[-6, 106], tickvals=[0, 20, 40, 60, 80, 100]
+    )
+    return fig
+
+
 def _render_podium(results_data):
-    """Affiche le vainqueur, les graphiques comparatifs (Bubble Chart) et le tableau.
+    """Affiche le vainqueur, la matrice note / débit et le tableau.
 
     Seuls les modèles notés montent sur le podium ; « non évalué » et échecs apparaissent
     dans le tableau, jamais avec 0/100.
@@ -291,66 +415,18 @@ def _render_podium(results_data):
         if timings:
             st.caption(timings)
 
-    # --- GRAPHIQUE BUBBLE CHART (Plotly) ---
+    # --- MATRICE QUALITÉ / DÉBIT (Plotly) ---
+    # Couleur par modèle (tag), dans l'ordre stable de la sélection (results_data, échecs
+    # compris), registre commun à l'évaluation de la qualité : ni le classement ni les modèles
+    # écartés ne la changent.
+    slots = remember_entity_slots(r["tag"] for r in results_data if r.get("tag"))
     with col_chart:
-        fig = go.Figure()
-
-        for i, row in df.iterrows():
-            is_winner = i == 0
-
-            # 1. FORME : Distinction Vainqueur (étoile) vs Autres (cercle) ; la couleur de
-            # chaque série vient de la palette du thème (chartCategoricalColors).
-            symbol = "star" if is_winner else "circle"
-
-            # 2. TAILLE (Bubble Logic) : Proportionnelle au CO2
-            # On clope la taille min/max pour garder le graphique lisible
-            # Exemple : Un modèle léger (10mg) = 15px, un lourd (100mg) = 45px
-            co2_val = _num(row["CO2 (mg)"]) or 0.0
-            size = max(15, min(50, co2_val / 2))
-
-            # Si c'est le vainqueur, on force une taille minimale pour qu'il se voie
-            if is_winner:
-                size = max(size, 25)
-
-            # 3. LABEL DIRECT : Nom + CO2
-            label = f"<b>{row['Modèle']}</b><br>{_co2_label(row, unit)}"
-
-            fig.add_trace(
-                go.Scatter(
-                    x=[_num(row["Débit (t/s)"])],
-                    y=[row["Note"]],
-                    mode="markers+text",
-                    text=[label],
-                    textposition="top center",
-                    marker={
-                        "size": size,
-                        "symbol": symbol,
-                        "opacity": 0.9,
-                    },
-                    name=row["Modèle"],
-                    hoverinfo="text",
-                    hovertext=(
-                        f"<b>{row['Modèle']}</b><br>Note : {row['Note']}/100"
-                        "<br>Débit : "
-                        f"{format_throughput(row['Débit (t/s)'], bool(row.get('Débit estimé')))}"
-                        f"<br>CO₂ : {_co2_label(row, unit)}"
-                        + (f"<br>{_timings_label(row)}" if _timings_label(row) else "")
-                    ),
-                )
-            )
-
-        fig.update_layout(
-            title="Qualité selon le débit (taille du point = CO₂)",
-            xaxis_title="Débit (tokens/s)",
-            yaxis_title="Note du juge (/100)",
-            yaxis={"range": [0, 110]},  # Marge en haut pour les labels
-            xaxis={"showgrid": True},
-            height=380,
-            margin={"l": 20, "r": 20, "t": 40, "b": 20},
-            showlegend=False,
-            separators=PLOTLY_SEPARATORS,
+        st.plotly_chart(_quality_matrix(df, slots, unit), width="stretch")
+        st.caption(
+            f"{size_legend_text((mg_to_grams(v) for v in df['CO2 (mg)']), unit)} "
+            f"Étoile : vainqueur, au moins {WINNER_MIN_PX:.0f}{NBSP}px quel que soit son CO₂. "
+            "Valeurs exactes dans le tableau ci-dessous."
         )
-        st.plotly_chart(fig, width="stretch")
 
     _render_results_table(scored + not_evaluated + failed, unit)
 
@@ -506,6 +582,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                     results_data.append(
                         {
                             "Modèle": friendly_name,
+                            "tag": tag,
                             "is_cloud": is_cloud,
                             "Note": None,
                             "Débit (t/s)": None,
@@ -551,6 +628,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 results_data.append(
                     {
                         "Modèle": friendly_name,
+                        "tag": tag,
                         "is_cloud": is_cloud,
                         "Note": score,
                         # Débit = eval_count / eval_duration pour Ollama (D3).
@@ -580,6 +658,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 results_data.append(
                     {
                         "Modèle": friendly_name,
+                        "tag": tag,
                         "is_cloud": is_cloud,
                         "Note": None,
                         "Débit (t/s)": None,

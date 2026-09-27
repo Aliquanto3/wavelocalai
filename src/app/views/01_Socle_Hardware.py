@@ -2,10 +2,19 @@ import platform
 import socket
 import sys
 
-import plotly.express as px
+import pandas as pd
+import plotly.graph_objects as go
 import psutil
 import streamlit as st
 
+from src.app.charts import (
+    DEFAULT_HISTORY_WINDOW,
+    HISTORY_WINDOWS,
+    empty_window_text,
+    palette_size,
+    prepare_emissions_history,
+    slot_color,
+)
 from src.app.formatting import (
     NBSP,
     PLOTLY_SEPARATORS,
@@ -82,6 +91,74 @@ def get_co2_equivalencies(emissions_kg):
     km_car = emissions_kg / 0.110  # Moyenne voiture thermique
     smartphones = (emissions_kg * 1000) / 5  # Charge smartphone ~5g CO2
     return km_car, smartphones
+
+
+def render_emissions_history(df_emissions):
+    """Historique des émissions : une barre par session sur la période choisie, dans l'unité
+    CO₂ de la règle (mg le plus souvent) ; aucune liaison entre deux mesures, une période sans
+    session reste vide. Valeurs exactes dans une vue tableau repliée."""
+    window = st.segmented_control(
+        "Période",
+        list(HISTORY_WINDOWS),
+        default=DEFAULT_HISTORY_WINDOW,
+        required=True,
+        key="emissions_history_window",
+    )
+    history = prepare_emissions_history(df_emissions, window or DEFAULT_HISTORY_WINDOW)
+    if history.empty:
+        st.info(empty_window_text(history.older_count))
+        return
+
+    sessions = history.sessions
+    day_format = "%d/%m/%Y" if history.show_year else "%d/%m"
+    fig = go.Figure(
+        go.Bar(
+            x=sessions["timestamp"],
+            y=sessions["co2"],
+            width=sessions["width_ms"],
+            # Sessions au même horodatage : côte à côte, jamais superposées.
+            offset=sessions["offset_ms"],
+            # Une seule série : première couleur de la palette du thème.
+            marker={"color": slot_color(0, palette_size())},
+            name="CO₂ par session",
+            hovertext=sessions["hover"],
+            hoverinfo="text",
+        )
+    )
+    # Formats fr-FR sans locale Plotly (chargée depuis un CDN) : dates numériques, virgule
+    # décimale, espace fine pour les milliers.
+    fig.update_layout(
+        title="Émissions de CO₂ par session",
+        height=300,
+        margin={"l": 20, "r": 20, "t": 40, "b": 20},
+        separators=PLOTLY_SEPARATORS,
+        showlegend=False,
+        barcornerradius=4,
+    )
+    fig.update_xaxes(
+        title="Date",
+        type="date",
+        range=list(history.x_range),
+        # Graduation d'un jour ou plus : date seule ; en dessous, date et heure ; l'année sur
+        # les longues périodes (« Tout ») ou à cheval sur deux années.
+        tickformatstops=[
+            {"dtickrange": [None, 43_200_000], "value": f"{day_format} %H:%M"},
+            {"dtickrange": [43_200_001, None], "value": day_format},
+        ],
+    )
+    fig.update_yaxes(title=f"CO₂ ({history.unit})", rangemode="tozero", separatethousands=True)
+    st.plotly_chart(fig, width="stretch")
+
+    with st.expander("Voir les données", expanded=False):
+        st.dataframe(
+            pd.DataFrame({"Date": sessions["timestamp"], "CO₂": sessions["co2"]}),
+            column_config={
+                "Date": st.column_config.DatetimeColumn("Date", format="DD/MM/YYYY HH:mm"),
+                "CO₂": st.column_config.NumberColumn(f"CO₂ ({history.unit})", format="localized"),
+            },
+            hide_index=True,
+            width="stretch",
+        )
 
 
 # --- INIT TRACKER ---
@@ -193,25 +270,7 @@ with col_hist:
         if df_emissions is None:
             st.warning(TRACKING_UNAVAILABLE)
         elif not df_emissions.empty:
-            df_chart = df_emissions.tail(50)
-
-            fig = px.area(
-                df_chart,
-                x="timestamp",
-                y="emissions",
-                title="Émissions de CO₂ par session (kg)",
-                labels={"emissions": "Émissions (kgCO₂)", "timestamp": "Date"},
-            )
-            # Formats fr-FR sans locale Plotly (chargée depuis un CDN) : date numérique,
-            # virgule décimale, espace fine pour les milliers.
-            fig.update_layout(
-                height=250,
-                margin={"l": 20, "r": 20, "t": 30, "b": 20},
-                separators=PLOTLY_SEPARATORS,
-            )
-            fig.update_xaxes(tickformat="%d/%m %H:%M", hoverformat="%d/%m/%Y %H:%M")
-
-            st.plotly_chart(fig, width="stretch")
+            render_emissions_history(df_emissions)
         else:
             st.info("Aucune session mesurée pour l'instant.")
     except Exception as e:
