@@ -6,8 +6,6 @@ Assistant documentaire : import de documents, discussion avec ses sources, éval
 - État vide explicite
 """
 
-import time
-
 import nest_asyncio
 import streamlit as st
 
@@ -16,6 +14,7 @@ from src.app.tabs.rag.chat import render_rag_chat_tab
 from src.app.tabs.rag.eval import render_rag_eval_tab
 from src.app.formatting import pluralize
 from src.app.modules import DOCUMENTS
+from src.app.rag_upload import escape_markdown, ingest_uploaded_files
 from src.app.ui import FAVICON_PATH, model_options
 from src.core.config import DATA_DIR
 from src.core.eval_engine import EvalEngine
@@ -23,7 +22,12 @@ from src.core.llm_provider import LLMProvider
 from src.core.rag.strategies.hyde import HyDERetrievalStrategy
 from src.core.rag.strategies.naive import NaiveRetrievalStrategy
 from src.core.rag.strategies.self_rag import SelfRAGStrategy
-from src.core.rag_engine import RAGEngine
+from src.core.rag_engine import DEFAULT_EMBEDDING_MODEL, RAGEngine
+
+# Résultat du dernier import : posé avant st.rerun (qui ferme le dialogue), affiché au run
+# suivant puis retiré.
+LAST_INGEST_KEY = "rag_last_ingest"
+UPLOADER_GENERATION_KEY = "rag_uploader_generation"
 
 # PATCH ASYNCIO
 nest_asyncio.apply()
@@ -66,7 +70,7 @@ if "rag_engine" not in st.session_state:
         default_emb = (
             "bge-m3"
             if "bge-m3" in avail_emb
-            else (avail_emb[0] if avail_emb else "all-MiniLM-L6-v2")
+            else (avail_emb[0] if avail_emb else DEFAULT_EMBEDDING_MODEL)
         )
         avail_rerank = get_local_models("rerankers")
         default_rerank = avail_rerank[0] if avail_rerank else None
@@ -92,9 +96,14 @@ if "rag_messages" not in st.session_state:
 def open_knowledge_manager():
     st.caption("Ajoutez des documents PDF, TXT, MD ou DOCX à la base documentaire.")
 
-    # Zone d'upload large
+    # Clé renouvelée après chaque import : le sélecteur revient vide, sans réindexer les mêmes
+    # fichiers par un second clic.
+    uploader_generation = st.session_state.get(UPLOADER_GENERATION_KEY, 0)
     uploaded_files = st.file_uploader(
-        "Sélectionner des fichiers", type=["pdf", "txt", "md", "docx"], accept_multiple_files=True
+        "Sélectionner des fichiers",
+        type=["pdf", "txt", "md", "docx"],
+        accept_multiple_files=True,
+        key=f"rag_uploader_{uploader_generation}",
     )
 
     if uploaded_files:
@@ -106,25 +115,30 @@ def open_knowledge_manager():
         if st.button(
             "Indexer les documents", type="primary", icon=":material/upload:", width="stretch"
         ):
-            # Simulation d'ingestion (Remplacer par votre appel réel rag_engine.add_documents)
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            current = {}
 
-            try:
-                # Exemple de boucle d'ingestion
-                for i, file in enumerate(uploaded_files):
-                    status_text.text(f"Traitement de {file.name}…")
-                    # --- CODE D'INGESTION RÉEL ICI ---
-                    # rag_engine.ingest(file)
-                    # ---------------------------------
-                    time.sleep(0.5)  # Fake work pour la démo UX
-                    progress_bar.progress((i + 1) / len(uploaded_files))
+            def on_start(name):
+                current["status"] = st.status(
+                    f"Indexation de « {escape_markdown(name)} »…", expanded=False
+                )
 
-                st.success("Indexation terminée.")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erreur lors de l'indexation : {e}")
+            def on_result(result, report):
+                current["status"].update(
+                    label=f"« {escape_markdown(result.name)} » : {result.summary()}",
+                    state="complete" if result.ok else "error",
+                )
+                # Compte rendu enregistré après chaque fichier : conservé si le run s'interrompt.
+                st.session_state[LAST_INGEST_KEY] = report
+
+            report = ingest_uploaded_files(
+                st.session_state.rag_engine, uploaded_files, on_start, on_result
+            )
+            # Sélecteur vidé seulement si un fichier a abouti : après un échec total, la
+            # sélection reste disponible pour réessayer.
+            if report.succeeded:
+                st.session_state[UPLOADER_GENERATION_KEY] = uploader_generation + 1
+            # st.rerun ferme le dialogue : le résultat s'affiche au run suivant.
+            st.rerun()
 
     st.divider()
     st.caption("Contenu actuel")
@@ -158,7 +172,7 @@ with st.sidebar:
             "Modèle de représentation des textes",
             help="Modèle d'embedding qui convertit chaque extrait en vecteur.",
         )
-        avail_emb = get_local_models("embeddings") or ["sentence-transformers/all-MiniLM-L6-v2"]
+        avail_emb = get_local_models("embeddings") or [DEFAULT_EMBEDDING_MODEL]
         curr_emb = st.session_state.rag_engine.current_embedding_name
         sel_emb = st.selectbox(
             "Modèle",
@@ -203,6 +217,18 @@ with st.sidebar:
 # --- 4. MAIN PAGE LOGIC ---
 
 st.title(DOCUMENTS.title)
+
+# Résultat du dernier import, affiché une seule fois après la fermeture du dialogue.
+last_ingest = st.session_state.pop(LAST_INGEST_KEY, None)
+if last_ingest is not None:
+    success = last_ingest.success_message()
+    if success:
+        st.success(success, icon=":material/check_circle:")
+    for failure in last_ingest.failures:
+        st.error(failure.error_message(), icon=":material/error:")
+        if failure.detail:
+            with st.expander("Détails techniques", expanded=False):
+                st.code(failure.detail, language=None)
 
 # Vérification de l'état vide
 doc_count = st.session_state.rag_engine.get_stats()["count"]

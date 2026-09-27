@@ -12,6 +12,11 @@ from src.core.config import DATA_DIR
 logger = logging.getLogger(__name__)
 
 
+class DocumentReadError(ValueError):
+    """Lecture ou découpage d'un fichier impossible (dépendance manquante, fichier endommagé,
+    encodage non UTF-8). La cause d'origine est chaînée (`__cause__`)."""
+
+
 class IngestionPipeline:
     """
     Pipeline d'ingestion multi-formats.
@@ -78,10 +83,15 @@ class IngestionPipeline:
                 logger.warning(f"Extension non supportée : {ext}")
                 return []
 
-            # Nettoyage métadonnées
+            # Nettoyage métadonnées. Un chemin du dossier temporaire désigne une copie déjà
+            # supprimée (et contient le nom d'utilisateur sous Windows) : il n'est pas conservé.
+            keep_path = safe_path.is_relative_to(DATA_DIR.resolve())
             for doc in docs:
                 doc.metadata["source"] = original_name
-                doc.metadata["file_path"] = str(safe_path)
+                if keep_path:
+                    doc.metadata["file_path"] = str(safe_path)
+                else:
+                    doc.metadata.pop("file_path", None)
 
             # Chunking
             text_splitter = RecursiveCharacterTextSplitter(
@@ -93,4 +103,4 @@ class IngestionPipeline:
 
         except Exception as e:
             logger.error(f"❌ Erreur parsing {original_name} : {e}")
-            return []
+            raise DocumentReadError(f"Lecture impossible de {original_name} : {e}") from e

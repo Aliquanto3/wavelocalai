@@ -13,6 +13,10 @@ from src.core.rag.vector_store import VectorStoreManager
 
 logger = logging.getLogger(__name__)
 
+# Modèle d'embedding par défaut, partagé par le moteur et l'assistant documentaire : le nom de
+# la collection Chroma en dérive, un seul nom évite deux collections pour le même modèle.
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
 
 class RAGEngine:
     """
@@ -21,7 +25,9 @@ class RAGEngine:
     """
 
     def __init__(
-        self, embedding_model_name: str = "all-MiniLM-L6-v2", reranker_model_name: str = None
+        self,
+        embedding_model_name: str = DEFAULT_EMBEDDING_MODEL,
+        reranker_model_name: str = None,
     ):
 
         self.current_embedding_name = embedding_model_name

@@ -29,6 +29,7 @@ tqdm>=4.66.0
 numexpr>=2.8.0
 matplotlib>=3.7.0        # Chart Generator
 python-docx>=1.0.0       # Document Generator
+docx2txt>=0.9            # Import DOCX de l'assistant documentaire (Docx2txtLoader)
 # Gestion des boucles asynchrones (indispensable pour Streamlit + Agents)
 nest_asyncio
 # Gestion des timeouts pour les benchmarks
