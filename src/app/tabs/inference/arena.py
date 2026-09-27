@@ -468,8 +468,10 @@ def render_arena_tab(
     """
     Onglet « Arène ». `menu` (src/app/ui.py) porte les choix par défaut adaptés à la
     machine : libellés présélectionnés (petits modèles locaux qui tiennent en mémoire, hors
-    juge), juge par défaut (plus gros modèle local fiable qui tient) et ce que la règle sait
-    de chaque modèle (avertissements du juge).
+    juge et hors modèles dédiés au raisonnement), juge par défaut (cloud le plus capable si
+    le cloud est autorisé, sinon d'après le benchmark de ce poste, sinon plus gros modèle
+    local fiable qui tient) et ce que la règle sait de chaque modèle (avertissements du
+    juge).
     """
     preselected = menu.arena_defaults if menu else []
     judge_default = menu.judge_default if menu else None

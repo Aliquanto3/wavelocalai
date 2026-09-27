@@ -218,7 +218,9 @@ def test_lab_badge_on_chosen_model_and_answer(cloud_page, fake_inference):
     at = cloud_page(ARENA_PAGE)
     _select(at, "Modèle", _label(CLOUD_MODEL), key="lab_model_select")
     before = _markdowns(at).count(CLOUD_BADGE)
-    assert before == 1  # badge du modèle choisi
+    # Badge du modèle choisi, et celui du juge de l'Arène : cloud autorisé, le juge par
+    # défaut est le modèle cloud le plus capable (story 15).
+    assert before == 2
 
     _button(at, "Lancer le test").click().run()
     assert not at.exception, [e.value for e in at.exception]

@@ -13,6 +13,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from src.app.states import (
+    JUDGE_HELP_BENCHMARK,
+    JUDGE_HELP_CLOUD,
     JUDGE_HELP_FITS,
     JUDGE_HELP_NO_LOCAL,
     JUDGE_HELP_NONE_FITS,
@@ -448,3 +450,153 @@ def test_manager_reads_megabytes_as_fraction_of_gigabyte(installed, monkeypatch,
     (table,) = [t.value for t in at.dataframe if "RAM" in t.value.columns]
     ram = dict(zip(table["Tag"], table["RAM"], strict=True))
     assert ram["granite4:350m"] == pytest.approx(0.35)
+
+
+# ---------------------------------------------------------------------------
+# Story 15 : juge d'après le cloud ou le benchmark du poste, modèles de raisonnement
+# ---------------------------------------------------------------------------
+
+CLOUD_BADGE = ":orange-badge[:material/cloud: Cloud]"
+# Modèle local de 4,7B hors catalogue (≈ 4,2 Go estimés) : juge fiable, rapide sur le poste.
+MID_LOCAL = {
+    "model": "qwen3.5:4b",
+    "size": int(3.4 * 1024**3),
+    "digest": "4" * 64,
+    "details": {"family": "qwen35", "parameter_size": "4.7B", "quantization_level": "Q4_K_M"},
+    "type": "local",
+    "provider": "ollama",
+}
+MID = "Qwen3.5 · Local"
+# Modèle dédié au raisonnement, le plus petit (donc le plus rapide selon la règle).
+THINKING_LOCAL = {
+    "model": "lfm2.5-thinking:1.2b",
+    "size": 731 * 1024**2,
+    "digest": "5" * 64,
+    "details": {"family": "lfm2", "parameter_size": "1.2B", "quantization_level": "Q4_K_M"},
+    "type": "local",
+    "provider": "ollama",
+}
+THINKING = "Lfm2.5-thinking · Local"
+# Modèles cloud tels que les listent les fournisseurs Anthropic et OpenAI.
+CLAUDE_SONNET_4 = {
+    "model": "claude-sonnet-4-20250514",
+    "name": "Claude Sonnet 4",
+    "size": 0,
+    "type": "cloud",
+    "provider": "anthropic",
+}
+GPT_4O = {"model": "gpt-4o", "name": "GPT-4o", "size": 0, "type": "cloud", "provider": "openai"}
+
+
+@pytest.fixture
+def machine_benchmark(monkeypatch):
+    """Benchmark de ce poste simulé ({tag : précision, débit prudent})."""
+    from src.core.benchmark_results import BenchScore
+
+    def _set(scores: dict[str, tuple[float, float]]) -> None:
+        bench = {tag: BenchScore(p, s) for tag, (p, s) in scores.items()}
+        monkeypatch.setattr("src.app.ui.machine_benchmark", lambda: bench)
+
+    return _set
+
+
+def _judge_badges(at) -> list[str]:
+    (expander,) = [e for e in at.expander if e.label == "Réglages du juge"]
+    return [m.value for m in expander.markdown]
+
+
+def test_arena_judge_from_machine_benchmark(installed, machine_benchmark, run_page):
+    """Poste benchmarké : juge = le plus précis d'au moins 4B à plus de 10 tokens/s (pas le
+    plus gros, trop lent, ni le petit plus précis) ; aide qui le dit, aucun avertissement."""
+    installed([*FAKE_LOCAL_MODELS, BIG_LOCAL, MID_LOCAL])
+    machine_benchmark(
+        {
+            "granite4.2:8b": (0.795, 5.05),
+            "qwen3.5:4b": (0.87, 62.5),
+            "qwen2.5:1.5b": (0.95, 150.0),
+        }
+    )
+    at = run_page(ARENA_PAGE)
+
+    assert _judge_select(at).value == MID
+    assert _judge_select(at).help == JUDGE_HELP_BENCHMARK
+    assert not _warnings(at)
+    assert MID not in _arena_select(at).value
+
+
+def test_arena_cloud_enabled_judge_is_most_capable_cloud(monkeypatch, machine_benchmark):
+    """Cloud activé (clé Anthropic et OpenAI) : juge = Claude Sonnet 4, badge Cloud ; cloud
+    désactivé : juge local, aucun modèle cloud proposé."""
+    from src.core.llm_provider import LLMProvider
+
+    def list_models(cloud_enabled=False):
+        cloud = [dict(GPT_4O), dict(CLAUDE_SONNET_4)] if cloud_enabled else []
+        return [*cloud, *(dict(m) for m in (*FAKE_LOCAL_MODELS, MID_LOCAL))]
+
+    monkeypatch.setattr(LLMProvider, "list_models", staticmethod(list_models))
+    machine_benchmark({"qwen3.5:4b": (0.87, 62.5)})
+
+    for enabled, judge in ((True, "Claude Sonnet 4 · Cloud"), (False, MID)):
+        at = AppTest.from_file(str(APP_DIR / ARENA_PAGE), default_timeout=RENDER_TIMEOUT_S)
+        at.session_state["cloud_enabled"] = enabled
+        at.run()
+        try:
+            assert not at.exception, [e.value for e in at.exception]
+            assert _judge_select(at).value == judge
+            assert _judge_select(at).help == (
+                JUDGE_HELP_CLOUD if enabled else JUDGE_HELP_BENCHMARK
+            )
+            assert (CLOUD_BADGE in _judge_badges(at)) is enabled
+            assert not _warnings(at)
+        finally:
+            if "tracker" in at.session_state:
+                at.session_state["tracker"].stop()
+
+
+def test_documents_chat_first_model_is_not_a_reasoning_model(
+    installed, documents_indexed, run_page
+):
+    """Discussion : le modèle dédié au raisonnement, le plus petit, n'est pas proposé en
+    premier ; il reste sélectionnable."""
+    installed([THINKING_LOCAL, *FAKE_LOCAL_MODELS])
+    at = run_page(RAG_PAGE)
+
+    (chat_select,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+    assert chat_select.value == GEMMA
+    assert THINKING in chat_select.options
+
+
+def test_arena_does_not_preselect_reasoning_model(installed, run_page):
+    """Arène : ni premier proposé, ni présélectionné."""
+    installed([THINKING_LOCAL, *FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL])
+    at = run_page(ARENA_PAGE)
+
+    assert THINKING not in _arena_select(at).value
+    (chat_select,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+    assert chat_select.value == GEMMA
+
+
+def test_agents_default_is_not_a_reasoning_model(installed, monkeypatch, run_page):
+    """Agents autonomes : un modèle dédié au raisonnement aux outils vérifiés, le plus petit,
+    n'est pas le modèle par défaut ; il passe après les locaux non dédiés au raisonnement."""
+    from src.core.models_db import MODELS_DB
+
+    monkeypatch.setitem(
+        MODELS_DB,
+        "LFM 2.5 1.2B Thinking",
+        {
+            "ollama_tag": "lfm2.5-thinking:1.2b",
+            "type": "local",
+            "size_gb": "0.7 GB",
+            "params_tot": "1.2B",
+            "params_act": "1.2B",
+            "capabilities": ["chat", "tools"],
+        },
+    )
+    installed([THINKING_LOCAL, *FAKE_LOCAL_MODELS])
+    at = run_page(AGENTS_PAGE)
+
+    thinking = "LFM 2.5 1.2B Thinking · Local · outils vérifiés"
+    (select,) = [s for s in at.selectbox if s.label == "Modèle"]
+    assert select.value != thinking
+    assert select.options == ["Qwen 2.5 1.5B · Local · outils vérifiés", GEMMA, thinking]

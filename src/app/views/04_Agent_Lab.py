@@ -97,8 +97,9 @@ with st.sidebar:
 
 # --- PRÉPARATION DATA ---
 installed = LLMProvider.list_models(cloud_enabled=cloud_enabled())
-# Ordre : locaux avant cloud, puis ceux qui tiennent en mémoire, puis outils vérifiés, puis
-# la règle commune (le plus rapide en tête) : un modèle cloud ou un local qui ne tient pas ne
+# Ordre : locaux avant cloud, puis ceux qui ne sont pas dédiés au raisonnement, puis ceux
+# qui tiennent en mémoire, puis outils vérifiés, puis la règle commune (le plus rapide en
+# tête) : un modèle cloud, un modèle dédié au raisonnement ou un local qui ne tient pas ne
 # devient jamais le modèle par défaut parce que ses outils sont vérifiés. Tri stable.
 menu = model_menu(installed, cloud_types=("api", "cloud"))
 options = []
@@ -110,7 +111,8 @@ for label in menu.labels:
     is_verified = bool(info and "tools" in info.get("capabilities", []))
     # Remplace l'ancien marqueur emoji : support des outils vérifié dans le catalogue.
     shown = f"{label} · outils vérifiés" if is_verified else label
-    options.append(((choice.is_cloud, not choice.fits, not is_verified), shown, tag))
+    key = (choice.is_cloud, choice.dedicated_reasoning, not choice.fits, not is_verified)
+    options.append((key, shown, tag))
 
 sorted_options = [(label, tag) for _, label, tag in sorted(options, key=lambda o: o[0])]
 display_to_tag = dict(sorted_options)

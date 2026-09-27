@@ -48,6 +48,8 @@ def isolated_rule(monkeypatch):
     monkeypatch.setattr(ui, "available_memory_gb", lambda: 16.0)
     monkeypatch.setattr("src.core.model_defaults.load_versioned_catalog", lambda path=None: {})
     monkeypatch.setattr("src.core.model_defaults.MODELS_DB", {})
+    # Aucun benchmark de poste : model_menu ne lit pas celui de la machine qui lance les tests.
+    monkeypatch.setattr(ui, "machine_benchmark", lambda: {})
 
 
 def test_model_label_suffixes():

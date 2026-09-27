@@ -21,3 +21,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/14-couleur-primaire-sombre-lisible.md`
   summary: Liste explicite d'écarts de contraste acceptés dans test_accessibility.py (couleurs exactes, ratio, renvoi à DESIGN.md), pour que le test Agent_Lab sombre passe sur l'écart connu et échoue sur tout écart nouveau ; et classer le texte blanc sur primaryColor comme couleur du thème.
   evidence: Le test échoue désormais à chaque passage sur les pastilles à 4,24:1 (compromis accepté le 27/09) : une nouvelle régression sur cette page s'y confondrait. Le blanc des boutons principaux (4,26:1) n'est pas relevé : boutons dans des onglets masqués, et le blanc n'est pas une couleur de [theme.dark].
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/15-juge-modele-defaut-benchmark-poste.md`
+  summary: Trier « le plus rapide » (premier modèle proposé, présélection de l'Arène) sur le débit prudent du benchmark de ce poste plutôt que sur benchmark_stats de data/models.json.
+  evidence: rank_models lit encore avg_tokens_per_second de data/models.json, qui peut venir d'une autre machine ; le benchmark du poste est déjà chargé dans model_menu mais ne sert qu'au juge. Antérieur à la story 15 (règle de la story 7).

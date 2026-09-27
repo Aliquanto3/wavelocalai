@@ -62,6 +62,19 @@ def expected_weak_judge(tag: str, ollama_models: dict) -> bool:
     return describe_model(entry, 1e6, False, load_versioned_catalog(), MODELS_DB).weak_judge
 
 
+def expected_benchmark_judge(ollama_models: dict) -> str | None:
+    """Juge que le benchmark de ce poste désigne selon la règle de l'app (story 15), avec
+    les mêmes catalogues et les modèles installés : None sans benchmark de ce poste ou sans
+    modèle mesuré à plus de 10 tokens/s (la règle de la mémoire décide alors)."""
+    from src.core.benchmark_results import load_machine_benchmark
+    from src.core.model_defaults import benchmark_judge, is_remote_tag, rank_models
+
+    local = [m for m in ollama_models.values() if not is_remote_tag(m)]
+    # La mémoire disponible n'intervient pas dans le choix d'après le benchmark.
+    choice = benchmark_judge(rank_models(local, 1e6), load_machine_benchmark())
+    return choice.tag if choice else None
+
+
 def test_chat_cold_start_load_and_badge(page, app, require_models, generation_timeout_ms):
     """Premier message à froid (vérifié par /api/ps) : chargement annoncé puis affiché à part
     du débit, badge Local, CO₂, réponse juste, formats fr-FR."""
@@ -172,7 +185,17 @@ def test_arena_two_local_models_with_judge(
     panel.get_by_text("Réglages du juge").click()
     judge_box = panel.locator('[data-testid="stSelectbox"]').first
     judge_box.wait_for()
-    assert h.selected_value(judge_box).endswith("· Local"), "juge par défaut non local"
+    # Clés cloud vides (APP_ENV) : le juge par défaut reste local. Poste benchmarké : c'est
+    # le juge que désigne le benchmark de ce poste, sans nom de modèle figé ici.
+    default_judge = h.selected_value(judge_box)
+    assert default_judge.endswith("· Local"), "juge par défaut non local"
+    bench_judge = expected_benchmark_judge(ollama_models)
+    if bench_judge is not None:
+        from src.core.models_db import get_friendly_name_from_tag
+
+        name = get_friendly_name_from_tag(bench_judge)
+        expected = {f"{name} · Local", f"{name} ({bench_judge}) · Local"}
+        assert default_judge in expected, (default_judge, expected)
     h.pick_model(page, judge_box, judge)
     # L'avertissement suit le rerun déclenché par le choix du juge (la valeur affichée, elle,
     # change avant) : attendre ce rerun, puis l'état attendu (qui peut être déjà vrai avant).

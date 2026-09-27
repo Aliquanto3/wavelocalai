@@ -15,7 +15,7 @@ from streamlit.errors import StreamlitPageNotFoundError
 from src.app.formatting import format_duration
 from src.app.modules import ARENA
 from src.core.llm_provider import LLMProvider
-from src.core.model_defaults import JUDGE_MIN_PARAMS_B
+from src.core.model_defaults import BENCH_MIN_SPEED_TPS, JUDGE_MIN_PARAMS_B
 from src.core.model_detector import is_api_model
 
 # --- Service indisponible ---
@@ -72,7 +72,17 @@ JUDGE_UNFIT_WARNING = (
 JUDGE_SELF_CAPTION = (
     "Le juge {name} fait partie des modèles évalués : il note aussi sa propre réponse."
 )
-# Aide du sélecteur de juge, selon la situation de la machine.
+# Aide du sélecteur de juge : comment le juge par défaut a été choisi.
+JUDGE_HELP_CLOUD = (
+    "Cloud autorisé : par défaut, le modèle cloud le plus capable parmi ceux proposés. Tout "
+    "ce que le juge reçoit quitte la machine : la question, les réponses notées et, pour "
+    "l'évaluation des documents, les extraits."
+)
+JUDGE_HELP_BENCHMARK = (
+    "Choisi d'après le benchmark de ce poste : le modèle local le plus précis parmi ceux "
+    f"mesurés à plus de {BENCH_MIN_SPEED_TPS:g} tokens/s, d'au moins "
+    f"{JUDGE_MIN_PARAMS_B:g} milliards de paramètres actifs quand il y en a un."
+)
 JUDGE_HELP_FITS = "Par défaut, le plus gros modèle local qui tient en mémoire."
 JUDGE_HELP_NONE_FITS = (
     "Aucun modèle local ne tient en mémoire : par défaut, le plus petit modèle local."

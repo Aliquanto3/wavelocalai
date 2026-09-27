@@ -15,6 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from src.core import model_defaults as md
+from src.core.benchmark_results import BenchScore
 from src.core.config import SYSTEM_RAM_BUFFER_GB
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -593,3 +594,260 @@ def test_rule_on_versioned_catalog(available_gb):
         assert ranked[0] in fitting
     if len(fitting) >= 3:
         assert judge.tag not in preselection
+
+
+# ---------------------------------------------------------------------------
+# Story 15 : juge d'après le cloud ou le benchmark de ce poste, modèles de raisonnement
+# ---------------------------------------------------------------------------
+
+
+# Figures de poste-rtx3060 (benchmarks/results/poste-rtx3060-22601cd4.json) : précision
+# (moyenne raisonnement / consignes) et débit prudent, paramètres actifs du catalogue.
+RTX_MODELS = {
+    # nom: (tag, paramètres actifs, empreinte mesurée, précision, débit prudent)
+    "Granite 4.0 350M": ("granite4:350m", "0.35B", 1.16, 0.23, 230.07),
+    "LFM 2.5 1.2B Thinking": ("lfm2.5-thinking:1.2b", "1.2B", 1.007, 0.66, 272.57),
+    "Gemma 3 1B": ("gemma3:1b", "1B", 0.903, 0.59, 185.98),
+    "Qwen 3.5 0.8B": ("qwen3.5:0.8b", "0.87B", 1.219, 0.525, 175.71),
+    "LFM 2.5 2.6B": ("LiquidAI/lfm2.5-2.6b", "2.7B", 1.972, 0.94, 122.01),
+    "Gemma 4 E2B (QAT)": ("gemma4:e2b-it-qat", "2B", 1.548, 0.93, 114.25),
+    "Nemotron 3 Nano 4B": ("nemotron-3-nano:4b", "4.0B", 2.938, 0.835, 86.63),
+    "Qwen 3.5 4B": ("qwen3.5:4b", "4.7B", 3.3, 0.87, 62.5),
+    "Gemma 4 E4B (QAT)": ("gemma4:e4b-it-qat", "4B", None, 0.93, 68.75),
+    "Qwen 3.5 9B (Unsloth Q3_K_XL)": ("qwen3.5-ud:9b-q3_k_xl", "9.7B", 5.411, 0.87, 18.73),
+    "Gemma 4 12B (Unsloth IQ3_XXS)": ("gemma4-ud:12b-iq3_xxs", "11.9B", 5.379, 0.94, 6.62),
+    "Granite 4.2 8B": ("granite4.2:8b", "8.8B", 7.652, 0.795, 5.05),
+}
+RTX_CATALOG = {
+    name: {
+        "ollama_tag": tag,
+        "type": "local",
+        "size_gb": "6.1 GB",
+        "params_act": params,
+        "params_tot": params,
+        "measured_loaded_gb": loaded,
+        "capabilities": ["chat", "thinking"] if "qwen" in tag or "gemma4" in tag else ["chat"],
+    }
+    for name, (tag, params, loaded, _, _) in RTX_MODELS.items()
+}
+RTX_CATALOG_BY_TAG = {e["ollama_tag"]: e for e in RTX_CATALOG.values()}
+RTX_BENCH = {tag: BenchScore(p, s) for tag, _, _, p, s in RTX_MODELS.values()}
+RTX_INSTALLED = [_local(tag) for tag, *_ in RTX_MODELS.values()]
+# Débits de data/models.json sur ce poste (tous connus : ils départagent les locaux).
+RTX_SPEEDS = _speeds(**{tag: s for tag, _, _, _, s in RTX_MODELS.values()})
+
+CLAUDE = {"model": "claude-sonnet-4-20250514", "type": "cloud", "provider": "anthropic"}
+GPT4O = {"model": "gpt-4o", "type": "cloud", "provider": "openai"}
+GPT4O_MINI = {"model": "gpt-4o-mini", "type": "cloud", "provider": "openai"}
+
+
+def _rtx(models=None, available_gb=16.7):
+    return _rank(
+        RTX_INSTALLED if models is None else models,
+        available_gb,
+        catalog=RTX_CATALOG,
+        models_db=RTX_SPEEDS,
+    )
+
+
+def test_cloud_allowed_judge_is_most_capable_cloud():
+    """Cloud autorisé, Claude Sonnet 4 et GPT-4o listés : juge = Claude Sonnet 4."""
+    ranked = _rtx([GPT4O, *RTX_INSTALLED, CLAUDE])
+
+    judge = md.choose_judge(ranked, RTX_BENCH, allow_cloud=True)
+    assert judge.choice.tag == "claude-sonnet-4-20250514"
+    assert judge.choice.is_cloud and judge.reason == md.JUDGE_BY_CLOUD
+    assert not judge.choice.weak_judge
+
+
+def test_cloud_judge_order_is_fixed_in_code():
+    """Ordre fixé : gpt-4o avant mistral-large ; gpt-4o-mini et les inconnus après, par
+    ordre alphabétique."""
+    mistral = {"model": "mistral-large-2512", "type": "cloud"}
+    unknown = {"model": "aaa-cloud-model", "type": "cloud"}
+    ranked = _rank([mistral, GPT4O_MINI, unknown, GPT4O, PETIT], 8.0)
+    assert md.default_judge(ranked, allow_cloud=True).tag == "gpt-4o"
+
+    ranked = _rank([GPT4O_MINI, unknown, PETIT], 8.0)
+    assert md.default_judge(ranked, allow_cloud=True).tag == "aaa-cloud-model"
+    tags = ["gpt-4o-mini", "claude-3-opus-20240229", "claude-3-5-sonnet-20241022", "gpt-4o"]
+    assert sorted(tags, key=md.cloud_judge_rank) == [
+        "gpt-4o",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-opus-20240229",
+        "gpt-4o-mini",
+    ]
+
+
+def test_no_cloud_judge_when_cloud_is_disabled():
+    """Cloud désactivé : jamais un juge cloud, même listé (le benchmark décide)."""
+    ranked = _rtx([CLAUDE, *RTX_INSTALLED])
+
+    judge = md.choose_judge(ranked, RTX_BENCH, allow_cloud=False)
+    assert judge.choice.tag == "gemma4:e4b-it-qat"
+    assert md.default_judge(ranked).tag != "claude-sonnet-4-20250514"
+
+
+def test_cloud_allowed_without_cloud_model_uses_benchmark():
+    judge = md.choose_judge(_rtx(), RTX_BENCH, allow_cloud=True)
+    assert judge.reason == md.JUDGE_BY_BENCHMARK
+
+
+def test_benchmarked_machine_judge_is_gemma_4_e4b():
+    """poste-rtx3060, modèles actuels : juge = Gemma 4 E4B (QAT), 0,93 à ~69 tokens/s, sans
+    avertissement ; ni Granite 4.2 8B (5 tokens/s), ni les < 4B aussi précis (LFM 2.5 2.6B,
+    Gemma 4 E2B), ni Gemma 4 12B (6,6 tokens/s)."""
+    ranked = _rtx()
+
+    judge = md.choose_judge(ranked, RTX_BENCH)
+    assert judge.choice.tag == "gemma4:e4b-it-qat"
+    assert judge.reason == md.JUDGE_BY_BENCHMARK
+    assert not judge.choice.weak_judge
+    # Sans benchmark de ce poste, la règle de la story 7 choisit la plus grosse empreinte
+    # qui tient : Granite 4.2 8B.
+    assert md.default_judge(ranked).tag == "granite4.2:8b"
+
+
+def test_benchmark_judge_without_4b_takes_most_precise_and_stays_weak():
+    """Aucun ≥ 4B à plus de 10 tokens/s : le plus précis des rapides, note peu fiable."""
+    tags = {"gemma3:1b", "LiquidAI/lfm2.5-2.6b", "granite4.2:8b"}
+    ranked = _rtx([m for m in RTX_INSTALLED if m["model"] in tags])
+
+    judge = md.choose_judge(ranked, RTX_BENCH)
+    assert judge.choice.tag == "LiquidAI/lfm2.5-2.6b"
+    assert judge.reason == md.JUDGE_BY_BENCHMARK
+    assert judge.choice.weak_judge
+
+
+def test_unknown_machine_falls_back_to_footprint_rule():
+    """Poste inconnu (benchmark vide) : règle de la story 7."""
+    ranked = _rank([PETIT, MOYEN, GROS], 8.0)
+    for bench in (None, {}):
+        judge = md.choose_judge(ranked, bench)
+        assert judge.choice.tag == "gros:8b"
+        assert judge.reason == md.JUDGE_BY_FOOTPRINT
+
+
+def test_nothing_above_10_tps_falls_back_to_footprint_rule():
+    """Aucun modèle au-dessus de 10 tokens/s (10,0 exactement ne suffit pas) : story 7."""
+    bench = {"petit:1b": BenchScore(0.9, 10.0), "gros:8b": BenchScore(0.8, 5.0)}
+    ranked = _rank([PETIT, MOYEN, GROS], 8.0)
+
+    judge = md.choose_judge(ranked, bench)
+    assert judge.reason == md.JUDGE_BY_FOOTPRINT and judge.choice.tag == "gros:8b"
+    # Même règle quand rien ne tient : la raison le dit.
+    assert md.choose_judge(_rank([PETIT], 1.0), bench).reason == md.JUDGE_NONE_FITS
+
+
+def test_benchmark_judge_only_among_installed_local_models():
+    """Un modèle mesuré mais non installé, ou un cloud, n'est jamais le juge du benchmark."""
+    bench = {
+        "absent:9b": BenchScore(1.0, 90.0),
+        "mistral-large-2512": BenchScore(1.0, 90.0),
+        "moyen:3.8b": BenchScore(0.5, 50.0),
+        "gros:8b": BenchScore(0.6, 20.0),
+    }
+    ranked = _rank([PETIT, MOYEN, GROS, CLOUD], 8.0)
+    assert md.default_judge(ranked, bench).tag == "gros:8b"
+
+
+def test_benchmark_ties_broken_by_speed_then_tag():
+    bench = {"gros:8b": BenchScore(0.9, 20.0), "moe:30b-a3b": BenchScore(0.9, 40.0)}
+    catalog = {**CATALOG, "MoE 30B-A3B": {**CATALOG["MoE 30B-A3B"], "params_act": "5B"}}
+    ranked = _rank([GROS, _local("moe:30b-a3b")], 64.0, catalog=catalog)
+    assert md.default_judge(ranked, bench).tag == "moe:30b-a3b"
+
+    bench = {"b:8b": BenchScore(0.9, 20.0), "a:8b": BenchScore(0.9, 20.0)}
+    models = [_local(t, 4 * GB, "8B") for t in ("b:8b", "a:8b")]
+    ranked = md.rank_models(models, 64.0, catalog={}, models_db={})
+    assert md.default_judge(ranked, bench).tag == "a:8b"
+
+
+def test_benchmark_matches_latest_variant():
+    bench = {"LiquidAI/lfm2.5-2.6b": BenchScore(0.94, 122.0)}
+    model = _local("LiquidAI/lfm2.5-2.6b:latest", 2 * GB, "2.7B")
+    ranked = md.rank_models([model, PETIT], 16.0, catalog=CATALOG, models_db={})
+    assert md.default_judge(ranked, bench).tag == "LiquidAI/lfm2.5-2.6b:latest"
+
+
+def test_default_model_is_never_a_dedicated_reasoning_model():
+    """`lfm2.5-thinking:1.2b`, le plus rapide : premier proposé = Granite 4.0 350M ; Arène :
+    Granite 4.0 350M, Gemma 3 1B, Qwen 3.5 0.8B ; LFM Thinking reste sélectionnable."""
+    ranked = _rtx()
+
+    assert md.default_model(ranked).tag == "granite4:350m"
+    judge = md.default_judge(ranked, RTX_BENCH)
+    assert md.arena_preselection(ranked, judge) == ["granite4:350m", "gemma3:1b", "qwen3.5:0.8b"]
+    lfm = next(c for c in ranked if c.tag == "lfm2.5-thinking:1.2b")
+    assert lfm.dedicated_reasoning and lfm.fits
+    # Après tous les autres locaux qui tiennent.
+    assert [c.tag for c in ranked if c.fits][-1] == "lfm2.5-thinking:1.2b"
+
+
+def test_hybrid_thinking_models_stay_candidates():
+    """Hybrides (capacité `thinking` du catalogue, Qwen 3.5, Gemma 4) : pas écartés."""
+    ranked = _rtx()
+    hybrids = [c for c in ranked if "thinking" in RTX_CATALOG_BY_TAG[c.tag]["capabilities"]]
+    assert hybrids and not any(c.dedicated_reasoning for c in hybrids)
+
+
+@pytest.mark.parametrize(
+    ("tag", "name", "expected"),
+    [
+        ("lfm2.5-thinking:1.2b", None, True),
+        ("mon-modele:1b", "Phi 4 Mini Reasoning", True),
+        ("phi4-mini-reasoning:3.8b", None, True),
+        ("qwen3.5:4b", "Qwen 3.5 4B", False),
+        ("granite4:350m", "Granite 4.0 350M", False),
+    ],
+)
+def test_dedicated_reasoning_detection(tag, name, expected):
+    assert md.is_dedicated_reasoning(tag, name) is expected
+
+
+def test_dedicated_reasoning_by_catalog_or_display_name():
+    """Reconnu au nom du catalogue ou au nom affiché, même si le tag ne le dit pas."""
+    catalog = {"Phi 4 Mini Reasoning": {"ollama_tag": "phi4-mr:3.8b", "measured_loaded_gb": 0.5}}
+    ranked = _rank([_local("phi4-mr:3.8b"), PETIT], 8.0, catalog={**CATALOG, **catalog})
+    assert _tags(ranked)[0] == "petit:1b"
+
+    names = {"x:1b": "X Thinking"}
+    models = [_local("x:1b", GB // 4), _local("y:1b", GB)]
+    ranked = md.rank_models(models, 8.0, catalog={}, models_db={}, names=names)
+    assert _tags(ranked) == ["y:1b", "x:1b"]
+
+
+def test_reasoning_model_never_first_even_if_only_one_to_fit():
+    """Seul modèle qui tient : le local non dédié au raisonnement passe quand même devant,
+    même s'il ne tient pas ; le modèle de raisonnement n'est jamais présélectionné."""
+    thinking = _local("lfm2.5-thinking:1.2b", GB // 2)
+    ranked = md.rank_models([thinking, GROS], 3.0, catalog=CATALOG, models_db={})
+
+    assert not next(c for c in ranked if c.tag == "gros:8b").fits
+    assert md.default_model(ranked).tag == "gros:8b"
+    assert _tags(ranked) == ["gros:8b", "lfm2.5-thinking:1.2b"]
+    assert md.arena_preselection(ranked, md.default_judge(ranked)) == []
+    # Seul local : il reste proposé (aucun autre choix).
+    only = md.rank_models([thinking, CLOUD], 3.0, catalog=CATALOG, models_db={})
+    assert md.default_model(only).tag == "lfm2.5-thinking:1.2b"
+
+
+def test_benchmark_judge_prefers_a_model_that_fits():
+    """Mémoire serrée : le plus précis des rapides ne tient pas, un autre tient ; le juge
+    est celui qui tient."""
+    bench = {"gros:8b": BenchScore(0.95, 40.0), "moe:30b-a3b": BenchScore(0.80, 60.0)}
+    moe = {**CATALOG["MoE 30B-A3B"], "params_act": "5B", "measured_loaded_gb": 2.0}
+    catalog = {**CATALOG, "MoE 30B-A3B": moe}
+    ranked = _rank([GROS, _local("moe:30b-a3b")], 4.0, catalog=catalog)
+
+    assert not next(c for c in ranked if c.tag == "gros:8b").fits
+    judge = md.choose_judge(ranked, bench)
+    assert judge.choice.tag == "moe:30b-a3b" and judge.choice.fits
+    assert judge.reason == md.JUDGE_BY_BENCHMARK
+    # Un juge faible qui tient passe devant un juge fiable qui ne tient pas.
+    weak = {"petit:1b": BenchScore(0.5, 90.0), "gros:8b": BenchScore(0.95, 40.0)}
+    ranked = _rank([GROS, PETIT], 4.0)
+    assert md.default_judge(ranked, weak).tag == "petit:1b"
+    # Rien ne tient : le plus précis des fiables.
+    ranked = _rank([GROS, PETIT], 1.0)
+    assert md.default_judge(ranked, weak).tag == "gros:8b"

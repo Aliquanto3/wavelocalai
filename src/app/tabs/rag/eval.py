@@ -228,7 +228,7 @@ def render_rag_eval_tab(
         candidate_tags = [display_to_tag[d] for d in candidate_displays]
 
         st.subheader("Juge")
-        # Par défaut : le plus gros modèle local qui tient en mémoire (model_defaults).
+        # Par défaut : règle de src/core/model_defaults.py (choose_judge), aide qui la dit.
         default_judge_idx = (
             sorted_display_names.index(judge_default)
             if judge_default in sorted_display_names

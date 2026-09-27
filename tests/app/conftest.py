@@ -79,6 +79,8 @@ def offline_app_env(tmp_path, monkeypatch):
     monkeypatch.setattr("src.app.ui.available_memory_gb", lambda: FAKE_AVAILABLE_GB)
     monkeypatch.setattr(LLMProvider, "loaded_models_ram_gb", staticmethod(lambda timeout=2.0: 0.0))
     monkeypatch.setattr("src.core.model_defaults.load_versioned_catalog", lambda path=None: {})
+    # Aucun benchmark de poste (benchmarks/results/) : le juge ne dépend pas de la machine.
+    monkeypatch.setattr("src.app.ui.machine_benchmark", lambda: {})
     # État d'Ollama (accueil, alerte en tête de module) et modèles en mémoire : simulés.
     # L'état est mis en cache par st.cache_data, partagé entre les AppTest du processus.
     monkeypatch.setattr(LLMProvider, "ollama_available", staticmethod(lambda timeout=2.0: True))

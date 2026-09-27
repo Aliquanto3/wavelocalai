@@ -13,6 +13,8 @@ from pathlib import Path
 import streamlit as st
 
 from src.app.states import (
+    JUDGE_HELP_BENCHMARK,
+    JUDGE_HELP_CLOUD,
     JUDGE_HELP_FITS,
     JUDGE_HELP_NO_LOCAL,
     JUDGE_HELP_NONE_FITS,
@@ -23,14 +25,19 @@ from src.app.states import (
     WEAK_JUDGE_SMALL,
     WEAK_JUDGE_UNKNOWN,
 )
+from src.core.benchmark_results import BenchScore, load_machine_benchmark
 from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import (
+    JUDGE_BY_BENCHMARK,
+    JUDGE_BY_CLOUD,
+    JUDGE_NONE_FITS,
     ModelChoice,
     arena_preselection,
-    default_judge,
+    choose_judge,
+    find_entry,
     rank_models,
 )
-from src.core.models_db import get_friendly_name_from_tag
+from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
 from src.core.providers.provider_factory import is_cloud_tag
 from src.core.resource_manager import ResourceManager
 
@@ -139,6 +146,14 @@ def available_memory_gb() -> float:
     return st.session_state[MEMORY_SNAPSHOT_KEY]
 
 
+def machine_benchmark() -> dict[str, BenchScore]:
+    """Benchmark de ce poste (benchmarks/results/<machine_id>.json), {tag : précision et
+    débit prudent} ; vide sans fichier pour ce poste. Le dossier est parcouru à chaque
+    rerun ; un fichier lu avec succès est gardé en mémoire pour le processus, un résultat
+    vide est relu. Remplacé dans les tests."""
+    return load_machine_benchmark()
+
+
 @dataclass(frozen=True)
 class ModelMenu:
     """Options d'un sélecteur de modèles et choix par défaut, adaptés à la machine."""
@@ -149,9 +164,11 @@ class ModelMenu:
     tag_to_friendly: dict[str, str]
     labels: list[str]  # triés par la règle de src/core/model_defaults.py ; [0] = défaut
     arena_defaults: list[str]  # libellés présélectionnés dans l'Arène (hors juge)
-    judge_default: str | None  # libellé du juge par défaut (None : aucun modèle local)
+    judge_default: str | None  # libellé du juge par défaut (None : aucun juge proposable)
     weak_judges: frozenset[str]  # libellés dont la note de juge est peu fiable (< ~4B ou inconnu)
     choices: dict[str, ModelChoice] = field(default_factory=dict)  # libellé → faits de la règle
+    # Comment le juge par défaut a été choisi (JUDGE_BY_* de model_defaults, None sans juge).
+    judge_reason: str | None = None
 
     def is_cloud(self, label: str | None) -> bool | None:
         """Fournisseur réel du modèle d'un libellé : True si ses données quittent la
@@ -174,17 +191,35 @@ def is_cloud_model(tag: str | None, menu: ModelMenu | None = None) -> bool | Non
     return is_cloud_tag(tag)
 
 
+def _display_name(model: dict) -> str:
+    """Nom affiché d'un modèle : celui du catalogue ; pour un modèle cloud absent du
+    catalogue (Anthropic, OpenAI), le nom donné par son fournisseur (« Claude Sonnet 4 ») ;
+    sinon le nom tiré du tag."""
+    tag = model["model"]
+    name = model.get("name")
+    if (
+        model.get("type") != "local"
+        and isinstance(name, str)
+        and name.strip()
+        and find_entry(tag, MODELS_DB) is None
+    ):
+        return name.strip()
+    return get_friendly_name_from_tag(tag)
+
+
 def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) -> ModelMenu:
     """
     Sélecteur de modèles à partir de LLMProvider.list_models : libellés « Nom · Local » /
     « Nom · Cloud », triés par la règle (locaux d'abord, le plus rapide qui tient en mémoire
-    en tête, cloud en dernier), juge par défaut et présélection de l'Arène. Les tags ne
+    en tête, jamais un modèle dédié au raisonnement en premier, cloud en dernier), juge par
+    défaut (cloud le plus capable si le cloud est autorisé, sinon d'après le benchmark de ce
+    poste, sinon d'après la mémoire) et présélection de l'Arène. Les tags ne
     changent pas : seul l'ordre des libellés dépend de la machine. Deux tags au même nom
     affiché : le nom de chacun est complété par son tag, aucun modèle n'est masqué. Une
     entrée sans `model` est ignorée.
     """
     models = [m for m in models if m.get("model")]
-    friendly = {m["model"]: get_friendly_name_from_tag(m["model"]) for m in models}
+    friendly = {m["model"]: _display_name(m) for m in models}
     ranked = rank_models(models, available_memory_gb(), cloud_types=cloud_types, names=friendly)
 
     # Libellé déjà pris par un autre tag : nom complété par le tag.
@@ -199,7 +234,8 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     }
     tag_to_label = {c.tag: model_label(tag_to_friendly[c.tag], c.is_cloud) for c in ranked}
 
-    judge = default_judge(ranked)
+    judge_choice = choose_judge(ranked, machine_benchmark(), allow_cloud=cloud_enabled())
+    judge = judge_choice.choice
     return ModelMenu(
         display_to_tag={label: tag for tag, label in tag_to_label.items()},
         tag_to_friendly=tag_to_friendly,
@@ -208,6 +244,7 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
         judge_default=tag_to_label[judge.tag] if judge else None,
         weak_judges=frozenset(tag_to_label[c.tag] for c in ranked if c.weak_judge),
         choices={tag_to_label[c.tag]: c for c in ranked},
+        judge_reason=judge_choice.reason,
     )
 
 
@@ -221,7 +258,13 @@ def judge_help(menu: ModelMenu | None) -> str:
     judge = menu.choices.get(menu.judge_default) if menu and menu.judge_default else None
     if judge is None:
         return JUDGE_HELP_NO_LOCAL
-    return JUDGE_HELP_FITS if judge.fits else JUDGE_HELP_NONE_FITS
+    if menu.judge_reason == JUDGE_BY_CLOUD:
+        return JUDGE_HELP_CLOUD
+    if menu.judge_reason == JUDGE_BY_BENCHMARK:
+        return JUDGE_HELP_BENCHMARK
+    if menu.judge_reason == JUDGE_NONE_FITS or not judge.fits:
+        return JUDGE_HELP_NONE_FITS
+    return JUDGE_HELP_FITS
 
 
 def weak_judge_text(menu: ModelMenu | None, label: str | None) -> str | None:
