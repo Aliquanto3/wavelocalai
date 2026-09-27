@@ -158,6 +158,10 @@ async def test_timeout():
 
         assert result.error is not None, "Devrait avoir une erreur"
         assert "Timeout" in result.error, f"L'erreur devrait mentionner le timeout: {result.error}"
+        # Délai identifiable sans analyser le texte de l'erreur.
+        assert result.timed_out is True
+        assert result.timeout_s == 1
+        assert result.metrics is None
 
 
 @pytest.mark.asyncio
@@ -177,6 +181,8 @@ async def test_gestion_erreur_ollama():
 
         assert result.error is not None
         assert "not found" in result.error.lower(), f"Message d'erreur inattendu: {result.error}"
+        assert result.timed_out is False
+        assert result.metrics is None
 
 
 @pytest.mark.asyncio

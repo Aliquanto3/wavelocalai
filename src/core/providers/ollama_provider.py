@@ -15,6 +15,10 @@ from src.core.metrics import InferenceMetrics, MetricsCalculator
 
 logger = logging.getLogger(__name__)
 
+# Délai des appels d'état (santé, modèles en mémoire), en secondes : court, pour ne jamais
+# bloquer l'affichage quand Ollama est arrêté.
+STATUS_TIMEOUT_S = 2.0
+
 
 class OllamaProvider(ILLMProvider):
     """
@@ -51,7 +55,7 @@ class OllamaProvider(ILLMProvider):
         """Liste les modèles installés localement via Ollama."""
         models = []
         try:
-            ollama_resp = ollama.list()
+            ollama_resp = self._create_client().list()
             raw_models = (
                 ollama_resp.models
                 if hasattr(ollama_resp, "models")
@@ -166,15 +170,57 @@ class OllamaProvider(ILLMProvider):
     def pull_model(self, model_name: str) -> Any:
         """Télécharge un modèle via Ollama."""
         try:
-            return ollama.pull(model_name, stream=True)
+            return self._create_client().pull(model_name, stream=True)
         except Exception as e:
             logger.error(f"Erreur pull {model_name}: {e}")
             raise e
 
-    def health_check(self) -> bool:
-        """Vérifie si Ollama est accessible."""
+    def _create_client(self, timeout: float | None = None):
+        """Client synchrone sur l'hôte utilisé pour la génération (`base_url`), pour tous les
+        appels (liste, téléchargement, santé, modèles en mémoire) : jamais le client par
+        défaut (OLLAMA_HOST), qui pourrait viser un autre serveur. `timeout` : délai court
+        des appels d'état ; None garde le délai par défaut (téléchargement long)."""
+        if timeout is None:
+            return ollama.Client(host=self._base_url)
+        return ollama.Client(host=self._base_url, timeout=timeout)
+
+    def health_check(self, timeout: float = STATUS_TIMEOUT_S) -> bool:
+        """Vérifie qu'Ollama répond, sur l'hôte utilisé pour la génération (`base_url`).
+
+        Un seul appel local, borné par `timeout` : ne bloque pas l'interface si le service
+        est arrêté. Ne lève jamais d'exception.
+        """
         try:
-            ollama.list()
+            self._create_client(timeout).list()
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Ollama injoignable ({self._base_url}) : {e}")
             return False
+
+    def is_model_loaded(self, model_name: str, timeout: float = STATUS_TIMEOUT_S) -> bool | None:
+        """Indique si le modèle est déjà en mémoire (`ollama ps`).
+
+        Returns:
+            True s'il est chargé, False s'il ne l'est pas (le premier appel sera plus long),
+            None si l'état est inconnu (Ollama injoignable, réponse illisible). Ne lève jamais.
+        """
+        try:
+            response = self._create_client(timeout).ps()
+            raw_models = (
+                response.models if hasattr(response, "models") else response.get("models", [])
+            )
+            loaded = set()
+            for m in raw_models or []:
+                for key in ("model", "name"):
+                    value = getattr(m, key, None) if not isinstance(m, dict) else m.get(key)
+                    if value:
+                        loaded.add(_normalize_tag(value))
+            return _normalize_tag(model_name) in loaded
+        except Exception as e:
+            logger.debug(f"ollama ps impossible ({self._base_url}) : {e}")
+            return None
+
+
+def _normalize_tag(tag: str) -> str:
+    """Tag complet : « qwen2.5 » et « qwen2.5:latest » désignent le même modèle."""
+    return tag if ":" in tag else f"{tag}:latest"

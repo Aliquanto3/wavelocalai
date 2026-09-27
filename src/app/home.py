@@ -11,6 +11,7 @@ import streamlit as st
 
 from src.app.formatting import NBSP, format_number, format_percent
 from src.app.modules import APP_NAME, MODULES, RECOMMENDED
+from src.app.states import OLLAMA_DOWN_MESSAGE, ollama_available, system_status_label
 from src.app.ui import FAVICON_PATH
 
 st.set_page_config(page_title=APP_NAME, page_icon=FAVICON_PATH, layout="wide")
@@ -55,8 +56,17 @@ def main():
 
     col_sys, col_mode, col_cpu, col_mem = st.columns(4)
     with col_sys:
-        # Valeur fixe : l'état de santé réel relève de la story 5.
-        st.metric("Système", "Disponible", help="Services de l'application")
+        # État réel d'Ollama (local, délai court), jamais écrit en dur.
+        system_ok = ollama_available()
+        st.metric(
+            "Système",
+            system_status_label(system_ok),
+            help=(
+                "Ollama, le service des modèles locaux, répond."
+                if system_ok
+                else OLLAMA_DOWN_MESSAGE
+            ),
+        )
     with col_mode:
         st.metric("Mode", mode_value, help=mode_help)
     with col_cpu:

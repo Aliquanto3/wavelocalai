@@ -16,6 +16,7 @@ from src.app.formatting import (
 )
 from src.app.modules import SOBRIETY
 from src.app.ui import FAVICON_PATH
+from src.core.accelerator import KIND_APPLE, KIND_NVIDIA, detect_accelerator
 
 # --- IMPORT DYNAMIQUE ---
 try:
@@ -36,23 +37,21 @@ st.set_page_config(page_title=SOBRIETY.title, page_icon=FAVICON_PATH, layout="wi
 
 
 def get_device_info():
-    """Détecte le moteur de calcul (processeur, CUDA ou MPS)."""
-    device_type = "Processeur seul"
-    device_details = "Processeur x64 ou ARM"
+    """Accélérateur réellement détecté : (valeur de la métrique, légende, aide).
 
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            device_type = "GPU NVIDIA (CUDA)"
-            device_details = torch.cuda.get_device_name(0)
-        elif torch.backends.mps.is_available():
-            device_type = "Apple Silicon (MPS)"
-            device_details = "Metal Performance Shaders"
-    except ImportError:
-        pass
-
-    return device_type, device_details
+    « Aucun » si rien n'est détecté ou si la détection échoue ; jamais « Actif » en dur.
+    """
+    info = detect_accelerator()
+    if info.kind == KIND_NVIDIA:
+        return info.name, "GPU NVIDIA", f"Détecté par le pilote NVIDIA : {info.name}"
+    if info.kind == KIND_APPLE:
+        return info.name, "GPU intégré (Metal)", "Puce Apple : le GPU intégré sert à l'inférence."
+    return (
+        "Aucun",
+        "Aucun GPU NVIDIA ni Apple détecté",
+        "Aucun GPU NVIDIA ni puce Apple détecté. Un autre GPU (AMD, Intel) n'est pas "
+        "recherché ici.",
+    )
 
 
 def get_true_system_metrics():
@@ -87,7 +86,7 @@ st.divider()
 st.header("Santé du système")
 
 cpu_val, ram_pct, ram_used, ram_total = get_true_system_metrics()
-device_type, device_details = get_device_info()
+accelerator_value, accelerator_caption, accelerator_help = get_device_info()
 
 # Mode lu dans le contrôle global « Autoriser le cloud » (barre latérale commune).
 if st.session_state.get("cloud_enabled", True):
@@ -115,12 +114,8 @@ with st.container(border=True):
         )
 
     with c3:
-        st.metric(
-            label="Accélérateur IA",
-            value="Actif",
-            help=f"Moteur de calcul détecté : {device_details}",
-        )
-        st.caption(device_type)
+        st.metric(label="Accélérateur IA", value=accelerator_value, help=accelerator_help)
+        st.caption(accelerator_caption)
 
     with c4:
         st.metric(label="Mode", value=mode_value, help=mode_help)

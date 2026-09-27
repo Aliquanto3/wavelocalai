@@ -18,6 +18,7 @@ if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
 from src.app.modules import HOME_ICON, HOME_TITLE, MODULES  # noqa: E402
+from src.app.states import ollama_available, render_ollama_down_alert  # noqa: E402
 from src.app.ui import FAVICON_PATH, render_logo  # noqa: E402  (après l'ajout de la racine)
 
 try:
@@ -65,5 +66,11 @@ if "cloud_enabled" not in st.session_state:
 
 with st.sidebar:
     st.toggle(CLOUD_TOGGLE_LABEL, key="cloud_enabled", help=CLOUD_TOGGLE_HELP)
+
+# --- SERVICE INDISPONIBLE ---
+# En tête de chaque module (l'accueil l'affiche dans sa métrique « Système ») : Ollama
+# interrogé en local, délai court, état mis en cache quelques secondes.
+if page.url_path in {module.url_path for module in MODULES} and not ollama_available():
+    render_ollama_down_alert()
 
 page.run()

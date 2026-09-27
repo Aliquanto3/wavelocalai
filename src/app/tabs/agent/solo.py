@@ -9,8 +9,16 @@ Mode « Agent seul » des Agents autonomes.
 import streamlit as st
 
 from src.app.formatting import format_unit
+from src.app.states import (
+    LOADING_HINT,
+    LOADING_LABEL,
+    generation_failure_advice,
+    render_error,
+    render_no_models,
+)
 from src.core.agent_engine import AgentEngine
 from src.core.agent_tools import TOOLS_METADATA
+from src.core.llm_provider import LLMProvider
 from src.core.resource_manager import ResourceManager
 from src.core.utils import extract_thought
 
@@ -89,13 +97,17 @@ def open_prompt_library():
 
 def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
+    if not sorted_labels:
+        render_no_models()
+        return
+
     # --- 1. CONFIGURATION BAR ---
     c1, c2, c3 = st.columns([2, 4, 1])
 
     with c1:
         # Model Selector
         selected_label = st.selectbox("Modèle", sorted_labels, label_visibility="collapsed")
-        selected_tag = display_to_tag[selected_label]
+        selected_tag = display_to_tag.get(selected_label)
 
     with c2:
         # Tool Selector (Pills) : wrap=True replie les 9 pastilles sur plusieurs lignes au lieu
@@ -187,6 +199,8 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
                 if msg.get("content"):
                     st.markdown(msg["content"])
+                    if msg.get("blocked"):
+                        st.caption("Question bloquée par le garde-fou mémoire, non envoyée.")
 
                     # --- ACTION BAR FOR ASSISTANT ---
                     if msg["role"] == "assistant":
@@ -221,20 +235,32 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
             st.toast("Choisissez un modèle.", icon=":material/error:")
             st.stop()
 
-        check = ResourceManager.check_resources(selected_tag, n_instances=1)
-        if not check.allowed:
-            st.error(check.message)
-            st.stop()
-
-        st.session_state.agent_messages.append({"role": "user", "content": final_prompt})
+        # La question entre dans l'historique avant le garde-fou mémoire : bloquée, elle
+        # reste visible (et réutilisable) au lieu de disparaître.
+        user_turn = {"role": "user", "content": final_prompt}
+        st.session_state.agent_messages.append(user_turn)
         with chat_container.chat_message("user"):
             st.markdown(final_prompt)
 
+        check = ResourceManager.check_resources(selected_tag, n_instances=1)
+        if not check.allowed:
+            # Marquée bloquée : affichée, mais jamais renvoyée au moteur comme tour orphelin.
+            user_turn["blocked"] = True
+            # Mémoire nécessaire, mémoire libre, deux issues (modèle plus petit, libérer).
+            st.warning(check.message, icon=":material/memory:")
+            st.stop()
+
         with chat_container.chat_message("assistant"):
             # L'agent n'affiche rien tant qu'il n'a pas commencé à générer
-            # On affiche un placeholder de status vide pour le remplissage
+            # On affiche un placeholder de status vide pour le remplissage.
+            # Premier chargement : annoncé avant la génération (rien si `ps()` échoue).
             status_placeholder = st.empty()
-            status_box = status_placeholder.status("L'agent réfléchit…", expanded=True)
+            loading = LLMProvider.is_model_loaded(selected_tag) is False
+            if loading:
+                status_box = status_placeholder.status(LOADING_LABEL, expanded=True)
+                status_box.write(LOADING_HINT)
+            else:
+                status_box = status_placeholder.status("L'agent réfléchit…", expanded=True)
 
             engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
             full_resp = ""
@@ -243,14 +269,18 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
             try:
                 # Assuming system prompt is hidden/default for Sprint 2 to save space
                 sys_prompt = "Tu es un assistant expert Wavestone. Réponds en Markdown propre."
-                stream = engine.run_stream(
-                    final_prompt, st.session_state.agent_messages, system_prompt=sys_prompt
-                )
+                history = [m for m in st.session_state.agent_messages if not m.get("blocked")]
+                stream = engine.run_stream(final_prompt, history, system_prompt=sys_prompt)
 
                 current_tool_log = None  # Pour gérer l'ajout d'un seul log par tool_call
+                finished = False  # Réponse finale ou erreur reçue
 
                 for event in stream:
                     ev_type = event["type"]
+                    if loading:
+                        # Premier événement : le modèle est chargé, l'agent travaille.
+                        status_box.update(label="L'agent réfléchit…")
+                        loading = False
 
                     if ev_type == "tool_call":
                         status_box.write(
@@ -290,6 +320,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                             )
 
                     elif ev_type == "final_answer":
+                        finished = True
                         # Mise à jour de la boîte de statut uniquement à la fin
                         status_placeholder.empty()
                         status_box = st.status("Terminé", state="complete", expanded=False)
@@ -302,11 +333,23 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                         st.markdown(full_resp)
 
                     elif ev_type == "error":
+                        finished = True
                         status_placeholder.empty()
                         status_box = st.status("Erreur", state="error")
                         st.error(event["content"])
 
+                # Flux terminé sans réponse finale : le statut (« Chargement… » ou
+                # « L'agent réfléchit… ») ne reste pas ouvert.
+                if not finished:
+                    status_box.update(
+                        label="L'agent s'est arrêté sans réponse", state="error", expanded=False
+                    )
+
                 # ... (Carbon Calc et st.rerun inchangés) ...
             except Exception as e:
-                status_box.update(label="Échec", state="error")
-                st.error(f"L'agent s'est arrêté : {e}")
+                status_box.update(label="Échec", state="error", expanded=False)
+                render_error(
+                    "L'agent s'est arrêté avant de répondre. "
+                    + generation_failure_advice(selected_tag),
+                    f"{type(e).__name__}: {e}",
+                )

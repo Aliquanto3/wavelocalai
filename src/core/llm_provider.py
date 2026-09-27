@@ -90,6 +90,11 @@ class LLMProvider:
         Yields:
             str: Tokens générés
             InferenceMetrics: Métriques finales
+
+        Raises:
+            ValueError: Fournisseur indisponible pour ce modèle.
+            Exception: Erreur du fournisseur (Ollama arrêté, réseau…). Une erreur n'est jamais
+                renvoyée comme un token : l'appelant l'affiche comme une erreur.
         """
         factory = get_provider_factory()
 
@@ -103,14 +108,9 @@ class LLMProvider:
             ):
                 yield chunk
 
-        except ValueError as e:
-            # Provider non disponible
-            logger.error(f"Provider error: {e}")
-            yield f"Erreur : {e}"
-
         except Exception as e:
             logger.error(f"Chat stream error for {model_name}: {e}")
-            raise e
+            raise
 
     @staticmethod
     def get_langchain_model(model_name: str, temperature: float = 0.7, **kwargs) -> Any:
@@ -141,3 +141,46 @@ class LLMProvider:
         """
         factory = get_provider_factory()
         return factory.health_check_all()
+
+    @staticmethod
+    def _ollama_provider():
+        """Provider Ollama de la factory (hôte utilisé pour la génération), ou None."""
+        return get_provider_factory().get_provider_by_name("ollama")
+
+    @staticmethod
+    def ollama_available(timeout: float = 2.0) -> bool:
+        """
+        Vérifie qu'Ollama répond, en local et avec un délai court.
+
+        N'interroge aucun fournisseur cloud (contrairement à health_check, qui en appelle
+        certains réellement) : sert à l'état « Système » de l'application.
+        """
+        provider = LLMProvider._ollama_provider()
+        if provider is None or not hasattr(provider, "health_check"):
+            return False
+        try:
+            return bool(provider.health_check(timeout=timeout))
+        except Exception:
+            return False
+
+    @staticmethod
+    def is_model_loaded(model_name: str, timeout: float = 2.0) -> bool | None:
+        """
+        Indique si un modèle local est déjà en mémoire dans Ollama.
+
+        Returns:
+            True (chargé), False (pas encore chargé : le premier appel sera plus long) ou
+            None (modèle cloud, ou état inconnu). Ne lève jamais d'exception.
+        """
+        if not model_name or LLMProvider._is_mistral_api_model(model_name):
+            return None
+        try:
+            provider = get_provider_factory().get_provider(model_name)
+        except Exception:
+            return None
+        if getattr(provider, "provider_name", None) != "ollama":
+            return None
+        try:
+            return provider.is_model_loaded(model_name, timeout=timeout)
+        except Exception:
+            return None

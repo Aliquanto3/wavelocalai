@@ -13,7 +13,8 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from src.app.formatting import MISSING, NBSP, NNBSP, format_number, format_unit
+from src.app.formatting import MISSING, NBSP, NNBSP, format_number, format_unit, pluralize
+from src.app.states import NOT_EVALUATED, render_error, render_no_models
 
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
@@ -39,6 +40,16 @@ def _format_ratio(value) -> str:
     return text if text == MISSING else f"{text}/100"
 
 
+def _is_scored(value) -> bool:
+    """Score présent et fini (None ou NaN = « non évalué »)."""
+    return value is not None and value == value
+
+
+def _to_100(series: pd.Series) -> pd.Series:
+    """Scores 0-1 → /100 arrondis ; « non évalué » reste vide (jamais 0)."""
+    return pd.to_numeric(series, errors="coerce").mul(100).round()
+
+
 def render_rag_eval_tab(
     rag_engine, eval_engine, display_to_tag, tag_to_friendly, sorted_display_names
 ):
@@ -60,6 +71,10 @@ def render_rag_eval_tab(
             "Le moteur d'évaluation n'est pas installé : installez les dépendances de "
             "requirements.txt, puis rechargez la page."
         )
+        return
+
+    if not sorted_display_names:
+        render_no_models()
         return
 
     st.divider()
@@ -117,6 +132,7 @@ def render_rag_eval_tab(
         # B. Boucle d'évaluation
         results_raw = []  # Pour les graphiques (floats)
         detailed_responses = {}
+        failures = []  # (modèle, détail technique)
 
         prog_container = st.status("Évaluation en cours…", expanded=True)
         total_steps = len(candidate_tags)
@@ -182,27 +198,48 @@ def render_rag_eval_tab(
                     embedding_model=rag_engine.embedding_model,
                 )
 
-                # Stockage Brut
+                # Stockage Brut ; score None = « non évalué » (jamais converti en 0)
                 results_raw.append(
                     {
                         "Modèle": c_friendly,
-                        "Score": eval_result.global_score,  # Float 0-1
+                        "Score": eval_result.global_score,  # Float 0-1 ou None
                         "CO2_mg": carbon_mg,  # Float
                         "Latence_s": d_gen,  # Float
                         "Fidélité": eval_result.faithfulness,
                         "Pertinence": eval_result.answer_relevancy,
                         "RAM_GB": ram_gb,
+                        "Raison": eval_result.reason,
+                        "Détail": eval_result.detail,
                     }
                 )
 
                 detailed_responses[c_friendly] = {"text": clean_answer, "thought": thought}
 
             except Exception as e:
-                st.error(f"Échec de {c_friendly} : {e}")
+                prog_container.write(
+                    f"**{c_friendly}** : la réponse n'a pas pu être générée. Les autres continuent."
+                )
+                failures.append((c_friendly, f"{type(e).__name__}: {e}"))
 
             prog_bar.progress((i + 1) / total_steps)
 
-        prog_container.update(label="Évaluation terminée", state="complete", expanded=False)
+        if results_raw:
+            done_label = "Évaluation terminée"
+            if failures:
+                done_label += (
+                    f" · {pluralize(len(failures), 'modèle en échec', 'modèles en échec')}"
+                )
+            prog_container.update(label=done_label, state="complete", expanded=False)
+        else:
+            prog_container.update(label="Évaluation échouée", state="error", expanded=False)
+
+        if failures:
+            names = ", ".join(name for name, _ in failures)
+            render_error(
+                f"Réponse impossible pour : {names}. Vérifiez qu'Ollama est démarré et que le "
+                "modèle est installé.",
+                "\n".join(f"{name} : {detail}" for name, detail in failures),
+            )
 
         # 3. VISUALISATION & PODIUM
         if results_raw:
@@ -210,19 +247,32 @@ def render_rag_eval_tab(
 
             st.divider()
 
-            # A. PODIUM (Top 3 Scores)
+            # A. PODIUM (Top 3 Scores) : modèles notés seulement ; « non évalué » ensuite.
+            scored_mask = df["Score"].map(_is_scored).astype(bool)
+            df_scored = df[scored_mask].sort_values("Score", ascending=False)
+            df_unscored = df[~scored_mask]
+
             st.subheader("Podium de la qualité")
-            df_sorted = df.sort_values("Score", ascending=False).reset_index(drop=True)
+            if df_scored.empty:
+                st.info(
+                    "Aucune réponse n'a pu être notée : pas de podium. La raison est indiquée "
+                    "dans le tableau ci-dessous."
+                )
+            else:
+                df_podium = df_scored.reset_index(drop=True)
+                cols_podium = st.columns(3)
+                for i in range(min(3, len(df_podium))):
+                    row = df_podium.iloc[i]
+                    with cols_podium[i], st.container(border=True):
+                        st.markdown(f"**{i + 1}. {row['Modèle']}**")
+                        st.metric("Note globale", _format_ratio(row["Score"]))
+                        st.caption(f"CO₂ : {format_unit(row['CO2_mg'], 'mg', 2)}")
 
-            cols_podium = st.columns(3)
-
-            for i in range(min(3, len(df_sorted))):
-                row = df_sorted.iloc[i]
-                with cols_podium[i], st.container(border=True):
-                    st.markdown(f"**{i + 1}. {row['Modèle']}**")
-                    # « — » si Ragas n'a pas pu noter (NaN), jamais « nan/100 ».
-                    st.metric("Note globale", _format_ratio(row["Score"]))
-                    st.caption(f"CO₂ : {format_unit(row['CO2_mg'], 'mg', 2)}")
+            for _, row in df_unscored.iterrows():
+                st.caption(
+                    f"**{row['Modèle']}** : {NOT_EVALUATED}",
+                    help=row["Raison"] or "Le juge n'a pas pu noter cette réponse.",
+                )
 
             st.divider()
 
@@ -230,52 +280,65 @@ def render_rag_eval_tab(
             # Axe X : Impact CO2 (On veut le plus bas possible -> à gauche)
             # Axe Y : Qualité (On veut le plus haut possible -> en haut)
             # Le "Sweet Spot" est en haut à gauche.
-
-            st.subheader("Qualité selon le CO₂")
-            st.caption("Le modèle idéal se situe en **haut à gauche** : qualité haute, CO₂ faible.")
-
-            # Note sur /100 pour l'axe et l'infobulle (une seule échelle, EXPERIENCE.md).
-            df_chart = df.assign(Note=df["Score"] * 100)
-
-            chart = (
-                alt.Chart(df_chart)
-                .mark_circle(size=150)
-                .encode(
-                    x=alt.X("CO2_mg", title="CO₂ (mg), plus bas est mieux"),
-                    y=alt.Y(
-                        "Note",
-                        title="Note globale (/100), plus haut est mieux",
-                        scale=alt.Scale(domain=[0, 100]),
-                    ),
-                    color="Modèle",
-                    tooltip=[
-                        "Modèle",
-                        alt.Tooltip("Note", title="Note (/100)", format=".0f"),
-                        alt.Tooltip("CO2_mg", title="CO₂ (mg)", format=".2f"),
-                        alt.Tooltip("Latence_s", title="Durée (s)", format=".2f"),
-                    ],
+            # Seuls les modèles notés sont tracés : « non évalué » n'a pas de place sur l'axe.
+            if not df_scored.empty:
+                st.subheader("Qualité selon le CO₂")
+                st.caption(
+                    "Le modèle idéal se situe en **haut à gauche** : qualité haute, CO₂ faible."
                 )
-                .interactive()
-                # Virgule décimale et espace fine des milliers (locale Vega, sans CDN).
-                .configure(locale=VEGA_LOCALE)
-            )
 
-            st.altair_chart(chart, width="stretch")
+                # Note sur /100 pour l'axe et l'infobulle (une seule échelle, EXPERIENCE.md).
+                df_chart = df_scored.assign(Note=df_scored["Score"].astype(float) * 100)
+
+                chart = (
+                    alt.Chart(df_chart[["Modèle", "Note", "CO2_mg", "Latence_s"]])
+                    .mark_circle(size=150)
+                    .encode(
+                        x=alt.X("CO2_mg", title="CO₂ (mg), plus bas est mieux"),
+                        y=alt.Y(
+                            "Note",
+                            title="Note globale (/100), plus haut est mieux",
+                            scale=alt.Scale(domain=[0, 100]),
+                        ),
+                        color="Modèle",
+                        tooltip=[
+                            "Modèle",
+                            alt.Tooltip("Note", title="Note (/100)", format=".0f"),
+                            alt.Tooltip("CO2_mg", title="CO₂ (mg)", format=".2f"),
+                            alt.Tooltip("Latence_s", title="Durée (s)", format=".2f"),
+                        ],
+                    )
+                    .interactive()
+                    # Virgule décimale et espace fine des milliers (locale Vega, sans CDN).
+                    .configure(locale=VEGA_LOCALE)
+                )
+
+                st.altair_chart(chart, width="stretch")
 
             # C. TABLEAU DÉTAILLÉ
             st.subheader("Données détaillées")
 
             # Valeurs numériques (tri numérique), scores sur /100 ; affichage au format de la
             # locale du navigateur (virgule décimale sur un poste en français).
+            # Notés d'abord ; une note vide = « non évalué », raison dans la colonne Statut.
+            df_table = pd.concat([df_scored, df_unscored])
             df_display = pd.DataFrame(
                 {
-                    "Modèle": df["Modèle"],
-                    "Note": (df["Score"] * 100).round(),
-                    "Fidélité": (df["Fidélité"] * 100).round(),
-                    "Pertinence": (df["Pertinence"] * 100).round(),
-                    "CO₂": df["CO2_mg"],
-                    "Durée": df["Latence_s"],
-                    "Mémoire": df["RAM_GB"],
+                    "Modèle": df_table["Modèle"],
+                    "Note": _to_100(df_table["Score"]),
+                    "Fidélité": _to_100(df_table["Fidélité"]),
+                    "Pertinence": _to_100(df_table["Pertinence"]),
+                    "CO₂": df_table["CO2_mg"],
+                    "Durée": df_table["Latence_s"],
+                    "Mémoire": df_table["RAM_GB"],
+                    "Statut": [
+                        (
+                            "Évalué"
+                            if _is_scored(score)
+                            else f"{NOT_EVALUATED.capitalize()} : {reason or 'raison inconnue'}"
+                        )
+                        for score, reason in zip(df_table["Score"], df_table["Raison"], strict=True)
+                    ],
                 }
             )
 
@@ -299,10 +362,25 @@ def render_rag_eval_tab(
                     "CO₂": st.column_config.NumberColumn("CO₂ (mg)", format="localized"),
                     "Durée": st.column_config.NumberColumn("Durée (s)", format="localized"),
                     "Mémoire": st.column_config.NumberColumn("Mémoire (Go)", format="localized"),
+                    "Statut": st.column_config.TextColumn(
+                        "Statut",
+                        width="large",
+                        help="« Non évalué » : Ragas ou le juge n'a pas pu noter la réponse.",
+                    ),
                 },
                 hide_index=True,
                 width="stretch",
             )
+
+            # Texte des exceptions de l'évaluation : replié, hors du tableau.
+            eval_details = [
+                f"{name} : {detail}"
+                for name, detail in zip(df_table["Modèle"], df_table["Détail"], strict=True)
+                if isinstance(detail, str) and detail
+            ]
+            if eval_details:
+                with st.expander("Détails techniques", expanded=False):
+                    st.code("\n".join(eval_details), language=None)
 
             # D. RÉPONSES TEXTUELLES
             st.subheader("Réponses des modèles")
@@ -316,5 +394,5 @@ def render_rag_eval_tab(
                         st.info(f"**Raisonnement :**\n{data['thought']}")
                     st.markdown(data["text"])
 
-        else:
+        elif not failures:
             st.warning("Aucun résultat : aucun modèle n'a pu être évalué.")

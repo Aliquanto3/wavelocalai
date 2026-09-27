@@ -75,8 +75,10 @@ class MistralProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API Mistral."""
 
         if not self.is_available:
-            yield "Erreur : Provider Mistral non disponible (clé API manquante ou SDK non installé)."
-            return
+            # Une erreur n'est jamais renvoyée comme un token : l'appelant l'affiche.
+            raise ValueError(
+                "Provider Mistral non disponible (clé API manquante ou SDK non installé)."
+            )
 
         final_messages = messages.copy()
         if system_prompt:

@@ -42,6 +42,9 @@ psutil>=6.0.0
 # GPUtil requiert setuptools sur Python 3.12+ (car distutils a été supprimé)
 setuptools>=70.0.0
 GPUtil>=1.4.0
+# Détection du GPU NVIDIA (module pynvml) de « Sobriété et matériel » ; déjà tiré par
+# codecarbon, déclaré car importé directement. 13.615.71 vérifiée sur PyPI et installée.
+nvidia-ml-py>=13.615.71
 py-cpuinfo>=9.0.0
 
 # --- RAG & Vector Store ---

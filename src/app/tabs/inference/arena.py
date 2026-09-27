@@ -4,31 +4,173 @@ un modèle juge. Graphique à bulles (taille = CO₂) et libellés directs.
 """
 
 import asyncio
+import math
 import re
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.app.formatting import PLOTLY_SEPARATORS, format_unit
+from src.app.formatting import PLOTLY_SEPARATORS, format_unit, pluralize
+from src.app.states import (
+    LOADING_HINT,
+    LOADING_LABEL,
+    NOT_EVALUATED,
+    inference_failure_label,
+    render_error,
+    render_no_models,
+)
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceService
+from src.core.llm_provider import LLMProvider
 from src.core.models_db import get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
 
+# Statut d'une ligne de résultats.
+STATUS_SCORED = "scored"
+STATUS_NOT_EVALUATED = "not_evaluated"
+STATUS_FAILED = "failed"
+
+# Nombre signé, entier ou décimal (« -5 », « 8,5 ») : un candidat invalide annule la note.
+_NUM = r"-?\d+(?:[.,]\d+)?"
+# Note explicitement rapportée à 100 : « 85/100 », « 85 / 100 », « 85 sur 100 ».
+_OVER_100 = re.compile(rf"(?<![\d.,])({_NUM})\s*(?:/|sur)\s*100(?![\d.,]*\d)")
+# « sur 100 » ou « /100 » sans note devant (« Note sur 100 : 72 ») : échelle, pas une note.
+_SCALE = re.compile(r"(?:/|\bsur)\s*100(?![\d.,]*\d)")
+# Note étiquetée : « note : 85 », « Note finale = 85 », « score 85 ».
+_LABELLED = re.compile(
+    rf"\b(?:note|score)(?:\s+(?:globale|finale|attribuée))?\s*[:=]?\s*({_NUM})", re.I
+)
+# Réponse réduite au nombre (« 85 », « **85** », « 85. »).
+_WHOLE = re.compile(rf"[\s*_`\"'«»]*({_NUM})[\s*_`\"'«».!]*")
+
+
+def _as_score(raw: str) -> int | None:
+    """Entier de 0 à 100, sinon None (négatif, décimal, hors échelle)."""
+    return int(raw) if raw.isdigit() and 0 <= int(raw) <= 100 else None
+
+
+def parse_judge_score(text: str | None) -> int | None:
+    """
+    Note du juge, seulement si elle est explicite : « N/100 » (ou « N sur 100 »), « note : N »,
+    ou une réponse réduite au nombre. Un seul entier de 0 à 100 doit en ressortir ; sinon None
+    (« non évalué ») : jamais un nombre isolé du texte (« enfant de 10 ans »), jamais un
+    négatif, jamais 0 par défaut.
+    """
+    if not text:
+        return None
+    candidates = _OVER_100.findall(text)
+    rest = _SCALE.sub(" ", _OVER_100.sub(" ", text))
+    candidates += _LABELLED.findall(rest)
+    whole = _WHOLE.fullmatch(text)
+    if whole:
+        candidates.append(whole.group(1))
+    if not candidates:
+        return None
+    scores = {_as_score(raw) for raw in candidates}
+    if None in scores or len(scores) != 1:
+        return None
+    (score,) = scores
+    return score
+
+
+def _num(value) -> float | None:
+    """Valeur numérique finie, ou None (absente ou NaN d'un tableau pandas)."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def rank_results(results_data: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """
+    Classement : notes numériques d'abord (décroissantes, puis débit), puis les « non évalué »
+    (par débit), enfin les échecs, qui n'ont pas de place au classement.
+
+    Returns:
+        (notés, non évalués, échecs)
+    """
+
+    def speed(row):
+        return _num(row.get("Débit (t/s)")) or 0.0
+
+    scored = [r for r in results_data if r["status"] == STATUS_SCORED]
+    not_evaluated = [r for r in results_data if r["status"] == STATUS_NOT_EVALUATED]
+    failed = [r for r in results_data if r["status"] == STATUS_FAILED]
+    scored.sort(key=lambda r: (-r["Note"], -speed(r)))
+    not_evaluated.sort(key=lambda r: -speed(r))
+    return scored, not_evaluated, failed
+
+
+def _note_label(row: dict) -> str:
+    if row["status"] == STATUS_SCORED:
+        return f"{row['Note']}/100"
+    if row["status"] == STATUS_NOT_EVALUATED:
+        return NOT_EVALUATED
+    return "—"
+
+
+def _status_label(row: dict) -> str:
+    if row["status"] == STATUS_SCORED:
+        return "Classé"
+    if row["status"] == STATUS_NOT_EVALUATED:
+        return f"{NOT_EVALUATED.capitalize()} : {row['reason']}"
+    return row["reason"]
+
+
+def _render_results_table(ranked: list[dict]) -> None:
+    """Tableau de tous les modèles, échecs compris : chaque ligne dit son statut."""
+    df = pd.DataFrame(
+        {
+            "Modèle": [r["Modèle"] for r in ranked],
+            "Note": [_note_label(r) for r in ranked],
+            "Débit": [r.get("Débit (t/s)") for r in ranked],
+            "CO₂": [r.get("CO2 (mg)") for r in ranked],
+            "Statut": [_status_label(r) for r in ranked],
+        }
+    )
+    st.dataframe(
+        df,
+        column_config={
+            "Modèle": st.column_config.TextColumn("Modèle", width="medium"),
+            "Note": st.column_config.TextColumn(
+                "Note (/100)", help="« non évalué » : le juge n'a pas pu noter la réponse."
+            ),
+            "Débit": st.column_config.NumberColumn("Débit (tokens/s)", format="localized"),
+            "CO₂": st.column_config.NumberColumn("CO₂ (mg)", format="localized"),
+            "Statut": st.column_config.TextColumn("Statut", width="large"),
+        },
+        hide_index=True,
+        width="stretch",
+    )
+
 
 def _render_podium(results_data):
-    """Affiche le vainqueur et les graphiques comparatifs (Bubble Chart)."""
-    if not results_data:
+    """Affiche le vainqueur, les graphiques comparatifs (Bubble Chart) et le tableau.
+
+    Seuls les modèles notés montent sur le podium ; « non évalué » et échecs apparaissent
+    dans le tableau, jamais avec 0/100.
+    """
+    scored, not_evaluated, failed = rank_results(results_data)
+    if not scored and not not_evaluated:
         return
 
-    # Tri : Score (desc) > Vitesse (desc)
-    df = pd.DataFrame(results_data)
-    df = df.sort_values(by=["Note", "Débit (t/s)"], ascending=[False, False]).reset_index(drop=True)
+    st.header("Verdict")
+
+    if not scored:
+        st.info(
+            "Le juge n'a pu noter aucune réponse : pas de vainqueur. Comparez le débit et le "
+            "CO₂ dans le tableau."
+        )
+        _render_results_table(not_evaluated + failed)
+        return
+
+    df = pd.DataFrame(scored).reset_index(drop=True)
     winner = df.iloc[0]
     runner_up = df.iloc[1] if len(df) > 1 else None
-
-    st.header("Verdict")
 
     col_winner, col_chart = st.columns([1, 2])
 
@@ -46,14 +188,20 @@ def _render_podium(results_data):
         # Comparaison (Reason to Win)
         if runner_up is not None:
             diff_score = winner["Note"] - runner_up["Note"]
-            diff_speed = winner["Débit (t/s)"] - runner_up["Débit (t/s)"]
+            diff_speed = (_num(winner["Débit (t/s)"]) or 0.0) - (
+                _num(runner_up["Débit (t/s)"]) or 0.0
+            )
 
             reason = ""
             if diff_score > 5:
                 reason = f"Meilleure note (+{diff_score} points)"
             elif diff_speed > 5:
                 reason = f"Plus rapide (+{format_unit(diff_speed, 'tokens/s')})"
-            elif winner["CO2 (mg)"] < runner_up["CO2 (mg)"]:
+            elif (
+                _num(winner["CO2 (mg)"]) is not None
+                and _num(runner_up["CO2 (mg)"]) is not None
+                and winner["CO2 (mg)"] < runner_up["CO2 (mg)"]
+            ):
                 reason = "Moins de CO₂"
             else:
                 reason = "Meilleur équilibre"
@@ -77,7 +225,7 @@ def _render_podium(results_data):
             # 2. TAILLE (Bubble Logic) : Proportionnelle au CO2
             # On clope la taille min/max pour garder le graphique lisible
             # Exemple : Un modèle léger (10mg) = 15px, un lourd (100mg) = 45px
-            co2_val = row["CO2 (mg)"]
+            co2_val = _num(row["CO2 (mg)"]) or 0.0
             size = max(15, min(50, co2_val / 2))
 
             # Si c'est le vainqueur, on force une taille minimale pour qu'il se voie
@@ -89,7 +237,7 @@ def _render_podium(results_data):
 
             fig.add_trace(
                 go.Scatter(
-                    x=[row["Débit (t/s)"]],
+                    x=[_num(row["Débit (t/s)"])],
                     y=[row["Note"]],
                     mode="markers+text",
                     text=[label],
@@ -122,8 +270,42 @@ def _render_podium(results_data):
         )
         st.plotly_chart(fig, width="stretch")
 
+    _render_results_table(scored + not_evaluated + failed)
+
+
+def _write_loading_note(status_box, tag: str, friendly_name: str) -> None:
+    """Premier chargement : l'étape le dit avant la génération (rien si `ps()` échoue)."""
+    if LLMProvider.is_model_loaded(tag) is False:
+        status_box.write(f"**{friendly_name}** : {LOADING_LABEL} {LOADING_HINT}")
+
+
+def _judge(status_box, judge_tag, judge_name, judge_sys, prompt, answer):
+    """Note du juge : (note ou None, raison si « non évalué », détail technique ou None)."""
+    if not judge_tag:
+        return None, "aucun modèle juge choisi.", None
+    _write_loading_note(status_box, judge_tag, judge_name)
+    eval_p = judge_sys.replace("{prompt}", prompt).replace("{response}", answer)
+    eval_res = asyncio.run(
+        InferenceService.run_inference(
+            model_tag=judge_tag,
+            messages=[{"role": "user", "content": eval_p}],
+            temperature=0.0,
+        )
+    )
+    if eval_res.error:
+        reason = f"le juge n'a pas répondu ({inference_failure_label(eval_res).lower()})."
+        return None, reason, eval_res.error
+    score = parse_judge_score(eval_res.clean_text)
+    if score is None:
+        return None, "la réponse du juge ne contient pas de note lisible de 0 à 100.", None
+    return score, None, None
+
 
 def render_arena_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
+
+    if not sorted_display_names:
+        render_no_models(in_arena=True)
+        return
 
     # --- 1. CONFIGURATION ---
     col_conf, col_prompt = st.columns([1, 2])
@@ -186,14 +368,17 @@ Format : Uniquement le chiffre (ex: 85)."""
 
         results_data = []
         model_responses = {}
+        failure_details = []
 
         status_box = st.status("Comparaison en cours…", expanded=True)
         prog_bar = status_box.progress(0.0)
 
         total_steps = len(selected_arena_tags)
+        judge_name = tag_to_friendly.get(judge_tag, judge_tag) if judge_tag else None
 
         for i, tag in enumerate(selected_arena_tags):
             friendly_name = selected_arena_friendlies[i]
+            _write_loading_note(status_box, tag, friendly_name)
             status_box.write(f"Génération par **{friendly_name}**…")
 
             try:
@@ -205,6 +390,25 @@ Format : Uniquement le chiffre (ex: 85)."""
                         temperature=0.1,
                     )
                 )
+
+                # Échec (délai dépassé…) : la ligne du modèle le dit, les autres continuent.
+                if result.error:
+                    label = inference_failure_label(result)
+                    status_box.write(f"**{friendly_name}** : {label}. Les autres continuent.")
+                    results_data.append(
+                        {
+                            "Modèle": friendly_name,
+                            "Note": None,
+                            "Débit (t/s)": None,
+                            "CO2 (mg)": None,
+                            "status": STATUS_FAILED,
+                            "reason": label,
+                        }
+                    )
+                    failure_details.append(f"{friendly_name} : {result.error}")
+                    prog_bar.progress((i + 1) / total_steps)
+                    continue
+
                 m = result.metrics
 
                 # 2. CALCUL GREENOPS
@@ -212,36 +416,34 @@ Format : Uniquement le chiffre (ex: 85)."""
                 raw_params = info.get("params_act") or info.get("params_tot", "0")
                 p = _extract_params_billions(raw_params)
 
-                impact_mg = 0.0
-                if info.get("type") == "api" and m.output_tokens > 0:
-                    impact_mg = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
-                else:
-                    impact_mg = CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
+                impact_mg = None
+                if m is not None:
+                    if info.get("type") == "api" and m.output_tokens > 0:
+                        impact_mg = (
+                            CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
+                        )
+                    else:
+                        impact_mg = (
+                            CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
+                        )
 
-                # 3. NOTATION JUGE
-                score = 0
+                # 3. NOTATION JUGE (« non évalué » plutôt que 0 si le juge ne peut pas noter)
                 if judge_tag:
                     status_box.write(f"Notation de {friendly_name} par le juge…")
-                    eval_p = judge_sys.replace("{prompt}", arena_prompt).replace(
-                        "{response}", result.clean_text
-                    )
-                    eval_res = asyncio.run(
-                        InferenceService.run_inference(
-                            model_tag=judge_tag,
-                            messages=[{"role": "user", "content": eval_p}],
-                            temperature=0.0,
-                        )
-                    )
-                    match = re.search(r"\d+", eval_res.clean_text)
-                    if match:
-                        score = max(0, min(100, int(match.group())))
+                score, reason, judge_error = _judge(
+                    status_box, judge_tag, judge_name, judge_sys, arena_prompt, result.clean_text
+                )
+                if judge_error:
+                    failure_details.append(f"Juge ({friendly_name}) : {judge_error}")
 
                 results_data.append(
                     {
                         "Modèle": friendly_name,
                         "Note": score,
-                        "Débit (t/s)": round(m.tokens_per_second, 1),
-                        "CO2 (mg)": round(impact_mg, 2),
+                        "Débit (t/s)": None if m is None else round(m.tokens_per_second, 1),
+                        "CO2 (mg)": None if impact_mg is None else round(impact_mg, 2),
+                        "status": STATUS_NOT_EVALUATED if score is None else STATUS_SCORED,
+                        "reason": reason,
                     }
                 )
 
@@ -249,34 +451,70 @@ Format : Uniquement le chiffre (ex: 85)."""
                     "text": result.clean_text,
                     "thought": result.thought,
                     "score": score,
+                    "reason": reason,
                 }
 
             except Exception as e:
-                status_box.error(f"Échec de {friendly_name} : {e}")
+                status_box.write(f"**{friendly_name}** : échec inattendu. Les autres continuent.")
+                results_data.append(
+                    {
+                        "Modèle": friendly_name,
+                        "Note": None,
+                        "Débit (t/s)": None,
+                        "CO2 (mg)": None,
+                        "status": STATUS_FAILED,
+                        "reason": "Échec inattendu",
+                    }
+                )
+                failure_details.append(f"{friendly_name} : {e}")
 
             prog_bar.progress((i + 1) / total_steps)
 
-        status_box.update(label="Comparaison terminée", state="complete", expanded=False)
+        n_failed = sum(1 for r in results_data if r["status"] == STATUS_FAILED)
+        all_failed = n_failed == len(results_data)
+        if all_failed:
+            status_box.update(label="Comparaison échouée", state="error", expanded=False)
+        else:
+            label = "Comparaison terminée"
+            if n_failed:
+                label += f" · {pluralize(n_failed, 'modèle en échec', 'modèles en échec')}"
+            status_box.update(label=label, state="complete", expanded=False)
 
         # --- 4. RÉSULTATS ---
-        if results_data:
-            _render_podium(results_data)
+        if all_failed:
+            render_error(
+                "Aucun modèle n'a répondu : pas de classement. Vérifiez qu'Ollama est démarré, "
+                "puis relancez la comparaison avec une question plus courte ou des modèles "
+                "plus petits.",
+                "\n".join(failure_details),
+            )
+            return
 
-            st.divider()
-            st.header("Réponses des modèles")
+        _render_podium(results_data)
+        if failure_details:
+            with st.expander("Détails techniques", expanded=False):
+                st.code("\n".join(failure_details), language=None)
 
-            if len(model_responses) == 2:
-                c1, c2 = st.columns(2)
-                sorted_items = sorted(
-                    model_responses.items(), key=lambda x: x[1]["score"], reverse=True
-                )
-                for idx, (name, data) in enumerate(sorted_items):
-                    with c1 if idx == 0 else c2, st.container(border=True):
-                        st.markdown(f"**{name}** (note : {data['score']}/100)")
-                        st.caption(data["text"])
-            else:
-                for name, data in sorted(
-                    model_responses.items(), key=lambda x: x[1]["score"], reverse=True
-                ):
-                    with st.expander(f"{name} · {data['score']}/100"):
-                        st.markdown(data["text"])
+        st.divider()
+        st.header("Réponses des modèles")
+
+        # Notes numériques d'abord, puis « non évalué ».
+        def _order(item):
+            score = item[1]["score"]
+            return (score is None, -(score or 0))
+
+        sorted_items = sorted(model_responses.items(), key=_order)
+        if len(model_responses) == 2:
+            c1, c2 = st.columns(2)
+            for idx, (name, data) in enumerate(sorted_items):
+                with c1 if idx == 0 else c2, st.container(border=True):
+                    note = NOT_EVALUATED if data["score"] is None else f"{data['score']}/100"
+                    st.markdown(f"**{name}** (note : {note})", help=data["reason"])
+                    st.caption(data["text"])
+        else:
+            for name, data in sorted_items:
+                note = NOT_EVALUATED if data["score"] is None else f"{data['score']}/100"
+                with st.expander(f"{name} · {note}"):
+                    if data["reason"]:
+                        st.caption(f"{NOT_EVALUATED.capitalize()} : {data['reason']}")
+                    st.markdown(data["text"])

@@ -75,9 +75,8 @@ with st.sidebar:
 
             import torch
 
-            # Nettoyage
-            del st.session_state["agent_messages"]
-            st.session_state.agent_messages = []
+            # Nettoyage, sans effacer la conversation : une question bloquée par le garde-fou
+            # mémoire doit rester dans l'historique (« Effacer la conversation » le fait).
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()

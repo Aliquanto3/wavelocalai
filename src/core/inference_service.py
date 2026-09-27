@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class InferenceResult:
-    """Résultat complet d'une inférence."""
+    """Résultat complet d'une inférence.
+
+    En cas d'échec, `error` est renseigné et `metrics` vaut None : tester `error` avant de lire
+    les métriques. `timed_out` distingue un délai dépassé (délai en secondes dans `timeout_s`)
+    des autres erreurs, sans analyser le texte de `error`.
+    """
 
     raw_text: str
     clean_text: str
@@ -32,6 +37,8 @@ class InferenceResult:
     metrics: Optional[InferenceMetrics]
     error: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.now)
+    timed_out: bool = False
+    timeout_s: Optional[float] = None
 
 
 @dataclass
@@ -107,7 +114,13 @@ class InferenceService:
             if callbacks and callbacks.on_error:
                 await callbacks.on_error(error_msg)
             return InferenceResult(
-                raw_text="", clean_text="", thought=None, metrics=None, error=error_msg
+                raw_text="",
+                clean_text="",
+                thought=None,
+                metrics=None,
+                error=error_msg,
+                timed_out=True,
+                timeout_s=timeout,
             )
 
         except Exception as e:

@@ -9,6 +9,13 @@ import time
 import streamlit as st
 
 from src.app.formatting import format_duration, format_unit
+from src.app.states import (
+    finish_loading_status,
+    inference_error_message,
+    render_error,
+    render_no_models,
+    start_loading_status,
+)
 
 # --- Import SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
@@ -39,6 +46,19 @@ def _calculate_metrics(metrics, model_friendly_name: str):
     }
 
 
+def _model_history(messages: list[dict]) -> list[dict]:
+    """Historique envoyé au modèle : sans les tours en échec (message d'erreur et question
+    restée sans réponse), qui restent affichés mais ne sont pas des échanges."""
+    history = []
+    for msg in messages:
+        if msg.get("error"):
+            if history and history[-1]["role"] == "user":
+                history.pop()
+            continue
+        history.append(msg)
+    return history
+
+
 def _render_message_footer(metrics: dict):
     """Affiche la ligne de métadonnées sous le message (texte, sans code couleur par seuil)."""
     if not metrics:
@@ -53,6 +73,10 @@ def _render_message_footer(metrics: dict):
 def render_chat_tab(
     selected_tag: str, selected_display: str, display_to_tag: dict, sorted_display_names: list
 ):
+    if not sorted_display_names:
+        render_no_models(in_arena=True)
+        return
+
     # --- 1. HEADER DE CONTRÔLE (Horizontal) ---
     with st.container(border=True):
         c_mod, c_temp, c_stat, c_reset = st.columns([3, 2, 2, 2])
@@ -109,6 +133,11 @@ def render_chat_tab(
 
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
+                # Tour en échec : conservé dans l'historique, rendu en alert-error.
+                if msg.get("error"):
+                    render_error(msg["content"], msg.get("detail"))
+                    continue
+
                 if msg.get("thought"):
                     with st.expander("Raisonnement", expanded=False):
                         st.markdown(msg["thought"])
@@ -126,12 +155,14 @@ def render_chat_tab(
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
+            # Premier chargement : indicateur avant la génération, clos au premier token.
+            state = {"current_text": "", "loading": start_loading_status(active_tag)}
             msg_container = st.empty()
 
-            # Placeholder pour le stream
-            state = {"current_text": ""}
-
             async def on_token(token: str):
+                if state["loading"] is not None:
+                    finish_loading_status(state["loading"])
+                    state["loading"] = None
                 state["current_text"] += token
                 msg_container.markdown(state["current_text"] + "▌")
 
@@ -141,11 +172,29 @@ def render_chat_tab(
             result = asyncio.run(
                 InferenceService.run_inference(
                     model_tag=active_tag,
-                    messages=st.session_state.messages,
+                    messages=_model_history(st.session_state.messages),
                     temperature=temp,
                     callbacks=callbacks,
                 )
             )
+
+            # Échec (délai dépassé, Ollama arrêté…) : aucune réponse vide ; le tour est gardé
+            # dans l'historique, marqué en erreur (rendu en alert-error, jamais envoyé au
+            # modèle), pour que la question ne reste pas sans explication au rerun suivant.
+            if result.error:
+                finish_loading_status(state["loading"], ok=False)
+                msg_container.empty()
+                error_turn = {
+                    "role": "assistant",
+                    "error": True,
+                    "content": inference_error_message(result, active_tag),
+                    "detail": result.error,
+                    "model_friendly": local_display,
+                }
+                render_error(error_turn["content"], error_turn["detail"])
+                st.session_state.messages.append(error_turn)
+                return
+            finish_loading_status(state["loading"])
 
             # Affichage Final
             msg_container.markdown(result.clean_text)

@@ -12,6 +12,13 @@ import time
 import streamlit as st
 
 from src.app.formatting import format_duration, format_gb, format_number, format_unit, pluralize
+from src.app.states import (
+    LOADING_HINT,
+    LOADING_LABEL,
+    generation_failure_advice,
+    render_error,
+    render_no_models,
+)
 
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
@@ -24,6 +31,10 @@ from src.core.utils import extract_params_billions as _extract_params_billions
 def render_rag_chat_tab(
     rag_engine, display_to_tag, tag_to_friendly, sorted_display_names, k_retrieval
 ):
+
+    if not sorted_display_names:
+        render_no_models()
+        return
 
     # 1. SÉLECTEUR DE MODÈLE (Haut de page, discret)
     c_sel, c_space = st.columns([1, 2])
@@ -108,12 +119,20 @@ def render_rag_chat_tab(
         # 4. RÉPONSE ASSISTANT
         with st.chat_message("assistant"):
             resp_container = st.empty()
-            status_box = st.status("Recherche dans vos documents…", expanded=True)
+            # Premier chargement, testé avant la recherche : HyDE et Self-RAG appellent déjà
+            # le modèle pendant la recherche.
+            loading = LLMProvider.is_model_loaded(selected_tag) is False
+            status_box = st.status(
+                LOADING_LABEL if loading else "Recherche dans vos documents…", expanded=True
+            )
+            if loading:
+                status_box.write(LOADING_HINT)
 
             t_start_pipeline = time.perf_counter()
 
+            # A. Pipeline RAG (Retrieval) : un échec de recherche (base, embeddings) n'est
+            # pas un échec du modèle.
             try:
-                # A. Pipeline RAG (Retrieval)
                 # Feedback dynamique sur la stratégie
                 strat_name = rag_engine.strategy.__class__.__name__
                 if "HyDE" in strat_name:
@@ -128,7 +147,17 @@ def render_rag_chat_tab(
                 d_ret = time.perf_counter() - t_ret
                 found = pluralize(len(retrieved), "extrait trouvé", "extraits trouvés")
                 status_box.write(f"{found} ({format_duration(d_ret)})")
+            except Exception as e:
+                status_box.update(label="Recherche impossible", state="error", expanded=False)
+                render_error(
+                    "La recherche dans vos documents a échoué. Réessayez ; si l'erreur persiste, "
+                    "choisissez « Recherche directe » dans les réglages ou réimportez vos "
+                    "documents.",
+                    f"{type(e).__name__}: {e}",
+                )
+                return
 
+            try:
                 # B. Préparation Prompt
                 context_text = "\n\n".join([doc.page_content for doc in retrieved])
                 sys_prompt = (
@@ -148,6 +177,8 @@ def render_rag_chat_tab(
                     stream = LLMProvider.chat_stream(selected_tag, payload, temperature=0.1)
                     async for chunk in stream:
                         if isinstance(chunk, str):
+                            if not full_txt:
+                                status_box.update(label="Génération en cours…")
                             full_txt += chunk
                             resp_container.markdown(full_txt + "▌")
                         elif isinstance(chunk, InferenceMetrics):
@@ -213,5 +244,12 @@ def render_rag_chat_tab(
                 st.rerun()
 
             except Exception as e:
-                status_box.update(label="Erreur", state="error")
-                st.error(f"La réponse n'a pas pu être générée : {e}")
+                # Erreur du fournisseur (Ollama arrêté, modèle absent…) : jamais affichée comme
+                # une réponse ; la question reste dans l'historique.
+                status_box.update(label="Erreur", state="error", expanded=False)
+                resp_container.empty()
+                render_error(
+                    "La réponse n'a pas pu être générée. "
+                    + generation_failure_advice(selected_tag),
+                    f"{type(e).__name__}: {e}",
+                )

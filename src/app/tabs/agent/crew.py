@@ -19,6 +19,7 @@ import psutil
 import streamlit as st
 
 from src.app.formatting import format_duration, format_gb, format_unit, pluralize
+from src.app.states import render_error, render_no_models
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
 from src.core.green_monitor import GreenTracker
@@ -235,6 +236,10 @@ def render_agent_crew_tab(
     installed_models_list: list, display_to_tag: dict, sorted_labels: list, avail_ram_gb: float
 ):
 
+    if not sorted_labels:
+        render_no_models()
+        return
+
     # Init session_state
     if "crew_agents" not in st.session_state:
         default_tag = installed_models_list[0]["model"] if installed_models_list else ""
@@ -316,7 +321,7 @@ def render_agent_crew_tab(
                         index=sorted_labels.index(cur_lbl) if cur_lbl in sorted_labels else 0,
                         key=f"mod_{i}",
                     )
-                    agent["model_tag"] = display_to_tag[new_lbl]
+                    agent["model_tag"] = display_to_tag.get(new_lbl, agent.get("model_tag"))
 
                     all_tools = list(TOOLS_METADATA.keys())
                     tool_names = [TOOLS_METADATA[t]["name"] for t in all_tools]
@@ -487,6 +492,8 @@ def render_agent_crew_tab(
             except Exception as e:
                 stop_evt.set()
                 status_box.update(label="Échec", state="error")
-                st.error(f"La mission a échoué : {e}")
-                with st.expander("Détails techniques"):
-                    st.code(traceback.format_exc())
+                render_error(
+                    "La mission a échoué. Vérifiez que les modèles de l'équipe sont disponibles "
+                    "(Ollama démarré, fournisseur cloud joignable), ou retirez des agents.",
+                    f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}",
+                )

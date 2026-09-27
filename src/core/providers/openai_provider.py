@@ -103,8 +103,10 @@ class OpenAIProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API OpenAI."""
 
         if not self.is_available:
-            yield "Erreur : Provider OpenAI non disponible (clé API manquante ou SDK non installé)."
-            return
+            # Une erreur n'est jamais renvoyée comme un token : l'appelant l'affiche.
+            raise ValueError(
+                "Provider OpenAI non disponible (clé API manquante ou SDK non installé)."
+            )
 
         final_messages = []
         if system_prompt:

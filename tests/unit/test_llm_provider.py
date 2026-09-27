@@ -53,7 +53,7 @@ class TestLLMProviderListModels:
             patch("src.core.providers.provider_factory._factory", None),
         ):
 
-            mock_ollama.list.return_value = MagicMock(models=mock_ollama_models)
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=mock_ollama_models)
             models = LLMProvider.list_models(cloud_enabled=True)
 
         # Vérifier qu'on a des modèles
@@ -66,7 +66,7 @@ class TestLLMProviderListModels:
         ]
 
         with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
-            mock_ollama.list.return_value = MagicMock(models=mock_ollama_models)
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=mock_ollama_models)
 
             # Reset la factory
             with patch("src.core.providers.provider_factory._factory", None):
@@ -202,10 +202,15 @@ class TestLLMProviderPullModel:
             patch("src.core.providers.provider_factory._factory", None),
         ):
 
-            mock_ollama.pull.return_value = iter(["progress"])
+            mock_ollama.Client.return_value.pull.return_value = iter(["progress"])
             LLMProvider.pull_model("qwen2.5:1.5b")
 
-            mock_ollama.pull.assert_called_once_with("qwen2.5:1.5b", stream=True)
+            # Même hôte que la génération (base_url), jamais le client par défaut.
+            mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
+            mock_ollama.Client.return_value.pull.assert_called_once_with(
+                "qwen2.5:1.5b", stream=True
+            )
+            mock_ollama.pull.assert_not_called()
 
     def test_pull_model_cloud_raises_error(self):
         """Test qu'on ne peut pas télécharger un modèle cloud."""
@@ -223,7 +228,7 @@ class TestLLMProviderHealthCheck:
     def test_health_check_returns_dict(self):
         """Test que health_check retourne un dictionnaire."""
         with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
-            mock_ollama.list.return_value = MagicMock(models=[])
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=[])
 
             with patch("src.core.providers.provider_factory._factory", None):
                 result = LLMProvider.health_check()

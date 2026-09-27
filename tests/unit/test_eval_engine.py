@@ -92,7 +92,7 @@ class TestEvalEngine:
         eval_engine_cls = mock_dependencies["engine_cls"]
         engine = eval_engine_cls()
 
-        # Le moteur attrape l'exception et renvoie des scores à 0.0
+        # Le moteur attrape l'exception : « non évalué » avec la raison, jamais 0.
         result = engine.evaluate_single_turn(
             query="Q",
             response="A",
@@ -101,4 +101,86 @@ class TestEvalEngine:
             embedding_model=MagicMock(),
         )
 
+        assert result.global_score is None
+        assert result.answer_relevancy is None
+        assert result.faithfulness is None
+        assert not result.evaluated
+        # Raison courte pour le tableau, texte de l'exception à part (Détails techniques).
+        assert result.reason == "l'évaluation par le juge a échoué."
+        assert "Ragas failure" in result.detail
+
+    def _run_with_scores(self, mock_dependencies, scores):
+        mock_results = MagicMock()
+        mock_df = MagicMock()
+        mock_df.iloc.__getitem__.return_value = scores
+        mock_results.to_pandas.return_value = mock_df
+        mock_dependencies["evaluate"].return_value = mock_results
+        engine = mock_dependencies["engine_cls"]()
+        return engine.evaluate_single_turn(
+            query="Q",
+            response="A",
+            retrieved_contexts=["C"],
+            judge_tag="model",
+            embedding_model=MagicMock(),
+        )
+
+    def test_evaluate_nan_scores_are_not_evaluated(self, mock_dependencies):
+        """NaN (juge local qui échoue) : « non évalué », jamais converti en 0."""
+        nan = float("nan")
+        result = self._run_with_scores(
+            mock_dependencies, {"answer_relevancy": nan, "faithfulness": nan}
+        )
+        assert result.global_score is None
+        assert result.answer_relevancy is None and result.faithfulness is None
+        assert result.reason
+
+    def test_evaluate_missing_metric_is_not_evaluated(self, mock_dependencies):
+        """Colonne absente : la métrique calculée est gardée, la note globale non évaluée."""
+        result = self._run_with_scores(mock_dependencies, {"answer_relevancy": 0.8})
+        assert result.answer_relevancy == 0.8
+        assert result.faithfulness is None
+        assert result.global_score is None
+        assert "fidélité" in result.reason
+
+    def test_evaluate_scores_zero_is_a_real_score(self, mock_dependencies):
+        """Un vrai 0 calculé par Ragas reste une note (différente de « non évalué »)."""
+        result = self._run_with_scores(
+            mock_dependencies, {"answer_relevancy": 0.0, "faithfulness": 0.0}
+        )
         assert result.global_score == 0.0
+        assert result.evaluated
+        assert result.reason is None
+
+    def test_evaluate_judge_creation_failure(self, mock_dependencies):
+        """Juge impossible à créer : « non évalué » avec la raison, sans exception."""
+        mock_dependencies["provider"].get_langchain_model.side_effect = ValueError(
+            "Provider non disponible"
+        )
+        engine = mock_dependencies["engine_cls"]()
+        result = engine.evaluate_single_turn(
+            query="Q",
+            response="A",
+            retrieved_contexts=["C"],
+            judge_tag="model",
+            embedding_model=MagicMock(),
+        )
+        assert result.global_score is None
+        assert "Provider non disponible" in result.detail
+        assert "Provider" not in result.reason
+        mock_dependencies["evaluate"].assert_not_called()
+
+    def test_evaluate_without_ragas(self):
+        """Ragas absent : « non évalué » avec la raison."""
+        with patch("src.core.eval_engine.RAGAS_AVAILABLE", False):
+            from src.core.eval_engine import EvalEngine
+
+            result = EvalEngine().evaluate_single_turn(
+                query="Q",
+                response="A",
+                retrieved_contexts=["C"],
+                judge_tag="model",
+                embedding_model=MagicMock(),
+            )
+        assert result.global_score is None
+        assert not result.evaluated
+        assert "Ragas" in result.reason
