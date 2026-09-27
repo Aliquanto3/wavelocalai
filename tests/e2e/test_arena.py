@@ -2,8 +2,8 @@
 Arène des modèles, dans l'app réelle avec de petits modèles Ollama : Chat libre, Banc
 d'essai, Arène (2 modèles et un juge), Gestion des modèles en lecture seule.
 
-Constats couverts : F4 et CAP-4 (débit selon D3 : même consigne à froid puis à chaud, à
-±15 %, sur assez de tokens, chargement à part), U20 (« Chargement du modèle en mémoire… »), D1/U12 (badge Local, modèles
+Constats couverts : F4 et CAP-4 (débit selon D3 : même consigne à froid puis à chaud, le premier
+pas plus de 15 % sous le second, sur assez de tokens, chargement à part), U20 (« Chargement du modèle en mémoire… »), D1/U12 (badge Local, modèles
 locaux seuls), F10 et CAP-5 (défauts locaux, juge local), F13 (Arène désactivée sous
 2 modèles), U17 (matrice avec légende de taille, tableau), U19 (avertissement de juge faible),
 F3 pour le chemin nominal (aucune trace).
@@ -14,17 +14,22 @@ import re
 import pytest
 
 from src.app.modules import ARENA
+from src.app.tabs.inference.arena import MIN_MODELS_CAPTION
+from src.app.tabs.inference.lab import USE_CASES
 from tests.e2e import helpers as h
 from tests.e2e.ollama_api import ensure_cold, normalize_tag, ollama_get
 
 pytestmark = pytest.mark.e2e
 
 CHAT_PLACEHOLDER = "Écrivez votre message"
-# Écart toléré entre le débit du premier passage (modèle chargé à froid) et du suivant.
+# Baisse tolérée du débit du premier passage (modèle chargé à froid) par rapport au suivant.
+# Seule une baisse trahit un chargement compté dans le débit : un passage à froid plus
+# rapide vient du GPU (plafond de puissance variable d'un portable, 80 à 95 W), pas de l'app.
 THROUGHPUT_TOLERANCE = 0.15
 # Tokens générés au minimum pour que le débit mesuré soit comparable.
 MIN_OUTPUT_TOKENS = 30
 # Même consigne pour les deux passages du banc d'essai : une réponse de plusieurs phrases.
+LAB_SCENARIO = "Raisonnement pas à pas"
 LAB_PROMPT = (
     "Explique en cinq phrases complètes ce qu'est l'inférence locale d'un modèle de langage "
     "et pourquoi elle protège les données."
@@ -104,12 +109,22 @@ def _lab_run(page, panel, timeout_ms: int) -> dict[str, str]:
 
 def test_lab_throughput_excludes_loading(page, app, require_models, generation_timeout_ms):
     """Banc d'essai, même consigne deux fois, la première à froid (vérifié par /api/ps) :
-    chargement affiché à part, débit du premier passage à ±15 % du second, chacun sur au
+    chargement affiché à part, débit du premier passage au moins à 85 % du second, chacun sur au
     moins MIN_OUTPUT_TOKENS tokens (F4, D3, CAP-4)."""
     (tag,) = require_models("chat")
     panel = _open_arena(page, app, "Banc d'essai")
-    h.pick_model(page, panel.locator('[data-testid="stSelectbox"]').first, tag)
-    panel.get_by_label("Entrée utilisateur").fill(LAB_PROMPT)
+    selectboxes = panel.locator('[data-testid="stSelectbox"]')
+    h.pick_model(page, selectboxes.first, tag)
+    # Le scénario par défaut (« Classification (JSON) ») impose une réponse JSON d'une
+    # vingtaine de tokens : scénario en prose pour mesurer le débit sur une vraie réponse.
+    # Sa question par défaut n'apparaît qu'au rendu du serveur : l'attendre avant de saisir,
+    # sinon ce rendu écraserait la saisie.
+    user_box = panel.get_by_label("Entrée utilisateur")
+    h.select_option(page, selectboxes.nth(1), LAB_SCENARIO)
+    h.settle_after_action(
+        page, until=lambda: user_box.input_value() == USE_CASES[LAB_SCENARIO]["user"]
+    )
+    user_box.fill(LAB_PROMPT)
     ensure_cold(tag)
 
     cold = _lab_run(page, panel, generation_timeout_ms)
@@ -123,7 +138,7 @@ def test_lab_throughput_excludes_loading(page, app, require_models, generation_t
         assert tokens >= MIN_OUTPUT_TOKENS, f"{tokens} tokens : mesure trop courte ({run})"
     cold_tps, warm_tps = h.parse_throughput(cold["Débit"]), h.parse_throughput(warm["Débit"])
     assert warm_tps > 0
-    assert abs(cold_tps - warm_tps) <= THROUGHPUT_TOLERANCE * warm_tps, (
+    assert cold_tps >= (1 - THROUGHPUT_TOLERANCE) * warm_tps, (
         f"débit à froid {cold_tps} tokens/s contre {warm_tps} ensuite : le chargement est-il "
         f"compté dans le débit ? (chargement à froid : {cold['Chargement']})"
     )
@@ -143,23 +158,38 @@ def test_arena_two_local_models_with_judge(
     assert all(v.endswith("· Local") for v in preselected), preselected
     assert launch.is_enabled() == (len(preselected) >= 2)
 
+    # Vider la liste est immédiat dans le navigateur ; la légende et le bouton désactivé
+    # viennent du rerun du serveur.
     h.multiselect_clear(page, multiselect)
+    h.settle_after_action(page, until=panel.get_by_text(MIN_MODELS_CAPTION))
     assert launch.is_disabled()
-    assert panel.get_by_text("Choisissez au moins 2 modèles.").is_visible()
+    assert panel.get_by_text(MIN_MODELS_CAPTION).is_visible()
     for tag in (chat, small):
         h.add_model(page, multiselect, tag)
     assert len(h.multiselect_values(multiselect)) == 2
-    assert launch.is_enabled()
+    h.settle_after_action(page, until=launch.is_enabled)
 
     panel.get_by_text("Réglages du juge").click()
     judge_box = panel.locator('[data-testid="stSelectbox"]').first
     judge_box.wait_for()
     assert h.selected_value(judge_box).endswith("· Local"), "juge par défaut non local"
     h.pick_model(page, judge_box, judge)
+    # L'avertissement suit le rerun déclenché par le choix du juge (la valeur affichée, elle,
+    # change avant) : attendre ce rerun, puis l'état attendu (qui peut être déjà vrai avant).
+    weak = expected_weak_judge(judge, ollama_models)
+    weak_warning = panel.locator('[data-testid="stAlertContentWarning"]').filter(
+        has_text="Note peu fiable"
+    )
+    h.settle_after_action(page)
+    h.wait_until(
+        page,
+        lambda: (weak_warning.count() > 0) == weak,
+        what=f"avertissement « Note peu fiable » {'affiché' if weak else 'absent'}",
+    )
+    h.settle(page)
     warnings = [
         h.flat(t) for t in panel.locator('[data-testid="stAlertContentWarning"]').all_inner_texts()
     ]
-    weak = expected_weak_judge(judge, ollama_models)
     assert any("Note peu fiable" in w for w in warnings) == weak, warnings
 
     launch.click()

@@ -85,12 +85,18 @@ def test_arena_timeout_does_not_block_others(page, app, require_models, generati
     panel = h.visible_panel(page)
     multiselect = panel.locator('[data-testid="stMultiSelect"]').first
     h.multiselect_clear(page, multiselect)
+    launch = panel.get_by_role("button", name="Lancer la comparaison")
     for tag in (chat, small):
         h.add_model(page, multiselect, tag)
+    # Fin du rerun de l'ajout (bouton activé par le serveur) avant d'ouvrir le juge : un clic
+    # pendant le rerun n'ouvrait pas la liste (option introuvable parmi []).
+    h.settle_after_action(page, until=launch.is_enabled)
     panel.get_by_text("Réglages du juge").click()
-    h.pick_model(page, panel.locator('[data-testid="stSelectbox"]').first, judge)
+    judge_box = panel.locator('[data-testid="stSelectbox"]').first
+    judge_box.wait_for()
+    h.pick_model(page, judge_box, judge)
 
-    panel.get_by_role("button", name="Lancer la comparaison").click()
+    launch.click()
     status = h.wait_text(
         panel, re.compile(r"Comparaison (terminée|échouée)"), generation_timeout_ms
     )

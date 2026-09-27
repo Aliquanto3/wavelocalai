@@ -22,6 +22,15 @@ pytestmark = pytest.mark.e2e
 INSTRUCTION_PLACEHOLDER = "Décrivez la tâche à confier à l'agent"
 MODE_SOLO = "Agent seul"
 MODE_CREW = "Équipe d'agents"
+# Élément que seul le rendu du mode par le serveur fait apparaître : le bouton radio, lui,
+# est coché par le navigateur avant le rerun (l'équipe d'agents met plusieurs secondes à
+# se rendre au premier passage, le temps de charger CrewAI).
+MODE_MARKERS = {
+    MODE_SOLO: lambda page: page.get_by_placeholder(INSTRUCTION_PLACEHOLDER).first,
+    MODE_CREW: lambda page: h.main(page)
+    .get_by_role("heading", name="Enchaînement des agents", exact=True)
+    .first,
+}
 EMAIL_TOOL = "Envoi d'email"
 EMAIL_TO = "e2e@example.com"
 # Début du message du garde-fou mémoire (ResourceManager.check_resources, src/core) : src/
@@ -58,7 +67,9 @@ def _answer_caption(page) -> str:
 def _switch_mode(page, mode: str) -> None:
     h.sidebar(page).get_by_text(mode, exact=True).click()
     radio = h.sidebar(page).get_by_role("radio", name=mode)
-    h.settle_after_action(page, until=radio.is_checked)
+    # Clic manqué : échec clair tout de suite (le radio coché ne dit rien du rendu).
+    h.wait_until(page, radio.is_checked, what=f"mode « {mode} » coché")
+    h.settle_after_action(page, until=MODE_MARKERS[mode](page))
 
 
 def _send(page, text: str, timeout_ms: int) -> None:

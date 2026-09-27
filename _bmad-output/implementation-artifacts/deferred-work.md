@@ -12,3 +12,9 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
   summary: Documenter dans README.md et AGENTS.md les télémétries coupées par défaut et la façon d'en réactiver une (variable dans l'environnement ou le .env).
   evidence: Rien n'indique à l'utilisateur que LANGSMITH_TRACING et les autres sont forcés ; la modification d'AGENTS.md est hors d'une story de code.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/13-tests-e2e-fiables-vrai-poste.md`
+  summary: Attendre le rerun du serveur au niveau des helpers e2e (select_option, multiselect_add, multiselect_clear) au lieu d'un état du navigateur, par exemple avec un compteur d'exécutions du script.
+  evidence: Ces helpers passent encore un `until` vrai côté navigateur, contre la règle de leur propre docstring ; la story 13 corrige les appels qui échouaient, pas la cause commune. Un test a encore échoué une fois sur une option détachée du DOM (test_arena_timeout_does_not_block_others), puis réussi deux fois.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/13-tests-e2e-fiables-vrai-poste.md`
+  summary: Réponse d'Ollama parfois tronquée sans erreur : le flux se termine sans son dernier fragment (done), l'app affiche un texte partiel et un débit « estimé ».
+  evidence: Vu deux fois le 27/09 sur poste-rtx3060 avec gemma3:1b (e2e : 39 tokens, débit estimé, pas de chargement ; appel direct d'InferenceService : 35 tokens = 143 caractères // 4), jamais en trois essais suivants ni avec le client Ollama seul. maybe-false, medium si confirmé : journaliser dans ollama_provider.chat_stream la fin de flux sans `done` pour le prouver.
