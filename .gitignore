@@ -34,6 +34,9 @@ env/
 .env/
 .venv/
 .venv-app/
+# Créé par `uv run` (scripts BMAD) : le dépôt n'est pas un projet uv, et un fichier
+# non suivi bloquerait bmad-build-auto, qui exige un arbre de travail propre.
+uv.lock
 env.bak/
 venv.bak/
 
