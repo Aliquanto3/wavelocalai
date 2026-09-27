@@ -14,9 +14,9 @@ axe-playwright-python, aucun CDN) sur l'app réelle.
   deux listes figurent dans le résumé de la session et dans le rapport JSON (dossier
   `e2e-reports` du dossier temporaire de pytest) : rien n'est masqué.
 
-En sombre, `primaryColor` #6A4DE6 employé comme texte par Streamlit (valeur du curseur,
-pastilles choisies) fait 3,34 à 3,57:1 : ces violations font échouer le test tant que la
-valeur de DESIGN.md n'est pas tranchée (décision en attente, story 2).
+En sombre, `primaryColor` #7E65E9 est un compromis (DESIGN.md, 27/09) : aucune valeur ne
+donne 4,5:1 à la fois au texte blanc des boutons et au violet employé comme texte. Les
+pastilles d'outils choisies (4,24:1) font échouer Agent_Lab en sombre : écart accepté.
 """
 
 import json

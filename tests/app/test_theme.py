@@ -29,7 +29,7 @@ EXPECTED_THEME = {
         "chartCategoricalColors": ["#6A4DE6", "#0E9F5E", "#2F7FD8", "#C98A00"],
     },
     "dark": {
-        "primaryColor": "#6A4DE6",
+        "primaryColor": "#7E65E9",
         "backgroundColor": "#0A0A14",
         "secondaryBackgroundColor": "#16162A",
         "textColor": "#F6F5FA",
@@ -98,6 +98,38 @@ def test_theme_colors_match_design(mode):
 
     assert {k: section.get(k) for k in EXPECTED_THEME[mode]} == EXPECTED_THEME[mode]
     assert set(section) - set(EXPECTED_THEME[mode]) == EXTRA_THEME_KEYS[mode]
+
+
+def _luminance(hex_color: str) -> float:
+    channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def _mix(color: str, background: str, share: float) -> str:
+    """`share` de `color` sur `background` : fond d'une pastille choisie (10 % de la primaire)."""
+    rgb = []
+    for i in (1, 3, 5):
+        bg, fg = int(background[i : i + 2], 16), int(color[i : i + 2], 16)
+        rgb.append(round(bg + share * (fg - bg)))
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
+
+
+def test_dark_primary_compromise_does_not_degrade():
+    """Primaire sombre : compromis documenté dans DESIGN.md (note `primary-dark`), aucune valeur
+    ne donnant 4,5:1 partout. Planchers : les valeurs du 27/09 arrondies au centième inférieur,
+    pour qu'un changement de couleur ne dégrade pas un contraste sans le dire."""
+    dark = _config()["theme"]["dark"]
+    primary, background = dark["primaryColor"], dark["backgroundColor"]
+    assert _contrast("#FFFFFF", primary) >= 4.26  # texte blanc des boutons principaux
+    assert _contrast(primary, background) >= 4.61  # valeur d'un curseur
+    assert _contrast(primary, dark["secondaryBackgroundColor"]) >= 4.16  # curseur, barre latérale
+    assert _contrast(primary, _mix(primary, background, 0.10)) >= 4.24  # pastille choisie
 
 
 def test_theme_keys_exist_in_installed_streamlit():

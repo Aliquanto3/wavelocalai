@@ -18,3 +18,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/13-tests-e2e-fiables-vrai-poste.md`
   summary: Réponse d'Ollama parfois tronquée sans erreur : le flux se termine sans son dernier fragment (done), l'app affiche un texte partiel et un débit « estimé ».
   evidence: Vu deux fois le 27/09 sur poste-rtx3060 avec gemma3:1b (e2e : 39 tokens, débit estimé, pas de chargement ; appel direct d'InferenceService : 35 tokens = 143 caractères // 4), jamais en trois essais suivants ni avec le client Ollama seul. maybe-false, medium si confirmé : journaliser dans ollama_provider.chat_stream la fin de flux sans `done` pour le prouver.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/14-couleur-primaire-sombre-lisible.md`
+  summary: Liste explicite d'écarts de contraste acceptés dans test_accessibility.py (couleurs exactes, ratio, renvoi à DESIGN.md), pour que le test Agent_Lab sombre passe sur l'écart connu et échoue sur tout écart nouveau ; et classer le texte blanc sur primaryColor comme couleur du thème.
+  evidence: Le test échoue désormais à chaque passage sur les pastilles à 4,24:1 (compromis accepté le 27/09) : une nouvelle régression sur cette page s'y confondrait. Le blanc des boutons principaux (4,26:1) n'est pas relevé : boutons dans des onglets masqués, et le blanc n'est pas une couleur de [theme.dark].

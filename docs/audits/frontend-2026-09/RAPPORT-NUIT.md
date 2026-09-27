@@ -174,11 +174,13 @@ Aucun contraste n'a été corrigé par du CSS.
 
 **Décision à prendre :** en mode sombre, `#7A5FEA` donne 4,36:1 en texte et 4,51:1 sous du blanc ; `#8468EC` donne 4,85:1 et 4,06:1. C'est à trancher dans DESIGN.md.
 
+**Tranché le 27/09 (story 14) :** `#7E65E9`, compromis qui rend le plus faible contraste aussi haut que possible : aucune valeur ne donne 4,5:1 à la fois au blanc des boutons et au violet employé comme texte, et le fond des pastilles dérive de la primaire (note `primary-dark` de DESIGN.md).
+
 La palette des graphiques a été validée par le script `dataviz` : tout passe en clair comme en sombre, avec un avertissement en clair sur `#C98A00` (2,87:1). C'est pourquoi les étiquettes et le tableau sont obligatoires.
 
 ## Questions ouvertes
 
-1. Quelle couleur primaire retenir pour le mode sombre (`#6A4DE6`, `#7A5FEA` ou `#8468EC`) ? C'est la seule chose qui bloque le test axe en sombre.
+1. Quelle couleur primaire retenir pour le mode sombre (`#6A4DE6`, `#7A5FEA` ou `#8468EC`) ? C'est la seule chose qui bloque le test axe en sombre. *Tranché le 27/09 : `#7E65E9` (story 14).*
 2. `greenTextColor` `#0C6E3C` et « 👋 Bonjour ! » en titre : faut-il les inscrire dans DESIGN.md ou les revoir ?
 3. Faut-il mettre à jour AGENTS.md ? Il est périmé : CI sur `master`, `tests/app` et `tests/e2e`, `views/` au lieu de `pages/`, et les 4 tests en échec connus passent désormais.
 4. Benchmark : mistralai 2.x rend `MISTRAL_AVAILABLE` faux dans `benchmark_slm.py`. C'est hors périmètre et demande une PR dédiée au benchmark.

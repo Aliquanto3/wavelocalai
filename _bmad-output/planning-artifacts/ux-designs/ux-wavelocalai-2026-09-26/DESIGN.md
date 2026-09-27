@@ -24,7 +24,7 @@ colors:
   chart-3: '#2F7FD8'
   chart-4: '#C98A00'
   # Thème sombre -> [theme.dark]
-  primary-dark: '#6A4DE6'       # blanc dessus 5,50:1
+  primary-dark: '#7E65E9'       # compromis : blanc dessus 4,26:1, texte 4,62:1 sur surface-dark, 4,24:1 sur une pastille choisie
   on-primary-dark: '#FFFFFF'
   surface-dark: '#0A0A14'
   surface-alt-dark: '#16162A'   # secondaryBackgroundColor
@@ -153,7 +153,7 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 
 | Token (clair / sombre) | Clair | Sombre | Clé `config.toml` | Usage | Interdit |
 |---|---|---|---|---|---|
-| `primary` / `primary-dark` | `#451DC7` | `#6A4DE6` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 5,50:1 | Décoration, fonds, titres colorés |
+| `primary` / `primary-dark` | `#451DC7` | `#7E65E9` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 4,26:1 (compromis sombre, voir la note sous le tableau) | Décoration, fonds, titres colorés |
 | `surface` / `surface-dark` | `#FFFFFF` | `#0A0A14` | `backgroundColor` | Fond de page | — |
 | `surface-alt` / `surface-alt-dark` | `#F6F5FA` | `#16162A` | `secondaryBackgroundColor` | Barre latérale, champs, blocs de code | Violet en fond |
 | `ink` / `ink-dark` | `#0A0A14` | `#F6F5FA` | `textColor` | Tout le texte | — |
@@ -164,6 +164,8 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 | `accent-green` / `accent-green-dark` | `#04F06A` | `#04F06A` | — | Accent rare « local, sobre, réussi » : en clair, aplat sous `{colors.ink}` (12,83:1) ; en sombre, texte possible (12,83:1) | Texte ou icône sur blanc (1,54:1) |
 | `risk` / `risk-dark` | `#FF2A49` | `#FF2A49` | — | Risque et erreur, toujours nommés par un texte. Graphique ou grand texte en clair (3,70:1), texte en sombre (5,33:1) | Action principale, seuil de CO₂, texte courant sur blanc |
 | `chart-1…4` / `chart-1…4-dark` | `#6A4DE6` `#0E9F5E` `#2F7FD8` `#C98A00` | `#7A5FEA` `#12A564` `#3B86DB` `#B07800` | `chartCategoricalColors` | Séries catégorielles, validées par le script du skill `dataviz` | Couleur Plotly par défaut |
+
+**Note `primary-dark` (décision du 27/09, story 14 de `spec-fiabilisation-frontend`).** En sombre, Streamlit emploie `primaryColor` comme fond du texte blanc des boutons principaux et comme couleur de texte (valeur des curseurs, pastilles et segments choisis, dont le fond mêle 10 % de la primaire au fond). Aucune valeur unique ne donne 4,5:1 partout : blanc dessus exige une luminance ≤ 0,183, texte sur `surface-dark` ≥ 0,190. Critère retenu : rendre le plus faible de ces contrastes aussi haut que possible. `#7E65E9` donne (calculé) blanc dessus 4,26:1, curseur sur `surface-dark` 4,62:1, curseur sur `surface-alt-dark` (barre latérale) 4,17:1, pastille choisie 4,25:1 (4,24:1 mesuré par axe). Écartés : `#6A4DE6` (texte 3,34:1), `#7A5FEA` (pastille 4,04:1), `#8468EC` (blanc dessus 4,06:1), `#886DED` (blanc dessus 3,85:1). Écarts connus, par type de composant : texte blanc des boutons principaux, pastilles et segments choisis, curseurs de la barre latérale. Le wordmark garde `#6A4DE6` (image unique, grand texte).
 
 - **Légendes.** `{colors.ink-secondary}` et `{colors.ink-secondary-dark}` ne s'appliquent que si la version figée expose une clé de thème native. Sinon, la couleur native reste, son contraste est mesuré et signalé au rapport de nuit ; aucun CSS.
 - **Badges.** `badge-local` vert et `badge-cloud` orange utilisent les couleurs natives de `st.badge` (`[ASSUMPTION]`), dont le contraste est vérifié à l'axe-core au matin. Orange = attention, les données sortent de la machine ; jamais de rouge.

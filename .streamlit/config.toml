@@ -54,7 +54,7 @@ chartCategoricalColors = ["#6A4DE6", "#0E9F5E", "#2F7FD8", "#C98A00"]
 greenTextColor = "#0C6E3C"
 
 [theme.dark]
-primaryColor = "#6A4DE6"
+primaryColor = "#7E65E9"
 backgroundColor = "#0A0A14"
 secondaryBackgroundColor = "#16162A"
 textColor = "#F6F5FA"
