@@ -77,10 +77,12 @@ class HyDERetrievalStrategy(RetrievalStrategy):
                 scored_docs.sort(key=lambda x: x[1], reverse=True)
                 docs = [doc for doc, score in scored_docs[:k]]
 
-                # Debug info
-                for doc in docs:
+                # Score du reranker : pertinence affichée sous la réponse.
+                for doc, score in scored_docs[:k]:
+                    doc.metadata["rerank_score"] = float(score)
                     doc.metadata["strategy"] = "HyDE"
             except Exception:
                 docs = docs[:k]
 
-        return docs
+        # Sans reranker (ou en échec), k extraits comme demandé, pas 2k.
+        return docs[:k]

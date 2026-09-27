@@ -18,6 +18,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
+class RerankerLoadError(RuntimeError):
+    """Le modèle de reclassement choisi n'a pas pu être chargé : aucun n'est appliqué."""
+
+    def __init__(self, reranker_name: str):
+        super().__init__(f"Chargement du reranker impossible : {reranker_name}")
+        self.reranker_name = reranker_name
+
+
 class RAGEngine:
     """
     Façade principale du module RAG (Version 2.0).
@@ -46,31 +54,49 @@ class RAGEngine:
         self.strategy: RetrievalStrategy = NaiveRetrievalStrategy()
 
     def _load_models(self):
-        """Charge ou recharge les modèles."""
+        """Charge les modèles au démarrage. Un reranker qui ne se charge pas n'est pas
+        appliqué, et son nom n'est pas affiché comme actif."""
         logger.info(
             f"🔄 Init RAG Engine avec Embedding={self.current_embedding_name}, Reranker={self.current_reranker_name}"
         )
         self.embedding_model = RAGModelsFactory.get_embedding_model(self.current_embedding_name)
-        self.reranker_model = RAGModelsFactory.get_reranker_model(self.current_reranker_name)
+        if not self._load_reranker(self.current_reranker_name):
+            logger.warning(f"Reranker non chargé : {self.current_reranker_name}")
 
-    def set_models(self, embedding_name: str = None, reranker_name: str = None):
-        """Permet de changer de modèles à chaud (Switching)."""
-        changed = False
-        if embedding_name and embedding_name != self.current_embedding_name:
-            self.current_embedding_name = embedding_name
-            changed = True
+    def _load_reranker(self, reranker_name: str | None) -> bool:
+        """Charge `reranker_name` (None : aucun). En échec, aucun reranker n'est appliqué et
+        la fonction renvoie False."""
+        model = RAGModelsFactory.get_reranker_model(reranker_name) if reranker_name else None
+        if reranker_name and model is None:
+            self.current_reranker_name = None
+            self.reranker_model = None
+            return False
+        self.current_reranker_name = reranker_name
+        self.reranker_model = model
+        return True
 
-        if reranker_name != self.current_reranker_name:  # Peut être None -> None
-            self.current_reranker_name = reranker_name
-            # Pas besoin de tout recharger si juste reranker change, mais simple ici
-            changed = True
+    def set_reranker(self, reranker_name: str | None):
+        """Change le seul reranker (None : aucun), sans toucher à l'embedding ni à la base.
+        Lève RerankerLoadError si le modèle ne se charge pas : aucun reranker n'est alors
+        appliqué."""
+        if reranker_name == self.current_reranker_name:
+            return
+        logger.info(f"🔀 Changement de reranker : {reranker_name}")
+        if not self._load_reranker(reranker_name):
+            raise RerankerLoadError(reranker_name)
 
-        if changed:
-            self._load_models()
-            # Si l'embedding change, on doit changer de Vector Store !
-            self.vector_manager = VectorStoreManager(
-                self.embedding_model, self.current_embedding_name
-            )
+    def set_embedding(self, embedding_name: str):
+        """Change le seul modèle d'embedding, et la collection qui en dérive ; le reranker
+        reste celui choisi."""
+        if not embedding_name or embedding_name == self.current_embedding_name:
+            return
+        # Chargement d'abord : en échec, l'exception remonte et le moteur reste inchangé.
+        embedding_model = RAGModelsFactory.get_embedding_model(embedding_name)
+        # La collection Chroma dérive du modèle d'embedding.
+        vector_manager = VectorStoreManager(embedding_model, embedding_name)
+        self.embedding_model = embedding_model
+        self.vector_manager = vector_manager
+        self.current_embedding_name = embedding_name
 
     def set_strategy(self, strategy: RetrievalStrategy):
         """Change la stratégie de recherche (Naive, HyDE, etc.)."""

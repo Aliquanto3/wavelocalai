@@ -57,6 +57,9 @@ class SelfRAGStrategy(RetrievalStrategy):
                     zip(docs, scores, strict=False), key=lambda x: x[1], reverse=True
                 )
                 docs = [d for d, s in scored_docs[:k]]
+                # Score du reranker : pertinence affichée sous la réponse.
+                for doc, score in scored_docs[:k]:
+                    doc.metadata["rerank_score"] = float(score)
             except Exception:
                 docs = docs[:k]
         else:

@@ -21,6 +21,7 @@ from src.app.rag_clear import (
     reset_clear,
 )
 from src.app.rag_upload import escape_markdown, ingest_uploaded_files
+from src.app.states import render_error
 from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
 from src.core.config import DATA_DIR
 from src.core.eval_engine import EvalEngine
@@ -28,12 +29,29 @@ from src.core.llm_provider import LLMProvider
 from src.core.rag.strategies.hyde import HyDERetrievalStrategy
 from src.core.rag.strategies.naive import NaiveRetrievalStrategy
 from src.core.rag.strategies.self_rag import SelfRAGStrategy
-from src.core.rag_engine import DEFAULT_EMBEDDING_MODEL, RAGEngine
+from src.core.rag_engine import DEFAULT_EMBEDDING_MODEL, RAGEngine, RerankerLoadError
 
 # Résultat du dernier import : posé avant st.rerun (qui ferme le dialogue), affiché au run
 # suivant puis retiré.
 LAST_INGEST_KEY = "rag_last_ingest"
 UPLOADER_GENERATION_KEY = "rag_uploader_generation"
+
+# Reranker : « Aucun » ou un dossier de data/models/rerankers. La génération renouvelle le
+# sélecteur après un échec de chargement (il revient sur le reranker réellement actif) ;
+# l'erreur est posée avant st.rerun et affichée une fois.
+NO_RERANKER = "Aucun"
+RERANKER_GENERATION_KEY = "rag_reranker_generation"
+# Erreur d'un réglage (reranker ou embedding) : (message, détail technique).
+RERANKER_ERROR_KEY = "rag_reranker_error"
+RERANKER_FAILED_MESSAGE = (
+    "Le modèle de reclassement « {name} » n'a pas pu être chargé : aucun reclassement n'est "
+    "appliqué. Vérifiez son dossier dans data/models/rerankers, puis choisissez-le de nouveau."
+)
+EMBEDDING_FAILED_MESSAGE = (
+    "Le modèle de représentation des textes « {name} » n'a pas pu être chargé : « {current} » "
+    "reste utilisé. Vérifiez son dossier dans data/models/embeddings, puis choisissez-le de "
+    "nouveau."
+)
 
 # PATCH ASYNCIO
 nest_asyncio.apply()
@@ -61,6 +79,12 @@ def get_local_models(subfolder: str):
     return [d.name for d in path.iterdir() if d.is_dir()]
 
 
+def get_local_rerankers() -> list[str]:
+    """Rerankers locaux par ordre alphabétique : le défaut (premier dossier) ne dépend pas de
+    l'ordre du disque. Les embeddings gardent le leur (leur défaut fixe la collection)."""
+    return sorted(get_local_models("rerankers"))
+
+
 def _base_summary(stats: dict) -> str:
     """« 2 documents indexés · 14 extraits » à partir de VectorStoreManager.get_stats."""
     # Un extrait sans métadonnée « source » (None ou vide) ne compte pas comme un document.
@@ -78,12 +102,18 @@ if "rag_engine" not in st.session_state:
             if "bge-m3" in avail_emb
             else (avail_emb[0] if avail_emb else DEFAULT_EMBEDDING_MODEL)
         )
-        avail_rerank = get_local_models("rerankers")
+        avail_rerank = get_local_rerankers()
         default_rerank = avail_rerank[0] if avail_rerank else None
 
         st.session_state.rag_engine = RAGEngine(
             embedding_model_name=default_emb, reranker_model_name=default_rerank
         )
+        # Reranker par défaut qui ne se charge pas : dit, jamais affiché comme actif.
+        if default_rerank and st.session_state.rag_engine.current_reranker_name is None:
+            st.session_state[RERANKER_ERROR_KEY] = (
+                RERANKER_FAILED_MESSAGE.format(name=escape_markdown(default_rerank)),
+                None,
+            )
 
 if "eval_engine" not in st.session_state:
     try:
@@ -185,15 +215,29 @@ with st.sidebar:
         )
         avail_emb = get_local_models("embeddings") or [DEFAULT_EMBEDDING_MODEL]
         curr_emb = st.session_state.rag_engine.current_embedding_name
+        # Génération : renouvelle les sélecteurs après un échec de chargement (ils reviennent
+        # sur le modèle réellement actif, sans nouvelle tentative).
+        settings_generation = st.session_state.get(RERANKER_GENERATION_KEY, 0)
         sel_emb = st.selectbox(
             "Modèle",
             avail_emb,
             index=avail_emb.index(curr_emb) if curr_emb in avail_emb else 0,
             label_visibility="collapsed",
+            key=f"rag_embedding_select_{settings_generation}",
         )
 
         if sel_emb != curr_emb:
-            st.session_state.rag_engine.set_models(embedding_name=sel_emb)
+            # Embedding seul : le reranker choisi reste actif.
+            try:
+                st.session_state.rag_engine.set_embedding(sel_emb)
+            except Exception as e:
+                st.session_state[RERANKER_ERROR_KEY] = (
+                    EMBEDDING_FAILED_MESSAGE.format(
+                        name=escape_markdown(sel_emb), current=escape_markdown(curr_emb)
+                    ),
+                    f"{type(e).__name__}: {e}",
+                )
+                st.session_state[RERANKER_GENERATION_KEY] = settings_generation + 1
             st.rerun()
 
         st.divider()
@@ -210,20 +254,40 @@ with st.sidebar:
             help="Top-K : nombre d'extraits retrouvés pour chaque question.",
         )
 
-        # 3. Reranker
-        avail_rerank = ["Aucun"] + get_local_models("rerankers")
+        # 3. Reranker : le choix est appliqué au moteur ; « Aucun » le retire.
+        avail_rerank = [NO_RERANKER] + get_local_rerankers()
         curr_rerank = st.session_state.rag_engine.current_reranker_name
+        # Reranker actif dont le dossier a disparu : proposé tant qu'il est actif, jamais
+        # remplacé en silence par « Aucun ».
+        if curr_rerank and curr_rerank not in avail_rerank:
+            avail_rerank.append(curr_rerank)
+        reranker_generation = settings_generation
         sel_rerank = st.selectbox(
             "Modèle de reclassement",
             avail_rerank,
             index=avail_rerank.index(curr_rerank) if curr_rerank in avail_rerank else 0,
             help="Reranker : réordonne les extraits retrouvés par pertinence.",
+            key=f"rag_reranker_select_{reranker_generation}",
         )
+        wanted_rerank = None if sel_rerank == NO_RERANKER else sel_rerank
+        if wanted_rerank != curr_rerank:
+            try:
+                st.session_state.rag_engine.set_reranker(wanted_rerank)
+            except RerankerLoadError as e:
+                st.session_state[RERANKER_ERROR_KEY] = (
+                    RERANKER_FAILED_MESSAGE.format(name=escape_markdown(e.reranker_name)),
+                    None,
+                )
+                st.session_state[RERANKER_GENERATION_KEY] = reranker_generation + 1
+            st.rerun()
 
         # Apply logic
         st.session_state.rag_engine.set_strategy(SEARCH_STRATEGIES[strat_mode]())
 
-        # Reranker change logic would go here if needed per existing code
+    # Échec du dernier réglage de modèle, hors du volet replié pour rester visible.
+    settings_error = st.session_state.pop(RERANKER_ERROR_KEY, None)
+    if settings_error:
+        render_error(*settings_error)
 
 # --- 4. MAIN PAGE LOGIC ---
 

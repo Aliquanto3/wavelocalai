@@ -5,9 +5,13 @@ Mode « Agent seul » des Agents autonomes.
 - État vide avec actions rapides en cartes
 - Structure de PROMPT_LIBRARY vérifiée par les tests
 - Badge Local ou Cloud du modèle choisi et de la réponse
+- Rien ne se perd : réponse finale (CO₂, modèle, badge, raisonnement) et erreurs conservées
+  dans l'historique ; modèle choisi gardé en session hors widget (passage en équipe compris)
 - Email (D2) : « Envoi d'email » décoché par défaut, non sélectionnable sans SMTP ; l'outil
   ne prépare qu'un brouillon, envoyé seulement après « Envoyer l'email » dans confirm-dialog
 """
+
+import math
 
 import streamlit as st
 
@@ -29,9 +33,11 @@ from src.core.agent_tools import (
     smtp_missing_help,
     validate_email,
 )
+from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
+from src.core.models_db import get_friendly_name_from_tag, get_model_info
 from src.core.resource_manager import ResourceManager
-from src.core.utils import extract_thought
+from src.core.utils import extract_params_billions, extract_thought
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {
@@ -89,6 +95,150 @@ EMAIL_FAILED_MESSAGE = (
     "L'email n'a pas été envoyé. Vérifiez la configuration SMTP du fichier .env, puis "
     "demandez de nouveau l'email à l'agent."
 )
+
+
+# Modèle choisi pour l'agent seul : tag gardé hors widget. L'état du sélecteur est nettoyé
+# par Streamlit quand l'équipe d'agents est affichée ; ce tag, lui, survit au changement de mode.
+AGENT_MODEL_KEY = "agent_model_tag"
+AGENT_MODEL_WIDGET_KEY = "agent_model_select"
+
+
+def _save_agent_model(display_to_tag: dict) -> None:
+    """Choix de l'utilisateur (on_change) : seul moment où le modèle enregistré change."""
+    label = st.session_state.get(AGENT_MODEL_WIDGET_KEY)
+    st.session_state[AGENT_MODEL_KEY] = display_to_tag.get(label)
+
+
+def _select_agent_model(sorted_labels: list, display_to_tag: dict) -> str:
+    """Sélecteur du modèle de l'agent seul : le dernier modèle choisi s'il est proposé, sinon
+    le défaut de la règle (premier de la liste). Un modèle enregistré absent un instant
+    (cloud désactivé, liste incomplète) reste enregistré et revient dès qu'il est proposé.
+    Renvoie le libellé choisi."""
+    saved_tag = st.session_state.get(AGENT_MODEL_KEY)
+    saved_label = next(
+        (label for label in sorted_labels if display_to_tag.get(label) == saved_tag), None
+    )
+    current = st.session_state.get(AGENT_MODEL_WIDGET_KEY)
+    if saved_label and current != saved_label:
+        st.session_state[AGENT_MODEL_WIDGET_KEY] = saved_label
+    elif current not in sorted_labels:
+        st.session_state[AGENT_MODEL_WIDGET_KEY] = sorted_labels[0]
+    return st.selectbox(
+        "Modèle",
+        sorted_labels,
+        key=AGENT_MODEL_WIDGET_KEY,
+        label_visibility="collapsed",
+        on_change=_save_agent_model,
+        args=(display_to_tag,),
+    )
+
+
+def answer_carbon_mg(
+    model_tag: str | None, output_tokens, is_cloud: bool | None = None
+) -> float | None:
+    """CO₂ d'une réponse en mg, comme les autres onglets : tokens de sortie, formule du cloud
+    (paramètres actifs du catalogue) ou du local. La formule suit `is_cloud`, l'origine
+    réelle du modèle (celle du badge) ; à défaut, le type du catalogue. None si le modèle, le
+    compte de tokens ou, pour le cloud, la taille du modèle manque."""
+    if not model_tag or isinstance(output_tokens, bool):
+        return None
+    if not isinstance(output_tokens, (int, float)) or not math.isfinite(output_tokens):
+        return None
+    if output_tokens < 0:
+        return None
+    # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
+    info = get_model_info(get_friendly_name_from_tag(model_tag)) or {}
+    cloud = is_cloud if is_cloud is not None else info.get("type") == "api"
+    if cloud:
+        raw_params = info.get("params_act") or info.get("params_tot") or "0"
+        active_params = extract_params_billions(raw_params)
+        if not active_params or active_params <= 0:
+            return None
+        carbon_g = CarbonCalculator.compute_mistral_impact_g(active_params, int(output_tokens))
+    else:
+        carbon_g = CarbonCalculator.compute_local_theoretical_g(int(output_tokens))
+    return carbon_g * 1000
+
+
+def _answer_caption(msg: dict) -> str:
+    """Métadonnées sous une réponse : badge Local ou Cloud du modèle qui a répondu, son nom,
+    puis le CO₂ (texte, sans code couleur par seuil)."""
+    parts = []
+    if "is_cloud" in msg:
+        parts.append(badge_markdown(msg["is_cloud"]))
+    if msg.get("model_name"):
+        parts.append(msg["model_name"])
+    if msg.get("carbon_mg") is not None:
+        parts.append(format_co2(mg_to_grams(msg["carbon_mg"])))
+    return " · ".join(parts)
+
+
+def _render_message(msg: dict, index: int) -> None:
+    """Un tour de l'historique : journal d'outil, erreur, question (bloquée ou non) ou
+    réponse (raisonnement replié, texte, métadonnées, téléchargement)."""
+    if msg.get("type") == "tool_log":
+        if msg.get("interrupted"):
+            status_state = "error"
+        else:
+            status_state = "complete" if msg.get("done") else "running"
+        # Pas de « with » : à sa sortie, st.status passe de running à complete.
+        st.status(_tool_label(msg["tool"]), state=status_state).code(msg["content"])
+        return
+
+    if msg.get("error"):
+        # Tour en erreur : affiché comme une erreur, jamais renvoyé au modèle comme réponse.
+        render_error(msg["content"], msg.get("detail"))
+        caption = _answer_caption(msg)
+        if caption:
+            st.caption(caption)
+        return
+
+    if msg.get("thought"):
+        with st.expander("Raisonnement", expanded=False):
+            st.markdown(msg["thought"])
+
+    if msg.get("content"):
+        st.markdown(msg["content"])
+        if msg.get("blocked"):
+            st.caption("Question bloquée par le garde-fou mémoire, non envoyée.")
+
+    if msg["role"] == "assistant":
+        # Légende avant tout retour : une réponse vide garde son badge, son modèle, son CO₂.
+        caption = _answer_caption(msg)
+        if caption:
+            st.caption(caption)
+        if not msg.get("content"):
+            return
+        st.download_button(
+            "Télécharger",
+            msg["content"],
+            file_name=f"result_agent_{index}.md",
+            icon=":material/download:",
+            help="Télécharger en Markdown",
+            key=f"dl_btn_{index}",
+        )
+
+
+AGENT_FAILED_MESSAGE = "L'agent s'est arrêté avant de répondre. "
+AGENT_NO_ANSWER_MESSAGE = (
+    "L'agent s'est arrêté sans réponse. Reformulez la demande ou choisissez un autre modèle."
+)
+TOOL_INTERRUPTED_NOTE = "Interrompu : l'agent s'est arrêté avant le résultat de l'outil."
+
+
+def _record_failure(message: str, detail: str | None, turn_meta: dict, turn_logs: list) -> None:
+    """Tour en échec conservé comme erreur (avec son modèle et son badge) ; les journaux
+    d'outils restés en attente sont clos et marqués « interrompu »."""
+    for log in turn_logs:
+        if not log.get("done"):
+            log["done"] = True
+            log["interrupted"] = True
+            log["content"] = f"{log['content']}\n{TOOL_INTERRUPTED_NOTE}"
+    failure = {"role": "assistant", "content": message, "error": True, **turn_meta}
+    if detail:
+        failure["detail"] = detail
+    st.session_state.agent_messages.append(failure)
+    _render_message(failure, len(st.session_state.agent_messages) - 1)
 
 
 def _tool_label(tool_id: str) -> str:
@@ -270,8 +420,8 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
     c1, c2, c3 = st.columns([2, 4, 1])
 
     with c1:
-        # Model Selector
-        selected_label = st.selectbox("Modèle", sorted_labels, label_visibility="collapsed")
+        # Sélecteur de modèle : choix gardé en session, même après un passage en équipe.
+        selected_label = _select_agent_model(sorted_labels, display_to_tag)
         selected_tag = display_to_tag.get(selected_label)
         # Badge du modèle choisi, dérivé de son fournisseur réel.
         selected_is_cloud = is_cloud_model(selected_tag, menu)
@@ -331,35 +481,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
         # LOOP MESSAGES
         for i, msg in enumerate(st.session_state.agent_messages):
             with st.chat_message(msg["role"]):
-                if msg.get("type") == "tool_log":
-                    status_state = "complete" if msg.get("done") else "running"
-                    # Pas de « with » : à sa sortie, st.status passe de running à complete.
-                    st.status(_tool_label(msg["tool"]), state=status_state).code(msg["content"])
-                elif msg.get("thought"):
-                    with st.expander("Raisonnement", expanded=False):
-                        st.markdown(msg["thought"])
-
-                if msg.get("content"):
-                    st.markdown(msg["content"])
-                    if msg.get("blocked"):
-                        st.caption("Question bloquée par le garde-fou mémoire, non envoyée.")
-
-                    # --- ACTION BAR FOR ASSISTANT ---
-                    if msg["role"] == "assistant":
-                        col_d1, col_d2 = st.columns([1, 5])
-                        with col_d1:
-                            st.download_button(
-                                "Télécharger",
-                                msg["content"],
-                                file_name=f"result_agent_{i}.md",
-                                icon=":material/download:",
-                                help="Télécharger en Markdown",
-                                key=f"dl_btn_{i}",
-                            )
-                        # GREENOPS : texte, sans code couleur par seuil
-                        if "carbon_mg" in msg:
-                            with col_d2:
-                                st.caption(format_co2(mg_to_grams(msg["carbon_mg"])))
+                _render_message(msg, i)
 
     # --- 3. INPUT & EXECUTION ---
     user_input = st.chat_input("Décrivez la tâche à confier à l'agent")
@@ -376,6 +498,10 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
         if not selected_tag:
             st.toast("Choisissez un modèle.", icon=":material/error:")
             st.stop()
+
+        # Historique envoyé au moteur : les tours précédents seulement (la question courante
+        # part une seule fois, en `user_query`), sans les questions bloquées.
+        history = [m for m in st.session_state.agent_messages if not m.get("blocked")]
 
         # La question entre dans l'historique avant le garde-fou mémoire : bloquée, elle
         # reste visible (et réutilisable) au lieu de disparaître.
@@ -404,14 +530,21 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
             else:
                 status_box = status_placeholder.status("L'agent réfléchit…", expanded=True)
 
-            engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
-            full_resp = ""
-            thought = None
+            friendly_name = menu.tag_to_friendly.get(selected_tag) if menu else None
+            # Modèle qui répond et son fournisseur réel : repris par chaque tour conservé.
+            turn_meta = {
+                "model_tag": selected_tag,
+                "model_name": friendly_name,
+                "is_cloud": selected_is_cloud,
+            }
+            turn_logs = []  # Journaux d'outils de ce tour, clos en cas d'échec
+            failed_message = AGENT_FAILED_MESSAGE + generation_failure_advice(selected_tag)
 
             try:
+                # Construit dans le try : une clé d'API manquante est un échec affiché.
+                engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
                 # Assuming system prompt is hidden/default for Sprint 2 to save space
                 sys_prompt = "Tu es un assistant expert Wavestone. Réponds en Markdown propre."
-                history = [m for m in st.session_state.agent_messages if not m.get("blocked")]
                 stream = engine.run_stream(final_prompt, history, system_prompt=sys_prompt)
 
                 current_tool_log = None  # Pour gérer l'ajout d'un seul log par tool_call
@@ -439,6 +572,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
                             "content": log_content,
                         }
                         st.session_state.agent_messages.append(current_tool_log)
+                        turn_logs.append(current_tool_log)
 
                         # Email : l'outil n'a préparé qu'un brouillon, présenté ensuite dans
                         # confirm-dialog ; rien ne part sans « Envoyer l'email ».
@@ -473,24 +607,30 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
                         status_box = st.status("Terminé", state="complete", expanded=False)
 
                         thought, clean = extract_thought(event["content"])
-                        full_resp = clean
-                        if thought:
-                            with st.expander("Raisonnement"):
-                                st.markdown(thought)
-                        st.markdown(full_resp)
-                        # Badge Local ou Cloud du modèle qui a répondu.
-                        name = menu.tag_to_friendly.get(selected_tag) if menu else None
-                        st.caption(
-                            " · ".join(
-                                part for part in (badge_markdown(selected_is_cloud), name) if part
+                        answer = {
+                            "role": "assistant",
+                            "content": clean,
+                            "thought": thought,
+                            **turn_meta,
+                        }
+                        # Conservée d'abord : elle survit aux reruns et aux changements de
+                        # mode, avec son CO₂, son modèle et son badge.
+                        st.session_state.agent_messages.append(answer)
+                        try:
+                            answer["carbon_mg"] = answer_carbon_mg(
+                                selected_tag, event.get("output_tokens"), selected_is_cloud
                             )
-                        )
+                        except Exception:
+                            # Un calcul de CO₂ en échec ne fait jamais perdre la réponse.
+                            answer["carbon_mg"] = None
+                        _render_message(answer, len(st.session_state.agent_messages) - 1)
 
                     elif ev_type == "error":
                         finished = True
                         status_placeholder.empty()
                         status_box = st.status("Erreur", state="error")
-                        st.error(event["content"])
+                        # Même message que l'échec ci-dessous ; l'exception va en détail.
+                        _record_failure(failed_message, event["content"], turn_meta, turn_logs)
 
                 # Flux terminé sans réponse finale : le statut (« Chargement… » ou
                 # « L'agent réfléchit… ») ne reste pas ouvert.
@@ -498,15 +638,10 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
                     status_box.update(
                         label="L'agent s'est arrêté sans réponse", state="error", expanded=False
                     )
-
-                # ... (Carbon Calc et st.rerun inchangés) ...
+                    _record_failure(AGENT_NO_ANSWER_MESSAGE, None, turn_meta, turn_logs)
             except Exception as e:
                 status_box.update(label="Échec", state="error", expanded=False)
-                render_error(
-                    "L'agent s'est arrêté avant de répondre. "
-                    + generation_failure_advice(selected_tag),
-                    f"{type(e).__name__}: {e}",
-                )
+                _record_failure(failed_message, f"{type(e).__name__}: {e}", turn_meta, turn_logs)
 
     # --- 4. EMAIL EN ATTENTE DE VALIDATION ---
     # Ouvert à chaque exécution tant qu'un brouillon attend : « Envoyer l'email », « Annuler »

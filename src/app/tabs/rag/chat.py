@@ -90,11 +90,13 @@ def render_rag_chat_tab(
                     )
                     with st.expander(sources_label, expanded=False):
                         for idx, doc in enumerate(msg["sources"]):
-                            score = doc.metadata.get("score", 0)
+                            # Score brut du reranker (logit, parfois négatif) : ni une
+                            # probabilité ni une pertinence ; « — » sans reranker.
+                            score = doc.metadata.get("rerank_score")
                             src_name = doc.metadata.get("source", "Document inconnu")
                             st.caption(
                                 f"**Source {idx + 1}** : {src_name} "
-                                f"(pertinence : {format_number(score, 2)})"
+                                f"(score de reclassement : {format_number(score, 2)})"
                             )
                             st.text(doc.page_content[:400] + "…")
 
