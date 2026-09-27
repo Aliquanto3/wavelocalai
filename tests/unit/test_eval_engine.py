@@ -3,6 +3,7 @@ Tests unitaires pour le module EvalEngine.
 Usage: pytest tests/unit/test_eval_engine.py -v
 """
 
+import importlib
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -28,24 +29,25 @@ class TestEvalEngine:
     def mock_dependencies(self, mock_env):
         """Mock les dépendances internes."""
         # ✅ CORRECTION : On ne patche plus HuggingFaceEmbeddings car il n'est plus importé dans eval_engine.py
+        # patch.object sur le module de sys.modules : sous Python 3.10, patch("src.core.eval_engine.x")
+        # passe par l'attribut du paquet, périmé après le patch.dict(sys.modules) du test précédent.
+        engine_module = importlib.import_module("src.core.eval_engine")
         with (
-            patch("src.core.eval_engine.evaluate") as mock_evaluate,
-            patch("src.core.eval_engine.LLMProvider") as mock_provider,
+            patch.object(engine_module, "evaluate") as mock_evaluate,
+            patch.object(engine_module, "LLMProvider") as mock_provider,
         ):
             # Setup Provider (Juge)
             mock_judge = MagicMock()
             mock_provider.get_langchain_model.return_value = mock_judge
 
             # On force RAGAS_AVAILABLE à True
-            with patch("src.core.eval_engine.RAGAS_AVAILABLE", True):
-                from src.core.eval_engine import EvalEngine, EvalResult
-
+            with patch.object(engine_module, "RAGAS_AVAILABLE", True):
                 yield {
                     "evaluate": mock_evaluate,
                     "provider": mock_provider,
                     "judge": mock_judge,
-                    "engine_cls": EvalEngine,
-                    "result_cls": EvalResult,
+                    "engine_cls": engine_module.EvalEngine,
+                    "result_cls": engine_module.EvalResult,
                 }
 
     def test_init_success(self, mock_dependencies):
@@ -171,10 +173,9 @@ class TestEvalEngine:
 
     def test_evaluate_without_ragas(self):
         """Ragas absent : « non évalué » avec la raison."""
-        with patch("src.core.eval_engine.RAGAS_AVAILABLE", False):
-            from src.core.eval_engine import EvalEngine
-
-            result = EvalEngine().evaluate_single_turn(
+        engine_module = importlib.import_module("src.core.eval_engine")
+        with patch.object(engine_module, "RAGAS_AVAILABLE", False):
+            result = engine_module.EvalEngine().evaluate_single_turn(
                 query="Q",
                 response="A",
                 retrieved_contexts=["C"],

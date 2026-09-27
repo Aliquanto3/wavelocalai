@@ -13,6 +13,7 @@ import re
 from datetime import datetime, timedelta
 
 import numpy as np
+import pandas as pd
 import pytest
 from streamlit.dataframe_util import convert_arrow_bytes_to_pandas_df
 
@@ -230,7 +231,8 @@ def test_history_gap_between_sessions_stays_empty(offline_app_env):
 
     (trace,) = _history_figure(at)["data"]
     assert trace["type"] == "bar" and trace.get("mode") is None
-    first, second = (datetime.fromisoformat(x) for x in trace["x"])
+    # pd.Timestamp : fromisoformat de Python 3.10 refuse les nanosecondes de Plotly.
+    first, second = (pd.Timestamp(x) for x in trace["x"])
     gap_ms = (second - first).total_seconds() * 1000
     widths = _decode(trace["width"])
     # Deux demi-barres ne couvrent pas l'écart : un vide reste visible entre elles.
