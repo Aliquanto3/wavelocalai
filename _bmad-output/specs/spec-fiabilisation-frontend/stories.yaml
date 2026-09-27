@@ -1,0 +1,113 @@
+- id: "1"
+  title: "Socle : installation figée, serveur local, CI active, tests au vert"
+  description: >-
+    Couvre CAP-1 : fichier de contraintes vérifié par installation réelle, serveur sur localhost,
+    banc AppTest sans Ollama, tests/unit au vert, CI déclenchée sur master.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 1 de docs/audits/frontend-2026-09/SYNTHESE.md §4 ; constats E1, E2, E3 et F8 (§3.1).
+    Aucune dépendance. Toutes les stories suivantes dépendent de celle-ci : la suite de tests
+    doit en sortir entièrement verte dans un environnement sans Ollama ni data/.
+- id: "2"
+  title: "Thème Wavestone, icônes et accessibilité"
+  description: >-
+    Couvre CAP-6 côté visuel : thème DESIGN.md par config.toml, icônes Material, aucun hex en dur,
+    outils de l'agent tous visibles, boutons nommés, API width= à la place de use_container_width.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 2 de SYNTHESE.md §4 ; constats U1 à U7, U18 et F14. Dépend de la story 1.
+    DESIGN.md prime ; une violation de contraste due à une couleur native sans clé de thème est
+    mesurée et notée, jamais corrigée par CSS.
+- id: "3"
+  title: "Vocabulaire, rédaction et formats fr-FR"
+  description: >-
+    Couvre CAP-6 côté rédaction : lexique et ordre des modules d'EXPERIENCE.md partout, un seul
+    contrôle cloud global, formats fr-FR et pluriels accordés.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 3 de SYNTHESE.md §4 ; constats U8 à U10. Dépend de la story 1. Navigation par
+    st.navigation et st.Page ; noms identiques dans menu, carte d'accueil, titre et onglet.
+- id: "4"
+  title: "Ingestion RAG réelle"
+  description: >-
+    Couvre CAP-2 : l'upload indexe réellement les documents et affiche le nombre d'extraits
+    ajoutés ; un échec affiche une erreur.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 4 de SYNTHESE.md §4 ; constats F1 et F12. Dépend des stories 2 et 3. Les tests écrivent
+    dans une collection Chroma temporaire, jamais dans data/chroma.
+- id: "5"
+  title: "Échecs visibles et états vrais"
+  description: >-
+    Couvre CAP-3 et la partie garde-fou RAM de CAP-8 : erreurs et timeouts lisibles, « non évalué »,
+    état de santé réel, accélérateur détecté, question conservée quand la RAM manque.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 5 de SYNTHESE.md §4 ; constats F2, F3, F11, F17, U11 et U20. Dépend des stories 2 et 3.
+    États d'EXPERIENCE.md (vide, chargement, erreur, blocage RAM, service indisponible).
+- id: "6"
+  title: "Chiffres justes : débit et carbone"
+  description: >-
+    Couvre CAP-4 : débit selon D3 avec chargement à part, CO₂ de session dans la bonne unité,
+    un seul fichier d'émissions pour le suivi et l'historique.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 6 de SYNTHESE.md §4 ; constats F4, F5 et F6. Dépend des stories 2 et 3. Ne pas modifier
+    scripts/benchmark_slm.py ; test unitaire de la conversion g → kg.
+- id: "7"
+  title: "Choix par défaut adaptés à la machine"
+  description: >-
+    Couvre CAP-5 : modèle local en premier et qui tient en mémoire, juge par défaut suffisant
+    ou averti, Arène à 2 modèles minimum.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 7 de SYNTHESE.md §4 ; constats F10, F13 et U19. Dépend des stories 2 et 3. Empreinte
+    mémoire lue dans measured_loaded_gb de config/models_catalog.json.
+- id: "8"
+  title: "Souveraineté visible et actions sensibles"
+  description: >-
+    Couvre CAP-7 : local par défaut, badge Local ou Cloud partout, confirmation avant l'envoi
+    d'email et avant de vider la base documentaire.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 8 de SYNTHESE.md §4 ; constats U12 à U15 ; décisions D1 et D2. Dépend des stories 2 et 3.
+    Badge Cloud orange, Local vert (DESIGN.md).
+- id: "9"
+  title: "Rien ne se perd : agent et réglages RAG"
+  description: >-
+    Couvre CAP-8 : réponse finale de l'agent seul et modèle choisi conservés entre les reruns,
+    reranker appliqué ou retiré.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 9 de SYNTHESE.md §4 ; constats F7, F9 et F16. Dépend des stories 2 et 3. Points d'entrée :
+    src/app/tabs/agent/solo.py (réponse finale, sélection du modèle) et la page RAG (reranker).
+- id: "10"
+  title: "Graphiques lisibles et justes"
+  description: >-
+    Couvre CAP-4 et CAP-6 pour les graphiques : historique d'émissions vrai et en mg, matrices de
+    l'Arène et de l'évaluation RAG lisibles et à la bonne échelle.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 10 de SYNTHESE.md §4 ; constats U16 et U17. Dépend de la story 6 (fichier d'émissions).
+    Palette chartCategoricalColors de DESIGN.md.
+- id: "11"
+  title: "Suite e2e navigateur et accessibilité"
+  description: >-
+    Non-régression de toutes les capacités : parcours navigateur pytest marqués e2e, avec de
+    petits modèles configurables, et contrôle axe en clair et en sombre.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Note 11 de SYNTHESE.md §4. Dépend des stories 1 à 10. Ces tests exigent Ollama : ils sont
+    écrits cette nuit et exécutés au matin sur un poste local ; dans la VM, vérifier seulement
+    qu'ils sont collectés et exclus par défaut.

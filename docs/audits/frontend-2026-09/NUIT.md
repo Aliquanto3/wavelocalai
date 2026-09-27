@@ -20,6 +20,8 @@ Vérifié le 2026-09-26 sur les sources suivantes :
 
 ## A. Avant la nuit (en local, interactif, ~1 h)
 
+> **Fait le 2026-09-27** sur la branche `prep/bmad-fiabilisation-frontend` : BMAD 6.12.0 installé, `AGENTS.md`, `DESIGN.md` et `EXPERIENCE.md`, et spec `_bmad-output/specs/spec-fiabilisation-frontend/` (8 capacités, 11 stories). Reste à faire : B et C.
+
 1. **Fusionner la PR de synthèse** dans `master`.
 2. **Installer BMAD :** `npx bmad-method@6.12.0 install`.
    - Réponses : langue française, dossier de sortie `_bmad-output`, module `bmm`, outil Claude Code.
