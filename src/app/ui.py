@@ -1,5 +1,6 @@
 """
-Éléments d'interface partagés par les pages : logo, libellés et sélecteurs de modèles.
+Éléments d'interface partagés par les pages : logo, contrôle Local/Cloud, badges Local et
+Cloud, libellés et sélecteurs de modèles.
 
 Le rendu (couleurs, police, rayon) vient de .streamlit/config.toml ; ce module ne contient
 aucune couleur.
@@ -30,6 +31,7 @@ from src.core.model_defaults import (
     rank_models,
 )
 from src.core.models_db import get_friendly_name_from_tag
+from src.core.providers.provider_factory import is_cloud_tag
 from src.core.resource_manager import ResourceManager
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -41,10 +43,76 @@ FAVICON_PATH = STATIC_DIR / "favicon.svg"
 LOCAL_SUFFIX = "Local"
 CLOUD_SUFFIX = "Cloud"
 
+# Contrôle global « Autoriser le cloud » : une seule clé de session, rendue par le routeur
+# (Accueil.py). Local à chaque démarrage (D1), même si une clé d'API est présente.
+CLOUD_KEY = "cloud_enabled"
+CLOUD_DEFAULT = False
+
+# Badges Local (vert) et Cloud (orange, jamais rouge) : DESIGN.md, badge-local et badge-cloud.
+# Origine inconnue (tag absent des fournisseurs et du catalogue) : badge neutre gris, jamais
+# le vert du local.
+UNKNOWN_ORIGIN_LABEL = "Origine inconnue"
+BADGE_LOCAL = {"label": LOCAL_SUFFIX, "icon": ":material/computer:", "color": "green"}
+BADGE_CLOUD = {"label": CLOUD_SUFFIX, "icon": ":material/cloud:", "color": "orange"}
+BADGE_UNKNOWN = {"label": UNKNOWN_ORIGIN_LABEL, "icon": ":material/help:", "color": "gray"}
+BADGE_LOCAL_HELP = "Le modèle tourne sur cette machine : les données n'en sortent pas."
+BADGE_CLOUD_HELP = (
+    "Le modèle tourne chez un fournisseur cloud : les données qui lui sont envoyées quittent "
+    "la machine."
+)
+# Aides du badge du mode global (contrôle « Autoriser le cloud »), distinctes de celles d'un
+# modèle.
+MODE_LOCAL_BADGE_HELP = "Les modèles tournent sur cette machine."
+MODE_CLOUD_BADGE_HELP = "Les modèles cloud reçoivent vos données : elles quittent la machine."
+BADGE_UNKNOWN_HELP = (
+    "Ce modèle n'est ni proposé par un fournisseur ni décrit dans le catalogue : impossible "
+    "de dire si les données quittent la machine."
+)
+
 
 def render_logo() -> None:
     """Affiche le wordmark « WaveLocalAI » en tête de la barre latérale."""
     st.logo(str(WORDMARK_PATH))
+
+
+def cloud_enabled() -> bool:
+    """État du contrôle global « Autoriser le cloud », lu par toutes les pages. Repli :
+    désactivé (local), y compris pour une page exécutée sans le routeur."""
+    return bool(st.session_state.get(CLOUD_KEY, CLOUD_DEFAULT))
+
+
+def _origin(is_cloud) -> bool | None:
+    """True (cloud), False (local) ou None (inconnue ; NaN d'un tableau pandas compris)."""
+    if is_cloud is None or (isinstance(is_cloud, float) and is_cloud != is_cloud):
+        return None
+    return bool(is_cloud)
+
+
+def _badge(is_cloud) -> tuple[dict, str]:
+    origin = _origin(is_cloud)
+    if origin is None:
+        return BADGE_UNKNOWN, BADGE_UNKNOWN_HELP
+    return (BADGE_CLOUD, BADGE_CLOUD_HELP) if origin else (BADGE_LOCAL, BADGE_LOCAL_HELP)
+
+
+def origin_label(is_cloud) -> str:
+    """« Local », « Cloud » ou « Origine inconnue » (colonne de tableau)."""
+    return _badge(is_cloud)[0]["label"]
+
+
+def badge_markdown(is_cloud: bool | None) -> str:
+    """Badge Local, Cloud ou Origine inconnue en directive Markdown, à placer dans une ligne
+    de texte (métadonnées d'une réponse) : même rendu que st.badge."""
+    badge, _ = _badge(is_cloud)
+    return f":{badge['color']}-badge[{badge['icon']} {badge['label']}]"
+
+
+def render_badge(is_cloud: bool | None, help: str | None = None) -> None:
+    """Badge seul : « Local » (vert, ordinateur), « Cloud » (orange, nuage) ou « Origine
+    inconnue » (gris), avec une aide qui dit si les données quittent la machine (`help`
+    la remplace, par exemple pour le mode global)."""
+    badge, default_help = _badge(is_cloud)
+    st.badge(**badge, help=help or default_help)
 
 
 def model_label(friendly_name: str, is_cloud: bool) -> str:
@@ -84,6 +152,26 @@ class ModelMenu:
     judge_default: str | None  # libellé du juge par défaut (None : aucun modèle local)
     weak_judges: frozenset[str]  # libellés dont la note de juge est peu fiable (< ~4B ou inconnu)
     choices: dict[str, ModelChoice] = field(default_factory=dict)  # libellé → faits de la règle
+
+    def is_cloud(self, label: str | None) -> bool | None:
+        """Fournisseur réel du modèle d'un libellé : True si ses données quittent la
+        machine ; None si le libellé n'est pas dans le sélecteur."""
+        choice = self.choices.get(label) if label else None
+        return choice.is_cloud if choice is not None else None
+
+
+def is_cloud_model(tag: str | None, menu: ModelMenu | None = None) -> bool | None:
+    """
+    Origine d'un modèle, source des badges : le type renvoyé par son fournisseur (règle du
+    sélecteur, tags distants d'Ollama compris) prime ; tag hors du sélecteur (agent configuré
+    avant un changement de réglage…) : is_cloud_tag (catalogue, tags Ollama locaux sauf
+    distants) ; None si l'origine est inconnue.
+    """
+    if menu is not None:
+        for choice in menu.choices.values():
+            if choice.tag == tag:
+                return choice.is_cloud
+    return is_cloud_tag(tag)
 
 
 def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) -> ModelMenu:

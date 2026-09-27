@@ -14,7 +14,7 @@ from crewai.tools import BaseTool
 from pydantic import PrivateAttr
 
 # Import des outils Wavestone
-from src.core.agent_tools import get_tools_by_names
+from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names
 from src.core.config import MISTRAL_API_KEY
 from src.core.model_detector import is_api_model
 
@@ -27,12 +27,14 @@ class LangChainAdapter(BaseTool):
     name: str = ""
     description: str = ""
     _func: Any = PrivateAttr()
+    _arg_names: list = PrivateAttr(default_factory=list)
 
     def __init__(self, tool_instance, **data):
         super().__init__(**data)
         self.name = tool_instance.name
         self.description = tool_instance.description
         self._func = tool_instance.run
+        self._arg_names = list(getattr(tool_instance, "args", {}) or {})
 
     def _run(self, *args, **kwargs):
         """Exécution déléguée à l'outil LangChain d'origine."""
@@ -40,7 +42,17 @@ class LangChainAdapter(BaseTool):
             # Gestion basique des arguments string vs dict
             if len(args) == 1 and isinstance(args[0], str) and not kwargs:
                 return self._func(args[0])
-            return self._func(*args, **kwargs)
+            # Arguments nommés (appel de CrewAI), éventuellement mêlés à des arguments
+            # positionnels (dans l'ordre des paramètres de l'outil) ou à un dict d'arguments :
+            # BaseTool.run attend un seul dict d'entrée.
+            if kwargs or len(args) > 1:
+                if len(args) == 1 and isinstance(args[0], dict):
+                    tool_input = dict(args[0])
+                else:
+                    tool_input = dict(zip(self._arg_names, args, strict=False))
+                tool_input.update(kwargs)
+                return self._func(tool_input)
+            return self._func(*args)
         except Exception as e:
             return f"Erreur lors de l'exécution de l'outil {self.name}: {str(e)}"
 
@@ -52,8 +64,9 @@ class CrewFactory:
 
     @staticmethod
     def _map_tools(langchain_tools):
-        """Convertit les outils LangChain en outils CrewAI via l'adaptateur."""
-        return [LangChainAdapter(t) for t in langchain_tools]
+        """Convertit les outils LangChain en outils CrewAI via l'adaptateur. L'outil d'email
+        est remplacé par sa variante d'équipe : brouillon complet, aucun envoi possible."""
+        return [LangChainAdapter(CREW_TOOL_OVERRIDES.get(t.name, t)) for t in langchain_tools]
 
     @staticmethod
     def _get_native_llm(model_tag: str, temperature: float = 0.1):

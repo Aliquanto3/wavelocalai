@@ -19,7 +19,12 @@ if str(root_path) not in sys.path:
 
 from src.app.modules import HOME_ICON, HOME_TITLE, MODULES  # noqa: E402
 from src.app.states import ollama_available, render_ollama_down_alert  # noqa: E402
-from src.app.ui import FAVICON_PATH, render_logo  # noqa: E402  (après l'ajout de la racine)
+from src.app.ui import (  # noqa: E402  (après l'ajout de la racine)
+    CLOUD_DEFAULT,
+    CLOUD_KEY,
+    FAVICON_PATH,
+    render_logo,
+)
 
 try:
     from src.core.green_monitor import SESSION_PROJECT, GreenTracker
@@ -59,13 +64,15 @@ if "tracker" not in st.session_state and GreenTracker:
 render_logo()
 
 # --- CONTRÔLE LOCAL/CLOUD UNIQUE ---
-# Valeur par défaut inchangée (story 8). Le widget est rendu à chaque exécution, quelle que
-# soit la page : sa valeur (clé « cloud_enabled ») survit donc aux changements de page.
-if "cloud_enabled" not in st.session_state:
-    st.session_state.cloud_enabled = True
+# Local à chaque démarrage de session (D1), même si une clé d'API est présente : passer en
+# Cloud est un geste explicite. Le widget est rendu à chaque exécution, quelle que soit la
+# page : sa valeur (clé CLOUD_KEY) survit donc aux changements de page. Les pages lisent
+# l'état par src.app.ui.cloud_enabled().
+if CLOUD_KEY not in st.session_state:
+    st.session_state[CLOUD_KEY] = CLOUD_DEFAULT
 
 with st.sidebar:
-    st.toggle(CLOUD_TOGGLE_LABEL, key="cloud_enabled", help=CLOUD_TOGGLE_HELP)
+    st.toggle(CLOUD_TOGGLE_LABEL, key=CLOUD_KEY, help=CLOUD_TOGGLE_HELP)
 
 # --- SERVICE INDISPONIBLE ---
 # En tête de chaque module (l'accueil l'affiche dans sa métrique « Système ») : Ollama

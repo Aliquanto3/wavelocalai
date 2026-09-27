@@ -35,6 +35,9 @@ MODULE_PAGES = {
 }
 HOME_TAB_TITLE = "WaveLocalAI"
 CLOUD_TOGGLE = "Autoriser le cloud"
+# Badges de DESIGN.md (badge-local, badge-cloud), tels que st.badge les rend.
+LOCAL_BADGE = ":green-badge[:material/computer: Local]"
+CLOUD_BADGE = ":orange-badge[:material/cloud: Cloud]"
 
 # Anciens noms et jargon interdits dans les textes affichés de src/app.
 FORBIDDEN_TEXTS = [
@@ -167,8 +170,9 @@ def test_single_cloud_toggle_per_page(page):
 
 
 def test_cloud_state_survives_page_switch(monkeypatch):
-    """Désactivé sur l'accueil, le cloud reste désactivé sur les autres pages, qui ne
-    demandent alors que les modèles locaux."""
+    """Local au démarrage (D1, story 8) : les pages ne demandent que les modèles locaux.
+    Activé sur l'accueil, le cloud reste activé sur les autres pages ; désactivé de nouveau,
+    il le reste aussi."""
     from src.core.llm_provider import LLMProvider
     from tests.app.conftest import FAKE_LOCAL_MODELS
 
@@ -183,20 +187,22 @@ def test_cloud_state_survives_page_switch(monkeypatch):
     at = _app()
     try:
         at.run()
-        # Valeur par défaut inchangée par cette story (D1 relève de la story 8).
-        assert at.toggle(key="cloud_enabled").value is True
+        # Local à chaque démarrage, même avec une clé d'API (D1).
+        assert at.toggle(key="cloud_enabled").value is False
 
-        at.toggle(key="cloud_enabled").set_value(False).run()
-        assert at.session_state["cloud_enabled"] is False
+        for enabled in (False, True, False):
+            at.switch_page("home.py").run()
+            at.toggle(key="cloud_enabled").set_value(enabled).run()
+            assert at.session_state["cloud_enabled"] is enabled
 
-        for page in ["views/02_Inference_Arena.py", "views/04_Agent_Lab.py"]:
-            calls.clear()
-            at.switch_page(page).run()
-            assert not at.exception, [e.value for e in at.exception]
+            for page in ["views/02_Inference_Arena.py", "views/04_Agent_Lab.py"]:
+                calls.clear()
+                at.switch_page(page).run()
+                assert not at.exception, [e.value for e in at.exception]
 
-            assert at.toggle(key="cloud_enabled").value is False
-            assert at.session_state["cloud_enabled"] is False
-            assert calls and not any(calls), page
+                assert at.toggle(key="cloud_enabled").value is enabled
+                assert at.session_state["cloud_enabled"] is enabled
+                assert calls and all(c is enabled for c in calls), (page, enabled, calls)
     finally:
         _stop_tracker(at)
 
@@ -208,26 +214,30 @@ def _metric(at, label):
 
 @pytest.mark.parametrize("page", ["home.py", "views/01_Socle_Hardware.py"])
 def test_mode_metric_follows_cloud_toggle(page):
-    """Métrique « Mode » : « Cloud » par défaut (D1 relève de la story 8), « Local » après
-    bascule du contrôle global."""
+    """Métrique « Mode » : « Local » et badge Local vert au démarrage (D1, story 8), « Cloud »
+    et badge Cloud orange après bascule du contrôle global."""
     at = _app()
     try:
         at.run()
         if page != "home.py":
             at.switch_page(page).run()
         assert not at.exception, [e.value for e in at.exception]
-        assert _metric(at, "Mode") == "Cloud"
-
-        at.toggle(key="cloud_enabled").set_value(False).run()
-        assert not at.exception, [e.value for e in at.exception]
         assert _metric(at, "Mode") == "Local"
+        badges = [m.value for m in at.markdown]
+        assert LOCAL_BADGE in badges and CLOUD_BADGE not in badges
+
+        at.toggle(key="cloud_enabled").set_value(True).run()
+        assert not at.exception, [e.value for e in at.exception]
+        assert _metric(at, "Mode") == "Cloud"
+        badges = [m.value for m in at.markdown]
+        assert CLOUD_BADGE in badges and LOCAL_BADGE not in badges
     finally:
         _stop_tracker(at)
 
 
 def test_documents_assistant_with_indexed_base(monkeypatch):
-    """Assistant documentaire, base non vide : légende accordée (sources vides ignorées) et
-    modèles demandés sans le cloud après bascule."""
+    """Assistant documentaire, base non vide : légende accordée (sources vides ignorées) ;
+    modèles demandés sans le cloud au démarrage, avec le cloud après bascule."""
     from src.core.llm_provider import LLMProvider
     from src.core.rag_engine import RAGEngine
     from tests.app.conftest import FAKE_LOCAL_MODELS
@@ -255,12 +265,12 @@ def test_documents_assistant_with_indexed_base(monkeypatch):
         at.switch_page("views/03_RAG_Knowledge.py").run()
         assert not at.exception, [e.value for e in at.exception]
         assert f"2{NBSP}documents indexés · 14{NBSP}extraits" in [c.value for c in at.caption]
-        assert calls and all(calls)
+        assert calls and not any(calls)
 
         calls.clear()
-        at.toggle(key="cloud_enabled").set_value(False).run()
+        at.toggle(key="cloud_enabled").set_value(True).run()
         assert not at.exception, [e.value for e in at.exception]
-        assert calls and not any(calls)
+        assert calls and all(calls)
     finally:
         _stop_tracker(at)
 

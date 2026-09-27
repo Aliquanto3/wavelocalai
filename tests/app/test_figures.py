@@ -15,6 +15,7 @@ import pytest
 
 from src.app.formatting import NBSP, NNBSP
 from src.app.states import THROUGHPUT_HELP
+from src.app.ui import badge_markdown
 from tests.app.conftest import FAKE_LOCAL_MODELS
 from tests.app.test_states import (  # noqa: F401 (fixtures partagées : run_page, indexed_base)
     ARENA_PAGE,
@@ -30,6 +31,9 @@ from tests.app.test_states import (  # noqa: F401 (fixtures partagées : run_pag
     indexed_base,
     run_page,
 )
+
+# Badge Local en directive Markdown (story 8), en tête des métadonnées d'une réponse.
+LOCAL_BADGE = badge_markdown(False)
 
 CSV_HEADER = "timestamp,project_name,run_id,duration,emissions\n"
 
@@ -247,8 +251,10 @@ def test_chat_footer_shows_load_apart(fake_inference, run_page):
     at.chat_input[0].set_value("Bonjour").run()
     assert not at.exception, [e.value for e in at.exception]
 
+    # Badge Local du modèle qui a répondu (story 8), puis les mesures.
     footer = (
-        f"7,6{NBSP}mgCO₂ · 25,0{NBSP}tokens/s · Chargement 0,1{NBSP}s · Durée totale 1,6{NBSP}s"
+        f"{LOCAL_BADGE} · 7,6{NBSP}mgCO₂ · 25,0{NBSP}tokens/s · Chargement 0,1{NBSP}s · "
+        f"Durée totale 1,6{NBSP}s"
     )
     (caption,) = [c for c in at.caption if c.value == footer]
     assert caption.help == THROUGHPUT_HELP
@@ -259,7 +265,9 @@ def test_chat_footer_estimated_throughput(cloud_like_inference, run_page):
     at.chat_input[0].set_value("Bonjour").run()
     assert not at.exception, [e.value for e in at.exception]
 
-    footer = f"7,6{NBSP}mgCO₂ · 25,0{NBSP}tokens/s (estimé) · Durée totale 1,6{NBSP}s"
+    footer = (
+        f"{LOCAL_BADGE} · 7,6{NBSP}mgCO₂ · 25,0{NBSP}tokens/s (estimé) · Durée totale 1,6{NBSP}s"
+    )
     assert footer in _captions(at)
 
 

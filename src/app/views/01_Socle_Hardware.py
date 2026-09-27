@@ -16,7 +16,13 @@ from src.app.formatting import (
     grams_to_kg,
 )
 from src.app.modules import SOBRIETY
-from src.app.ui import FAVICON_PATH
+from src.app.ui import (
+    FAVICON_PATH,
+    MODE_CLOUD_BADGE_HELP,
+    MODE_LOCAL_BADGE_HELP,
+    cloud_enabled,
+    render_badge,
+)
 from src.core.accelerator import KIND_APPLE, KIND_NVIDIA, detect_accelerator
 
 # --- IMPORT DYNAMIQUE ---
@@ -99,7 +105,8 @@ cpu_val, ram_pct, ram_used, ram_total = get_true_system_metrics()
 accelerator_value, accelerator_caption, accelerator_help = get_device_info()
 
 # Mode lu dans le contrôle global « Autoriser le cloud » (barre latérale commune).
-if st.session_state.get("cloud_enabled", True):
+cloud_on = cloud_enabled()
+if cloud_on:
     mode_value = "Cloud"
     mode_help = "Le cloud est autorisé : des données peuvent partir vers Mistral ou OpenAI."
 else:
@@ -129,6 +136,7 @@ with st.container(border=True):
 
     with c4:
         st.metric(label="Mode", value=mode_value, help=mode_help)
+        render_badge(cloud_on, help=MODE_CLOUD_BADGE_HELP if cloud_on else MODE_LOCAL_BADGE_HELP)
 
 # --- 2. GREEN OPS MONITORING ---
 st.header("Empreinte carbone")

@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.core import agent_tools
 from src.core.agent_tools import (
     AVAILABLE_TOOLS,
     TOOLS_METADATA,
@@ -21,6 +22,10 @@ from src.core.agent_tools import (
     _generate_markdown_report_impl,
     _send_email_impl,
     _system_monitor_impl,
+    missing_smtp_vars,
+    send_validated_email,
+    smtp_configured,
+    smtp_missing_help,
 )
 
 
@@ -63,10 +68,135 @@ class TestEmailSender:
         result = _send_email_impl("test@example.com", "Subject", "")
         assert "Erreur" in result
 
-    def test_email_requires_smtp_config(self):
+    def test_email_requires_smtp_config(self, monkeypatch):
         """Test que SMTP doit être configuré."""
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
         result = _send_email_impl("test@example.com", "Subject", "Body")
         assert "Erreur" in result or "Attention" in result
+        assert "SMTP_USER" in result and "SMTP_PASSWORD" in result
+
+
+class FakeSMTP:
+    """smtplib.SMTP simulé : enregistre les messages, aucun réseau. `error` : exception levée
+    à l'envoi."""
+
+    sent: list = []
+    error: Exception | None = None
+
+    timeouts: list = []
+
+    def __init__(self, server, port, timeout=None):
+        self.server = (server, port)
+        FakeSMTP.timeouts.append(timeout)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def starttls(self):
+        pass
+
+    def login(self, user, password):
+        pass
+
+    def send_message(self, msg):
+        if FakeSMTP.error:
+            raise FakeSMTP.error
+        FakeSMTP.sent.append(msg)
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    """SMTP configuré (valeurs factices) et simulé : rien ne part sur le réseau."""
+    FakeSMTP.sent = []
+    FakeSMTP.error = None
+    FakeSMTP.timeouts = []
+    monkeypatch.setattr(agent_tools, "SMTP_SERVER", "smtp.test.invalid")
+    monkeypatch.setattr(agent_tools, "SMTP_USER", "demo@test.invalid")
+    monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "secret")
+    monkeypatch.setattr(agent_tools.smtplib, "SMTP", FakeSMTP)
+    return FakeSMTP
+
+
+class TestEmailDraftOnly:
+    """D2 (story 8) : l'outil de l'agent prépare un brouillon, jamais un envoi."""
+
+    ARGS = {
+        "to": "dsi@client.invalid",
+        "subject": "Synthèse",
+        "body": "Bonjour, voici la synthèse.",
+    }
+
+    def test_tool_prepares_draft_without_sending(self, smtp):
+        from src.core.agent_tools import send_email
+
+        result = send_email.invoke(self.ARGS)
+        assert "Brouillon" in result and "pas envoyé" in result
+        assert "dsi@client.invalid" in result
+        assert smtp.sent == []
+
+    def test_tool_rejects_invalid_draft(self, smtp):
+        from src.core.agent_tools import send_email
+
+        result = send_email.invoke({**self.ARGS, "to": "pas-une-adresse"})
+        assert result.startswith("Erreur")
+        assert smtp.sent == []
+
+    def test_crew_gets_full_draft_and_never_sends(self, smtp):
+        """Équipe d'agents : variante de l'outil qui rend le brouillon complet et dit
+        qu'aucun email ne peut partir depuis l'équipe."""
+        from src.core.agent_tools import send_email
+        from src.core.crew_engine import CrewFactory
+
+        (tool,) = CrewFactory._map_tools([send_email])
+        assert tool.name == "send_email"
+        result = tool._run(**self.ARGS)
+        assert result.startswith("Aucun email ne peut être envoyé depuis l'équipe d'agents")
+        for value in self.ARGS.values():
+            assert value in result
+        assert "validation" not in result and "interface" not in result
+        assert smtp.sent == []
+
+    def test_real_send_after_confirmation(self, smtp):
+        delivery = send_validated_email(**self.ARGS)
+        assert delivery.ok
+        assert delivery.message == "Email envoyé avec succès à dsi@client.invalid"
+        (msg,) = smtp.sent
+        assert msg["To"] == "dsi@client.invalid"
+        assert msg["Subject"] == "Synthèse"
+        assert smtp.timeouts == [agent_tools.SMTP_TIMEOUT_S]
+
+    def test_sent_as_shown_plain_text(self, smtp):
+        """Un corps avec « < » part en texte brut : exactement le texte montré."""
+        body = "Seuil : débit < 10 tokens/s <b>pas du HTML</b>"
+        assert send_validated_email("dsi@client.invalid", "Seuils", body).ok
+        (msg,) = smtp.sent
+        (part,) = msg.get_payload()
+        assert part.get_content_type() == "text/plain"
+        assert part.get_payload(decode=True).decode("utf-8") == body
+
+    def test_smtp_error_is_not_a_success(self, smtp):
+        import smtplib
+
+        smtp.error = smtplib.SMTPException("relais refusé")
+        delivery = send_validated_email(**self.ARGS)
+        assert not delivery.ok
+        assert "relais refusé" in delivery.message
+        assert "relais refusé" in _send_email_impl(**self.ARGS)
+
+    def test_smtp_configuration(self, monkeypatch):
+        monkeypatch.setattr(agent_tools, "SMTP_SERVER", "smtp.test.invalid")
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
+        assert not smtp_configured()
+        assert missing_smtp_vars() == ["SMTP_USER", "SMTP_PASSWORD"]
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "demo@test.invalid")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "secret")
+        assert smtp_configured()
+        assert TOOLS_METADATA["send_email"]["config_vars"] == list(agent_tools.SMTP_CONFIG_VARS)
 
 
 class TestCSVAnalyzer:
@@ -343,3 +473,27 @@ class TestToolsIntegration:
         for tool_name, metadata in TOOLS_METADATA.items():
             category = metadata.get("category")
             assert category in valid_categories, f"Catégorie '{category}' invalide pour {tool_name}"
+
+
+def test_smtp_missing_help_says_what_to_do(monkeypatch):
+    monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+    monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
+    help_text = smtp_missing_help()
+    assert help_text.startswith("Configuration SMTP absente")
+    for word in ("SMTP_USER", "SMTP_PASSWORD", "SMTP_PORT", "smtp.gmail.com", "redémarrez"):
+        assert word in help_text
+
+
+def test_crew_adapter_mixed_and_named_arguments():
+    """CrewAI appelle l'outil par arguments nommés, parfois mêlés à des positionnels ou à un
+    dict : tous sont fusionnés dans le dict d'entrée de l'outil (ici la calculatrice)."""
+    from src.core.agent_tools import calculator, get_tools_by_names
+    from src.core.crew_engine import LangChainAdapter
+
+    adapter = LangChainAdapter(calculator)
+    assert adapter._run(expression="2 + 2") == adapter._run("2 + 2")
+    assert adapter._run({"expression": "1 + 1"}, expression="3 * 3") == adapter._run("3 * 3")
+
+    (monitor,) = get_tools_by_names(["analyze_csv"])
+    mixed = LangChainAdapter(monitor)._run("fichier-absent.csv", query="aperçu")
+    assert "missing" not in mixed and "positional" not in mixed

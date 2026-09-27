@@ -5,10 +5,10 @@ import psutil
 import streamlit as st
 
 from src.app.tabs.agent.crew import render_agent_crew_tab
-from src.app.tabs.agent.solo import render_agent_solo_tab
+from src.app.tabs.agent.solo import clear_email_drafts, render_agent_solo_tab
 from src.app.formatting import format_gb, format_percent, format_unit
 from src.app.modules import AGENTS
-from src.app.ui import FAVICON_PATH, model_menu
+from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
 from src.core.llm_provider import LLMProvider
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 
@@ -91,10 +91,12 @@ with st.sidebar:
 
     if st.button("Effacer la conversation", icon=":material/delete:", width="stretch"):
         st.session_state.agent_messages = []
+        # Un brouillon d'email en attente disparaît avec la conversation.
+        clear_email_drafts()
         st.rerun()
 
 # --- PRÉPARATION DATA ---
-installed = LLMProvider.list_models(cloud_enabled=st.session_state.get("cloud_enabled", True))
+installed = LLMProvider.list_models(cloud_enabled=cloud_enabled())
 # Ordre : locaux avant cloud, puis ceux qui tiennent en mémoire, puis outils vérifiés, puis
 # la règle commune (le plus rapide en tête) : un modèle cloud ou un local qui ne tient pas ne
 # devient jamais le modèle par défaut parce que ses outils sont vérifiés. Tri stable.
@@ -116,7 +118,9 @@ sorted_labels = [label for label, tag in sorted_options]
 
 # --- ROUTING ---
 if agent_mode == MODE_SOLO:
-    render_agent_solo_tab(sorted_labels, display_to_tag)
+    render_agent_solo_tab(sorted_labels, display_to_tag, menu=menu)
 else:
+    # L'équipe n'envoie jamais d'email : aucun brouillon de l'agent seul ne reste en attente.
+    clear_email_drafts()
     # On passe la RAM dispo à Crew pour le calcul prédictif
-    render_agent_crew_tab(display_to_tag, sorted_labels, avail_ram_gb=avail_ram)
+    render_agent_crew_tab(display_to_tag, sorted_labels, avail_ram_gb=avail_ram, menu=menu)

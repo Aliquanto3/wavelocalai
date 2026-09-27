@@ -5,6 +5,8 @@ Mode « Équipe d'agents » des Agents autonomes.
 - Alerte si la mémoire vive manque
 - Déduction du budget carbone de la session
 - Structure de CREW_PROMPT_LIBRARY vérifiée par les tests
+- Badge Local ou Cloud du modèle principal et du rapport (Cloud dès qu'un agent l'est)
+- « Envoi d'email » : brouillon seulement, l'équipe n'envoie jamais d'email (D2)
 """
 
 import io
@@ -20,6 +22,7 @@ import streamlit as st
 
 from src.app.formatting import format_co2, format_duration, format_gb, pluralize
 from src.app.states import render_error, render_no_models
+from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
 from src.core.green_monitor import CREW_PROJECT, GreenTracker
@@ -109,6 +112,18 @@ CREW_PROMPT_LIBRARY = {
         }
     },
 }
+
+# Outil d'email : dans une équipe, il ne produit qu'un brouillon (aucun envoi).
+EMAIL_TOOL = "send_email"
+CREW_EMAIL_CAPTION = (
+    "Envoi d'email : aucun email ne part depuis l'équipe. L'outil rend seulement un brouillon "
+    "(destinataire, objet, corps) à l'agent, qui peut le reprendre dans le rapport."
+)
+# Agent dont le modèle cloud n'est plus proposé (cloud désactivé) : basculé sur un local.
+CLOUD_FALLBACK_CAPTION = (
+    "{role} utilisait un modèle cloud, qui n'est plus proposé (cloud désactivé) : il passe sur "
+    "{label}."
+)
 
 # ========================================
 # 2. UTILITAIRES UX
@@ -231,7 +246,22 @@ def open_crew_library(default_tag: str):
 # ========================================
 
 
-def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_gb: float):
+def crew_is_cloud(agents: list[dict], menu: ModelMenu | None = None) -> bool | None:
+    """Vrai dès qu'un agent de l'équipe utilise un modèle cloud : ses données quittent la
+    machine, le rapport porte donc le badge Cloud. None (origine inconnue) si aucun n'est
+    cloud mais qu'un modèle est d'origine inconnue ; False si tous sont locaux."""
+    origins = [is_cloud_model(agent.get("model_tag"), menu) for agent in agents]
+    if any(origin is True for origin in origins):
+        return True
+    return None if any(origin is None for origin in origins) else False
+
+
+def render_agent_crew_tab(
+    display_to_tag: dict,
+    sorted_labels: list,
+    avail_ram_gb: float,
+    menu: ModelMenu | None = None,
+):
 
     if not sorted_labels:
         render_no_models()
@@ -266,12 +296,10 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
             st.markdown(f"**Mission :** {st.session_state.crew_topic}")
             st.caption(f"Équipe de {pluralize(len(st.session_state.crew_agents), 'agent')}")
         with c_dash_2:
-            main_agent_model = st.session_state.crew_agents[0].get("model_tag", "N/A")
-            friendly_lbl = next(
-                (k for k, v in display_to_tag.items() if v == main_agent_model), "Plusieurs modèles"
-            )
             st.markdown("**Modèle principal**")
-            st.caption(friendly_lbl)
+            # Rempli après la configuration : les sélecteurs de modèle ont alors mis à jour
+            # `model_tag` (un modèle cloud retiré n'apparaît pas au run suivant seulement).
+            main_model_slot = st.container()
         with c_dash_3:
             if st.button("Charger une équipe", icon=":material/library_books:", width="stretch"):
                 open_crew_library(default_tag)
@@ -288,6 +316,7 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
         st.markdown("**Membres de l'équipe**")
 
         n_agents = len(st.session_state.crew_agents)
+        fallbacks = []  # agents cloud basculés sur un modèle local faute de cloud
         tabs = st.tabs(
             [a["role"] or f"Agent {i + 1}" for i, a in enumerate(st.session_state.crew_agents)]
             + ["Ajouter un agent"]
@@ -311,6 +340,7 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
 
                 with c_conf_2:
                     cur_tag = agent.get("model_tag")
+                    was_cloud = is_cloud_model(cur_tag, menu) is True
                     cur_lbl = next(
                         (k for k, v in display_to_tag.items() if v == cur_tag),
                         sorted_labels[0] if sorted_labels else "",
@@ -322,6 +352,14 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
                         key=f"mod_{i}",
                     )
                     agent["model_tag"] = display_to_tag.get(new_lbl, agent.get("model_tag"))
+                    if (
+                        was_cloud
+                        and cur_tag not in display_to_tag.values()
+                        and is_cloud_model(agent["model_tag"], menu) is False
+                    ):
+                        fallbacks.append(
+                            CLOUD_FALLBACK_CAPTION.format(role=agent["role"], label=new_lbl)
+                        )
 
                     all_tools = list(TOOLS_METADATA.keys())
                     tool_names = [TOOLS_METADATA[t]["name"] for t in all_tools]
@@ -353,6 +391,8 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
                         )
                     name_to_id = {v["name"]: k for k, v in TOOLS_METADATA.items()}
                     agent["tools"] = [name_to_id[n] for n in sel_tools]
+                    if EMAIL_TOOL in agent["tools"]:
+                        st.caption(CREW_EMAIL_CAPTION)
 
                     st.markdown("")
                     if st.button(
@@ -378,6 +418,21 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
                     }
                 )
                 st.rerun()
+
+    # --- MODÈLE PRINCIPAL (après les sélecteurs) ---
+    with main_model_slot:
+        main_agent_model = (
+            st.session_state.crew_agents[0].get("model_tag")
+            if st.session_state.crew_agents
+            else None
+        )
+        friendly_lbl = next(
+            (k for k, v in display_to_tag.items() if v == main_agent_model), "Plusieurs modèles"
+        )
+        st.caption(friendly_lbl)
+        render_badge(is_cloud_model(main_agent_model, menu))
+        for caption in fallbacks:
+            st.caption(caption)
 
     # --- C. VISUALISATION DU FLUX ---
     st.header("Enchaînement des agents")
@@ -486,6 +541,8 @@ def render_agent_crew_tab(display_to_tag: dict, sorted_labels: list, avail_ram_g
                 )
 
                 st.divider()
+                # Badge du rapport : Cloud dès qu'un agent de l'équipe l'est.
+                st.markdown(badge_markdown(crew_is_cloud(st.session_state.crew_agents, menu)))
                 st.markdown(result)
 
             except Exception as e:

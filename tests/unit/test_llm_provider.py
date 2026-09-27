@@ -235,3 +235,76 @@ class TestLLMProviderHealthCheck:
 
         assert isinstance(result, dict)
         assert "ollama" in result
+
+
+class TestCloudDisabledExcludesRemoteTags:
+    """Cloud désactivé (D1, story 8) : aucun modèle cloud, tags distants d'Ollama compris."""
+
+    OLLAMA_MODELS = [
+        {"model": "glm-4.6:cloud", "type": "local"},
+        {"model": "gpt-oss:120b-cloud", "type": "local"},
+        {"model": "qwen2.5:1.5b", "type": "local"},
+    ]
+    CLOUD_MODELS = [{"model": "mistral-large-2512", "type": "cloud"}]
+
+    def _factory(self):
+        """Factory aux providers simulés : Ollama (local) et un fournisseur cloud."""
+        ollama = MagicMock(is_local=True)
+        ollama.list_models.side_effect = lambda: [dict(m) for m in self.OLLAMA_MODELS]
+        mistral = MagicMock(is_local=False)
+        mistral.list_models.side_effect = lambda: [dict(m) for m in self.CLOUD_MODELS]
+        factory = object.__new__(LLMProviderFactory)
+        factory._providers = {"ollama": ollama, "mistral": mistral}
+        return factory
+
+    def test_cloud_disabled_lists_local_models_only(self):
+        models = self._factory().list_all_models(include_cloud=False)
+        assert [m["model"] for m in models] == ["qwen2.5:1.5b"]
+
+    def test_cloud_enabled_lists_remote_and_cloud_models(self):
+        models = self._factory().list_all_models(include_cloud=True)
+        assert [m["model"] for m in models] == [
+            "glm-4.6:cloud",
+            "gpt-oss:120b-cloud",
+            "qwen2.5:1.5b",
+            "mistral-large-2512",
+        ]
+
+    def test_facade_passes_cloud_setting(self):
+        with patch("src.core.llm_provider.get_provider_factory", return_value=self._factory()):
+            local = LLMProvider.list_models(cloud_enabled=False)
+        assert [m["model"] for m in local] == ["qwen2.5:1.5b"]
+
+    @pytest.mark.parametrize(
+        ("tag", "expected"),
+        [
+            ("qwen2.5:1.5b", False),
+            # Modèle Ollama local courant : le préfixe « gpt- » ne le rend pas cloud.
+            ("gpt-oss:20b", False),
+            ("glm-4.6:cloud", True),
+            ("gpt-oss:120b-cloud", True),
+            ("kimi-k2-cloud:latest", True),
+            ("gpt-4o-mini", True),
+            ("claude-3-5-sonnet", True),
+            # Origine inconnue : ni fournisseur, ni catalogue, ni tag Ollama.
+            ("", None),
+            (None, None),
+            ("N/A", None),
+            ("modele-inconnu", None),
+        ],
+    )
+    def test_is_cloud_tag_origin(self, tag, expected):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch("src.core.providers.provider_factory.get_model_info", return_value=None):
+            assert is_cloud_tag(tag) is expected
+
+    @pytest.mark.parametrize(("model_type", "expected"), [("api", True), ("local", False)])
+    def test_is_cloud_tag_catalog_type(self, model_type, expected):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch(
+            "src.core.providers.provider_factory.get_model_info",
+            return_value={"type": model_type},
+        ):
+            assert is_cloud_tag("mistral-large-2512") is expected

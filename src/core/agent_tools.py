@@ -7,7 +7,7 @@ Chaque outil est implémenté selon le pattern :
 2. Wrapper LangChain avec décorateur @tool
 
 Nouveaux outils ajoutés :
-- Email Sender
+- Email Sender (brouillon seulement : l'envoi exige la validation de l'utilisateur)
 - Data Analyzer (CSV/Excel)
 - Document Generator (DOCX)
 - Chart Generator (PNG)
@@ -21,6 +21,7 @@ import os
 import re
 import smtplib
 import unicodedata
+from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -33,7 +34,7 @@ import psutil
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from func_timeout import FunctionTimedOut, func_timeout
-from langchain_core.tools import tool
+from langchain_core.tools import StructuredTool, tool
 
 # Configuration matplotlib pour éviter les problèmes d'affichage
 matplotlib.use("Agg")
@@ -177,19 +178,44 @@ def _search_wavestone_impl(query: str) -> str:
 # ========================================
 
 
-def _send_email_impl(to: str, subject: str, body: str) -> str:
-    """
-    Logique pure d'envoi d'email via SMTP.
+# Variables SMTP requises pour envoyer un email (lues à l'import, depuis .env).
+SMTP_CONFIG_VARS = ("SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD")
+# Délai de connexion et d'envoi SMTP (secondes).
+SMTP_TIMEOUT_S = 15
 
-    Args:
-        to: Adresse email du destinataire
-        subject: Sujet de l'email
-        body: Corps du message (peut contenir du HTML)
 
-    Returns:
-        str: Message de confirmation ou d'erreur
-    """
-    # Validation des inputs
+@dataclass(frozen=True)
+class EmailDelivery:
+    """Résultat d'un envoi validé : succès, et message lisible (confirmation ou erreur)."""
+
+    ok: bool
+    message: str
+
+
+def missing_smtp_vars() -> list[str]:
+    """Variables SMTP vides (SMTP_SERVER, SMTP_USER, SMTP_PASSWORD), dans cet ordre."""
+    values = {"SMTP_SERVER": SMTP_SERVER, "SMTP_USER": SMTP_USER, "SMTP_PASSWORD": SMTP_PASSWORD}
+    return [name for name in SMTP_CONFIG_VARS if not values[name]]
+
+
+def smtp_configured() -> bool:
+    """True si l'envoi d'email est configuré (serveur, utilisateur et mot de passe SMTP)."""
+    return not missing_smtp_vars()
+
+
+def smtp_missing_help() -> str:
+    """Aide « Configuration SMTP absente » : variables à renseigner, valeurs par défaut, et
+    redémarrage (le .env est lu au lancement de l'application)."""
+    missing = ", ".join(missing_smtp_vars()) or "SMTP_USER, SMTP_PASSWORD"
+    return (
+        f"Configuration SMTP absente : renseignez {missing} dans le fichier .env, puis "
+        "redémarrez l'application. SMTP_SERVER vaut smtp.gmail.com par défaut et SMTP_PORT "
+        "587."
+    )
+
+
+def validate_email(to: str, subject: str, body: str) -> str | None:
+    """Message d'erreur si le destinataire, l'objet ou le corps est invalide ; None sinon."""
     if not to or "@" not in to:
         return "Erreur : Adresse email invalide"
 
@@ -199,37 +225,84 @@ def _send_email_impl(to: str, subject: str, body: str) -> str:
     if not body or len(body) > 10000:
         return "Erreur : Corps du message manquant ou trop long (max 10000 caractères)"
 
-    # Vérification de la configuration SMTP
-    if not SMTP_USER or not SMTP_PASSWORD:
-        return "Attention : Configuration SMTP manquante. Configurez SMTP_USER et SMTP_PASSWORD dans .env"
+    return None
+
+
+def _draft_email_impl(to: str, subject: str, body: str) -> str:
+    """
+    Brouillon d'email pour l'outil de l'agent seul : rien n'est envoyé (D2). L'interface
+    présente le brouillon (destinataire, objet, corps) et n'envoie qu'après validation
+    humaine, par send_validated_email.
+
+    Returns:
+        str: Brouillon préparé, ou message d'erreur de validation
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return error
+    return (
+        f"Brouillon d'email préparé pour {to} (objet : « {subject} »). Il n'est pas envoyé : "
+        "l'utilisateur doit le relire et valider l'envoi dans l'interface. Indique-lui que "
+        "l'email attend sa validation."
+    )
+
+
+def _draft_email_for_crew_impl(to: str, subject: str, body: str) -> str:
+    """
+    Brouillon d'email pour l'équipe d'agents : aucun email ne peut partir depuis l'équipe (pas
+    de validation possible en cours de mission). Le brouillon complet est rendu à l'agent,
+    qui peut le reprendre dans son rapport.
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return error
+    return (
+        "Aucun email ne peut être envoyé depuis l'équipe d'agents : rien n'est parti. "
+        "Brouillon à reprendre tel quel dans le rapport, pour que l'utilisateur l'envoie "
+        f"lui-même :\nDestinataire : {to}\nObjet : {subject}\nCorps :\n{body}"
+    )
+
+
+def send_validated_email(to: str, subject: str, body: str) -> EmailDelivery:
+    """
+    Envoi réel d'un brouillon via SMTP, en texte brut : exactement le texte montré à
+    l'utilisateur. Appelé par l'interface seulement, après validation humaine du brouillon
+    (jamais par l'agent).
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return EmailDelivery(False, error)
+
+    if not smtp_configured():
+        return EmailDelivery(False, f"Attention : {smtp_missing_help()}")
 
     try:
-        # Création du message
         msg = MIMEMultipart("alternative")
         msg["From"] = SMTP_USER
         msg["To"] = to
         msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain", "utf-8"))
 
-        # Ajout du corps (supporte HTML)
-        part = MIMEText(body, "html" if "<" in body else "plain", "utf-8")
-        msg.attach(part)
-
-        # Connexion et envoi
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT_S) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
 
-        return f"Email envoyé avec succès à {to}"
+        return EmailDelivery(True, f"Email envoyé avec succès à {to}")
 
     except smtplib.SMTPAuthenticationError:
-        return "Erreur d'authentification SMTP. Vérifiez vos identifiants."
+        return EmailDelivery(False, "Erreur d'authentification SMTP. Vérifiez vos identifiants.")
 
     except smtplib.SMTPException as e:
-        return f"Erreur SMTP : {str(e)}"
+        return EmailDelivery(False, f"Erreur SMTP : {str(e)}")
 
     except Exception as e:
-        return f"Erreur lors de l'envoi de l'email : {str(e)}"
+        return EmailDelivery(False, f"Erreur lors de l'envoi de l'email : {str(e)}")
+
+
+def _send_email_impl(to: str, subject: str, body: str) -> str:
+    """Message de send_validated_email (compatibilité des appels existants)."""
+    return send_validated_email(to, subject, body).message
 
 
 def _analyze_csv_impl(filepath: str, query: str) -> str:
@@ -642,13 +715,9 @@ def search_wavestone_internal(query: str) -> str:
 @tool
 def send_email(to: str, subject: str, body: str) -> str:
     """
-    Envoie un email via SMTP.
-
-    IMPORTANT : Requiert la configuration SMTP dans le fichier .env :
-    - SMTP_SERVER
-    - SMTP_PORT
-    - SMTP_USER
-    - SMTP_PASSWORD
+    Prépare un email (brouillon) pour l'utilisateur. L'email n'est PAS envoyé par cet outil :
+    l'utilisateur relit le destinataire, l'objet et le corps, puis valide lui-même l'envoi
+    dans l'interface.
 
     Args:
         to: Adresse email du destinataire
@@ -656,12 +725,12 @@ def send_email(to: str, subject: str, body: str) -> str:
         body: Corps du message (supporte HTML, max 10000 caractères)
 
     Returns:
-        str: Message de confirmation ou d'erreur
+        str: Confirmation que le brouillon attend la validation de l'utilisateur, ou erreur
 
     Exemple:
         send_email("user@example.com", "Rapport d'analyse", "Voici les résultats...")
     """
-    return _send_email_impl(to, subject, body)
+    return _draft_email_impl(to, subject, body)
 
 
 @tool
@@ -782,6 +851,18 @@ def system_monitor() -> str:
     return _system_monitor_impl()
 
 
+# Variante de l'équipe d'agents (même nom) : brouillon complet, aucun envoi possible.
+send_email_crew = StructuredTool.from_function(
+    func=_draft_email_for_crew_impl,
+    name="send_email",
+    description=(
+        "Prépare un email (brouillon) : destinataire, objet et corps. Aucun email ne peut être "
+        "envoyé depuis l'équipe d'agents ; reprends le brouillon rendu dans ton rapport."
+    ),
+)
+# Outils remplacés dans l'équipe d'agents (crew_engine.py), par nom.
+CREW_TOOL_OVERRIDES = {"send_email": send_email_crew}
+
 # ========================================
 # REGISTRE DES OUTILS
 # ========================================
@@ -822,10 +903,10 @@ TOOLS_METADATA = {
     },
     "send_email": {
         "name": "Envoi d'email",
-        "description": "Envoi d'emails",
+        "description": "Brouillon d'email, envoyé seulement après validation",
         "category": "communication",
         "requires_config": True,
-        "config_vars": ["SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD"],
+        "config_vars": list(SMTP_CONFIG_VARS),
     },
     "analyze_csv": {
         "name": "Analyse de données",

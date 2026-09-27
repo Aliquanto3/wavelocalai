@@ -7,11 +7,41 @@ import logging
 from typing import Any
 
 from src.core.interfaces import ILLMProvider
-from src.core.model_detector import is_api_model
+from src.core.model_defaults import is_remote_tag
+from src.core.model_detector import get_model_info, is_api_model
 from src.core.providers.mistral_provider import MistralProvider
 from src.core.providers.ollama_provider import OllamaProvider
 
 logger = logging.getLogger(__name__)
+
+# Préfixes des modèles OpenAI et Anthropic (noms sans « : », contrairement aux tags Ollama).
+CLOUD_TAG_PREFIXES = ("gpt-", "o1-", "claude-")
+
+
+def is_cloud_tag(model_tag: str | None) -> bool | None:
+    """
+    Origine d'un tag hors de la liste des fournisseurs (dont le type prime) : True si ses
+    données quittent la machine, False s'il tourne ici, None si elle est inconnue.
+
+    - tag distant servi par Ollama (`:cloud`, `-cloud`) : cloud ;
+    - modèle du catalogue : son type (`api` = cloud) ;
+    - autre tag Ollama (`nom:variante`, par exemple `gpt-oss:20b`) : local ;
+    - nom sans variante préfixé `gpt-`, `o1-` ou `claude-` (OpenAI, Anthropic) : cloud ;
+    - sinon (vide, « N/A », inconnu du catalogue) : inconnue.
+    """
+    tag = str(model_tag or "").strip()
+    if not tag:
+        return None
+    if is_remote_tag({"model": tag}):
+        return True
+    info = get_model_info(tag)
+    if info is not None:
+        return info.get("type") == "api"
+    if ":" in tag:
+        return False
+    if tag.lower().startswith(CLOUD_TAG_PREFIXES):
+        return True
+    return None
 
 
 class LLMProviderFactory:
@@ -118,7 +148,8 @@ class LLMProviderFactory:
         Liste tous les modèles de tous les providers.
 
         Args:
-            include_cloud: Inclure les modèles cloud (Mistral, etc.)
+            include_cloud: Inclure les modèles cloud (Mistral, OpenAI, Anthropic, et les tags
+                distants servis par Ollama, `glm-4.6:cloud`) ; False : modèles locaux seuls.
 
         Returns:
             Liste consolidée de tous les modèles disponibles
@@ -131,6 +162,9 @@ class LLMProviderFactory:
 
             try:
                 models = provider.list_models()
+                if not include_cloud:
+                    # Un fournisseur local peut servir un tag distant : exclu aussi (D1).
+                    models = [m for m in models if not is_remote_tag(m)]
                 # Ajouter le nom du provider à chaque modèle
                 for model in models:
                     model["provider"] = provider_name

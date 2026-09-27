@@ -4,11 +4,15 @@ Mode « Agent seul » des Agents autonomes.
 - CO₂ en texte, sans code couleur par seuil
 - État vide avec actions rapides en cartes
 - Structure de PROMPT_LIBRARY vérifiée par les tests
+- Badge Local ou Cloud du modèle choisi et de la réponse
+- Email (D2) : « Envoi d'email » décoché par défaut, non sélectionnable sans SMTP ; l'outil
+  ne prépare qu'un brouillon, envoyé seulement après « Envoyer l'email » dans confirm-dialog
 """
 
 import streamlit as st
 
 from src.app.formatting import format_co2, mg_to_grams
+from src.app.rag_upload import escape_markdown
 from src.app.states import (
     LOADING_HINT,
     LOADING_LABEL,
@@ -16,8 +20,15 @@ from src.app.states import (
     render_error,
     render_no_models,
 )
+from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 from src.core.agent_engine import AgentEngine
-from src.core.agent_tools import TOOLS_METADATA
+from src.core.agent_tools import (
+    TOOLS_METADATA,
+    send_validated_email,
+    smtp_configured,
+    smtp_missing_help,
+    validate_email,
+)
 from src.core.llm_provider import LLMProvider
 from src.core.resource_manager import ResourceManager
 from src.core.utils import extract_thought
@@ -63,9 +74,163 @@ PROMPT_LIBRARY = {
 }
 
 
+# Outil d'email : décoché par défaut (D2), non sélectionnable sans configuration SMTP.
+EMAIL_TOOL = "send_email"
+DEFAULT_TOOLS = [t for t in TOOLS_METADATA if t != EMAIL_TOOL]
+UNAVAILABLE_TOOLS_LABEL = "Outil non configuré"
+
+# Brouillons d'email préparés par l'agent, en attente de validation (file, le premier est
+# présenté dans confirm-dialog), et résultat du dernier envoi, affiché une fois.
+EMAIL_DRAFTS_KEY = "agent_email_drafts"
+EMAIL_RESULT_KEY = "agent_email_result"
+EMAIL_SEND_LABEL = "Envoyer l'email"
+EMAIL_CANCEL_LABEL = "Annuler"
+EMAIL_FAILED_MESSAGE = (
+    "L'email n'a pas été envoyé. Vérifiez la configuration SMTP du fichier .env, puis "
+    "demandez de nouveau l'email à l'agent."
+)
+
+
 def _tool_label(tool_id: str) -> str:
     """Nom affiché d'un outil (TOOLS_METADATA), à défaut son identifiant."""
     return TOOLS_METADATA.get(tool_id, {}).get("name", tool_id)
+
+
+def email_draft(args) -> dict | None:
+    """Brouillon {to, subject, body} tiré des arguments d'un appel à l'outil d'email ; None
+    si les arguments sont invalides (l'outil a alors répondu par une erreur)."""
+    if not isinstance(args, dict):
+        return None
+    draft = {key: str(args.get(key) or "") for key in ("to", "subject", "body")}
+    return None if validate_email(**draft) else draft
+
+
+def queue_email_draft(args, selected_tools: list[str]) -> bool:
+    """Met un brouillon en attente de validation, seulement si l'outil d'email est choisi,
+    SMTP configuré, les arguments valides et le brouillon pas déjà en attente."""
+    if EMAIL_TOOL not in selected_tools or not smtp_configured():
+        return False
+    draft = email_draft(args)
+    queue = st.session_state.setdefault(EMAIL_DRAFTS_KEY, [])
+    if draft is None or draft in queue:
+        return False
+    queue.append(draft)
+    return True
+
+
+def clear_email_drafts() -> None:
+    """Retire les brouillons en attente (conversation effacée, passage en équipe)."""
+    st.session_state.pop(EMAIL_DRAFTS_KEY, None)
+
+
+def _pop_draft() -> dict | None:
+    drafts = st.session_state.get(EMAIL_DRAFTS_KEY) or []
+    return drafts.pop(0) if drafts else None
+
+
+def _dismiss_email() -> None:
+    """Fermeture du dialogue (croix, Échap) : comme « Annuler », rien n'est envoyé."""
+    _pop_draft()
+
+
+@st.dialog("Envoyer l'email ?", on_dismiss=_dismiss_email)
+def confirm_email_dialog() -> None:
+    """confirm-dialog de l'email : destinataire, objet et corps du brouillon. Rien ne part
+    sans « Envoyer l'email » ; « Annuler » le retire sans rien envoyer."""
+    drafts = st.session_state.get(EMAIL_DRAFTS_KEY) or []
+    if not drafts:
+        return
+    draft = drafts[0]
+    st.warning(
+        f"L'agent a préparé cet email pour {escape_markdown(draft['to'])}. Il ne part que si "
+        f"vous cliquez sur « {EMAIL_SEND_LABEL} ».",
+        icon=":material/warning:",
+    )
+    st.markdown(f"**Destinataire** : {escape_markdown(draft['to'])}")
+    st.markdown(f"**Objet** : {escape_markdown(draft['subject'])}")
+    st.markdown("**Corps du message**")
+    with st.container(border=True):
+        st.text(draft["body"])
+
+    col_send, col_cancel = st.columns(2)
+    with col_send:
+        send = st.button(EMAIL_SEND_LABEL, type="primary", icon=":material/send:", width="stretch")
+    with col_cancel:
+        cancel = st.button(EMAIL_CANCEL_LABEL, width="stretch")
+
+    if send:
+        _pop_draft()
+        # Envoi réel, seulement ici, après validation humaine.
+        with st.spinner("Envoi de l'email…"):
+            delivery = send_validated_email(draft["to"], draft["subject"], draft["body"])
+        st.session_state[EMAIL_RESULT_KEY] = {
+            "ok": delivery.ok,
+            "to": draft["to"],
+            "detail": delivery.message,
+        }
+        # st.rerun ferme le dialogue : le résultat s'affiche au run suivant.
+        st.rerun()
+    elif cancel:
+        _pop_draft()
+        st.rerun()
+
+
+def _render_email_result() -> None:
+    """Résultat du dernier envoi, une fois : succès au même verbe, ou alert-error."""
+    result = st.session_state.pop(EMAIL_RESULT_KEY, None)
+    if not result:
+        return
+    if result["ok"]:
+        st.success(
+            f"Email envoyé à {escape_markdown(result['to'])}.", icon=":material/check_circle:"
+        )
+    else:
+        render_error(EMAIL_FAILED_MESSAGE, result["detail"])
+
+
+def _render_tool_pills() -> None:
+    """Neuf pastilles d'outils : toutes cochées par défaut sauf « Envoi d'email ». Sans
+    configuration SMTP, « Envoi d'email » reste visible dans une pastille désactivée, avec
+    une aide qui dit ce qui manque. Met à jour `selected_tools`."""
+    smtp_ok = smtp_configured()
+    selectable = [t for t in TOOLS_METADATA if smtp_ok or t != EMAIL_TOOL]
+    tool_map = {TOOLS_METADATA[t]["name"]: t for t in selectable}
+
+    if "selected_tools" not in st.session_state:
+        st.session_state.selected_tools = list(DEFAULT_TOOLS)
+
+    current_display = [
+        TOOLS_METADATA[t]["name"] for t in selectable if t in st.session_state.selected_tools
+    ]
+
+    try:
+        # wrap=True replie les pastilles sur plusieurs lignes au lieu de les faire défiler
+        # sur une seule (5 sur 9 masquées à 1440 px sinon).
+        sel_display = st.pills(
+            "Outils",
+            list(tool_map),
+            default=current_display,
+            selection_mode="multi",
+            label_visibility="collapsed",
+            wrap=True,
+        )
+    except Exception:
+        sel_display = st.multiselect(
+            "Outils", list(tool_map), default=current_display, label_visibility="collapsed"
+        )
+
+    if not smtp_ok:
+        # Libellé visible : un libellé masqué masque aussi l'aide du widget.
+        st.pills(
+            UNAVAILABLE_TOOLS_LABEL,
+            [TOOLS_METADATA[EMAIL_TOOL]["name"]],
+            selection_mode="multi",
+            disabled=True,
+            help=smtp_missing_help(),
+            key="agent_unavailable_tools",
+        )
+
+    st.session_state.selected_tools = [tool_map[n] for n in sel_display]
 
 
 # --- MODAL: PROMPT LIBRARY ---
@@ -95,7 +260,7 @@ def open_prompt_library():
         st.rerun()
 
 
-def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
+def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: ModelMenu | None = None):
 
     if not sorted_labels:
         render_no_models()
@@ -108,40 +273,14 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
         # Model Selector
         selected_label = st.selectbox("Modèle", sorted_labels, label_visibility="collapsed")
         selected_tag = display_to_tag.get(selected_label)
+        # Badge du modèle choisi, dérivé de son fournisseur réel.
+        selected_is_cloud = is_cloud_model(selected_tag, menu)
+        render_badge(selected_is_cloud)
 
     with c2:
-        # Tool Selector (Pills) : wrap=True replie les 9 pastilles sur plusieurs lignes au lieu
-        # de les faire défiler sur une seule (5 sur 9 masquées à 1440 px sinon).
-        tool_map = {meta["name"]: name for name, meta in TOOLS_METADATA.items()}
-        tool_display_names = list(tool_map.keys())
+        _render_tool_pills()
 
-        if "selected_tools" not in st.session_state:
-            st.session_state.selected_tools = list(TOOLS_METADATA.keys())
-
-        current_display = [
-            meta["name"]
-            for name, meta in TOOLS_METADATA.items()
-            if name in st.session_state.selected_tools
-        ]
-
-        try:
-            sel_display = st.pills(
-                "Outils",
-                tool_display_names,
-                default=current_display,
-                selection_mode="multi",
-                label_visibility="collapsed",
-                wrap=True,
-            )
-        except Exception:
-            # Optionnel : loguer l'erreur pour le débogage
-            # print(f"Erreur lors de la lecture du système: {e}")
-            sel_display = st.multiselect(
-                "Outils", tool_display_names, default=current_display, label_visibility="collapsed"
-            )
-
-        st.session_state.selected_tools = [tool_map[n] for n in sel_display]
-
+    library_opened = False
     with c3:
         # Library Button
         if st.button(
@@ -150,6 +289,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
             help="Ouvrir la bibliothèque de scénarios",
             width="stretch",
         ):
+            library_opened = True
             open_prompt_library()
 
     st.divider()
@@ -158,6 +298,8 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
     chat_container = st.container()
 
     with chat_container:
+        _render_email_result()
+
         # EMPTY STATE AMÉLIORÉ
         if not st.session_state.agent_messages:
             st.header("👋 Bonjour !", anchor=False, text_alignment="center")
@@ -298,6 +440,11 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                         }
                         st.session_state.agent_messages.append(current_tool_log)
 
+                        # Email : l'outil n'a préparé qu'un brouillon, présenté ensuite dans
+                        # confirm-dialog ; rien ne part sans « Envoyer l'email ».
+                        if event["tool"] == EMAIL_TOOL:
+                            queue_email_draft(event["args"], st.session_state.selected_tools)
+
                     elif ev_type == "tool_result":
                         content = event["content"]
 
@@ -331,6 +478,13 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                             with st.expander("Raisonnement"):
                                 st.markdown(thought)
                         st.markdown(full_resp)
+                        # Badge Local ou Cloud du modèle qui a répondu.
+                        name = menu.tag_to_friendly.get(selected_tag) if menu else None
+                        st.caption(
+                            " · ".join(
+                                part for part in (badge_markdown(selected_is_cloud), name) if part
+                            )
+                        )
 
                     elif ev_type == "error":
                         finished = True
@@ -353,3 +507,9 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                     + generation_failure_advice(selected_tag),
                     f"{type(e).__name__}: {e}",
                 )
+
+    # --- 4. EMAIL EN ATTENTE DE VALIDATION ---
+    # Ouvert à chaque exécution tant qu'un brouillon attend : « Envoyer l'email », « Annuler »
+    # ou la fermeture du dialogue le retirent. Un seul dialogue à la fois.
+    if st.session_state.get(EMAIL_DRAFTS_KEY) and not library_opened:
+        confirm_email_dialog()

@@ -12,7 +12,13 @@ import streamlit as st
 from src.app.formatting import NBSP, format_number, format_percent
 from src.app.modules import APP_NAME, MODULES, RECOMMENDED
 from src.app.states import OLLAMA_DOWN_MESSAGE, ollama_available, system_status_label
-from src.app.ui import FAVICON_PATH
+from src.app.ui import (
+    FAVICON_PATH,
+    MODE_CLOUD_BADGE_HELP,
+    MODE_LOCAL_BADGE_HELP,
+    cloud_enabled,
+    render_badge,
+)
 
 st.set_page_config(page_title=APP_NAME, page_icon=FAVICON_PATH, layout="wide")
 
@@ -42,9 +48,9 @@ def main():
 
     # --- BANDEAU D'ÉTAT ---
     cpu, mem_used, mem_total = get_system_health()
-    cloud_enabled = st.session_state.get("cloud_enabled", True)
+    cloud_on = cloud_enabled()
 
-    if cloud_enabled:
+    if cloud_on:
         mode_value = "Cloud"
         mode_help = (
             "Le cloud est autorisé : les données envoyées aux modèles cloud (Mistral, OpenAI) "
@@ -69,6 +75,7 @@ def main():
         )
     with col_mode:
         st.metric("Mode", mode_value, help=mode_help)
+        render_badge(cloud_on, help=MODE_CLOUD_BADGE_HELP if cloud_on else MODE_LOCAL_BADGE_HELP)
     with col_cpu:
         st.metric("Processeur", format_percent(cpu), help="Charge actuelle du processeur")
     with col_mem:

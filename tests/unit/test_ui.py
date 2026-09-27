@@ -16,6 +16,7 @@ FRIENDLY = {
     "gpt-4o-mini": "GPT-4o mini",
     "llama3.1:8b": "Llama 3.1 8B",
     "glm-4.6:cloud": "Glm-4.6",
+    "gpt-oss:20b": "GPT-OSS 20B",
 }
 
 # Modèles locaux au format de LLMProvider.list_models (taille du téléchargement en octets).
@@ -189,3 +190,78 @@ def test_available_memory_adds_only_local_ollama_models(monkeypatch):
     monkeypatch.setattr(ui.LLMProvider, "loaded_models_ram_gb", lambda timeout=2.0: 0.0)
     monkeypatch.setattr(ui.st, "session_state", {})
     assert ui.available_memory_gb() == 8.0
+
+
+# ---------------------------------------------------------------------------
+# Souveraineté visible (story 8) : contrôle global et badges
+# ---------------------------------------------------------------------------
+
+
+def test_cloud_disabled_by_default(monkeypatch):
+    """Local à chaque démarrage (D1) : sans valeur de session, le cloud est désactivé."""
+    monkeypatch.setattr(ui.st, "session_state", {})
+    assert ui.cloud_enabled() is False
+    monkeypatch.setattr(ui.st, "session_state", {ui.CLOUD_KEY: True})
+    assert ui.cloud_enabled() is True
+
+
+def test_badges_follow_design():
+    """badge-local vert (ordinateur), badge-cloud orange (nuage), jamais rouge ; origine
+    inconnue : gris neutre, jamais le vert du local."""
+    assert ui.badge_markdown(False) == ":green-badge[:material/computer: Local]"
+    assert ui.badge_markdown(True) == ":orange-badge[:material/cloud: Cloud]"
+    assert ui.badge_markdown(None) == ":gray-badge[:material/help: Origine inconnue]"
+    assert ui.badge_markdown(float("nan")) == ui.badge_markdown(None)
+    assert "red" not in ui.badge_markdown(True)
+    assert [ui.origin_label(v) for v in (False, True, None)] == [
+        "Local",
+        "Cloud",
+        "Origine inconnue",
+    ]
+
+
+def test_render_badge_uses_st_badge(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ui.st, "badge", lambda label, **kw: calls.append((label, kw)))
+    ui.render_badge(False)
+    ui.render_badge(True)
+    ui.render_badge(None)
+    ui.render_badge(False, help="Aide du mode")
+    assert [(label, kw["icon"], kw["color"]) for label, kw in calls] == [
+        ("Local", ":material/computer:", "green"),
+        ("Cloud", ":material/cloud:", "orange"),
+        ("Origine inconnue", ":material/help:", "gray"),
+        ("Local", ":material/computer:", "green"),
+    ]
+    assert all(kw["help"] for _, kw in calls)
+    assert calls[-1][1]["help"] == "Aide du mode"
+
+
+def test_is_cloud_model_derived_from_real_provider(monkeypatch):
+    """Badge dérivé du fournisseur réel : type renvoyé par le fournisseur, tag distant ; tag
+    hors du sélecteur : routage de la factory."""
+    remote = {"model": "glm-4.6:cloud", "type": "local", "size": 384}
+    cloud = {"model": "mistral-large-2512", "type": "cloud", "size": 0}
+    menu = ui.model_menu([QWEN, remote, cloud])
+
+    assert ui.is_cloud_model("qwen2.5:1.5b", menu) is False
+    assert ui.is_cloud_model("glm-4.6:cloud", menu) is True
+    assert ui.is_cloud_model("mistral-large-2512", menu) is True
+    assert menu.is_cloud("Qwen 2.5 1.5B · Local") is False
+    assert menu.is_cloud("Glm-4.6 · Cloud") is True
+
+    monkeypatch.setattr(ui, "is_cloud_tag", lambda tag: tag == "gpt-4o-mini")
+    assert ui.is_cloud_model("gpt-4o-mini", menu) is True
+    assert ui.is_cloud_model("gpt-4o-mini") is True
+    assert menu.is_cloud("Libellé absent") is None
+
+
+def test_provider_type_wins_and_unknown_tag_is_not_local():
+    """Le type renvoyé par le fournisseur prime ; `gpt-oss:20b` servi par Ollama est local ;
+    un tag inconnu (None, « N/A », hors sélecteur et catalogue) n'est jamais « Local »."""
+    gpt_oss = {"model": "gpt-oss:20b", "type": "local", "size": 13 * GB}
+    menu = ui.model_menu([QWEN, gpt_oss])
+    assert ui.is_cloud_model("gpt-oss:20b", menu) is False
+    assert ui.is_cloud_model("gpt-oss:20b") is False  # hors sélecteur : tag Ollama local
+    for unknown in (None, "N/A", "modele-inconnu"):
+        assert ui.is_cloud_model(unknown, menu) is None

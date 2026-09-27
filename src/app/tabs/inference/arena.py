@@ -33,9 +33,13 @@ from src.app.states import (
 )
 from src.app.ui import (
     ModelMenu,
+    badge_markdown,
+    is_cloud_model,
     judge_help,
     judge_self_caption,
     judge_warnings,
+    origin_label,
+    render_badge,
     weak_judge_text,
 )
 from src.core.green_monitor import CarbonCalculator
@@ -163,12 +167,20 @@ def _timings_label(row: dict) -> str:
     return " · ".join(parts)
 
 
+def _execution_label(row) -> str:
+    """« Local », « Cloud » ou « Origine inconnue » : fournisseur réel du modèle de la ligne
+    (colonne de tableau, où un badge ne peut pas s'afficher)."""
+    return origin_label(row.get("is_cloud"))
+
+
 def _render_results_table(ranked: list[dict], unit: str) -> None:
-    """Tableau de tous les modèles, échecs compris : chaque ligne dit son statut. CO₂ dans
-    l'unité commune `unit` ; chargement et durée totale à part du débit."""
+    """Tableau de tous les modèles, échecs compris : chaque ligne dit son statut et si le
+    modèle est local ou cloud. CO₂ dans l'unité commune `unit` ; chargement et durée totale
+    à part du débit."""
     df = pd.DataFrame(
         {
             "Modèle": [r["Modèle"] for r in ranked],
+            "Exécution": [_execution_label(r) for r in ranked],
             "Note": [_note_label(r) for r in ranked],
             "Débit": [r.get("Débit (t/s)") for r in ranked],
             "Chargement": [r.get("Chargement (s)") for r in ranked],
@@ -181,6 +193,11 @@ def _render_results_table(ranked: list[dict], unit: str) -> None:
         df,
         column_config={
             "Modèle": st.column_config.TextColumn("Modèle", width="medium"),
+            "Exécution": st.column_config.TextColumn(
+                "Exécution",
+                help="Local : le modèle tourne sur cette machine. Cloud : les données envoyées "
+                "au modèle quittent la machine.",
+            ),
             "Note": st.column_config.TextColumn(
                 "Note (/100)", help="« non évalué » : le juge n'a pas pu noter la réponse."
             ),
@@ -233,6 +250,7 @@ def _render_podium(results_data):
     with col_winner, st.container(border=True):
         st.markdown("Vainqueur", text_alignment="center")
         st.subheader(winner["Modèle"], anchor=False, text_alignment="center")
+        render_badge(winner.get("is_cloud"))
 
         st.divider()
 
@@ -408,6 +426,8 @@ def render_arena_tab(
                 help=judge_help(menu),
             )
             judge_tag = display_to_tag.get(judge_display)
+            # Le juge lit la question et les réponses : son badge dit où elles partent.
+            render_badge(is_cloud_model(judge_tag, menu))
 
             default_judge_prompt = """Agis comme un juge impartial.
 Question: "{prompt}".
@@ -464,6 +484,8 @@ Format : Uniquement le chiffre (ex: 85)."""
 
         for i, tag in enumerate(selected_arena_tags):
             friendly_name = selected_arena_friendlies[i]
+            # Fournisseur réel, gardé dans chaque ligne de résultats (tableau, vainqueur).
+            is_cloud = is_cloud_model(tag, menu)
             _write_loading_note(status_box, tag, friendly_name)
             status_box.write(f"Génération par **{friendly_name}**…")
 
@@ -484,6 +506,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                     results_data.append(
                         {
                             "Modèle": friendly_name,
+                            "is_cloud": is_cloud,
                             "Note": None,
                             "Débit (t/s)": None,
                             "Chargement (s)": None,
@@ -528,6 +551,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 results_data.append(
                     {
                         "Modèle": friendly_name,
+                        "is_cloud": is_cloud,
                         "Note": score,
                         # Débit = eval_count / eval_duration pour Ollama (D3).
                         "Débit (t/s)": None if m is None else round(m.tokens_per_second, 1),
@@ -548,6 +572,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                     "thought": result.thought,
                     "score": score,
                     "reason": reason,
+                    "is_cloud": is_cloud,
                 }
 
             except Exception as e:
@@ -555,6 +580,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 results_data.append(
                     {
                         "Modèle": friendly_name,
+                        "is_cloud": is_cloud,
                         "Note": None,
                         "Débit (t/s)": None,
                         "Chargement (s)": None,
@@ -611,12 +637,16 @@ Format : Uniquement le chiffre (ex: 85)."""
             for idx, (name, data) in enumerate(sorted_items):
                 with c1 if idx == 0 else c2, st.container(border=True):
                     note = NOT_EVALUATED if data["score"] is None else f"{data['score']}/100"
-                    st.markdown(f"**{name}** (note : {note})", help=data["reason"])
+                    st.markdown(
+                        f"**{name}** (note : {note}) {badge_markdown(data['is_cloud'])}",
+                        help=data["reason"],
+                    )
                     st.caption(data["text"])
         else:
             for name, data in sorted_items:
                 note = NOT_EVALUATED if data["score"] is None else f"{data['score']}/100"
                 with st.expander(f"{name} · {note}"):
+                    render_badge(data["is_cloud"])
                     if data["reason"]:
                         st.caption(f"{NOT_EVALUATED.capitalize()} : {data['reason']}")
                     st.markdown(data["text"])

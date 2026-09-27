@@ -1,6 +1,6 @@
 """
 Onglet « Chat libre » de l'Arène des modèles : conversation avec un modèle et métadonnées
-(CO₂, débit, chargement, durée totale) sous chaque réponse.
+(badge Local ou Cloud, CO₂, débit, chargement, durée totale) sous chaque réponse.
 """
 
 import asyncio
@@ -17,6 +17,7 @@ from src.app.states import (
     render_no_models,
     start_loading_status,
 )
+from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 
 # --- Import SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
@@ -64,12 +65,14 @@ def _model_history(messages: list[dict]) -> list[dict]:
     return history
 
 
-def _render_message_footer(metrics: dict):
-    """Affiche la ligne de métadonnées sous le message (texte, sans code couleur par seuil)."""
+def _render_message_footer(metrics: dict, is_cloud: bool | None = None):
+    """Affiche la ligne de métadonnées sous le message : badge Local ou Cloud du modèle qui a
+    répondu, puis CO₂, débit et durées (texte, sans code couleur par seuil)."""
     if not metrics:
         return
 
     parts = [
+        badge_markdown(is_cloud),
         format_co2(mg_to_grams(metrics.get("co2_mg"))),
         format_throughput(metrics.get("speed"), metrics.get("speed_estimated", False)),
     ]
@@ -80,7 +83,11 @@ def _render_message_footer(metrics: dict):
 
 
 def render_chat_tab(
-    selected_tag: str, selected_display: str, display_to_tag: dict, sorted_display_names: list
+    selected_tag: str,
+    selected_display: str,
+    display_to_tag: dict,
+    sorted_display_names: list,
+    menu: ModelMenu | None = None,
 ):
     if not sorted_display_names:
         render_no_models(in_arena=True)
@@ -103,6 +110,9 @@ def render_chat_tab(
                 label_visibility="collapsed",
             )
             active_tag = display_to_tag.get(local_display)
+            # Badge du modèle choisi, dérivé de son fournisseur réel.
+            active_is_cloud = is_cloud_model(active_tag, menu)
+            render_badge(active_is_cloud)
 
         with c_temp:
             # Température compacte
@@ -155,7 +165,7 @@ def render_chat_tab(
 
                 # Footer Badges
                 if msg["role"] == "assistant" and "metrics_data" in msg:
-                    _render_message_footer(msg["metrics_data"])
+                    _render_message_footer(msg["metrics_data"], msg.get("is_cloud"))
 
     # --- 3. INPUT USER ---
     if prompt := st.chat_input("Écrivez votre message"):
@@ -216,7 +226,7 @@ def render_chat_tab(
 
             # Calculs
             metrics_data = _calculate_metrics(result.metrics, local_display)
-            _render_message_footer(metrics_data)
+            _render_message_footer(metrics_data, active_is_cloud)
 
             # Save
             st.session_state.messages.append(
@@ -226,6 +236,8 @@ def render_chat_tab(
                     "thought": result.thought,
                     "metrics_data": metrics_data,
                     "model_friendly": local_display,
+                    "model_tag": active_tag,
+                    "is_cloud": active_is_cloud,
                 }
             )
 

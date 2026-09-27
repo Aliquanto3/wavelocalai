@@ -7,19 +7,17 @@ from src.app.tabs.inference.chat import render_chat_tab
 from src.app.tabs.inference.lab import render_lab_tab
 from src.app.tabs.inference.manager import render_manager_tab
 from src.app.modules import ARENA
-from src.app.ui import FAVICON_PATH, model_menu
+from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
 from src.core.llm_provider import LLMProvider
 
 # --- Configuration de la Page ---
 st.set_page_config(page_title=ARENA.title, page_icon=FAVICON_PATH, layout="wide")
 
-# Contrôle global « Autoriser le cloud », rendu par le routeur (Accueil.py).
-cloud_enabled = st.session_state.get("cloud_enabled", True)
-
 # ==========================================
 # CHARGEMENT CENTRALISÉ DES MODÈLES
 # ==========================================
-installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled)
+# Contrôle global « Autoriser le cloud » (routeur Accueil.py) : désactivé, aucun modèle cloud.
+installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled())
 
 # Sélecteurs : libellés « Nom · Local » / « Nom · Cloud », locaux d'abord, le modèle local le
 # plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).
@@ -60,6 +58,7 @@ with tab_chat:
         selected_display=default_selected_display,
         display_to_tag=display_to_tag,
         sorted_display_names=sorted_display_names,
+        menu=menu,
     )
 
 with tab_lab:
@@ -67,6 +66,7 @@ with tab_lab:
         sorted_display_names=sorted_display_names,
         display_to_tag=display_to_tag,
         tag_to_friendly=tag_to_friendly,
+        menu=menu,
     )
 
 with tab_arena:

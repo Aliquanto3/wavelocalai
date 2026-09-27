@@ -27,9 +27,12 @@ from src.app.formatting import (
 from src.app.states import NOT_EVALUATED, render_error, render_no_models
 from src.app.ui import (
     ModelMenu,
+    is_cloud_model,
     judge_help,
     judge_self_caption,
     judge_warnings,
+    origin_label,
+    render_badge,
     weak_judge_text,
 )
 
@@ -134,6 +137,8 @@ def render_rag_eval_tab(
             help=judge_help(menu),
         )
         judge_tag = display_to_tag.get(judge_display)
+        # Le juge lit la question, les extraits et les réponses : son badge dit où ils partent.
+        render_badge(is_cloud_model(judge_tag, menu))
         for warning in judge_warnings(menu, judge_display):
             st.warning(warning)
         self_caption = judge_self_caption(tag_to_friendly, judge_tag, candidate_tags)
@@ -193,6 +198,7 @@ def render_rag_eval_tab(
 
         for i, c_tag in enumerate(candidate_tags):
             c_friendly = tag_to_friendly[c_tag]
+            c_is_cloud = is_cloud_model(c_tag, menu)
             prog_container.write(f"Réponse de **{c_friendly}**…")
 
             try:
@@ -242,6 +248,7 @@ def render_rag_eval_tab(
                 results_raw.append(
                     {
                         "Modèle": c_friendly,
+                        "is_cloud": c_is_cloud,  # Fournisseur réel (badge, tableau)
                         "Score": eval_result.global_score,  # Float 0-1 ou None
                         "CO2_mg": carbon_mg,  # Float
                         "Latence_s": d_gen,  # Float
@@ -253,7 +260,11 @@ def render_rag_eval_tab(
                     }
                 )
 
-                detailed_responses[c_friendly] = {"text": clean_answer, "thought": thought}
+                detailed_responses[c_friendly] = {
+                    "text": clean_answer,
+                    "thought": thought,
+                    "is_cloud": c_is_cloud,
+                }
 
             except Exception as e:
                 prog_container.write(
@@ -312,6 +323,7 @@ def render_rag_eval_tab(
                     row = df_podium.iloc[i]
                     with cols_podium[i], st.container(border=True):
                         st.markdown(f"**{i + 1}. {row['Modèle']}**")
+                        render_badge(row["is_cloud"])
                         st.metric("Note globale", _format_ratio(row["Score"]))
                         st.caption(f"CO₂ : {format_co2(mg_to_grams(row['CO2_mg']), co2_unit)}")
 
@@ -376,6 +388,7 @@ def render_rag_eval_tab(
             df_display = pd.DataFrame(
                 {
                     "Modèle": df_table["Modèle"],
+                    "Exécution": [origin_label(v) for v in df_table["is_cloud"]],
                     "Note": _to_100(df_table["Score"]),
                     "Fidélité": _to_100(df_table["Fidélité"]),
                     "Pertinence": _to_100(df_table["Pertinence"]),
@@ -397,6 +410,11 @@ def render_rag_eval_tab(
                 df_display,
                 column_config={
                     "Modèle": st.column_config.TextColumn("Modèle", width="medium"),
+                    "Exécution": st.column_config.TextColumn(
+                        "Exécution",
+                        help="Local : le modèle tourne sur cette machine. Cloud : les données "
+                        "envoyées au modèle quittent la machine.",
+                    ),
                     "Note": st.column_config.ProgressColumn(
                         "Note (/100)", format="%.0f", min_value=0, max_value=100
                     ),
@@ -441,6 +459,7 @@ def render_rag_eval_tab(
 
             for name, data in detailed_responses.items():
                 with st.expander(f"Réponse de {name}"):
+                    render_badge(data["is_cloud"])
                     if data["thought"]:
                         st.info(f"**Raisonnement :**\n{data['thought']}")
                     st.markdown(data["text"])

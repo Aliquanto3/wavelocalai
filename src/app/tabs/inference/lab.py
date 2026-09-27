@@ -15,6 +15,7 @@ from src.app.states import (
     render_no_models,
     start_loading_status,
 )
+from src.app.ui import ModelMenu, is_cloud_model, render_badge
 from src.core.green_monitor import CarbonCalculator
 from src.core.inference_service import InferenceCallbacks, InferenceService
 from src.core.models_db import get_model_info
@@ -49,8 +50,11 @@ USE_CASES = {
 }
 
 
-def _render_result_text(res, expanded_thought: bool, model_tag: str | None = None) -> None:
-    """Réponse du Banc d'essai, ou `alert-error` si l'inférence a échoué."""
+def _render_result_text(
+    res, expanded_thought: bool, model_tag: str | None = None, is_cloud: bool | None = None
+) -> None:
+    """Réponse du Banc d'essai, avec le badge Local ou Cloud du modèle qui l'a produite, ou
+    `alert-error` si l'inférence a échoué."""
     if res.error:
         render_inference_error(res, model_tag)
         return
@@ -58,6 +62,7 @@ def _render_result_text(res, expanded_thought: bool, model_tag: str | None = Non
         with st.expander("Raisonnement du modèle", expanded=expanded_thought):
             st.markdown(res.thought)
     st.subheader("Réponse")
+    render_badge(is_cloud)
     st.markdown(res.clean_text)
 
 
@@ -94,7 +99,12 @@ def _render_metrics(res, model_name: str) -> None:
         col.metric(label, value, help=help_text)
 
 
-def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_friendly: dict):
+def render_lab_tab(
+    sorted_display_names: list,
+    display_to_tag: dict,
+    tag_to_friendly: dict,
+    menu: ModelMenu | None = None,
+):
 
     if not sorted_display_names:
         render_no_models(in_arena=True)
@@ -111,6 +121,8 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
         lab_model_display = st.selectbox("Modèle", sorted_display_names, key="lab_model_select")
         lab_model_tag = display_to_tag.get(lab_model_display)
         lab_model_friendly = tag_to_friendly.get(lab_model_tag, "Modèle inconnu")
+        lab_is_cloud = is_cloud_model(lab_model_tag, menu)
+        render_badge(lab_is_cloud)
 
         selected_use_case = st.selectbox("Scénario prédéfini", list(USE_CASES.keys()))
         default_sys = USE_CASES[selected_use_case]["system"]
@@ -179,13 +191,16 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
 
                 # Affichage Final (Clean), ou erreur lisible (délai dépassé…)
                 placeholder.empty()
-                _render_result_text(result, expanded_thought=True, model_tag=lab_model_tag)
+                _render_result_text(
+                    result, expanded_thought=True, model_tag=lab_model_tag, is_cloud=lab_is_cloud
+                )
 
                 # Sauvegarde état pour affichage persistant (échec compris : au rerun
                 # suivant, l'erreur s'affiche de nouveau, sans métriques).
                 st.session_state.lab_last_result = result
                 st.session_state.lab_last_model = lab_model_friendly
                 st.session_state.lab_last_tag = lab_model_tag
+                st.session_state.lab_last_is_cloud = lab_is_cloud
 
         # Affichage Persistant (si un résultat existe déjà)
         elif "lab_last_result" in st.session_state:
@@ -194,6 +209,7 @@ def render_lab_tab(sorted_display_names: list, display_to_tag: dict, tag_to_frie
                     st.session_state.lab_last_result,
                     expanded_thought=False,
                     model_tag=st.session_state.get("lab_last_tag"),
+                    is_cloud=st.session_state.get("lab_last_is_cloud"),
                 )
 
         # === ZONE MÉTRIQUES (Sous le résultat) ===

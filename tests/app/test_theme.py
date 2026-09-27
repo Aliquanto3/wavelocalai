@@ -267,13 +267,14 @@ def test_page_has_single_title_without_emoji(page):
 
 
 def test_agent_solo_shows_all_nine_tools():
-    """Agent seul : les 9 outils sont proposés en pastilles, repliables sur plusieurs lignes."""
+    """Agent seul : les 9 outils sont visibles en pastilles, repliables sur plusieurs lignes
+    (« Envoi d'email » dans une pastille désactivée quand SMTP n'est pas configuré)."""
     at = _run("views/04_Agent_Lab.py")
     try:
         assert not at.exception, [e.value for e in at.exception]
-        pills = [p for p in at.button_group if p.label == "Outils"]
-        assert len(pills) == 1
-        assert len(pills[0].options) == 9
+        pills = [p for p in at.button_group if p.label in ("Outils", "Outil non configuré")]
+        assert pills[0].label == "Outils"
+        assert sum(len(p.options) for p in pills) == 9
     finally:
         _stop_tracker(at)
 

@@ -14,8 +14,14 @@ from src.app.tabs.rag.chat import render_rag_chat_tab
 from src.app.tabs.rag.eval import render_rag_eval_tab
 from src.app.formatting import pluralize
 from src.app.modules import DOCUMENTS
+from src.app.rag_clear import (
+    CLEAR_PENDING_KEY,
+    LAST_CLEAR_KEY,
+    render_clear_section,
+    reset_clear,
+)
 from src.app.rag_upload import escape_markdown, ingest_uploaded_files
-from src.app.ui import FAVICON_PATH, model_menu
+from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
 from src.core.config import DATA_DIR
 from src.core.eval_engine import EvalEngine
 from src.core.llm_provider import LLMProvider
@@ -144,10 +150,15 @@ def open_knowledge_manager():
     st.caption("Contenu actuel")
     stats = st.session_state.rag_engine.get_stats()
     st.markdown(_base_summary(stats))
+    render_clear_section(
+        st.session_state.rag_engine, stats, st.session_state.get(CLEAR_PENDING_KEY, False)
+    )
 
-    if st.button("Vider la base documentaire", type="secondary", icon=":material/delete:"):
-        st.session_state.rag_engine.clear_database()
-        st.rerun()
+
+def show_knowledge_manager() -> None:
+    """Ouvre le dialogue de la base documentaire, confirmation du vidage remise à zéro."""
+    reset_clear()
+    open_knowledge_manager()
 
 
 # --- 3. SIDEBAR (NETTOYÉE) ---
@@ -157,7 +168,7 @@ with st.sidebar:
     # A. Gestion des documents (secondaire : l'action principale de la vue est dans la page)
     st.subheader("Base documentaire")
     if st.button("Gérer la base documentaire", icon=":material/folder_open:", width="stretch"):
-        open_knowledge_manager()
+        show_knowledge_manager()
 
     # Contenu de la base
     stats = st.session_state.rag_engine.get_stats()
@@ -230,6 +241,11 @@ if last_ingest is not None:
             with st.expander("Détails techniques", expanded=False):
                 st.code(failure.detail, language=None)
 
+# Vidage confirmé : succès au même verbe, affiché une seule fois après la fermeture du dialogue.
+last_clear = st.session_state.pop(LAST_CLEAR_KEY, None)
+if last_clear:
+    st.success(last_clear, icon=":material/check_circle:")
+
 # Vérification de l'état vide
 doc_count = st.session_state.rag_engine.get_stats()["count"]
 
@@ -239,7 +255,7 @@ if doc_count == 0:
         st.header("Votre base documentaire est vide")
         st.write("Importez vos documents pour pouvoir les interroger.")
         if st.button("Importer des documents", type="primary", icon=":material/upload_file:"):
-            open_knowledge_manager()
+            show_knowledge_manager()
 
     st.header("Pourquoi un assistant documentaire local ?")
     c1, c2, c3 = st.columns(3)
@@ -256,9 +272,7 @@ if doc_count == 0:
 
 else:
     # --- NORMAL UI (TABS) ---
-    installed_models_list = LLMProvider.list_models(
-        cloud_enabled=st.session_state.get("cloud_enabled", True)
-    )
+    installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled())
 
     # Locaux d'abord, le plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).
     menu = model_menu(installed_models_list, cloud_types=("cloud", "api"))
@@ -277,6 +291,7 @@ else:
             tag_to_friendly,
             sorted_display_names,
             k_retrieval,
+            menu=menu,
         )
 
     with tab_eval:

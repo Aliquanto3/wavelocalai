@@ -2,7 +2,7 @@
 Onglet « Discussion » de l'Assistant documentaire.
 
 - Sources dans un expander replié sous chaque réponse.
-- Métadonnées (durée, mémoire, CO₂) sous chaque réponse.
+- Métadonnées (badge Local ou Cloud, modèle, durée, mémoire, CO₂) sous chaque réponse.
 - Métadonnées conservées dans l'historique.
 """
 
@@ -26,6 +26,7 @@ from src.app.states import (
     render_error,
     render_no_models,
 )
+from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
@@ -36,7 +37,12 @@ from src.core.utils import extract_params_billions as _extract_params_billions
 
 
 def render_rag_chat_tab(
-    rag_engine, display_to_tag, tag_to_friendly, sorted_display_names, k_retrieval
+    rag_engine,
+    display_to_tag,
+    tag_to_friendly,
+    sorted_display_names,
+    k_retrieval,
+    menu: ModelMenu | None = None,
 ):
 
     if not sorted_display_names:
@@ -54,6 +60,9 @@ def render_rag_chat_tab(
         )
         selected_tag = display_to_tag.get(selected_display)
         friendly_name = tag_to_friendly.get(selected_tag)
+        # Badge du modèle choisi, dérivé de son fournisseur réel.
+        selected_is_cloud = is_cloud_model(selected_tag, menu)
+        render_badge(selected_is_cloud)
 
     st.divider()
 
@@ -92,8 +101,12 @@ def render_rag_chat_tab(
                 # C2. Métriques & Actions (Badges)
                 c_meta1, c_meta2 = st.columns([3, 1])
                 with c_meta1:
-                    # Construction des badges
+                    # Badge Local ou Cloud et nom du modèle qui a répondu, puis mesures.
                     badges = []
+                    if "is_cloud" in msg:
+                        badges.append(badge_markdown(msg["is_cloud"]))
+                    if msg.get("model_name"):
+                        badges.append(msg["model_name"])
                     if "metrics" in msg:
                         m = msg["metrics"]
                         badges.append(format_duration(m.get("total_time", 0)))
@@ -240,6 +253,10 @@ def render_rag_chat_tab(
                     "content": clean,
                     "thought": thought,
                     "sources": retrieved,  # On garde les objets Document
+                    # Modèle qui a répondu et son fournisseur réel (badge de l'historique).
+                    "model_tag": selected_tag,
+                    "model_name": friendly_name,
+                    "is_cloud": selected_is_cloud,
                     "metrics": {
                         "total_time": total_duration,
                         "ram_gb": ram_gb,
