@@ -59,6 +59,18 @@ def offline_app_env(tmp_path, monkeypatch):
     monkeypatch.setenv("TRANSFORMERS_OFFLINE", "1")
     # Chroma envoie une télémétrie anonyme par défaut.
     monkeypatch.setenv("ANONYMIZED_TELEMETRY", "False")
+    # Clés cloud neutralisées : chaque provider lit la sienne à l'import (.env compris) dans
+    # une constante de module, que seul ce remplacement neutralise. Factory neuve : aucun
+    # provider cloud déjà enregistré, aucun appel à une API cloud, quel que soit le poste.
+    from src.core.providers.provider_factory import LLMProviderFactory
+
+    monkeypatch.setattr("src.core.providers.mistral_provider.MISTRAL_API_KEY", None)
+    monkeypatch.setattr("src.core.providers.openai_provider.OPENAI_API_KEY", "")
+    monkeypatch.setattr("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr("src.core.providers.groq_provider.GROQ_API_KEY", "")
+    monkeypatch.setattr("src.core.providers.provider_factory._factory", None)
+    monkeypatch.setattr(LLMProviderFactory, "_instance", None)
+    monkeypatch.setattr(LLMProviderFactory, "_providers", {})
 
     # Catalogue de test à la place de data/models.json (local, non versionné).
     # Lu avant clear() : une erreur de lecture ne vide pas MODELS_DB.

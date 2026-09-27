@@ -75,6 +75,7 @@ APP_ENV = {
     "MISTRAL_API_KEY": "",
     "OPENAI_API_KEY": "",
     "ANTHROPIC_API_KEY": "",
+    "GROQ_API_KEY": "",
     "SMTP_SERVER": "",
     "SMTP_PORT": "587",
     "SMTP_USER": "",

@@ -11,7 +11,7 @@ Usage: python -m pytest tests/app/test_sovereignty.py -v
 
 import ast
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import streamlit
@@ -362,6 +362,119 @@ def test_crew_main_model_badge_and_email_caption(run_page):  # noqa: F811
     assert not at.exception, [e.value for e in at.exception]
     assert LOCAL_BADGE in _markdowns(at)
     assert CREW_EMAIL_CAPTION in _captions(at)
+
+
+# ---------------------------------------------------------------------------
+# Groq (story 16) : modèles cloud seulement si le cloud est autorisé, client simulé
+# ---------------------------------------------------------------------------
+
+GROQ_TAGS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
+
+
+@pytest.fixture
+def groq_listing(monkeypatch, indexed_base):  # noqa: F811
+    """LLMProvider réel sur une factory simulée : Ollama sert les modèles locaux, un vrai
+    GroqProvider (clé factice) sert ses modèles ; son client est simulé, sans réseau :
+    `create` échoue avec un 429 de Groq et compte ses appels."""
+    import httpx
+    import openai
+
+    from src.core.providers.groq_provider import GroqProvider
+    from src.core.providers.provider_factory import LLMProviderFactory
+
+    ollama = MagicMock(is_local=True, provider_name="ollama")
+    ollama.list_models.side_effect = lambda: [dict(m) for m in FAKE_LOCAL_MODELS]
+    groq = GroqProvider(api_key="cle-factice")
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    quota = openai.RateLimitError(
+        "Error code: 429 - Rate limit reached for model",
+        response=httpx.Response(429, request=request),
+        body=None,
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(side_effect=quota)
+    groq._client = client
+    list_groq = MagicMock(side_effect=groq.list_models)
+    monkeypatch.setattr(groq, "list_models", list_groq)
+
+    factory = object.__new__(LLMProviderFactory)
+    factory._providers = {"ollama": ollama, "groq": groq}
+    monkeypatch.setattr(LLMProvider, "list_models", REAL_LIST_MODELS)
+    monkeypatch.setattr("src.core.llm_provider.get_provider_factory", lambda: factory)
+    return SimpleNamespace(create=client.chat.completions.create, list_models=list_groq)
+
+
+def _groq_label(tag: str) -> str:
+    from src.app.ui import model_label
+    from src.core.providers.groq_provider import GROQ_MODELS
+
+    return model_label(GROQ_MODELS[tag]["name"], True)
+
+
+def test_groq_models_listed_as_cloud_after_locals_and_judge(groq_listing):
+    at = _app(ARENA_PAGE)
+    try:
+        at.session_state["cloud_enabled"] = True
+        at.run()
+        assert not at.exception, [e.value for e in at.exception]
+        (box,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+        options = list(box.options)
+        groq_labels = [_groq_label(t) for t in GROQ_TAGS]
+        assert all(label.endswith("· Cloud") for label in groq_labels)
+        locals_ = [_label(m) for m in FAKE_LOCAL_MODELS]
+        assert sorted(options[: len(locals_)]) == sorted(locals_)
+        assert sorted(options[len(locals_) :]) == sorted(groq_labels)
+        # Groq seul fournisseur cloud : juge par défaut = GPT-OSS 120B, badge Cloud.
+        (judge,) = [s for s in at.selectbox if s.label == "Modèle juge"]
+        assert judge.value == _groq_label("openai/gpt-oss-120b")
+        assert CLOUD_BADGE in _markdowns(at)
+        assert groq_listing.create.await_count == 0
+    finally:
+        _stop_tracker(at)
+
+
+def test_groq_hidden_and_never_called_when_cloud_disabled(groq_listing):
+    at = _app()
+    try:
+        at.run()
+        for page in (ARENA_PAGE, RAG_PAGE, AGENTS_PAGE):
+            at.switch_page(page).run()
+            assert not at.exception, [e.value for e in at.exception]
+            options = _model_options(at)
+            assert options, page
+            assert not [o for o in options if o.endswith("· Cloud")], (page, options)
+        # Aucun appel au fournisseur Groq : ni listing, ni génération.
+        assert groq_listing.list_models.call_count == 0
+        assert groq_listing.create.await_count == 0
+    finally:
+        _stop_tracker(at)
+
+
+def test_groq_quota_error_is_readable_and_question_kept(groq_listing):
+    at = _app(ARENA_PAGE)
+    try:
+        at.session_state["cloud_enabled"] = True
+        at.run()
+        _select(at, "Modèle actif", _groq_label("llama-3.1-8b-instant"))
+        at.chat_input[0].set_value("Bonjour Groq").run()
+        assert not at.exception, [e.value for e in at.exception]
+        assert groq_listing.create.await_count == 1
+
+        (error,) = [e.value for e in at.error]
+        assert error.startswith("La génération a échoué.") and "Groq" in error
+        assert "429" not in error  # trace brute repliée dans « Détails techniques »
+        messages = at.session_state["messages"]
+        assert messages[-2] == {"role": "user", "content": "Bonjour Groq"}
+        assert messages[-1]["error"] is True and "429" in messages[-1]["detail"]
+        # Jamais renvoyée comme un token : aucune réponse ne contient l'erreur.
+        assert not [m for m in _markdowns(at) if "Rate limit" in m]
+    finally:
+        _stop_tracker(at)
 
 
 # ---------------------------------------------------------------------------

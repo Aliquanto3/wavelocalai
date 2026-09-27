@@ -24,3 +24,12 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/15-juge-modele-defaut-benchmark-poste.md`
   summary: Trier « le plus rapide » (premier modèle proposé, présélection de l'Arène) sur le débit prudent du benchmark de ce poste plutôt que sur benchmark_stats de data/models.json.
   evidence: rank_models lit encore avg_tokens_per_second de data/models.json, qui peut venir d'une autre machine ; le benchmark du poste est déjà chargé dans model_menu mais ne sert qu'au juge. Antérieur à la story 15 (règle de la story 7).
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
+  summary: OpenAIProvider._get_client appelle AsyncOpenAI, importé seulement sous TYPE_CHECKING : le premier vrai appel OpenAI lève NameError.
+  evidence: src/core/providers/openai_provider.py (import `_AsyncOpenAI` au runtime, `AsyncOpenAI` sous TYPE_CHECKING, `from __future__ import annotations`). Antérieur à la story 16 ; GroqProvider crée son propre client et n'est pas touché. Correction d'une ligne (`_AsyncOpenAI(...)`), à tester avec un client simulé.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
+  summary: Les modèles OpenAI et Anthropic listés sur la page Agents partent encore vers Ollama (agent seul et équipe) ; le tag Ollama `gpt-oss:20b` est routé vers OpenAI par son préfixe `gpt-`.
+  evidence: agent_engine._initialize_llm et crew_engine._get_native_llm ne connaissent que Mistral et Groq ; provider_factory.get_provider teste `startswith("gpt-")` avant le repli Ollama. Antérieur à la story 16.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
+  summary: Débit des modèles gpt-oss de Groq peut-être surestimé : usage.completion_tokens compterait les jetons de raisonnement invisibles.
+  evidence: maybe-false, medium si confirmé : vérifier `completion_tokens_details.reasoning_tokens` sur une vraie réponse de openai/gpt-oss-120b (appel réel, avec l'accord de l'utilisateur).

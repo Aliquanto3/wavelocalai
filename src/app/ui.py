@@ -181,8 +181,8 @@ def is_cloud_model(tag: str | None, menu: ModelMenu | None = None) -> bool | Non
     """
     Origine d'un modèle, source des badges : le type renvoyé par son fournisseur (règle du
     sélecteur, tags distants d'Ollama compris) prime ; tag hors du sélecteur (agent configuré
-    avant un changement de réglage…) : is_cloud_tag (catalogue, tags Ollama locaux sauf
-    distants) ; None si l'origine est inconnue.
+    avant un changement de réglage…) : is_cloud_tag (modèles Groq, catalogue, tags Ollama
+    locaux sauf distants) ; None si l'origine est inconnue.
     """
     if menu is not None:
         for choice in menu.choices.values():
@@ -193,7 +193,7 @@ def is_cloud_model(tag: str | None, menu: ModelMenu | None = None) -> bool | Non
 
 def _display_name(model: dict) -> str:
     """Nom affiché d'un modèle : celui du catalogue ; pour un modèle cloud absent du
-    catalogue (Anthropic, OpenAI), le nom donné par son fournisseur (« Claude Sonnet 4 ») ;
+    catalogue (Anthropic, OpenAI, Groq), le nom donné par son fournisseur (« Claude Sonnet 4 ») ;
     sinon le nom tiré du tag."""
     tag = model["model"]
     name = model.get("name")

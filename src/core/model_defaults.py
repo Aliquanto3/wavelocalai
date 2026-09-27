@@ -93,11 +93,13 @@ BENCH_MIN_SPEED_TPS = 10.0
 CLOUD_JUDGE_PREFERENCE = (
     "claude-sonnet-4",
     "gpt-4o",  # hors gpt-4o-mini (CLOUD_JUDGE_DEMOTED)
+    "openai/gpt-oss-120b",  # Groq
     "mistral-large",
     "claude-3-5-sonnet",
     "claude-3-opus",
     "gpt-4-turbo",
     "mistral-medium",
+    "llama-3.3-70b-versatile",  # Groq
 )
 # Préfixes rétrogradés parmi les autres modèles cloud (non classés), malgré un préfixe
 # de la liste ci-dessus.

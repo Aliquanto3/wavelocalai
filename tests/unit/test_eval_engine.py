@@ -171,6 +171,30 @@ class TestEvalEngine:
         assert "Provider" not in result.reason
         mock_dependencies["evaluate"].assert_not_called()
 
+    @pytest.mark.parametrize(
+        ("judge_tag", "wrapped"), [("openai/gpt-oss-120b", True), ("qwen2.5:1.5b", False)]
+    )
+    def test_groq_judge_bypasses_n(self, mock_dependencies, judge_tag, wrapped):
+        """Juge Groq (story 16) : Groq refuse n ≠ 1, Ragas reçoit un LangchainLLMWrapper
+        avec `bypass_n=True` ; un juge local reste l'objet LangChain tel quel."""
+        engine_module = importlib.import_module("src.core.eval_engine")
+        judge = mock_dependencies["judge"]
+        with patch.object(engine_module, "LangchainLLMWrapper") as wrapper_cls:
+            mock_dependencies["engine_cls"]().evaluate_single_turn(
+                query="Q",
+                response="A",
+                retrieved_contexts=["C"],
+                judge_tag=judge_tag,
+                embedding_model=MagicMock(),
+            )
+        llm = mock_dependencies["evaluate"].call_args.kwargs["llm"]
+        if wrapped:
+            wrapper_cls.assert_called_once_with(judge, bypass_n=True)
+            assert llm is wrapper_cls.return_value
+        else:
+            wrapper_cls.assert_not_called()
+            assert llm is judge
+
     def test_evaluate_without_ragas(self):
         """Ragas absent : « non évalué » avec la raison."""
         engine_module = importlib.import_module("src.core.eval_engine")

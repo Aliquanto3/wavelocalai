@@ -9,6 +9,7 @@ from typing import Any
 from src.core.interfaces import ILLMProvider
 from src.core.model_defaults import is_remote_tag
 from src.core.model_detector import get_model_info, is_api_model
+from src.core.providers.groq_provider import is_groq_model
 from src.core.providers.mistral_provider import MistralProvider
 from src.core.providers.ollama_provider import OllamaProvider
 
@@ -24,6 +25,7 @@ def is_cloud_tag(model_tag: str | None) -> bool | None:
     données quittent la machine, False s'il tourne ici, None si elle est inconnue.
 
     - tag distant servi par Ollama (`:cloud`, `-cloud`) : cloud ;
+    - modèle Groq (appartenance exacte à sa liste, `openai/gpt-oss-120b`) : cloud ;
     - modèle du catalogue : son type (`api` = cloud) ;
     - autre tag Ollama (`nom:variante`, par exemple `gpt-oss:20b`) : local ;
     - nom sans variante préfixé `gpt-`, `o1-` ou `claude-` (OpenAI, Anthropic) : cloud ;
@@ -32,7 +34,7 @@ def is_cloud_tag(model_tag: str | None) -> bool | None:
     tag = str(model_tag or "").strip()
     if not tag:
         return None
-    if is_remote_tag({"model": tag}):
+    if is_remote_tag({"model": tag}) or is_groq_model(tag):
         return True
     info = get_model_info(tag)
     if info is not None:
@@ -94,6 +96,16 @@ class LLMProviderFactory:
         else:
             logger.debug("Provider Anthropic non disponible (clé API manquante)")
 
+        # Provider Groq (si configuré) : API compatible OpenAI
+        from src.core.providers.groq_provider import GroqProvider
+
+        groq_provider = GroqProvider()
+        if groq_provider.is_available:
+            self._providers["groq"] = groq_provider
+            logger.info("Provider Groq initialisé")
+        else:
+            logger.debug("Provider Groq non disponible (clé API manquante)")
+
     def get_provider(self, model_tag: str) -> ILLMProvider:
         """
         Retourne le provider approprié pour un modèle donné.
@@ -107,6 +119,12 @@ class LLMProviderFactory:
         Raises:
             ValueError: Si aucun provider ne peut gérer ce modèle
         """
+        # Groq : appartenance exacte à la liste de ses modèles (`llama3.2:3b` reste local).
+        if is_groq_model(model_tag):
+            if "groq" in self._providers:
+                return self._providers["groq"]
+            raise ValueError(f"Modèle Groq {model_tag} demandé mais provider non disponible")
+
         # Détection par préfixe du modèle
         model_lower = model_tag.lower()
 
@@ -148,7 +166,7 @@ class LLMProviderFactory:
         Liste tous les modèles de tous les providers.
 
         Args:
-            include_cloud: Inclure les modèles cloud (Mistral, OpenAI, Anthropic, et les tags
+            include_cloud: Inclure les modèles cloud (Mistral, OpenAI, Anthropic, Groq, et les tags
                 distants servis par Ollama, `glm-4.6:cloud`) ; False : modèles locaux seuls.
 
         Returns:

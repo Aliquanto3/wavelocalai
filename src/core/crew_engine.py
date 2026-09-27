@@ -17,6 +17,7 @@ from pydantic import PrivateAttr
 from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names
 from src.core.config import MISTRAL_API_KEY
 from src.core.model_detector import is_api_model
+from src.core.providers import groq_provider
 
 
 class LangChainAdapter(BaseTool):
@@ -81,7 +82,21 @@ class CrewFactory:
                 model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
             )
 
-        # 2. Routing Local (Ollama)
+        # 2. Routing Cloud (Groq) : fournisseur OpenAI natif de CrewAI, sans LiteLLM.
+        # `custom_openai` retire un préfixe « openai/ » : il est doublé pour que Groq reçoive
+        # le tag exact (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile`).
+        if groq_provider.is_groq_model(model_tag):
+            if not groq_provider.GROQ_API_KEY:
+                raise ValueError("Clé API Groq manquante.")
+            return LLM(
+                model=f"openai/{model_tag}",
+                custom_openai=True,
+                base_url=groq_provider.GROQ_BASE_URL,
+                api_key=groq_provider.GROQ_API_KEY,
+                temperature=temperature,
+            )
+
+        # 3. Routing Local (Ollama)
         return LLM(
             model=f"ollama/{model_tag}", base_url="http://localhost:11434", temperature=temperature
         )

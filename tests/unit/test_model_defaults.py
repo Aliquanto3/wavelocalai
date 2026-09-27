@@ -679,6 +679,54 @@ def test_cloud_judge_order_is_fixed_in_code():
     ]
 
 
+GROQ_MODELS = [
+    {"model": tag, "type": "cloud", "provider": "groq"}
+    for tag in (
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+    )
+]
+
+
+def test_groq_judge_order():
+    """Groq (story 16) : GPT-OSS 120B juste après GPT-4o et avant Mistral Large ; Llama 3.3
+    70B après les autres grands modèles cloud ; les autres Groq par ordre alphabétique."""
+    tags = [
+        "llama-3.3-70b-versatile",
+        "mistral-large-2512",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "gpt-4o",
+        "mistral-medium-2508",
+        "llama-3.1-8b-instant",
+        "claude-sonnet-4-20250514",
+    ]
+    assert sorted(tags, key=md.cloud_judge_rank) == [
+        "claude-sonnet-4-20250514",
+        "gpt-4o",
+        "openai/gpt-oss-120b",
+        "mistral-large-2512",
+        "mistral-medium-2508",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "openai/gpt-oss-20b",
+    ]
+
+
+def test_groq_only_cloud_judge_is_gpt_oss_120b():
+    """Groq seul fournisseur cloud, cloud autorisé : juge = openai/gpt-oss-120b ; cloud
+    désactivé : jamais un juge Groq (le benchmark décide)."""
+    ranked = _rtx([*GROQ_MODELS, *RTX_INSTALLED])
+    assert [c.tag for c in ranked[-4:]] == sorted(m["model"] for m in GROQ_MODELS)
+    assert all(c.is_cloud and not c.dedicated_reasoning for c in ranked[-4:])
+
+    judge = md.choose_judge(ranked, RTX_BENCH, allow_cloud=True)
+    assert judge.choice.tag == "openai/gpt-oss-120b" and judge.reason == md.JUDGE_BY_CLOUD
+    assert md.default_judge(ranked, RTX_BENCH).tag == "gemma4:e4b-it-qat"
+
+
 def test_no_cloud_judge_when_cloud_is_disabled():
     """Cloud désactivé : jamais un juge cloud, même listé (le benchmark décide)."""
     ranked = _rtx([CLAUDE, *RTX_INSTALLED])

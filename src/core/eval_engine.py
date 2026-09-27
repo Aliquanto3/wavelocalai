@@ -19,6 +19,13 @@ except ImportError:
     RAGAS_AVAILABLE = False
 
 from src.core.llm_provider import LLMProvider
+from src.core.providers.groq_provider import is_groq_model  # noqa: E402
+
+# Enveloppe d'un juge LangChain, pour un juge Groq (`bypass_n`).
+try:
+    from ragas.llms.base import LangchainLLMWrapper
+except ImportError:
+    LangchainLLMWrapper = None
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +107,9 @@ class EvalEngine:
             judge_llm = LLMProvider.get_langchain_model(
                 judge_tag, temperature=0.0, model_kwargs=model_kwargs
             )
+            # Groq refuse tout `n` différent de 1 (400) ; Ragas en demande 3 pour la pertinence.
+            if is_groq_model(judge_tag):
+                judge_llm = LangchainLLMWrapper(judge_llm, bypass_n=True)
 
             # 2. Préparation du Dataset Standard Ragas
             data = {

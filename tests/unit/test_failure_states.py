@@ -353,7 +353,11 @@ def test_failure_advice_depends_on_provider():
     from src.app.states import generation_failure_advice
 
     assert "Ollama" in generation_failure_advice("qwen2.5:1.5b")
-    for tag, name in (("gpt-4o", "OpenAI"), ("claude-3-5-sonnet", "Anthropic")):
+    for tag, name in (
+        ("gpt-4o", "OpenAI"),
+        ("claude-3-5-sonnet", "Anthropic"),
+        ("openai/gpt-oss-120b", "Groq"),
+    ):
         advice = generation_failure_advice(tag)
         assert name in advice and "Ollama" not in advice and "Local" in advice
 

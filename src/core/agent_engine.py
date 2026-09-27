@@ -17,8 +17,10 @@ from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 
 from src.core.agent_tools import AVAILABLE_TOOLS, get_tools_by_names
+from src.core.llm_provider import LLMProvider
 from src.core.model_detector import is_api_model
 from src.core.models_db import MODELS_DB, get_model_info
+from src.core.providers.groq_provider import is_groq_model
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -120,6 +122,9 @@ class AgentEngine:
         self.agent_executor = create_react_agent(self.llm, self.tools)
 
     def _initialize_llm(self, model_tag: str):
+        # Groq (API compatible OpenAI) : ChatOpenAI pointé sur Groq, via son provider.
+        if is_groq_model(model_tag):
+            return LLMProvider.get_langchain_model(model_tag, temperature=0.0)
         # Utiliser le détecteur central
         if is_api_model(model_tag):
             return self._initialize_mistral_api(model_tag)

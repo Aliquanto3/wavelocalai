@@ -31,6 +31,9 @@ class OpenAIProvider(ILLMProvider):
     Provider pour les modèles OpenAI (GPT-4, GPT-3.5, etc.).
     """
 
+    # Nom du fournisseur dans les messages et le journal (repris par GroqProvider).
+    DISPLAY_NAME = "OpenAI"
+
     # Modèles disponibles avec leurs métadonnées
     AVAILABLE_MODELS = {
         "gpt-4o": {"name": "GPT-4o", "params": "?", "context": 128000},
@@ -105,7 +108,8 @@ class OpenAIProvider(ILLMProvider):
         if not self.is_available:
             # Une erreur n'est jamais renvoyée comme un token : l'appelant l'affiche.
             raise ValueError(
-                "Provider OpenAI non disponible (clé API manquante ou SDK non installé)."
+                f"Provider {self.DISPLAY_NAME} non disponible (clé API manquante ou SDK non "
+                "installé)."
             )
 
         final_messages = []
@@ -161,7 +165,7 @@ class OpenAIProvider(ILLMProvider):
             )
 
         except Exception as e:
-            logger.error(f"OpenAI Error: {e}")
+            logger.error(f"{self.provider_name} error: {e}")
             raise e
 
     def get_langchain_model(self, model_name: str, temperature: float = 0.7, **kwargs) -> Any:

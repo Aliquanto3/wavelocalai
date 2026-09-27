@@ -155,3 +155,14 @@
     Décisions du 27/09 : précision = moyenne de reasoning_avg et instruction_following_avg ;
     plancher 4B conservé ; juge cloud le plus capable parmi les fournisseurs configurés.
     Poste identifié par benchmarks/results/<machine_id>.json. Dépend de la story 7.
+- id: "16"
+  title: "Fournisseur cloud Groq"
+  description: >-
+    Groq (API compatible OpenAI, offre gratuite) rejoint Mistral, OpenAI et Anthropic comme
+    fournisseur cloud : modèles listés quand GROQ_API_KEY est configurée et le cloud autorisé,
+    badge Cloud, et place dans l'ordre des juges cloud de la story 15.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Demande de l'utilisateur du 27/09 (Groq fonctionne mieux que Mistral en ce moment et reste
+    gratuit), exception assumée à la règle « v1 = UI/UX ». Dépend de la story 15.

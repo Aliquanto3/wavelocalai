@@ -17,6 +17,7 @@ from src.app.modules import ARENA
 from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import BENCH_MIN_SPEED_TPS, JUDGE_MIN_PARAMS_B
 from src.core.model_detector import is_api_model
+from src.core.providers.groq_provider import is_groq_model
 
 # --- Service indisponible ---
 OLLAMA_DOWN_MESSAGE = "Ollama ne répond pas. Démarrez-le, puis rechargez la page."
@@ -146,6 +147,8 @@ def _cloud_provider_name(model_tag: str | None) -> str | None:
     """Nom du fournisseur cloud d'un modèle, ou None pour un modèle local (Ollama)."""
     if not model_tag:
         return None
+    if is_groq_model(model_tag):
+        return "Groq"
     tag = model_tag.lower()
     if tag.startswith(("gpt-", "o1-")):
         return "OpenAI"
@@ -161,8 +164,8 @@ def generation_failure_advice(model_tag: str | None) -> str:
     provider = _cloud_provider_name(model_tag)
     if provider:
         return (
-            f"Le fournisseur cloud {provider} ne répond pas : vérifiez la connexion et la clé "
-            "d'API, ou repassez en Local avec un modèle local."
+            f"Le fournisseur cloud {provider} ne répond pas : vérifiez la connexion, la clé "
+            "d'API et son quota, ou repassez en Local avec un modèle local."
         )
     return (
         "Vérifiez qu'Ollama est démarré et que le modèle est installé, ou choisissez un autre "

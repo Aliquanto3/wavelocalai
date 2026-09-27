@@ -25,6 +25,7 @@ def isolated_provider_factory():
         patch("src.core.providers.mistral_provider.MISTRAL_API_KEY", None),
         patch("src.core.providers.openai_provider.OPENAI_API_KEY", ""),
         patch("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", ""),
+        patch("src.core.providers.groq_provider.GROQ_API_KEY", ""),
         patch("src.core.providers.provider_factory._factory", None),
         patch.object(LLMProviderFactory, "_instance", None),
         patch.dict(LLMProviderFactory._providers, clear=True),
@@ -308,3 +309,172 @@ class TestCloudDisabledExcludesRemoteTags:
             return_value={"type": model_type},
         ):
             assert is_cloud_tag("mistral-large-2512") is expected
+
+
+# ---------------------------------------------------------------------------
+# Groq (story 16) : fournisseur cloud compatible OpenAI, client simulé, aucun appel réseau
+# ---------------------------------------------------------------------------
+
+GROQ_TAGS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
+
+
+class _FakeStream:
+    """Flux `chat.completions.create(stream=True)` simulé : deux tokens puis l'usage."""
+
+    def __init__(self, tokens):
+        self._chunks = [
+            MagicMock(choices=[MagicMock(delta=MagicMock(content=t))], usage=None) for t in tokens
+        ]
+        self._chunks.append(
+            MagicMock(choices=[], usage=MagicMock(prompt_tokens=7, completion_tokens=2))
+        )
+
+    def __aiter__(self):
+        self._it = iter(self._chunks)
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._it)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+
+def _groq_client(create):
+    client = MagicMock()
+    client.chat.completions.create = create
+    return client
+
+
+class TestGroqProvider:
+    """Groq actif seulement avec une clé, routage exact, erreurs levées (jamais en token)."""
+
+    def test_registered_and_listed_with_key(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            groq = factory.get_provider_by_name("groq")
+            assert isinstance(groq, GroqProvider)
+            assert groq.provider_name == "groq" and groq.is_local is False
+            models = [m for m in factory.list_all_models() if m["provider"] == "groq"]
+        assert [m["model"] for m in models] == GROQ_TAGS
+        assert all(m["type"] == "cloud" for m in models)
+        assert GROQ_BASE_URL == "https://api.groq.com/openai/v1"
+
+    def test_without_key_nothing_registered_nor_listed(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        factory = LLMProviderFactory()
+        assert factory.get_provider_by_name("groq") is None
+        assert GroqProvider().is_available is False
+        assert GroqProvider().list_models() == []
+        assert not [m for m in factory.list_all_models() if m["model"] in GROQ_TAGS]
+        with pytest.raises(ValueError, match="Groq"):
+            factory.get_provider("openai/gpt-oss-120b")
+
+    def test_cloud_disabled_lists_no_groq_model(self):
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            with patch.object(
+                factory.get_provider_by_name("ollama"), "list_models", return_value=[]
+            ):
+                assert factory.list_all_models(include_cloud=False) == []
+
+    @pytest.mark.parametrize("tag", GROQ_TAGS)
+    def test_routing_by_exact_membership(self, tag):
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "groq"
+
+    @pytest.mark.parametrize(
+        "tag", ["llama3.2:3b", "llama3.1:8b", "llama-3.3-70b", "OPENAI/GPT-OSS-120B"]
+    )
+    def test_ollama_homonyms_stay_local(self, tag):
+        with (
+            patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=False),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "ollama"
+
+    def test_client_points_to_groq(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("src.core.providers.openai_provider._AsyncOpenAI") as client_cls:
+            GroqProvider(api_key="cle-factice")._get_client()
+        client_cls.assert_called_once_with(api_key="cle-factice", base_url=GROQ_BASE_URL)
+
+    def test_langchain_model_points_to_groq(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("langchain_openai.ChatOpenAI") as chat_cls:
+            GroqProvider(api_key="cle-factice").get_langchain_model("openai/gpt-oss-20b", 0.2)
+        chat_cls.assert_called_once_with(
+            model="openai/gpt-oss-20b",
+            api_key="cle-factice",
+            base_url=GROQ_BASE_URL,
+            temperature=0.2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_chat_stream_yields_tokens_then_metrics(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        create = AsyncMock(return_value=_FakeStream(["Bon", "jour"]))
+        groq = GroqProvider(api_key="cle-factice")
+        groq._client = _groq_client(create)
+
+        chunks = [
+            c
+            async for c in groq.chat_stream(
+                "openai/gpt-oss-120b", [{"role": "user", "content": "Salut"}], 0.3, "Système"
+            )
+        ]
+        assert chunks[:2] == ["Bon", "jour"]
+        metrics = chunks[-1]
+        assert isinstance(metrics, InferenceMetrics)
+        assert (metrics.input_tokens, metrics.output_tokens) == (7, 2)
+        kwargs = create.await_args.kwargs
+        assert kwargs["model"] == "openai/gpt-oss-120b" and kwargs["stream"] is True
+        assert kwargs["messages"][0] == {"role": "system", "content": "Système"}
+
+    @pytest.mark.asyncio
+    async def test_quota_error_is_raised_not_yielded(self):
+        import httpx
+        import openai
+
+        from src.core.providers.groq_provider import GroqProvider
+
+        request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+        error = openai.RateLimitError(
+            "Rate limit reached", response=httpx.Response(429, request=request), body=None
+        )
+        groq = GroqProvider(api_key="cle-factice")
+        groq._client = _groq_client(AsyncMock(side_effect=error))
+
+        chunks = []
+        with pytest.raises(openai.RateLimitError):
+            async for c in groq.chat_stream("llama-3.1-8b-instant", []):
+                chunks.append(c)
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_chat_stream_without_key_raises(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        with pytest.raises(ValueError, match="Groq"):
+            async for _ in GroqProvider().chat_stream("openai/gpt-oss-20b", []):
+                pass
+
+    @pytest.mark.parametrize("tag", GROQ_TAGS)
+    def test_groq_tag_is_cloud(self, tag):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch("src.core.providers.provider_factory.get_model_info", return_value=None):
+            assert is_cloud_tag(tag) is True

@@ -497,3 +497,27 @@ def test_crew_adapter_mixed_and_named_arguments():
     (monitor,) = get_tools_by_names(["analyze_csv"])
     mixed = LangChainAdapter(monitor)._run("fichier-absent.csv", query="aperçu")
     assert "missing" not in mixed and "positional" not in mixed
+
+
+@pytest.mark.parametrize("tag", ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"])
+def test_crew_groq_llm_targets_groq_with_exact_model_id(monkeypatch, tag):
+    """Tag Groq (story 16) : LLM OpenAI natif de CrewAI pointé sur Groq, tag exact (le
+    préfixe « openai/ » de GPT-OSS n'est pas retiré), sans appel réseau."""
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import groq_provider
+
+    monkeypatch.setattr(groq_provider, "GROQ_API_KEY", "cle-factice")
+    llm = CrewFactory._get_native_llm(tag, temperature=0.7)
+    assert llm.model == tag
+    assert llm.base_url == groq_provider.GROQ_BASE_URL
+    assert llm.api_key == "cle-factice"
+    assert "ollama" not in str(llm.model)
+
+
+def test_crew_groq_without_key_raises_readable_error(monkeypatch):
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import groq_provider
+
+    monkeypatch.setattr(groq_provider, "GROQ_API_KEY", "")
+    with pytest.raises(ValueError, match="Groq"):
+        CrewFactory._get_native_llm("openai/gpt-oss-20b")

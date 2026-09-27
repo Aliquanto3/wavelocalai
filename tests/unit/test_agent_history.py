@@ -148,3 +148,18 @@ def test_error_event_is_yielded():
     engine.agent_executor = Broken()
     (event,) = list(engine.run_stream("Q"))
     assert event["type"] == "error" and "graphe cassé" in event["content"]
+
+
+def test_groq_tag_uses_provider_model_not_ollama():
+    """Tag Groq (story 16) : modèle LangChain du provider Groq, jamais ChatOllama."""
+    from unittest.mock import patch
+
+    engine = object.__new__(AgentEngine)
+    with (
+        patch("src.core.agent_engine.LLMProvider.get_langchain_model") as get_model,
+        patch("src.core.agent_engine.ChatOllama") as chat_ollama,
+    ):
+        llm = engine._initialize_llm("openai/gpt-oss-120b")
+    get_model.assert_called_once_with("openai/gpt-oss-120b", temperature=0.0)
+    assert llm is get_model.return_value
+    chat_ollama.assert_not_called()
