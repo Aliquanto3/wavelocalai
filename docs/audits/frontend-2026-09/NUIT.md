@@ -57,50 +57,71 @@ Dans les réglages de l'environnement, sur claude.ai/code :
 
 ```text
 Tu travailles seul cette nuit : personne ne répondra à tes questions. Ne pose aucune question ;
-en cas de doute, choisis l'option la plus prudente et note-la dans le rapport de nuit.
+en cas de doute, choisis l'option la plus prudente et note-la pour le rapport de nuit.
 
-Contexte : docs/audits/frontend-2026-09/SYNTHESE.md et la spec
-_bmad-output/specs/spec-fiabilisation-frontend/ (SPEC.md, companions, stories.yaml).
-Si SPEC.md ou stories.yaml manque, arrête-toi et écris seulement le rapport de nuit.
+Contexte : lis AGENTS.md, docs/audits/frontend-2026-09/SYNTHESE.md et la spec
+_bmad-output/specs/spec-fiabilisation-frontend/ (SPEC.md, ses companions, stories.yaml).
+Si SPEC.md ou stories.yaml manque, ou si le skill bmad-build-auto est introuvable
+(.claude/skills/bmad-build-auto), arrête-toi et écris seulement le rapport de nuit.
+
+Notes de nuit : tiens-les HORS du dépôt, dans /tmp/nuit/notes.md. bmad-build-auto exige un
+arbre de travail propre : n'écris rien dans le dépôt entre deux stories, sauf ce que les
+stories commitent elles-mêmes.
 
 Préparation :
-- Crée la branche claude/fiabilisation-frontend depuis master (ou reprends-la si elle existe).
-- Environnement Python : .venv-app. Commande de tests : `.venv-app/bin/python -m pytest tests/unit -q`,
-  puis, dès que la story 1 les a créés, `tests/app` et la commande qu'elle documente.
-  Lint : `ruff check src tests`, à titre informatif (non bloquant, voir SYNTHESE.md story 1).
-- Avant la story 1, lance les tests une fois et note les échecs dans le rapport de nuit : c'est la base.
-  Sur master, 4 tests de tests/unit échouent déjà (E3) ; d'autres peuvent échouer dans la VM
-  faute d'Ollama ou de data/. La story 1 doit laisser la suite entièrement verte.
-  Pour les stories suivantes, « rouge » veut dire : un test qui passait après la story 1 échoue.
+- Travaille sur la branche claude/fiabilisation-frontend, créée depuis master (reprends-la si
+  elle existe déjà).
+- Environnement Python : .venv-app. S'il n'existe pas ou si `.venv-app/bin/python -c "import
+  streamlit"` échoue, crée-le : `uv venv .venv-app --python 3.12` puis
+  `uv pip install --python .venv-app/bin/python -r requirements.txt pytest pytest-mock`.
+- Tests : `.venv-app/bin/python -m pytest tests/unit -q`, puis, dès que la story 1 les a créés,
+  tests/app et la commande qu'elle documente. Lint : `ruff check src tests`, pour information
+  seulement (non bloquant).
+- Avant la story 1, lance les tests une fois et note les échecs : c'est la base. Sur master,
+  4 tests de tests/unit échouent déjà (E3 de SYNTHESE.md) ; d'autres peuvent échouer dans la VM
+  faute d'Ollama ou de data/. La story 1 doit laisser la suite entièrement verte. Pour les
+  stories suivantes, « rouge » veut dire : un test qui passait après la story 1 échoue.
+
+Avant chaque appel à bmad-build-auto, vérifie `git status --porcelain`. Si seuls des
+artefacts de test traînent (.coverage, coverage.xml, fichiers générés dans outputs/),
+supprime-les. S'il reste autre chose de non commité, n'y touche pas : note-le et arrête la
+boucle.
 
 Boucle, pour chaque entrée de stories.yaml, dans l'ordre :
-1. Si stories/<id>-*.md existe déjà avec status: done, passe à la suivante (reprise).
-2. Si une story dont elle dépend (tableau du §4 de SYNTHESE.md) n'est pas done, ne la lance pas :
-   note-la « sautée (dépendance <id>) » et continue.
-3. Invoque le skill bmad-build-auto avec ce prompt, en ajoutant le texte invoke_dev_with de l'entrée :
+1. Si stories/<id>-*.md existe déjà dans le dossier de spec avec status: done, passe à la
+   suivante (reprise).
+2. Si une story dont elle dépend (tableau du §4 de SYNTHESE.md, rappelé dans invoke_dev_with)
+   n'est pas done, ne la lance pas : note-la « sautée (dépendance <id>) » et continue avec
+   les stories indépendantes.
+3. Invoque le skill bmad-build-auto avec ce prompt, suivi du texte invoke_dev_with de l'entrée :
    « Dossier de spec : _bmad-output/specs/spec-fiabilisation-frontend — story id : <id> ».
 4. Au retour, lis le status de stories/<id>-*.md. S'il vaut done :
    - si la story a changé les dépendances, réinstalle .venv-app depuis le fichier de contraintes ;
    - lance les tests (et ruff, pour information) ;
    - si les tests sont verts, `git push` ;
-   - si c'est rouge, tente au plus une correction dans une nouvelle invocation de bmad-build-auto
-     sur la même story. Si c'est toujours rouge, `git revert` des commits de la story, pousse,
-     et note « annulée : tests rouges » avec la sortie.
-   Sinon (blocked, etc.), note la condition bloquante et pousse ce qui est commité.
+   - si c'est rouge, tente au plus une correction dans une nouvelle invocation de
+     bmad-build-auto sur la même story. Si c'est toujours rouge, `git revert` des commits de
+     la story, pousse, et note « annulée : tests rouges » avec la sortie des tests.
+   Sinon (blocked ou autre), note le statut et la condition bloquante, puis pousse ce qui est
+   commité.
 
 Interdits :
 - merger une PR, forcer un push, réécrire l'historique de master ;
 - modifier scripts/benchmark_slm.py, benchmarks/, ou un environnement autre que .venv-app ;
 - télécharger un modèle, appeler une API de LLM, envoyer un email ;
-- écrire dans data/chroma ;
+- écrire dans data/ ;
 - éditer SPEC.md ou stories.yaml à la main : bmad-spec en est le seul auteur ;
-- désactiver, marquer skip ou affaiblir un test pour le faire passer.
+- désactiver, marquer skip ou affaiblir un test pour le faire passer ;
+- corriger par du CSS un contraste dû à une couleur native de Streamlit : mesure-le et note-le.
 
 Fin de nuit :
-- Écris docs/audits/frontend-2026-09/RAPPORT-NUIT.md avec :
+- Écris docs/audits/frontend-2026-09/RAPPORT-NUIT.md à partir de tes notes, avec :
+  - la base de tests de départ ;
   - un tableau (story, statut, commits, tests, durée) ;
-  - pour chaque story, ce qui reste à vérifier à la main ;
+  - pour chaque story, ce qui reste à vérifier à la main (rendu clair et sombre, parcours
+    avec Ollama) ;
   - les choix faits sans validation ;
+  - les écarts de contraste mesurés ;
   - les questions ouvertes.
 - Commite, pousse, puis ouvre une PR en brouillon vers master, avec ce rapport en description.
 ```
