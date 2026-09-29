@@ -11,6 +11,7 @@ from src.app.formatting import format_co2, format_duration, format_number, forma
 from src.app.states import (
     THROUGHPUT_HELP,
     finish_loading_status,
+    render_answer,
     render_inference_error,
     render_no_models,
     start_loading_status,
@@ -63,7 +64,7 @@ def _render_result_text(
             st.markdown(res.thought)
     st.subheader("Réponse")
     render_badge(is_cloud)
-    st.markdown(res.clean_text)
+    render_answer(res.clean_text)
 
 
 def _render_metrics(res, model_name: str) -> None:

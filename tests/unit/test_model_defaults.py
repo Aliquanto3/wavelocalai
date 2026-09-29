@@ -899,3 +899,102 @@ def test_benchmark_judge_prefers_a_model_that_fits():
     # Rien ne tient : le plus précis des fiables.
     ranked = _rank([GROS, PETIT], 1.0)
     assert md.default_judge(ranked, weak).tag == "gros:8b"
+
+
+# ---------------------------------------------------------------------------
+# Story 18 : modèle proposé par défaut sur la page Agents, d'après le benchmark du poste
+# ---------------------------------------------------------------------------
+
+# Taux de réussite des outils de poste-rtx3060 (`tool_capability.success_rate`).
+RTX_TOOLS = {"granite4:350m": 0.75, "gemma3:1b": 0.0}
+RTX_AGENT_BENCH = {
+    tag: BenchScore(p, s, tool_success=RTX_TOOLS.get(tag, 1.0))
+    for tag, _, _, p, s in RTX_MODELS.values()
+}
+
+
+def test_agent_default_on_benchmarked_machine_is_gemma_4_e4b():
+    """poste-rtx3060 : le plus précis des ≥ 3B aux outils vérifiés, à plus de 10 tokens/s
+    et qui tient : Gemma 4 E4B (QAT) (0,93), aussi juge de l'Arène ; pas Granite 4.0 350M
+    (premier de l'ordre actuel), ni LFM 2.5 2.6B (0,94 mais < 3B), ni Gemma 4 12B (0,94 à
+    6,6 tokens/s)."""
+    ranked = _rtx()
+
+    assert md.default_model(ranked).tag == "granite4:350m"
+    assert md.agent_default(ranked, RTX_AGENT_BENCH).tag == "gemma4:e4b-it-qat"
+
+
+def test_agent_default_without_benchmark_is_none():
+    ranked = _rtx()
+    assert md.agent_default(ranked, None) is None
+    assert md.agent_default(ranked, {}) is None
+
+
+@pytest.mark.parametrize(
+    ("score", "available_gb", "why"),
+    [
+        (BenchScore(0.93, 68.75, tool_success=0.5), 16.7, "outils sous 0,75"),
+        (BenchScore(0.93, 68.75, tool_success=None), 16.7, "outils inconnus"),
+        (BenchScore(0.93, 10.0, tool_success=1.0), 16.7, "10 tokens/s, pas plus"),
+        (BenchScore(0.93, 68.75, tool_success=1.0), 2.0, "ne tient pas en mémoire"),
+    ],
+)
+def test_agent_default_criteria(score, available_gb, why):
+    """Un seul modèle ≥ 3B, qui manque un critère : aucun candidat (ordre actuel)."""
+    ranked = _rtx([_local("gemma4:e4b-it-qat"), _local("gemma3:1b")], available_gb)
+    bench = {"gemma4:e4b-it-qat": score, "gemma3:1b": BenchScore(0.59, 185.98, 1.0)}
+
+    assert md.agent_default(ranked, bench) is None, why
+
+
+def test_agent_default_threshold_is_inclusive():
+    """`success_rate` = 0,75 (seuil de `tools_validated`) : candidat."""
+    ranked = _rtx([_local("gemma4:e4b-it-qat")])
+    bench = {"gemma4:e4b-it-qat": BenchScore(0.93, 68.75, tool_success=0.75)}
+    assert md.agent_default(ranked, bench).tag == "gemma4:e4b-it-qat"
+
+
+def test_agent_default_params_threshold_is_inclusive():
+    """Exactement 3B paramètres actifs (`AGENT_MIN_PARAMS_B`) : candidat."""
+    catalog = {
+        "Trois": {**RTX_CATALOG["Qwen 3.5 4B"], "ollama_tag": "trois:3b", "params_act": "3B"}
+    }
+    ranked = _rank([_local("trois:3b")], 16.7, catalog=catalog, models_db={})
+    assert ranked[0].params_b == 3.0 and ranked[0].fits
+    bench = {"trois:3b": BenchScore(0.9, 50.0, tool_success=1.0)}
+    assert md.agent_default(ranked, bench).tag == "trois:3b"
+
+
+def test_agent_default_excludes_small_reasoning_and_cloud_models():
+    """Moins de 3B paramètres actifs, dédié au raisonnement, cloud ou paramètres inconnus :
+    jamais candidat, même plus précis et plus rapide."""
+    catalog = {
+        **RTX_CATALOG,
+        "Big Thinking": {**RTX_CATALOG["Qwen 3.5 4B"], "ollama_tag": "big-thinking:8b"},
+    }
+    models = [
+        _local("LiquidAI/lfm2.5-2.6b"),
+        _local("big-thinking:8b"),
+        _local("mystery:7b", size_bytes=4 * GB),
+        CLAUDE,
+    ]
+    ranked = _rank(models, 16.7, catalog=catalog, models_db={})
+    best = BenchScore(0.99, 200.0, tool_success=1.0)
+    bench = {
+        "LiquidAI/lfm2.5-2.6b": best,
+        "big-thinking:8b": best,
+        "mystery:7b": best,
+        "claude-sonnet-4-20250514": best,
+    }
+    assert md.agent_default(ranked, bench) is None
+
+
+def test_agent_default_ties_broken_by_speed_then_tag():
+    ranked = _rtx([_local("qwen3.5:4b"), _local("nemotron-3-nano:4b")])
+    same = {
+        "qwen3.5:4b": BenchScore(0.9, 50.0, 1.0),
+        "nemotron-3-nano:4b": BenchScore(0.9, 80.0, 1.0),
+    }
+    assert md.agent_default(ranked, same).tag == "nemotron-3-nano:4b"
+    same["nemotron-3-nano:4b"] = BenchScore(0.9, 50.0, 1.0)
+    assert md.agent_default(ranked, same).tag == "nemotron-3-nano:4b"  # tag, ordre alphabétique

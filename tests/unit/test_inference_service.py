@@ -2,13 +2,14 @@
 Tests unitaires pour InferenceService.
 Usage: pytest tests/unit/test_inference_service.py -v
 """
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.core.inference_service import InferenceCallbacks, InferenceResult, InferenceService
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, ReasoningChunk
 
 # ========================================
 # 1. FIXTURES (Données de test réutilisables)
@@ -133,6 +134,86 @@ async def test_extraction_thought():
         assert result.clean_text == "La réponse est 42.", f"Texte mal nettoyé: {result.clean_text}"
 
 
+def _metrics():
+    return InferenceMetrics(
+        model_name="test",
+        input_tokens=1,
+        output_tokens=1,
+        total_duration_s=1.0,
+        load_duration_s=0.1,
+        tokens_per_second=1.0,
+    )
+
+
+async def _run_stream(*items, callbacks=None):
+    async def stream():
+        for item in items:
+            yield item
+        yield _metrics()
+
+    with patch("src.core.inference_service.LLMProvider") as mock:
+        mock.chat_stream = MagicMock(side_effect=lambda *args, **kwargs: stream())
+        return await InferenceService.run_inference(
+            model_tag="test-model",
+            messages=[{"role": "user", "content": "Test"}],
+            callbacks=callbacks,
+        )
+
+
+@pytest.mark.asyncio
+async def test_reasoning_chunks_never_counted_as_answer():
+    """Raisonnement d'Ollama (`ReasoningChunk`) : dans `thought`, jamais dans le texte ; les
+    tokens de la réponse seuls passent par `on_token`."""
+    tokens, thoughts = [], []
+
+    async def on_token(token):
+        tokens.append(token)
+
+    async def on_thought(thought):
+        thoughts.append(thought)
+
+    result = await _run_stream(
+        ReasoningChunk("Je pèse "),
+        ReasoningChunk("les options."),
+        "La réponse.",
+        callbacks=InferenceCallbacks(on_token=on_token, on_thought=on_thought),
+    )
+
+    assert result.thought == "Je pèse les options."
+    assert result.clean_text == "La réponse."
+    assert result.raw_text == "La réponse."
+    assert tokens == ["La réponse."]
+    assert thoughts == ["Je pèse les options."]
+
+
+@pytest.mark.asyncio
+async def test_reasoning_only_gives_empty_answer():
+    """Tout dans le raisonnement (Qwen 3.5 0.8B) : réponse vide, raisonnement gardé."""
+    result = await _run_stream(ReasoningChunk("Tout mon texte part ici."))
+
+    assert result.clean_text == ""
+    assert result.thought == "Tout mon texte part ici."
+    assert result.error is None
+
+
+@pytest.mark.asyncio
+async def test_think_tags_only_give_empty_answer():
+    """Balises `<think>` seules : même traitement, plus de repli sur le texte brut."""
+    result = await _run_stream("<think>x</think>")
+
+    assert result.clean_text == ""
+    assert result.thought == "x"
+
+
+@pytest.mark.asyncio
+async def test_reasoning_chunks_then_think_tags():
+    """Raisonnement transmis à part en premier, puis celui des balises `<think>`."""
+    result = await _run_stream(ReasoningChunk("A"), "<think>B</think>Réponse")
+
+    assert result.thought == "A\n\nB"
+    assert result.clean_text == "Réponse"
+
+
 # ========================================
 # 3. TESTS DE ROBUSTESSE
 # ========================================
@@ -202,7 +283,7 @@ async def test_callback_erreur():
     with patch("src.core.inference_service.LLMProvider") as mock:
         mock.chat_stream = MagicMock(side_effect=lambda *args, **kwargs: stream_qui_crash())
 
-        result = await InferenceService.run_inference(
+        await InferenceService.run_inference(
             model_tag="test-model",
             messages=[{"role": "user", "content": "Test"}],
             callbacks=callbacks,

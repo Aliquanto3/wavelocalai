@@ -10,7 +10,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, ReasoningChunk
 from src.core.model_detector import is_api_model
 from src.core.providers.provider_factory import get_provider_factory
 
@@ -77,7 +77,7 @@ class LLMProvider:
         messages: list[dict[str, str]],
         temperature: float = 0.7,
         system_prompt: str | None = None,
-    ) -> AsyncGenerator[str | InferenceMetrics, None]:
+    ) -> AsyncGenerator[str | ReasoningChunk | InferenceMetrics, None]:
         """
         Génère une réponse en streaming.
 
@@ -89,6 +89,7 @@ class LLMProvider:
 
         Yields:
             str: Tokens générés
+            ReasoningChunk: Raisonnement du modèle (Ollama), à part de la réponse
             InferenceMetrics: Métriques finales
 
         Raises:

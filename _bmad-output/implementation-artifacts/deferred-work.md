@@ -33,3 +33,9 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
   summary: Débit des modèles gpt-oss de Groq peut-être surestimé : usage.completion_tokens compterait les jetons de raisonnement invisibles.
   evidence: maybe-false, medium si confirmé : vérifier `completion_tokens_details.reasoning_tokens` sur une vraie réponse de openai/gpt-oss-120b (appel réel, avec l'accord de l'utilisateur).
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/18-constats-recette-arene-agents.md`
+  summary: Gras affiché avec ses astérisques dans la réponse de l'agent seul (GPT-OSS 120B, recette C5 du 29/09), non reproduit.
+  evidence: Réponse réelle capturée le 29/09 (`**Résultat :** 7 006 652`, `---`, italique) rendue correctement par st.markdown dans Chrome ; la sortie du modèle varie. maybe-false : à la prochaine occurrence, copier le texte brut de la réponse (ou une capture) pour trouver le motif fautif.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/18-constats-recette-arene-agents.md`
+  summary: Sur la page Agents, la mention « outils vérifiés » vient de la capacité `tools` du catalogue, même quand le benchmark de ce poste mesure un taux de réussite des outils de 0 (Gemma 3 1B, OLMo 3 7B).
+  evidence: 04_Agent_Lab.py lit `capabilities` de data/models.json ; seul le modèle d'agent_default reçoit la mention d'après le benchmark. Antérieur à la story 18 : lire `tool_success` du benchmark du poste quand il existe, le catalogue sinon.

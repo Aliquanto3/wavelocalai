@@ -645,6 +645,17 @@ def test_dismiss_email_removes_first_draft(monkeypatch):
     monkeypatch.setattr(solo.st, "session_state", state)
     solo._dismiss_email()
     assert state[solo.EMAIL_DRAFTS_KEY] == [second]
+    # Fermeture = annulation : « Email non envoyé » au run suivant.
+    assert state[solo.EMAIL_RESULT_KEY] == {"ok": None, "cancelled": True, "to": DRAFT["to"]}
+
+
+def test_dismiss_without_draft_shows_nothing(monkeypatch):
+    from src.app.tabs.agent import solo
+
+    state = {}
+    monkeypatch.setattr(solo.st, "session_state", state)
+    solo._dismiss_email()
+    assert solo.EMAIL_RESULT_KEY not in state
 
 
 def test_email_requested_shows_draft_without_sending(email_agent, smtp, run_page):
@@ -679,8 +690,11 @@ def test_email_cancel_sends_nothing(email_agent, smtp, run_page):
     assert smtp.sent == []
     assert not at.success and not at.error
     assert "Envoyer l'email" not in [b.label for b in at.button]
+    # « Email non envoyé », une fois.
+    assert [i.value for i in at.info].count("Email non envoyé : envoi annulé.") == 1
     at.run()
     assert smtp.sent == []
+    assert "Email non envoyé : envoi annulé." not in [i.value for i in at.info]
 
 
 def test_email_not_queued_when_tool_not_selected(email_agent, smtp, run_page):

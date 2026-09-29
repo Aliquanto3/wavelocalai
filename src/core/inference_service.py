@@ -2,15 +2,15 @@
 Service d'orchestration d'inférence découplé de l'UI.
 Permet la réutilisation pour benchmarks, agents et évaluations.
 """
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, ReasoningChunk
 from src.core.models_db import extract_thought
 
 # Logging
@@ -33,12 +33,12 @@ class InferenceResult:
 
     raw_text: str
     clean_text: str
-    thought: Optional[str]
-    metrics: Optional[InferenceMetrics]
-    error: Optional[str] = None
+    thought: str | None
+    metrics: InferenceMetrics | None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     timed_out: bool = False
-    timeout_s: Optional[float] = None
+    timeout_s: float | None = None
 
 
 @dataclass
@@ -48,10 +48,10 @@ class InferenceCallbacks:
     Permet au frontend de s'abonner aux événements sans couplage.
     """
 
-    on_token: Optional[Callable[[str], Awaitable[None]]] = None
-    on_metrics: Optional[Callable[[InferenceMetrics], Awaitable[None]]] = None
-    on_thought: Optional[Callable[[str], Awaitable[None]]] = None
-    on_error: Optional[Callable[[str], Awaitable[None]]] = None
+    on_token: Callable[[str], Awaitable[None]] | None = None
+    on_metrics: Callable[[InferenceMetrics], Awaitable[None]] | None = None
+    on_thought: Callable[[str], Awaitable[None]] | None = None
+    on_error: Callable[[str], Awaitable[None]] | None = None
 
 
 # ========================================
@@ -77,8 +77,8 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float = 0.7,
-        system_prompt: Optional[str] = None,
-        callbacks: Optional[InferenceCallbacks] = None,
+        system_prompt: str | None = None,
+        callbacks: InferenceCallbacks | None = None,
         timeout: int = 120,
     ) -> InferenceResult:
         """
@@ -137,12 +137,13 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float,
-        system_prompt: Optional[str],
-        callbacks: Optional[InferenceCallbacks],
+        system_prompt: str | None,
+        callbacks: InferenceCallbacks | None,
     ) -> InferenceResult:
         """Logique d'exécution interne (sans timeout wrapper)."""
 
         full_text = ""
+        reasoning = ""
         final_metrics = None
 
         # Appel du provider
@@ -161,14 +162,20 @@ class InferenceService:
                 if callbacks and callbacks.on_token:
                     await callbacks.on_token(item)
 
+            elif isinstance(item, ReasoningChunk):
+                # Raisonnement transmis à part : jamais compté comme texte de réponse.
+                reasoning += item.text
+
             elif isinstance(item, InferenceMetrics):
                 final_metrics = item
                 # Callback métriques
                 if callbacks and callbacks.on_metrics:
                     await callbacks.on_metrics(item)
 
-        # Extraction de la pensée (Chain of Thought)
-        thought, clean_text = extract_thought(full_text)
+        # Pensée : raisonnement transmis à part en premier, puis balises <think> du texte.
+        tag_thought, clean_text = extract_thought(full_text)
+        parts = [part for part in (reasoning.strip(), tag_thought) if part]
+        thought = "\n\n".join(parts) or None
 
         # Callback pensée (si détectée)
         if thought and callbacks and callbacks.on_thought:
@@ -176,7 +183,9 @@ class InferenceService:
 
         return InferenceResult(
             raw_text=full_text,
-            clean_text=clean_text or full_text,  # Fallback si pas de <think>
+            # Pas de repli sur le texte brut : une réponse faite seulement de raisonnement
+            # reste vide (l'Arène la marque « réponse vide », sans la juger).
+            clean_text=clean_text or "",
             thought=thought,
             metrics=final_metrics,
         )

@@ -10,6 +10,7 @@ précision et du débit mesurés sur cette machine.
   `quality_scores.instruction_following_avg`.
 - Débit prudent : le plus bas entre `avg_tokens_per_second` et
   `runs.tokens_per_second.mean` (Granite 4.2 8B mesure 10,41 puis 5,05 tokens/s).
+- Outils : `tool_capability.success_rate` (0 à 1), None s'il manque ou est illisible.
 - Nom → tag : `ollama_tag` de l'entrée, sinon celui du catalogue versionné
   (`config/models_catalog.json`, clé = nom du modèle).
 
@@ -44,6 +45,7 @@ class BenchScore:
 
     precision: float  # moyenne de raisonnement et suivi d'instructions (0 à 1)
     speed_tps: float  # débit prudent, en tokens/s
+    tool_success: float | None = None  # `tool_capability.success_rate` (0 à 1), None inconnu
 
 
 def machine_digest() -> str:
@@ -117,6 +119,15 @@ def _cautious_speed(entry: Mapping[str, Any]) -> float | None:
     return min(speeds) if speeds else None
 
 
+def _tool_success(entry: Mapping[str, Any]) -> float | None:
+    """`tool_capability.success_rate`, entre 0 et 1 ; None s'il manque ou est illisible."""
+    capability = entry.get("tool_capability")
+    if not isinstance(capability, Mapping):
+        return None
+    rate = _number(capability.get("success_rate"))
+    return rate if rate is not None and 0.0 <= rate <= 1.0 else None
+
+
 def _tag_of(name: str, entry: Mapping[str, Any], catalog: Mapping[str, Any]) -> str | None:
     tag = entry.get("ollama_tag")
     if isinstance(tag, str) and tag:
@@ -146,7 +157,9 @@ def parse_results(data: Any, catalog: Mapping[str, Any]) -> dict[str, BenchScore
         if tag is None or precision is None or speed is None:
             skipped.append(str(name))
             continue
-        scores[model_defaults.base_tag(tag)] = BenchScore(precision, speed)
+        scores[model_defaults.base_tag(tag)] = BenchScore(
+            precision, speed, tool_success=_tool_success(entry)
+        )
     if skipped:
         logger.warning(
             "Résultats de benchmark incomplets, modèles ignorés : %s", ", ".join(skipped)

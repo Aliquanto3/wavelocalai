@@ -52,6 +52,10 @@ NO_MODEL_ELSEWHERE = (
 
 # --- Évaluation impossible ---
 NOT_EVALUATED = "non évalué"
+# Réponse sans texte (tout est parti dans le raisonnement) : jamais envoyée au juge.
+EMPTY_ANSWER = "Réponse vide"
+EMPTY_ANSWER_REASON = "réponse vide."
+REASONING_LABEL = "Raisonnement"
 
 # --- Juge par défaut et fiabilité de sa note ---
 # Moins de ~4B paramètres actifs, ou taille inconnue : deux causes, deux textes.
@@ -121,6 +125,15 @@ def system_status_label(available: bool) -> str:
 def render_ollama_down_alert() -> None:
     """`alert-error` « service indisponible », en tête de module."""
     st.error(OLLAMA_DOWN_MESSAGE, icon=":material/error:")
+
+
+def render_answer(text: str | None) -> None:
+    """Texte d'une réponse ; « Réponse vide » s'il est vide (tout est parti dans le
+    raisonnement), jamais un corps blanc sans explication."""
+    if text and text.strip():
+        st.markdown(text)
+    else:
+        st.warning(EMPTY_ANSWER, icon=":material/speaker_notes_off:")
 
 
 def render_error(message: str, detail: str | None = None) -> None:

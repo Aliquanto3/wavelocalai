@@ -177,3 +177,15 @@
   invoke_dev_with: >-
     Recette dans Chrome du 29/09 (C1, C5 en échec ; R2). Tests sans réseau ; rien n'est poussé
     sans le go de l'utilisateur. Dépend de la story 16.
+- id: "18"
+  title: "Constats de la recette du 29/09 : réponse vide dans l'Arène, modèle des agents, petits défauts"
+  description: >-
+    Arène : une réponse vide (raisonnement seul) affiche son raisonnement, est marquée « réponse
+    vide » et n'est jamais notée par le juge ; Agents : modèle par défaut choisi parmi les modèles
+    aux outils vérifiés d'au moins 3B, d'après le benchmark du poste ;
+    message après « Annuler » l'email, un seul classement à note égale (gras non reproduit, différé).
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Recette dans Chrome du 29/09 (D4, G2, G1, C5, R1). Tests sans réseau ; rien n'est poussé
+    sans le go de l'utilisateur. Dépend des stories 15 et 17.

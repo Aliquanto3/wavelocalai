@@ -31,6 +31,12 @@ Règle (fonctions pures, sans `streamlit`) :
      totaux. Aucun local : pas de juge par défaut.
   Note peu fiable quand les paramètres actifs d'un juge local sont inférieurs à
   `JUDGE_MIN_PARAMS_B` ou inconnus.
+- Modèle proposé par défaut de la page Agents (`agent_default`) : d'après le benchmark de ce
+  poste, parmi les locaux installés, non dédiés au raisonnement, qui tiennent en mémoire,
+  d'au moins `AGENT_MIN_PARAMS_B` paramètres actifs, aux outils vérifiés par le benchmark
+  (`tool_capability.success_rate` ≥ `AGENT_MIN_TOOL_SUCCESS`) et à plus de
+  `BENCH_MIN_SPEED_TPS` tokens/s : le plus précis, puis le plus rapide, puis le tag. Sans
+  benchmark ou sans candidat : None (l'ordre de la page reste celui d'aujourd'hui).
 - Arène : les 2 ou 3 locaux les plus rapides qui tiennent, hors juge par défaut (il ne note
   pas sa propre réponse) et hors modèles dédiés au raisonnement ; le juge n'y revient que
   s'il manque un modèle pour atteindre `ARENA_MIN_MODELS`. Le lancement exige au moins
@@ -87,6 +93,11 @@ JUDGE_MIN_PARAMS_B = 4.0
 
 # Juge choisi d'après le benchmark de ce poste : débit prudent strictement supérieur.
 BENCH_MIN_SPEED_TPS = 10.0
+
+# Modèle par défaut des agents : paramètres actifs minimaux (en milliards) et taux de réussite
+# des outils mesuré par le benchmark (seuil de `tools_validated` de scripts/benchmark_slm.py).
+AGENT_MIN_PARAMS_B = 3.0
+AGENT_MIN_TOOL_SUCCESS = 0.75
 
 # Juges cloud, du plus capable au moins capable (préfixes de tag) ; les autres modèles cloud
 # suivent par ordre alphabétique. Un fournisseur ajouté plus tard s'insère dans cette liste.
@@ -473,6 +484,35 @@ def benchmark_judge(
         or scored
     )
     best, _ = min(pool, key=lambda cs: (-cs[1].precision, -cs[1].speed_tps, cs[0].tag))
+    return best
+
+
+def agent_default(
+    ranked: list[ModelChoice], benchmark: Mapping[str, BenchScore] | None
+) -> ModelChoice | None:
+    """Modèle proposé par défaut sur la page Agents (Agent seul et Équipe), d'après le
+    benchmark de ce poste. Candidats : locaux installés, non dédiés au raisonnement, qui
+    tiennent en mémoire, d'au moins `AGENT_MIN_PARAMS_B` paramètres actifs, aux outils
+    vérifiés par le benchmark (`tool_success` ≥ `AGENT_MIN_TOOL_SUCCESS`) et mesurés à plus
+    de `BENCH_MIN_SPEED_TPS` tokens/s. Le plus précis (même précision que le juge), puis le
+    plus rapide, puis le tag. None sans benchmark ou sans candidat."""
+    if not benchmark:
+        return None
+    candidates = []
+    for choice in ranked:
+        if choice.is_cloud or choice.dedicated_reasoning or not choice.fits:
+            continue
+        if choice.params_b is None or choice.params_b < AGENT_MIN_PARAMS_B:
+            continue
+        score = benchmark.get(base_tag(choice.tag))
+        if score is None or score.speed_tps <= BENCH_MIN_SPEED_TPS:
+            continue
+        if score.tool_success is None or score.tool_success < AGENT_MIN_TOOL_SUCCESS:
+            continue
+        candidates.append((choice, score))
+    if not candidates:
+        return None
+    best, _ = min(candidates, key=lambda cs: (-cs[1].precision, -cs[1].speed_tps, cs[0].tag))
     return best
 
 

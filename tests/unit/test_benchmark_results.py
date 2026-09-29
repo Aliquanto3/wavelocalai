@@ -117,6 +117,26 @@ def test_precision_and_cautious_speed():
     assert one["granite4.2:8b"].speed_tps == pytest.approx(71.08)
 
 
+def test_tool_success_read_tolerantly():
+    """`tool_capability.success_rate` lu (0 à 1) ; absent, illisible ou hors échelle : None,
+    l'entrée reste lue (précision et débit)."""
+    entries = {
+        "Gemma 4 E4B (QAT)": {**_entry(), "tool_capability": {"success_rate": 1.0}},
+        "Granite 4.2 8B": {**_entry(), "tool_capability": {"success_rate": "1"}},
+        "LFM 2.5 2.6B": _entry(),
+    }
+    scores = br.parse_results({"models": entries}, CATALOG)
+
+    assert scores["gemma4:e4b-it-qat"].tool_success == 1.0
+    assert scores["granite4.2:8b"].tool_success is None
+    assert scores["LiquidAI/lfm2.5-2.6b"].tool_success is None
+    for bad in (None, [], {"success_rate": 1.5}, {"success_rate": float("nan")}, {}):
+        entry = {**_entry(), "tool_capability": bad}
+        (score,) = br.parse_results({"models": {"LFM 2.5 2.6B": entry}}, CATALOG).values()
+        assert score.tool_success is None
+        assert score.precision == pytest.approx(0.93)
+
+
 def test_equal_precisions_are_exactly_equal():
     """0,86/1,0 et 0,93/0,93 donnent la même précision (départage par le débit ensuite)."""
     a = br.parse_results({"models": {"Gemma 4 E4B (QAT)": _entry(0.86, 1.0)}}, CATALOG)
@@ -191,9 +211,7 @@ def test_empty_result_is_not_cached(tmp_path, monkeypatch):
     monkeypatch.setattr(br, "_CACHE", {})
 
     assert br.load_machine_benchmark(tmp_path, digest="22601cd4") == {}
-    assert set(br.load_machine_benchmark(tmp_path, digest="22601cd4")) == {
-        "LiquidAI/lfm2.5-2.6b"
-    }
+    assert set(br.load_machine_benchmark(tmp_path, digest="22601cd4")) == {"LiquidAI/lfm2.5-2.6b"}
 
 
 def test_load_never_raises(tmp_path, monkeypatch):

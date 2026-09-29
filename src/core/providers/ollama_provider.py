@@ -12,7 +12,12 @@ import ollama
 from langchain_ollama import ChatOllama
 
 from src.core.interfaces import ILLMProvider
-from src.core.metrics import InferenceMetrics, MetricsCalculator, ollama_metrics
+from src.core.metrics import (
+    InferenceMetrics,
+    MetricsCalculator,
+    ReasoningChunk,
+    ollama_metrics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +93,13 @@ class OllamaProvider(ILLMProvider):
         messages: list[dict[str, str]],
         temperature: float = 0.7,
         system_prompt: str | None = None,
-    ) -> AsyncGenerator[str | InferenceMetrics, None]:
-        """Génère une réponse en streaming via Ollama."""
+    ) -> AsyncGenerator[str | ReasoningChunk | InferenceMetrics, None]:
+        """Génère une réponse en streaming via Ollama.
+
+        Le raisonnement (`message.thinking`) est produit en `ReasoningChunk`, jamais en `str` :
+        il ne compte pas comme texte de réponse. `think=` n'est pas passé : le comportement par
+        défaut d'Ollama est inchangé.
+        """
 
         final_messages = messages.copy()
         if system_prompt:
@@ -113,25 +123,26 @@ class OllamaProvider(ILLMProvider):
 
             async for chunk in stream:
                 if isinstance(chunk, dict):
-                    content = chunk.get("message", {}).get("content", "")
-                    if content:
-                        full_text += content
-                        yield content
-
-                    # Chunk final : porte les compteurs et les durées d'Ollama.
-                    if chunk.get("done"):
-                        final_chunk = chunk
+                    message = chunk.get("message") or {}
+                    thinking = message.get("thinking")
+                    content = message.get("content")
+                    done = chunk.get("done")
                 else:
-                    # Format objet Pydantic
-                    content = getattr(chunk, "message", None)
-                    if content and hasattr(content, "content"):
-                        text = content.content
-                        if text:
-                            full_text += text
-                            yield text
+                    # Format objet Pydantic (`ollama.ChatResponse`)
+                    message = getattr(chunk, "message", None)
+                    thinking = getattr(message, "thinking", None)
+                    content = getattr(message, "content", None)
+                    done = getattr(chunk, "done", False)
 
-                    if getattr(chunk, "done", False):
-                        final_chunk = chunk
+                if thinking:
+                    yield ReasoningChunk(thinking)
+                if content:
+                    full_text += content
+                    yield content
+
+                # Chunk final : porte les compteurs et les durées d'Ollama.
+                if done:
+                    final_chunk = chunk
 
             timer.stop()
 

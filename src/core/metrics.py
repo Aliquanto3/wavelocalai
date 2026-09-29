@@ -6,6 +6,15 @@ from typing import Any
 NS_PER_S = 1e9
 
 
+@dataclass(frozen=True)
+class ReasoningChunk:
+    """Fragment du raisonnement d'un modèle (`message.thinking` d'Ollama), transmis à part du
+    texte de la réponse. Ce n'est pas un `str` : les consommateurs qui ne gardent que les `str`
+    ne le comptent jamais comme réponse."""
+
+    text: str
+
+
 @dataclass
 class InferenceMetrics:
     """Structure standard pour les métriques d'inférence"""

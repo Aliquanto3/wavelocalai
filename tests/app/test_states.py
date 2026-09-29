@@ -12,6 +12,7 @@ import streamlit
 from streamlit.testing.v1 import AppTest
 
 from src.app.states import (
+    EMPTY_ANSWER,
     LOADED_LABEL,
     LOADING_FAILED_LABEL,
     LOADING_LABEL,
@@ -19,6 +20,7 @@ from src.app.states import (
     NO_MODEL_IN_ARENA,
     NOT_EVALUATED,
     OLLAMA_DOWN_MESSAGE,
+    REASONING_LABEL,
 )
 from tests.app.conftest import APP_DIR, FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL
 from tests.app.test_pages import RENDER_TIMEOUT_S
@@ -281,6 +283,38 @@ def test_chat_generic_failure(fake_inference, run_page):
     assert error.startswith("La génération a échoué.") and "Ollama" in error
 
 
+def _reasoning_only(fake_inference):
+    """Tout dans le raisonnement pour chaque modèle installé (story 18)."""
+    for m in FAKE_LOCAL_MODELS:
+        fake_inference.answers[m["model"]] = ""
+        fake_inference.thoughts[m["model"]] = "Je réfléchis seulement."
+
+
+def test_chat_empty_answer_shows_marker(fake_inference, run_page):
+    """Chat libre, réponse vide : « Réponse vide » et raisonnement, aussi au rerun."""
+    _reasoning_only(fake_inference)
+    at = run_page(ARENA_PAGE)
+    at.chat_input[0].set_value("Bonjour").run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    assert REASONING_LABEL in [e.label for e in at.expander]
+
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    assert REASONING_LABEL in [e.label for e in at.expander]
+
+
+def test_lab_empty_answer_shows_marker(fake_inference, run_page):
+    """Banc d'essai, réponse vide : « Réponse vide », raisonnement du modèle dépliable."""
+    _reasoning_only(fake_inference)
+    at = run_page(ARENA_PAGE)
+    _button(at, "Lancer le test").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    assert "Raisonnement du modèle" in [e.label for e in at.expander]
+
+
 def test_lab_timeout_shows_error_and_survives_rerun(failing_inference, run_page):
     at = run_page(ARENA_PAGE)
     _button(at, "Lancer le test").click().run()
@@ -374,6 +408,87 @@ def test_arena_judge_score_ranks_models(fake_inference, run_page):
     table = _results_table(at)
     assert list(table["Note"]) == ["72/100", "72/100"]
     assert "Verdict" in [h.value for h in at.header]
+
+
+# ---------------------------------------------------------------------------
+# Arène : réponse vide, raisonnement, ex æquo (story 18)
+# ---------------------------------------------------------------------------
+
+
+def _response_headings(at) -> list[str]:
+    """En-têtes de la section des réponses (2 modèles), dans l'ordre d'affichage."""
+    return [m.value for m in at.markdown if "(note :" in m.value]
+
+
+def _reasoning_expanders(at):
+    return [e for e in at.expander if e.label == REASONING_LABEL]
+
+
+def test_arena_empty_answer_is_not_judged(fake_inference, run_page):
+    """Tout dans le raisonnement (Qwen 3.5 0.8B) : « réponse vide », raisonnement dépliable,
+    « non évalué : réponse vide », et le juge ne reçoit que la réponse non vide."""
+    empty, full = (m["model"] for m in FAKE_LOCAL_MODELS)
+    fake_inference.answers[empty] = ""
+    fake_inference.thoughts[empty] = "Je réfléchis longuement."
+    fake_inference.judge_reply = "98"
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    # Le juge note la seule réponse non vide, juste après elle.
+    assert [kind for kind, _ in fake_inference.calls] == ["model", "model", "judge"]
+    assert ("model", full) in fake_inference.calls
+    rows = dict(zip(*(_results_table(at)[k] for k in ("Modèle", "Statut")), strict=True))
+    assert rows[_friendly(FAKE_LOCAL_MODELS[0])] == f"{NOT_EVALUATED.capitalize()} : réponse vide."
+    assert rows[_friendly(FAKE_LOCAL_MODELS[1])] == "Classé"
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    (reasoning,) = _reasoning_expanders(at)
+    assert [m.value for m in reasoning.markdown] == ["Je réfléchis longuement."]
+
+
+def test_arena_empty_answer_with_three_models(three_models, fake_inference, run_page):
+    """Trois modèles (réponses repliées) : le raisonnement se déplie dans la réponse."""
+    models = [*FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL]
+    fake_inference.answers[models[2]["model"]] = ""
+    fake_inference.thoughts[models[2]["model"]] = "Pensée seule."
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, models)
+
+    assert sum(1 for kind, _ in fake_inference.calls if kind == "judge") == 2
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    (reasoning,) = _reasoning_expanders(at)
+    assert [m.value for m in reasoning.markdown] == ["Pensée seule."]
+
+
+def test_arena_answer_with_reasoning_is_judged(fake_inference, run_page):
+    """Raisonnement et réponse : la réponse est notée, le raisonnement se déplie à part."""
+    tag = FAKE_LOCAL_MODELS[0]["model"]
+    fake_inference.thoughts[tag] = "Étapes du raisonnement."
+    fake_inference.judge_reply = "80"
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    assert sum(1 for kind, _ in fake_inference.calls if kind == "judge") == 2
+    assert list(_results_table(at)["Note"]) == ["80/100", "80/100"]
+    assert EMPTY_ANSWER not in [w.value for w in at.warning]
+    (reasoning,) = _reasoning_expanders(at)
+    assert [m.value for m in reasoning.markdown] == ["Étapes du raisonnement."]
+
+
+def test_arena_tie_same_order_everywhere(fake_inference, run_page):
+    """Ex æquo à 72 : le plus rapide (90 tokens/s, 2ᵉ de la sélection) en tête de l'étoile,
+    du vainqueur, du tableau et de la section des réponses ; « Pourquoi ? » le dit."""
+    slow, fast = FAKE_LOCAL_MODELS
+    fake_inference.throughput.update({slow["model"]: 60.0, fast["model"]: 90.0})
+    fake_inference.judge_reply = "72"
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    assert list(_results_table(at)["Modèle"]) == [_friendly(fast), _friendly(slow)]
+    assert at.subheader[0].value == _friendly(fast)
+    headings = _response_headings(at)
+    assert headings[0].startswith(f"**{_friendly(fast)}**")
+    assert headings[1].startswith(f"**{_friendly(slow)}**")
+    assert any(i.startswith("**Pourquoi ?** À note égale, le plus rapide") for i in _infos(at))
 
 
 # ---------------------------------------------------------------------------

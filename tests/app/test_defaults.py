@@ -490,11 +490,11 @@ GPT_4O = {"model": "gpt-4o", "name": "GPT-4o", "size": 0, "type": "cloud", "prov
 
 @pytest.fixture
 def machine_benchmark(monkeypatch):
-    """Benchmark de ce poste simulé ({tag : précision, débit prudent})."""
+    """Benchmark de ce poste simulé ({tag : précision, débit prudent[, outils]})."""
     from src.core.benchmark_results import BenchScore
 
-    def _set(scores: dict[str, tuple[float, float]]) -> None:
-        bench = {tag: BenchScore(p, s) for tag, (p, s) in scores.items()}
+    def _set(scores: dict[str, tuple]) -> None:
+        bench = {tag: BenchScore(*values) for tag, values in scores.items()}
         monkeypatch.setattr("src.app.ui.machine_benchmark", lambda: bench)
 
     return _set
@@ -543,9 +543,7 @@ def test_arena_cloud_enabled_judge_is_most_capable_cloud(monkeypatch, machine_be
         try:
             assert not at.exception, [e.value for e in at.exception]
             assert _judge_select(at).value == judge
-            assert _judge_select(at).help == (
-                JUDGE_HELP_CLOUD if enabled else JUDGE_HELP_BENCHMARK
-            )
+            assert _judge_select(at).help == (JUDGE_HELP_CLOUD if enabled else JUDGE_HELP_BENCHMARK)
             assert (CLOUD_BADGE in _judge_badges(at)) is enabled
             assert not _warnings(at)
         finally:
@@ -600,3 +598,68 @@ def test_agents_default_is_not_a_reasoning_model(installed, monkeypatch, run_pag
     (select,) = [s for s in at.selectbox if s.label == "Modèle"]
     assert select.value != thinking
     assert select.options == ["Qwen 2.5 1.5B · Local · outils vérifiés", GEMMA, thinking]
+
+
+# ---------------------------------------------------------------------------
+# Story 18 : modèle proposé par défaut sur la page Agents, d'après le benchmark du poste
+# ---------------------------------------------------------------------------
+
+AGENT_BENCH = {
+    # Candidat : ≥ 3B, outils vérifiés, rapide, tient en mémoire.
+    "qwen3.5:4b": (0.87, 62.5, 1.0),
+    # Plus précis mais trop lent (5 tokens/s).
+    "granite4.2:8b": (0.9, 5.05, 1.0),
+    # Plus précis et rapide mais < 3B.
+    "qwen2.5:1.5b": (0.95, 150.0, 1.0),
+}
+AGENT_MID = f"{MID} · outils vérifiés"
+
+
+def _agent_select(at):
+    (select,) = [s for s in at.selectbox if s.label == "Modèle"]
+    return select
+
+
+def test_agents_default_from_machine_benchmark(installed, machine_benchmark, run_page):
+    """Poste benchmarké : premier proposé = le candidat de la règle, « outils vérifiés » (le
+    benchmark les a vérifiés) ; aucun modèle retiré de la liste."""
+    installed([*FAKE_LOCAL_MODELS, BIG_LOCAL, MID_LOCAL])
+    machine_benchmark(AGENT_BENCH)
+    at = run_page(AGENTS_PAGE)
+
+    select = _agent_select(at)
+    assert select.options[0] == AGENT_MID
+    assert select.value == AGENT_MID
+    assert len(select.options) == 4
+
+
+def test_crew_default_from_machine_benchmark(installed, machine_benchmark, run_page):
+    """Équipe d'agents : le premier agent prend aussi le candidat de la règle."""
+    installed([*FAKE_LOCAL_MODELS, BIG_LOCAL, MID_LOCAL])
+    machine_benchmark(AGENT_BENCH)
+    at = run_page(AGENTS_PAGE)
+    (radio,) = [r for r in at.sidebar.radio if r.label == "Mode"]
+    radio.set_value("Équipe d'agents").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    assert at.session_state["crew_agents"][0]["model_tag"] == "qwen3.5:4b"
+
+
+@pytest.mark.parametrize(
+    "bench",
+    [
+        {**AGENT_BENCH, "qwen3.5:4b": (0.87, 62.5, 0.5)},  # outils sous 0,75
+        {**AGENT_BENCH, "qwen3.5:4b": (0.87, 9.0, 1.0)},  # 10 tokens/s ou moins
+        {},  # poste inconnu
+    ],
+    ids=["outils", "debit", "poste-inconnu"],
+)
+def test_agents_without_candidate_keep_current_order(installed, machine_benchmark, run_page, bench):
+    """Aucun candidat, ou pas de benchmark : l'ordre actuel (outils vérifiés du catalogue)."""
+    installed([*FAKE_LOCAL_MODELS, BIG_LOCAL, MID_LOCAL])
+    machine_benchmark(bench)
+    at = run_page(AGENTS_PAGE)
+
+    select = _agent_select(at)
+    assert select.value == "Qwen 2.5 1.5B · Local · outils vérifiés"
+    assert MID in select.options

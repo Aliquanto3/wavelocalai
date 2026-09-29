@@ -91,6 +91,7 @@ EMAIL_DRAFTS_KEY = "agent_email_drafts"
 EMAIL_RESULT_KEY = "agent_email_result"
 EMAIL_SEND_LABEL = "Envoyer l'email"
 EMAIL_CANCEL_LABEL = "Annuler"
+EMAIL_CANCELLED_MESSAGE = "Email non envoyé : envoi annulé."
 EMAIL_FAILED_MESSAGE = (
     "L'email n'a pas été envoyé. Vérifiez la configuration SMTP du fichier .env, puis "
     "demandez de nouveau l'email à l'agent."
@@ -278,9 +279,16 @@ def _pop_draft() -> dict | None:
     return drafts.pop(0) if drafts else None
 
 
+def _cancel_email() -> None:
+    """Retire le brouillon sans rien envoyer ; « Email non envoyé » s'affiche au run suivant."""
+    draft = _pop_draft()
+    if draft is not None:
+        st.session_state[EMAIL_RESULT_KEY] = {"ok": None, "cancelled": True, "to": draft["to"]}
+
+
 def _dismiss_email() -> None:
     """Fermeture du dialogue (croix, Échap) : comme « Annuler », rien n'est envoyé."""
-    _pop_draft()
+    _cancel_email()
 
 
 @st.dialog("Envoyer l'email ?", on_dismiss=_dismiss_email)
@@ -321,16 +329,19 @@ def confirm_email_dialog() -> None:
         # st.rerun ferme le dialogue : le résultat s'affiche au run suivant.
         st.rerun()
     elif cancel:
-        _pop_draft()
+        _cancel_email()
         st.rerun()
 
 
 def _render_email_result() -> None:
-    """Résultat du dernier envoi, une fois : succès au même verbe, ou alert-error."""
+    """Résultat du dernier envoi, une fois : succès au même verbe, annulation, ou
+    alert-error."""
     result = st.session_state.pop(EMAIL_RESULT_KEY, None)
     if not result:
         return
-    if result["ok"]:
+    if result.get("cancelled"):
+        st.info(EMAIL_CANCELLED_MESSAGE, icon=":material/cancel:")
+    elif result["ok"]:
         st.success(
             f"Email envoyé à {escape_markdown(result['to'])}.", icon=":material/check_circle:"
         )

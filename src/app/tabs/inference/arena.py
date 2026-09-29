@@ -38,9 +38,12 @@ from src.app.formatting import (
     pluralize,
 )
 from src.app.states import (
+    EMPTY_ANSWER,
+    EMPTY_ANSWER_REASON,
     LOADING_HINT,
     LOADING_LABEL,
     NOT_EVALUATED,
+    REASONING_LABEL,
     THROUGHPUT_HELP,
     inference_failure_label,
     render_error,
@@ -396,6 +399,9 @@ def _render_podium(results_data):
             reason = ""
             if diff_score > 5:
                 reason = f"Meilleure note (+{diff_score} points)"
+            elif diff_score == 0 and diff_speed > 0:
+                # Ex æquo départagé par le débit (même ordre que rank_results).
+                reason = f"À note égale, le plus rapide (+{format_unit(diff_speed, 'tokens/s')})"
             elif diff_speed > 5:
                 reason = f"Plus rapide (+{format_unit(diff_speed, 'tokens/s')})"
             elif (
@@ -429,6 +435,29 @@ def _render_podium(results_data):
         )
 
     _render_results_table(scored + not_evaluated + failed, unit)
+
+
+def response_order(results_data: list[dict], model_responses: dict) -> list[tuple[str, dict]]:
+    """Réponses dans l'ordre de `rank_results` : notés (note, puis débit), puis « non évalué ».
+    Un seul classement pour l'étoile, le vainqueur, le tableau et la section des réponses."""
+    scored, not_evaluated, _ = rank_results(results_data)
+    return [
+        (row["Modèle"], model_responses[row["Modèle"]])
+        for row in scored + not_evaluated
+        if row["Modèle"] in model_responses
+    ]
+
+
+def _render_response_body(data: dict, write_text) -> None:
+    """Texte de la réponse (`write_text`), « Réponse vide » s'il n'y en a pas, et raisonnement
+    dépliable s'il existe (jamais compté comme réponse)."""
+    if data.get("empty"):
+        st.warning(EMPTY_ANSWER, icon=":material/speaker_notes_off:")
+    else:
+        write_text(data["text"])
+    if data.get("thought"):
+        with st.expander(REASONING_LABEL, expanded=False):
+            st.markdown(data["thought"])
 
 
 def _write_loading_note(status_box, tag: str, friendly_name: str) -> None:
@@ -619,11 +648,22 @@ Format : Uniquement le chiffre (ex: 85)."""
                         )
 
                 # 3. NOTATION JUGE (« non évalué » plutôt que 0 si le juge ne peut pas noter)
-                if judge_tag:
-                    status_box.write(f"Notation de {friendly_name} par le juge…")
-                score, reason, judge_error = _judge(
-                    status_box, judge_tag, judge_name, judge_sys, arena_prompt, result.clean_text
-                )
+                # Réponse vide (tout dans le raisonnement) : jamais envoyée au juge.
+                empty = not (result.clean_text or "").strip()
+                if empty:
+                    status_box.write(f"**{friendly_name}** : {EMPTY_ANSWER.lower()}, non notée.")
+                    score, reason, judge_error = None, EMPTY_ANSWER_REASON, None
+                else:
+                    if judge_tag:
+                        status_box.write(f"Notation de {friendly_name} par le juge…")
+                    score, reason, judge_error = _judge(
+                        status_box,
+                        judge_tag,
+                        judge_name,
+                        judge_sys,
+                        arena_prompt,
+                        result.clean_text,
+                    )
                 if judge_error:
                     failure_details.append(f"Juge ({friendly_name}) : {judge_error}")
 
@@ -650,6 +690,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                 model_responses[friendly_name] = {
                     "text": result.clean_text,
                     "thought": result.thought,
+                    "empty": empty,
                     "score": score,
                     "reason": reason,
                     "is_cloud": is_cloud,
@@ -707,13 +748,9 @@ Format : Uniquement le chiffre (ex: 85)."""
         st.divider()
         st.header("Réponses des modèles")
 
-        # Notes numériques d'abord, puis « non évalué ».
-        def _order(item):
-            score = item[1]["score"]
-            return (score is None, -(score or 0))
-
-        sorted_items = sorted(model_responses.items(), key=_order)
-        if len(model_responses) == 2:
+        # Même ordre que l'étoile, le vainqueur et le tableau (rank_results).
+        sorted_items = response_order(results_data, model_responses)
+        if len(sorted_items) == 2:
             c1, c2 = st.columns(2)
             for idx, (name, data) in enumerate(sorted_items):
                 with c1 if idx == 0 else c2, st.container(border=True):
@@ -722,7 +759,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                         f"**{name}** (note : {note}) {badge_markdown(data['is_cloud'])}",
                         help=data["reason"],
                     )
-                    st.caption(data["text"])
+                    _render_response_body(data, st.caption)
         else:
             for name, data in sorted_items:
                 note = NOT_EVALUATED if data["score"] is None else f"{data['score']}/100"
@@ -730,4 +767,4 @@ Format : Uniquement le chiffre (ex: 85)."""
                     render_badge(data["is_cloud"])
                     if data["reason"]:
                         st.caption(f"{NOT_EVALUATED.capitalize()} : {data['reason']}")
-                    st.markdown(data["text"])
+                    _render_response_body(data, st.markdown)

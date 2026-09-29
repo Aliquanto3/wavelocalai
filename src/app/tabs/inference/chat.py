@@ -13,6 +13,7 @@ from src.app.states import (
     THROUGHPUT_HELP,
     finish_loading_status,
     inference_error_message,
+    render_answer,
     render_error,
     render_no_models,
     start_loading_status,
@@ -171,7 +172,10 @@ def render_chat_tab(
                     with st.expander("Raisonnement", expanded=False):
                         st.markdown(msg["thought"])
 
-                st.markdown(msg["content"])
+                if msg["role"] == "assistant":
+                    render_answer(msg["content"])
+                else:
+                    st.markdown(msg["content"])
 
                 # Footer Badges
                 if msg["role"] == "assistant" and "metrics_data" in msg:
@@ -226,13 +230,11 @@ def render_chat_tab(
             finish_loading_status(state["loading"])
 
             # Affichage Final
-            msg_container.markdown(result.clean_text)
-            if result.thought:
-                msg_container.empty()
-                with msg_container.container():
+            with msg_container.container():
+                if result.thought:
                     with st.expander("Raisonnement", expanded=True):
                         st.markdown(result.thought)
-                    st.markdown(result.clean_text)
+                render_answer(result.clean_text)
 
             # Calculs
             metrics_data = _calculate_metrics(result.metrics, active_tag, active_is_cloud)

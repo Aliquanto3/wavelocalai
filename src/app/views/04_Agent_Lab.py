@@ -8,8 +8,9 @@ from src.app.tabs.agent.crew import render_agent_crew_tab
 from src.app.tabs.agent.solo import clear_email_drafts, render_agent_solo_tab
 from src.app.formatting import format_gb, format_percent, format_unit
 from src.app.modules import AGENTS
-from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
+from src.app.ui import FAVICON_PATH, cloud_enabled, machine_benchmark, model_menu
 from src.core.llm_provider import LLMProvider
+from src.core.model_defaults import agent_default
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 
 nest_asyncio.apply()
@@ -101,17 +102,28 @@ installed = LLMProvider.list_models(cloud_enabled=cloud_enabled())
 # qui tiennent en mémoire, puis outils vérifiés, puis la règle commune (le plus rapide en
 # tête) : un modèle cloud, un modèle dédié au raisonnement ou un local qui ne tient pas ne
 # devient jamais le modèle par défaut parce que ses outils sont vérifiés. Tri stable.
+# Puis, en tête, le modèle choisi d'après le benchmark de ce poste (agent_default) ; sans
+# benchmark ni candidat, l'ordre ci-dessus.
 menu = model_menu(installed, cloud_types=("api", "cloud"))
+agent_choice = agent_default([menu.choices[label] for label in menu.labels], machine_benchmark())
+agent_tag = agent_choice.tag if agent_choice else None
 options = []
 for label in menu.labels:
     tag = menu.display_to_tag[label]
     choice = menu.choices[label]
     # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
     info = get_model_info(get_friendly_name_from_tag(tag))
-    is_verified = bool(info and "tools" in info.get("capabilities", []))
+    # Le modèle d'agent_default a des outils vérifiés par le benchmark de ce poste.
+    is_verified = bool(info and "tools" in info.get("capabilities", [])) or tag == agent_tag
     # Remplace l'ancien marqueur emoji : support des outils vérifié dans le catalogue.
     shown = f"{label} · outils vérifiés" if is_verified else label
-    key = (choice.is_cloud, choice.dedicated_reasoning, not choice.fits, not is_verified)
+    key = (
+        tag != agent_tag,
+        choice.is_cloud,
+        choice.dedicated_reasoning,
+        not choice.fits,
+        not is_verified,
+    )
     options.append((key, shown, tag))
 
 sorted_options = [(label, tag) for _, label, tag in sorted(options, key=lambda o: o[0])]

@@ -394,6 +394,19 @@ def test_chat_footer_shows_load_apart(fake_inference, run_page):
     assert caption.help == THROUGHPUT_HELP
 
 
+def test_chat_shows_reasoning_apart_from_answer(fake_inference, run_page):
+    # Story 18 : le raisonnement transmis à part (`message.thinking`) se déplie au-dessus de
+    # la réponse, qui reste seule dans le texte.
+    fake_inference.thoughts.update({m["model"]: "Je calcule d'abord." for m in FAKE_LOCAL_MODELS})
+    at = run_page(ARENA_PAGE)
+    at.chat_input[0].set_value("Bonjour").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    (reasoning,) = [e for e in at.expander if e.label == "Raisonnement"]
+    assert [m.value for m in reasoning.markdown] == ["Je calcule d'abord."]
+    assert "Réponse simulée." in [m.value for m in at.markdown]
+
+
 def test_chat_footer_estimated_throughput(cloud_like_inference, run_page):
     at = run_page(ARENA_PAGE)
     at.chat_input[0].set_value("Bonjour").run()
@@ -571,6 +584,21 @@ def test_arena_winner_star_and_minimum_size(fake_inference, run_page):
     legend = figure["layout"]["legend"]
     assert legend["orientation"] == "h"
     assert legend["yref"] == "container" and legend["yanchor"] == "bottom"
+
+
+def test_arena_winner_star_on_a_tie_is_the_fastest(fake_inference, run_page):
+    """Ex æquo à 72 : l'étoile désigne le plus rapide (2ᵉ de la sélection), comme la carte
+    du vainqueur et la section des réponses (story 18)."""
+    slow, fast = (m["model"] for m in FAKE_LOCAL_MODELS)
+    fake_inference.throughput.update({slow: 60.0, fast: 90.0})
+    fake_inference.judge_reply = "72"
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    traces = _traces_by_name(_arena_figure(at))
+    slow_name, fast_name = (_friendly(m) for m in FAKE_LOCAL_MODELS)
+    assert traces[fast_name]["marker"]["symbol"] == "star"
+    assert traces[slow_name]["marker"]["symbol"] != "star"
 
 
 def test_arena_colors_follow_the_model(three_models, fake_inference, run_page):

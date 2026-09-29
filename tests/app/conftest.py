@@ -183,7 +183,8 @@ def fake_inference(monkeypatch):
     (prompt « juge impartial ») répond `judge_reply`, ou échoue si `judge_error`. Métriques
     d'un appel Ollama (chargement et durée de génération mesurés) ; `output_tokens` fixe les
     tokens générés par tag (40 par défaut), `throughput` le débit par tag (25 tokens/s par
-    défaut).
+    défaut). `answers` remplace la réponse d'un tag (`""` : réponse vide), `thoughts` lui
+    donne un raisonnement.
     """
     from src.core.inference_service import InferenceResult, InferenceService
     from src.core.metrics import InferenceMetrics
@@ -197,6 +198,8 @@ def fake_inference(monkeypatch):
         answer="Réponse simulée.",
         output_tokens={},
         throughput={},
+        answers={},
+        thoughts={},
     )
 
     async def run_inference(
@@ -227,13 +230,13 @@ def fake_inference(monkeypatch):
                 metrics=None,
                 error="[Errno 111] Connection refused",
             )
-        text = state.judge_reply if is_judge else state.answer
-        if callbacks and callbacks.on_token:
+        text = state.judge_reply if is_judge else state.answers.get(model_tag, state.answer)
+        if callbacks and callbacks.on_token and text:
             await callbacks.on_token(text)
         return InferenceResult(
             raw_text=text,
             clean_text=text,
-            thought=None,
+            thought=None if is_judge else state.thoughts.get(model_tag),
             metrics=InferenceMetrics(
                 model_name=model_tag,
                 input_tokens=12,

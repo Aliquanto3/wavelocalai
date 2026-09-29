@@ -592,3 +592,76 @@ def test_groq_fetch_model_ids_uses_short_timeout():
         api_key="cle-factice", base_url=GROQ_BASE_URL, timeout=5.0, max_retries=0
     )
     client_cls.return_value.__exit__.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Ollama : raisonnement (`message.thinking`) transmis à part du texte (story 18)
+# ---------------------------------------------------------------------------
+
+
+def _ollama_stream_chunks(as_objects: bool):
+    """Flux simulé : deux fragments de raisonnement, puis la réponse, puis le chunk final."""
+    import ollama
+
+    raw = [
+        {"message": {"role": "assistant", "content": "", "thinking": "Je pèse "}},
+        {"message": {"role": "assistant", "content": "", "thinking": "les options."}},
+        {"message": {"role": "assistant", "content": "Réponse."}},
+        {
+            "message": {"role": "assistant", "content": ""},
+            "done": True,
+            "eval_count": 8,
+            "eval_duration": 400_000_000,
+        },
+    ]
+    if not as_objects:
+        return raw
+    return [ollama.ChatResponse(model="qwen3.5:0.8b", done=False, **c) for c in raw[:3]] + [
+        ollama.ChatResponse(model="qwen3.5:0.8b", **raw[3])
+    ]
+
+
+class TestOllamaReasoningChunks:
+    """Le raisonnement sort en `ReasoningChunk`, jamais en `str` ; `think=` n'est pas passé."""
+
+    async def _collect(self, chunks):
+        from src.core.providers.ollama_provider import OllamaProvider
+
+        async def fake_stream():
+            for chunk in chunks:
+                yield chunk
+
+        client = MagicMock()
+        client.chat = AsyncMock(return_value=fake_stream())
+        provider = OllamaProvider(base_url="http://127.0.0.1:11999")
+        with patch.object(provider, "_create_async_client", return_value=client):
+            items = [
+                item
+                async for item in provider.chat_stream(
+                    "qwen3.5:0.8b", [{"role": "user", "content": "Q"}]
+                )
+            ]
+        return items, client.chat.call_args.kwargs
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_thinking_yielded_apart_from_text(self, as_objects):
+        from src.core.metrics import ReasoningChunk
+
+        items, kwargs = await self._collect(_ollama_stream_chunks(as_objects))
+
+        assert [i for i in items if isinstance(i, ReasoningChunk)] == [
+            ReasoningChunk("Je pèse "),
+            ReasoningChunk("les options."),
+        ]
+        assert [i for i in items if isinstance(i, str)] == ["Réponse."]
+        assert isinstance(items[-1], InferenceMetrics)
+        assert items[-1].output_tokens == 8
+        assert "think" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_str_consumers_get_same_text(self):
+        """Consommateurs qui ne gardent que les `str` (Discussion, HyDE, Self-RAG) : texte
+        de la réponse seul, sans le raisonnement."""
+        items, _ = await self._collect(_ollama_stream_chunks(as_objects=False))
+        assert "".join(i for i in items if isinstance(i, str)) == "Réponse."
