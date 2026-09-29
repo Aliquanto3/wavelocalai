@@ -33,7 +33,14 @@ from src.app.formatting import (
     mg_to_grams,
     pluralize,
 )
-from src.app.states import NOT_EVALUATED, render_error, render_no_models
+from src.app.states import (
+    EMPTY_ANSWER,
+    EMPTY_ANSWER_REASON,
+    NOT_EVALUATED,
+    render_answer,
+    render_error,
+    render_no_models,
+)
 from src.app.ui import (
     ModelMenu,
     is_cloud_model,
@@ -45,10 +52,12 @@ from src.app.ui import (
     weak_judge_text,
 )
 
+from src.core.eval_engine import EvalResult
+
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, ReasoningChunk
 from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
 
@@ -289,6 +298,7 @@ def render_rag_eval_tab(
         # Helper Async
         async def _stream_and_capture(model_tag, prompt_text):
             txt = ""
+            reasoning = ""
             metrics = None
             stream = LLMProvider.chat_stream(
                 model_tag, [{"role": "user", "content": prompt_text}], temperature=0.1
@@ -296,9 +306,12 @@ def render_rag_eval_tab(
             async for chunk in stream:
                 if isinstance(chunk, str):
                     txt += chunk
+                elif isinstance(chunk, ReasoningChunk):
+                    # Raisonnement transmis à part : jamais compté comme réponse.
+                    reasoning += chunk.text
                 elif isinstance(chunk, InferenceMetrics):
                     metrics = chunk
-            return txt, metrics
+            return txt, reasoning, metrics
 
         for i, c_tag in enumerate(candidate_tags):
             c_friendly = tag_to_friendly[c_tag]
@@ -311,10 +324,17 @@ def render_rag_eval_tab(
                 prompt_rag = f"Contexte:\n{context_block}\n\nQuestion: {query}"
 
                 t0 = time.perf_counter()
-                full_resp, metrics_obj = asyncio.run(_stream_and_capture(c_tag, prompt_rag))
+                full_resp, reasoning, metrics_obj = asyncio.run(
+                    _stream_and_capture(c_tag, prompt_rag)
+                )
                 d_gen = time.perf_counter() - t0
 
-                thought, clean_answer = extract_thought(full_resp)
+                # Raisonnement transmis à part en premier, puis balises <think> du texte
+                # (comme la Discussion). Réponse vide : "", jamais None.
+                tag_thought, clean_answer = extract_thought(full_resp)
+                clean_answer = clean_answer or ""
+                parts = [part for part in (reasoning.strip(), tag_thought) if part]
+                thought = "\n\n".join(parts) or None
 
                 # Calcul Carbone (SSOT)
                 carbon_mg = 0.0
@@ -338,15 +358,20 @@ def render_rag_eval_tab(
                             * 1000
                         )
 
-                # Notation Juge
-                prog_container.write("Notation par le juge…")
-                eval_result = eval_engine.evaluate_single_turn(
-                    query=query,
-                    response=clean_answer,
-                    retrieved_contexts=contexts,
-                    judge_tag=judge_tag,
-                    embedding_model=rag_engine.embedding_model,
-                )
+                # Notation Juge ; réponse vide (tout dans le raisonnement) : jamais envoyée au
+                # juge ni à Ragas.
+                if not clean_answer.strip():
+                    prog_container.write(f"**{c_friendly}** : {EMPTY_ANSWER.lower()}, non notée.")
+                    eval_result = EvalResult.not_evaluated(EMPTY_ANSWER_REASON)
+                else:
+                    prog_container.write("Notation par le juge…")
+                    eval_result = eval_engine.evaluate_single_turn(
+                        query=query,
+                        response=clean_answer,
+                        retrieved_contexts=contexts,
+                        judge_tag=judge_tag,
+                        embedding_model=rag_engine.embedding_model,
+                    )
 
                 # Stockage Brut ; score None = « non évalué » (jamais converti en 0)
                 results_raw.append(
@@ -514,7 +539,10 @@ def render_rag_eval_tab(
                     "Statut": st.column_config.TextColumn(
                         "Statut",
                         width="large",
-                        help="« Non évalué » : Ragas ou le juge n'a pas pu noter la réponse.",
+                        help=(
+                            "« Non évalué » : réponse vide (raisonnement seul), ou Ragas "
+                            "ou le juge n'a pas pu la noter."
+                        ),
                     ),
                 },
                 hide_index=True,
@@ -542,7 +570,7 @@ def render_rag_eval_tab(
                     render_badge(data["is_cloud"])
                     if data["thought"]:
                         st.info(f"**Raisonnement :**\n{data['thought']}")
-                    st.markdown(data["text"])
+                    render_answer(data["text"])
 
         elif not failures:
             st.warning("Aucun résultat : aucun modèle n'a pu être évalué.")

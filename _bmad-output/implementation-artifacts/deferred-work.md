@@ -51,3 +51,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
   summary: Une génération interrompue ne produit plus de métriques : son énergie (durée murale jusqu'à la coupure) n'entre plus dans le CO₂ de la session.
   evidence: `OllamaProvider.chat_stream` lève `InterruptedResponseError` sans produire `InferenceMetrics` ; générations coupées courtes (~150 ms observés le 29/09), biais faible mais réel pour un démonstrateur carbone.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/20-reponse-vide-evaluation-rag-e2e-banc.md`
+  summary: Évaluation de la qualité de l'Assistant documentaire : un flux Ollama interrompu (`InterruptedResponseError`) y est compté comme un échec générique, avec le conseil erroné « Vérifiez qu'Ollama est démarré et que le modèle est installé ».
+  evidence: `src/app/tabs/rag/eval.py`, `except Exception` de la boucle des candidats ; la Discussion affiche `INTERRUPTED_MESSAGE` (`rag/chat.py`). Antérieur à la story 20 (story 19 : « l'évaluation compte un échec au lieu de noter un texte tronqué ») ; seul le message est à corriger.

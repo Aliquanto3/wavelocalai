@@ -201,3 +201,14 @@
   invoke_dev_with: >-
     Cahier de recette de la story 18 (V2) et échecs e2e du 29/09. Tests sans réseau ; rien n'est
     poussé sans le go de l'utilisateur. Dépend de la story 18.
+- id: "20"
+  title: "Suites de la story 19 : réponse vide de l'évaluation RAG, Banc d'essai e2e face au flux tronqué"
+  description: >-
+    Évaluation de la qualité de l'Assistant documentaire : raisonnement transmis à part récupéré,
+    réponse vide affichée « Réponse vide », jamais envoyée au juge ni à Ragas ; e2e : Banc d'essai
+    relancé jusqu'à 3 fois après « Réponse interrompue », ignoré ensuite (bug d'Ollama 0.34.2).
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés de la story 19. Tests sans réseau ; rien n'est poussé sans le go de l'utilisateur.
+    Dépend de la story 19.

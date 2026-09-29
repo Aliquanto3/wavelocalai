@@ -13,6 +13,7 @@ from streamlit.testing.v1 import AppTest
 
 from src.app.states import (
     EMPTY_ANSWER,
+    EMPTY_ANSWER_REASON,
     LOADED_LABEL,
     LOADING_FAILED_LABEL,
     LOADING_LABEL,
@@ -940,6 +941,50 @@ def test_documents_evaluation_generation_failures(monkeypatch, indexed_base, run
     assert _status_state(status) == "error"
     assert len(_errors(at)) == 1
     assert not [w.value for w in at.warning if w.value.startswith("Aucun résultat")]
+
+
+def test_documents_evaluation_empty_answer_not_judged(monkeypatch, indexed_base, run_page):
+    """Candidat qui ne répond que par du raisonnement (Qwen 3.5 0.8B) : ni juge ni Ragas,
+    « Non évalué : réponse vide. », « Réponse vide » affichée avec son raisonnement (story 20)."""
+    from src.core.eval_engine import EvalEngine, EvalResult
+    from src.core.llm_provider import LLMProvider
+    from src.core.metrics import InferenceMetrics, ReasoningChunk
+
+    thinker = FAKE_LOCAL_MODELS[0]["model"]
+
+    async def stream(model_name, messages, temperature=0.7, system_prompt=None):
+        if model_name == thinker:
+            yield ReasoningChunk("Je réfléchis ")
+            yield ReasoningChunk("seulement.")
+        else:
+            yield "Réponse simulée."
+        yield InferenceMetrics(model_name, 10, 20, 1.0, 0.1, 20.0)
+
+    judged = []
+    monkeypatch.setattr(
+        EvalEngine,
+        "evaluate_single_turn",
+        lambda self, **kw: judged.append(kw["response"]) or EvalResult(0.8, 0.9, 0.85),
+    )
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(stream))
+    at = run_page(RAG_PAGE)
+    _run_evaluation(at, FAKE_LOCAL_MODELS)
+
+    assert judged == ["Réponse simulée."]
+    table = _results_table(at)
+    statuses = dict(zip(table["Modèle"], table["Statut"], strict=True))
+    assert statuses[_friendly(FAKE_LOCAL_MODELS[0])] == (
+        f"{NOT_EVALUATED.capitalize()} : {EMPTY_ANSWER_REASON}"
+    )
+    assert statuses[_friendly(FAKE_LOCAL_MODELS[1])] == "Évalué"
+    # Génération mesurée même sans note : CO₂ et durée restent renseignés.
+    (empty_row,) = table[table["Modèle"] == _friendly(FAKE_LOCAL_MODELS[0])].to_dict("records")
+    assert empty_row["CO₂"] > 0 and empty_row["Durée"] >= 0, empty_row
+    (response,) = [
+        e for e in at.expander if e.label == f"Réponse de {_friendly(FAKE_LOCAL_MODELS[0])}"
+    ]
+    assert [w.value for w in response.warning] == [EMPTY_ANSWER]
+    assert any("Je réfléchis seulement." in i.value for i in response.info)
 
 
 # ---------------------------------------------------------------------------
