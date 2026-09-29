@@ -665,3 +665,47 @@ class TestOllamaReasoningChunks:
         de la réponse seul, sans le raisonnement."""
         items, _ = await self._collect(_ollama_stream_chunks(as_objects=False))
         assert "".join(i for i in items if isinstance(i, str)) == "Réponse."
+
+
+# ---------------------------------------------------------------------------
+# Ollama : flux fermé sans fragment final `done` (story 19)
+# ---------------------------------------------------------------------------
+
+
+class TestOllamaInterruptedStream:
+    """Ollama ferme parfois le flux en HTTP 200 sans fragment `done` : la réponse tronquée
+    lève `InterruptedResponseError`, sans métriques."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_stream_without_done_raises(self, as_objects):
+        from src.core.metrics import InterruptedResponseError
+
+        truncated = _ollama_stream_chunks(as_objects)[:3]
+        items = []
+        with pytest.raises(InterruptedResponseError, match="Réponse interrompue"):
+            async for item in _iter_provider(truncated):
+                items.append(item)
+
+        assert [i for i in items if isinstance(i, str)] == ["Réponse."]
+        assert not any(isinstance(i, InferenceMetrics) for i in items)
+
+    @pytest.mark.asyncio
+    async def test_complete_stream_unchanged(self):
+        items = [i async for i in _iter_provider(_ollama_stream_chunks(as_objects=False))]
+        assert isinstance(items[-1], InferenceMetrics)
+
+
+async def _iter_provider(chunks):
+    from src.core.providers.ollama_provider import OllamaProvider
+
+    async def fake_stream():
+        for chunk in chunks:
+            yield chunk
+
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=fake_stream())
+    provider = OllamaProvider(base_url="http://127.0.0.1:11999")
+    with patch.object(provider, "_create_async_client", return_value=client):
+        async for item in provider.chat_stream("qwen3.5:0.8b", [{"role": "user", "content": "Q"}]):
+            yield item

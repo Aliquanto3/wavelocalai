@@ -70,6 +70,17 @@ def wait_until(page, condition, timeout_ms: int = PAGE_TIMEOUT_MS, what: str = "
         page.wait_for_timeout(200)
 
 
+def wait_rerun_started(page, timeout_ms: int = 10_000) -> bool:
+    """Attend que le script Streamlit se mette à tourner (après un clic) ; False s'il n'a pas
+    démarré dans le délai. Utile quand l'état d'avant l'action (une alerte) ressemble à
+    l'état attendu : sans cette attente, `until` le verrait vrai avant le rerun."""
+    try:
+        page.wait_for_function(_RUNNING_JS, timeout=timeout_ms, polling=100)
+    except Exception:
+        return False
+    return True
+
+
 def settle_after_action(page, timeout_ms: int = PAGE_TIMEOUT_MS, until=None) -> None:
     """Après un clic ou une saisie : attend le rerun qu'elle déclenche, puis sa fin.
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics, ReasoningChunk
+from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 from src.core.models_db import extract_thought
 
 # Logging
@@ -39,6 +39,9 @@ class InferenceResult:
     timestamp: datetime = field(default_factory=datetime.now)
     timed_out: bool = False
     timeout_s: float | None = None
+    # Flux tronqué (Ollama a fermé le flux sans fragment final) : la réponse partielle n'est
+    # jamais présentée comme complète.
+    interrupted: bool = False
 
 
 @dataclass
@@ -121,6 +124,19 @@ class InferenceService:
                 error=error_msg,
                 timed_out=True,
                 timeout_s=timeout,
+            )
+
+        except InterruptedResponseError as e:
+            logger.warning(f"Réponse interrompue pour {model_tag}: {e}")
+            if callbacks and callbacks.on_error:
+                await callbacks.on_error(str(e))
+            return InferenceResult(
+                raw_text="",
+                clean_text="",
+                thought=None,
+                metrics=None,
+                error=str(e),
+                interrupted=True,
             )
 
         except Exception as e:

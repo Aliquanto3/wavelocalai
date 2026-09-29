@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.core.inference_service import InferenceCallbacks, InferenceResult, InferenceService
-from src.core.metrics import InferenceMetrics, ReasoningChunk
+from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 
 # ========================================
 # 1. FIXTURES (Données de test réutilisables)
@@ -264,6 +264,49 @@ async def test_gestion_erreur_ollama():
         assert "not found" in result.error.lower(), f"Message d'erreur inattendu: {result.error}"
         assert result.timed_out is False
         assert result.metrics is None
+
+
+@pytest.mark.asyncio
+async def test_interrupted_stream_gives_interrupted_result():
+    """Flux tronqué (story 19) : `interrupted`, pas de texte ni de métriques, on_error appelé."""
+    errors_received = []
+
+    async def on_error(error: str):
+        errors_received.append(error)
+
+    async def stream_tronque():
+        yield "Début de répon"
+        raise InterruptedResponseError()
+
+    with patch("src.core.inference_service.LLMProvider") as mock:
+        mock.chat_stream = MagicMock(side_effect=lambda *args, **kwargs: stream_tronque())
+        result = await InferenceService.run_inference(
+            model_tag="gemma3:1b",
+            messages=[{"role": "user", "content": "Test"}],
+            callbacks=InferenceCallbacks(on_error=on_error),
+        )
+
+    assert result.interrupted is True
+    assert result.timed_out is False
+    assert result.metrics is None
+    assert result.clean_text == ""
+    assert "Réponse interrompue" in result.error
+    assert errors_received == [result.error]
+
+
+@pytest.mark.asyncio
+async def test_other_errors_are_not_interrupted():
+    async def stream_qui_crash():
+        raise RuntimeError("Crash simulé")
+        yield
+
+    with patch("src.core.inference_service.LLMProvider") as mock:
+        mock.chat_stream = MagicMock(side_effect=lambda *args, **kwargs: stream_qui_crash())
+        result = await InferenceService.run_inference(
+            model_tag="m", messages=[{"role": "user", "content": "Test"}]
+        )
+
+    assert result.error and result.interrupted is False
 
 
 @pytest.mark.asyncio

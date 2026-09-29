@@ -39,3 +39,15 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/18-constats-recette-arene-agents.md`
   summary: Sur la page Agents, la mention « outils vérifiés » vient de la capacité `tools` du catalogue, même quand le benchmark de ce poste mesure un taux de réussite des outils de 0 (Gemma 3 1B, OLMo 3 7B).
   evidence: 04_Agent_Lab.py lit `capabilities` de data/models.json ; seul le modèle d'agent_default reçoit la mention d'après le benchmark. Antérieur à la story 18 : lire `tool_success` du benchmark du poste quand il existe, le catalogue sinon.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
+  summary: L'évaluation de la qualité de l'Assistant documentaire envoie encore au juge (Ragas) une réponse vide, faite seulement de raisonnement (Qwen 3.5 0.8B).
+  evidence: src/app/tabs/rag/eval.py (~l. 317) garde `clean_answer` d'`extract_thought` sans tester le vide ni lire les `ReasoningChunk` ; hors intention de la story 19 (Discussion seule). Même règle que l'Arène : « non évalué : réponse vide ».
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
+  summary: Relancer automatiquement, une fois, une génération interrompue (flux Ollama fermé sans fragment `done`).
+  evidence: Story 19 : la réponse interrompue est signalée (« Réponse interrompue… ») et jamais présentée comme complète, mais l'utilisateur doit relancer lui-même. Reproduit 1 flux sur 8 le 29/09 (Ollama 0.34.2, gemma3:1b). Relance automatique hors intention.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
+  summary: Les autres tests e2e qui génèrent (premier message du Chat libre, Arène avec juge) restent exposés au flux tronqué d'Ollama 0.34.2 (environ 1 sur 8) et échouent alors sur « Réponse interrompue ».
+  evidence: Story 19, décision A : seul `_lab_run` (Banc d'essai) relance une fois un passage interrompu. L'Arène avec juge fait 3 générations ; même relance à ajouter, ou attendre une version d'Ollama corrigée.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
+  summary: Une génération interrompue ne produit plus de métriques : son énergie (durée murale jusqu'à la coupure) n'entre plus dans le CO₂ de la session.
+  evidence: `OllamaProvider.chat_stream` lève `InterruptedResponseError` sans produire `InferenceMetrics` ; générations coupées courtes (~150 ms observés le 29/09), biais faible mais réel pour un démonstrateur carbone.

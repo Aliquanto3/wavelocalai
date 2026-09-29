@@ -14,6 +14,7 @@ import re
 import pytest
 
 from src.app.modules import ARENA
+from src.app.states import INTERRUPTED_MESSAGE
 from src.app.tabs.inference.arena import MIN_MODELS_CAPTION
 from src.app.tabs.inference.lab import USE_CASES
 from tests.e2e import helpers as h
@@ -62,16 +63,27 @@ def expected_weak_judge(tag: str, ollama_models: dict) -> bool:
     return describe_model(entry, 1e6, False, load_versioned_catalog(), MODELS_DB).weak_judge
 
 
-def expected_benchmark_judge(ollama_models: dict) -> str | None:
-    """Juge que le benchmark de ce poste désigne selon la règle de l'app (story 15), avec
-    les mêmes catalogues et les modèles installés : None sans benchmark de ce poste ou sans
-    modèle mesuré à plus de 10 tokens/s (la règle de la mémoire décide alors)."""
+def available_memory_gb() -> float:
+    """Mémoire disponible selon la règle de l'app (`src.app.ui.available_memory_gb`) : mémoire
+    libre plus celle des modèles déjà chargés dans Ollama."""
+    from src.core.llm_provider import LLMProvider
+    from src.core.resource_manager import ResourceManager
+
+    return ResourceManager.get_available_ram_gb() + LLMProvider.loaded_models_ram_gb()
+
+
+def expected_default_judge(ollama_models: dict, available_gb: float) -> str | None:
+    """Juge local par défaut selon la règle de l'app (`choose_judge`, cloud non autorisé),
+    avec les mêmes catalogues, les modèles installés et la mémoire `available_gb` : d'après
+    le benchmark de ce poste (story 15), sinon d'après la mémoire. None sans modèle local."""
     from src.core.benchmark_results import load_machine_benchmark
-    from src.core.model_defaults import benchmark_judge, is_remote_tag, rank_models
+    from src.core.model_defaults import choose_judge, is_remote_tag, rank_models
 
     local = [m for m in ollama_models.values() if not is_remote_tag(m)]
-    # La mémoire disponible n'intervient pas dans le choix d'après le benchmark.
-    choice = benchmark_judge(rank_models(local, 1e6), load_machine_benchmark())
+    # La mémoire disponible intervient : l'app écarte les modèles qui n'y tiennent pas.
+    choice = choose_judge(
+        rank_models(local, available_gb), load_machine_benchmark(), allow_cloud=False
+    ).choice
     return choice.tag if choice else None
 
 
@@ -105,16 +117,36 @@ def test_chat_cold_start_load_and_badge(page, app, require_models, generation_ti
     assert h.exceptions(page) == []
 
 
-def _lab_run(page, panel, timeout_ms: int) -> dict[str, str]:
-    """Lance le banc d'essai et attend des métriques nouvelles ; renvoie {libellé: valeur}."""
+def _interrupted(page) -> bool:
+    """La page affiche « Réponse interrompue… » (flux Ollama fermé sans fragment final)."""
+    return any(INTERRUPTED_MESSAGE in e for e in h.ui_errors(page))
+
+
+def _lab_run(page, panel, timeout_ms: int, retry_cold: str | None = None) -> dict[str, str]:
+    """Lance le banc d'essai et attend des métriques nouvelles ; renvoie {libellé: valeur}.
+
+    Ollama ferme parfois le flux sans fragment final (« Réponse interrompue ») : le passage
+    est relancé une fois. `retry_cold` (tag) : passage à froid, le modèle est d'abord
+    redéchargé (`ensure_cold`) pour que la relance mesure encore un vrai chargement."""
     metrics = panel.locator('[data-testid="stMetric"]')
-    before = metrics.all_inner_texts()
-    panel.get_by_role("button", name="Lancer le test").click()
-    h.settle_after_action(
-        page,
-        timeout_ms,
-        until=lambda: metrics.count() >= 4 and metrics.all_inner_texts() != before,
-    )
+    for attempt in range(2):
+        before = metrics.all_inner_texts()
+        panel.get_by_role("button", name="Lancer le test").click()
+        if attempt:
+            # L'alerte du passage interrompu reste affichée jusqu'au rerun : l'attendre, sinon
+            # elle passerait pour une nouvelle interruption.
+            assert h.wait_rerun_started(page), "relance du Banc d'essai non démarrée"
+        h.settle_after_action(
+            page,
+            timeout_ms,
+            until=lambda before=before: _interrupted(page)
+            or (metrics.count() >= 4 and metrics.all_inner_texts() != before),
+        )
+        if attempt == 0 and _interrupted(page):
+            if retry_cold:
+                ensure_cold(retry_cold)
+            continue
+        break
     assert h.ui_errors(page) == [], h.ui_errors(page)
     labels = [h.flat(t) for t in panel.locator('[data-testid="stMetricLabel"]').all_inner_texts()]
     return {label: h.metric_value(panel, label) for label in labels}
@@ -140,7 +172,7 @@ def test_lab_throughput_excludes_loading(page, app, require_models, generation_t
     user_box.fill(LAB_PROMPT)
     ensure_cold(tag)
 
-    cold = _lab_run(page, panel, generation_timeout_ms)
+    cold = _lab_run(page, panel, generation_timeout_ms, retry_cold=tag)
     assert {"Débit", "CO₂", "Chargement", "Durée totale", "Tokens générés"} <= set(cold), cold
     assert panel.get_by_role("heading", name="Réponse", exact=True).count() == 1
     assert "Local" in h.flat(panel.inner_text())
@@ -163,7 +195,11 @@ def test_arena_two_local_models_with_judge(
     """Arène : défauts locaux, lancement impossible sous 2 modèles, deux petits modèles
     notés par un juge local, verdict lisible (matrice avec légende de taille, tableau)."""
     chat, small, judge = require_models("chat", "small", "judge")
+    # L'app mesure la mémoire disponible une fois, au premier affichage (entre ces deux
+    # mesures) : le juge attendu est celui de l'une ou l'autre.
+    memory_before = available_memory_gb()
     panel = _open_arena(page, app, "Arène")
+    memory_after = available_memory_gb()
     multiselect = panel.locator('[data-testid="stMultiSelect"]').first
     launch = panel.get_by_role("button", name="Lancer la comparaison")
 
@@ -185,17 +221,21 @@ def test_arena_two_local_models_with_judge(
     panel.get_by_text("Réglages du juge").click()
     judge_box = panel.locator('[data-testid="stSelectbox"]').first
     judge_box.wait_for()
-    # Clés cloud vides (APP_ENV) : le juge par défaut reste local. Poste benchmarké : c'est
-    # le juge que désigne le benchmark de ce poste, sans nom de modèle figé ici.
+    # Clés cloud vides (APP_ENV) : le juge par défaut reste local : celui de la règle de
+    # l'app (benchmark de ce poste, sinon mémoire), sans nom de modèle figé ici.
     default_judge = h.selected_value(judge_box)
     assert default_judge.endswith("· Local"), "juge par défaut non local"
-    bench_judge = expected_benchmark_judge(ollama_models)
-    if bench_judge is not None:
+    expected_judges = {
+        expected_default_judge(ollama_models, memory) for memory in (memory_before, memory_after)
+    } - {None}
+    if expected_judges:
         from src.core.models_db import get_friendly_name_from_tag
 
-        name = get_friendly_name_from_tag(bench_judge)
-        expected = {f"{name} · Local", f"{name} ({bench_judge}) · Local"}
-        assert default_judge in expected, (default_judge, expected)
+        expected = set()
+        for tag in expected_judges:
+            name = get_friendly_name_from_tag(tag)
+            expected |= {f"{name} · Local", f"{name} ({tag}) · Local"}
+        assert default_judge in expected, (default_judge, expected, memory_before, memory_after)
     h.pick_model(page, judge_box, judge)
     # L'avertissement suit le rerun déclenché par le choix du juge (la valeur affichée, elle,
     # change avant) : attendre ce rerun, puis l'état attendu (qui peut être déjà vrai avant).

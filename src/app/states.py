@@ -15,6 +15,7 @@ from streamlit.errors import StreamlitPageNotFoundError
 from src.app.formatting import format_duration
 from src.app.modules import ARENA
 from src.core.llm_provider import LLMProvider
+from src.core.metrics import INTERRUPTED_RESPONSE_DEFAULT
 from src.core.model_defaults import BENCH_MIN_SPEED_TPS, JUDGE_MIN_PARAMS_B
 from src.core.model_detector import is_api_model
 from src.core.providers.groq_provider import is_groq_model
@@ -153,6 +154,8 @@ def inference_failure_label(result) -> str:
     """Libellé court d'une inférence en échec (ligne de l'Arène, statut)."""
     if getattr(result, "timed_out", False):
         return timeout_message(result.timeout_s)
+    if getattr(result, "interrupted", False):
+        return "Réponse interrompue"
     return "Échec de la génération"
 
 
@@ -186,8 +189,16 @@ def generation_failure_advice(model_tag: str | None) -> str:
     )
 
 
+# Flux Ollama tronqué (fermé sans fragment final) : jamais présenté comme une réponse.
+INTERRUPTED_MESSAGE = (
+    f"{INTERRUPTED_RESPONSE_DEFAULT} Réessayez ; si cela se répète, choisissez un autre modèle."
+)
+
+
 def inference_error_message(result, model_tag: str | None = None) -> str:
     """Message d'un `alert-error` pour un InferenceResult en échec : quoi, puis quoi faire."""
+    if getattr(result, "interrupted", False):
+        return INTERRUPTED_MESSAGE
     if getattr(result, "timed_out", False):
         return (
             f"{timeout_message(result.timeout_s)} : le modèle n'a pas répondu à temps. Le "

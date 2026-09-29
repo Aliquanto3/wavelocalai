@@ -14,6 +14,7 @@ from langchain_ollama import ChatOllama
 from src.core.interfaces import ILLMProvider
 from src.core.metrics import (
     InferenceMetrics,
+    InterruptedResponseError,
     MetricsCalculator,
     ReasoningChunk,
     ollama_metrics,
@@ -145,6 +146,11 @@ class OllamaProvider(ILLMProvider):
                     final_chunk = chunk
 
             timer.stop()
+
+            # Flux fermé sans fragment `done` (Ollama 0.34 le fait parfois, en HTTP 200) :
+            # la réponse est tronquée, jamais présentée comme complète.
+            if final_chunk is None:
+                raise InterruptedResponseError()
 
             # Débit = eval_count / eval_duration (D3, comme scripts/benchmark_slm.py) ;
             # chargement et durée totale à part.

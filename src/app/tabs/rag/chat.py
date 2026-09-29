@@ -20,9 +20,11 @@ from src.app.formatting import (
     pluralize,
 )
 from src.app.states import (
+    INTERRUPTED_MESSAGE,
     LOADING_HINT,
     LOADING_LABEL,
     generation_failure_advice,
+    render_answer,
     render_error,
     render_no_models,
 )
@@ -31,7 +33,7 @@ from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 # --- SSOT carbone ---
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions as _extract_params_billions
 
@@ -75,8 +77,9 @@ def render_rag_chat_tab(
                 with st.expander("Raisonnement", expanded=False):
                     st.markdown(msg["thought"])
 
-            # B. Contenu Principal
-            st.markdown(msg["content"])
+            # B. Contenu Principal : « Réponse vide » si le texte est vide (ou None dans un
+            # ancien historique).
+            render_answer(msg.get("content"))
 
             # C. Zone Métadonnées (Uniquement pour l'assistant)
             if msg["role"] == "assistant":
@@ -121,10 +124,13 @@ def render_rag_chat_tab(
                         st.caption(" · ".join(badges))
 
                 with c_meta2:
-                    # Bouton de téléchargement avec CLÉ UNIQUE
+                    # Bouton de téléchargement avec CLÉ UNIQUE ; inactif sur une réponse vide
+                    # (un ancien historique peut contenir None, que Streamlit refuse).
+                    content = msg.get("content") or ""
                     st.download_button(
                         "Télécharger",
-                        msg["content"],
+                        content,
+                        disabled=not content.strip(),
                         file_name=f"rag_response_{i}.md",
                         key=f"dl_rag_{i}",
                         icon=":material/download:",
@@ -195,6 +201,7 @@ def render_rag_chat_tab(
 
                 async def run_gen():
                     full_txt = ""
+                    reasoning_txt = ""
                     captured_metrics = None
                     stream = LLMProvider.chat_stream(selected_tag, payload, temperature=0.1)
                     async for chunk in stream:
@@ -203,25 +210,33 @@ def render_rag_chat_tab(
                                 status_box.update(label="Génération en cours…")
                             full_txt += chunk
                             resp_container.markdown(full_txt + "▌")
+                        elif isinstance(chunk, ReasoningChunk):
+                            # Raisonnement transmis à part : jamais compté comme réponse.
+                            reasoning_txt += chunk.text
                         elif isinstance(chunk, InferenceMetrics):
                             captured_metrics = chunk
-                    return full_txt, captured_metrics
+                    return full_txt, reasoning_txt, captured_metrics
 
-                full_resp, metrics_obj = asyncio.run(run_gen())
+                full_resp, reasoning, metrics_obj = asyncio.run(run_gen())
 
                 # Fin du process
                 total_duration = time.perf_counter() - t_start_pipeline
                 status_box.update(label="Terminé", state="complete", expanded=False)
 
-                # D. Traitement Post-Génération
-                thought, clean = extract_thought(full_resp)
+                # D. Traitement Post-Génération : raisonnement transmis à part en premier,
+                # puis balises <think> du texte (comme InferenceService). Réponse vide : "",
+                # jamais None.
+                tag_thought, clean = extract_thought(full_resp)
+                clean = clean or ""
+                parts = [part for part in (reasoning.strip(), tag_thought) if part]
+                thought = "\n\n".join(parts) or None
 
                 # Affichage Final
                 resp_container.empty()
                 if thought:
                     with st.expander("Raisonnement", expanded=True):
                         st.markdown(thought)
-                st.markdown(clean)
+                render_answer(clean)
 
                 # E. Calculs carbone (SSOT)
                 carbon_mg = 0.0
@@ -275,6 +290,10 @@ def render_rag_chat_tab(
                 # une réponse ; la question reste dans l'historique.
                 status_box.update(label="Erreur", state="error", expanded=False)
                 resp_container.empty()
+                if isinstance(e, InterruptedResponseError):
+                    # Flux tronqué : rien n'est ajouté à l'historique.
+                    render_error(INTERRUPTED_MESSAGE, f"{type(e).__name__}: {e}")
+                    return
                 render_error(
                     "La réponse n'a pas pu être générée. "
                     + generation_failure_advice(selected_tag),

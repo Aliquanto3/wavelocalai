@@ -189,3 +189,15 @@
   invoke_dev_with: >-
     Recette dans Chrome du 29/09 (D4, G2, G1, C5, R1). Tests sans réseau ; rien n'est poussé
     sans le go de l'utilisateur. Dépend des stories 15 et 17.
+- id: "19"
+  title: "Constats de la recette de la story 18 : réponse vide de la Discussion, flux interrompu, tests e2e"
+  description: >-
+    Discussion de l'Assistant documentaire : réponse vide stockée en chaîne vide, affichée
+    « Réponse vide » avec son raisonnement, Télécharger sans plantage ; flux Ollama sans fragment
+    done signalé « Réponse interrompue », jamais affiché comme complet ; e2e : juge attendu selon
+    la mémoire réelle, Banc d'essai relancé une fois après une interruption.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Cahier de recette de la story 18 (V2) et échecs e2e du 29/09. Tests sans réseau ; rien n'est
+    poussé sans le go de l'utilisateur. Dépend de la story 18.

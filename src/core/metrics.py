@@ -15,6 +15,17 @@ class ReasoningChunk:
     text: str
 
 
+INTERRUPTED_RESPONSE_DEFAULT = "Réponse interrompue : Ollama a arrêté la génération avant la fin."
+
+
+class InterruptedResponseError(RuntimeError):
+    """Flux Ollama terminé sans fragment final (`done`) : la réponse est tronquée. Elle ne doit
+    jamais être présentée comme complète, stockée ni envoyée au juge."""
+
+    def __init__(self, message: str = INTERRUPTED_RESPONSE_DEFAULT):
+        super().__init__(message)
+
+
 @dataclass
 class InferenceMetrics:
     """Structure standard pour les métriques d'inférence"""

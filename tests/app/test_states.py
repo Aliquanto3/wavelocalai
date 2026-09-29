@@ -940,3 +940,216 @@ def test_documents_evaluation_generation_failures(monkeypatch, indexed_base, run
     assert _status_state(status) == "error"
     assert len(_errors(at)) == 1
     assert not [w.value for w in at.warning if w.value.startswith("Aucun résultat")]
+
+
+# ---------------------------------------------------------------------------
+# Discussion : réponse vide, raisonnement, ancien historique ; flux interrompu (story 19)
+# ---------------------------------------------------------------------------
+
+
+def _scripted_stream(*items, interrupt_judge_only=False):
+    """`LLMProvider.chat_stream` simulé : produit `items` ; une exception y est levée. Avec
+    `interrupt_judge_only`, seules les requêtes du juge de l'Arène sont interrompues."""
+    from src.core.metrics import InferenceMetrics, InterruptedResponseError
+
+    async def stream(model_name, messages, temperature=0.7, system_prompt=None):
+        is_judge = "juge impartial" in (messages[-1].get("content") or "")
+        if interrupt_judge_only and not is_judge:
+            yield "Réponse complète."
+            yield InferenceMetrics(model_name, 10, 20, 1.0, 0.1, 20.0)
+            return
+        for item in items:
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+        if interrupt_judge_only:
+            raise InterruptedResponseError()
+
+    return stream
+
+
+def _interrupted_stream():
+    from src.core.metrics import InterruptedResponseError
+
+    return _scripted_stream("Début de la répon", InterruptedResponseError())
+
+
+def _download_buttons(at):
+    return at.get("download_button")
+
+
+def test_documents_chat_empty_answer_with_reasoning(monkeypatch, indexed_base, run_page):
+    """Qwen 3.5 0.8B : raisonnement seul. « Réponse vide », raisonnement dépliable,
+    historique en "" (jamais None), et la question suivante ne plante pas."""
+    from src.core.llm_provider import LLMProvider
+    from src.core.metrics import InferenceMetrics, ReasoningChunk
+
+    monkeypatch.setattr(
+        LLMProvider,
+        "chat_stream",
+        staticmethod(
+            _scripted_stream(
+                ReasoningChunk("Je réfléchis "),
+                ReasoningChunk("seulement."),
+                InferenceMetrics("m", 10, 20, 1.0, 0.1, 20.0),
+            )
+        ),
+    )
+    at = run_page(RAG_PAGE)
+    at.chat_input[0].set_value("Quels sont les risques ?").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    first = at.session_state["rag_messages"][1]
+    assert first["content"] == ""
+    assert first["thought"] == "Je réfléchis seulement."
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    (reasoning,) = [e for e in at.expander if e.label == REASONING_LABEL]
+    assert [m.value for m in reasoning.markdown] == ["Je réfléchis seulement."]
+
+    at.chat_input[0].set_value("Et les mesures ?").run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert [m["role"] for m in at.session_state["rag_messages"]] == [
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    assert at.chat_input, "le champ de question a disparu"
+
+
+def test_documents_chat_think_tags_only(monkeypatch, indexed_base, run_page):
+    """Balises `<think>` seules : même rendu, raisonnement « x »."""
+    from src.core.llm_provider import LLMProvider
+    from src.core.metrics import InferenceMetrics
+
+    monkeypatch.setattr(
+        LLMProvider,
+        "chat_stream",
+        staticmethod(
+            _scripted_stream("<think>x</think>", InferenceMetrics("m", 10, 20, 1.0, 0.1, 20.0))
+        ),
+    )
+    at = run_page(RAG_PAGE)
+    at.chat_input[0].set_value("Quels sont les risques ?").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    answer = at.session_state["rag_messages"][1]
+    assert answer["content"] == "" and answer["thought"] == "x"
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    (reasoning,) = [e for e in at.expander if e.label == REASONING_LABEL]
+    assert [m.value for m in reasoning.markdown] == ["x"]
+
+
+def test_documents_chat_reasoning_and_think_tags(monkeypatch, indexed_base, run_page):
+    """Raisonnement transmis à part puis balises `<think>` : les deux, dans cet ordre."""
+    from src.core.llm_provider import LLMProvider
+    from src.core.metrics import InferenceMetrics, ReasoningChunk
+
+    monkeypatch.setattr(
+        LLMProvider,
+        "chat_stream",
+        staticmethod(
+            _scripted_stream(
+                ReasoningChunk("A"),
+                "<think>B</think>Réponse",
+                InferenceMetrics("m", 10, 20, 1.0, 0.1, 20.0),
+            )
+        ),
+    )
+    at = run_page(RAG_PAGE)
+    at.chat_input[0].set_value("Quels sont les risques ?").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    answer = at.session_state["rag_messages"][1]
+    assert answer["thought"] == "A\n\nB"
+    assert answer["content"] == "Réponse"
+
+
+def test_documents_chat_old_history_with_none(indexed_base, run_page):
+    """Ancien historique (`content: None`) : « Réponse vide », Télécharger inactif."""
+    at = run_page(RAG_PAGE)
+    at.session_state["rag_messages"] = [
+        {"role": "user", "content": "Question"},
+        {"role": "assistant", "content": None, "thought": None},
+    ]
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert EMPTY_ANSWER in [w.value for w in at.warning]
+    (download,) = _download_buttons(at)
+    assert download.proto.disabled is True
+
+
+def test_documents_chat_interrupted_stream(monkeypatch, indexed_base, run_page):
+    """Flux tronqué : « Réponse interrompue… », question gardée, aucune réponse ajoutée."""
+    from src.app.states import INTERRUPTED_MESSAGE
+    from src.core.llm_provider import LLMProvider
+
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(_interrupted_stream()))
+    at = run_page(RAG_PAGE)
+    at.chat_input[0].set_value("Quels sont les risques ?").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    assert INTERRUPTED_MESSAGE in _errors(at)
+    assert [m["role"] for m in at.session_state["rag_messages"]] == ["user"]
+    assert not any("Début de la répon" in m.value for m in at.markdown)
+
+
+def test_chat_interrupted_stream(monkeypatch, run_page):
+    """Chat libre, flux tronqué : « Réponse interrompue… », jamais présenté comme réponse."""
+    from src.app.states import INTERRUPTED_MESSAGE
+    from src.core.llm_provider import LLMProvider
+
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(_interrupted_stream()))
+    at = run_page(ARENA_PAGE)
+    at.chat_input[0].set_value("Bonjour").run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    assert INTERRUPTED_MESSAGE in _errors(at)
+    messages = at.session_state["messages"]
+    assert [m["role"] for m in messages] == ["user", "assistant"]
+    assert messages[1]["error"] is True and messages[1]["content"] == INTERRUPTED_MESSAGE
+    assert not any("Début de la répon" in m.value for m in at.markdown)
+
+
+def test_lab_interrupted_stream(monkeypatch, run_page):
+    """Banc d'essai, flux tronqué : « Réponse interrompue… », ni réponse ni débit."""
+    from src.app.states import INTERRUPTED_MESSAGE
+    from src.core.llm_provider import LLMProvider
+
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(_interrupted_stream()))
+    at = run_page(ARENA_PAGE)
+    _button(at, "Lancer le test").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+
+    assert INTERRUPTED_MESSAGE in _errors(at)
+    assert "Débit" not in [m.label for m in at.metric]
+
+
+def test_arena_interrupted_stream(monkeypatch, run_page):
+    """Arène, flux tronqué pour tous : lignes « Réponse interrompue », aucun vainqueur."""
+    from src.core.llm_provider import LLMProvider
+
+    monkeypatch.setattr(LLMProvider, "chat_stream", staticmethod(_interrupted_stream()))
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    assert "Verdict" not in [h.value for h in at.header]
+    assert any("Réponse interrompue" in t for t in _all_texts(at))
+
+
+def test_arena_interrupted_judge_is_not_evaluated(monkeypatch, run_page):
+    """Juge tronqué : réponse « non évaluée », avec la raison."""
+    from src.core.llm_provider import LLMProvider
+
+    monkeypatch.setattr(
+        LLMProvider,
+        "chat_stream",
+        staticmethod(_scripted_stream("Note : 9", interrupt_judge_only=True)),
+    )
+    at = run_page(ARENA_PAGE)
+    _run_arena(at, FAKE_LOCAL_MODELS)
+
+    table = _results_table(at)
+    assert list(table["Note"]) == [NOT_EVALUATED, NOT_EVALUATED]
+    assert all("réponse interrompue" in s for s in table["Statut"])
