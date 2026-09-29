@@ -36,7 +36,9 @@ from src.app.formatting import (
 from src.app.states import (
     EMPTY_ANSWER,
     EMPTY_ANSWER_REASON,
+    INTERRUPTED_MESSAGE,
     NOT_EVALUATED,
+    RETRY_MESSAGE,
     render_answer,
     render_error,
     render_no_models,
@@ -54,8 +56,9 @@ from src.app.ui import (
 
 from src.core.answer_carbon import answer_carbon_mg
 from src.core.eval_engine import EvalResult
+from src.core.inference_service import retry_interrupted
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics, ReasoningChunk
+from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 from src.core.models_db import extract_thought
 
 # Locale Vega (fr-FR) passée dans la spécification : aucune locale chargée depuis un CDN.
@@ -287,12 +290,13 @@ def render_rag_eval_tab(
         results_raw = []  # Pour les graphiques (floats)
         detailed_responses = {}
         failures = []  # (modèle, détail technique)
+        interrupted = []  # (modèle, détail technique) : flux coupé deux fois
 
         prog_container = st.status("Évaluation en cours…", expanded=True)
         total_steps = len(candidate_tags)
         prog_bar = prog_container.progress(0.0)
 
-        # Helper Async
+        # Helper Async : une tentative, qui repart de zéro à la relance.
         async def _stream_and_capture(model_tag, prompt_text):
             txt = ""
             reasoning = ""
@@ -320,11 +324,21 @@ def render_rag_eval_tab(
                 context_block = "\n".join(contexts)
                 prompt_rag = f"Contexte:\n{context_block}\n\nQuestion: {query}"
 
-                t0 = time.perf_counter()
-                full_resp, reasoning, metrics_obj = asyncio.run(
-                    _stream_and_capture(c_tag, prompt_rag)
+                # Durée de la seule tentative réussie : une relance ne pénalise pas le modèle.
+                timing = {"t0": time.perf_counter()}
+
+                async def on_retry(_err, name=c_friendly, timing=timing):
+                    # Génération coupée, relancée une fois (règle du cœur) : texte partiel
+                    # jamais noté, relance annoncée.
+                    prog_container.write(f"**{name}** : {RETRY_MESSAGE}")
+                    timing["t0"] = time.perf_counter()
+
+                (full_resp, reasoning, metrics_obj), interrupted_tokens = asyncio.run(
+                    retry_interrupted(
+                        lambda tag=c_tag, p=prompt_rag: _stream_and_capture(tag, p), on_retry
+                    )
                 )
-                d_gen = time.perf_counter() - t0
+                d_gen = time.perf_counter() - timing["t0"]
 
                 # Raisonnement transmis à part en premier, puis balises <think> du texte
                 # (comme la Discussion). Réponse vide : "", jamais None.
@@ -335,8 +349,11 @@ def render_rag_eval_tab(
 
                 # CO₂ (règle unique du cœur, origine réelle du badge) et mémoire chargée
                 # (lue dans Ollama juste après la génération) ; None si inconnus, jamais 0.
+                # Tokens d'une tentative coupée puis relancée compris.
                 carbon_mg = (
-                    answer_carbon_mg(c_tag, metrics_obj.output_tokens, c_is_cloud)
+                    answer_carbon_mg(
+                        c_tag, metrics_obj.output_tokens + interrupted_tokens, c_is_cloud
+                    )
                     if metrics_obj
                     else None
                 )
@@ -379,6 +396,13 @@ def render_rag_eval_tab(
                     "is_cloud": c_is_cloud,
                 }
 
+            except InterruptedResponseError as e:
+                # Coupé deux fois : ni Ollama arrêté ni modèle absent, message dédié.
+                prog_container.write(
+                    f"**{c_friendly}** : réponse interrompue deux fois. Les autres continuent."
+                )
+                interrupted.append((c_friendly, f"{type(e).__name__}: {e}"))
+
             except Exception as e:
                 prog_container.write(
                     f"**{c_friendly}** : la réponse n'a pas pu être générée. Les autres continuent."
@@ -387,16 +411,21 @@ def render_rag_eval_tab(
 
             prog_bar.progress((i + 1) / total_steps)
 
+        n_failed = len(failures) + len(interrupted)
         if results_raw:
             done_label = "Évaluation terminée"
-            if failures:
-                done_label += (
-                    f" · {pluralize(len(failures), 'modèle en échec', 'modèles en échec')}"
-                )
+            if n_failed:
+                done_label += f" · {pluralize(n_failed, 'modèle en échec', 'modèles en échec')}"
             prog_container.update(label=done_label, state="complete", expanded=False)
         else:
             prog_container.update(label="Évaluation échouée", state="error", expanded=False)
 
+        if interrupted:
+            names = ", ".join(name for name, _ in interrupted)
+            render_error(
+                f"{INTERRUPTED_MESSAGE} Modèles concernés : {names}.",
+                "\n".join(f"{name} : {detail}" for name, detail in interrupted),
+            )
         if failures:
             names = ", ".join(name for name, _ in failures)
             render_error(
@@ -567,5 +596,5 @@ def render_rag_eval_tab(
                         st.info(f"**Raisonnement :**\n{data['thought']}")
                     render_answer(data["text"])
 
-        elif not failures:
+        elif not (failures or interrupted):
             st.warning("Aucun résultat : aucun modèle n'a pu être évalué.")

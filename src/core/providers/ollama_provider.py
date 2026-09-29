@@ -110,6 +110,8 @@ class OllamaProvider(ILLMProvider):
         timer = MetricsCalculator()
         full_text = ""
         final_chunk = None
+        # Fragments reçus (texte et raisonnement) : CO₂ d'une tentative coupée.
+        received_fragments = 0
 
         # Créer un nouveau client pour chaque requête (évite "Event loop is closed")
         client = self._create_async_client()
@@ -136,6 +138,8 @@ class OllamaProvider(ILLMProvider):
                     content = getattr(message, "content", None)
                     done = getattr(chunk, "done", False)
 
+                if thinking or content:
+                    received_fragments += 1
                 if thinking:
                     yield ReasoningChunk(thinking)
                 if content:
@@ -151,7 +155,7 @@ class OllamaProvider(ILLMProvider):
             # Flux fermé sans fragment `done` (Ollama 0.34 le fait parfois, en HTTP 200) :
             # la réponse est tronquée, jamais présentée comme complète.
             if final_chunk is None:
-                raise InterruptedResponseError()
+                raise InterruptedResponseError(output_tokens=received_fragments)
 
             # Débit = eval_count / eval_duration (D3, comme scripts/benchmark_slm.py) ;
             # chargement et durée totale à part.

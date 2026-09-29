@@ -195,6 +195,10 @@ INTERRUPTED_MESSAGE = (
     f"{INTERRUPTED_RESPONSE_DEFAULT} Réessayez ; si cela se répète, choisissez un autre modèle."
 )
 
+# Relance automatique d'une génération coupée (une seule fois) : le texte partiel est effacé.
+# Ne contient jamais « réponse interrompue » : les tests e2e lisent ce texte comme un échec.
+RETRY_MESSAGE = "Ollama a arrêté la génération avant la fin : nouvelle tentative…"
+
 
 def inference_error_message(result, model_tag: str | None = None) -> str:
     """Message d'un `alert-error` pour un InferenceResult en échec : quoi, puis quoi faire."""

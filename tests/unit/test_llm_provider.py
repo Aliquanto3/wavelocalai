@@ -691,6 +691,21 @@ class TestOllamaInterruptedStream:
         assert not any(isinstance(i, InferenceMetrics) for i in items)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_interrupted_error_counts_received_fragments(self, as_objects):
+        """Story 24 : l'erreur porte les fragments reçus (raisonnement et texte), pour le CO₂
+        de la tentative coupée ; le message ne change pas."""
+        from src.core.metrics import INTERRUPTED_RESPONSE_DEFAULT, InterruptedResponseError
+
+        truncated = _ollama_stream_chunks(as_objects)[:3]
+        with pytest.raises(InterruptedResponseError) as caught:
+            async for _ in _iter_provider(truncated):
+                pass
+
+        assert caught.value.output_tokens == 3  # 2 fragments de raisonnement, 1 de texte
+        assert str(caught.value) == INTERRUPTED_RESPONSE_DEFAULT
+
+    @pytest.mark.asyncio
     async def test_complete_stream_unchanged(self):
         items = [i async for i in _iter_provider(_ollama_stream_chunks(as_objects=False))]
         assert isinstance(items[-1], InferenceMetrics)

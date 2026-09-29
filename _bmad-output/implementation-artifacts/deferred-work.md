@@ -18,17 +18,8 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/18-constats-recette-arene-agents.md`
   summary: Sur la page Agents, la mention « outils vérifiés » vient de la capacité `tools` du catalogue, même quand le benchmark de ce poste mesure un taux de réussite des outils de 0 (Gemma 3 1B, OLMo 3 7B).
   evidence: 04_Agent_Lab.py lit `capabilities` de data/models.json ; seul le modèle d'agent_default reçoit la mention d'après le benchmark. Antérieur à la story 18 : lire `tool_success` du benchmark du poste quand il existe, le catalogue sinon.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
-  summary: Relancer automatiquement, une fois, une génération interrompue (flux Ollama fermé sans fragment `done`).
-  evidence: Story 19 : la réponse interrompue est signalée (« Réponse interrompue… ») et jamais présentée comme complète, mais l'utilisateur doit relancer lui-même. Reproduit 1 flux sur 8 le 29/09 (Ollama 0.34.2, gemma3:1b). Relance automatique hors intention.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
-  summary: Une génération interrompue ne produit plus de métriques : son énergie (durée murale jusqu'à la coupure) n'entre plus dans le CO₂ de la session.
-  evidence: `OllamaProvider.chat_stream` lève `InterruptedResponseError` sans produire `InferenceMetrics` ; générations coupées courtes (~150 ms observés le 29/09), biais faible mais réel pour un démonstrateur carbone.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/20-reponse-vide-evaluation-rag-e2e-banc.md`
-  summary: Évaluation de la qualité de l'Assistant documentaire : un flux Ollama interrompu (`InterruptedResponseError`) y est compté comme un échec générique, avec le conseil erroné « Vérifiez qu'Ollama est démarré et que le modèle est installé ».
-  evidence: `src/app/tabs/rag/eval.py`, `except Exception` de la boucle des candidats ; la Discussion affiche `INTERRUPTED_MESSAGE` (`rag/chat.py`). Antérieur à la story 20 (story 19 : « l'évaluation compte un échec au lieu de noter un texte tronqué ») ; seul le message est à corriger.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/21-suite-e2e-verte-reruns-serveur-ecarts-contraste-flux-tronque.md`
-  summary: Les tests e2e de l'Assistant documentaire (Discussion, évaluation de la qualité) génèrent sans `h.generate` et échouent sur un flux Ollama tronqué au lieu de le relancer.
+  summary: Les tests e2e de l'Assistant documentaire (Discussion, évaluation de la qualité) génèrent sans `h.generate` : depuis la story 24, l'app relance une fois, mais une double coupure d'Ollama fait encore échouer ces tests au lieu de les relancer.
   evidence: rag/chat.py et rag/eval.py passent par OllamaProvider, qui lève InterruptedResponseError sur un flux sans `done` ; test_documents.py n'a aucune relance. Relevé à la revue de la story 21.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/21-suite-e2e-verte-reruns-serveur-ecarts-contraste-flux-tronque.md`
   summary: `nav`, `click_tab` et les appels de `settle_after_action(until=…)` attendent encore un état du navigateur, pas le compteur d'exécutions du serveur (`wait_script_run`).
@@ -39,3 +30,9 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/23-une-seule-regle-co2-origine-reelle-modele.md`
   summary: `MetricsService.calculate_carbon` (src/core/metrics_service.py) garde sa propre règle de CO₂, sans appelant dans les pages : la brancher sur `answer_carbon_mg` ou la supprimer, puis étendre la garde `test_only_the_core_calls_carbon_formulas` à tout `src/`.
   evidence: Relevé à la revue de la story 23 ; exporté par src/app/components/metrics_display.py, qu'aucune page n'appelle (params d'abord, taille devinée d'après le tag, booléen is_local).
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/24-reponse-interrompue-relance-co2-message.md`
+  summary: Deux coupures de suite : le CO₂ des tentatives coupées n'est compté que dans le Chat libre (total de session), pas dans le Banc d'essai, l'Arène, la Discussion ni l'évaluation de l'Assistant documentaire.
+  evidence: Ces onglets n'ont pas de total de session ; relevé à la revue de la story 24 (lab.py sort sur erreur, ligne d'Arène en échec sans CO₂, e.output_tokens jeté dans rag/chat.py et rag/eval.py).
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/24-reponse-interrompue-relance-co2-message.md`
+  summary: Vérifier au navigateur (recette) que le texte partiel s'efface et que la relance est annoncée pendant la seconde tentative ; AppTest ne voit que l'état final. Les agents (`ChatOllama`) ne sont pas relancés.
+  evidence: Story 24 : l'annonce est remplacée par la nouvelle réponse dans le Chat libre et le Banc d'essai ; relance des agents hors intention (flux LangChain, sans détection de coupure).

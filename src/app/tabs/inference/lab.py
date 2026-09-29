@@ -15,6 +15,7 @@ from src.app.formatting import (
     mg_to_grams,
 )
 from src.app.states import (
+    RETRY_MESSAGE,
     THROUGHPUT_HELP,
     finish_loading_status,
     render_answer,
@@ -82,13 +83,21 @@ def _render_metrics(res, model_tag: str | None, is_cloud: bool | None = None) ->
 
     st.divider()
 
-    # CO₂ : règle unique du cœur ; « — » s'il est inconnu (tag distant hors catalogue).
-    carbon_mg = answer_carbon_mg(model_tag, m.output_tokens, is_cloud)
+    # CO₂ : règle unique du cœur, tokens d'une tentative coupée puis relancée compris ; « — »
+    # s'il est inconnu (tag distant hors catalogue).
+    wasted = getattr(res, "interrupted_output_tokens", 0) or 0
+    carbon_mg = answer_carbon_mg(model_tag, m.output_tokens + wasted, is_cloud)
+    carbon_help = (
+        f"Compte aussi environ {format_number(wasted, 0)} tokens (fragments reçus) d'une "
+        "génération coupée par Ollama, puis relancée."
+        if wasted
+        else None
+    )
 
     # Affichage en grille ; débit = eval_count / eval_duration pour Ollama (D3).
     cells = [
         ("Débit", format_throughput(m.tokens_per_second, m.throughput_estimated), THROUGHPUT_HELP),
-        ("CO₂", format_co2(mg_to_grams(carbon_mg)), None),
+        ("CO₂", format_co2(mg_to_grams(carbon_mg)), carbon_help),
     ]
     if m.load_measured:
         cells.append(("Chargement", format_duration(m.load_duration_s), None))
@@ -174,7 +183,16 @@ def render_lab_tab(
                     state["text"] += token
                     placeholder.markdown(state["text"] + "▌")
 
-                callbacks = InferenceCallbacks(on_token=on_token)
+                async def on_retry(_err):
+                    # Génération coupée, relancée une fois : le texte partiel n'est plus montré.
+                    # Coupure avant tout texte : le chargement est fini, comme dans `on_token`.
+                    if state["loading"] is not None:
+                        finish_loading_status(state["loading"])
+                        state["loading"] = None
+                    state["text"] = ""
+                    placeholder.caption(RETRY_MESSAGE)
+
+                callbacks = InferenceCallbacks(on_token=on_token, on_retry=on_retry)
 
                 # RUN
                 with st.spinner("Génération…"):

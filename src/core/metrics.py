@@ -20,10 +20,16 @@ INTERRUPTED_RESPONSE_DEFAULT = "Réponse interrompue : Ollama a arrêté la gén
 
 class InterruptedResponseError(RuntimeError):
     """Flux Ollama terminé sans fragment final (`done`) : la réponse est tronquée. Elle ne doit
-    jamais être présentée comme complète, stockée ni envoyée au juge."""
+    jamais être présentée comme complète, stockée ni envoyée au juge.
 
-    def __init__(self, message: str = INTERRUPTED_RESPONSE_DEFAULT):
+    `output_tokens` : fragments reçus avant la coupure (texte et raisonnement), environ un token
+    chacun (estimation, pas le compte exact d'Ollama), comptés dans le CO₂ de la réponse. Après
+    `retry_interrupted`, ceux de toutes les tentatives coupées.
+    """
+
+    def __init__(self, message: str = INTERRUPTED_RESPONSE_DEFAULT, output_tokens: int = 0):
         super().__init__(message)
+        self.output_tokens = output_tokens
 
 
 @dataclass

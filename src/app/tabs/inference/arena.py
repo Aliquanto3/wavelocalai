@@ -44,6 +44,7 @@ from src.app.states import (
     LOADING_LABEL,
     NOT_EVALUATED,
     REASONING_LABEL,
+    RETRY_MESSAGE,
     THROUGHPUT_HELP,
     inference_failure_label,
     render_error,
@@ -61,7 +62,7 @@ from src.app.ui import (
     weak_judge_text,
 )
 from src.core.answer_carbon import answer_carbon_mg
-from src.core.inference_service import InferenceService
+from src.core.inference_service import InferenceCallbacks, InferenceService
 from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import ARENA_MIN_MODELS
 
@@ -469,6 +470,15 @@ def _write_loading_note(status_box, tag: str, friendly_name: str) -> None:
         status_box.write(f"**{friendly_name}** : {LOADING_LABEL} {LOADING_HINT}")
 
 
+def _retry_callbacks(status_box, name: str) -> InferenceCallbacks:
+    """Génération coupée, relancée une fois par le cœur : une ligne du suivi l'annonce."""
+
+    async def on_retry(_err):
+        status_box.write(f"**{name}** : {RETRY_MESSAGE}")
+
+    return InferenceCallbacks(on_retry=on_retry)
+
+
 def _judge(status_box, judge_tag, judge_name, judge_sys, prompt, answer):
     """Note du juge : (note ou None, raison si « non évalué », détail technique ou None)."""
     if not judge_tag:
@@ -480,6 +490,7 @@ def _judge(status_box, judge_tag, judge_name, judge_sys, prompt, answer):
             model_tag=judge_tag,
             messages=[{"role": "user", "content": eval_p}],
             temperature=0.0,
+            callbacks=_retry_callbacks(status_box, f"Juge ({judge_name})"),
         )
     )
     if eval_res.error:
@@ -606,6 +617,7 @@ Format : Uniquement le chiffre (ex: 85)."""
                         model_tag=tag,
                         messages=[{"role": "user", "content": arena_prompt}],
                         temperature=0.1,
+                        callbacks=_retry_callbacks(status_box, friendly_name),
                     )
                 )
 
@@ -633,9 +645,16 @@ Format : Uniquement le chiffre (ex: 85)."""
 
                 m = result.metrics
 
-                # 2. CALCUL GREENOPS : règle unique du cœur, selon l'origine réelle (badge) ;
-                # None si le CO₂ est inconnu (tag distant hors catalogue).
-                impact_mg = None if m is None else answer_carbon_mg(tag, m.output_tokens, is_cloud)
+                # 2. CALCUL GREENOPS : règle unique du cœur, selon l'origine réelle (badge),
+                # tokens d'une tentative coupée puis relancée compris ; None si le CO₂ est
+                # inconnu (tag distant hors catalogue).
+                impact_mg = (
+                    None
+                    if m is None
+                    else answer_carbon_mg(
+                        tag, m.output_tokens + result.interrupted_output_tokens, is_cloud
+                    )
+                )
 
                 # 3. NOTATION JUGE (« non évalué » plutôt que 0 si le juge ne peut pas noter)
                 # Réponse vide (tout dans le raisonnement) : jamais envoyée au juge.

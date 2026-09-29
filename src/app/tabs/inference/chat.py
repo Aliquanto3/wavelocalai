@@ -10,6 +10,7 @@ import streamlit as st
 
 from src.app.formatting import format_co2, format_duration, format_throughput, mg_to_grams
 from src.app.states import (
+    RETRY_MESSAGE,
     THROUGHPUT_HELP,
     finish_loading_status,
     inference_error_message,
@@ -24,16 +25,19 @@ from src.core.answer_carbon import answer_carbon_mg
 from src.core.inference_service import InferenceCallbacks, InferenceService
 
 
-def _calculate_metrics(metrics, model_tag: str | None, is_cloud: bool | None = None):
+def _calculate_metrics(
+    metrics, model_tag: str | None, is_cloud: bool | None = None, interrupted_tokens: int = 0
+):
     """Calcule les métriques pour le badge. La formule de CO₂ suit `is_cloud`, l'origine réelle
     du modèle (celle du badge) ; à défaut, le type du catalogue. La fiche est cherchée par le
-    nom du catalogue, jamais par le libellé du sélecteur (« Nom · Cloud »)."""
+    nom du catalogue, jamais par le libellé du sélecteur (« Nom · Cloud »). Le CO₂ compte aussi
+    `interrupted_tokens`, les tokens d'une tentative coupée puis relancée."""
     if not metrics:
         return {}
 
     return {
         # Règle unique du cœur (src/core/answer_carbon.py) ; None si le CO₂ est inconnu.
-        "co2_mg": answer_carbon_mg(model_tag, metrics.output_tokens, is_cloud),
+        "co2_mg": answer_carbon_mg(model_tag, metrics.output_tokens + interrupted_tokens, is_cloud),
         # Débit = eval_count / eval_duration pour Ollama (D3).
         "speed": metrics.tokens_per_second,
         "speed_estimated": metrics.throughput_estimated,
@@ -190,7 +194,16 @@ def render_chat_tab(
                 state["current_text"] += token
                 msg_container.markdown(state["current_text"] + "▌")
 
-            callbacks = InferenceCallbacks(on_token=on_token)
+            async def on_retry(_err):
+                # Génération coupée, relancée une fois : le texte partiel n'est plus montré.
+                # Coupure avant tout texte : le chargement est fini, comme dans `on_token`.
+                if state["loading"] is not None:
+                    finish_loading_status(state["loading"])
+                    state["loading"] = None
+                state["current_text"] = ""
+                msg_container.caption(RETRY_MESSAGE)
+
+            callbacks = InferenceCallbacks(on_token=on_token, on_retry=on_retry)
 
             # Inférence
             result = asyncio.run(
@@ -215,6 +228,16 @@ def render_chat_tab(
                     "detail": result.error,
                     "model_friendly": local_display,
                 }
+                wasted_mg = (
+                    answer_carbon_mg(active_tag, result.interrupted_output_tokens, active_is_cloud)
+                    if result.interrupted_output_tokens
+                    else None
+                )
+                if wasted_mg is not None:
+                    # Tokens générés avant les coupures : comptés dans le CO₂ de la session,
+                    # sans pied de réponse (un tour en erreur n'en affiche pas). CO₂ inconnu :
+                    # rien de stocké, pour ne pas passer le total de session à « — ».
+                    error_turn["metrics_data"] = {"co2_mg": wasted_mg}
                 render_error(error_turn["content"], error_turn["detail"])
                 st.session_state.messages.append(error_turn)
                 return
@@ -228,7 +251,12 @@ def render_chat_tab(
                 render_answer(result.clean_text)
 
             # Calculs
-            metrics_data = _calculate_metrics(result.metrics, active_tag, active_is_cloud)
+            metrics_data = _calculate_metrics(
+                result.metrics,
+                active_tag,
+                active_is_cloud,
+                interrupted_tokens=result.interrupted_output_tokens,
+            )
             _render_message_footer(metrics_data, active_is_cloud)
 
             # Save

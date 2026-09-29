@@ -24,6 +24,7 @@ from src.app.states import (
     INTERRUPTED_MESSAGE,
     LOADING_HINT,
     LOADING_LABEL,
+    RETRY_MESSAGE,
     generation_failure_advice,
     render_answer,
     render_error,
@@ -32,6 +33,7 @@ from src.app.states import (
 from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 
 from src.core.answer_carbon import answer_carbon_mg
+from src.core.inference_service import retry_interrupted
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 from src.core.models_db import extract_thought
@@ -213,6 +215,7 @@ def render_rag_chat_tab(
                 status_box.write(f"Génération avec {friendly_name}…")
 
                 async def run_gen():
+                    # Une tentative : texte et raisonnement repartent de zéro à la relance.
                     full_txt = ""
                     reasoning_txt = ""
                     captured_metrics = None
@@ -230,7 +233,16 @@ def render_rag_chat_tab(
                             captured_metrics = chunk
                     return full_txt, reasoning_txt, captured_metrics
 
-                full_resp, reasoning, metrics_obj = asyncio.run(run_gen())
+                async def on_retry(_err):
+                    # Génération coupée, relancée une fois (règle du cœur) : le texte partiel
+                    # n'est plus montré, la relance est annoncée.
+                    resp_container.empty()
+                    status_box.update(label=RETRY_MESSAGE)
+                    status_box.write(RETRY_MESSAGE)
+
+                (full_resp, reasoning, metrics_obj), interrupted_tokens = asyncio.run(
+                    retry_interrupted(run_gen, on_retry)
+                )
 
                 # Fin du process
                 total_duration = time.perf_counter() - t_start_pipeline
@@ -251,13 +263,16 @@ def render_rag_chat_tab(
                         st.markdown(thought)
                 render_answer(clean)
 
-                # E. CO₂ (règle unique du cœur, origine réelle du badge) et mémoire chargée
-                # (lue dans Ollama juste après la génération) ; None si inconnus.
+                # E. CO₂ (règle unique du cœur, origine réelle du badge ; tokens d'une
+                # tentative coupée puis relancée compris) et mémoire chargée (lue dans Ollama
+                # juste après la génération) ; None si inconnus.
                 carbon_mg = None
                 ram_gb = None
                 if metrics_obj:
                     carbon_mg = answer_carbon_mg(
-                        selected_tag, metrics_obj.output_tokens, selected_is_cloud
+                        selected_tag,
+                        metrics_obj.output_tokens + interrupted_tokens,
+                        selected_is_cloud,
                     )
                 if not selected_is_cloud:
                     ram_gb = LLMProvider.loaded_model_size_gb(selected_tag)
@@ -289,7 +304,8 @@ def render_rag_chat_tab(
                 status_box.update(label="Erreur", state="error", expanded=False)
                 resp_container.empty()
                 if isinstance(e, InterruptedResponseError):
-                    # Flux tronqué : rien n'est ajouté à l'historique.
+                    # Flux tronqué deux fois (après la relance) : rien n'est ajouté à
+                    # l'historique.
                     render_error(INTERRUPTED_MESSAGE, f"{type(e).__name__}: {e}")
                     return
                 render_error(
