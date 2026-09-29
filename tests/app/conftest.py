@@ -99,6 +99,10 @@ def offline_app_env(tmp_path, monkeypatch):
     monkeypatch.setattr(
         LLMProvider, "is_model_loaded", staticmethod(lambda model_name, timeout=2.0: True)
     )
+    # Taille chargée d'un modèle (`ollama ps`, badge mémoire) : inconnue par défaut.
+    monkeypatch.setattr(
+        LLMProvider, "loaded_model_size_gb", staticmethod(lambda model_name, timeout=2.0: None)
+    )
     st.cache_data.clear()
 
     # RAG : embeddings déterministes, pas de reranker, aucun téléchargement.

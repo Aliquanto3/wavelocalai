@@ -4,6 +4,7 @@ Provider Ollama pour les modèles locaux.
 """
 
 import logging
+import math
 from collections.abc import AsyncGenerator
 from typing import Any
 from urllib.parse import urlsplit
@@ -226,6 +227,36 @@ class OllamaProvider(ILLMProvider):
                     if value:
                         loaded.add(_normalize_tag(value))
             return _normalize_tag(model_name) in loaded
+        except Exception as e:
+            logger.debug(f"ollama ps impossible ({self._base_url}) : {e}")
+            return None
+
+    def loaded_model_size_gb(
+        self, model_name: str, timeout: float = STATUS_TIMEOUT_S
+    ) -> float | None:
+        """Taille chargée (Go, 1024³ octets) d'un modèle en mémoire dans Ollama (`ollama ps`,
+        champ `size`), mémoire vive et vidéo comprises.
+
+        Returns:
+            La taille en Go, ou None si le modèle n'est pas listé, si Ollama ne répond pas ou
+            si la taille est absente ou nulle. Jamais d'estimation. Ne lève jamais.
+        """
+        if not model_name:
+            return None
+        try:
+            response = self._create_client(timeout).ps()
+            raw_models = (
+                response.models if hasattr(response, "models") else response.get("models", [])
+            )
+            wanted = _normalize_tag(model_name)
+            for m in raw_models or []:
+                get = m.get if isinstance(m, dict) else lambda k, _m=m: getattr(_m, k, None)
+                names = {_normalize_tag(v) for v in (get("model"), get("name")) if v}
+                if wanted not in names:
+                    continue
+                size = float(get("size") or 0)
+                return size / (1024**3) if math.isfinite(size) and size > 0 else None
+            return None
         except Exception as e:
             logger.debug(f"ollama ps impossible ({self._base_url}) : {e}")
             return None

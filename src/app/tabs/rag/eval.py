@@ -52,14 +52,11 @@ from src.app.ui import (
     weak_judge_text,
 )
 
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.eval_engine import EvalResult
-
-# --- SSOT carbone ---
-from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics, ReasoningChunk
-from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
-from src.core.utils import extract_params_billions as _extract_params_billions
+from src.core.models_db import extract_thought
 
 # Locale Vega (fr-FR) passée dans la spécification : aucune locale chargée depuis un CDN.
 VEGA_LOCALE = {
@@ -336,27 +333,14 @@ def render_rag_eval_tab(
                 parts = [part for part in (reasoning.strip(), tag_thought) if part]
                 thought = "\n\n".join(parts) or None
 
-                # Calcul Carbone (SSOT)
-                carbon_mg = 0.0
-                # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
-                info = get_model_info(get_friendly_name_from_tag(c_tag)) or {}
-                ram_gb = 0.0
-
-                if metrics_obj:
-                    ram_gb = metrics_obj.model_size_gb or 0.0
-                    if info.get("type") == "api" and metrics_obj.output_tokens > 0:
-                        p = _extract_params_billions(
-                            info.get("params_act") or info.get("params_tot", "0")
-                        )
-                        carbon_mg = (
-                            CarbonCalculator.compute_mistral_impact_g(p, metrics_obj.output_tokens)
-                            * 1000
-                        )
-                    else:
-                        carbon_mg = (
-                            CarbonCalculator.compute_local_theoretical_g(metrics_obj.output_tokens)
-                            * 1000
-                        )
+                # CO₂ (règle unique du cœur, origine réelle du badge) et mémoire chargée
+                # (lue dans Ollama juste après la génération) ; None si inconnus, jamais 0.
+                carbon_mg = (
+                    answer_carbon_mg(c_tag, metrics_obj.output_tokens, c_is_cloud)
+                    if metrics_obj
+                    else None
+                )
+                ram_gb = None if c_is_cloud else LLMProvider.loaded_model_size_gb(c_tag)
 
                 # Notation Juge ; réponse vide (tout dans le raisonnement) : jamais envoyée au
                 # juge ni à Ragas.
@@ -379,11 +363,11 @@ def render_rag_eval_tab(
                         "Modèle": c_friendly,
                         "is_cloud": c_is_cloud,  # Fournisseur réel (badge, tableau)
                         "Score": eval_result.global_score,  # Float 0-1 ou None
-                        "CO2_mg": carbon_mg,  # Float
+                        "CO2_mg": carbon_mg,  # Float, None si inconnu
                         "Latence_s": d_gen,  # Float
                         "Fidélité": eval_result.faithfulness,
                         "Pertinence": eval_result.answer_relevancy,
-                        "RAM_GB": ram_gb,
+                        "RAM_GB": ram_gb,  # Float, None si inconnue
                         "Raison": eval_result.reason,
                         "Détail": eval_result.detail,
                     }
@@ -468,19 +452,27 @@ def render_rag_eval_tab(
             # Axe X : Impact CO2 (On veut le plus bas possible -> à gauche)
             # Axe Y : Qualité (On veut le plus haut possible -> en haut)
             # Le "Sweet Spot" est en haut à gauche.
-            # Seuls les modèles notés sont tracés : « non évalué » n'a pas de place sur l'axe.
+            # Seuls les modèles notés sont tracés : « non évalué » n'a pas de place sur l'axe,
+            # ni un CO₂ inconnu (tag distant hors catalogue), laissé de côté et signalé.
+            has_co2 = df_scored["CO2_mg"].map(lambda v: mg_to_grams(v) is not None).astype(bool)
+            df_matrix = df_scored[has_co2]
             if not df_scored.empty:
                 st.subheader("Qualité selon le CO₂")
+            if not df_matrix.empty:
                 st.caption(
                     "Le modèle idéal se situe en **haut à gauche** : qualité haute, CO₂ faible."
                 )
-
+            # Signalé même quand aucun modèle noté n'a de CO₂ connu (matrice vide).
+            if not has_co2.all():
+                left_out = ", ".join(df_scored.loc[~has_co2, "Modèle"])
+                st.caption(f"CO₂ inconnu, absent de la matrice : {left_out}.")
+            if not df_matrix.empty:
                 # Couleur par modèle (tag), dans l'ordre stable des modèles évalués (échecs et
                 # « non évalué » compris), registre commun à l'Arène : ni la note ni un modèle
                 # écarté ne la changent.
                 tag_slots = remember_entity_slots(candidate_tags)
                 slots = {tag_to_friendly[t]: slot for t, slot in tag_slots.items()}
-                chart = _quality_matrix(df_scored, slots, co2_unit)
+                chart = _quality_matrix(df_matrix, slots, co2_unit)
                 st.altair_chart(chart, width="stretch")
 
             # C. TABLEAU DÉTAILLÉ
@@ -499,7 +491,10 @@ def render_rag_eval_tab(
                     "Pertinence": _to_100(df_table["Pertinence"]),
                     "CO₂": [co2_in_unit(mg_to_grams(v), co2_unit) for v in df_table["CO2_mg"]],
                     "Durée": df_table["Latence_s"],
-                    "Mémoire": df_table["RAM_GB"],
+                    # Taille chargée lue dans Ollama ; inconnue : vide, jamais 0.
+                    "Mémoire": pd.to_numeric(df_table["RAM_GB"], errors="coerce").where(
+                        lambda v: v > 0
+                    ),
                     "Statut": [
                         (
                             "Évalué"

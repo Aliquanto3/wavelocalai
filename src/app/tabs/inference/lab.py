@@ -7,7 +7,13 @@ import asyncio
 
 import streamlit as st
 
-from src.app.formatting import format_co2, format_duration, format_number, format_throughput
+from src.app.formatting import (
+    format_co2,
+    format_duration,
+    format_number,
+    format_throughput,
+    mg_to_grams,
+)
 from src.app.states import (
     THROUGHPUT_HELP,
     finish_loading_status,
@@ -17,10 +23,8 @@ from src.app.states import (
     start_loading_status,
 )
 from src.app.ui import ModelMenu, is_cloud_model, render_badge
-from src.core.green_monitor import CarbonCalculator
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.inference_service import InferenceCallbacks, InferenceService
-from src.core.models_db import get_model_info
-from src.core.utils import extract_params_billions as _extract_params_billions
 
 # --- DONNÉES SCÉNARIOS ---
 USE_CASES = {
@@ -67,28 +71,24 @@ def _render_result_text(
     render_answer(res.clean_text)
 
 
-def _render_metrics(res, model_name: str) -> None:
+def _render_metrics(res, model_tag: str | None, is_cloud: bool | None = None) -> None:
     """Débit, CO₂, chargement, durée totale et tokens sous le résultat ; rien si l'inférence
-    n'a pas de mesures. « Chargement » seulement quand le fournisseur le mesure (Ollama)."""
+    n'a pas de mesures. « Chargement » seulement quand le fournisseur le mesure (Ollama).
+    La fiche du modèle est trouvée par son tag, jamais par le libellé « Nom (tag) » ; la
+    formule de CO₂ suit l'origine réelle du modèle (`is_cloud`, celle du badge)."""
     m = res.metrics
     if res.error or m is None:
         return
-    info = get_model_info(model_name) or {}
 
     st.divider()
 
-    # Calcul CO2
-    is_api = info.get("type") == "api"
-    if is_api and m.output_tokens > 0:
-        p = _extract_params_billions(info.get("params_act") or info.get("params_tot", "0"))
-        carbon_g = CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens)
-    else:
-        carbon_g = CarbonCalculator.compute_local_theoretical_g(m.output_tokens)
+    # CO₂ : règle unique du cœur ; « — » s'il est inconnu (tag distant hors catalogue).
+    carbon_mg = answer_carbon_mg(model_tag, m.output_tokens, is_cloud)
 
     # Affichage en grille ; débit = eval_count / eval_duration pour Ollama (D3).
     cells = [
         ("Débit", format_throughput(m.tokens_per_second, m.throughput_estimated), THROUGHPUT_HELP),
-        ("CO₂", format_co2(carbon_g), None),
+        ("CO₂", format_co2(mg_to_grams(carbon_mg)), None),
     ]
     if m.load_measured:
         cells.append(("Chargement", format_duration(m.load_duration_s), None))
@@ -121,7 +121,6 @@ def render_lab_tab(
         # Sélection Modèle & Cas
         lab_model_display = st.selectbox("Modèle", sorted_display_names, key="lab_model_select")
         lab_model_tag = display_to_tag.get(lab_model_display)
-        lab_model_friendly = tag_to_friendly.get(lab_model_tag, "Modèle inconnu")
         lab_is_cloud = is_cloud_model(lab_model_tag, menu)
         render_badge(lab_is_cloud)
 
@@ -199,7 +198,6 @@ def render_lab_tab(
                 # Sauvegarde état pour affichage persistant (échec compris : au rerun
                 # suivant, l'erreur s'affiche de nouveau, sans métriques).
                 st.session_state.lab_last_result = result
-                st.session_state.lab_last_model = lab_model_friendly
                 st.session_state.lab_last_tag = lab_model_tag
                 st.session_state.lab_last_is_cloud = lab_is_cloud
 
@@ -216,7 +214,9 @@ def render_lab_tab(
         # === ZONE MÉTRIQUES (Sous le résultat) ===
         if "lab_last_result" in st.session_state:
             _render_metrics(
-                st.session_state.lab_last_result, st.session_state.get("lab_last_model", "")
+                st.session_state.lab_last_result,
+                st.session_state.get("lab_last_tag"),
+                st.session_state.get("lab_last_is_cloud"),
             )
 
         else:

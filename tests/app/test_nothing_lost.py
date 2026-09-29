@@ -13,8 +13,9 @@ import pytest
 from langchain_core.documents import Document
 
 from src.app.formatting import NBSP, format_co2
-from src.app.tabs.agent.solo import AGENT_MODEL_KEY, answer_carbon_mg
+from src.app.tabs.agent.solo import AGENT_MODEL_KEY
 from src.core.agent_engine import history_to_messages
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.green_monitor import CarbonCalculator
 from src.core.llm_provider import LLMProvider
 from tests.app.test_states import (  # noqa: F401 (fixtures partagées)
@@ -194,7 +195,7 @@ def test_agent_carbon_failure_keeps_answer(agent, run_page, monkeypatch):
     def broken(*args, **kwargs):
         raise ValueError("catalogue illisible")
 
-    monkeypatch.setattr("src.app.tabs.agent.solo.get_model_info", broken)
+    monkeypatch.setattr("src.core.answer_carbon.get_model_info", broken)
     at = run_page(AGENTS_PAGE)
     at.chat_input[0].set_value("Audit du système").run()
     at.run()

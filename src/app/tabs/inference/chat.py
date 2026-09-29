@@ -20,11 +20,8 @@ from src.app.states import (
 )
 from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 
-# --- Import SSOT carbone ---
-from src.core.green_monitor import CarbonCalculator
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.inference_service import InferenceCallbacks, InferenceService
-from src.core.models_db import get_friendly_name_from_tag, get_model_info
-from src.core.utils import extract_params_billions as _extract_params_billions
 
 
 def _calculate_metrics(metrics, model_tag: str | None, is_cloud: bool | None = None):
@@ -34,25 +31,9 @@ def _calculate_metrics(metrics, model_tag: str | None, is_cloud: bool | None = N
     if not metrics:
         return {}
 
-    info = get_model_info(get_friendly_name_from_tag(model_tag)) if model_tag else None
-    info = info or {}
-    cloud = is_cloud if is_cloud is not None else info.get("type") == "api"
-    carbon_g: float | None = 0.0
-
-    if cloud and metrics.output_tokens > 0:
-        raw_params = info.get("params_act") or info.get("params_tot") or "0"
-        active_params = _extract_params_billions(raw_params)
-        # Cloud de taille inconnue (tag distant hors catalogue) : CO₂ inconnu, pas 0.
-        carbon_g = (
-            CarbonCalculator.compute_mistral_impact_g(active_params, metrics.output_tokens)
-            if active_params and active_params > 0
-            else None
-        )
-    else:
-        carbon_g = CarbonCalculator.compute_local_theoretical_g(metrics.output_tokens)
-
     return {
-        "co2_mg": carbon_g * 1000.0 if carbon_g is not None else None,
+        # Règle unique du cœur (src/core/answer_carbon.py) ; None si le CO₂ est inconnu.
+        "co2_mg": answer_carbon_mg(model_tag, metrics.output_tokens, is_cloud),
         # Débit = eval_count / eval_duration pour Ollama (D3).
         "speed": metrics.tokens_per_second,
         "speed_estimated": metrics.throughput_estimated,
@@ -60,6 +41,21 @@ def _calculate_metrics(metrics, model_tag: str | None, is_cloud: bool | None = N
         # Chargement du modèle : mesuré par Ollama seulement (None pour le cloud).
         "load": metrics.load_duration_s if metrics.load_measured else None,
     }
+
+
+def session_co2_mg(messages: list[dict]) -> float | None:
+    """CO₂ de la session (mg) : somme des réponses au CO₂ connu, les inconnus (cloud de taille
+    inconnue) ignorés. None (« — ») si aucune réponse n'a de CO₂ connu, jamais 0 pour un
+    inconnu ; 0.0 pour une session sans réponse."""
+    answers = [
+        m["metrics_data"].get("co2_mg")
+        for m in messages
+        if m.get("role") == "assistant" and "metrics_data" in m
+    ]
+    values = [v for v in answers if mg_to_grams(v) is not None]
+    if answers and not values:
+        return None
+    return float(sum(values))
 
 
 def _model_history(messages: list[dict]) -> list[dict]:
@@ -137,12 +133,7 @@ def render_chat_tab(
 
         with c_stat:
             # Mini Stats Session
-            total_co2_mg = 0.0
-            for m in st.session_state.messages:
-                if m.get("role") == "assistant" and "metrics_data" in m:
-                    # CO₂ inconnu (cloud de taille inconnue) : non compté.
-                    total_co2_mg += m["metrics_data"].get("co2_mg") or 0.0
-
+            total_co2_mg = session_co2_mg(st.session_state.messages)
             st.caption(f"Session : **{format_co2(mg_to_grams(total_co2_mg))}**")
 
         with c_reset:

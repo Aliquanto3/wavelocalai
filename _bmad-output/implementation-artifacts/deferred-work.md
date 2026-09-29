@@ -1,12 +1,6 @@
 # Travail différé
 
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
-  summary: Une seule règle de CO₂ par réponse, dans src/core, à la place des copies de chat.py, solo.py (answer_carbon_mg) et des autres onglets.
-  evidence: Les copies divergent déjà (repli params_tot, tokens NaN ou négatifs) ; question ouverte 8 du rapport de nuit (formule recopiée dans 7 onglets).
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
-  summary: Arène, Banc d'essai, Discussion documentaire et évaluation RAG choisissent encore la formule de CO₂ d'après le seul type du catalogue, pas d'après l'origine réelle du modèle.
-  evidence: arena.py:604-617, lab.py:75-85, rag/chat.py:231-249, rag/eval.py:322-338 ne testent que info.get("type") == "api" ; un tag distant d'Ollama y affiche un badge Cloud et un CO₂ local. Antérieur à la story 12.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
   summary: Les points d'entrée hors app (scripts/setup_rag_models.py, imports directs de crew_engine ou vector_store) n'appellent pas disable_telemetry().
   evidence: setup_rag_models.py importe huggingface_hub.snapshot_download sans couper la télémétrie Hugging Face ; seule l'app et eval_engine se protègent.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
@@ -42,3 +36,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/22-modeles-cloud-routes-bon-fournisseur.md`
   summary: Page Agents : le garde-fou mémoire (`ResourceManager.check_resources`) s'applique aussi à un modèle cloud (4 Go estimés par défaut) et peut libérer la mémoire d'Ollama ou bloquer la demande.
   evidence: solo.py appelle check_resources(selected_tag) avant le moteur ; estimate_model_ram renvoie 4,0 Go pour un tag absent de MODELS_DB. Antérieur à la story 22, relevé par la revue.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/23-une-seule-regle-co2-origine-reelle-modele.md`
+  summary: `MetricsService.calculate_carbon` (src/core/metrics_service.py) garde sa propre règle de CO₂, sans appelant dans les pages : la brancher sur `answer_carbon_mg` ou la supprimer, puis étendre la garde `test_only_the_core_calls_carbon_formulas` à tout `src/`.
+  evidence: Relevé à la revue de la story 23 ; exporté par src/app/components/metrics_display.py, qu'aucune page n'appelle (params d'abord, taille devinée d'après le tag, booléen is_local).

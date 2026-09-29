@@ -60,12 +60,10 @@ from src.app.ui import (
     render_badge,
     weak_judge_text,
 )
-from src.core.green_monitor import CarbonCalculator
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.inference_service import InferenceService
 from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import ARENA_MIN_MODELS
-from src.core.models_db import get_friendly_name_from_tag, get_model_info
-from src.core.utils import extract_params_billions as _extract_params_billions
 
 # Diamètre minimal de l'étoile du vainqueur (px) : visible même s'il a le moins de CO₂.
 WINNER_MIN_PX = 25.0
@@ -428,8 +426,13 @@ def _render_podium(results_data):
     slots = remember_entity_slots(r["tag"] for r in results_data if r.get("tag"))
     with col_chart:
         st.plotly_chart(_quality_matrix(df, slots, unit), width="stretch")
+        # Taille minimale d'un CO₂ inconnu (tag distant hors catalogue) : nommée, pour ne
+        # pas passer pour le modèle le plus sobre.
+        unknown = [r["Modèle"] for r in scored if mg_to_grams(r.get("CO2 (mg)")) is None]
+        unknown_text = f"CO₂ inconnu, taille minimale : {', '.join(unknown)}. " if unknown else ""
         st.caption(
             f"{size_legend_text((mg_to_grams(v) for v in df['CO2 (mg)']), unit)} "
+            f"{unknown_text}"
             f"Étoile : vainqueur, au moins {WINNER_MIN_PX:.0f}{NBSP}px quel que soit son CO₂. "
             "Valeurs exactes dans le tableau ci-dessous."
         )
@@ -630,22 +633,9 @@ Format : Uniquement le chiffre (ex: 85)."""
 
                 m = result.metrics
 
-                # 2. CALCUL GREENOPS
-                # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
-                info = get_model_info(get_friendly_name_from_tag(tag)) or {}
-                raw_params = info.get("params_act") or info.get("params_tot", "0")
-                p = _extract_params_billions(raw_params)
-
-                impact_mg = None
-                if m is not None:
-                    if info.get("type") == "api" and m.output_tokens > 0:
-                        impact_mg = (
-                            CarbonCalculator.compute_mistral_impact_g(p, m.output_tokens) * 1000
-                        )
-                    else:
-                        impact_mg = (
-                            CarbonCalculator.compute_local_theoretical_g(m.output_tokens) * 1000
-                        )
+                # 2. CALCUL GREENOPS : règle unique du cœur, selon l'origine réelle (badge) ;
+                # None si le CO₂ est inconnu (tag distant hors catalogue).
+                impact_mg = None if m is None else answer_carbon_mg(tag, m.output_tokens, is_cloud)
 
                 # 3. NOTATION JUGE (« non évalué » plutôt que 0 si le juge ne peut pas noter)
                 # Réponse vide (tout dans le raisonnement) : jamais envoyée au juge.

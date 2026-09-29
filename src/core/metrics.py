@@ -36,7 +36,9 @@ class InferenceMetrics:
     total_duration_s: float
     load_duration_s: float
     tokens_per_second: float
-    model_size_gb: float = 0.0  # Rempli via la config
+    # Jamais rempli : la mémoire affichée (badge, colonne « Mémoire ») est lue dans `ollama ps`
+    # (LLMProvider.loaded_model_size_gb).
+    model_size_gb: float = 0.0
 
     # Placeholder pour le Green IT (Module futur)
     energy_wh: float = None

@@ -7,6 +7,7 @@ Onglet « Discussion » de l'Assistant documentaire.
 """
 
 import asyncio
+import math
 import time
 
 import streamlit as st
@@ -30,12 +31,21 @@ from src.app.states import (
 )
 from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 
-# --- SSOT carbone ---
-from src.core.green_monitor import CarbonCalculator
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
-from src.core.models_db import extract_thought, get_friendly_name_from_tag, get_model_info
-from src.core.utils import extract_params_billions as _extract_params_billions
+from src.core.models_db import extract_thought
+
+
+def _known_memory(ram_gb) -> bool:
+    """Mémoire chargée connue : nombre fini strictement positif (ni booléen, ni 0 d'un
+    ancien historique, ni infini)."""
+    return (
+        isinstance(ram_gb, (int, float))
+        and not isinstance(ram_gb, bool)
+        and math.isfinite(ram_gb)
+        and ram_gb > 0
+    )
 
 
 def render_rag_chat_tab(
@@ -115,8 +125,11 @@ def render_rag_chat_tab(
                     if "metrics" in msg:
                         m = msg["metrics"]
                         badges.append(format_duration(m.get("total_time", 0)))
-                        if "ram_gb" in m:
-                            badges.append(format_gb(m["ram_gb"]))
+                        # Mémoire lue dans Ollama ; inconnue (cloud, ancien historique à 0) :
+                        # pas de badge, jamais « 0,0 Go ».
+                        ram_gb = m.get("ram_gb")
+                        if _known_memory(ram_gb):
+                            badges.append(format_gb(ram_gb))
                         if "carbon_mg" in m:
                             badges.append(format_co2(mg_to_grams(m["carbon_mg"])))
 
@@ -238,31 +251,16 @@ def render_rag_chat_tab(
                         st.markdown(thought)
                 render_answer(clean)
 
-                # E. Calculs carbone (SSOT)
-                carbon_mg = 0.0
-                ram_gb = 0.0
+                # E. CO₂ (règle unique du cœur, origine réelle du badge) et mémoire chargée
+                # (lue dans Ollama juste après la génération) ; None si inconnus.
+                carbon_mg = None
+                ram_gb = None
                 if metrics_obj:
-                    # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
-                    info = get_model_info(get_friendly_name_from_tag(selected_tag)) or {}
-
-                    # 1. RAM
-                    ram_gb = metrics_obj.model_size_gb or 0.0
-
-                    # 2. Carbone
-                    if info.get("type") == "api" and metrics_obj.output_tokens > 0:
-                        raw_params = info.get("params_act") or info.get("params_tot", "0")
-                        active_params = _extract_params_billions(raw_params)
-                        carbon_mg = (
-                            CarbonCalculator.compute_mistral_impact_g(
-                                active_params, metrics_obj.output_tokens
-                            )
-                            * 1000
-                        )
-                    else:
-                        carbon_mg = (
-                            CarbonCalculator.compute_local_theoretical_g(metrics_obj.output_tokens)
-                            * 1000
-                        )
+                    carbon_mg = answer_carbon_mg(
+                        selected_tag, metrics_obj.output_tokens, selected_is_cloud
+                    )
+                if not selected_is_cloud:
+                    ram_gb = LLMProvider.loaded_model_size_gb(selected_tag)
 
                 # F. Sauvegarde Persistante
                 msg_data = {

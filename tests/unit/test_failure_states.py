@@ -184,6 +184,79 @@ def test_is_model_loaded_for_local_model():
         assert LLMProvider.is_model_loaded("gemma3:1b") is False
 
 
+GIB = 1024**3
+
+
+@pytest.mark.parametrize(
+    ("ps_models", "tag", "expected"),
+    [
+        ([{"model": "qwen2.5:1.5b", "size": int(2.5 * GIB)}], "qwen2.5:1.5b", 2.5),
+        (
+            [SimpleNamespace(model="llama3:latest", name="llama3:latest", size=GIB)],
+            "llama3",
+            1.0,
+        ),
+        ([{"model": "gemma3:1b", "size": GIB}], "qwen2.5:1.5b", None),  # tag absent
+        ([{"model": "qwen2.5:1.5b", "size": 0}], "qwen2.5:1.5b", None),  # taille nulle
+        ([{"model": "qwen2.5:1.5b", "size": -5}], "qwen2.5:1.5b", None),
+        ([{"model": "qwen2.5:1.5b"}], "qwen2.5:1.5b", None),  # taille absente
+        ([], "qwen2.5:1.5b", None),
+    ],
+)
+def test_loaded_model_size_reads_ps(ps_models, tag, expected):
+    """Taille chargée d'un modèle (`ollama ps`, champ `size`) en Go ; None sinon, jamais 0."""
+    provider = OllamaProvider()
+    with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
+        mock_ollama.Client.return_value.ps.return_value = SimpleNamespace(models=ps_models)
+        size = provider.loaded_model_size_gb(tag)
+    assert size == (pytest.approx(expected) if expected is not None else None)
+
+
+def test_loaded_model_size_unknown_when_ps_fails():
+    provider = OllamaProvider()
+    with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
+        mock_ollama.Client.return_value.ps.side_effect = ConnectionError("refused")
+        assert provider.loaded_model_size_gb("qwen2.5:1.5b") is None
+
+
+def test_llm_provider_loaded_model_size():
+    """Modèle local : taille lue dans `ps` ; modèle cloud ou tag vide : None, sans `ps`."""
+    with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
+        mock_ollama.Client.return_value.ps.return_value = {
+            "models": [{"name": "qwen2.5:1.5b", "size": int(2.5 * GIB)}]
+        }
+        assert LLMProvider.loaded_model_size_gb("qwen2.5:1.5b") == pytest.approx(2.5)
+        assert LLMProvider.loaded_model_size_gb("gemma3:1b") is None
+        mock_ollama.Client.return_value.ps.side_effect = ConnectionError("refused")
+        assert LLMProvider.loaded_model_size_gb("qwen2.5:1.5b") is None
+
+    openai = MagicMock(provider_name="openai")
+    with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
+        LLMProviderFactory()._providers["openai"] = openai
+        assert LLMProvider.loaded_model_size_gb("gpt-4o") is None
+        assert LLMProvider.loaded_model_size_gb("") is None
+    mock_ollama.Client.return_value.ps.assert_not_called()
+    openai.loaded_model_size_gb.assert_not_called()
+
+
+def test_llm_provider_loaded_model_size_none_for_remote_tag():
+    """Tag distant servi par Ollama (`glm-4.6:cloud`) : modèle cloud, None sans `ps`, même
+    si `ps` le liste avec une taille."""
+    with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
+        mock_ollama.Client.return_value.ps.return_value = {
+            "models": [{"name": "glm-4.6:cloud", "size": GIB}]
+        }
+        assert LLMProvider.loaded_model_size_gb("glm-4.6:cloud") is None
+    mock_ollama.Client.return_value.ps.assert_not_called()
+
+
+def test_llm_provider_loaded_model_size_never_raises():
+    with patch.object(
+        LLMProvider, "_is_mistral_api_model", side_effect=RuntimeError("détecteur en échec")
+    ):
+        assert LLMProvider.loaded_model_size_gb("qwen2.5:1.5b") is None
+
+
 # ---------------------------------------------------------------------------
 # Accélérateur : NVML, puis Apple Silicon, sinon aucun
 # ---------------------------------------------------------------------------

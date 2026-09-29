@@ -11,8 +11,6 @@ Mode « Agent seul » des Agents autonomes.
   ne prépare qu'un brouillon, envoyé seulement après « Envoyer l'email » dans confirm-dialog
 """
 
-import math
-
 import streamlit as st
 
 from src.app.formatting import format_co2, mg_to_grams
@@ -33,11 +31,10 @@ from src.core.agent_tools import (
     smtp_missing_help,
     validate_email,
 )
-from src.core.green_monitor import CarbonCalculator
+from src.core.answer_carbon import answer_carbon_mg
 from src.core.llm_provider import LLMProvider
-from src.core.models_db import get_friendly_name_from_tag, get_model_info
 from src.core.resource_manager import ResourceManager
-from src.core.utils import extract_params_billions, extract_thought
+from src.core.utils import extract_thought
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {
@@ -132,33 +129,6 @@ def _select_agent_model(sorted_labels: list, display_to_tag: dict) -> str:
         on_change=_save_agent_model,
         args=(display_to_tag,),
     )
-
-
-def answer_carbon_mg(
-    model_tag: str | None, output_tokens, is_cloud: bool | None = None
-) -> float | None:
-    """CO₂ d'une réponse en mg, comme les autres onglets : tokens de sortie, formule du cloud
-    (paramètres actifs du catalogue) ou du local. La formule suit `is_cloud`, l'origine
-    réelle du modèle (celle du badge) ; à défaut, le type du catalogue. None si le modèle, le
-    compte de tokens ou, pour le cloud, la taille du modèle manque."""
-    if not model_tag or isinstance(output_tokens, bool):
-        return None
-    if not isinstance(output_tokens, (int, float)) or not math.isfinite(output_tokens):
-        return None
-    if output_tokens < 0:
-        return None
-    # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
-    info = get_model_info(get_friendly_name_from_tag(model_tag)) or {}
-    cloud = is_cloud if is_cloud is not None else info.get("type") == "api"
-    if cloud:
-        raw_params = info.get("params_act") or info.get("params_tot") or "0"
-        active_params = extract_params_billions(raw_params)
-        if not active_params or active_params <= 0:
-            return None
-        carbon_g = CarbonCalculator.compute_mistral_impact_g(active_params, int(output_tokens))
-    else:
-        carbon_g = CarbonCalculator.compute_local_theoretical_g(int(output_tokens))
-    return carbon_g * 1000
 
 
 def _answer_caption(msg: dict) -> str:

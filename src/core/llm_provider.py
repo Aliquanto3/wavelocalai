@@ -7,12 +7,13 @@ aux providers spécifiques via la factory.
 """
 
 import logging
+import math
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from src.core.metrics import InferenceMetrics, ReasoningChunk
 from src.core.model_detector import is_api_model
-from src.core.providers.provider_factory import get_provider_factory
+from src.core.providers.provider_factory import get_provider_factory, is_cloud_tag
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -185,6 +186,34 @@ class LLMProvider:
             return provider.is_model_loaded(model_name, timeout=timeout)
         except Exception:
             return None
+
+    @staticmethod
+    def loaded_model_size_gb(model_name: str, timeout: float = 2.0) -> float | None:
+        """
+        Taille chargée (Go) d'un modèle local en mémoire dans Ollama (`ollama ps`), lue juste
+        après une génération pour le badge mémoire.
+
+        Returns:
+            La taille en Go, ou None : modèle cloud (tag distant servi par Ollama, fournisseur
+            autre qu'Ollama), modèle absent de `ps`, Ollama injoignable ou taille nulle.
+            Jamais d'estimation ; ne lève jamais d'exception.
+        """
+        try:
+            if not model_name or LLMProvider._is_mistral_api_model(model_name):
+                return None
+            if is_cloud_tag(model_name) is True:
+                return None
+            provider = get_provider_factory().get_provider(model_name)
+            if getattr(provider, "provider_name", None) != "ollama" or not hasattr(
+                provider, "loaded_model_size_gb"
+            ):
+                return None
+            size = provider.loaded_model_size_gb(model_name, timeout=timeout)
+        except Exception:
+            return None
+        if isinstance(size, bool) or not isinstance(size, (int, float)):
+            return None
+        return size if math.isfinite(size) and size > 0 else None
 
     @staticmethod
     def loaded_models_ram_gb(timeout: float = 2.0) -> float:
