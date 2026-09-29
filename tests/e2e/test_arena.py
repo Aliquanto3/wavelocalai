@@ -7,6 +7,9 @@ pas plus de 15 % sous le second, sur assez de tokens, chargement à part), U20 (
 locaux seuls), F10 et CAP-5 (défauts locaux, juge local), F13 (Arène désactivée sous
 2 modèles), U17 (matrice avec légende de taille, tableau), U19 (avertissement de juge faible),
 F3 pour le chemin nominal (aucune trace).
+
+Chaque génération passe par `h.generate` : un flux Ollama tronqué (« Réponse interrompue »)
+relance le passage, jusqu'à 3 passages, puis le test est ignoré (bug d'Ollama 0.34.2).
 """
 
 import re
@@ -44,6 +47,15 @@ def _footers(page):
         .locator('[data-testid="stChatMessage"] [data-testid="stCaptionContainer"]')
         .filter(has_text="tokens/s")
     )
+
+
+def _chat_messages(page):
+    return h.main(page).locator('[data-testid="stChatMessage"]')
+
+
+def _last_message(page) -> str:
+    """Dernier message du chat : après une relance, l'historique garde le tour interrompu."""
+    return h.flat(_chat_messages(page).last.inner_text())
 
 
 def _open_arena(page, app, tab: str | None = None):
@@ -100,13 +112,29 @@ def test_chat_cold_start_load_and_badge(page, app, require_models, generation_ti
     label = h.pick_model(page, selectbox, tag)
     assert label.endswith("· Local")
 
-    h.chat_send(
-        page, CHAT_PLACEHOLDER, "Quelle est la capitale de la France ? Réponds en une phrase."
+    def send():
+        h.chat_send(
+            page, CHAT_PLACEHOLDER, "Quelle est la capitale de la France ? Réponds en une phrase."
+        )
+        h.wait_text(h.main(page), "Chargement du modèle en mémoire", timeout_ms=60_000)
+
+    # Relance à froid : le modèle est redéchargé avant chaque nouveau passage.
+    attempts = h.generate(
+        page,
+        send,
+        lambda: INTERRUPTED_MESSAGE in _last_message(page),
+        generation_timeout_ms,
+        before_retry=lambda: ensure_cold(tag),
+        what="Premier message du Chat libre",
     )
-    h.wait_text(h.main(page), "Chargement du modèle en mémoire", timeout_ms=60_000)
-    h.wait_count(page, _footers(page), 1, generation_timeout_ms, "Premier message")
-    footer = h.flat(_footers(page).nth(0).inner_text())
-    answer = h.flat(h.main(page).locator('[data-testid="stChatMessage"]').nth(1).inner_text())
+    # Seules erreurs admises : les tours interrompus des passages relancés, gardés dans
+    # l'historique (chat.py).
+    errors = h.ui_errors(page)
+    assert [e for e in errors if INTERRUPTED_MESSAGE not in e] == [], errors
+    assert len(errors) == attempts - 1, (attempts, errors)
+    assert _footers(page).count() == 1, "Premier message : aucune réponse avec ses métadonnées"
+    footer = h.flat(_footers(page).last.inner_text())
+    answer = _last_message(page)
     assert "Paris" in answer, answer
     for part in ("Local", "tokens/s", "Chargement", "Durée totale", "CO₂"):
         assert part in footer, f"« {part} » absent de « {footer} »"
@@ -117,46 +145,31 @@ def test_chat_cold_start_load_and_badge(page, app, require_models, generation_ti
     assert h.exceptions(page) == []
 
 
-def _interrupted(page) -> bool:
+def _lab_interrupted(page) -> bool:
     """La page affiche « Réponse interrompue… » (flux Ollama fermé sans fragment final)."""
     return any(INTERRUPTED_MESSAGE in e for e in h.ui_errors(page))
 
 
-LAB_ATTEMPTS = 3
-OLLAMA_TRUNCATED_STREAM_BUG = (
-    f"Banc d'essai interrompu {LAB_ATTEMPTS} fois de suite : bug d'Ollama 0.34.2, flux fermé "
-    "sans fragment done (common_chat_peg_parse sur un caractère UTF-8 coupé), pas l'app."
-)
-
-
 def _lab_run(page, panel, timeout_ms: int, retry_cold: str | None = None) -> dict[str, str]:
-    """Lance le banc d'essai et attend des métriques nouvelles ; renvoie {libellé: valeur}.
+    """Lance le banc d'essai et attend la fin de son exécution ; renvoie {libellé: valeur}.
 
-    Ollama ferme parfois le flux sans fragment final (« Réponse interrompue ») : le passage
-    est relancé, jusqu'à LAB_ATTEMPTS passages, puis le test est ignoré. `retry_cold` (tag) :
-    passage à froid, le modèle est d'abord redéchargé (`ensure_cold`) pour que la relance
-    mesure encore un vrai chargement."""
+    Passage interrompu : relancé par `h.generate`. `retry_cold` (tag) : passage à froid, le
+    modèle est d'abord redéchargé (`ensure_cold`) pour que la relance mesure encore un vrai
+    chargement. Les métriques doivent changer : le dernier résultat reste affiché (lab.py),
+    un clic sans génération montrerait les anciennes."""
     metrics = panel.locator('[data-testid="stMetric"]')
-    for attempt in range(LAB_ATTEMPTS):
-        before = metrics.all_inner_texts()
-        panel.get_by_role("button", name="Lancer le test").click()
-        if attempt:
-            # L'alerte du passage interrompu reste affichée jusqu'au rerun : l'attendre, sinon
-            # elle passerait pour une nouvelle interruption.
-            assert h.wait_rerun_started(page), "relance du Banc d'essai non démarrée"
-        h.settle_after_action(
-            page,
-            timeout_ms,
-            until=lambda before=before: _interrupted(page)
-            or (metrics.count() >= 4 and metrics.all_inner_texts() != before),
-        )
-        if not _interrupted(page):
-            break
-        if attempt == LAB_ATTEMPTS - 1:
-            pytest.skip(OLLAMA_TRUNCATED_STREAM_BUG)
-        if retry_cold:
-            ensure_cold(retry_cold)
+    before = metrics.all_inner_texts()
+    h.generate(
+        page,
+        panel.get_by_role("button", name="Lancer le test").click,
+        lambda: _lab_interrupted(page),
+        timeout_ms,
+        before_retry=(lambda: ensure_cold(retry_cold)) if retry_cold else None,
+        what="Banc d'essai",
+    )
     assert h.ui_errors(page) == [], h.ui_errors(page)
+    assert metrics.count() >= 4, "Banc d'essai sans métriques"
+    assert metrics.all_inner_texts() != before, "métriques inchangées : aucune nouvelle mesure"
     labels = [h.flat(t) for t in panel.locator('[data-testid="stMetricLabel"]').all_inner_texts()]
     return {label: h.metric_value(panel, label) for label in labels}
 
@@ -175,9 +188,7 @@ def test_lab_throughput_excludes_loading(page, app, require_models, generation_t
     # sinon ce rendu écraserait la saisie.
     user_box = panel.get_by_label("Entrée utilisateur")
     h.select_option(page, selectboxes.nth(1), LAB_SCENARIO)
-    h.settle_after_action(
-        page, until=lambda: user_box.input_value() == USE_CASES[LAB_SCENARIO]["user"]
-    )
+    assert user_box.input_value() == USE_CASES[LAB_SCENARIO]["user"]
     user_box.fill(LAB_PROMPT)
     ensure_cold(tag)
 
@@ -216,16 +227,14 @@ def test_arena_two_local_models_with_judge(
     assert all(v.endswith("· Local") for v in preselected), preselected
     assert launch.is_enabled() == (len(preselected) >= 2)
 
-    # Vider la liste est immédiat dans le navigateur ; la légende et le bouton désactivé
-    # viennent du rerun du serveur.
+    # Les helpers attendent la fin du rerun du serveur : légende et bouton sont à jour.
     h.multiselect_clear(page, multiselect)
-    h.settle_after_action(page, until=panel.get_by_text(MIN_MODELS_CAPTION))
     assert launch.is_disabled()
     assert panel.get_by_text(MIN_MODELS_CAPTION).is_visible()
     for tag in (chat, small):
         h.add_model(page, multiselect, tag)
     assert len(h.multiselect_values(multiselect)) == 2
-    h.settle_after_action(page, until=launch.is_enabled)
+    assert launch.is_enabled()
 
     panel.get_by_text("Réglages du juge").click()
     judge_box = panel.locator('[data-testid="stSelectbox"]').first
@@ -245,30 +254,27 @@ def test_arena_two_local_models_with_judge(
             name = get_friendly_name_from_tag(tag)
             expected |= {f"{name} · Local", f"{name} ({tag}) · Local"}
         assert default_judge in expected, (default_judge, expected, memory_before, memory_after)
+    # pick_model attend le rerun du choix du juge : l'avertissement est à jour.
     h.pick_model(page, judge_box, judge)
-    # L'avertissement suit le rerun déclenché par le choix du juge (la valeur affichée, elle,
-    # change avant) : attendre ce rerun, puis l'état attendu (qui peut être déjà vrai avant).
     weak = expected_weak_judge(judge, ollama_models)
-    weak_warning = panel.locator('[data-testid="stAlertContentWarning"]').filter(
-        has_text="Note peu fiable"
-    )
-    h.settle_after_action(page)
-    h.wait_until(
-        page,
-        lambda: (weak_warning.count() > 0) == weak,
-        what=f"avertissement « Note peu fiable » {'affiché' if weak else 'absent'}",
-    )
-    h.settle(page)
     warnings = [
         h.flat(t) for t in panel.locator('[data-testid="stAlertContentWarning"]').all_inner_texts()
     ]
     assert any("Note peu fiable" in w for w in warnings) == weak, warnings
 
-    launch.click()
-    h.wait_text(panel, re.compile(r"Comparaison (terminée|échouée)"), generation_timeout_ms)
-    h.settle(page)
+    h.generate(
+        page,
+        launch.click,
+        lambda: h.arena_interrupted(panel),
+        generation_timeout_ms,
+        what="Arène avec juge",
+    )
+    status = h.wait_text(panel, re.compile(r"Comparaison (terminée|échouée)"), h.PAGE_TIMEOUT_MS)
+    label = h.flat(status.inner_text())
     text = h.flat(panel.inner_text())
     assert "Comparaison échouée" not in text, text[-1500:]
+    # Aucun modèle en échec : un flux interrompu a été relancé, tout autre échec est un défaut.
+    assert "Comparaison terminée" in label and "en échec" not in label, label
     assert panel.get_by_role("heading", name="Verdict", exact=True).count() == 1
     assert panel.locator('[data-testid="stDataFrame"]').count() >= 1
     assert panel.get_by_role("heading", name="Réponses des modèles").count() == 1

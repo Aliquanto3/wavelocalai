@@ -5,6 +5,9 @@ Ollama est réel ; il est interrompu par le délai de l'application.
 
 Constats couverts : F3 et CAP-3 (« Délai dépassé » au lieu d'une trace dans le chat, le banc
 d'essai et l'Arène ; l'Arène continue et classe les autres modèles).
+
+L'Arène avec juge passe par `h.generate` : un flux Ollama tronqué du modèle de chat ou du
+juge relance la comparaison, jusqu'à 3 passages, puis le test est ignoré (bug d'Ollama 0.34.2).
 """
 
 import os
@@ -88,19 +91,22 @@ def test_arena_timeout_does_not_block_others(page, app, require_models, generati
     launch = panel.get_by_role("button", name="Lancer la comparaison")
     for tag in (chat, small):
         h.add_model(page, multiselect, tag)
-    # Fin du rerun de l'ajout (bouton activé par le serveur) avant d'ouvrir le juge : un clic
-    # pendant le rerun n'ouvrait pas la liste (option introuvable parmi []).
-    h.settle_after_action(page, until=launch.is_enabled)
+    # add_model attend la fin du rerun de l'ajout (bouton activé par le serveur) : un clic
+    # pendant ce rerun n'ouvrait pas la liste du juge (option introuvable parmi []).
+    assert launch.is_enabled()
     panel.get_by_text("Réglages du juge").click()
     judge_box = panel.locator('[data-testid="stSelectbox"]').first
     judge_box.wait_for()
     h.pick_model(page, judge_box, judge)
 
-    launch.click()
-    status = h.wait_text(
-        panel, re.compile(r"Comparaison (terminée|échouée)"), generation_timeout_ms
+    h.generate(
+        page,
+        launch.click,
+        lambda: h.arena_interrupted(panel),
+        generation_timeout_ms,
+        what="Arène avec juge (délai dépassé)",
     )
-    h.settle(page)
+    status = h.wait_text(panel, re.compile(r"Comparaison (terminée|échouée)"), h.PAGE_TIMEOUT_MS)
     label = h.flat(status.inner_text())
     assert "Comparaison terminée" in label and "1 modèle en échec" in label, label
 

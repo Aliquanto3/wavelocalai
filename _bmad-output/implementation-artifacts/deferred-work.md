@@ -12,12 +12,9 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
   summary: Documenter dans README.md et AGENTS.md les télémétries coupées par défaut et la façon d'en réactiver une (variable dans l'environnement ou le .env).
   evidence: Rien n'indique à l'utilisateur que LANGSMITH_TRACING et les autres sont forcés ; la modification d'AGENTS.md est hors d'une story de code.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/13-tests-e2e-fiables-vrai-poste.md`
-  summary: Attendre le rerun du serveur au niveau des helpers e2e (select_option, multiselect_add, multiselect_clear) au lieu d'un état du navigateur, par exemple avec un compteur d'exécutions du script.
-  evidence: Ces helpers passent encore un `until` vrai côté navigateur, contre la règle de leur propre docstring ; la story 13 corrige les appels qui échouaient, pas la cause commune. Un test a encore échoué une fois sur une option détachée du DOM (test_arena_timeout_does_not_block_others), puis réussi deux fois.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/14-couleur-primaire-sombre-lisible.md`
-  summary: Liste explicite d'écarts de contraste acceptés dans test_accessibility.py (couleurs exactes, ratio, renvoi à DESIGN.md), pour que le test Agent_Lab sombre passe sur l'écart connu et échoue sur tout écart nouveau ; et classer le texte blanc sur primaryColor comme couleur du thème.
-  evidence: Le test échoue désormais à chaque passage sur les pastilles à 4,24:1 (compromis accepté le 27/09) : une nouvelle régression sur cette page s'y confondrait. Le blanc des boutons principaux (4,26:1) n'est pas relevé : boutons dans des onglets masqués, et le blanc n'est pas une couleur de [theme.dark].
+  summary: Classer le texte blanc sur primaryColor (boutons principaux, 4,26:1 en sombre) comme couleur du thème dans test_accessibility.py, pour qu'axe le fasse échouer s'il le relève hors de l'écart accepté.
+  evidence: La liste explicite des écarts acceptés est faite (story 21, pastilles d'Agent_Lab à 4,24:1). Le blanc des boutons principaux n'est pas relevé : boutons dans des onglets masqués au moment de l'analyse, et le blanc n'est pas une couleur de [theme.dark], donc classé couleur native s'il l'était.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/15-juge-modele-defaut-benchmark-poste.md`
   summary: Trier « le plus rapide » (premier modèle proposé, présélection de l'Arène) sur le débit prudent du benchmark de ce poste plutôt que sur benchmark_stats de data/models.json.
   evidence: rank_models lit encore avg_tokens_per_second de data/models.json, qui peut venir d'une autre machine ; le benchmark du poste est déjà chargé dans model_menu mais ne sert qu'au juge. Antérieur à la story 15 (règle de la story 7).
@@ -37,11 +34,14 @@
   summary: Relancer automatiquement, une fois, une génération interrompue (flux Ollama fermé sans fragment `done`).
   evidence: Story 19 : la réponse interrompue est signalée (« Réponse interrompue… ») et jamais présentée comme complète, mais l'utilisateur doit relancer lui-même. Reproduit 1 flux sur 8 le 29/09 (Ollama 0.34.2, gemma3:1b). Relance automatique hors intention.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
-  summary: Les autres tests e2e qui génèrent (premier message du Chat libre, Arène avec juge) restent exposés au flux tronqué d'Ollama 0.34.2 (environ 1 sur 8) et échouent alors sur « Réponse interrompue ».
-  evidence: Story 19, décision A : seul `_lab_run` (Banc d'essai) relance une fois un passage interrompu. L'Arène avec juge fait 3 générations ; même relance à ajouter, ou attendre une version d'Ollama corrigée.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/19-constats-recette-discussion-flux-e2e.md`
   summary: Une génération interrompue ne produit plus de métriques : son énergie (durée murale jusqu'à la coupure) n'entre plus dans le CO₂ de la session.
   evidence: `OllamaProvider.chat_stream` lève `InterruptedResponseError` sans produire `InferenceMetrics` ; générations coupées courtes (~150 ms observés le 29/09), biais faible mais réel pour un démonstrateur carbone.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/20-reponse-vide-evaluation-rag-e2e-banc.md`
   summary: Évaluation de la qualité de l'Assistant documentaire : un flux Ollama interrompu (`InterruptedResponseError`) y est compté comme un échec générique, avec le conseil erroné « Vérifiez qu'Ollama est démarré et que le modèle est installé ».
   evidence: `src/app/tabs/rag/eval.py`, `except Exception` de la boucle des candidats ; la Discussion affiche `INTERRUPTED_MESSAGE` (`rag/chat.py`). Antérieur à la story 20 (story 19 : « l'évaluation compte un échec au lieu de noter un texte tronqué ») ; seul le message est à corriger.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/21-suite-e2e-verte-reruns-serveur-ecarts-contraste-flux-tronque.md`
+  summary: Les tests e2e de l'Assistant documentaire (Discussion, évaluation de la qualité) génèrent sans `h.generate` et échouent sur un flux Ollama tronqué au lieu de le relancer.
+  evidence: rag/chat.py et rag/eval.py passent par OllamaProvider, qui lève InterruptedResponseError sur un flux sans `done` ; test_documents.py n'a aucune relance. Relevé à la revue de la story 21.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/21-suite-e2e-verte-reruns-serveur-ecarts-contraste-flux-tronque.md`
+  summary: `nav`, `click_tab` et les appels de `settle_after_action(until=…)` attendent encore un état du navigateur, pas le compteur d'exécutions du serveur (`wait_script_run`).
+  evidence: Story 21 : seuls select_option, multiselect_add, multiselect_clear et generate emploient le compteur ; test_agents.py, test_documents.py et test_sobriety.py gardent des attentes côté navigateur.

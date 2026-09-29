@@ -110,20 +110,22 @@ def _timeout_ms() -> int:
 
 
 # ---------------------------------------------------------------------------
-# Rapport : couleurs natives de Streamlit relevées par axe (listées, jamais masquées)
+# Rapport : contrastes relevés par axe sans échec (listés, jamais masqués)
 # ---------------------------------------------------------------------------
 
 
 def pytest_terminal_summary(terminalreporter):
-    if not helpers.AXE_NATIVE_FINDINGS:
+    if not helpers.AXE_NON_FAILING_FINDINGS:
         return
     terminalreporter.section(
-        "axe-core : contrastes non imputables au thème (couleurs natives, composants inactifs)"
+        "axe-core : contrastes non imputables au thème (couleurs natives, composants inactifs) "
+        "et écarts acceptés (DESIGN.md)"
     )
-    for f in helpers.AXE_NATIVE_FINDINGS:
+    for f in helpers.AXE_NON_FAILING_FINDINGS:
         terminalreporter.write_line(
             f"{f['scheme']:5} {f['page']:16} {f['category']} : {f['ratio']}:1 (attendu "
-            f"{f['expected']}) texte {f['fg']} sur {f['bg']} : {f['html']}"
+            f"{f['expected']}) composant {f['component']}, texte {f['fg']} sur {f['bg']} : "
+            f"{f['html']}"
         )
 
 
@@ -458,8 +460,10 @@ def context(browser, app, color_scheme):
 
 @pytest.fixture
 def page(context):
-    """Nouvel onglet (la page à ouvrir : helpers.goto). Exceptions JavaScript relevées."""
+    """Nouvel onglet (la page à ouvrir : helpers.goto). Exceptions JavaScript relevées ;
+    exécutions du script comptées dès avant la première navigation (helpers.track_script_runs)."""
     pg = context.new_page()
+    helpers.track_script_runs(pg)
     js_errors: list[str] = []
     pg.on("pageerror", lambda e: js_errors.append(str(e)))
     yield pg

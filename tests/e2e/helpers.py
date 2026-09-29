@@ -5,11 +5,21 @@ Repris des scripts d'audit (`docs/audits/frontend-2026-09/poste-rtx3060/playwrig
 et `pro-elitebook-x360/e2e/helpers.js`) : attendre la fin du rerun Streamlit, taper pour
 filtrer les listes virtualisées, relever exceptions et alertes. Aucun import de Playwright
 au chargement : la collecte de la suite par défaut n'en dépend pas.
+
+Les exécutions du script sont comptées côté serveur (`track_script_runs`) : messages
+`new_session` et `script_finished` du WebSocket de la page. Les helpers de sélection
+(`select_option`, `multiselect_add`, `multiselect_clear`) et `generate` attendent la fin
+d'une exécution commencée après leur action (`wait_script_run`), jamais un état du
+navigateur qui peut être vrai avant ce rerun. `nav`, `click_tab` et les appels de
+`settle_after_action` attendent encore un état du navigateur.
 """
 
 import contextlib
 import re
 import time
+import weakref
+
+import pytest
 
 # Délais (ms). Une génération réelle sur un petit modèle, premier chargement compris, tient
 # largement dans GENERATION_TIMEOUT_MS ; WAVELOCALAI_E2E_TIMEOUT_S le change (conftest.py).
@@ -30,6 +40,13 @@ _RUNNING_JS = """() => {
     return !!app && app.getAttribute('data-test-script-state') !== 'notRunning';
 }"""
 
+# Génération relancée après un flux Ollama tronqué (voir `generate`).
+GENERATION_ATTEMPTS = 3
+OLLAMA_TRUNCATED_STREAM_BUG = (
+    "bug d'Ollama 0.34.2, flux fermé sans fragment done (common_chat_peg_parse sur un "
+    "caractère UTF-8 coupé), pas l'app"
+)
+
 # Pictogrammes emoji (même périmètre que tests/app/test_theme.py) : plans pictographiques,
 # symboles divers, dingbats, sélecteur de variante emoji.
 EMOJI_RE = re.compile(
@@ -38,10 +55,94 @@ EMOJI_RE = re.compile(
 # Seul emoji toléré dans un titre (accueil de l'agent, EXPERIENCE.md).
 ALLOWED_EMOJI_HEADINGS = {"👋 Bonjour !"}
 
-# Contrastes non imputables au thème (couleurs natives de Streamlit, texte de composants
-# inactifs), relevés par test_accessibility.py et listés en fin de session (conftest.py) :
-# jamais masqués.
-AXE_NATIVE_FINDINGS: list[dict] = []
+# Contrastes qui ne font pas échouer test_accessibility.py (couleurs natives de Streamlit,
+# texte de composants inactifs, écarts acceptés de DESIGN.md), listés en fin de session
+# (conftest.py) : jamais masqués.
+AXE_NON_FAILING_FINDINGS: list[dict] = []
+
+
+# ---------------------------------------------------------------------------
+# Exécutions du script, comptées côté serveur
+# ---------------------------------------------------------------------------
+
+
+class ScriptRuns:
+    """Exécutions du script Streamlit d'une page, lues dans les trames de son WebSocket.
+
+    `started` compte les messages `new_session` (début de chaque exécution, fragments
+    compris). À chaque `script_finished` qui n'est pas `FINISHED_EARLY_FOR_RERUN` (exécution
+    coupée par une autre), `finished` prend le numéro de la dernière exécution commencée."""
+
+    def __init__(self) -> None:
+        self.started = 0
+        self.finished = 0
+
+    def on_frame(self, payload) -> None:
+        """Trame reçue du serveur : un `ForwardMsg` binaire par trame (Streamlit 1.64)."""
+        if not isinstance(payload, (bytes, bytearray)):
+            return
+        from google.protobuf.message import DecodeError
+        from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
+
+        msg = ForwardMsg()
+        try:
+            msg.ParseFromString(bytes(payload))
+        except DecodeError:
+            return
+        kind = msg.WhichOneof("type")
+        if kind == "new_session":
+            self.started += 1
+        elif (
+            kind == "script_finished" and msg.script_finished != ForwardMsg.FINISHED_EARLY_FOR_RERUN
+        ):
+            self.finished = self.started
+
+
+# Compteur de chaque page (les objets Page de Playwright acceptent les références faibles).
+_SCRIPT_RUNS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def track_script_runs(page) -> ScriptRuns:
+    """Compte les exécutions du script vues par `page`, à installer avant toute navigation
+    (fixture `page` de conftest.py). Chaque WebSocket de la page, reconnexions comprises, est
+    suivi."""
+    runs = ScriptRuns()
+    _SCRIPT_RUNS[page] = runs
+    page.on("websocket", lambda ws: ws.on("framereceived", runs.on_frame))
+    return runs
+
+
+def _runs(page) -> ScriptRuns:
+    runs = _SCRIPT_RUNS.get(page)
+    if runs is None:
+        raise AssertionError(
+            "Compteur d'exécutions absent : la page doit venir de la fixture `page` "
+            "(helpers.track_script_runs)."
+        )
+    return runs
+
+
+def script_runs(page) -> int:
+    """Numéro de la dernière exécution commencée : à relever juste avant une action."""
+    return _runs(page).started
+
+
+def wait_script_run(page, since: int, timeout_ms: int = PAGE_TIMEOUT_MS, what: str = "") -> None:
+    """Attend la fin d'une exécution commencée après `since` (`script_runs` relevé avant
+    l'action), puis `settle`. Une exécution déjà en cours au moment de l'action ne compte
+    pas ; une exécution coupée par `st.rerun()` non plus : l'attente porte sur la suivante."""
+    runs = _runs(page)
+    deadline = time.monotonic() + timeout_ms / 1000
+    while runs.finished <= since:
+        if time.monotonic() > deadline:
+            context = f" ({what})" if what else ""
+            raise AssertionError(
+                f"Aucune exécution du script terminée {timeout_ms / 1000:.0f} s après "
+                f"l'action{context} : {runs.started - since} exécution(s) commencée(s) depuis, "
+                "aucune finie."
+            )
+        page.wait_for_timeout(100)
+    settle(page, timeout_ms)
 
 
 # ---------------------------------------------------------------------------
@@ -70,17 +171,6 @@ def wait_until(page, condition, timeout_ms: int = PAGE_TIMEOUT_MS, what: str = "
         page.wait_for_timeout(200)
 
 
-def wait_rerun_started(page, timeout_ms: int = 10_000) -> bool:
-    """Attend que le script Streamlit se mette à tourner (après un clic) ; False s'il n'a pas
-    démarré dans le délai. Utile quand l'état d'avant l'action (une alerte) ressemble à
-    l'état attendu : sans cette attente, `until` le verrait vrai avant le rerun."""
-    try:
-        page.wait_for_function(_RUNNING_JS, timeout=timeout_ms, polling=100)
-    except Exception:
-        return False
-    return True
-
-
 def settle_after_action(page, timeout_ms: int = PAGE_TIMEOUT_MS, until=None) -> None:
     """Après un clic ou une saisie : attend le rerun qu'elle déclenche, puis sa fin.
 
@@ -98,10 +188,18 @@ def settle_after_action(page, timeout_ms: int = PAGE_TIMEOUT_MS, until=None) -> 
 
 def goto(page, base_url: str, path: str = "", timeout_ms: int = PAGE_TIMEOUT_MS) -> None:
     """Ouvre une page (nouvelle session Streamlit) et attend son premier rendu complet."""
+    since = script_runs(page)
     page.goto(f"{base_url}/{path}", timeout=timeout_ms)
     # Premier rendu : le titre du module (h1) dans la zone principale, puis fin du script.
     main(page).locator("h1").first.wait_for(timeout=timeout_ms)
     settle(page, timeout_ms)
+    # Premier rendu fini sans exécution comptée : le protocole a changé, et toute attente de
+    # rerun échouerait ensuite sans en dire la cause.
+    assert _runs(page).finished > since, (
+        "Compteur d'exécutions muet après le premier rendu : il suppose un ForwardMsg binaire "
+        "par trame du WebSocket et les messages new_session / script_finished (Streamlit "
+        "1.64). Vérifier le protocole de la version de Streamlit installée."
+    )
 
 
 def nav(page, title: str, timeout_ms: int = PAGE_TIMEOUT_MS) -> None:
@@ -230,11 +328,21 @@ def _pick(page, text: str, tag: str | None) -> str:
 
 def select_option(page, selectbox, text: str, tag: str | None = None) -> str:
     """Choisit dans un `st.selectbox` l'option désignée par `text` (voir `match_options`) ;
-    renvoie son libellé."""
+    renvoie son libellé. Attend la fin du rerun du serveur ; l'option déjà choisie n'en
+    déclenche aucun."""
+    current = selected_value(selectbox)
     selectbox.click()
     page.keyboard.type(text)
+    since = script_runs(page)
     label = _pick(page, text, tag)
-    settle_after_action(page, until=lambda: selected_value(selectbox) == label)
+    if label != current:
+        wait_script_run(page, since, what=f"choix de « {label} »")
+    wait_until(
+        page,
+        lambda: selected_value(selectbox) == label,
+        timeout_ms=10_000,
+        what=f": « {label} » non affiché dans la liste",
+    )
     return label
 
 
@@ -259,29 +367,42 @@ def multiselect_values(multiselect) -> list[str]:
 
 
 def multiselect_clear(page, multiselect) -> None:
-    """Retire toutes les valeurs d'un `st.multiselect`."""
+    """Retire toutes les valeurs d'un `st.multiselect` et attend la fin du rerun du serveur.
+    Liste déjà vide : retour immédiat."""
+    tags = multiselect.locator("[data-tag]")
+    if not tags.count():
+        return
     clear = multiselect.get_by_role("button", name=re.compile("clear all", re.I))
     if clear.count():
+        since = script_runs(page)
         clear.first.click()
+        page.keyboard.press("Escape")
+        wait_script_run(page, since, what="liste vidée")
     else:
+        # Un retrait par clic : chaque clic attend son propre rerun.
         for _ in range(50):
-            if not multiselect.locator("[data-tag]").count():
+            if not tags.count():
                 break
+            since = script_runs(page)
             multiselect.locator("[data-tag] button").first.click()
-            page.wait_for_timeout(200)
+            wait_script_run(page, since, what="valeur retirée")
         else:
             raise AssertionError("multiselect non vidé")
-    page.keyboard.press("Escape")
-    settle_after_action(page, until=lambda: not multiselect.locator("[data-tag]").count())
+        page.keyboard.press("Escape")
+    assert not tags.count(), f"multiselect non vidé : {multiselect_values(multiselect)}"
 
 
 def multiselect_add(page, multiselect, text: str, tag: str | None = None) -> str:
-    """Ajoute à un `st.multiselect` l'option désignée par `text` (voir `match_options`)."""
+    """Ajoute à un `st.multiselect` l'option désignée par `text` (voir `match_options`) et
+    attend la fin du rerun du serveur ; renvoie son libellé."""
     multiselect.locator("input").click()
     page.keyboard.type(text)
+    since = script_runs(page)
     label = _pick(page, text, tag)
     page.keyboard.press("Escape")
-    settle_after_action(page, until=lambda: label in multiselect_values(multiselect))
+    wait_script_run(page, since, what=f"ajout de « {label} »")
+    values = multiselect_values(multiselect)
+    assert label in values, f"« {label} » absent des valeurs choisies : {values}"
     return label
 
 
@@ -289,6 +410,48 @@ def chat_send(page, placeholder: str, text: str) -> None:
     box = page.get_by_placeholder(placeholder)
     box.fill(text)
     box.press("Enter")
+
+
+# ---------------------------------------------------------------------------
+# Générations réelles
+# ---------------------------------------------------------------------------
+
+
+def truncated_stream_reason(what: str) -> str:
+    """Motif du skip après GENERATION_ATTEMPTS générations interrompues de suite."""
+    return (
+        f"{what} : génération interrompue {GENERATION_ATTEMPTS} fois de suite, "
+        f"{OLLAMA_TRUNCATED_STREAM_BUG}."
+    )
+
+
+def arena_interrupted(scope) -> bool:
+    """Un modèle ou le juge de l'Arène a vu son flux interrompu : « Réponse interrompue » dans
+    le suivi (replié, `inert`, mais présent dans le DOM) ou dans les détails techniques,
+    « (réponse interrompue) » dans la raison du juge. D'où `text_content`, pas `inner_text`."""
+    return "réponse interrompue" in (scope.text_content() or "").lower()
+
+
+def generate(
+    page, launch, interrupted, timeout_ms: int, before_retry=None, what: str = "Génération"
+) -> int:
+    """Lance une génération réelle (`launch()`), attend la fin de l'exécution du script
+    qu'elle déclenche ; renvoie le nombre de passages.
+
+    Ollama 0.34.2 ferme parfois le flux sans fragment final : l'app affiche « Réponse
+    interrompue » (`interrupted()` vrai après le passage). Le passage est alors relancé,
+    jusqu'à GENERATION_ATTEMPTS passages, puis le test est ignoré avec ce motif ; jamais de
+    skip dans un autre cas. `before_retry()` précède chaque relance : un passage à froid y
+    redécharge le modèle (`ensure_cold`)."""
+    for attempt in range(1, GENERATION_ATTEMPTS + 1):
+        if attempt > 1 and before_retry is not None:
+            before_retry()
+        since = script_runs(page)
+        launch()
+        wait_script_run(page, since, timeout_ms, what=what)
+        if not interrupted():
+            return attempt
+    pytest.skip(truncated_stream_reason(what))
 
 
 # ---------------------------------------------------------------------------
