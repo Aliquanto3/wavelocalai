@@ -18,12 +18,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/15-juge-modele-defaut-benchmark-poste.md`
   summary: Trier « le plus rapide » (premier modèle proposé, présélection de l'Arène) sur le débit prudent du benchmark de ce poste plutôt que sur benchmark_stats de data/models.json.
   evidence: rank_models lit encore avg_tokens_per_second de data/models.json, qui peut venir d'une autre machine ; le benchmark du poste est déjà chargé dans model_menu mais ne sert qu'au juge. Antérieur à la story 15 (règle de la story 7).
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
-  summary: OpenAIProvider._get_client appelle AsyncOpenAI, importé seulement sous TYPE_CHECKING : le premier vrai appel OpenAI lève NameError.
-  evidence: src/core/providers/openai_provider.py (import `_AsyncOpenAI` au runtime, `AsyncOpenAI` sous TYPE_CHECKING, `from __future__ import annotations`). Antérieur à la story 16 ; GroqProvider crée son propre client et n'est pas touché. Correction d'une ligne (`_AsyncOpenAI(...)`), à tester avec un client simulé.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/16-fournisseur-cloud-groq.md`
-  summary: Les modèles OpenAI et Anthropic listés sur la page Agents partent encore vers Ollama (agent seul et équipe) ; le tag Ollama `gpt-oss:20b` est routé vers OpenAI par son préfixe `gpt-`.
-  evidence: agent_engine._initialize_llm et crew_engine._get_native_llm ne connaissent que Mistral et Groq ; provider_factory.get_provider teste `startswith("gpt-")` avant le repli Ollama. Antérieur à la story 16.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/18-constats-recette-arene-agents.md`
   summary: Gras affiché avec ses astérisques dans la réponse de l'agent seul (GPT-OSS 120B, recette C5 du 29/09), non reproduit.
   evidence: Réponse réelle capturée le 29/09 (`**Résultat :** 7 006 652`, `---`, italique) rendue correctement par st.markdown dans Chrome ; la sortie du modèle varie. maybe-false : à la prochaine occurrence, copier le texte brut de la réponse (ou une capture) pour trouver le motif fautif.
@@ -45,3 +39,6 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/21-suite-e2e-verte-reruns-serveur-ecarts-contraste-flux-tronque.md`
   summary: `nav`, `click_tab` et les appels de `settle_after_action(until=…)` attendent encore un état du navigateur, pas le compteur d'exécutions du serveur (`wait_script_run`).
   evidence: Story 21 : seuls select_option, multiselect_add, multiselect_clear et generate emploient le compteur ; test_agents.py, test_documents.py et test_sobriety.py gardent des attentes côté navigateur.
+- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/22-modeles-cloud-routes-bon-fournisseur.md`
+  summary: Page Agents : le garde-fou mémoire (`ResourceManager.check_resources`) s'applique aussi à un modèle cloud (4 Go estimés par défaut) et peut libérer la mémoire d'Ollama ou bloquer la demande.
+  evidence: solo.py appelle check_resources(selected_tag) avant le moteur ; estimate_model_ram renvoie 4,0 Go pour un tag absent de MODELS_DB. Antérieur à la story 22, relevé par la revue.

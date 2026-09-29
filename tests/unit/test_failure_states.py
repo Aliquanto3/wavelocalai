@@ -352,9 +352,13 @@ def test_unavailable_ollama_is_not_cached(monkeypatch):
 def test_failure_advice_depends_on_provider():
     from src.app.states import generation_failure_advice
 
-    assert "Ollama" in generation_failure_advice("qwen2.5:1.5b")
+    # Tags Ollama préfixés `gpt-` (story 22) : conseil Ollama, pas OpenAI.
+    for tag in ("qwen2.5:1.5b", "gpt-oss:20b", "gpt-oss:120b-cloud"):
+        advice = generation_failure_advice(tag)
+        assert "Ollama" in advice and "OpenAI" not in advice
     for tag, name in (
         ("gpt-4o", "OpenAI"),
+        ("o1-mini", "OpenAI"),
         ("claude-3-5-sonnet", "Anthropic"),
         ("openai/gpt-oss-120b", "Groq"),
     ):

@@ -60,7 +60,7 @@ class AnthropicProvider(ILLMProvider):
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
             if not self._api_key:
                 raise ValueError("Anthropic API key not configured")
-            self._client = AsyncAnthropic(api_key=self._api_key)
+            self._client = _AsyncAnthropic(api_key=self._api_key)
         return self._client
 
     @property

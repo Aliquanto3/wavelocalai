@@ -521,3 +521,75 @@ def test_crew_groq_without_key_raises_readable_error(monkeypatch):
     monkeypatch.setattr(groq_provider, "GROQ_API_KEY", "")
     with pytest.raises(ValueError, match="Groq"):
         CrewFactory._get_native_llm("openai/gpt-oss-20b")
+
+
+@pytest.mark.parametrize(
+    ("tag", "provider", "key_attr"),
+    [
+        ("gpt-4o", "openai", "OPENAI_API_KEY"),
+        ("gpt-4o-mini", "openai", "OPENAI_API_KEY"),
+        ("claude-3-5-sonnet-20241022", "anthropic", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_crew_cloud_llm_targets_its_provider(monkeypatch, tag, provider, key_attr):
+    """OpenAI et Anthropic (story 22) : LLM natif de CrewAI du fournisseur, clé factice,
+    construit hors ligne ; jamais Ollama."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import anthropic_provider, openai_provider
+
+    module = openai_provider if provider == "openai" else anthropic_provider
+    monkeypatch.setattr(module, key_attr, "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    llm = CrewFactory._get_native_llm(tag, temperature=0.3)
+    assert llm.provider == provider
+    assert llm.model == tag
+    assert llm.api_key == "cle-factice"
+    assert llm.temperature == 0.3
+
+
+def test_crew_prefix_checked_before_mistral_catalog(monkeypatch):
+    """Même ordre que la fabrique : le préfixe `gpt-` prime sur `is_api_model`."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: True)
+    llm = CrewFactory._get_native_llm("gpt-4o")
+    assert llm.provider == "openai" and llm.model == "gpt-4o"
+
+
+@pytest.mark.parametrize(
+    ("tag", "key_attr", "message"),
+    [
+        ("gpt-4o", "OPENAI_API_KEY", "Clé API OpenAI manquante."),
+        ("claude-3-5-sonnet-20241022", "ANTHROPIC_API_KEY", "Clé API Anthropic manquante."),
+    ],
+)
+def test_crew_cloud_without_key_raises_readable_error(monkeypatch, tag, key_attr, message):
+    import re
+
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import anthropic_provider, openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(anthropic_provider, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        CrewFactory._get_native_llm(tag)
+
+
+@pytest.mark.parametrize("tag", ["gpt-oss:20b", "gpt-oss:120b-cloud"])
+def test_crew_ollama_gpt_tags_stay_on_ollama(monkeypatch, tag):
+    """Tag Ollama préfixé `gpt-` : `ollama/<tag>`, même avec une clé OpenAI configurée."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    llm = CrewFactory._get_native_llm(tag)
+    assert llm.provider == "ollama"
+    assert llm.model == tag

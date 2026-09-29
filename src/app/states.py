@@ -19,6 +19,7 @@ from src.core.metrics import INTERRUPTED_RESPONSE_DEFAULT
 from src.core.model_defaults import BENCH_MIN_SPEED_TPS, JUDGE_MIN_PARAMS_B
 from src.core.model_detector import is_api_model
 from src.core.providers.groq_provider import is_groq_model
+from src.core.providers.provider_factory import prefixed_cloud_provider
 
 # --- Service indisponible ---
 OLLAMA_DOWN_MESSAGE = "Ollama ne répond pas. Démarrez-le, puis rechargez la page."
@@ -165,10 +166,10 @@ def _cloud_provider_name(model_tag: str | None) -> str | None:
         return None
     if is_groq_model(model_tag):
         return "Groq"
-    tag = model_tag.lower()
-    if tag.startswith(("gpt-", "o1-")):
+    prefixed = prefixed_cloud_provider(model_tag)
+    if prefixed == "openai":
         return "OpenAI"
-    if tag.startswith("claude-"):
+    if prefixed == "anthropic":
         return "Anthropic"
     if is_api_model(model_tag):
         return "Mistral"

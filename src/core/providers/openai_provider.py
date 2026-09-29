@@ -60,7 +60,7 @@ class OpenAIProvider(ILLMProvider):
                 raise ImportError("openai package not installed. Run: pip install openai")
             if not self._api_key:
                 raise ValueError("OpenAI API key not configured")
-            self._client = AsyncOpenAI(api_key=self._api_key)
+            self._client = _AsyncOpenAI(api_key=self._api_key)
         return self._client
 
     @property

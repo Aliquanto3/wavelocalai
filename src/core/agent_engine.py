@@ -21,6 +21,7 @@ from src.core.llm_provider import LLMProvider
 from src.core.model_detector import is_api_model
 from src.core.models_db import MODELS_DB, get_model_info
 from src.core.providers.groq_provider import is_groq_model
+from src.core.providers.provider_factory import prefixed_cloud_provider
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -124,6 +125,11 @@ class AgentEngine:
     def _initialize_llm(self, model_tag: str):
         # Groq (API compatible OpenAI) : ChatOpenAI pointé sur Groq, via son provider.
         if is_groq_model(model_tag):
+            return LLMProvider.get_langchain_model(model_tag, temperature=0.0)
+        # OpenAI et Anthropic (nom sans variante préfixé `gpt-`, `o1-`, `claude-`) : modèle
+        # LangChain de leur provider. Provider non disponible (clé ou paquet manquant) : la
+        # fabrique lève « Modèle OpenAI|Anthropic … demandé mais provider non disponible ».
+        if prefixed_cloud_provider(model_tag):
             return LLMProvider.get_langchain_model(model_tag, temperature=0.0)
         # Utiliser le détecteur central
         if is_api_model(model_tag):

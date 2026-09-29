@@ -17,7 +17,8 @@ from pydantic import PrivateAttr
 from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names
 from src.core.config import MISTRAL_API_KEY
 from src.core.model_detector import is_api_model
-from src.core.providers import groq_provider
+from src.core.providers import anthropic_provider, groq_provider, openai_provider
+from src.core.providers.provider_factory import prefixed_cloud_provider
 
 
 class LangChainAdapter(BaseTool):
@@ -72,17 +73,11 @@ class CrewFactory:
     @staticmethod
     def _get_native_llm(model_tag: str, temperature: float = 0.1):
         """
-        Configure le LLM natif CrewAI (via LiteLLM).
+        Configure le LLM de CrewAI pour un tag, dans l'ordre de la fabrique de providers :
+        Groq, puis OpenAI et Anthropic (préfixe), puis Mistral (catalogue), puis Ollama.
+        Groq, OpenAI et Anthropic passent par les fournisseurs natifs de CrewAI, sans LiteLLM.
         """
-        # 1. Routing Cloud (Mistral)
-        if is_api_model(model_tag):
-            if not MISTRAL_API_KEY:
-                raise ValueError("Clé API Mistral manquante.")
-            return LLM(
-                model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
-            )
-
-        # 2. Routing Cloud (Groq) : fournisseur OpenAI natif de CrewAI, sans LiteLLM.
+        # 1. Routing Cloud (Groq) : fournisseur OpenAI natif de CrewAI.
         # `custom_openai` retire un préfixe « openai/ » : il est doublé pour que Groq reçoive
         # le tag exact (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile`).
         if groq_provider.is_groq_model(model_tag):
@@ -96,7 +91,35 @@ class CrewFactory:
                 temperature=temperature,
             )
 
-        # 3. Routing Local (Ollama)
+        # 2. Routing Cloud (OpenAI, Anthropic) : nom sans variante préfixé `gpt-`, `o1-` ou
+        # `claude-` (`gpt-oss:20b` reste local). Fournisseurs natifs de CrewAI.
+        prefixed = prefixed_cloud_provider(model_tag)
+        if prefixed == "openai":
+            if not openai_provider.OPENAI_API_KEY:
+                raise ValueError("Clé API OpenAI manquante.")
+            return LLM(
+                model=f"openai/{model_tag}",
+                api_key=openai_provider.OPENAI_API_KEY,
+                temperature=temperature,
+            )
+        if prefixed == "anthropic":
+            if not anthropic_provider.ANTHROPIC_API_KEY:
+                raise ValueError("Clé API Anthropic manquante.")
+            return LLM(
+                model=f"anthropic/{model_tag}",
+                api_key=anthropic_provider.ANTHROPIC_API_KEY,
+                temperature=temperature,
+            )
+
+        # 3. Routing Cloud (Mistral)
+        if is_api_model(model_tag):
+            if not MISTRAL_API_KEY:
+                raise ValueError("Clé API Mistral manquante.")
+            return LLM(
+                model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
+            )
+
+        # 4. Routing Local (Ollama)
         return LLM(
             model=f"ollama/{model_tag}", base_url="http://localhost:11434", temperature=temperature
         )

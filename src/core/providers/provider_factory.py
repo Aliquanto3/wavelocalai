@@ -15,8 +15,27 @@ from src.core.providers.ollama_provider import OllamaProvider
 
 logger = logging.getLogger(__name__)
 
-# Préfixes des modèles OpenAI et Anthropic (noms sans « : », contrairement aux tags Ollama).
-CLOUD_TAG_PREFIXES = ("gpt-", "o1-", "claude-")
+# Fournisseur de chaque préfixe des modèles OpenAI et Anthropic (noms sans « : »,
+# contrairement aux tags Ollama) : règle unique du routage et de l'origine cloud.
+_PREFIX_PROVIDERS = (("gpt-", "openai"), ("o1-", "openai"), ("claude-", "anthropic"))
+CLOUD_TAG_PREFIXES = tuple(prefix for prefix, _provider in _PREFIX_PROVIDERS)
+
+
+def prefixed_cloud_provider(model_tag: str | None) -> str | None:
+    """
+    Fournisseur désigné par le préfixe d'un nom de modèle : "openai" (`gpt-`, `o1-`),
+    "anthropic" (`claude-`), sinon None.
+
+    Seul un nom sans variante est concerné : un tag Ollama (`nom:variante`, distant compris,
+    par exemple `gpt-oss:20b` ou `gpt-oss:120b-cloud`) donne toujours None.
+    """
+    tag = str(model_tag or "").strip().lower()
+    if not tag or ":" in tag:
+        return None
+    for prefix, provider in _PREFIX_PROVIDERS:
+        if tag.startswith(prefix):
+            return provider
+    return None
 
 
 def is_cloud_tag(model_tag: str | None) -> bool | None:
@@ -125,17 +144,17 @@ class LLMProviderFactory:
                 return self._providers["groq"]
             raise ValueError(f"Modèle Groq {model_tag} demandé mais provider non disponible")
 
-        # Détection par préfixe du modèle
-        model_lower = model_tag.lower()
+        # OpenAI et Anthropic : préfixe d'un nom sans variante (`gpt-oss:20b` reste local).
+        prefixed = prefixed_cloud_provider(model_tag)
 
         # OpenAI
-        if model_lower.startswith("gpt-") or model_lower.startswith("o1-"):
+        if prefixed == "openai":
             if "openai" in self._providers:
                 return self._providers["openai"]
             raise ValueError(f"Modèle OpenAI {model_tag} demandé mais provider non disponible")
 
         # Anthropic
-        if model_lower.startswith("claude-"):
+        if prefixed == "anthropic":
             if "anthropic" in self._providers:
                 return self._providers["anthropic"]
             raise ValueError(f"Modèle Anthropic {model_tag} demandé mais provider non disponible")

@@ -709,3 +709,108 @@ async def _iter_provider(chunks):
     with patch.object(provider, "_create_async_client", return_value=client):
         async for item in provider.chat_stream("qwen3.5:0.8b", [{"role": "user", "content": "Q"}]):
             yield item
+
+
+# ---------------------------------------------------------------------------
+# OpenAI et Anthropic (story 22) : une seule règle de préfixe, clients simulés, aucun réseau
+# ---------------------------------------------------------------------------
+
+
+class TestPrefixedCloudRouting:
+    """Nom sans variante préfixé `gpt-`/`o1-` (OpenAI) ou `claude-` (Anthropic) ; un tag
+    Ollama (`nom:variante`, distant compris) n'est jamais concerné."""
+
+    @pytest.mark.parametrize(
+        ("tag", "expected"),
+        [
+            ("gpt-4o", "openai"),
+            ("GPT-4o-mini", "openai"),
+            ("o1-mini", "openai"),
+            ("claude-3-5-haiku-20241022", "anthropic"),
+            ("gpt-oss:20b", None),
+            ("gpt-oss:120b-cloud", None),
+            ("claude-local:latest", None),
+            ("openai/gpt-oss-120b", None),
+            ("qwen2.5:1.5b", None),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_prefixed_cloud_provider(self, tag, expected):
+        from src.core.providers.provider_factory import prefixed_cloud_provider
+
+        assert prefixed_cloud_provider(tag) == expected
+
+    @pytest.mark.parametrize(
+        ("tag", "provider"),
+        [("gpt-4o-mini", "openai"), ("claude-3-5-sonnet-20241022", "anthropic")],
+    )
+    def test_factory_routes_prefixed_names(self, tag, provider):
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_API_KEY", "cle-o"),
+            patch("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", "cle-a"),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == provider
+
+    @pytest.mark.parametrize(
+        ("tag", "name"),
+        [("gpt-4o-mini", "OpenAI"), ("claude-3-5-haiku-20241022", "Anthropic")],
+    )
+    def test_factory_without_key_names_provider(self, tag, name):
+        with pytest.raises(ValueError, match=name):
+            LLMProviderFactory().get_provider(tag)
+
+    @pytest.mark.parametrize("tag", ["gpt-oss:20b", "gpt-oss:120b-cloud"])
+    def test_ollama_gpt_tags_stay_on_ollama(self, tag):
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_API_KEY", "cle-o"),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=False),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "ollama"
+
+    def test_openai_client_created_once_with_runtime_class(self):
+        """`AsyncOpenAI` n'était importé que pour le typage : NameError au premier appel."""
+        import openai
+
+        from src.core.providers.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider(api_key="cle-factice")
+        client = provider._get_client()
+        assert isinstance(client, openai.AsyncOpenAI)
+        assert provider._get_client() is client
+
+    def test_anthropic_client_created_with_runtime_class(self):
+        from src.core.providers import anthropic_provider
+
+        with (
+            patch.object(anthropic_provider, "ANTHROPIC_AVAILABLE", True),
+            patch.object(anthropic_provider, "_AsyncAnthropic") as client_cls,
+        ):
+            provider = anthropic_provider.AnthropicProvider(api_key="cle-factice")
+            assert provider._get_client() is client_cls.return_value
+            provider._get_client()
+        client_cls.assert_called_once_with(api_key="cle-factice")
+
+    @pytest.mark.asyncio
+    async def test_openai_chat_stream_reaches_mocked_client(self):
+        from src.core.providers.openai_provider import OpenAIProvider
+
+        create = AsyncMock(return_value=_FakeStream(["Bon", "jour"]))
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_AVAILABLE", True),
+            patch(
+                "src.core.providers.openai_provider._AsyncOpenAI",
+                return_value=_groq_client(create),
+            ) as client_cls,
+        ):
+            chunks = [
+                c
+                async for c in OpenAIProvider(api_key="cle-factice").chat_stream(
+                    "gpt-4o-mini", [{"role": "user", "content": "Salut"}]
+                )
+            ]
+        client_cls.assert_called_once_with(api_key="cle-factice")
+        assert chunks[:2] == ["Bon", "jour"]
+        assert create.await_args.kwargs["model"] == "gpt-4o-mini"

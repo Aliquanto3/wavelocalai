@@ -163,3 +163,82 @@ def test_groq_tag_uses_provider_model_not_ollama():
     get_model.assert_called_once_with("openai/gpt-oss-120b", temperature=0.0)
     assert llm is get_model.return_value
     chat_ollama.assert_not_called()
+
+
+def _isolated_factory(openai_key="", anthropic_key=""):
+    """Factory de providers neuve, clés factices ou vides (.env ignoré) : aucun appel réseau."""
+    from contextlib import ExitStack
+    from unittest.mock import patch
+
+    from src.core.providers.provider_factory import LLMProviderFactory
+
+    stack = ExitStack()
+    for target, value in (
+        ("src.core.providers.mistral_provider.MISTRAL_API_KEY", None),
+        ("src.core.providers.openai_provider.OPENAI_API_KEY", openai_key),
+        ("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", anthropic_key),
+        ("src.core.providers.groq_provider.GROQ_API_KEY", ""),
+        ("src.core.providers.provider_factory._factory", None),
+    ):
+        stack.enter_context(patch(target, value))
+    stack.enter_context(patch.object(LLMProviderFactory, "_instance", None))
+    stack.enter_context(patch.dict(LLMProviderFactory._providers, clear=True))
+    return stack
+
+
+def test_openai_tag_uses_openai_model_not_ollama():
+    """`gpt-4o-mini` avec une clé factice (story 22) : ChatOpenAI construit hors ligne,
+    aucun objet Ollama."""
+    from unittest.mock import patch
+
+    from langchain_openai import ChatOpenAI
+
+    engine = object.__new__(AgentEngine)
+    with (
+        _isolated_factory(openai_key="cle-factice"),
+        patch("src.core.agent_engine.ChatOllama") as chat_ollama,
+    ):
+        llm = engine._initialize_llm("gpt-4o-mini")
+    assert isinstance(llm, ChatOpenAI) and llm.model_name == "gpt-4o-mini"
+    chat_ollama.assert_not_called()
+
+
+def test_anthropic_tag_uses_anthropic_model_not_ollama():
+    from unittest.mock import patch
+
+    from langchain_anthropic import ChatAnthropic
+
+    engine = object.__new__(AgentEngine)
+    with (
+        _isolated_factory(anthropic_key="cle-factice"),
+        patch("src.core.agent_engine.ChatOllama") as chat_ollama,
+    ):
+        llm = engine._initialize_llm("claude-3-5-haiku-20241022")
+    assert isinstance(llm, ChatAnthropic) and llm.model == "claude-3-5-haiku-20241022"
+    chat_ollama.assert_not_called()
+
+
+def test_cloud_tag_without_key_names_provider():
+    import pytest
+
+    engine = object.__new__(AgentEngine)
+    for tag, name in (("gpt-4o-mini", "OpenAI"), ("claude-3-5-haiku-20241022", "Anthropic")):
+        with _isolated_factory(), pytest.raises(ValueError, match=name):
+            engine._initialize_llm(tag)
+
+
+def test_ollama_gpt_tags_stay_on_ollama():
+    """`gpt-oss:20b` et `gpt-oss:120b-cloud` sont des tags Ollama : ChatOllama."""
+    from unittest.mock import patch
+
+    engine = object.__new__(AgentEngine)
+    for tag in ("gpt-oss:20b", "gpt-oss:120b-cloud"):
+        with (
+            patch("src.core.agent_engine.is_api_model", return_value=False),
+            patch("src.core.agent_engine.LLMProvider.get_langchain_model") as get_model,
+            patch("src.core.agent_engine.ChatOllama") as chat_ollama,
+        ):
+            llm = engine._initialize_llm(tag)
+        get_model.assert_not_called()
+        chat_ollama.assert_called_once_with(model=tag, temperature=0.0)
+        assert llm is chat_ollama.return_value
