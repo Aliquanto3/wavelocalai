@@ -233,6 +233,42 @@ WAVELOCAL_DATA_DIR=./data
 WAVELOCAL_LOGS_DIR=./data/logs
 ```
 
+### Télémétries
+
+Par défaut, aucune télémétrie de bibliothèque n'est envoyée : `src/core/telemetry.py` coupe les télémétries des bibliothèques avant leur import, dans l'application comme dans les scripts (`scripts/setup_rag_models.py`) et les modules du cœur importés directement. Les autres échanges réseau restent possibles : premier téléchargement d'un modèle, appels aux fournisseurs cloud quand ils sont activés.
+
+| Variable | Valeur posée | Ce qu'elle coupe |
+|----------|--------------|------------------|
+| `RAGAS_DO_NOT_TRACK` | `true` | Télémétrie de Ragas (évaluation RAG) |
+| `ANONYMIZED_TELEMETRY` | `False` | Télémétrie de Chroma (base vectorielle) |
+| `CREWAI_DISABLE_TELEMETRY` | `true` | Télémétrie de CrewAI (agents) |
+| `OTEL_SDK_DISABLED` | `true` | Tout SDK OpenTelemetry du processus, dont celui de CrewAI (qui s'en sert aussi pour couper sa télémétrie) |
+| `CREWAI_DISABLE_VERSION_CHECK` | `true` | Vérification de version de CrewAI auprès de pypi.org |
+| `HF_HUB_DISABLE_TELEMETRY` | `1` | Télémétrie de Hugging Face (modèles d'embedding et reranker) |
+| `LANGCHAIN_TRACING_V2` | `false` | Traces LangSmith (ancien nom) |
+| `LANGSMITH_TRACING` | `false` | Traces LangSmith |
+| `DO_NOT_TRACK` | `1` | Convention commune, lue par plusieurs bibliothèques (dont Hugging Face) |
+
+La télémétrie de Streamlit est coupée à part, par `gatherUsageStats = false` dans `.streamlit/config.toml`.
+
+**Réactiver une télémétrie** : définir sa variable soit dans l'environnement, soit dans le `.env`. Une valeur déjà définie l'emporte toujours (l'environnement d'abord, puis le `.env`) : elle n'est jamais écrasée. Par exemple, pour envoyer les traces à LangSmith (qui lit `LANGCHAIN_TRACING_V2` avant `LANGSMITH_TRACING` : définir les deux) :
+
+```bash
+# Dans le .env
+LANGSMITH_TRACING=true
+LANGCHAIN_TRACING_V2=true
+
+# Ou dans l'environnement, avant le lancement
+# Windows (PowerShell)
+$env:LANGSMITH_TRACING = "true"; $env:LANGCHAIN_TRACING_V2 = "true"
+# Mac/Linux
+export LANGSMITH_TRACING=true LANGCHAIN_TRACING_V2=true
+```
+
+Certaines télémétries dépendent de plusieurs variables, dont chacune suffit à les couper :
+- CrewAI reste coupé tant que `CREWAI_DISABLE_TELEMETRY` ou `OTEL_SDK_DISABLED` vaut `true` : définir les deux (`CREWAI_DISABLE_TELEMETRY=false` et `OTEL_SDK_DISABLED=false`). `OTEL_SDK_DISABLED=false` réactive aussi tout autre SDK OpenTelemetry du processus.
+- Hugging Face lit aussi `DO_NOT_TRACK` : définir `HF_HUB_DISABLE_TELEMETRY=0` et `DO_NOT_TRACK=0`. `DO_NOT_TRACK=0` lève l'opt-out pour toutes les bibliothèques qui lisent cette convention, pas seulement pour Hugging Face.
+
 ### Ajout d'un Nouveau Modèle
 
 Éditer `data/models.json` :

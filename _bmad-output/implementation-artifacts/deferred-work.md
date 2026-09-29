@@ -1,11 +1,5 @@
 # Travail différé
 
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
-  summary: Les points d'entrée hors app (scripts/setup_rag_models.py, imports directs de crew_engine ou vector_store) n'appellent pas disable_telemetry().
-  evidence: setup_rag_models.py importe huggingface_hub.snapshot_download sans couper la télémétrie Hugging Face ; seule l'app et eval_engine se protègent.
-- source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/12-souverainete-telemetries-co2-cloud.md`
-  summary: Documenter dans README.md et AGENTS.md les télémétries coupées par défaut et la façon d'en réactiver une (variable dans l'environnement ou le .env).
-  evidence: Rien n'indique à l'utilisateur que LANGSMITH_TRACING et les autres sont forcés ; la modification d'AGENTS.md est hors d'une story de code.
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/14-couleur-primaire-sombre-lisible.md`
   summary: Classer le texte blanc sur primaryColor (boutons principaux, 4,26:1 en sombre) comme couleur du thème dans test_accessibility.py, pour qu'axe le fasse échouer s'il le relève hors de l'écart accepté.
   evidence: La liste explicite des écarts acceptés est faite (story 21, pastilles d'Agent_Lab à 4,24:1). Le blanc des boutons principaux n'est pas relevé : boutons dans des onglets masqués au moment de l'analyse, et le blanc n'est pas une couleur de [theme.dark], donc classé couleur native s'il l'était.

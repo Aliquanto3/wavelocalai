@@ -2,10 +2,16 @@ import logging
 from collections.abc import Callable
 from typing import TypeVar
 
-from langchain_huggingface import HuggingFaceEmbeddings
-from sentence_transformers import CrossEncoder
+from src.core.telemetry import disable_telemetry
 
-from src.core.config import DATA_DIR
+# Hugging Face lit HF_HUB_DISABLE_TELEMETRY à l'import de huggingface_hub : à couper avant,
+# même quand un script ou un test importe ce module sans passer par l'app.
+disable_telemetry()
+
+from langchain_huggingface import HuggingFaceEmbeddings  # noqa: E402
+from sentence_transformers import CrossEncoder  # noqa: E402
+
+from src.core.config import DATA_DIR  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

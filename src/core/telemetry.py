@@ -1,12 +1,21 @@
 """
-Télémétries des bibliothèques coupées : rien ne quitte la machine sans action de l'utilisateur.
+Télémétries des bibliothèques coupées : aucune télémétrie de bibliothèque n'est envoyée sans
+action de l'utilisateur.
 
 Chaque bibliothèque lit sa propre variable d'environnement, souvent au moment de son import :
-`disable_telemetry()` doit donc s'exécuter avant (au démarrage de l'app, et avant l'import de
-Ragas dans eval_engine.py). Une valeur déjà définie, dans l'environnement ou dans le .env (lu
-ici d'abord, sans rien écraser), l'emporte : c'est ainsi qu'on réactive volontairement une
-télémétrie (LANGSMITH_TRACING=true…). Streamlit est coupé à part, par `gatherUsageStats` dans
-.streamlit/config.toml.
+`disable_telemetry()` doit donc s'exécuter avant. Appelants : l'app au démarrage (Accueil.py),
+le lanceur e2e (tests/e2e/launch_app.py), et chaque module qui importe une bibliothèque à
+télémétrie, juste avant cet import : eval_engine.py (Ragas), crew_engine.py (CrewAI),
+rag/vector_store.py (Chroma), rag/models_factory.py (Hugging Face), rag/ingestion.py
+(langchain_community, qui charge huggingface_hub), ainsi que scripts/setup_rag_models.py
+(huggingface_hub). Tout nouveau module qui importe l'une de ces bibliothèques fait de même
+(tests/unit/test_telemetry.py le vérifie).
+
+Une valeur déjà définie, dans l'environnement ou dans le .env (lu ici d'abord, sans rien
+écraser), l'emporte : c'est ainsi qu'on réactive volontairement une télémétrie
+(LANGSMITH_TRACING=true avec LANGCHAIN_TRACING_V2=true, que LangSmith lit en premier…).
+Streamlit est coupé à part, par `gatherUsageStats` dans .streamlit/config.toml. La liste est
+documentée dans README.md (section « Télémétries »).
 
 Ne pas appeler depuis src/core/config.py : le benchmark l'importe (AGENTS.md).
 """

@@ -2,12 +2,22 @@ import logging
 import tempfile
 from pathlib import Path
 
-# Loaders
-from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader, TextLoader
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from src.core.telemetry import disable_telemetry
 
-from src.core.config import DATA_DIR
+# langchain_community charge huggingface_hub, qui lit HF_HUB_DISABLE_TELEMETRY à son import :
+# à couper avant, même quand un script ou un test importe ce module sans passer par l'app.
+disable_telemetry()
+
+# Loaders
+from langchain_community.document_loaders import (  # noqa: E402
+    Docx2txtLoader,
+    PyPDFLoader,
+    TextLoader,
+)
+from langchain_core.documents import Document  # noqa: E402
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # noqa: E402
+
+from src.core.config import DATA_DIR  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

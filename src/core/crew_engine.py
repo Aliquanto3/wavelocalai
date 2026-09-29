@@ -8,17 +8,23 @@ Modifications principales :
 
 from typing import Any
 
+from src.core.telemetry import disable_telemetry
+
+# CrewAI lit ses variables (télémétrie, OpenTelemetry, version pypi.org) à l'import : à couper
+# avant, même quand un script ou un test importe ce module sans passer par l'app.
+disable_telemetry()
+
 # On importe LLM natif de CrewAI
-from crewai import LLM, Agent, Crew, Process, Task
-from crewai.tools import BaseTool
-from pydantic import PrivateAttr
+from crewai import LLM, Agent, Crew, Process, Task  # noqa: E402
+from crewai.tools import BaseTool  # noqa: E402
+from pydantic import PrivateAttr  # noqa: E402
 
 # Import des outils Wavestone
-from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names
-from src.core.config import MISTRAL_API_KEY
-from src.core.model_detector import is_api_model
-from src.core.providers import anthropic_provider, groq_provider, openai_provider
-from src.core.providers.provider_factory import prefixed_cloud_provider
+from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names  # noqa: E402
+from src.core.config import MISTRAL_API_KEY  # noqa: E402
+from src.core.model_detector import is_api_model  # noqa: E402
+from src.core.providers import anthropic_provider, groq_provider, openai_provider  # noqa: E402
+from src.core.providers.provider_factory import prefixed_cloud_provider  # noqa: E402
 
 
 class LangChainAdapter(BaseTool):
