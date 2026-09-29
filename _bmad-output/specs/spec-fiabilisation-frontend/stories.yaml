@@ -212,3 +212,86 @@
   invoke_dev_with: >-
     Différés de la story 19. Tests sans réseau ; rien n'est poussé sans le go de l'utilisateur.
     Dépend de la story 19.
+- id: "21"
+  title: "Suite e2e au vert sur le poste : reruns attendus côté serveur, écarts de contraste acceptés, flux tronqué"
+  description: >-
+    Les helpers e2e (select_option, multiselect_add, multiselect_clear) attendent le rerun du
+    serveur, pas un état du navigateur ; le test axe connaît la liste explicite des écarts de
+    contraste acceptés (pastilles #7E65E9 à 4,24:1 en sombre) et échoue sur tout écart nouveau ;
+    le premier message du Chat libre et l'Arène avec juge relancent une génération interrompue
+    comme le Banc d'essai, puis sont ignorés avec le motif du bug d'Ollama 0.34.2.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés des stories 13, 14 et 19 (deferred-work.md). Tests seulement, aucun changement de
+    l'app. Critère de fin : suite e2e complète au vert sur poste-rtx3060, deux passages de suite.
+    Retirer de deferred-work.md les entrées traitées. Dépend de la story 20.
+- id: "22"
+  title: "Modèles cloud routés vers le bon fournisseur"
+  description: >-
+    OpenAIProvider crée son client sans NameError ; la page Agents (agent seul et équipe) envoie
+    les modèles OpenAI et Anthropic à leur fournisseur, plus à Ollama ; le tag Ollama gpt-oss:20b
+    reste routé vers Ollama malgré son préfixe « gpt- ».
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés de la story 16 : openai_provider.py (_get_client), agent_engine._initialize_llm,
+    crew_engine._get_native_llm, provider_factory (startswith("gpt-") avant le repli Ollama).
+    Clients simulés, aucun appel réseau ni clé réelle. Retirer de deferred-work.md les entrées
+    traitées. Dépend de la story 20.
+- id: "23"
+  title: "Une seule règle de CO₂ par réponse, selon l'origine réelle du modèle"
+  description: >-
+    Une fonction de src/core calcule le CO₂ d'une réponse à partir de ses métriques et de
+    l'origine réelle du modèle (celle du badge), à la place des copies de chat.py, solo.py,
+    arena.py, lab.py, rag/chat.py et rag/eval.py ; un tag distant d'Ollama n'affiche plus un
+    badge Cloud avec un CO₂ local. Le badge « 0,0 Go » sous les réponses de la Discussion
+    documentaire affiche la mémoire réelle du modèle, ou disparaît.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés de la story 12 (question ouverte 8 du rapport de nuit). Ne pas toucher
+    src/core/config.py ni ce que scripts/benchmark_slm.py importe. Mêmes chiffres qu'avant pour
+    les cas déjà justes (tests de non-régression par onglet). Badge mémoire : question ouverte
+    de la spec (.memlog.md), revue le 29/09 ; InferenceMetrics.model_size_gb
+    (src/core/metrics.py:39) n'est jamais rempli, rag/chat.py:249 affiche donc toujours 0,0 Go.
+    Source possible : taille chargée donnée par /api/ps d'Ollama ; sinon ne pas afficher de
+    badge (jamais 0). Retirer de deferred-work.md les entrées traitées. Dépend de la story 20.
+- id: "24"
+  title: "Réponse interrompue : relance automatique, CO₂ compté, message juste partout"
+  description: >-
+    Une génération interrompue (flux Ollama sans fragment done) est relancée une fois
+    automatiquement, le texte partiel effacé et la relance annoncée ; l'énergie de la tentative
+    coupée entre dans le CO₂ de la session ; l'évaluation de la qualité affiche « Réponse
+    interrompue » au lieu du conseil « Vérifiez qu'Ollama est démarré ».
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés des stories 19 et 20. Cause établie le 29/09 : bug d'Ollama 0.34.2
+    (common_chat_peg_parse sur un caractère UTF-8 coupé, ~1 réponse française sur 5), à rappeler
+    dans la spec. Tests sans réseau. Retirer de deferred-work.md les entrées traitées. Dépend de
+    la story 23 (règle de CO₂).
+- id: "25"
+  title: "Choix d'après le benchmark du poste : modèle le plus rapide et outils vérifiés"
+  description: >-
+    Le « plus rapide » (premier modèle proposé, présélection de l'Arène) se trie sur le débit
+    prudent du benchmark de ce poste, data/models.json en repli ; la mention « outils vérifiés »
+    de la page Agents vient du taux de réussite des outils mesuré sur ce poste quand il existe.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés des stories 15 et 18 : model_defaults.rank_models (avg_tokens_per_second de
+    data/models.json), src/app/views/04_Agent_Lab.py et tabs/agent/crew.py (capabilities du
+    catalogue). Poste non benchmarké : comportement actuel inchangé. Retirer de deferred-work.md
+    les entrées traitées. Dépend de la story 20.
+- id: "26"
+  title: "Télémétries coupées hors de l'app et documentées"
+  description: >-
+    Les points d'entrée hors app (scripts/setup_rag_models.py, imports directs de crew_engine ou
+    vector_store) coupent les télémétries comme l'app ; README.md et AGENTS.md disent lesquelles
+    sont coupées par défaut et comment en réactiver une (environnement ou .env).
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Différés de la story 12. Aucun téléchargement pendant les tests (snapshot_download simulé).
+    Retirer de deferred-work.md les entrées traitées. Dépend de la story 20.
