@@ -10,12 +10,20 @@ Règle (fonctions pures, sans `streamlit`) :
   « reasoning » dans leur tag ou leur nom, LFM 2.5 1.2B Thinking : leur raisonnement allonge
   la réponse réelle malgré leur débit ; les hybrides, capacité `thinking` du catalogue, n'en
   sont pas) passent après tous les autres, même ceux qui ne tiennent pas. Puis ceux qui
-  tiennent en mémoire d'abord, le plus rapide en tête. Le débit
-  mesuré (`benchmark_stats.avg_tokens_per_second` de data/models.json) ne départage que si
-  tous les locaux qui tiennent en ont un ; sinon la plus petite empreinte sert d'indicateur
-  de vitesse (un modèle plus petit génère plus vite sur une même machine) : un débit connu
-  ne passe jamais devant un débit inconnu. Ceux qui ne tiennent pas suivent, du plus petit
-  au plus gros : si aucun ne tient, le premier proposé est le plus petit.
+  tiennent en mémoire d'abord, le plus rapide en tête. Le débit départage selon une seule
+  source à la fois, jamais deux mêlées dans une même comparaison :
+  1. le débit prudent du benchmark de ce poste (src/core/benchmark_results.py), s'il mesure
+     tous les locaux qui tiennent ;
+  2. sinon `benchmark_stats.avg_tokens_per_second` de data/models.json (qui peut venir d'une
+     autre machine), s'il en donne un pour tous les locaux qui tiennent ;
+  3. sinon la plus petite empreinte sert d'indicateur de vitesse (un modèle plus petit
+     génère plus vite sur une même machine) : un débit connu ne passe jamais devant un
+     débit inconnu.
+  Ceux qui ne tiennent pas suivent, du plus petit au plus gros (leur débit ne compte pas, ils
+  n'ont pas besoin d'être mesurés) : si aucun ne tient, le premier proposé est le plus petit.
+- « Outils vérifiés » (`tools_verified`) : d'après `tool_capability.success_rate` du benchmark
+  de ce poste quand il l'a mesuré (≥ `AGENT_MIN_TOOL_SUCCESS`), d'après la capacité `tools`
+  du catalogue sinon.
 - Juge par défaut, dans cet ordre :
   1. cloud autorisé et modèles cloud proposés : le plus capable, selon
      `CLOUD_JUDGE_PREFERENCE` (jamais un juge cloud quand le cloud est désactivé) ;
@@ -66,7 +74,7 @@ import json
 import logging
 import math
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -144,7 +152,11 @@ class ModelChoice:
     tag: str
     is_cloud: bool
     footprint_gb: float | None  # empreinte chargée (mesurée ou estimée), None si inconnue
-    speed_tps: float | None  # débit connu (tokens/s), None sinon
+    # Débit connu (tokens/s), None sinon : débit prudent du benchmark de ce poste quand il
+    # mesure tous les locaux qui tiennent (rank_models), sinon celui de data/models.json. En
+    # mode benchmark, un local non mesuré (il ne tient pas) passe à None, et un modèle cloud
+    # garde le débit de data/models.json : sans effet sur le tri, le cloud étant en dernier.
+    speed_tps: float | None
     params_b: float | None  # paramètres actifs, en milliards, None si inconnus
     fits: bool  # tient en mémoire (toujours False pour un modèle cloud)
     dedicated_reasoning: bool = False  # modèle dédié au raisonnement (« thinking » dans le nom)
@@ -376,11 +388,23 @@ def _speed_known_for_all_fitting(choices: Iterable[ModelChoice]) -> bool:
     return bool(fitting) and all(c.speed_tps is not None for c in fitting)
 
 
+def _benchmark_covers_fitting(
+    choices: Iterable[ModelChoice], benchmark: Mapping[str, BenchScore] | None
+) -> bool:
+    """Le benchmark de ce poste mesure tous les locaux qui tiennent (tag de base), modèles
+    dédiés au raisonnement compris ; ceux qui ne tiennent pas n'ont pas besoin de l'être."""
+    if not benchmark:
+        return False
+    fitting = [c for c in choices if c.fits]
+    return bool(fitting) and all(base_tag(c.tag) in benchmark for c in fitting)
+
+
 def sort_key(choice: ModelChoice, name: str = "", use_speed: bool = False) -> tuple:
     """`(is_cloud, dédié au raisonnement, not fits, rang de débit, empreinte, nom, tag)`.
     Le débit ne compte que pour les locaux qui tiennent, et seulement si `use_speed` (tous
-    en ont un). Un modèle dédié au raisonnement passe après tous les autres locaux, qu'ils
-    tiennent en mémoire ou non : il n'est proposé en premier que s'il est le seul local."""
+    en ont un, d'une même source). Un modèle dédié au raisonnement passe après tous les
+    autres locaux, qu'ils tiennent en mémoire ou non : il n'est proposé en premier que s'il
+    est le seul local."""
     footprint = choice.footprint_gb if choice.footprint_gb is not None else math.inf
     speed_rank = -(choice.speed_tps or 0.0) if use_speed and choice.fits else 0.0
     return (
@@ -401,12 +425,19 @@ def rank_models(
     names: Mapping[str, str] | None = None,
     catalog: Mapping[str, Any] | None = None,
     models_db: Mapping[str, Any] | None = None,
+    benchmark: Mapping[str, BenchScore] | None = None,
 ) -> list[ModelChoice]:
     """
     Modèles (format LLMProvider.list_models) triés par la règle ; le premier est le modèle
     proposé par défaut. `available_gb` : mémoire vive disponible, modèles déjà chargés dans
     Ollama compris. `names` (tag → nom affiché) départage les égalités. `catalog` et
     `models_db` remplacent le catalogue versionné et data/models.json (tests).
+
+    `benchmark` ({tag de base : BenchScore}, benchmark de ce poste) : s'il mesure tous les
+    locaux qui tiennent, chaque local prend son débit prudent (None s'il n'est pas mesuré :
+    il ne tient pas, son débit ne compte pas) et le tri se fait sur ce débit. Sinon, rien ne
+    change : data/models.json s'il donne un débit pour chacun, sinon l'empreinte. Les deux
+    sources ne se mêlent jamais.
     """
     catalog = load_versioned_catalog() if catalog is None else catalog
     models_db = MODELS_DB if models_db is None else models_db
@@ -423,8 +454,37 @@ def rank_models(
         for m in models
         if m.get("model")
     ]
-    use_speed = _speed_known_for_all_fitting(choices)
+    if _benchmark_covers_fitting(choices, benchmark):
+        # Local non mesuré (il ne tient pas) : getattr(None, …) donne None.
+        choices = [
+            (
+                c
+                if c.is_cloud
+                else replace(
+                    c, speed_tps=getattr(benchmark.get(base_tag(c.tag)), "speed_tps", None)
+                )
+            )
+            for c in choices
+        ]
+        use_speed = True
+    else:
+        use_speed = _speed_known_for_all_fitting(choices)
     return sorted(choices, key=lambda c: sort_key(c, names.get(c.tag, c.tag), use_speed))
+
+
+def tools_verified(
+    tag: str,
+    capabilities: Iterable[str] | None,
+    benchmark: Mapping[str, BenchScore] | None,
+) -> bool:
+    """Outils vérifiés : d'après le benchmark de ce poste quand il a mesuré les outils de ce
+    modèle (`tool_success` ≥ `AGENT_MIN_TOOL_SUCCESS`, tag de base, variante `:latest`
+    comprise), même si le catalogue dit l'inverse ; sinon d'après la capacité `tools` du
+    catalogue (`capabilities`)."""
+    score = benchmark.get(base_tag(tag)) if benchmark else None
+    if score is not None and score.tool_success is not None:
+        return score.tool_success >= AGENT_MIN_TOOL_SUCCESS
+    return "tools" in (capabilities or ())
 
 
 def default_model(ranked: list[ModelChoice]) -> ModelChoice | None:

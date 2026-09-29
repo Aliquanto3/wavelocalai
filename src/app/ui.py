@@ -211,7 +211,8 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     """
     Sélecteur de modèles à partir de LLMProvider.list_models : libellés « Nom · Local » /
     « Nom · Cloud », triés par la règle (locaux d'abord, le plus rapide qui tient en mémoire
-    en tête, jamais un modèle dédié au raisonnement en premier, cloud en dernier), juge par
+    en tête, d'après le benchmark de ce poste s'il les mesure tous, jamais un modèle dédié au
+    raisonnement en premier, cloud en dernier), juge par
     défaut (cloud le plus capable si le cloud est autorisé, sinon d'après le benchmark de ce
     poste, sinon d'après la mémoire) et présélection de l'Arène. Les tags ne
     changent pas : seul l'ordre des libellés dépend de la machine. Deux tags au même nom
@@ -220,7 +221,12 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     """
     models = [m for m in models if m.get("model")]
     friendly = {m["model"]: _display_name(m) for m in models}
-    ranked = rank_models(models, available_memory_gb(), cloud_types=cloud_types, names=friendly)
+    # Benchmark de ce poste, lu une fois : débit du tri (s'il mesure tous les locaux qui
+    # tiennent) et juge par défaut.
+    bench = machine_benchmark()
+    ranked = rank_models(
+        models, available_memory_gb(), cloud_types=cloud_types, names=friendly, benchmark=bench
+    )
 
     # Libellé déjà pris par un autre tag : nom complété par le tag.
     counts = Counter(model_label(friendly[c.tag], c.is_cloud) for c in ranked)
@@ -234,7 +240,7 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     }
     tag_to_label = {c.tag: model_label(tag_to_friendly[c.tag], c.is_cloud) for c in ranked}
 
-    judge_choice = choose_judge(ranked, machine_benchmark(), allow_cloud=cloud_enabled())
+    judge_choice = choose_judge(ranked, bench, allow_cloud=cloud_enabled())
     judge = judge_choice.choice
     return ModelMenu(
         display_to_tag={label: tag for tag, label in tag_to_label.items()},

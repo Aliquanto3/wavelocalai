@@ -119,6 +119,34 @@ def test_model_menu_defaults():
     assert menu.weak_judges == {"Gemma 3 1B · Local", "Qwen 2.5 1.5B · Local"}
 
 
+def test_model_menu_reads_machine_benchmark_once_for_sort_and_judge(monkeypatch):
+    """Le benchmark de ce poste est lu une seule fois par menu, et le même sert au tri
+    (il mesure tous les locaux qui tiennent : ordre du débit du benchmark, pas de
+    l'empreinte) et au juge."""
+    from src.core.benchmark_results import BenchScore
+    from src.core.model_defaults import JUDGE_BY_BENCHMARK
+
+    bench = {
+        "qwen2.5:1.5b": BenchScore(0.6, 150.0),
+        "llama3.1:8b": BenchScore(0.8, 120.0),
+        "gemma3:1b": BenchScore(0.5, 50.0),
+    }
+    calls = []
+
+    def fake_benchmark():
+        calls.append(1)
+        return bench
+
+    monkeypatch.setattr(ui, "machine_benchmark", fake_benchmark)
+    menu = ui.model_menu([GEMMA, LLAMA, QWEN])
+
+    assert len(calls) == 1
+    assert menu.labels == ["Qwen 2.5 1.5B · Local", "Llama 3.1 8B · Local", "Gemma 3 1B · Local"]
+    assert menu.judge_default == "Llama 3.1 8B · Local"
+    assert menu.judge_reason == JUDGE_BY_BENCHMARK
+    assert menu.arena_defaults == ["Qwen 2.5 1.5B · Local", "Gemma 3 1B · Local"]
+
+
 def test_model_menu_depends_on_available_memory(monkeypatch):
     """4 Go disponibles : le 8B (≈ 6 Go estimés) ne tient pas, il passe après les autres
     locaux et le juge devient un petit modèle, marqué peu fiable ; les deux petits restent

@@ -646,20 +646,99 @@ def test_crew_default_from_machine_benchmark(installed, machine_benchmark, run_p
 
 
 @pytest.mark.parametrize(
-    "bench",
+    ("bench", "mid_label"),
     [
-        {**AGENT_BENCH, "qwen3.5:4b": (0.87, 62.5, 0.5)},  # outils sous 0,75
-        {**AGENT_BENCH, "qwen3.5:4b": (0.87, 9.0, 1.0)},  # 10 tokens/s ou moins
-        {},  # poste inconnu
+        ({**AGENT_BENCH, "qwen3.5:4b": (0.87, 62.5, 0.5)}, MID),  # outils sous 0,75
+        # 10 tokens/s ou moins : pas candidat, mais outils vérifiés par le benchmark (story 25).
+        ({**AGENT_BENCH, "qwen3.5:4b": (0.87, 9.0, 1.0)}, AGENT_MID),
+        ({}, MID),  # poste inconnu
     ],
     ids=["outils", "debit", "poste-inconnu"],
 )
-def test_agents_without_candidate_keep_current_order(installed, machine_benchmark, run_page, bench):
-    """Aucun candidat, ou pas de benchmark : l'ordre actuel (outils vérifiés du catalogue)."""
+def test_agents_without_candidate_keep_current_order(
+    installed, machine_benchmark, run_page, bench, mid_label
+):
+    """Aucun candidat, ou pas de benchmark : l'ordre actuel (outils vérifiés d'après le
+    benchmark quand il les mesure, d'après le catalogue sinon)."""
     installed([*FAKE_LOCAL_MODELS, BIG_LOCAL, MID_LOCAL])
     machine_benchmark(bench)
     at = run_page(AGENTS_PAGE)
 
     select = _agent_select(at)
     assert select.value == "Qwen 2.5 1.5B · Local · outils vérifiés"
-    assert MID in select.options
+    assert mid_label in select.options
+
+
+# ---------------------------------------------------------------------------
+# Story 25 : « le plus rapide » d'après le benchmark du poste, outils vérifiés
+# ---------------------------------------------------------------------------
+
+
+def test_chat_and_arena_sorted_on_machine_benchmark(installed, machine_benchmark, monkeypatch):
+    """Le benchmark de ce poste mesure tous les locaux qui tiennent, Qwen 2.5 1.5B plus
+    rapide que Gemma 3 1B, alors que data/models.json dit l'inverse : le Chat libre et le
+    Banc d'essai proposent Qwen 2.5 1.5B en premier, la présélection de l'Arène suit le même
+    ordre. Sans benchmark : l'ordre d'avant (Gemma 3 1B d'abord)."""
+    from src.core.models_db import MODELS_DB
+
+    for name, tps in (("Gemma 3 1B", 200.0), ("Qwen 2.5 1.5B", 50.0)):
+        entry = {**MODELS_DB[name], "benchmark_stats": {"avg_tokens_per_second": tps}}
+        monkeypatch.setitem(MODELS_DB, name, entry)
+    installed([*FAKE_LOCAL_MODELS])
+
+    for bench, first, second in (
+        ({"qwen2.5:1.5b": (0.6, 150.0), "gemma3:1b": (0.59, 100.0)}, QWEN, GEMMA),
+        ({}, GEMMA, QWEN),
+    ):
+        machine_benchmark(bench)
+        at = AppTest.from_file(str(APP_DIR / ARENA_PAGE), default_timeout=RENDER_TIMEOUT_S)
+        at.run()
+        try:
+            assert not at.exception, [e.value for e in at.exception]
+            (chat_select,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+            (lab_select,) = [s for s in at.selectbox if s.label == "Modèle"]
+            assert chat_select.value == lab_select.value == first
+            assert chat_select.options == [first, second]
+            assert _arena_select(at).value == [first, second]
+        finally:
+            if "tracker" in at.session_state:
+                at.session_state["tracker"].stop()
+
+
+def test_arena_preselection_follows_machine_benchmark(installed, machine_benchmark, run_page):
+    """Trois locaux mesurés : l'Arène présélectionne les deux plus rapides du benchmark hors
+    juge, dans l'ordre du benchmark (pas celui de l'empreinte)."""
+    installed([*FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL])
+    machine_benchmark(
+        {
+            "llama3.2:1b": (0.5, 180.0),
+            "qwen2.5:1.5b": (0.9, 150.0),  # le plus précis : juge
+            "gemma3:1b": (0.59, 100.0),
+        }
+    )
+    at = run_page(ARENA_PAGE)
+
+    assert _judge_select(at).value == QWEN
+    assert _arena_select(at).value == [LLAMA, GEMMA]
+    (chat_select,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+    assert chat_select.value == LLAMA
+
+
+def test_agents_tools_verified_from_machine_benchmark(installed, machine_benchmark, run_page):
+    """Qwen 2.5 1.5B (catalogue `tools`) mesuré à 0 en outils perd « outils vérifiés » ;
+    llama3.2:1b, hors catalogue, mesuré à 1,0 la reçoit ; Gemma 3 1B, non mesuré en outils,
+    suit le catalogue (sans `tools`). Aucun modèle retiré de la liste."""
+    installed([*FAKE_LOCAL_MODELS, THIRD_LOCAL_MODEL])
+    machine_benchmark(
+        {
+            "qwen2.5:1.5b": (0.6, 150.0, 0.0),
+            "llama3.2:1b": (0.5, 50.0, 1.0),
+            "gemma3:1b": (0.59, 100.0, None),
+        }
+    )
+    at = run_page(AGENTS_PAGE)
+
+    select = _agent_select(at)
+    assert select.options == [f"{LLAMA} · outils vérifiés", QWEN, GEMMA]
+    assert select.value == f"{LLAMA} · outils vérifiés"
+    assert not [o for o in select.options if o.startswith("Qwen 2.5 1.5B") and "outils" in o]

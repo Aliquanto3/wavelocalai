@@ -998,3 +998,145 @@ def test_agent_default_ties_broken_by_speed_then_tag():
     assert md.agent_default(ranked, same).tag == "nemotron-3-nano:4b"
     same["nemotron-3-nano:4b"] = BenchScore(0.9, 50.0, 1.0)
     assert md.agent_default(ranked, same).tag == "nemotron-3-nano:4b"  # tag, ordre alphabétique
+
+
+# ---------------------------------------------------------------------------
+# Story 25 : « le plus rapide » d'après le benchmark de ce poste, outils vérifiés
+# ---------------------------------------------------------------------------
+
+
+def test_benchmark_speed_beats_models_json_when_it_measures_all_fitting():
+    """Benchmark complet, contraire à data/models.json : le tri suit le débit du benchmark,
+    et chaque local porte ce débit."""
+    models_db = _speeds(**{"petit:1b": 90, "moyen:3.8b": 40, "gros:8b": 20})
+    bench = {
+        "petit:1b": BenchScore(0.5, 30.0),
+        "moyen:3.8b": BenchScore(0.6, 80.0),
+        "gros:8b": BenchScore(0.7, 50.0),
+    }
+    ranked = _rank([PETIT, MOYEN, GROS], 16.0, models_db=models_db, benchmark=bench)
+
+    assert _tags(ranked) == ["moyen:3.8b", "gros:8b", "petit:1b"]
+    assert [c.speed_tps for c in ranked] == [80.0, 50.0, 30.0]
+    assert md.default_model(ranked).tag == "moyen:3.8b"
+    # Sans benchmark : data/models.json.
+    assert _tags(_rank([PETIT, MOYEN, GROS], 16.0, models_db=models_db)) == [
+        "petit:1b",
+        "moyen:3.8b",
+        "gros:8b",
+    ]
+
+
+def test_partial_benchmark_keeps_current_rule():
+    """Un local qui tient n'est pas mesuré : jamais de mélange des sources ; data/models.json
+    s'il donne un débit pour chacun, sinon la plus petite empreinte."""
+    bench = {"moyen:3.8b": BenchScore(0.6, 500.0), "gros:8b": BenchScore(0.7, 400.0)}
+
+    models_db = _speeds(**{"petit:1b": 40, "moyen:3.8b": 60, "gros:8b": 20})
+    ranked = _rank([PETIT, MOYEN, GROS], 16.0, models_db=models_db, benchmark=bench)
+    assert _tags(ranked) == ["moyen:3.8b", "petit:1b", "gros:8b"]
+    assert ranked[0].speed_tps == 60.0  # débit de data/models.json, pas du benchmark
+
+    ranked = _rank([GROS, MOYEN, PETIT], 16.0, benchmark=bench)
+    assert _tags(ranked) == ["petit:1b", "moyen:3.8b", "gros:8b"]
+    assert all(c.speed_tps is None for c in ranked)
+
+
+@pytest.mark.parametrize("bench", [None, {}])
+def test_empty_benchmark_keeps_current_order(bench):
+    """Poste inconnu : ordre identique à celui d'avant (data/models.json, puis empreinte)."""
+    models_db = _speeds(**{"petit:1b": 40, "moyen:3.8b": 60, "gros:8b": 20})
+    for db in (models_db, {}):
+        with_bench = _rank([CLOUD, GROS, MOYEN, PETIT], 16.0, models_db=db, benchmark=bench)
+        assert with_bench == _rank([CLOUD, GROS, MOYEN, PETIT], 16.0, models_db=db)
+
+
+def test_unmeasured_local_that_does_not_fit_does_not_block_benchmark():
+    """Un local trop gros, hors benchmark, n'empêche pas le tri sur le benchmark et reste
+    après ceux qui tiennent, sans débit."""
+    bench = {"petit:1b": BenchScore(0.5, 30.0), "moyen:3.8b": BenchScore(0.6, 80.0)}
+    ranked = _rank([PETIT, GROS, MOYEN, CLOUD], 4.0, benchmark=bench)
+
+    assert _tags(ranked) == ["moyen:3.8b", "petit:1b", "gros:8b", "mistral-large-2512"]
+    gros = next(c for c in ranked if c.tag == "gros:8b")
+    assert not gros.fits and gros.speed_tps is None
+
+
+def test_benchmark_covers_reasoning_models_too():
+    """La couverture compte les modèles dédiés au raisonnement qui tiennent : s'il en manque
+    un, règle actuelle ; mesuré, il reste après les autres malgré son débit."""
+    thinking = _local("lfm2.5-thinking:1.2b", GB // 2)
+    bench = {"petit:1b": BenchScore(0.5, 30.0), "moyen:3.8b": BenchScore(0.6, 80.0)}
+    ranked = _rank([PETIT, MOYEN, thinking], 16.0, benchmark=bench)
+    assert _tags(ranked) == ["petit:1b", "moyen:3.8b", "lfm2.5-thinking:1.2b"]
+
+    bench["lfm2.5-thinking:1.2b"] = BenchScore(0.7, 300.0)
+    ranked = _rank([PETIT, MOYEN, thinking], 16.0, benchmark=bench)
+    assert _tags(ranked) == ["moyen:3.8b", "petit:1b", "lfm2.5-thinking:1.2b"]
+
+
+def test_benchmark_speed_matches_latest_variant():
+    """Un tag installé avec la variante `:latest` est reconnu dans le benchmark (tag de
+    base)."""
+    catalog = {**CATALOG, "Petit 1B": {**CATALOG["Petit 1B"], "ollama_tag": "petit"}}
+    bench = {"petit": BenchScore(0.5, 20.0), "moyen:3.8b": BenchScore(0.6, 80.0)}
+    ranked = _rank([_local("petit:latest"), MOYEN], 16.0, catalog=catalog, benchmark=bench)
+
+    assert _tags(ranked) == ["moyen:3.8b", "petit:latest"]
+    assert ranked[1].speed_tps == 20.0
+
+
+def test_arena_preselection_follows_benchmark_order():
+    """poste-rtx3060, data/models.json à rebours du benchmark : premier proposé et Arène
+    suivent le benchmark (Granite 4.0 350M, Gemma 3 1B, Qwen 3.5 0.8B)."""
+    inverted = _speeds(**{tag: 1000.0 / s for tag, _, _, _, s in RTX_MODELS.values()})
+    without = _rank(RTX_INSTALLED, 16.7, catalog=RTX_CATALOG, models_db=inverted)
+    ranked = _rank(
+        RTX_INSTALLED, 16.7, catalog=RTX_CATALOG, models_db=inverted, benchmark=RTX_BENCH
+    )
+
+    assert md.default_model(ranked).tag == "granite4:350m"
+    judge = md.default_judge(ranked, RTX_BENCH)
+    assert judge.tag == "gemma4:e4b-it-qat"
+    assert md.arena_preselection(ranked, judge) == ["granite4:350m", "gemma3:1b", "qwen3.5:0.8b"]
+    # Sans benchmark : data/models.json inversé, les plus lents du benchmark en tête.
+    assert md.default_model(without).tag == "granite4.2:8b"
+    assert md.arena_preselection(without, md.default_judge(without, RTX_BENCH)) == [
+        "granite4.2:8b",
+        "gemma4-ud:12b-iq3_xxs",
+        "qwen3.5-ud:9b-q3_k_xl",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("tag", "capabilities", "bench", "expected"),
+    [
+        ("a:1b", ["chat"], {"a:1b": BenchScore(0.5, 50.0, tool_success=0.75)}, True),
+        ("a:1b", ["chat"], {"a:1b": BenchScore(0.5, 50.0, tool_success=0.74)}, False),
+        ("a:1b", ["chat", "tools"], {"a:1b": BenchScore(0.5, 50.0, tool_success=0.0)}, False),
+        ("a:1b", ["chat", "tools"], {"a:1b": BenchScore(0.5, 50.0, tool_success=None)}, True),
+        ("a:1b", ["chat"], {"a:1b": BenchScore(0.5, 50.0, tool_success=None)}, False),
+        ("a:1b", ["chat", "tools"], {"b:1b": BenchScore(0.5, 50.0, tool_success=0.0)}, True),
+        ("a:1b", ["chat"], {"b:1b": BenchScore(0.5, 50.0, tool_success=1.0)}, False),
+        ("a:1b", ["chat", "tools"], None, True),
+        ("a:1b", None, {}, False),
+        ("a:latest", ["chat", "tools"], {"a": BenchScore(0.5, 50.0, tool_success=0.0)}, False),
+        ("a:latest", [], {"a": BenchScore(0.5, 50.0, tool_success=1.0)}, True),
+    ],
+    ids=[
+        "seuil-inclusif",
+        "sous-le-seuil",
+        "zero-malgre-catalogue",
+        "none-catalogue-tools",
+        "none-catalogue-sans-tools",
+        "absent-catalogue-tools",
+        "absent-catalogue-sans-tools",
+        "sans-benchmark",
+        "rien",
+        "latest-zero",
+        "latest-un",
+    ],
+)
+def test_tools_verified(tag, capabilities, bench, expected):
+    """Benchmark de ce poste quand il a mesuré les outils du modèle, catalogue sinon."""
+    assert md.tools_verified(tag, capabilities, bench) is expected
