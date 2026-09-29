@@ -354,6 +354,16 @@ def _groq_client(create):
 class TestGroqProvider:
     """Groq actif seulement avec une clé, routage exact, erreurs levées (jamais en token)."""
 
+    @pytest.fixture(autouse=True)
+    def fetch_ids(self):
+        """`/models` simulé (story 17) : la clé factice accède aux 4 modèles, sans réseau."""
+        from src.core.providers.groq_provider import GroqProvider
+
+        with patch.object(
+            GroqProvider, "_fetch_model_ids", autospec=True, return_value=set(GROQ_TAGS)
+        ) as fetch:
+            yield fetch
+
     def test_registered_and_listed_with_key(self):
         from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
 
@@ -378,13 +388,99 @@ class TestGroqProvider:
         with pytest.raises(ValueError, match="Groq"):
             factory.get_provider("openai/gpt-oss-120b")
 
-    def test_cloud_disabled_lists_no_groq_model(self):
+    def test_cloud_disabled_lists_no_groq_model(self, fetch_ids):
         with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
             factory = LLMProviderFactory()
             with patch.object(
                 factory.get_provider_by_name("ollama"), "list_models", return_value=[]
             ):
                 assert factory.list_all_models(include_cloud=False) == []
+        fetch_ids.assert_not_called()
+
+    def test_without_key_models_endpoint_never_called(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        assert GroqProvider(api_key="").list_models() == []
+        fetch_ids.assert_not_called()
+
+    # --- Story 17 : seuls les modèles accessibles à la clé (`/models`) sont proposés ---
+
+    def test_partial_access_lists_only_accessible_fixed_models(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        # La clé accède aux 2 GPT-OSS et à d'autres ids (aperçu, transcription) hors liste fixe.
+        fetch_ids.return_value = {
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "whisper-large-v3",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "compound-beta",
+        }
+        models = GroqProvider(api_key="cle-factice").list_models()
+        assert [m["model"] for m in models] == ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        assert [m["name"] for m in models] == ["GPT-OSS 120B", "GPT-OSS 20B"]
+        assert all(m["provider"] == "groq" and m["type"] == "cloud" for m in models)
+
+    @pytest.mark.parametrize("error", [OSError("réseau"), TimeoutError("délai"), "401"])
+    def test_models_failure_falls_back_to_fixed_list(self, fetch_ids, error, caplog):
+        import httpx
+        import openai
+
+        from src.core.providers.groq_provider import GroqProvider
+
+        if error == "401":
+            request = httpx.Request("GET", "https://api.groq.com/openai/v1/models")
+            error = openai.AuthenticationError(
+                "Invalid API Key", response=httpx.Response(401, request=request), body=None
+            )
+        fetch_ids.side_effect = error
+        with caplog.at_level("WARNING", logger="src.core.providers.groq_provider"):
+            models = GroqProvider(api_key="cle-factice").list_models()
+        assert [m["model"] for m in models] == GROQ_TAGS
+        assert "/models" in caplog.text
+
+    def test_no_fixed_model_accessible_logs_warning(self, fetch_ids, caplog):
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.return_value = {"whisper-large-v3"}
+        with caplog.at_level("WARNING", logger="src.core.providers.groq_provider"):
+            assert GroqProvider(api_key="cle-factice").list_models() == []
+        assert "aucun modèle de la liste fixe" in caplog.text
+
+    def test_models_success_cached_no_second_call(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.return_value = {"openai/gpt-oss-20b"}
+        groq = GroqProvider(api_key="cle-factice")
+        for _ in range(3):
+            assert [m["model"] for m in groq.list_models()] == ["openai/gpt-oss-20b"]
+        assert fetch_ids.call_count == 1
+
+    def test_models_failure_cached_ten_minutes_then_retried(self, fetch_ids):
+        from src.core.providers import groq_provider
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.side_effect = OSError("réseau")
+        groq = GroqProvider(api_key="cle-factice")
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0):
+            assert len(groq.list_models()) == 4
+            assert len(groq.list_models()) == 4
+        assert fetch_ids.call_count == 1
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0 + 599):
+            groq.list_models()
+        assert fetch_ids.call_count == 1
+
+        fetch_ids.side_effect = None
+        fetch_ids.return_value = {"openai/gpt-oss-120b"}
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0 + 601):
+            assert [m["model"] for m in groq.list_models()] == ["openai/gpt-oss-120b"]
+        assert fetch_ids.call_count == 2
+
+    def test_inaccessible_tag_still_routed_to_groq(self, fetch_ids):
+        fetch_ids.return_value = {"openai/gpt-oss-120b"}
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            assert factory.get_provider("llama-3.1-8b-instant").provider_name == "groq"
 
     @pytest.mark.parametrize("tag", GROQ_TAGS)
     def test_routing_by_exact_membership(self, tag):
@@ -478,3 +574,21 @@ class TestGroqProvider:
 
         with patch("src.core.providers.provider_factory.get_model_info", return_value=None):
             assert is_cloud_tag(tag) is True
+
+
+def test_groq_fetch_model_ids_uses_short_timeout():
+    """`_fetch_model_ids` réel (hors fixture de la classe) : client synchrone simulé, 5 s."""
+    from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+    with patch("openai.OpenAI") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.models.list.return_value = [
+            MagicMock(id="openai/gpt-oss-20b"),
+            MagicMock(id="whisper-large-v3"),
+        ]
+        ids = GroqProvider(api_key="cle-factice")._fetch_model_ids()
+    assert ids == {"openai/gpt-oss-20b", "whisper-large-v3"}
+    client_cls.assert_called_once_with(
+        api_key="cle-factice", base_url=GROQ_BASE_URL, timeout=5.0, max_retries=0
+    )
+    client_cls.return_value.__exit__.assert_called_once()

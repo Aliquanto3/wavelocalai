@@ -401,12 +401,17 @@ def groq_listing(monkeypatch, indexed_base):  # noqa: F811
     groq._client = client
     list_groq = MagicMock(side_effect=groq.list_models)
     monkeypatch.setattr(groq, "list_models", list_groq)
+    # `/models` simulé (story 17) : la clé factice accède aux 4 modèles, sans réseau.
+    fetch_ids = MagicMock(return_value=set(GROQ_TAGS))
+    monkeypatch.setattr(groq, "_fetch_model_ids", fetch_ids)
 
     factory = object.__new__(LLMProviderFactory)
     factory._providers = {"ollama": ollama, "groq": groq}
     monkeypatch.setattr(LLMProvider, "list_models", REAL_LIST_MODELS)
     monkeypatch.setattr("src.core.llm_provider.get_provider_factory", lambda: factory)
-    return SimpleNamespace(create=client.chat.completions.create, list_models=list_groq)
+    return SimpleNamespace(
+        create=client.chat.completions.create, list_models=list_groq, fetch_ids=fetch_ids
+    )
 
 
 def _groq_label(tag: str) -> str:
@@ -438,6 +443,30 @@ def test_groq_models_listed_as_cloud_after_locals_and_judge(groq_listing):
         _stop_tracker(at)
 
 
+def test_groq_lists_only_models_accessible_to_key(groq_listing):
+    """Story 17 : clé à accès partiel (`/models` renvoie les 2 GPT-OSS et d'autres ids) :
+    seuls GPT-OSS 120B et 20B sont proposés ; `/models` n'est pas rappelé au rerun."""
+    groq_listing.fetch_ids.return_value = {
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "whisper-large-v3",
+    }
+    at = _app(ARENA_PAGE)
+    try:
+        at.session_state["cloud_enabled"] = True
+        at.run()
+        assert not at.exception, [e.value for e in at.exception]
+        (box,) = [s for s in at.selectbox if s.label == "Modèle actif"]
+        cloud = [o for o in box.options if o.endswith("· Cloud")]
+        assert sorted(cloud) == sorted(
+            _groq_label(t) for t in ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
+        )
+        at.run()
+        assert groq_listing.fetch_ids.call_count == 1
+    finally:
+        _stop_tracker(at)
+
+
 def test_groq_hidden_and_never_called_when_cloud_disabled(groq_listing):
     at = _app()
     try:
@@ -448,8 +477,9 @@ def test_groq_hidden_and_never_called_when_cloud_disabled(groq_listing):
             options = _model_options(at)
             assert options, page
             assert not [o for o in options if o.endswith("· Cloud")], (page, options)
-        # Aucun appel au fournisseur Groq : ni listing, ni génération.
+        # Aucun appel au fournisseur Groq : ni listing, ni `/models`, ni génération.
         assert groq_listing.list_models.call_count == 0
+        assert groq_listing.fetch_ids.call_count == 0
         assert groq_listing.create.await_count == 0
     finally:
         _stop_tracker(at)

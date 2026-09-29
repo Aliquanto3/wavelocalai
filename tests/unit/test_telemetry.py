@@ -25,8 +25,17 @@ def test_disable_telemetry_sets_missing_and_keeps_existing(monkeypatch, tmp_path
 
     assert os.environ["RAGAS_DO_NOT_TRACK"] == "true"
     assert os.environ["CREWAI_DISABLE_TELEMETRY"] == "true"
+    assert os.environ["CREWAI_DISABLE_VERSION_CHECK"] == "true"  # pas d'appel à pypi.org
     assert os.environ["ANONYMIZED_TELEMETRY"] == "True"
     assert os.environ["LANGSMITH_TRACING"] == "true"
+
+
+def test_crewai_version_check_keeps_existing_value(monkeypatch, tmp_path):
+    for name in TELEMETRY_OPT_OUTS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CREWAI_DISABLE_VERSION_CHECK", "false")  # choix explicite conservé
+    disable_telemetry(tmp_path / "absent.env")
+    assert os.environ["CREWAI_DISABLE_VERSION_CHECK"] == "false"
 
 
 def _clean_env() -> dict[str, str]:

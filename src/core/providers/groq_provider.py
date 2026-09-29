@@ -8,7 +8,9 @@ listés que si le cloud est autorisé (LLMProviderFactory.list_all_models).
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from typing import TYPE_CHECKING, Any
 
 from src.core.providers import openai_provider
@@ -17,8 +19,15 @@ from src.core.providers.openai_provider import OpenAIProvider
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
 
+logger = logging.getLogger(__name__)
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+# Appel `/models` : délai court, résultat gardé (succès pour la vie du provider, échec
+# 10 minutes) pour ne jamais le relancer à chaque rerun de Streamlit.
+MODELS_TIMEOUT_S = 5.0
+MODELS_FAILURE_TTL_S = 600.0
 
 # Modèles de chat en production chez Groq (documentation publique, vérifiée le 27/09/2026) :
 # ni aperçu (preview), ni transcription. Un tag est routé vers Groq par appartenance exacte à
@@ -55,6 +64,9 @@ class GroqProvider(OpenAIProvider):
         """
         self._api_key = api_key or GROQ_API_KEY
         self._client = None
+        # Ids renvoyés par `/models` (None : pas encore obtenus ou échec) et instant de l'échec.
+        self._accessible_ids: frozenset[str] | None = None
+        self._failed_at: float | None = None
 
     def _get_client(self) -> AsyncOpenAI:
         """Client `AsyncOpenAI` pointé sur Groq, créé au premier appel."""
@@ -77,9 +89,46 @@ class GroqProvider(OpenAIProvider):
         """Vérifie si le provider est configuré et disponible."""
         return openai_provider.OPENAI_AVAILABLE and bool(self._api_key)
 
+    def _fetch_model_ids(self) -> set[str]:
+        """Ids des modèles accessibles à la clé (`GET /models`), délai borné à 5 s."""
+        import openai
+
+        # Aucun nouvel essai du SDK : le délai reste de 5 s, le client est fermé ensuite.
+        with openai.OpenAI(
+            api_key=self._api_key,
+            base_url=GROQ_BASE_URL,
+            timeout=MODELS_TIMEOUT_S,
+            max_retries=0,
+        ) as client:
+            return {model.id for model in client.models.list()}
+
+    def _accessible_model_ids(self) -> frozenset[str] | None:
+        """Ids accessibles à la clé, gardés en mémoire ; None si `/models` a échoué (échec
+        gardé 10 minutes avant un nouvel essai)."""
+        if self._accessible_ids is not None:
+            return self._accessible_ids
+        now = time.monotonic()
+        if self._failed_at is not None and now - self._failed_at < MODELS_FAILURE_TTL_S:
+            return None
+        try:
+            self._accessible_ids = frozenset(self._fetch_model_ids())
+            self._failed_at = None
+        except Exception as e:
+            logger.warning(f"Groq /models indisponible, liste fixe proposée : {e}")
+            self._failed_at = now
+        return self._accessible_ids
+
     def list_models(self) -> list[dict[str, Any]]:
-        """Liste les modèles Groq proposés (vide sans clé)."""
+        """Liste les modèles Groq proposés (vide sans clé) : ceux de la liste fixe accessibles
+        à la clé d'après `/models`, ou toute la liste fixe si `/models` échoue."""
         models = super().list_models()
+        if not models:
+            return models
+        accessible = self._accessible_model_ids()
+        if accessible is not None:
+            models = [m for m in models if m["model"] in accessible]
+            if not models:
+                logger.warning("Groq : aucun modèle de la liste fixe accessible à cette clé")
         for model in models:
             model["provider"] = self.provider_name
         return models

@@ -27,6 +27,8 @@ TELEMETRY_OPT_OUTS: dict[str, str] = {
     # CrewAI, et le SDK OpenTelemetry qu'il embarque.
     "CREWAI_DISABLE_TELEMETRY": "true",
     "OTEL_SDK_DISABLED": "true",
+    # CrewAI : pas de vérification de version auprès de pypi.org au démarrage.
+    "CREWAI_DISABLE_VERSION_CHECK": "true",
     "HF_HUB_DISABLE_TELEMETRY": "1",
     # LangSmith : pas de traces envoyées sans activation explicite.
     "LANGCHAIN_TRACING_V2": "false",
