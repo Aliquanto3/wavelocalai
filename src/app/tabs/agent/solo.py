@@ -1,67 +1,373 @@
 """
-Solo Agent Tab - Sprint 1 (UX Refonte)
-Modifications :
-- Indicateur GreenOps coloré (Vert/Orange/Rouge)
-- Empty State avec cartes d'action (Suggestions)
-- UI allégée
-- FIX: Structure PROMPT_LIBRARY alignée avec les tests
+Mode « Agent seul » des Agents autonomes.
+
+- CO₂ en texte, sans code couleur par seuil
+- État vide avec actions rapides en cartes
+- Structure de PROMPT_LIBRARY vérifiée par les tests
+- Badge Local ou Cloud du modèle choisi et de la réponse
+- Rien ne se perd : réponse finale (CO₂, modèle, badge, raisonnement) et erreurs conservées
+  dans l'historique ; modèle choisi gardé en session hors widget (passage en équipe compris)
+- Email (D2) : « Envoi d'email » décoché par défaut, non sélectionnable sans SMTP ; l'outil
+  ne prépare qu'un brouillon, envoyé seulement après « Envoyer l'email » dans confirm-dialog
 """
 
 import streamlit as st
 
+from src.app.formatting import format_co2, mg_to_grams
+from src.app.rag_upload import escape_markdown
+from src.app.states import (
+    LOADING_HINT,
+    LOADING_LABEL,
+    generation_failure_advice,
+    render_error,
+    render_no_models,
+)
+from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 from src.core.agent_engine import AgentEngine
-from src.core.agent_tools import TOOLS_METADATA
+from src.core.agent_tools import (
+    TOOLS_METADATA,
+    send_validated_email,
+    smtp_configured,
+    smtp_missing_help,
+    validate_email,
+)
+from src.core.answer_carbon import answer_carbon_mg
+from src.core.llm_provider import LLMProvider
 from src.core.resource_manager import ResourceManager
 from src.core.utils import extract_thought
 
 # --- PROMPT DATA (STRUCTURE CORRIGÉE) ---
 PROMPT_LIBRARY = {
-    "📊 Analyse": {
-        "Benchmark CSV": {
+    "Analyse": {
+        "Fichier CSV de mesures": {
             "prompt": "Analyse 'data/benchmarks_data.csv', donne un aperçu et la moyenne de ram_usage_gb",
-            "required_tools": [
-                "analyze_csv",
-                "calculator",
-            ],  # ✅ CORRIGÉ : "tools" → "required_tools"
-            "description": "Analyse d'un fichier CSV benchmark avec calculs statistiques",  # ✅ AJOUTÉ
+            "required_tools": ["analyze_csv", "calculator"],
+            "description": "Analyse d'un fichier CSV benchmark avec calculs statistiques",
         },
-        "Audit Système": {
+        "Audit du système": {
             "prompt": "Vérifie le système (CPU/RAM) et génère un graphique d'état.",
-            "required_tools": ["system_monitor", "generate_chart"],  # ✅ CORRIGÉ
-            "description": "Diagnostic système complet avec visualisation graphique",  # ✅ AJOUTÉ
+            "required_tools": ["system_monitor", "generate_chart"],
+            "description": "Diagnostic système complet avec visualisation graphique",
         },
     },
-    "📄 Rédaction": {
+    "Rédaction": {
         "Rapport Word": {
             "prompt": "Crée un document Word sur 'L'impact des SLM' (Intro/Dev/Concl).",
-            "required_tools": ["generate_document"],  # ✅ CORRIGÉ
-            "description": "Génération d'un rapport professionnel au format DOCX",  # ✅ AJOUTÉ
+            "required_tools": ["generate_document"],
+            "description": "Génération d'un rapport professionnel au format DOCX",
         },
         "Synthèse Markdown": {
             "prompt": "Fais un rapport Markdown sur l'état système actuel.",
-            "required_tools": ["system_monitor", "generate_markdown_report"],  # ✅ CORRIGÉ
-            "description": "Rapport technique système au format Markdown",  # ✅ AJOUTÉ
+            "required_tools": ["system_monitor", "generate_markdown_report"],
+            "description": "Rapport technique système au format Markdown",
         },
     },
-    "🚀 Workflow": {
-        "Full Pipeline": {
-            "prompt": "1) Check système 2) Analyse 'data/benchmarks_data.csv' 3) Graphique perf 4) Rapport DOCX.",
+    "Enchaînement": {
+        "Chaîne complète": {
+            "prompt": "1) Vérifie le système 2) Analyse 'data/benchmarks_data.csv' 3) Fais un graphique des performances 4) Rédige un rapport DOCX.",
             "required_tools": [
                 "system_monitor",
                 "analyze_csv",
                 "generate_chart",
                 "generate_document",
-            ],  # ✅ CORRIGÉ
-            "description": "Pipeline complet : audit → analyse → visualisation → documentation",  # ✅ AJOUTÉ
+            ],
+            "description": "Pipeline complet : audit → analyse → visualisation → documentation",
         },
     },
 }
 
 
+# Outil d'email : décoché par défaut (D2), non sélectionnable sans configuration SMTP.
+EMAIL_TOOL = "send_email"
+DEFAULT_TOOLS = [t for t in TOOLS_METADATA if t != EMAIL_TOOL]
+UNAVAILABLE_TOOLS_LABEL = "Outil non configuré"
+
+# Brouillons d'email préparés par l'agent, en attente de validation (file, le premier est
+# présenté dans confirm-dialog), et résultat du dernier envoi, affiché une fois.
+EMAIL_DRAFTS_KEY = "agent_email_drafts"
+EMAIL_RESULT_KEY = "agent_email_result"
+EMAIL_SEND_LABEL = "Envoyer l'email"
+EMAIL_CANCEL_LABEL = "Annuler"
+EMAIL_CANCELLED_MESSAGE = "Email non envoyé : envoi annulé."
+EMAIL_FAILED_MESSAGE = (
+    "L'email n'a pas été envoyé. Vérifiez la configuration SMTP du fichier .env, puis "
+    "demandez de nouveau l'email à l'agent."
+)
+
+
+# Modèle choisi pour l'agent seul : tag gardé hors widget. L'état du sélecteur est nettoyé
+# par Streamlit quand l'équipe d'agents est affichée ; ce tag, lui, survit au changement de mode.
+AGENT_MODEL_KEY = "agent_model_tag"
+AGENT_MODEL_WIDGET_KEY = "agent_model_select"
+
+
+def _save_agent_model(display_to_tag: dict) -> None:
+    """Choix de l'utilisateur (on_change) : seul moment où le modèle enregistré change."""
+    label = st.session_state.get(AGENT_MODEL_WIDGET_KEY)
+    st.session_state[AGENT_MODEL_KEY] = display_to_tag.get(label)
+
+
+def _select_agent_model(sorted_labels: list, display_to_tag: dict) -> str:
+    """Sélecteur du modèle de l'agent seul : le dernier modèle choisi s'il est proposé, sinon
+    le défaut de la règle (premier de la liste). Un modèle enregistré absent un instant
+    (cloud désactivé, liste incomplète) reste enregistré et revient dès qu'il est proposé.
+    Renvoie le libellé choisi."""
+    saved_tag = st.session_state.get(AGENT_MODEL_KEY)
+    saved_label = next(
+        (label for label in sorted_labels if display_to_tag.get(label) == saved_tag), None
+    )
+    current = st.session_state.get(AGENT_MODEL_WIDGET_KEY)
+    if saved_label and current != saved_label:
+        st.session_state[AGENT_MODEL_WIDGET_KEY] = saved_label
+    elif current not in sorted_labels:
+        st.session_state[AGENT_MODEL_WIDGET_KEY] = sorted_labels[0]
+    return st.selectbox(
+        "Modèle",
+        sorted_labels,
+        key=AGENT_MODEL_WIDGET_KEY,
+        label_visibility="collapsed",
+        on_change=_save_agent_model,
+        args=(display_to_tag,),
+    )
+
+
+def _answer_caption(msg: dict) -> str:
+    """Métadonnées sous une réponse : badge Local ou Cloud du modèle qui a répondu, son nom,
+    puis le CO₂ (texte, sans code couleur par seuil)."""
+    parts = []
+    if "is_cloud" in msg:
+        parts.append(badge_markdown(msg["is_cloud"]))
+    if msg.get("model_name"):
+        parts.append(msg["model_name"])
+    if msg.get("carbon_mg") is not None:
+        parts.append(format_co2(mg_to_grams(msg["carbon_mg"])))
+    return " · ".join(parts)
+
+
+def _render_message(msg: dict, index: int) -> None:
+    """Un tour de l'historique : journal d'outil, erreur, question (bloquée ou non) ou
+    réponse (raisonnement replié, texte, métadonnées, téléchargement)."""
+    if msg.get("type") == "tool_log":
+        if msg.get("interrupted"):
+            status_state = "error"
+        else:
+            status_state = "complete" if msg.get("done") else "running"
+        # Pas de « with » : à sa sortie, st.status passe de running à complete.
+        st.status(_tool_label(msg["tool"]), state=status_state).code(msg["content"])
+        return
+
+    if msg.get("error"):
+        # Tour en erreur : affiché comme une erreur, jamais renvoyé au modèle comme réponse.
+        render_error(msg["content"], msg.get("detail"))
+        caption = _answer_caption(msg)
+        if caption:
+            st.caption(caption)
+        return
+
+    if msg.get("thought"):
+        with st.expander("Raisonnement", expanded=False):
+            st.markdown(msg["thought"])
+
+    if msg.get("content"):
+        st.markdown(msg["content"])
+        if msg.get("blocked"):
+            st.caption("Question bloquée par le garde-fou mémoire, non envoyée.")
+
+    if msg["role"] == "assistant":
+        # Légende avant tout retour : une réponse vide garde son badge, son modèle, son CO₂.
+        caption = _answer_caption(msg)
+        if caption:
+            st.caption(caption)
+        if not msg.get("content"):
+            return
+        st.download_button(
+            "Télécharger",
+            msg["content"],
+            file_name=f"result_agent_{index}.md",
+            icon=":material/download:",
+            help="Télécharger en Markdown",
+            key=f"dl_btn_{index}",
+        )
+
+
+AGENT_FAILED_MESSAGE = "L'agent s'est arrêté avant de répondre. "
+AGENT_NO_ANSWER_MESSAGE = (
+    "L'agent s'est arrêté sans réponse. Reformulez la demande ou choisissez un autre modèle."
+)
+TOOL_INTERRUPTED_NOTE = "Interrompu : l'agent s'est arrêté avant le résultat de l'outil."
+
+
+def _record_failure(message: str, detail: str | None, turn_meta: dict, turn_logs: list) -> None:
+    """Tour en échec conservé comme erreur (avec son modèle et son badge) ; les journaux
+    d'outils restés en attente sont clos et marqués « interrompu »."""
+    for log in turn_logs:
+        if not log.get("done"):
+            log["done"] = True
+            log["interrupted"] = True
+            log["content"] = f"{log['content']}\n{TOOL_INTERRUPTED_NOTE}"
+    failure = {"role": "assistant", "content": message, "error": True, **turn_meta}
+    if detail:
+        failure["detail"] = detail
+    st.session_state.agent_messages.append(failure)
+    _render_message(failure, len(st.session_state.agent_messages) - 1)
+
+
+def _tool_label(tool_id: str) -> str:
+    """Nom affiché d'un outil (TOOLS_METADATA), à défaut son identifiant."""
+    return TOOLS_METADATA.get(tool_id, {}).get("name", tool_id)
+
+
+def email_draft(args) -> dict | None:
+    """Brouillon {to, subject, body} tiré des arguments d'un appel à l'outil d'email ; None
+    si les arguments sont invalides (l'outil a alors répondu par une erreur)."""
+    if not isinstance(args, dict):
+        return None
+    draft = {key: str(args.get(key) or "") for key in ("to", "subject", "body")}
+    return None if validate_email(**draft) else draft
+
+
+def queue_email_draft(args, selected_tools: list[str]) -> bool:
+    """Met un brouillon en attente de validation, seulement si l'outil d'email est choisi,
+    SMTP configuré, les arguments valides et le brouillon pas déjà en attente."""
+    if EMAIL_TOOL not in selected_tools or not smtp_configured():
+        return False
+    draft = email_draft(args)
+    queue = st.session_state.setdefault(EMAIL_DRAFTS_KEY, [])
+    if draft is None or draft in queue:
+        return False
+    queue.append(draft)
+    return True
+
+
+def clear_email_drafts() -> None:
+    """Retire les brouillons en attente (conversation effacée, passage en équipe)."""
+    st.session_state.pop(EMAIL_DRAFTS_KEY, None)
+
+
+def _pop_draft() -> dict | None:
+    drafts = st.session_state.get(EMAIL_DRAFTS_KEY) or []
+    return drafts.pop(0) if drafts else None
+
+
+def _cancel_email() -> None:
+    """Retire le brouillon sans rien envoyer ; « Email non envoyé » s'affiche au run suivant."""
+    draft = _pop_draft()
+    if draft is not None:
+        st.session_state[EMAIL_RESULT_KEY] = {"ok": None, "cancelled": True, "to": draft["to"]}
+
+
+def _dismiss_email() -> None:
+    """Fermeture du dialogue (croix, Échap) : comme « Annuler », rien n'est envoyé."""
+    _cancel_email()
+
+
+@st.dialog("Envoyer l'email ?", on_dismiss=_dismiss_email)
+def confirm_email_dialog() -> None:
+    """confirm-dialog de l'email : destinataire, objet et corps du brouillon. Rien ne part
+    sans « Envoyer l'email » ; « Annuler » le retire sans rien envoyer."""
+    drafts = st.session_state.get(EMAIL_DRAFTS_KEY) or []
+    if not drafts:
+        return
+    draft = drafts[0]
+    st.warning(
+        f"L'agent a préparé cet email pour {escape_markdown(draft['to'])}. Il ne part que si "
+        f"vous cliquez sur « {EMAIL_SEND_LABEL} ».",
+        icon=":material/warning:",
+    )
+    st.markdown(f"**Destinataire** : {escape_markdown(draft['to'])}")
+    st.markdown(f"**Objet** : {escape_markdown(draft['subject'])}")
+    st.markdown("**Corps du message**")
+    with st.container(border=True):
+        st.text(draft["body"])
+
+    col_send, col_cancel = st.columns(2)
+    with col_send:
+        send = st.button(EMAIL_SEND_LABEL, type="primary", icon=":material/send:", width="stretch")
+    with col_cancel:
+        cancel = st.button(EMAIL_CANCEL_LABEL, width="stretch")
+
+    if send:
+        _pop_draft()
+        # Envoi réel, seulement ici, après validation humaine.
+        with st.spinner("Envoi de l'email…"):
+            delivery = send_validated_email(draft["to"], draft["subject"], draft["body"])
+        st.session_state[EMAIL_RESULT_KEY] = {
+            "ok": delivery.ok,
+            "to": draft["to"],
+            "detail": delivery.message,
+        }
+        # st.rerun ferme le dialogue : le résultat s'affiche au run suivant.
+        st.rerun()
+    elif cancel:
+        _cancel_email()
+        st.rerun()
+
+
+def _render_email_result() -> None:
+    """Résultat du dernier envoi, une fois : succès au même verbe, annulation, ou
+    alert-error."""
+    result = st.session_state.pop(EMAIL_RESULT_KEY, None)
+    if not result:
+        return
+    if result.get("cancelled"):
+        st.info(EMAIL_CANCELLED_MESSAGE, icon=":material/cancel:")
+    elif result["ok"]:
+        st.success(
+            f"Email envoyé à {escape_markdown(result['to'])}.", icon=":material/check_circle:"
+        )
+    else:
+        render_error(EMAIL_FAILED_MESSAGE, result["detail"])
+
+
+def _render_tool_pills() -> None:
+    """Neuf pastilles d'outils : toutes cochées par défaut sauf « Envoi d'email ». Sans
+    configuration SMTP, « Envoi d'email » reste visible dans une pastille désactivée, avec
+    une aide qui dit ce qui manque. Met à jour `selected_tools`."""
+    smtp_ok = smtp_configured()
+    selectable = [t for t in TOOLS_METADATA if smtp_ok or t != EMAIL_TOOL]
+    tool_map = {TOOLS_METADATA[t]["name"]: t for t in selectable}
+
+    if "selected_tools" not in st.session_state:
+        st.session_state.selected_tools = list(DEFAULT_TOOLS)
+
+    current_display = [
+        TOOLS_METADATA[t]["name"] for t in selectable if t in st.session_state.selected_tools
+    ]
+
+    try:
+        # wrap=True replie les pastilles sur plusieurs lignes au lieu de les faire défiler
+        # sur une seule (5 sur 9 masquées à 1440 px sinon).
+        sel_display = st.pills(
+            "Outils",
+            list(tool_map),
+            default=current_display,
+            selection_mode="multi",
+            label_visibility="collapsed",
+            wrap=True,
+        )
+    except Exception:
+        sel_display = st.multiselect(
+            "Outils", list(tool_map), default=current_display, label_visibility="collapsed"
+        )
+
+    if not smtp_ok:
+        # Libellé visible : un libellé masqué masque aussi l'aide du widget.
+        st.pills(
+            UNAVAILABLE_TOOLS_LABEL,
+            [TOOLS_METADATA[EMAIL_TOOL]["name"]],
+            selection_mode="multi",
+            disabled=True,
+            help=smtp_missing_help(),
+            key="agent_unavailable_tools",
+        )
+
+    st.session_state.selected_tools = [tool_map[n] for n in sel_display]
+
+
 # --- MODAL: PROMPT LIBRARY ---
-@st.dialog("📚 Bibliothèque de Prompts")
+@st.dialog("Scénarios")
 def open_prompt_library():
-    st.caption("Sélectionnez un scénario pour pré-configurer l'agent.")
+    st.caption("Choisissez un scénario : sa consigne et ses outils sont préremplis.")
 
     # Grid Layout for cards
     for cat, prompts in PROMPT_LIBRARY.items():
@@ -70,10 +376,10 @@ def open_prompt_library():
         for i, (title, data) in enumerate(prompts.items()):
             with cols[i % 2], st.container(border=True):
                 st.markdown(f"**{title}**")
-                st.caption(data["prompt"][:60] + "...")
-                if st.button("Utiliser", key=f"use_{title}", use_container_width=True):
+                st.caption(data["prompt"][:60] + "…")
+                if st.button("Utiliser", key=f"use_{title}", width="stretch"):
                     st.session_state.use_prompt = data["prompt"]
-                    # Auto-select tools (✅ Utilise maintenant "required_tools")
+                    # Auto-select tools (required_tools)
                     if "selected_tools" not in st.session_state:
                         st.session_state.selected_tools = []
                     for t in data.get("required_tools", []):
@@ -85,50 +391,36 @@ def open_prompt_library():
         st.rerun()
 
 
-def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
+def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: ModelMenu | None = None):
+
+    if not sorted_labels:
+        render_no_models()
+        return
 
     # --- 1. CONFIGURATION BAR ---
     c1, c2, c3 = st.columns([2, 4, 1])
 
     with c1:
-        # Model Selector
-        selected_label = st.selectbox("🧠 Modèle", sorted_labels, label_visibility="collapsed")
-        selected_tag = display_to_tag[selected_label]
+        # Sélecteur de modèle : choix gardé en session, même après un passage en équipe.
+        selected_label = _select_agent_model(sorted_labels, display_to_tag)
+        selected_tag = display_to_tag.get(selected_label)
+        # Badge du modèle choisi, dérivé de son fournisseur réel.
+        selected_is_cloud = is_cloud_model(selected_tag, menu)
+        render_badge(selected_is_cloud)
 
     with c2:
-        # Tool Selector (Pills)
-        tool_map = {meta["name"]: name for name, meta in TOOLS_METADATA.items()}
-        tool_display_names = list(tool_map.keys())
+        _render_tool_pills()
 
-        if "selected_tools" not in st.session_state:
-            st.session_state.selected_tools = list(TOOLS_METADATA.keys())
-
-        current_display = [
-            meta["name"]
-            for name, meta in TOOLS_METADATA.items()
-            if name in st.session_state.selected_tools
-        ]
-
-        try:
-            sel_display = st.pills(
-                "Outils",
-                tool_display_names,
-                default=current_display,
-                selection_mode="multi",
-                label_visibility="collapsed",
-            )
-        except Exception:
-            # Optionnel : loguer l'erreur pour le débogage
-            # print(f"Erreur lors de la lecture du système: {e}")
-            sel_display = st.multiselect(
-                "Outils", tool_display_names, default=current_display, label_visibility="collapsed"
-            )
-
-        st.session_state.selected_tools = [tool_map[n] for n in sel_display]
-
+    library_opened = False
     with c3:
         # Library Button
-        if st.button("📂 Prompts", help="Ouvrir la bibliothèque", use_container_width=True):
+        if st.button(
+            "Scénarios",
+            icon=":material/library_books:",
+            help="Ouvrir la bibliothèque de scénarios",
+            width="stretch",
+        ):
+            library_opened = True
             open_prompt_library()
 
     st.divider()
@@ -137,82 +429,43 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
     chat_container = st.container()
 
     with chat_container:
+        _render_email_result()
+
         # EMPTY STATE AMÉLIORÉ
         if not st.session_state.agent_messages:
-            st.markdown(
-                """
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h3>👋 Bonjour !</h3>
-                    <p style="color: gray;">L'agent est prêt. Choisissez une action rapide ou tapez votre demande.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
+            st.header("👋 Bonjour !", anchor=False, text_alignment="center")
+            st.caption(
+                "L'agent est prêt. Choisissez une action rapide ou tapez votre demande.",
+                text_alignment="center",
             )
 
             # Quick Actions (Cartes)
             ac1, ac2, ac3 = st.columns(3)
             with ac1, st.container(border=True):
-                st.markdown("**📊 Audit Système**")
-                if st.button("Lancer l'audit", key="start_audit", use_container_width=True):
+                st.markdown("**Audit du système**")
+                if st.button("Lancer l'audit", key="start_audit", width="stretch"):
                     st.session_state.use_prompt = (
                         "Vérifie l'état du système (CPU/RAM) et fais un résumé."
                     )
                     st.rerun()
             with ac2, st.container(border=True):
-                st.markdown("**📊 Analyse CSV**")
-                if st.button("Analyser Data", key="start_csv", use_container_width=True):
+                st.markdown("**Analyse de données**")
+                if st.button("Analyser les données", key="start_csv", width="stretch"):
                     st.session_state.use_prompt = (
                         "Analyse data/benchmarks_data.csv et donne les tendances."
                     )
                     st.rerun()
             with ac3, st.container(border=True):
-                st.markdown("**🌱 Conscience**")
-                st.caption("Les requêtes locales consomment moins de CO2.")
+                st.markdown("**Sobriété**")
+                st.caption("Les requêtes locales émettent moins de CO₂.")
 
         # LOOP MESSAGES
         for i, msg in enumerate(st.session_state.agent_messages):
             with st.chat_message(msg["role"]):
-                if msg.get("type") == "tool_log":
-                    status_state = "complete" if "✅" in msg["content"] else "running"
-                    with st.status(f"🛠️ {msg['tool']}", state=status_state):
-                        st.code(msg["content"])
-                elif msg.get("thought"):
-                    with st.expander("💭 Raisonnement", expanded=False):
-                        st.markdown(msg["thought"])
-
-                if msg.get("content"):
-                    st.markdown(msg["content"])
-
-                    # --- ACTION BAR FOR ASSISTANT ---
-                    if msg["role"] == "assistant":
-                        col_d1, col_d2 = st.columns([1, 5])
-                        with col_d1:
-                            st.download_button(
-                                "📥",
-                                msg["content"],
-                                file_name=f"result_agent_{i}.md",
-                                help="Télécharger en Markdown",
-                                key=f"dl_btn_{i}",
-                            )
-                        # GREENOPS DISPLAY AMÉLIORÉ
-                        if "carbon_mg" in msg:
-                            val = msg["carbon_mg"]
-                            # Logique couleur
-                            if val < 50:
-                                color_style = "color:green; font-weight:bold;"
-                            elif val < 500:
-                                color_style = "color:orange; font-weight:bold;"
-                            else:
-                                color_style = "color:red; font-weight:bold;"
-
-                            with col_d2:
-                                st.markdown(
-                                    f"<span style='{color_style}'>🌱 {val:.2f} mgCO₂</span>",
-                                    unsafe_allow_html=True,
-                                )
+                _render_message(msg, i)
 
     # --- 3. INPUT & EXECUTION ---
-    user_input = st.chat_input("Votre instruction...")
+    user_input = st.chat_input("Décrivez la tâche à confier à l'agent")
 
     # Handle Prompt Injection (Library or Quick Action)
     final_prompt = None
@@ -224,43 +477,72 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
 
     if final_prompt:
         if not selected_tag:
-            st.toast("❌ Aucun modèle sélectionné", icon="🚫")
+            st.toast("Choisissez un modèle.", icon=":material/error:")
             st.stop()
 
-        check = ResourceManager.check_resources(selected_tag, n_instances=1)
-        if not check.allowed:
-            st.error(f"⚠️ {check.message}")
-            st.stop()
+        # Historique envoyé au moteur : les tours précédents seulement (la question courante
+        # part une seule fois, en `user_query`), sans les questions bloquées.
+        history = [m for m in st.session_state.agent_messages if not m.get("blocked")]
 
-        st.session_state.agent_messages.append({"role": "user", "content": final_prompt})
+        # La question entre dans l'historique avant le garde-fou mémoire : bloquée, elle
+        # reste visible (et réutilisable) au lieu de disparaître.
+        user_turn = {"role": "user", "content": final_prompt}
+        st.session_state.agent_messages.append(user_turn)
         with chat_container.chat_message("user"):
             st.markdown(final_prompt)
 
+        check = ResourceManager.check_resources(selected_tag, n_instances=1)
+        if not check.allowed:
+            # Marquée bloquée : affichée, mais jamais renvoyée au moteur comme tour orphelin.
+            user_turn["blocked"] = True
+            # Mémoire nécessaire, mémoire libre, deux issues (modèle plus petit, libérer).
+            st.warning(check.message, icon=":material/memory:")
+            st.stop()
+
         with chat_container.chat_message("assistant"):
             # L'agent n'affiche rien tant qu'il n'a pas commencé à générer
-            # On affiche un placeholder de status vide pour le remplissage
+            # On affiche un placeholder de status vide pour le remplissage.
+            # Premier chargement : annoncé avant la génération (rien si `ps()` échoue).
             status_placeholder = st.empty()
-            status_box = status_placeholder.status("🧠 L'agent réfléchit...", expanded=True)
+            loading = LLMProvider.is_model_loaded(selected_tag) is False
+            if loading:
+                status_box = status_placeholder.status(LOADING_LABEL, expanded=True)
+                status_box.write(LOADING_HINT)
+            else:
+                status_box = status_placeholder.status("L'agent réfléchit…", expanded=True)
 
-            engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
-            full_resp = ""
-            thought = None
+            friendly_name = menu.tag_to_friendly.get(selected_tag) if menu else None
+            # Modèle qui répond et son fournisseur réel : repris par chaque tour conservé.
+            turn_meta = {
+                "model_tag": selected_tag,
+                "model_name": friendly_name,
+                "is_cloud": selected_is_cloud,
+            }
+            turn_logs = []  # Journaux d'outils de ce tour, clos en cas d'échec
+            failed_message = AGENT_FAILED_MESSAGE + generation_failure_advice(selected_tag)
 
             try:
+                # Construit dans le try : une clé d'API manquante est un échec affiché.
+                engine = AgentEngine(selected_tag, enabled_tools=st.session_state.selected_tools)
                 # Assuming system prompt is hidden/default for Sprint 2 to save space
                 sys_prompt = "Tu es un assistant expert Wavestone. Réponds en Markdown propre."
-                stream = engine.run_stream(
-                    final_prompt, st.session_state.agent_messages, system_prompt=sys_prompt
-                )
+                stream = engine.run_stream(final_prompt, history, system_prompt=sys_prompt)
 
                 current_tool_log = None  # Pour gérer l'ajout d'un seul log par tool_call
+                finished = False  # Réponse finale ou erreur reçue
 
                 for event in stream:
                     ev_type = event["type"]
+                    if loading:
+                        # Premier événement : le modèle est chargé, l'agent travaille.
+                        status_box.update(label="L'agent réfléchit…")
+                        loading = False
 
                     if ev_type == "tool_call":
-                        status_box.write(f"🔨 **{event['tool']}** (Arguments: {event['args']})")
-                        log_content = f"Args: {event['args']}\nEn attente du résultat..."
+                        status_box.write(
+                            f"**{_tool_label(event['tool'])}** (arguments : {event['args']})"
+                        )
+                        log_content = f"Arguments : {event['args']}\nEn attente du résultat…"
 
                         # Création d'un placeholder de log pour la mise à jour
                         current_tool_log = {
@@ -271,42 +553,79 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict):
                             "content": log_content,
                         }
                         st.session_state.agent_messages.append(current_tool_log)
+                        turn_logs.append(current_tool_log)
+
+                        # Email : l'outil n'a préparé qu'un brouillon, présenté ensuite dans
+                        # confirm-dialog ; rien ne part sans « Envoyer l'email ».
+                        if event["tool"] == EMAIL_TOOL:
+                            queue_email_draft(event["args"], st.session_state.selected_tools)
 
                     elif ev_type == "tool_result":
                         content = event["content"]
 
                         # Mise à jour du dernier log créé
                         if current_tool_log:
-                            # Ajout d'une marque de succès pour le log
-                            current_tool_log["content"] = f"✅ Résultat de l'outil:\n{content}"
+                            # Marque de fin explicite (lue par le rendu du log, pas le texte)
+                            current_tool_log["content"] = f"Résultat de l'outil :\n{content}"
+                            current_tool_log["done"] = True
 
-                        status_box.write("✅ Résultat de l'outil reçu.")
+                        status_box.write("Résultat de l'outil reçu.")
 
                         if ".png" in content or ".jpg" in content:
                             if "outputs/" in content:
                                 st.image(content.strip())
-                                st.toast("🖼️ Image générée !", icon="✨")
+                                st.toast("Image générée.", icon=":material/image:")
                         elif len(content) > 500:
-                            st.toast("📄 Document généré/analysé, voir log technique.", icon="📚")
+                            st.toast(
+                                "Document généré ou analysé : voir le journal de l'outil.",
+                                icon=":material/article:",
+                            )
 
                     elif ev_type == "final_answer":
+                        finished = True
                         # Mise à jour de la boîte de statut uniquement à la fin
                         status_placeholder.empty()
-                        status_box = st.status("✅ Terminé", state="complete", expanded=False)
+                        status_box = st.status("Terminé", state="complete", expanded=False)
 
                         thought, clean = extract_thought(event["content"])
-                        full_resp = clean
-                        if thought:
-                            with st.expander("💭 Voir le raisonnement"):
-                                st.markdown(thought)
-                        st.markdown(full_resp)
+                        answer = {
+                            "role": "assistant",
+                            "content": clean,
+                            "thought": thought,
+                            **turn_meta,
+                        }
+                        # Conservée d'abord : elle survit aux reruns et aux changements de
+                        # mode, avec son CO₂, son modèle et son badge.
+                        st.session_state.agent_messages.append(answer)
+                        try:
+                            answer["carbon_mg"] = answer_carbon_mg(
+                                selected_tag, event.get("output_tokens"), selected_is_cloud
+                            )
+                        except Exception:
+                            # Un calcul de CO₂ en échec ne fait jamais perdre la réponse.
+                            answer["carbon_mg"] = None
+                        _render_message(answer, len(st.session_state.agent_messages) - 1)
 
                     elif ev_type == "error":
+                        finished = True
                         status_placeholder.empty()
-                        status_box = st.status("❌ Erreur", state="error")
-                        st.error(event["content"])
+                        status_box = st.status("Erreur", state="error")
+                        # Même message que l'échec ci-dessous ; l'exception va en détail.
+                        _record_failure(failed_message, event["content"], turn_meta, turn_logs)
 
-                # ... (Carbon Calc et st.rerun inchangés) ...
+                # Flux terminé sans réponse finale : le statut (« Chargement… » ou
+                # « L'agent réfléchit… ») ne reste pas ouvert.
+                if not finished:
+                    status_box.update(
+                        label="L'agent s'est arrêté sans réponse", state="error", expanded=False
+                    )
+                    _record_failure(AGENT_NO_ANSWER_MESSAGE, None, turn_meta, turn_logs)
             except Exception as e:
-                status_box.update(label="💥 Crash", state="error")
-                st.error(f"Erreur critique : {e}")
+                status_box.update(label="Échec", state="error", expanded=False)
+                _record_failure(failed_message, f"{type(e).__name__}: {e}", turn_meta, turn_logs)
+
+    # --- 4. EMAIL EN ATTENTE DE VALIDATION ---
+    # Ouvert à chaque exécution tant qu'un brouillon attend : « Envoyer l'email », « Annuler »
+    # ou la fermeture du dialogue le retirent. Un seul dialogue à la fois.
+    if st.session_state.get(EMAIL_DRAFTS_KEY) and not library_opened:
+        confirm_email_dialog()

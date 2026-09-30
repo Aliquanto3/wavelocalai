@@ -1,9 +1,15 @@
 import logging
 
-from langchain_chroma import Chroma
-from langchain_core.embeddings import Embeddings
+from src.core.telemetry import disable_telemetry
 
-from src.core.config import CHROMA_DIR
+# Chroma lit ANONYMIZED_TELEMETRY à la création de ses réglages : à couper avant son import,
+# même quand un script ou un test importe ce module sans passer par l'app.
+disable_telemetry()
+
+from langchain_chroma import Chroma  # noqa: E402
+from langchain_core.embeddings import Embeddings  # noqa: E402
+
+from src.core.config import CHROMA_DIR  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

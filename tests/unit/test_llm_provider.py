@@ -10,6 +10,27 @@ import pytest
 
 from src.core.llm_provider import LLMProvider
 from src.core.metrics import InferenceMetrics
+from src.core.providers.provider_factory import LLMProviderFactory
+
+
+@pytest.fixture(autouse=True)
+def isolated_provider_factory():
+    """Factory neuve à chaque test, sans clé d'API réelle (.env ignoré) : aucun appel réseau.
+
+    La factory est un singleton de classe dont le registre _providers est partagé :
+    sans cette isolation, un provider Mistral créé avec une fausse clé par un test
+    reste enregistré et health_check() appelle ensuite l'API Mistral.
+    """
+    with (
+        patch("src.core.providers.mistral_provider.MISTRAL_API_KEY", None),
+        patch("src.core.providers.openai_provider.OPENAI_API_KEY", ""),
+        patch("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", ""),
+        patch("src.core.providers.groq_provider.GROQ_API_KEY", ""),
+        patch("src.core.providers.provider_factory._factory", None),
+        patch.object(LLMProviderFactory, "_instance", None),
+        patch.dict(LLMProviderFactory._providers, clear=True),
+    ):
+        yield
 
 
 class TestLLMProviderListModels:
@@ -33,7 +54,7 @@ class TestLLMProviderListModels:
             patch("src.core.providers.provider_factory._factory", None),
         ):
 
-            mock_ollama.list.return_value = MagicMock(models=mock_ollama_models)
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=mock_ollama_models)
             models = LLMProvider.list_models(cloud_enabled=True)
 
         # Vérifier qu'on a des modèles
@@ -46,7 +67,7 @@ class TestLLMProviderListModels:
         ]
 
         with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
-            mock_ollama.list.return_value = MagicMock(models=mock_ollama_models)
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=mock_ollama_models)
 
             # Reset la factory
             with patch("src.core.providers.provider_factory._factory", None):
@@ -149,12 +170,15 @@ class TestLLMProviderLangChain:
 
     def test_get_langchain_model_mistral(self):
         """Test création d'un modèle LangChain Mistral."""
+        # provider_factory importe is_api_model par nom : c'est là qu'il faut le patcher.
+        # La factory est un singleton de classe : on repart d'une instance neuve.
         with (
-            patch("src.core.model_detector.is_api_model", return_value=True),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=True),
             patch("src.core.providers.mistral_provider.MISTRAL_API_KEY", "fake-key"),
             patch("src.core.providers.mistral_provider.MISTRAL_AVAILABLE", True),
             patch("langchain_mistralai.ChatMistralAI") as mock_chat,
             patch("src.core.providers.provider_factory._factory", None),
+            patch.object(LLMProviderFactory, "_instance", None),
         ):
 
             mock_chat.return_value = MagicMock()
@@ -179,15 +203,21 @@ class TestLLMProviderPullModel:
             patch("src.core.providers.provider_factory._factory", None),
         ):
 
-            mock_ollama.pull.return_value = iter(["progress"])
+            mock_ollama.Client.return_value.pull.return_value = iter(["progress"])
             LLMProvider.pull_model("qwen2.5:1.5b")
 
-            mock_ollama.pull.assert_called_once_with("qwen2.5:1.5b", stream=True)
+            # Même hôte que la génération (base_url), jamais le client par défaut.
+            mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
+            mock_ollama.Client.return_value.pull.assert_called_once_with(
+                "qwen2.5:1.5b", stream=True
+            )
+            mock_ollama.pull.assert_not_called()
 
     def test_pull_model_cloud_raises_error(self):
         """Test qu'on ne peut pas télécharger un modèle cloud."""
+        # llm_provider importe is_api_model par nom : on patche la méthode qui l'utilise.
         with (
-            patch("src.core.model_detector.is_api_model", return_value=True),
+            patch.object(LLMProvider, "_is_mistral_api_model", return_value=True),
             pytest.raises(ValueError, match="Impossible de télécharger"),
         ):
             LLMProvider.pull_model("mistral-large-2512")
@@ -199,10 +229,603 @@ class TestLLMProviderHealthCheck:
     def test_health_check_returns_dict(self):
         """Test que health_check retourne un dictionnaire."""
         with patch("src.core.providers.ollama_provider.ollama") as mock_ollama:
-            mock_ollama.list.return_value = MagicMock(models=[])
+            mock_ollama.Client.return_value.list.return_value = MagicMock(models=[])
 
             with patch("src.core.providers.provider_factory._factory", None):
                 result = LLMProvider.health_check()
 
         assert isinstance(result, dict)
         assert "ollama" in result
+
+
+class TestCloudDisabledExcludesRemoteTags:
+    """Cloud désactivé (D1, story 8) : aucun modèle cloud, tags distants d'Ollama compris."""
+
+    OLLAMA_MODELS = [
+        {"model": "glm-4.6:cloud", "type": "local"},
+        {"model": "gpt-oss:120b-cloud", "type": "local"},
+        {"model": "qwen2.5:1.5b", "type": "local"},
+    ]
+    CLOUD_MODELS = [{"model": "mistral-large-2512", "type": "cloud"}]
+
+    def _factory(self):
+        """Factory aux providers simulés : Ollama (local) et un fournisseur cloud."""
+        ollama = MagicMock(is_local=True)
+        ollama.list_models.side_effect = lambda: [dict(m) for m in self.OLLAMA_MODELS]
+        mistral = MagicMock(is_local=False)
+        mistral.list_models.side_effect = lambda: [dict(m) for m in self.CLOUD_MODELS]
+        factory = object.__new__(LLMProviderFactory)
+        factory._providers = {"ollama": ollama, "mistral": mistral}
+        return factory
+
+    def test_cloud_disabled_lists_local_models_only(self):
+        models = self._factory().list_all_models(include_cloud=False)
+        assert [m["model"] for m in models] == ["qwen2.5:1.5b"]
+
+    def test_cloud_enabled_lists_remote_and_cloud_models(self):
+        models = self._factory().list_all_models(include_cloud=True)
+        assert [m["model"] for m in models] == [
+            "glm-4.6:cloud",
+            "gpt-oss:120b-cloud",
+            "qwen2.5:1.5b",
+            "mistral-large-2512",
+        ]
+
+    def test_facade_passes_cloud_setting(self):
+        with patch("src.core.llm_provider.get_provider_factory", return_value=self._factory()):
+            local = LLMProvider.list_models(cloud_enabled=False)
+        assert [m["model"] for m in local] == ["qwen2.5:1.5b"]
+
+    @pytest.mark.parametrize(
+        ("tag", "expected"),
+        [
+            ("qwen2.5:1.5b", False),
+            # Modèle Ollama local courant : le préfixe « gpt- » ne le rend pas cloud.
+            ("gpt-oss:20b", False),
+            ("glm-4.6:cloud", True),
+            ("gpt-oss:120b-cloud", True),
+            ("kimi-k2-cloud:latest", True),
+            ("gpt-4o-mini", True),
+            ("claude-3-5-sonnet", True),
+            # Origine inconnue : ni fournisseur, ni catalogue, ni tag Ollama.
+            ("", None),
+            (None, None),
+            ("N/A", None),
+            ("modele-inconnu", None),
+        ],
+    )
+    def test_is_cloud_tag_origin(self, tag, expected):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch("src.core.providers.provider_factory.get_model_info", return_value=None):
+            assert is_cloud_tag(tag) is expected
+
+    @pytest.mark.parametrize(("model_type", "expected"), [("api", True), ("local", False)])
+    def test_is_cloud_tag_catalog_type(self, model_type, expected):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch(
+            "src.core.providers.provider_factory.get_model_info",
+            return_value={"type": model_type},
+        ):
+            assert is_cloud_tag("mistral-large-2512") is expected
+
+
+# ---------------------------------------------------------------------------
+# Groq (story 16) : fournisseur cloud compatible OpenAI, client simulé, aucun appel réseau
+# ---------------------------------------------------------------------------
+
+GROQ_TAGS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
+
+
+class _FakeStream:
+    """Flux `chat.completions.create(stream=True)` simulé : deux tokens puis l'usage."""
+
+    def __init__(self, tokens):
+        self._chunks = [
+            MagicMock(choices=[MagicMock(delta=MagicMock(content=t))], usage=None) for t in tokens
+        ]
+        self._chunks.append(
+            MagicMock(choices=[], usage=MagicMock(prompt_tokens=7, completion_tokens=2))
+        )
+
+    def __aiter__(self):
+        self._it = iter(self._chunks)
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._it)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+
+def _groq_client(create):
+    client = MagicMock()
+    client.chat.completions.create = create
+    return client
+
+
+class TestGroqProvider:
+    """Groq actif seulement avec une clé, routage exact, erreurs levées (jamais en token)."""
+
+    @pytest.fixture(autouse=True)
+    def fetch_ids(self):
+        """`/models` simulé (story 17) : la clé factice accède aux 4 modèles, sans réseau."""
+        from src.core.providers.groq_provider import GroqProvider
+
+        with patch.object(
+            GroqProvider, "_fetch_model_ids", autospec=True, return_value=set(GROQ_TAGS)
+        ) as fetch:
+            yield fetch
+
+    def test_registered_and_listed_with_key(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            groq = factory.get_provider_by_name("groq")
+            assert isinstance(groq, GroqProvider)
+            assert groq.provider_name == "groq" and groq.is_local is False
+            models = [m for m in factory.list_all_models() if m["provider"] == "groq"]
+        assert [m["model"] for m in models] == GROQ_TAGS
+        assert all(m["type"] == "cloud" for m in models)
+        assert GROQ_BASE_URL == "https://api.groq.com/openai/v1"
+
+    def test_without_key_nothing_registered_nor_listed(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        factory = LLMProviderFactory()
+        assert factory.get_provider_by_name("groq") is None
+        assert GroqProvider().is_available is False
+        assert GroqProvider().list_models() == []
+        assert not [m for m in factory.list_all_models() if m["model"] in GROQ_TAGS]
+        with pytest.raises(ValueError, match="Groq"):
+            factory.get_provider("openai/gpt-oss-120b")
+
+    def test_cloud_disabled_lists_no_groq_model(self, fetch_ids):
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            with patch.object(
+                factory.get_provider_by_name("ollama"), "list_models", return_value=[]
+            ):
+                assert factory.list_all_models(include_cloud=False) == []
+        fetch_ids.assert_not_called()
+
+    def test_without_key_models_endpoint_never_called(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        assert GroqProvider(api_key="").list_models() == []
+        fetch_ids.assert_not_called()
+
+    # --- Story 17 : seuls les modèles accessibles à la clé (`/models`) sont proposés ---
+
+    def test_partial_access_lists_only_accessible_fixed_models(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        # La clé accède aux 2 GPT-OSS et à d'autres ids (aperçu, transcription) hors liste fixe.
+        fetch_ids.return_value = {
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "whisper-large-v3",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "compound-beta",
+        }
+        models = GroqProvider(api_key="cle-factice").list_models()
+        assert [m["model"] for m in models] == ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        assert [m["name"] for m in models] == ["GPT-OSS 120B", "GPT-OSS 20B"]
+        assert all(m["provider"] == "groq" and m["type"] == "cloud" for m in models)
+
+    @pytest.mark.parametrize("error", [OSError("réseau"), TimeoutError("délai"), "401"])
+    def test_models_failure_falls_back_to_fixed_list(self, fetch_ids, error, caplog):
+        import httpx
+        import openai
+
+        from src.core.providers.groq_provider import GroqProvider
+
+        if error == "401":
+            request = httpx.Request("GET", "https://api.groq.com/openai/v1/models")
+            error = openai.AuthenticationError(
+                "Invalid API Key", response=httpx.Response(401, request=request), body=None
+            )
+        fetch_ids.side_effect = error
+        with caplog.at_level("WARNING", logger="src.core.providers.groq_provider"):
+            models = GroqProvider(api_key="cle-factice").list_models()
+        assert [m["model"] for m in models] == GROQ_TAGS
+        assert "/models" in caplog.text
+
+    def test_no_fixed_model_accessible_logs_warning(self, fetch_ids, caplog):
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.return_value = {"whisper-large-v3"}
+        with caplog.at_level("WARNING", logger="src.core.providers.groq_provider"):
+            assert GroqProvider(api_key="cle-factice").list_models() == []
+        assert "aucun modèle de la liste fixe" in caplog.text
+
+    def test_models_success_cached_no_second_call(self, fetch_ids):
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.return_value = {"openai/gpt-oss-20b"}
+        groq = GroqProvider(api_key="cle-factice")
+        for _ in range(3):
+            assert [m["model"] for m in groq.list_models()] == ["openai/gpt-oss-20b"]
+        assert fetch_ids.call_count == 1
+
+    def test_models_failure_cached_ten_minutes_then_retried(self, fetch_ids):
+        from src.core.providers import groq_provider
+        from src.core.providers.groq_provider import GroqProvider
+
+        fetch_ids.side_effect = OSError("réseau")
+        groq = GroqProvider(api_key="cle-factice")
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0):
+            assert len(groq.list_models()) == 4
+            assert len(groq.list_models()) == 4
+        assert fetch_ids.call_count == 1
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0 + 599):
+            groq.list_models()
+        assert fetch_ids.call_count == 1
+
+        fetch_ids.side_effect = None
+        fetch_ids.return_value = {"openai/gpt-oss-120b"}
+        with patch.object(groq_provider.time, "monotonic", return_value=1000.0 + 601):
+            assert [m["model"] for m in groq.list_models()] == ["openai/gpt-oss-120b"]
+        assert fetch_ids.call_count == 2
+
+    def test_inaccessible_tag_still_routed_to_groq(self, fetch_ids):
+        fetch_ids.return_value = {"openai/gpt-oss-120b"}
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            assert factory.get_provider("llama-3.1-8b-instant").provider_name == "groq"
+
+    @pytest.mark.parametrize("tag", GROQ_TAGS)
+    def test_routing_by_exact_membership(self, tag):
+        with patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "groq"
+
+    @pytest.mark.parametrize(
+        "tag", ["llama3.2:3b", "llama3.1:8b", "llama-3.3-70b", "OPENAI/GPT-OSS-120B"]
+    )
+    def test_ollama_homonyms_stay_local(self, tag):
+        with (
+            patch("src.core.providers.groq_provider.GROQ_API_KEY", "cle-factice"),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=False),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "ollama"
+
+    def test_client_points_to_groq(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("src.core.providers.openai_provider._AsyncOpenAI") as client_cls:
+            GroqProvider(api_key="cle-factice")._get_client()
+        client_cls.assert_called_once_with(api_key="cle-factice", base_url=GROQ_BASE_URL)
+
+    def test_langchain_model_points_to_groq(self):
+        from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+        with patch("langchain_openai.ChatOpenAI") as chat_cls:
+            GroqProvider(api_key="cle-factice").get_langchain_model("openai/gpt-oss-20b", 0.2)
+        chat_cls.assert_called_once_with(
+            model="openai/gpt-oss-20b",
+            api_key="cle-factice",
+            base_url=GROQ_BASE_URL,
+            temperature=0.2,
+        )
+
+    @pytest.mark.asyncio
+    async def test_chat_stream_yields_tokens_then_metrics(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        create = AsyncMock(return_value=_FakeStream(["Bon", "jour"]))
+        groq = GroqProvider(api_key="cle-factice")
+        groq._client = _groq_client(create)
+
+        chunks = [
+            c
+            async for c in groq.chat_stream(
+                "openai/gpt-oss-120b", [{"role": "user", "content": "Salut"}], 0.3, "Système"
+            )
+        ]
+        assert chunks[:2] == ["Bon", "jour"]
+        metrics = chunks[-1]
+        assert isinstance(metrics, InferenceMetrics)
+        assert (metrics.input_tokens, metrics.output_tokens) == (7, 2)
+        kwargs = create.await_args.kwargs
+        assert kwargs["model"] == "openai/gpt-oss-120b" and kwargs["stream"] is True
+        assert kwargs["messages"][0] == {"role": "system", "content": "Système"}
+
+    @pytest.mark.asyncio
+    async def test_quota_error_is_raised_not_yielded(self):
+        import httpx
+        import openai
+
+        from src.core.providers.groq_provider import GroqProvider
+
+        request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+        error = openai.RateLimitError(
+            "Rate limit reached", response=httpx.Response(429, request=request), body=None
+        )
+        groq = GroqProvider(api_key="cle-factice")
+        groq._client = _groq_client(AsyncMock(side_effect=error))
+
+        chunks = []
+        with pytest.raises(openai.RateLimitError):
+            async for c in groq.chat_stream("llama-3.1-8b-instant", []):
+                chunks.append(c)
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_chat_stream_without_key_raises(self):
+        from src.core.providers.groq_provider import GroqProvider
+
+        with pytest.raises(ValueError, match="Groq"):
+            async for _ in GroqProvider().chat_stream("openai/gpt-oss-20b", []):
+                pass
+
+    @pytest.mark.parametrize("tag", GROQ_TAGS)
+    def test_groq_tag_is_cloud(self, tag):
+        from src.core.providers.provider_factory import is_cloud_tag
+
+        with patch("src.core.providers.provider_factory.get_model_info", return_value=None):
+            assert is_cloud_tag(tag) is True
+
+
+def test_groq_fetch_model_ids_uses_short_timeout():
+    """`_fetch_model_ids` réel (hors fixture de la classe) : client synchrone simulé, 5 s."""
+    from src.core.providers.groq_provider import GROQ_BASE_URL, GroqProvider
+
+    with patch("openai.OpenAI") as client_cls:
+        client = client_cls.return_value.__enter__.return_value
+        client.models.list.return_value = [
+            MagicMock(id="openai/gpt-oss-20b"),
+            MagicMock(id="whisper-large-v3"),
+        ]
+        ids = GroqProvider(api_key="cle-factice")._fetch_model_ids()
+    assert ids == {"openai/gpt-oss-20b", "whisper-large-v3"}
+    client_cls.assert_called_once_with(
+        api_key="cle-factice", base_url=GROQ_BASE_URL, timeout=5.0, max_retries=0
+    )
+    client_cls.return_value.__exit__.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Ollama : raisonnement (`message.thinking`) transmis à part du texte (story 18)
+# ---------------------------------------------------------------------------
+
+
+def _ollama_stream_chunks(as_objects: bool):
+    """Flux simulé : deux fragments de raisonnement, puis la réponse, puis le chunk final."""
+    import ollama
+
+    raw = [
+        {"message": {"role": "assistant", "content": "", "thinking": "Je pèse "}},
+        {"message": {"role": "assistant", "content": "", "thinking": "les options."}},
+        {"message": {"role": "assistant", "content": "Réponse."}},
+        {
+            "message": {"role": "assistant", "content": ""},
+            "done": True,
+            "eval_count": 8,
+            "eval_duration": 400_000_000,
+        },
+    ]
+    if not as_objects:
+        return raw
+    return [ollama.ChatResponse(model="qwen3.5:0.8b", done=False, **c) for c in raw[:3]] + [
+        ollama.ChatResponse(model="qwen3.5:0.8b", **raw[3])
+    ]
+
+
+class TestOllamaReasoningChunks:
+    """Le raisonnement sort en `ReasoningChunk`, jamais en `str` ; `think=` n'est pas passé."""
+
+    async def _collect(self, chunks):
+        from src.core.providers.ollama_provider import OllamaProvider
+
+        async def fake_stream():
+            for chunk in chunks:
+                yield chunk
+
+        client = MagicMock()
+        client.chat = AsyncMock(return_value=fake_stream())
+        provider = OllamaProvider(base_url="http://127.0.0.1:11999")
+        with patch.object(provider, "_create_async_client", return_value=client):
+            items = [
+                item
+                async for item in provider.chat_stream(
+                    "qwen3.5:0.8b", [{"role": "user", "content": "Q"}]
+                )
+            ]
+        return items, client.chat.call_args.kwargs
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_thinking_yielded_apart_from_text(self, as_objects):
+        from src.core.metrics import ReasoningChunk
+
+        items, kwargs = await self._collect(_ollama_stream_chunks(as_objects))
+
+        assert [i for i in items if isinstance(i, ReasoningChunk)] == [
+            ReasoningChunk("Je pèse "),
+            ReasoningChunk("les options."),
+        ]
+        assert [i for i in items if isinstance(i, str)] == ["Réponse."]
+        assert isinstance(items[-1], InferenceMetrics)
+        assert items[-1].output_tokens == 8
+        assert "think" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_str_consumers_get_same_text(self):
+        """Consommateurs qui ne gardent que les `str` (Discussion, HyDE, Self-RAG) : texte
+        de la réponse seul, sans le raisonnement."""
+        items, _ = await self._collect(_ollama_stream_chunks(as_objects=False))
+        assert "".join(i for i in items if isinstance(i, str)) == "Réponse."
+
+
+# ---------------------------------------------------------------------------
+# Ollama : flux fermé sans fragment final `done` (story 19)
+# ---------------------------------------------------------------------------
+
+
+class TestOllamaInterruptedStream:
+    """Ollama ferme parfois le flux en HTTP 200 sans fragment `done` : la réponse tronquée
+    lève `InterruptedResponseError`, sans métriques."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_stream_without_done_raises(self, as_objects):
+        from src.core.metrics import InterruptedResponseError
+
+        truncated = _ollama_stream_chunks(as_objects)[:3]
+        items = []
+        with pytest.raises(InterruptedResponseError, match="Réponse interrompue"):
+            async for item in _iter_provider(truncated):
+                items.append(item)
+
+        assert [i for i in items if isinstance(i, str)] == ["Réponse."]
+        assert not any(isinstance(i, InferenceMetrics) for i in items)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("as_objects", [False, True], ids=["dict", "objet ollama"])
+    async def test_interrupted_error_counts_received_fragments(self, as_objects):
+        """Story 24 : l'erreur porte les fragments reçus (raisonnement et texte), pour le CO₂
+        de la tentative coupée ; le message ne change pas."""
+        from src.core.metrics import INTERRUPTED_RESPONSE_DEFAULT, InterruptedResponseError
+
+        truncated = _ollama_stream_chunks(as_objects)[:3]
+        with pytest.raises(InterruptedResponseError) as caught:
+            async for _ in _iter_provider(truncated):
+                pass
+
+        assert caught.value.output_tokens == 3  # 2 fragments de raisonnement, 1 de texte
+        assert str(caught.value) == INTERRUPTED_RESPONSE_DEFAULT
+
+    @pytest.mark.asyncio
+    async def test_complete_stream_unchanged(self):
+        items = [i async for i in _iter_provider(_ollama_stream_chunks(as_objects=False))]
+        assert isinstance(items[-1], InferenceMetrics)
+
+
+async def _iter_provider(chunks):
+    from src.core.providers.ollama_provider import OllamaProvider
+
+    async def fake_stream():
+        for chunk in chunks:
+            yield chunk
+
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=fake_stream())
+    provider = OllamaProvider(base_url="http://127.0.0.1:11999")
+    with patch.object(provider, "_create_async_client", return_value=client):
+        async for item in provider.chat_stream("qwen3.5:0.8b", [{"role": "user", "content": "Q"}]):
+            yield item
+
+
+# ---------------------------------------------------------------------------
+# OpenAI et Anthropic (story 22) : une seule règle de préfixe, clients simulés, aucun réseau
+# ---------------------------------------------------------------------------
+
+
+class TestPrefixedCloudRouting:
+    """Nom sans variante préfixé `gpt-`/`o1-` (OpenAI) ou `claude-` (Anthropic) ; un tag
+    Ollama (`nom:variante`, distant compris) n'est jamais concerné."""
+
+    @pytest.mark.parametrize(
+        ("tag", "expected"),
+        [
+            ("gpt-4o", "openai"),
+            ("GPT-4o-mini", "openai"),
+            ("o1-mini", "openai"),
+            ("claude-3-5-haiku-20241022", "anthropic"),
+            ("gpt-oss:20b", None),
+            ("gpt-oss:120b-cloud", None),
+            ("claude-local:latest", None),
+            ("openai/gpt-oss-120b", None),
+            ("qwen2.5:1.5b", None),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_prefixed_cloud_provider(self, tag, expected):
+        from src.core.providers.provider_factory import prefixed_cloud_provider
+
+        assert prefixed_cloud_provider(tag) == expected
+
+    @pytest.mark.parametrize(
+        ("tag", "provider"),
+        [("gpt-4o-mini", "openai"), ("claude-3-5-sonnet-20241022", "anthropic")],
+    )
+    def test_factory_routes_prefixed_names(self, tag, provider):
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_API_KEY", "cle-o"),
+            patch("src.core.providers.anthropic_provider.ANTHROPIC_API_KEY", "cle-a"),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == provider
+
+    @pytest.mark.parametrize(
+        ("tag", "name"),
+        [("gpt-4o-mini", "OpenAI"), ("claude-3-5-haiku-20241022", "Anthropic")],
+    )
+    def test_factory_without_key_names_provider(self, tag, name):
+        with pytest.raises(ValueError, match=name):
+            LLMProviderFactory().get_provider(tag)
+
+    @pytest.mark.parametrize("tag", ["gpt-oss:20b", "gpt-oss:120b-cloud"])
+    def test_ollama_gpt_tags_stay_on_ollama(self, tag):
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_API_KEY", "cle-o"),
+            patch("src.core.providers.provider_factory.is_api_model", return_value=False),
+        ):
+            factory = LLMProviderFactory()
+            assert factory.get_provider(tag).provider_name == "ollama"
+
+    def test_openai_client_created_once_with_runtime_class(self):
+        """`AsyncOpenAI` n'était importé que pour le typage : NameError au premier appel."""
+        import openai
+
+        from src.core.providers.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider(api_key="cle-factice")
+        client = provider._get_client()
+        assert isinstance(client, openai.AsyncOpenAI)
+        assert provider._get_client() is client
+
+    def test_anthropic_client_created_with_runtime_class(self):
+        from src.core.providers import anthropic_provider
+
+        with (
+            patch.object(anthropic_provider, "ANTHROPIC_AVAILABLE", True),
+            patch.object(anthropic_provider, "_AsyncAnthropic") as client_cls,
+        ):
+            provider = anthropic_provider.AnthropicProvider(api_key="cle-factice")
+            assert provider._get_client() is client_cls.return_value
+            provider._get_client()
+        client_cls.assert_called_once_with(api_key="cle-factice")
+
+    @pytest.mark.asyncio
+    async def test_openai_chat_stream_reaches_mocked_client(self):
+        from src.core.providers.openai_provider import OpenAIProvider
+
+        create = AsyncMock(return_value=_FakeStream(["Bon", "jour"]))
+        with (
+            patch("src.core.providers.openai_provider.OPENAI_AVAILABLE", True),
+            patch(
+                "src.core.providers.openai_provider._AsyncOpenAI",
+                return_value=_groq_client(create),
+            ) as client_cls,
+        ):
+            chunks = [
+                c
+                async for c in OpenAIProvider(api_key="cle-factice").chat_stream(
+                    "gpt-4o-mini", [{"role": "user", "content": "Salut"}]
+                )
+            ]
+        client_cls.assert_called_once_with(api_key="cle-factice")
+        assert chunks[:2] == ["Bon", "jour"]
+        assert create.await_args.kwargs["model"] == "gpt-4o-mini"

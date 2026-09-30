@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.core import agent_tools
 from src.core.agent_tools import (
     AVAILABLE_TOOLS,
     TOOLS_METADATA,
@@ -21,6 +22,10 @@ from src.core.agent_tools import (
     _generate_markdown_report_impl,
     _send_email_impl,
     _system_monitor_impl,
+    missing_smtp_vars,
+    send_validated_email,
+    smtp_configured,
+    smtp_missing_help,
 )
 
 
@@ -50,23 +55,148 @@ class TestEmailSender:
     def test_email_validation_invalid_address(self):
         """Test rejet des adresses invalides."""
         result = _send_email_impl("invalid_email", "Subject", "Body")
-        assert "❌" in result
+        assert "Erreur" in result
         assert "invalide" in result.lower()
 
     def test_email_validation_empty_subject(self):
         """Test rejet des sujets vides."""
         result = _send_email_impl("test@example.com", "", "Body")
-        assert "❌" in result
+        assert "Erreur" in result
 
     def test_email_validation_empty_body(self):
         """Test rejet des corps vides."""
         result = _send_email_impl("test@example.com", "Subject", "")
-        assert "❌" in result
+        assert "Erreur" in result
 
-    def test_email_requires_smtp_config(self):
+    def test_email_requires_smtp_config(self, monkeypatch):
         """Test que SMTP doit être configuré."""
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
         result = _send_email_impl("test@example.com", "Subject", "Body")
-        assert "❌" in result or "⚠️" in result
+        assert "Erreur" in result or "Attention" in result
+        assert "SMTP_USER" in result and "SMTP_PASSWORD" in result
+
+
+class FakeSMTP:
+    """smtplib.SMTP simulé : enregistre les messages, aucun réseau. `error` : exception levée
+    à l'envoi."""
+
+    sent: list = []
+    error: Exception | None = None
+
+    timeouts: list = []
+
+    def __init__(self, server, port, timeout=None):
+        self.server = (server, port)
+        FakeSMTP.timeouts.append(timeout)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def starttls(self):
+        pass
+
+    def login(self, user, password):
+        pass
+
+    def send_message(self, msg):
+        if FakeSMTP.error:
+            raise FakeSMTP.error
+        FakeSMTP.sent.append(msg)
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    """SMTP configuré (valeurs factices) et simulé : rien ne part sur le réseau."""
+    FakeSMTP.sent = []
+    FakeSMTP.error = None
+    FakeSMTP.timeouts = []
+    monkeypatch.setattr(agent_tools, "SMTP_SERVER", "smtp.test.invalid")
+    monkeypatch.setattr(agent_tools, "SMTP_USER", "demo@test.invalid")
+    monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "secret")
+    monkeypatch.setattr(agent_tools.smtplib, "SMTP", FakeSMTP)
+    return FakeSMTP
+
+
+class TestEmailDraftOnly:
+    """D2 (story 8) : l'outil de l'agent prépare un brouillon, jamais un envoi."""
+
+    ARGS = {
+        "to": "dsi@client.invalid",
+        "subject": "Synthèse",
+        "body": "Bonjour, voici la synthèse.",
+    }
+
+    def test_tool_prepares_draft_without_sending(self, smtp):
+        from src.core.agent_tools import send_email
+
+        result = send_email.invoke(self.ARGS)
+        assert "Brouillon" in result and "pas envoyé" in result
+        assert "dsi@client.invalid" in result
+        assert smtp.sent == []
+
+    def test_tool_rejects_invalid_draft(self, smtp):
+        from src.core.agent_tools import send_email
+
+        result = send_email.invoke({**self.ARGS, "to": "pas-une-adresse"})
+        assert result.startswith("Erreur")
+        assert smtp.sent == []
+
+    def test_crew_gets_full_draft_and_never_sends(self, smtp):
+        """Équipe d'agents : variante de l'outil qui rend le brouillon complet et dit
+        qu'aucun email ne peut partir depuis l'équipe."""
+        from src.core.agent_tools import send_email
+        from src.core.crew_engine import CrewFactory
+
+        (tool,) = CrewFactory._map_tools([send_email])
+        assert tool.name == "send_email"
+        result = tool._run(**self.ARGS)
+        assert result.startswith("Aucun email ne peut être envoyé depuis l'équipe d'agents")
+        for value in self.ARGS.values():
+            assert value in result
+        assert "validation" not in result and "interface" not in result
+        assert smtp.sent == []
+
+    def test_real_send_after_confirmation(self, smtp):
+        delivery = send_validated_email(**self.ARGS)
+        assert delivery.ok
+        assert delivery.message == "Email envoyé avec succès à dsi@client.invalid"
+        (msg,) = smtp.sent
+        assert msg["To"] == "dsi@client.invalid"
+        assert msg["Subject"] == "Synthèse"
+        assert smtp.timeouts == [agent_tools.SMTP_TIMEOUT_S]
+
+    def test_sent_as_shown_plain_text(self, smtp):
+        """Un corps avec « < » part en texte brut : exactement le texte montré."""
+        body = "Seuil : débit < 10 tokens/s <b>pas du HTML</b>"
+        assert send_validated_email("dsi@client.invalid", "Seuils", body).ok
+        (msg,) = smtp.sent
+        (part,) = msg.get_payload()
+        assert part.get_content_type() == "text/plain"
+        assert part.get_payload(decode=True).decode("utf-8") == body
+
+    def test_smtp_error_is_not_a_success(self, smtp):
+        import smtplib
+
+        smtp.error = smtplib.SMTPException("relais refusé")
+        delivery = send_validated_email(**self.ARGS)
+        assert not delivery.ok
+        assert "relais refusé" in delivery.message
+        assert "relais refusé" in _send_email_impl(**self.ARGS)
+
+    def test_smtp_configuration(self, monkeypatch):
+        monkeypatch.setattr(agent_tools, "SMTP_SERVER", "smtp.test.invalid")
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
+        assert not smtp_configured()
+        assert missing_smtp_vars() == ["SMTP_USER", "SMTP_PASSWORD"]
+        monkeypatch.setattr(agent_tools, "SMTP_USER", "demo@test.invalid")
+        monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "secret")
+        assert smtp_configured()
+        assert TOOLS_METADATA["send_email"]["config_vars"] == list(agent_tools.SMTP_CONFIG_VARS)
 
 
 class TestCSVAnalyzer:
@@ -94,7 +224,7 @@ class TestCSVAnalyzer:
     def test_csv_file_not_found(self):
         """Test erreur si fichier inexistant."""
         result = _analyze_csv_impl("nonexistent.csv", "aperçu")
-        assert "❌" in result
+        assert "Erreur" in result
 
     def test_csv_invalid_format(self):
         """Test erreur si format non supporté."""
@@ -110,7 +240,7 @@ class TestCSVAnalyzer:
 
         try:
             result = _analyze_csv_impl(bad_file, "aperçu")
-            assert "❌" in result
+            assert "Erreur" in result
             assert "non supporté" in result.lower()
         finally:
             # Cleanup garanti
@@ -120,7 +250,7 @@ class TestCSVAnalyzer:
         """Test aperçu des données."""
         result = _analyze_csv_impl(temp_csv, "aperçu")
 
-        assert "📊" in result
+        assert "Analyse de" in result
         assert "Lignes" in result
         assert "Colonnes" in result
         assert "name" in result  # Nom de colonne
@@ -152,7 +282,7 @@ class TestDocumentGenerator:
             title="Test Document", content="## Section 1\n\nContenu de test."
         )
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".docx" in result
 
         # Vérifier que le fichier existe
@@ -184,7 +314,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "bar", "Test Chart")
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".png" in result
 
         # Vérifier que le fichier existe
@@ -200,7 +330,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "line", "Test Line")
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".png" in result
 
         filepath = result.split(":")[-1].strip()
@@ -212,7 +342,7 @@ class TestChartGenerator:
 
         result = _generate_chart_impl(data, "pie", "Test Pie")
 
-        assert "✅" in result
+        assert "créé" in result
         filepath = result.split(":")[-1].strip()
         Path(filepath).unlink(missing_ok=True)
 
@@ -220,7 +350,7 @@ class TestChartGenerator:
         """Test erreur avec JSON invalide."""
         result = _generate_chart_impl("not json", "bar", "Test")
 
-        assert "❌" in result
+        assert "Erreur" in result
         assert "JSON invalide" in result
 
     def test_chart_invalid_type(self):
@@ -228,7 +358,7 @@ class TestChartGenerator:
         data = json.dumps({"labels": ["A"], "values": [10]})
         result = _generate_chart_impl(data, "invalid_type", "Test")
 
-        assert "❌" in result
+        assert "Erreur" in result
         assert "non supporté" in result
 
 
@@ -243,7 +373,7 @@ class TestMarkdownReport:
 
         result = _generate_markdown_report_impl("Test Report", sections)
 
-        assert "✅" in result
+        assert "créé" in result
         assert ".md" in result
 
         # Vérifier contenu
@@ -262,7 +392,7 @@ class TestMarkdownReport:
         """Test avec contenu texte simple (pas JSON)."""
         result = _generate_markdown_report_impl("Simple Report", "Juste du texte simple")
 
-        assert "✅" in result
+        assert "créé" in result
 
         filepath = result.split(":")[-1].strip()
         content = Path(filepath).read_text(encoding="utf-8")
@@ -343,3 +473,123 @@ class TestToolsIntegration:
         for tool_name, metadata in TOOLS_METADATA.items():
             category = metadata.get("category")
             assert category in valid_categories, f"Catégorie '{category}' invalide pour {tool_name}"
+
+
+def test_smtp_missing_help_says_what_to_do(monkeypatch):
+    monkeypatch.setattr(agent_tools, "SMTP_USER", "")
+    monkeypatch.setattr(agent_tools, "SMTP_PASSWORD", "")
+    help_text = smtp_missing_help()
+    assert help_text.startswith("Configuration SMTP absente")
+    for word in ("SMTP_USER", "SMTP_PASSWORD", "SMTP_PORT", "smtp.gmail.com", "redémarrez"):
+        assert word in help_text
+
+
+def test_crew_adapter_mixed_and_named_arguments():
+    """CrewAI appelle l'outil par arguments nommés, parfois mêlés à des positionnels ou à un
+    dict : tous sont fusionnés dans le dict d'entrée de l'outil (ici la calculatrice)."""
+    from src.core.agent_tools import calculator, get_tools_by_names
+    from src.core.crew_engine import LangChainAdapter
+
+    adapter = LangChainAdapter(calculator)
+    assert adapter._run(expression="2 + 2") == adapter._run("2 + 2")
+    assert adapter._run({"expression": "1 + 1"}, expression="3 * 3") == adapter._run("3 * 3")
+
+    (monitor,) = get_tools_by_names(["analyze_csv"])
+    mixed = LangChainAdapter(monitor)._run("fichier-absent.csv", query="aperçu")
+    assert "missing" not in mixed and "positional" not in mixed
+
+
+@pytest.mark.parametrize("tag", ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"])
+def test_crew_groq_llm_targets_groq_with_exact_model_id(monkeypatch, tag):
+    """Tag Groq (story 16) : LLM OpenAI natif de CrewAI pointé sur Groq, tag exact (le
+    préfixe « openai/ » de GPT-OSS n'est pas retiré), sans appel réseau."""
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import groq_provider
+
+    monkeypatch.setattr(groq_provider, "GROQ_API_KEY", "cle-factice")
+    llm = CrewFactory._get_native_llm(tag, temperature=0.7)
+    assert llm.model == tag
+    assert llm.base_url == groq_provider.GROQ_BASE_URL
+    assert llm.api_key == "cle-factice"
+    assert "ollama" not in str(llm.model)
+
+
+def test_crew_groq_without_key_raises_readable_error(monkeypatch):
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import groq_provider
+
+    monkeypatch.setattr(groq_provider, "GROQ_API_KEY", "")
+    with pytest.raises(ValueError, match="Groq"):
+        CrewFactory._get_native_llm("openai/gpt-oss-20b")
+
+
+@pytest.mark.parametrize(
+    ("tag", "provider", "key_attr"),
+    [
+        ("gpt-4o", "openai", "OPENAI_API_KEY"),
+        ("gpt-4o-mini", "openai", "OPENAI_API_KEY"),
+        ("claude-3-5-sonnet-20241022", "anthropic", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_crew_cloud_llm_targets_its_provider(monkeypatch, tag, provider, key_attr):
+    """OpenAI et Anthropic (story 22) : LLM natif de CrewAI du fournisseur, clé factice,
+    construit hors ligne ; jamais Ollama."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import anthropic_provider, openai_provider
+
+    module = openai_provider if provider == "openai" else anthropic_provider
+    monkeypatch.setattr(module, key_attr, "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    llm = CrewFactory._get_native_llm(tag, temperature=0.3)
+    assert llm.provider == provider
+    assert llm.model == tag
+    assert llm.api_key == "cle-factice"
+    assert llm.temperature == 0.3
+
+
+def test_crew_prefix_checked_before_mistral_catalog(monkeypatch):
+    """Même ordre que la fabrique : le préfixe `gpt-` prime sur `is_api_model`."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: True)
+    llm = CrewFactory._get_native_llm("gpt-4o")
+    assert llm.provider == "openai" and llm.model == "gpt-4o"
+
+
+@pytest.mark.parametrize(
+    ("tag", "key_attr", "message"),
+    [
+        ("gpt-4o", "OPENAI_API_KEY", "Clé API OpenAI manquante."),
+        ("claude-3-5-sonnet-20241022", "ANTHROPIC_API_KEY", "Clé API Anthropic manquante."),
+    ],
+)
+def test_crew_cloud_without_key_raises_readable_error(monkeypatch, tag, key_attr, message):
+    import re
+
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import anthropic_provider, openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(anthropic_provider, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        CrewFactory._get_native_llm(tag)
+
+
+@pytest.mark.parametrize("tag", ["gpt-oss:20b", "gpt-oss:120b-cloud"])
+def test_crew_ollama_gpt_tags_stay_on_ollama(monkeypatch, tag):
+    """Tag Ollama préfixé `gpt-` : `ollama/<tag>`, même avec une clé OpenAI configurée."""
+    from src.core import crew_engine
+    from src.core.crew_engine import CrewFactory
+    from src.core.providers import openai_provider
+
+    monkeypatch.setattr(openai_provider, "OPENAI_API_KEY", "cle-factice")
+    monkeypatch.setattr(crew_engine, "is_api_model", lambda _tag: False)
+    llm = CrewFactory._get_native_llm(tag)
+    assert llm.provider == "ollama"
+    assert llm.model == tag

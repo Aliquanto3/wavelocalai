@@ -11,9 +11,17 @@ Usage:
 import argparse
 import logging
 import shutil
+import sys
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.core.telemetry import disable_telemetry  # noqa: E402
+
+# Hugging Face lit HF_HUB_DISABLE_TELEMETRY à l'import de huggingface_hub : à couper avant.
+disable_telemetry()
+
+from huggingface_hub import snapshot_download  # noqa: E402
 
 # Configuration du Logging
 logging.basicConfig(
@@ -71,7 +79,6 @@ def download_model(model_id: str, save_path: Path, is_sentence_transformer: bool
         snapshot_download(
             repo_id=model_id,
             local_dir=str(save_path),
-            local_dir_use_symlinks=False,  # Important pour la portabilité Windows
             ignore_patterns=["*.h5", "*.ot", "*.msgpack"],  # Optimisation espace
         )
         logger.info(f"✨ Succès : {model_id} installé.")

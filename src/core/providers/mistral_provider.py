@@ -15,8 +15,12 @@ from src.core.models_db import get_cloud_models_from_db
 logger = logging.getLogger(__name__)
 
 # Import conditionnel de Mistral
+# mistralai 2.x a déplacé la classe Mistral dans mistralai.client.
 try:
-    from mistralai import Mistral
+    try:
+        from mistralai import Mistral
+    except ImportError:
+        from mistralai.client import Mistral
 
     MISTRAL_AVAILABLE = True
 except ImportError:
@@ -71,8 +75,10 @@ class MistralProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API Mistral."""
 
         if not self.is_available:
-            yield "❌ Erreur : Provider Mistral non disponible (clé API manquante ou SDK non installé)."
-            return
+            # Une erreur n'est jamais renvoyée comme un token : l'appelant l'affiche.
+            raise ValueError(
+                "Provider Mistral non disponible (clé API manquante ou SDK non installé)."
+            )
 
         final_messages = messages.copy()
         if system_prompt:

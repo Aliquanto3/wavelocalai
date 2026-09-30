@@ -8,15 +8,23 @@ Modifications principales :
 
 from typing import Any
 
+from src.core.telemetry import disable_telemetry
+
+# CrewAI lit ses variables (télémétrie, OpenTelemetry, version pypi.org) à l'import : à couper
+# avant, même quand un script ou un test importe ce module sans passer par l'app.
+disable_telemetry()
+
 # On importe LLM natif de CrewAI
-from crewai import LLM, Agent, Crew, Process, Task
-from crewai.tools import BaseTool
-from pydantic import PrivateAttr
+from crewai import LLM, Agent, Crew, Process, Task  # noqa: E402
+from crewai.tools import BaseTool  # noqa: E402
+from pydantic import PrivateAttr  # noqa: E402
 
 # Import des outils Wavestone
-from src.core.agent_tools import get_tools_by_names
-from src.core.config import MISTRAL_API_KEY
-from src.core.model_detector import is_api_model
+from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names  # noqa: E402
+from src.core.config import MISTRAL_API_KEY  # noqa: E402
+from src.core.model_detector import is_api_model  # noqa: E402
+from src.core.providers import anthropic_provider, groq_provider, openai_provider  # noqa: E402
+from src.core.providers.provider_factory import prefixed_cloud_provider  # noqa: E402
 
 
 class LangChainAdapter(BaseTool):
@@ -27,12 +35,14 @@ class LangChainAdapter(BaseTool):
     name: str = ""
     description: str = ""
     _func: Any = PrivateAttr()
+    _arg_names: list = PrivateAttr(default_factory=list)
 
     def __init__(self, tool_instance, **data):
         super().__init__(**data)
         self.name = tool_instance.name
         self.description = tool_instance.description
         self._func = tool_instance.run
+        self._arg_names = list(getattr(tool_instance, "args", {}) or {})
 
     def _run(self, *args, **kwargs):
         """Exécution déléguée à l'outil LangChain d'origine."""
@@ -40,7 +50,17 @@ class LangChainAdapter(BaseTool):
             # Gestion basique des arguments string vs dict
             if len(args) == 1 and isinstance(args[0], str) and not kwargs:
                 return self._func(args[0])
-            return self._func(*args, **kwargs)
+            # Arguments nommés (appel de CrewAI), éventuellement mêlés à des arguments
+            # positionnels (dans l'ordre des paramètres de l'outil) ou à un dict d'arguments :
+            # BaseTool.run attend un seul dict d'entrée.
+            if kwargs or len(args) > 1:
+                if len(args) == 1 and isinstance(args[0], dict):
+                    tool_input = dict(args[0])
+                else:
+                    tool_input = dict(zip(self._arg_names, args, strict=False))
+                tool_input.update(kwargs)
+                return self._func(tool_input)
+            return self._func(*args)
         except Exception as e:
             return f"Erreur lors de l'exécution de l'outil {self.name}: {str(e)}"
 
@@ -52,15 +72,52 @@ class CrewFactory:
 
     @staticmethod
     def _map_tools(langchain_tools):
-        """Convertit les outils LangChain en outils CrewAI via l'adaptateur."""
-        return [LangChainAdapter(t) for t in langchain_tools]
+        """Convertit les outils LangChain en outils CrewAI via l'adaptateur. L'outil d'email
+        est remplacé par sa variante d'équipe : brouillon complet, aucun envoi possible."""
+        return [LangChainAdapter(CREW_TOOL_OVERRIDES.get(t.name, t)) for t in langchain_tools]
 
     @staticmethod
     def _get_native_llm(model_tag: str, temperature: float = 0.1):
         """
-        Configure le LLM natif CrewAI (via LiteLLM).
+        Configure le LLM de CrewAI pour un tag, dans l'ordre de la fabrique de providers :
+        Groq, puis OpenAI et Anthropic (préfixe), puis Mistral (catalogue), puis Ollama.
+        Groq, OpenAI et Anthropic passent par les fournisseurs natifs de CrewAI, sans LiteLLM.
         """
-        # 1. Routing Cloud (Mistral)
+        # 1. Routing Cloud (Groq) : fournisseur OpenAI natif de CrewAI.
+        # `custom_openai` retire un préfixe « openai/ » : il est doublé pour que Groq reçoive
+        # le tag exact (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile`).
+        if groq_provider.is_groq_model(model_tag):
+            if not groq_provider.GROQ_API_KEY:
+                raise ValueError("Clé API Groq manquante.")
+            return LLM(
+                model=f"openai/{model_tag}",
+                custom_openai=True,
+                base_url=groq_provider.GROQ_BASE_URL,
+                api_key=groq_provider.GROQ_API_KEY,
+                temperature=temperature,
+            )
+
+        # 2. Routing Cloud (OpenAI, Anthropic) : nom sans variante préfixé `gpt-`, `o1-` ou
+        # `claude-` (`gpt-oss:20b` reste local). Fournisseurs natifs de CrewAI.
+        prefixed = prefixed_cloud_provider(model_tag)
+        if prefixed == "openai":
+            if not openai_provider.OPENAI_API_KEY:
+                raise ValueError("Clé API OpenAI manquante.")
+            return LLM(
+                model=f"openai/{model_tag}",
+                api_key=openai_provider.OPENAI_API_KEY,
+                temperature=temperature,
+            )
+        if prefixed == "anthropic":
+            if not anthropic_provider.ANTHROPIC_API_KEY:
+                raise ValueError("Clé API Anthropic manquante.")
+            return LLM(
+                model=f"anthropic/{model_tag}",
+                api_key=anthropic_provider.ANTHROPIC_API_KEY,
+                temperature=temperature,
+            )
+
+        # 3. Routing Cloud (Mistral)
         if is_api_model(model_tag):
             if not MISTRAL_API_KEY:
                 raise ValueError("Clé API Mistral manquante.")
@@ -68,7 +125,7 @@ class CrewFactory:
                 model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
             )
 
-        # 2. Routing Local (Ollama)
+        # 4. Routing Local (Ollama)
         return LLM(
             model=f"ollama/{model_tag}", base_url="http://localhost:11434", temperature=temperature
         )

@@ -4,9 +4,11 @@ import logging
 import os
 import platform
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import cpuinfo
+import pandas as pd
 import psutil
 from codecarbon import OfflineEmissionsTracker
 
@@ -186,6 +188,73 @@ class HardwareMonitor:
 # 4. TRACKER CODECARBON (WRAPPER)
 # ==========================================
 
+# Fichier d'émissions de l'app, dans LOGS_DIR (data/logs/emissions.csv) : écrit par
+# GreenTracker, lu par l'historique de « Sobriété et matériel ». Distinct du fichier du
+# benchmark (EMISSIONS_DIR, data/logs/emissions/emissions.csv), jamais lu ici.
+APP_EMISSIONS_FILE = "emissions.csv"
+
+# Projets CodeCarbon de l'app, tous écrits dans ce fichier. L'historique « par session » ne
+# garde que SESSION_PROJECT : les autres recouvrent la même période, et le fichier peut aussi
+# recevoir d'autres lignes (scripts/audit_and_update.py, projet « codecarbon » par défaut).
+SESSION_PROJECT = "wavelocal_session"  # Routeur (Accueil.py) : suivi de la session
+AUDIT_PROJECT = "wavelocal_audit"  # Sobriété et matériel, défaut de GreenTracker
+CREW_PROJECT = "crew_mission"  # Équipe d'agents
+
+
+def app_emissions_path() -> Path:
+    """Chemin du fichier d'émissions écrit par GreenTracker (lu à l'appel : LOGS_DIR peut
+    être redirigé, en test notamment)."""
+    return Path(LOGS_DIR) / APP_EMISSIONS_FILE
+
+
+class EmissionsHistoryError(Exception):
+    """Fichier d'émissions de l'app illisible (ligne tronquée, format inattendu)."""
+
+
+def read_app_emissions(path: Path | str | None = None) -> pd.DataFrame:
+    """
+    Sessions mesurées par l'app, depuis le fichier écrit par GreenTracker.
+
+    Colonnes : `timestamp` (datetime), `project_name`, `emissions` (kg, unité de CodeCarbon)
+    et `emissions_g` (grammes, unité de GreenTracker.stop()).
+
+    - Seul le suivi de session (`SESSION_PROJECT`) est gardé : les missions d'équipe et
+      l'audit recouvrent la même période et compteraient deux fois les mêmes émissions.
+    - Une ligne par `run_id`, la dernière : après « Reprendre le suivi », chaque stop()
+      ajoute une ligne cumulée au même run.
+    - Lignes à horodatage ou émissions illisibles écartées ; tri par date.
+
+    DataFrame vide si le fichier est absent, vide ou sans session de l'app.
+
+    Raises:
+        EmissionsHistoryError: fichier illisible (dernière ligne tronquée, par exemple).
+    """
+    columns = ["timestamp", "project_name", "emissions", "emissions_g"]
+    csv_path = Path(path) if path is not None else app_emissions_path()
+    if not csv_path.is_file():
+        return pd.DataFrame(columns=columns)
+    try:
+        df = pd.read_csv(csv_path)
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame(columns=columns)
+    except pd.errors.ParserError as e:
+        raise EmissionsHistoryError(
+            f"le fichier {csv_path.name} est mal formé (ligne tronquée ou colonnes en trop)."
+        ) from e
+    if not {"timestamp", "project_name", "emissions"} <= set(df.columns):
+        return pd.DataFrame(columns=columns)
+
+    df = df[df["project_name"] == SESSION_PROJECT].copy()
+    if "run_id" in df.columns:
+        # Dernière ligne (cumulée) de chaque run ; les lignes sans run_id restent.
+        has_run = df["run_id"].notna()
+        df = pd.concat([df[has_run].drop_duplicates("run_id", keep="last"), df[~has_run]])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", format="mixed")
+    df["emissions"] = pd.to_numeric(df["emissions"], errors="coerce")
+    df = df.dropna(subset=["timestamp", "emissions"]).sort_values("timestamp")
+    df["emissions_g"] = df["emissions"] * 1000.0
+    return df[columns].reset_index(drop=True)
+
 
 class GreenTracker:
     """
@@ -196,12 +265,14 @@ class GreenTracker:
     _active_trackers: list["GreenTracker"] = []
     _atexit_registered = False
 
-    def __init__(self, project_name="wavelocal_audit"):
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    def __init__(self, project_name=AUDIT_PROJECT):
+        emissions_path = app_emissions_path()
+        emissions_path.parent.mkdir(parents=True, exist_ok=True)
         self.project_name = project_name
         self.tracker = OfflineEmissionsTracker(
             project_name=project_name,
-            output_dir=str(LOGS_DIR),
+            output_dir=str(emissions_path.parent),
+            output_file=emissions_path.name,
             country_iso_code=DEFAULT_COUNTRY_ISO_CODE,
             log_level="error",
             measure_power_secs=1,  # Mesure fine pour inférence courte

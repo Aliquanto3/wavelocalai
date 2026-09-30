@@ -33,35 +33,53 @@ WaveLocalAI est un **proof of concept** conçu pour :
 
 ### Installation (5 min)
 
+L'application s'installe dans son propre environnement, `.venv-app`, distinct du `.venv` réservé au banc de benchmark sur certaines machines. Les versions exactes sont figées dans `constraints.txt` : toujours installer avec `-c constraints.txt`.
+
 ```bash
 # 1. Cloner le projet
 git clone https://github.com/Aliquanto3/wavelocalai.git
 cd wavelocalai
 
-# 2. Créer l'environnement virtuel
-python -m venv .venv
+# 2. Créer l'environnement virtuel de l'application
+python -m venv .venv-app
 
-# 3. Installer les dépendances (Windows)
-.venv\Scripts\python -m pip install -r requirements.txt
+# 3. Installer les dépendances aux versions figées (Windows)
+.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
 
 # Mac/Linux
-.venv/bin/python -m pip install -r requirements.txt
+.venv-app/bin/python -m pip install -r requirements.txt -c constraints.txt
 
 # 4. Configurer (optionnel)
 cp .env.example .env
 # Éditer .env pour ajouter MISTRAL_API_KEY si souhaité
 
-# 5. Installer les outils agents (nouveaux)
-.venv\Scripts\python -m pip install python-docx matplotlib openpyxl xlrd langchain-mistralai
-
-# 6. Télécharger un modèle local
+# 5. Télécharger un modèle local
 ollama pull qwen2.5:1.5b
 
-# 7. Lancer l'application
-.venv\Scripts\python -m streamlit run src/app/Accueil.py
+# 6. Lancer l'application, depuis la racine du dépôt (Windows)
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py
 ```
 
-🎉 **L'interface s'ouvre sur http://localhost:8501**
+L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Lancer depuis la racine du dépôt : Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le fichier n'est pas lu et le serveur écoute sur le réseau.
+
+**Ouvrir l'application sur le réseau** (démonstration depuis un autre poste) est un choix explicite, à faire au lancement uniquement, sur un réseau de confiance :
+
+```bash
+# Windows
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+
+# Mac/Linux
+.venv-app/bin/python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+```
+
+Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau.
+
+**Mettre à jour une dépendance** : modifier `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier (`uv pip compile requirements.txt --universal --python-version 3.10 -o constraints.txt`) et vérifier par une installation réelle.
+
+**Tests** : `python -m pytest tests/unit tests/app` tourne sans Ollama, clé d'API ni réseau. `tests/integration` exige Ollama et `qwen2.5:1.5b` ; les tests marqués `e2e` sont exclus par défaut (`-m e2e` pour les lancer).
 
 ---
 
@@ -136,11 +154,14 @@ ollama pull qwen2.5:1.5b
 ## 🧪 Tests & Qualité
 
 ```bash
-# Lancer les tests unitaires
-pytest tests/unit/ -v
+# Tests unitaires et rendu des pages (sans Ollama, clé d'API ni réseau)
+python -m pytest tests/unit tests/app
 
-# Tests avec couverture
-pytest tests/ --cov=src.core --cov-report=html
+# Avec couverture
+python -m pytest tests/unit tests/app --cov=src.core --cov-report=html
+
+# Tests d'intégration (exigent Ollama et qwen2.5:1.5b)
+python -m pytest tests/integration -m integration
 
 # Linting
 ruff check src/ tests/
@@ -211,6 +232,42 @@ WAVELOCAL_EMBEDDING_MODEL=all-MiniLM-L6-v2
 WAVELOCAL_DATA_DIR=./data
 WAVELOCAL_LOGS_DIR=./data/logs
 ```
+
+### Télémétries
+
+Par défaut, aucune télémétrie de bibliothèque n'est envoyée : `src/core/telemetry.py` coupe les télémétries des bibliothèques avant leur import, dans l'application comme dans les scripts (`scripts/setup_rag_models.py`) et les modules du cœur importés directement. Les autres échanges réseau restent possibles : premier téléchargement d'un modèle, appels aux fournisseurs cloud quand ils sont activés.
+
+| Variable | Valeur posée | Ce qu'elle coupe |
+|----------|--------------|------------------|
+| `RAGAS_DO_NOT_TRACK` | `true` | Télémétrie de Ragas (évaluation RAG) |
+| `ANONYMIZED_TELEMETRY` | `False` | Télémétrie de Chroma (base vectorielle) |
+| `CREWAI_DISABLE_TELEMETRY` | `true` | Télémétrie de CrewAI (agents) |
+| `OTEL_SDK_DISABLED` | `true` | Tout SDK OpenTelemetry du processus, dont celui de CrewAI (qui s'en sert aussi pour couper sa télémétrie) |
+| `CREWAI_DISABLE_VERSION_CHECK` | `true` | Vérification de version de CrewAI auprès de pypi.org |
+| `HF_HUB_DISABLE_TELEMETRY` | `1` | Télémétrie de Hugging Face (modèles d'embedding et reranker) |
+| `LANGCHAIN_TRACING_V2` | `false` | Traces LangSmith (ancien nom) |
+| `LANGSMITH_TRACING` | `false` | Traces LangSmith |
+| `DO_NOT_TRACK` | `1` | Convention commune, lue par plusieurs bibliothèques (dont Hugging Face) |
+
+La télémétrie de Streamlit est coupée à part, par `gatherUsageStats = false` dans `.streamlit/config.toml`.
+
+**Réactiver une télémétrie** : définir sa variable soit dans l'environnement, soit dans le `.env`. Une valeur déjà définie l'emporte toujours (l'environnement d'abord, puis le `.env`) : elle n'est jamais écrasée. Par exemple, pour envoyer les traces à LangSmith (qui lit `LANGCHAIN_TRACING_V2` avant `LANGSMITH_TRACING` : définir les deux) :
+
+```bash
+# Dans le .env
+LANGSMITH_TRACING=true
+LANGCHAIN_TRACING_V2=true
+
+# Ou dans l'environnement, avant le lancement
+# Windows (PowerShell)
+$env:LANGSMITH_TRACING = "true"; $env:LANGCHAIN_TRACING_V2 = "true"
+# Mac/Linux
+export LANGSMITH_TRACING=true LANGCHAIN_TRACING_V2=true
+```
+
+Certaines télémétries dépendent de plusieurs variables, dont chacune suffit à les couper :
+- CrewAI reste coupé tant que `CREWAI_DISABLE_TELEMETRY` ou `OTEL_SDK_DISABLED` vaut `true` : définir les deux (`CREWAI_DISABLE_TELEMETRY=false` et `OTEL_SDK_DISABLED=false`). `OTEL_SDK_DISABLED=false` réactive aussi tout autre SDK OpenTelemetry du processus.
+- Hugging Face lit aussi `DO_NOT_TRACK` : définir `HF_HUB_DISABLE_TELEMETRY=0` et `DO_NOT_TRACK=0`. `DO_NOT_TRACK=0` lève l'opt-out pour toutes les bibliothèques qui lisent cette convention, pas seulement pour Hugging Face.
 
 ### Ajout d'un Nouveau Modèle
 

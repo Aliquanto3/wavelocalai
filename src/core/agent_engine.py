@@ -7,6 +7,7 @@ Modifications principales :
 - Détection du type de modèle via models.json (SOURCE DE VÉRITÉ)
 """
 
+import json
 import logging
 import os
 from collections.abc import Generator
@@ -16,12 +17,75 @@ from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 
 from src.core.agent_tools import AVAILABLE_TOOLS, get_tools_by_names
+from src.core.llm_provider import LLMProvider
 from src.core.model_detector import is_api_model
 from src.core.models_db import MODELS_DB, get_model_info
+from src.core.providers.groq_provider import is_groq_model
+from src.core.providers.provider_factory import prefixed_cloud_provider
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _generated_text(message: AIMessage) -> str:
+    """Texte généré par le modèle : blocs texte du contenu (chaîne ou liste de blocs), puis
+    JSON des appels d'outils, que le modèle génère aussi."""
+    content = message.content
+    if isinstance(content, str):
+        text = content
+    else:
+        parts = []
+        for block in content or []:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(str(block.get("text") or ""))
+        text = "".join(parts)
+    if message.tool_calls:
+        calls = [{"name": c.get("name"), "args": c.get("args")} for c in message.tool_calls]
+        text += json.dumps(calls, ensure_ascii=False, default=str)
+    return text
+
+
+def output_token_count(message: AIMessage) -> int:
+    """Tokens générés pour un message du modèle : `usage_metadata` quand le fournisseur le
+    renseigne, sinon estimation par la longueur du texte généré, appels d'outils compris
+    (4 caractères par token, comme les fournisseurs)."""
+    usage = getattr(message, "usage_metadata", None) or {}
+    counted = usage.get("output_tokens")
+    if isinstance(counted, int) and counted >= 0:
+        return counted
+    return len(_generated_text(message)) // 4
+
+
+def history_to_messages(chat_history: list[dict] | None) -> list:
+    """
+    Historique affiché → messages LangChain : seulement les vrais tours utilisateur et
+    assistant. Écartés : journaux d'outils (`type`), questions bloquées par le garde-fou
+    mémoire (`blocked`), tours en erreur (`error`), et toute question restée sans réponse
+    (erreur, flux interrompu, ou question courante déjà présente dans l'historique).
+    """
+    turns = []
+    for msg in chat_history or []:
+        role = msg.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        if msg.get("type") or msg.get("blocked") or msg.get("error"):
+            continue
+        if not msg.get("content"):
+            continue
+        turns.append(msg)
+
+    messages = []
+    for i, msg in enumerate(turns):
+        if msg["role"] == "user":
+            answered = i + 1 < len(turns) and turns[i + 1]["role"] == "assistant"
+            if answered:
+                messages.append(HumanMessage(content=msg["content"]))
+        elif messages and isinstance(messages[-1], HumanMessage):
+            messages.append(AIMessage(content=msg["content"]))
+    return messages
 
 
 class AgentEngine:
@@ -59,6 +123,14 @@ class AgentEngine:
         self.agent_executor = create_react_agent(self.llm, self.tools)
 
     def _initialize_llm(self, model_tag: str):
+        # Groq (API compatible OpenAI) : ChatOpenAI pointé sur Groq, via son provider.
+        if is_groq_model(model_tag):
+            return LLMProvider.get_langchain_model(model_tag, temperature=0.0)
+        # OpenAI et Anthropic (nom sans variante préfixé `gpt-`, `o1-`, `claude-`) : modèle
+        # LangChain de leur provider. Provider non disponible (clé ou paquet manquant) : la
+        # fabrique lève « Modèle OpenAI|Anthropic … demandé mais provider non disponible ».
+        if prefixed_cloud_provider(model_tag):
+            return LLMProvider.get_langchain_model(model_tag, temperature=0.0)
         # Utiliser le détecteur central
         if is_api_model(model_tag):
             return self._initialize_mistral_api(model_tag)
@@ -149,15 +221,10 @@ class AgentEngine:
         )
         final_system_prompt = system_prompt if system_prompt else default_system
 
-        # Construction des messages LangChain
+        # Construction des messages LangChain : seulement les vrais tours de la conversation,
+        # puis la question courante, une seule fois.
         lc_messages = [SystemMessage(content=final_system_prompt)]
-
-        for msg in chat_history:
-            if msg["role"] == "user":
-                lc_messages.append(HumanMessage(content=msg["content"]))
-            elif msg["role"] == "assistant":
-                lc_messages.append(AIMessage(content=msg["content"]))
-
+        lc_messages += history_to_messages(chat_history)
         lc_messages.append(HumanMessage(content=user_query))
 
         try:
@@ -165,6 +232,8 @@ class AgentEngine:
             stream = self.agent_executor.stream({"messages": lc_messages}, stream_mode="values")
 
             seen_messages = set()
+            # Tokens générés par le modèle pendant ce tour (appels d'outils compris).
+            output_tokens = 0
 
             for event in stream:
                 messages = event.get("messages", [])
@@ -177,6 +246,9 @@ class AgentEngine:
                 if msg_id in seen_messages:
                     continue
                 seen_messages.add(msg_id)
+
+                if isinstance(last_message, AIMessage):
+                    output_tokens += output_token_count(last_message)
 
                 # A. Appel d'outil (Tool Call)
                 if isinstance(last_message, AIMessage) and last_message.tool_calls:
@@ -193,7 +265,11 @@ class AgentEngine:
 
                 # C. Réponse Finale (AIMessage sans tool_calls)
                 elif isinstance(last_message, AIMessage) and not last_message.tool_calls:
-                    yield {"type": "final_answer", "content": last_message.content}
+                    yield {
+                        "type": "final_answer",
+                        "content": last_message.content,
+                        "output_tokens": output_tokens,
+                    }
 
         except Exception as e:
             logger.error(f"Erreur Agent: {e}")

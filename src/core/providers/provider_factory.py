@@ -7,11 +7,62 @@ import logging
 from typing import Any
 
 from src.core.interfaces import ILLMProvider
-from src.core.model_detector import is_api_model
+from src.core.model_defaults import is_remote_tag
+from src.core.model_detector import get_model_info, is_api_model
+from src.core.providers.groq_provider import is_groq_model
 from src.core.providers.mistral_provider import MistralProvider
 from src.core.providers.ollama_provider import OllamaProvider
 
 logger = logging.getLogger(__name__)
+
+# Fournisseur de chaque préfixe des modèles OpenAI et Anthropic (noms sans « : »,
+# contrairement aux tags Ollama) : règle unique du routage et de l'origine cloud.
+_PREFIX_PROVIDERS = (("gpt-", "openai"), ("o1-", "openai"), ("claude-", "anthropic"))
+CLOUD_TAG_PREFIXES = tuple(prefix for prefix, _provider in _PREFIX_PROVIDERS)
+
+
+def prefixed_cloud_provider(model_tag: str | None) -> str | None:
+    """
+    Fournisseur désigné par le préfixe d'un nom de modèle : "openai" (`gpt-`, `o1-`),
+    "anthropic" (`claude-`), sinon None.
+
+    Seul un nom sans variante est concerné : un tag Ollama (`nom:variante`, distant compris,
+    par exemple `gpt-oss:20b` ou `gpt-oss:120b-cloud`) donne toujours None.
+    """
+    tag = str(model_tag or "").strip().lower()
+    if not tag or ":" in tag:
+        return None
+    for prefix, provider in _PREFIX_PROVIDERS:
+        if tag.startswith(prefix):
+            return provider
+    return None
+
+
+def is_cloud_tag(model_tag: str | None) -> bool | None:
+    """
+    Origine d'un tag hors de la liste des fournisseurs (dont le type prime) : True si ses
+    données quittent la machine, False s'il tourne ici, None si elle est inconnue.
+
+    - tag distant servi par Ollama (`:cloud`, `-cloud`) : cloud ;
+    - modèle Groq (appartenance exacte à sa liste, `openai/gpt-oss-120b`) : cloud ;
+    - modèle du catalogue : son type (`api` = cloud) ;
+    - autre tag Ollama (`nom:variante`, par exemple `gpt-oss:20b`) : local ;
+    - nom sans variante préfixé `gpt-`, `o1-` ou `claude-` (OpenAI, Anthropic) : cloud ;
+    - sinon (vide, « N/A », inconnu du catalogue) : inconnue.
+    """
+    tag = str(model_tag or "").strip()
+    if not tag:
+        return None
+    if is_remote_tag({"model": tag}) or is_groq_model(tag):
+        return True
+    info = get_model_info(tag)
+    if info is not None:
+        return info.get("type") == "api"
+    if ":" in tag:
+        return False
+    if tag.lower().startswith(CLOUD_TAG_PREFIXES):
+        return True
+    return None
 
 
 class LLMProviderFactory:
@@ -40,9 +91,9 @@ class LLMProviderFactory:
         mistral = MistralProvider()
         if mistral.is_available:
             self._providers["mistral"] = mistral
-            logger.info("✅ Provider Mistral initialisé")
+            logger.info("Provider Mistral initialisé")
         else:
-            logger.debug("ℹ️ Provider Mistral non disponible (clé API manquante)")
+            logger.debug("Provider Mistral non disponible (clé API manquante)")
 
         # Provider OpenAI (si configuré)
         from src.core.providers.openai_provider import OpenAIProvider
@@ -50,9 +101,9 @@ class LLMProviderFactory:
         openai_provider = OpenAIProvider()
         if openai_provider.is_available:
             self._providers["openai"] = openai_provider
-            logger.info("✅ Provider OpenAI initialisé")
+            logger.info("Provider OpenAI initialisé")
         else:
-            logger.debug("ℹ️ Provider OpenAI non disponible (clé API manquante)")
+            logger.debug("Provider OpenAI non disponible (clé API manquante)")
 
         # Provider Anthropic (si configuré)
         from src.core.providers.anthropic_provider import AnthropicProvider
@@ -60,9 +111,19 @@ class LLMProviderFactory:
         anthropic_provider = AnthropicProvider()
         if anthropic_provider.is_available:
             self._providers["anthropic"] = anthropic_provider
-            logger.info("✅ Provider Anthropic initialisé")
+            logger.info("Provider Anthropic initialisé")
         else:
-            logger.debug("ℹ️ Provider Anthropic non disponible (clé API manquante)")
+            logger.debug("Provider Anthropic non disponible (clé API manquante)")
+
+        # Provider Groq (si configuré) : API compatible OpenAI
+        from src.core.providers.groq_provider import GroqProvider
+
+        groq_provider = GroqProvider()
+        if groq_provider.is_available:
+            self._providers["groq"] = groq_provider
+            logger.info("Provider Groq initialisé")
+        else:
+            logger.debug("Provider Groq non disponible (clé API manquante)")
 
     def get_provider(self, model_tag: str) -> ILLMProvider:
         """
@@ -77,17 +138,23 @@ class LLMProviderFactory:
         Raises:
             ValueError: Si aucun provider ne peut gérer ce modèle
         """
-        # Détection par préfixe du modèle
-        model_lower = model_tag.lower()
+        # Groq : appartenance exacte à la liste de ses modèles (`llama3.2:3b` reste local).
+        if is_groq_model(model_tag):
+            if "groq" in self._providers:
+                return self._providers["groq"]
+            raise ValueError(f"Modèle Groq {model_tag} demandé mais provider non disponible")
+
+        # OpenAI et Anthropic : préfixe d'un nom sans variante (`gpt-oss:20b` reste local).
+        prefixed = prefixed_cloud_provider(model_tag)
 
         # OpenAI
-        if model_lower.startswith("gpt-") or model_lower.startswith("o1-"):
+        if prefixed == "openai":
             if "openai" in self._providers:
                 return self._providers["openai"]
             raise ValueError(f"Modèle OpenAI {model_tag} demandé mais provider non disponible")
 
         # Anthropic
-        if model_lower.startswith("claude-"):
+        if prefixed == "anthropic":
             if "anthropic" in self._providers:
                 return self._providers["anthropic"]
             raise ValueError(f"Modèle Anthropic {model_tag} demandé mais provider non disponible")
@@ -118,7 +185,8 @@ class LLMProviderFactory:
         Liste tous les modèles de tous les providers.
 
         Args:
-            include_cloud: Inclure les modèles cloud (Mistral, etc.)
+            include_cloud: Inclure les modèles cloud (Mistral, OpenAI, Anthropic, Groq, et les tags
+                distants servis par Ollama, `glm-4.6:cloud`) ; False : modèles locaux seuls.
 
         Returns:
             Liste consolidée de tous les modèles disponibles
@@ -131,6 +199,9 @@ class LLMProviderFactory:
 
             try:
                 models = provider.list_models()
+                if not include_cloud:
+                    # Un fournisseur local peut servir un tag distant : exclu aussi (D1).
+                    models = [m for m in models if not is_remote_tag(m)]
                 # Ajouter le nom du provider à chaque modèle
                 for model in models:
                     model["provider"] = provider_name
@@ -149,7 +220,7 @@ class LLMProviderFactory:
             provider: Instance du provider
         """
         self._providers[name] = provider
-        logger.info(f"✅ Provider '{name}' enregistré")
+        logger.info(f"Provider '{name}' enregistré")
 
     def health_check_all(self) -> dict[str, bool]:
         """

@@ -2,19 +2,22 @@
 Service d'orchestration d'inférence découplé de l'UI.
 Permet la réutilisation pour benchmarks, agents et évaluations.
 """
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import TypeVar
 
 from src.core.llm_provider import LLMProvider
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, InterruptedResponseError, ReasoningChunk
 from src.core.models_db import extract_thought
 
 # Logging
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 # ========================================
@@ -24,14 +27,27 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class InferenceResult:
-    """Résultat complet d'une inférence."""
+    """Résultat complet d'une inférence.
+
+    En cas d'échec, `error` est renseigné et `metrics` vaut None : tester `error` avant de lire
+    les métriques. `timed_out` distingue un délai dépassé (délai en secondes dans `timeout_s`)
+    des autres erreurs, sans analyser le texte de `error`.
+    """
 
     raw_text: str
     clean_text: str
-    thought: Optional[str]
-    metrics: Optional[InferenceMetrics]
-    error: Optional[str] = None
+    thought: str | None
+    metrics: InferenceMetrics | None
+    error: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
+    timed_out: bool = False
+    timeout_s: float | None = None
+    # Flux tronqué (Ollama a fermé le flux sans fragment final) : la réponse partielle n'est
+    # jamais présentée comme complète.
+    interrupted: bool = False
+    # Tokens (fragments reçus) des tentatives coupées puis relancées, ou coupées deux fois :
+    # ajoutés au CO₂ de la réponse, jamais au texte ni au débit. Renseignés aussi en échec.
+    interrupted_output_tokens: int = 0
 
 
 @dataclass
@@ -41,14 +57,57 @@ class InferenceCallbacks:
     Permet au frontend de s'abonner aux événements sans couplage.
     """
 
-    on_token: Optional[Callable[[str], Awaitable[None]]] = None
-    on_metrics: Optional[Callable[[InferenceMetrics], Awaitable[None]]] = None
-    on_thought: Optional[Callable[[str], Awaitable[None]]] = None
-    on_error: Optional[Callable[[str], Awaitable[None]]] = None
+    on_token: Callable[[str], Awaitable[None]] | None = None
+    on_metrics: Callable[[InferenceMetrics], Awaitable[None]] | None = None
+    on_thought: Callable[[str], Awaitable[None]] | None = None
+    on_error: Callable[[str], Awaitable[None]] | None = None
+    # Génération interrompue, relancée une fois : l'interface efface le texte partiel et
+    # annonce la relance. Reçoit l'erreur de la tentative coupée.
+    on_retry: Callable[[InterruptedResponseError], Awaitable[None]] | None = None
 
 
 # ========================================
-# 2. SERVICE D'INFÉRENCE
+# 2. RELANCE D'UNE GÉNÉRATION INTERROMPUE
+# ========================================
+
+
+async def retry_interrupted(
+    run_attempt: Callable[[], Awaitable[T]],
+    on_retry: Callable[[InterruptedResponseError], Awaitable[None]] | None = None,
+) -> tuple[T, int]:
+    """Règle unique de relance d'une génération interrompue (flux Ollama fermé sans `done`),
+    pour toutes les générations de l'application qui lisent le flux d'Ollama.
+
+    `run_attempt` exécute une tentative complète et repart de zéro à chaque appel (texte et
+    raisonnement vides). Après une `InterruptedResponseError`, `on_retry(err)` est appelé (le
+    texte partiel doit y être effacé et la relance annoncée), puis une seule nouvelle
+    tentative a lieu. Toute autre erreur, délai dépassé compris, est relayée sans relance.
+
+    Returns:
+        (résultat de la tentative réussie, tokens de la tentative coupée ou 0).
+
+    Raises:
+        InterruptedResponseError: seconde interruption ; `output_tokens` y compte les tokens
+            des deux tentatives.
+    """
+    try:
+        return await run_attempt(), 0
+    except InterruptedResponseError as err:
+        first = err  # `err` n'existe plus hors du bloc `except`.
+    wasted = first.output_tokens
+    logger.warning(f"Génération interrompue ({wasted} tokens reçus) : relance unique.")
+    if on_retry:
+        await on_retry(first)
+    try:
+        return await run_attempt(), wasted
+    except InterruptedResponseError as second:
+        raise InterruptedResponseError(
+            str(second), output_tokens=wasted + second.output_tokens
+        ) from second
+
+
+# ========================================
+# 3. SERVICE D'INFÉRENCE
 # ========================================
 
 
@@ -70,8 +129,8 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float = 0.7,
-        system_prompt: Optional[str] = None,
-        callbacks: Optional[InferenceCallbacks] = None,
+        system_prompt: str | None = None,
+        callbacks: InferenceCallbacks | None = None,
         timeout: int = 120,
     ) -> InferenceResult:
         """
@@ -85,15 +144,19 @@ class InferenceService:
             callbacks: Gestionnaires d'événements optionnels
             timeout: Timeout en secondes (défaut: 2 minutes)
 
-        Returns:
-            InferenceResult contenant texte, pensée et métriques
+        Une génération interrompue (flux Ollama sans `done`) est relancée une fois
+        (`retry_interrupted`) ; chaque tentative est bornée par `timeout`. Les tokens de la
+        tentative coupée vont dans `interrupted_output_tokens`, en succès comme en échec.
 
-        Raises:
-            asyncio.TimeoutError: Si l'inférence dépasse le timeout
-            Exception: Erreurs Ollama ou réseau
+        Returns:
+            InferenceResult contenant texte, pensée et métriques. Les erreurs (délai dépassé,
+            interruption, Ollama ou réseau) y sont renseignées, jamais levées.
         """
-        try:
-            # Protection timeout
+        # Tokens des tentatives coupées, connus aussi quand la relance échoue autrement.
+        wasted = {"tokens": 0}
+
+        async def run_attempt() -> InferenceResult:
+            # Protection timeout, pour chaque tentative.
             return await asyncio.wait_for(
                 InferenceService._execute_inference(
                     model_tag, messages, temperature, system_prompt, callbacks
@@ -101,13 +164,45 @@ class InferenceService:
                 timeout=timeout,
             )
 
+        async def on_retry(err: InterruptedResponseError) -> None:
+            wasted["tokens"] += err.output_tokens
+            if callbacks and callbacks.on_retry:
+                await callbacks.on_retry(err)
+
+        try:
+            result, _ = await retry_interrupted(run_attempt, on_retry)
+            result.interrupted_output_tokens = wasted["tokens"]
+            return result
+
         except asyncio.TimeoutError:
             error_msg = f"Timeout ({timeout}s) dépassé pour {model_tag}"
             logger.error(error_msg)
             if callbacks and callbacks.on_error:
                 await callbacks.on_error(error_msg)
             return InferenceResult(
-                raw_text="", clean_text="", thought=None, metrics=None, error=error_msg
+                raw_text="",
+                clean_text="",
+                thought=None,
+                metrics=None,
+                error=error_msg,
+                timed_out=True,
+                timeout_s=timeout,
+                interrupted_output_tokens=wasted["tokens"],
+            )
+
+        except InterruptedResponseError as e:
+            logger.warning(f"Réponse interrompue pour {model_tag}: {e}")
+            if callbacks and callbacks.on_error:
+                await callbacks.on_error(str(e))
+            return InferenceResult(
+                raw_text="",
+                clean_text="",
+                thought=None,
+                metrics=None,
+                error=str(e),
+                interrupted=True,
+                # Les deux tentatives coupées (voir `retry_interrupted`).
+                interrupted_output_tokens=e.output_tokens,
             )
 
         except Exception as e:
@@ -116,7 +211,12 @@ class InferenceService:
             if callbacks and callbacks.on_error:
                 await callbacks.on_error(str(e))
             return InferenceResult(
-                raw_text="", clean_text="", thought=None, metrics=None, error=str(e)
+                raw_text="",
+                clean_text="",
+                thought=None,
+                metrics=None,
+                error=str(e),
+                interrupted_output_tokens=wasted["tokens"],
             )
 
     @staticmethod
@@ -124,12 +224,13 @@ class InferenceService:
         model_tag: str,
         messages: list[dict[str, str]],
         temperature: float,
-        system_prompt: Optional[str],
-        callbacks: Optional[InferenceCallbacks],
+        system_prompt: str | None,
+        callbacks: InferenceCallbacks | None,
     ) -> InferenceResult:
         """Logique d'exécution interne (sans timeout wrapper)."""
 
         full_text = ""
+        reasoning = ""
         final_metrics = None
 
         # Appel du provider
@@ -148,14 +249,20 @@ class InferenceService:
                 if callbacks and callbacks.on_token:
                     await callbacks.on_token(item)
 
+            elif isinstance(item, ReasoningChunk):
+                # Raisonnement transmis à part : jamais compté comme texte de réponse.
+                reasoning += item.text
+
             elif isinstance(item, InferenceMetrics):
                 final_metrics = item
                 # Callback métriques
                 if callbacks and callbacks.on_metrics:
                     await callbacks.on_metrics(item)
 
-        # Extraction de la pensée (Chain of Thought)
-        thought, clean_text = extract_thought(full_text)
+        # Pensée : raisonnement transmis à part en premier, puis balises <think> du texte.
+        tag_thought, clean_text = extract_thought(full_text)
+        parts = [part for part in (reasoning.strip(), tag_thought) if part]
+        thought = "\n\n".join(parts) or None
 
         # Callback pensée (si détectée)
         if thought and callbacks and callbacks.on_thought:
@@ -163,7 +270,9 @@ class InferenceService:
 
         return InferenceResult(
             raw_text=full_text,
-            clean_text=clean_text or full_text,  # Fallback si pas de <think>
+            # Pas de repli sur le texte brut : une réponse faite seulement de raisonnement
+            # reste vide (l'Arène la marque « réponse vide », sans la juger).
+            clean_text=clean_text or "",
             thought=thought,
             metrics=final_metrics,
         )

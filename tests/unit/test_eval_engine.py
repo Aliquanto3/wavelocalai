@@ -3,6 +3,7 @@ Tests unitaires pour le module EvalEngine.
 Usage: pytest tests/unit/test_eval_engine.py -v
 """
 
+import importlib
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -28,24 +29,25 @@ class TestEvalEngine:
     def mock_dependencies(self, mock_env):
         """Mock les dépendances internes."""
         # ✅ CORRECTION : On ne patche plus HuggingFaceEmbeddings car il n'est plus importé dans eval_engine.py
+        # patch.object sur le module de sys.modules : sous Python 3.10, patch("src.core.eval_engine.x")
+        # passe par l'attribut du paquet, périmé après le patch.dict(sys.modules) du test précédent.
+        engine_module = importlib.import_module("src.core.eval_engine")
         with (
-            patch("src.core.eval_engine.evaluate") as mock_evaluate,
-            patch("src.core.eval_engine.LLMProvider") as mock_provider,
+            patch.object(engine_module, "evaluate") as mock_evaluate,
+            patch.object(engine_module, "LLMProvider") as mock_provider,
         ):
             # Setup Provider (Juge)
             mock_judge = MagicMock()
             mock_provider.get_langchain_model.return_value = mock_judge
 
             # On force RAGAS_AVAILABLE à True
-            with patch("src.core.eval_engine.RAGAS_AVAILABLE", True):
-                from src.core.eval_engine import EvalEngine, EvalResult
-
+            with patch.object(engine_module, "RAGAS_AVAILABLE", True):
                 yield {
                     "evaluate": mock_evaluate,
                     "provider": mock_provider,
                     "judge": mock_judge,
-                    "engine_cls": EvalEngine,
-                    "result_cls": EvalResult,
+                    "engine_cls": engine_module.EvalEngine,
+                    "result_cls": engine_module.EvalResult,
                 }
 
     def test_init_success(self, mock_dependencies):
@@ -92,7 +94,7 @@ class TestEvalEngine:
         eval_engine_cls = mock_dependencies["engine_cls"]
         engine = eval_engine_cls()
 
-        # Le moteur attrape l'exception et renvoie des scores à 0.0
+        # Le moteur attrape l'exception : « non évalué » avec la raison, jamais 0.
         result = engine.evaluate_single_turn(
             query="Q",
             response="A",
@@ -101,4 +103,109 @@ class TestEvalEngine:
             embedding_model=MagicMock(),
         )
 
+        assert result.global_score is None
+        assert result.answer_relevancy is None
+        assert result.faithfulness is None
+        assert not result.evaluated
+        # Raison courte pour le tableau, texte de l'exception à part (Détails techniques).
+        assert result.reason == "l'évaluation par le juge a échoué."
+        assert "Ragas failure" in result.detail
+
+    def _run_with_scores(self, mock_dependencies, scores):
+        mock_results = MagicMock()
+        mock_df = MagicMock()
+        mock_df.iloc.__getitem__.return_value = scores
+        mock_results.to_pandas.return_value = mock_df
+        mock_dependencies["evaluate"].return_value = mock_results
+        engine = mock_dependencies["engine_cls"]()
+        return engine.evaluate_single_turn(
+            query="Q",
+            response="A",
+            retrieved_contexts=["C"],
+            judge_tag="model",
+            embedding_model=MagicMock(),
+        )
+
+    def test_evaluate_nan_scores_are_not_evaluated(self, mock_dependencies):
+        """NaN (juge local qui échoue) : « non évalué », jamais converti en 0."""
+        nan = float("nan")
+        result = self._run_with_scores(
+            mock_dependencies, {"answer_relevancy": nan, "faithfulness": nan}
+        )
+        assert result.global_score is None
+        assert result.answer_relevancy is None and result.faithfulness is None
+        assert result.reason
+
+    def test_evaluate_missing_metric_is_not_evaluated(self, mock_dependencies):
+        """Colonne absente : la métrique calculée est gardée, la note globale non évaluée."""
+        result = self._run_with_scores(mock_dependencies, {"answer_relevancy": 0.8})
+        assert result.answer_relevancy == 0.8
+        assert result.faithfulness is None
+        assert result.global_score is None
+        assert "fidélité" in result.reason
+
+    def test_evaluate_scores_zero_is_a_real_score(self, mock_dependencies):
+        """Un vrai 0 calculé par Ragas reste une note (différente de « non évalué »)."""
+        result = self._run_with_scores(
+            mock_dependencies, {"answer_relevancy": 0.0, "faithfulness": 0.0}
+        )
         assert result.global_score == 0.0
+        assert result.evaluated
+        assert result.reason is None
+
+    def test_evaluate_judge_creation_failure(self, mock_dependencies):
+        """Juge impossible à créer : « non évalué » avec la raison, sans exception."""
+        mock_dependencies["provider"].get_langchain_model.side_effect = ValueError(
+            "Provider non disponible"
+        )
+        engine = mock_dependencies["engine_cls"]()
+        result = engine.evaluate_single_turn(
+            query="Q",
+            response="A",
+            retrieved_contexts=["C"],
+            judge_tag="model",
+            embedding_model=MagicMock(),
+        )
+        assert result.global_score is None
+        assert "Provider non disponible" in result.detail
+        assert "Provider" not in result.reason
+        mock_dependencies["evaluate"].assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("judge_tag", "wrapped"), [("openai/gpt-oss-120b", True), ("qwen2.5:1.5b", False)]
+    )
+    def test_groq_judge_bypasses_n(self, mock_dependencies, judge_tag, wrapped):
+        """Juge Groq (story 16) : Groq refuse n ≠ 1, Ragas reçoit un LangchainLLMWrapper
+        avec `bypass_n=True` ; un juge local reste l'objet LangChain tel quel."""
+        engine_module = importlib.import_module("src.core.eval_engine")
+        judge = mock_dependencies["judge"]
+        with patch.object(engine_module, "LangchainLLMWrapper") as wrapper_cls:
+            mock_dependencies["engine_cls"]().evaluate_single_turn(
+                query="Q",
+                response="A",
+                retrieved_contexts=["C"],
+                judge_tag=judge_tag,
+                embedding_model=MagicMock(),
+            )
+        llm = mock_dependencies["evaluate"].call_args.kwargs["llm"]
+        if wrapped:
+            wrapper_cls.assert_called_once_with(judge, bypass_n=True)
+            assert llm is wrapper_cls.return_value
+        else:
+            wrapper_cls.assert_not_called()
+            assert llm is judge
+
+    def test_evaluate_without_ragas(self):
+        """Ragas absent : « non évalué » avec la raison."""
+        engine_module = importlib.import_module("src.core.eval_engine")
+        with patch.object(engine_module, "RAGAS_AVAILABLE", False):
+            result = engine_module.EvalEngine().evaluate_single_turn(
+                query="Q",
+                response="A",
+                retrieved_contexts=["C"],
+                judge_tag="model",
+                embedding_model=MagicMock(),
+            )
+        assert result.global_score is None
+        assert not result.evaluated
+        assert "Ragas" in result.reason

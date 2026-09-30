@@ -7,7 +7,7 @@ Chaque outil est implémenté selon le pattern :
 2. Wrapper LangChain avec décorateur @tool
 
 Nouveaux outils ajoutés :
-- Email Sender
+- Email Sender (brouillon seulement : l'envoi exige la validation de l'utilisateur)
 - Data Analyzer (CSV/Excel)
 - Document Generator (DOCX)
 - Chart Generator (PNG)
@@ -21,6 +21,7 @@ import os
 import re
 import smtplib
 import unicodedata
+from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -33,7 +34,7 @@ import psutil
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from func_timeout import FunctionTimedOut, func_timeout
-from langchain_core.tools import tool
+from langchain_core.tools import StructuredTool, tool
 
 # Configuration matplotlib pour éviter les problèmes d'affichage
 matplotlib.use("Agg")
@@ -85,26 +86,26 @@ def _calculate_safe(expression: str) -> str:
     """
     # 1. Validation de la longueur
     if len(expression) > 100:
-        return "❌ Erreur : Expression trop longue (max 100 caractères)"
+        return "Erreur : Expression trop longue (max 100 caractères)"
 
     # 2. Nettoyage préventif des espaces multiples
     expression = " ".join(expression.split())
 
     # 3. Protection contre les expressions vides
     if not expression.strip():
-        return "❌ Erreur : Expression vide"
+        return "Erreur : Expression vide"
 
     # 4. Whitelist STRICTE
     if not re.match(r"^[\d\s+\-*/().]+$", expression):
-        return "❌ Erreur : Caractères non autorisés. Utilisez uniquement : + - * / ( ) et nombres"
+        return "Erreur : Caractères non autorisés. Utilisez uniquement : + - * / ( ) et nombres"
 
     # 5. Détection d'opérateurs consécutifs
     if re.search(r"[+\-*/]{2,}", expression):
-        return "❌ Erreur : Opérateurs consécutifs détectés"
+        return "Erreur : Opérateurs consécutifs détectés"
 
     # 6. Vérification des parenthèses équilibrées
     if expression.count("(") != expression.count(")"):
-        return "❌ Erreur : Parenthèses non équilibrées"
+        return "Erreur : Parenthèses non équilibrées"
 
     try:
         # 7. Évaluation avec TIMEOUT de 2 secondes
@@ -115,14 +116,14 @@ def _calculate_safe(expression: str) -> str:
 
         # 8. Validation du résultat
         if not isinstance(result, (int, float)):
-            return "❌ Erreur : Résultat invalide"
+            return "Erreur : Résultat invalide"
 
         # 9. Détection des valeurs spéciales (inf, nan)
         if result == float("inf") or result == float("-inf"):
-            return "❌ Erreur : Résultat infini (division par zéro ou overflow)"
+            return "Erreur : Résultat infini (division par zéro ou overflow)"
 
         if result != result:  # Test pour NaN
-            return "❌ Erreur : Résultat indéfini (NaN)"
+            return "Erreur : Résultat indéfini (NaN)"
 
         # 10. Formatage du résultat
         if isinstance(result, float):
@@ -134,16 +135,16 @@ def _calculate_safe(expression: str) -> str:
         return str(result)
 
     except FunctionTimedOut:
-        return "❌ Erreur : Calcul trop long (timeout 2s). Simplifiez l'expression"
+        return "Erreur : Calcul trop long (timeout 2s). Simplifiez l'expression"
 
     except ZeroDivisionError:
-        return "❌ Erreur : Division par zéro"
+        return "Erreur : Division par zéro"
 
     except (ValueError, SyntaxError) as e:
-        return f"❌ Erreur de syntaxe : {str(e)}"
+        return f"Erreur de syntaxe : {str(e)}"
 
     except Exception as e:
-        return f"❌ Erreur de calcul : {str(e)}"
+        return f"Erreur de calcul : {str(e)}"
 
 
 def _get_current_time_impl() -> str:
@@ -177,59 +178,131 @@ def _search_wavestone_impl(query: str) -> str:
 # ========================================
 
 
-def _send_email_impl(to: str, subject: str, body: str) -> str:
-    """
-    Logique pure d'envoi d'email via SMTP.
+# Variables SMTP requises pour envoyer un email (lues à l'import, depuis .env).
+SMTP_CONFIG_VARS = ("SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD")
+# Délai de connexion et d'envoi SMTP (secondes).
+SMTP_TIMEOUT_S = 15
 
-    Args:
-        to: Adresse email du destinataire
-        subject: Sujet de l'email
-        body: Corps du message (peut contenir du HTML)
 
-    Returns:
-        str: Message de confirmation ou d'erreur
-    """
-    # Validation des inputs
+@dataclass(frozen=True)
+class EmailDelivery:
+    """Résultat d'un envoi validé : succès, et message lisible (confirmation ou erreur)."""
+
+    ok: bool
+    message: str
+
+
+def missing_smtp_vars() -> list[str]:
+    """Variables SMTP vides (SMTP_SERVER, SMTP_USER, SMTP_PASSWORD), dans cet ordre."""
+    values = {"SMTP_SERVER": SMTP_SERVER, "SMTP_USER": SMTP_USER, "SMTP_PASSWORD": SMTP_PASSWORD}
+    return [name for name in SMTP_CONFIG_VARS if not values[name]]
+
+
+def smtp_configured() -> bool:
+    """True si l'envoi d'email est configuré (serveur, utilisateur et mot de passe SMTP)."""
+    return not missing_smtp_vars()
+
+
+def smtp_missing_help() -> str:
+    """Aide « Configuration SMTP absente » : variables à renseigner, valeurs par défaut, et
+    redémarrage (le .env est lu au lancement de l'application)."""
+    missing = ", ".join(missing_smtp_vars()) or "SMTP_USER, SMTP_PASSWORD"
+    return (
+        f"Configuration SMTP absente : renseignez {missing} dans le fichier .env, puis "
+        "redémarrez l'application. SMTP_SERVER vaut smtp.gmail.com par défaut et SMTP_PORT "
+        "587."
+    )
+
+
+def validate_email(to: str, subject: str, body: str) -> str | None:
+    """Message d'erreur si le destinataire, l'objet ou le corps est invalide ; None sinon."""
     if not to or "@" not in to:
-        return "❌ Erreur : Adresse email invalide"
+        return "Erreur : Adresse email invalide"
 
     if not subject or len(subject) > 200:
-        return "❌ Erreur : Sujet manquant ou trop long (max 200 caractères)"
+        return "Erreur : Sujet manquant ou trop long (max 200 caractères)"
 
     if not body or len(body) > 10000:
-        return "❌ Erreur : Corps du message manquant ou trop long (max 10000 caractères)"
+        return "Erreur : Corps du message manquant ou trop long (max 10000 caractères)"
 
-    # Vérification de la configuration SMTP
-    if not SMTP_USER or not SMTP_PASSWORD:
-        return "⚠️ Configuration SMTP manquante. Configurez SMTP_USER et SMTP_PASSWORD dans .env"
+    return None
+
+
+def _draft_email_impl(to: str, subject: str, body: str) -> str:
+    """
+    Brouillon d'email pour l'outil de l'agent seul : rien n'est envoyé (D2). L'interface
+    présente le brouillon (destinataire, objet, corps) et n'envoie qu'après validation
+    humaine, par send_validated_email.
+
+    Returns:
+        str: Brouillon préparé, ou message d'erreur de validation
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return error
+    return (
+        f"Brouillon d'email préparé pour {to} (objet : « {subject} »). Il n'est pas envoyé : "
+        "l'utilisateur doit le relire et valider l'envoi dans l'interface. Indique-lui que "
+        "l'email attend sa validation."
+    )
+
+
+def _draft_email_for_crew_impl(to: str, subject: str, body: str) -> str:
+    """
+    Brouillon d'email pour l'équipe d'agents : aucun email ne peut partir depuis l'équipe (pas
+    de validation possible en cours de mission). Le brouillon complet est rendu à l'agent,
+    qui peut le reprendre dans son rapport.
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return error
+    return (
+        "Aucun email ne peut être envoyé depuis l'équipe d'agents : rien n'est parti. "
+        "Brouillon à reprendre tel quel dans le rapport, pour que l'utilisateur l'envoie "
+        f"lui-même :\nDestinataire : {to}\nObjet : {subject}\nCorps :\n{body}"
+    )
+
+
+def send_validated_email(to: str, subject: str, body: str) -> EmailDelivery:
+    """
+    Envoi réel d'un brouillon via SMTP, en texte brut : exactement le texte montré à
+    l'utilisateur. Appelé par l'interface seulement, après validation humaine du brouillon
+    (jamais par l'agent).
+    """
+    error = validate_email(to, subject, body)
+    if error:
+        return EmailDelivery(False, error)
+
+    if not smtp_configured():
+        return EmailDelivery(False, f"Attention : {smtp_missing_help()}")
 
     try:
-        # Création du message
         msg = MIMEMultipart("alternative")
         msg["From"] = SMTP_USER
         msg["To"] = to
         msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain", "utf-8"))
 
-        # Ajout du corps (supporte HTML)
-        part = MIMEText(body, "html" if "<" in body else "plain", "utf-8")
-        msg.attach(part)
-
-        # Connexion et envoi
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=SMTP_TIMEOUT_S) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
 
-        return f"✅ Email envoyé avec succès à {to}"
+        return EmailDelivery(True, f"Email envoyé avec succès à {to}")
 
     except smtplib.SMTPAuthenticationError:
-        return "❌ Erreur d'authentification SMTP. Vérifiez vos identifiants."
+        return EmailDelivery(False, "Erreur d'authentification SMTP. Vérifiez vos identifiants.")
 
     except smtplib.SMTPException as e:
-        return f"❌ Erreur SMTP : {str(e)}"
+        return EmailDelivery(False, f"Erreur SMTP : {str(e)}")
 
     except Exception as e:
-        return f"❌ Erreur lors de l'envoi de l'email : {str(e)}"
+        return EmailDelivery(False, f"Erreur lors de l'envoi de l'email : {str(e)}")
+
+
+def _send_email_impl(to: str, subject: str, body: str) -> str:
+    """Message de send_validated_email (compatibilité des appels existants)."""
+    return send_validated_email(to, subject, body).message
 
 
 def _analyze_csv_impl(filepath: str, query: str) -> str:
@@ -246,17 +319,17 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
     # Validation du chemin
     path = Path(filepath)
     if not path.exists():
-        return f"❌ Fichier non trouvé : {filepath}"
+        return f"Erreur : Fichier non trouvé : {filepath}"
 
     if path.suffix.lower() not in [".csv", ".xlsx", ".xls"]:
-        return "❌ Format non supporté. Utilisez .csv, .xlsx ou .xls"
+        return "Erreur : Format non supporté. Utilisez .csv, .xlsx ou .xls"
 
     try:
         # Lecture du fichier
         df = pd.read_csv(filepath) if path.suffix.lower() == ".csv" else pd.read_excel(filepath)
 
         # Informations de base
-        info = f"📊 **Analyse de {path.name}**\n\n"
+        info = f"**Analyse de {path.name}**\n\n"
         info += f"- Lignes : {len(df)}\n"
         info += f"- Colonnes : {len(df.columns)}\n"
         info += f"- Colonnes disponibles : {', '.join(df.columns.tolist())}\n\n"
@@ -283,10 +356,10 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
                         mean_val = df[col].mean()
                         info += f"**Moyenne de '{col}' :** {mean_val:.2f}"
                     else:
-                        info += f"❌ La colonne '{col}' n'est pas numérique"
+                        info += f"Erreur : La colonne '{col}' n'est pas numérique"
                     break
             else:
-                info += "⚠️ Aucune colonne spécifique détectée. Voici les moyennes de toutes les colonnes numériques :\n"
+                info += "Attention : Aucune colonne spécifique détectée. Voici les moyennes de toutes les colonnes numériques :\n"
                 info += df.mean(numeric_only=True).to_string()
 
         # Cas 4 : Somme
@@ -297,10 +370,10 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
                         sum_val = df[col].sum()
                         info += f"**Somme de '{col}' :** {sum_val:.2f}"
                     else:
-                        info += f"❌ La colonne '{col}' n'est pas numérique"
+                        info += f"Erreur : La colonne '{col}' n'est pas numérique"
                     break
             else:
-                info += "⚠️ Aucune colonne spécifique détectée. Voici les sommes :\n"
+                info += "Attention : Aucune colonne spécifique détectée. Voici les sommes :\n"
                 info += df.sum(numeric_only=True).to_string()
 
         # Cas 5 : Comptage
@@ -315,15 +388,15 @@ def _analyze_csv_impl(filepath: str, query: str) -> str:
 
         # Cas par défaut : Info générale
         else:
-            info += "⚠️ Requête non comprise. Reformulez avec : 'aperçu', 'moyenne de X', 'somme de X', 'stats', etc."
+            info += "Attention : Requête non comprise. Reformulez avec : 'aperçu', 'moyenne de X', 'somme de X', 'stats', etc."
 
         return info
 
     except pd.errors.EmptyDataError:
-        return "❌ Fichier vide"
+        return "Erreur : Fichier vide"
 
     except Exception as e:
-        return f"❌ Erreur lors de l'analyse : {str(e)}"
+        return f"Erreur lors de l'analyse : {str(e)}"
 
 
 def _generate_document_impl(title: str, content: str, filename: str = None) -> str:
@@ -400,10 +473,10 @@ def _generate_document_impl(title: str, content: str, filename: str = None) -> s
         filepath = OUTPUT_DIR / filename
         doc.save(str(filepath))
 
-        return f"✅ Document créé : {filepath}"
+        return f"Document créé : {filepath}"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du document : {str(e)}"
+        return f"Erreur lors de la création du document : {str(e)}"
 
 
 def _generate_chart_impl(
@@ -426,13 +499,13 @@ def _generate_chart_impl(
         data = json.loads(data_json)
 
         if "labels" not in data or "values" not in data:
-            return '❌ Format JSON invalide. Utilisez : {"labels": [...], "values": [...]}'
+            return 'Erreur : Format JSON invalide. Utilisez : {"labels": [...], "values": [...]}'
 
         labels = data["labels"]
         values = data["values"]
 
         if len(labels) != len(values):
-            return "❌ Le nombre de labels et de valeurs doit être identique"
+            return "Erreur : Le nombre de labels et de valeurs doit être identique"
 
         # Création du graphique
         plt.figure(figsize=(10, 6))
@@ -450,9 +523,7 @@ def _generate_chart_impl(
             plt.pie(values, labels=labels, autopct="%1.1f%%", startangle=90)
 
         else:
-            return (
-                f"❌ Type de graphique non supporté : {chart_type}. Utilisez 'bar', 'line' ou 'pie'"
-            )
+            return f"Erreur : Type de graphique non supporté : {chart_type}. Utilisez 'bar', 'line' ou 'pie'"
 
         plt.title(title, fontsize=14, fontweight="bold")
         plt.tight_layout()
@@ -471,13 +542,13 @@ def _generate_chart_impl(
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()
 
-        return f"✅ Graphique créé : {filepath}"
+        return f"Graphique créé : {filepath}"
 
     except json.JSONDecodeError:
-        return "❌ Format JSON invalide"
+        return "Erreur : Format JSON invalide"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du graphique : {str(e)}"
+        return f"Erreur lors de la création du graphique : {str(e)}"
 
 
 def _generate_markdown_report_impl(title: str, sections: str, filename: str = None) -> str:
@@ -520,13 +591,13 @@ def _generate_markdown_report_impl(title: str, sections: str, filename: str = No
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(report)
 
-        return f"✅ Rapport Markdown créé : {filepath}"
+        return f"Rapport Markdown créé : {filepath}"
 
     except json.JSONDecodeError:
-        return "❌ Format JSON invalide pour les sections"
+        return "Erreur : Format JSON invalide pour les sections"
 
     except Exception as e:
-        return f"❌ Erreur lors de la création du rapport : {str(e)}"
+        return f"Erreur lors de la création du rapport : {str(e)}"
 
 
 def _system_monitor_impl() -> str:
@@ -557,7 +628,7 @@ def _system_monitor_impl() -> str:
         disk_percent = disk.percent
 
         # Construction du rapport
-        report = "📊 **Monitoring Système**\n\n"
+        report = "**Monitoring Système**\n\n"
 
         report += "### CPU\n"
         report += f"- Utilisation : {cpu_percent}%\n"
@@ -576,19 +647,19 @@ def _system_monitor_impl() -> str:
 
         # Alertes
         if ram_percent > 90:
-            report += "⚠️ **ALERTE** : RAM critique (>90%)\n"
+            report += "**ALERTE** : RAM critique (>90%)\n"
         elif ram_percent > 80:
-            report += "⚠️ RAM élevée (>80%)\n"
+            report += "Attention : RAM élevée (>80%)\n"
 
         if disk_percent > 90:
-            report += "⚠️ **ALERTE** : Disque critique (>90%)\n"
+            report += "**ALERTE** : Disque critique (>90%)\n"
         elif disk_percent > 80:
-            report += "⚠️ Disque élevé (>80%)\n"
+            report += "Attention : Disque élevé (>80%)\n"
 
         return report
 
     except Exception as e:
-        return f"❌ Erreur lors du monitoring : {str(e)}"
+        return f"Erreur lors du monitoring : {str(e)}"
 
 
 # ========================================
@@ -644,13 +715,9 @@ def search_wavestone_internal(query: str) -> str:
 @tool
 def send_email(to: str, subject: str, body: str) -> str:
     """
-    Envoie un email via SMTP.
-
-    IMPORTANT : Requiert la configuration SMTP dans le fichier .env :
-    - SMTP_SERVER
-    - SMTP_PORT
-    - SMTP_USER
-    - SMTP_PASSWORD
+    Prépare un email (brouillon) pour l'utilisateur. L'email n'est PAS envoyé par cet outil :
+    l'utilisateur relit le destinataire, l'objet et le corps, puis valide lui-même l'envoi
+    dans l'interface.
 
     Args:
         to: Adresse email du destinataire
@@ -658,12 +725,12 @@ def send_email(to: str, subject: str, body: str) -> str:
         body: Corps du message (supporte HTML, max 10000 caractères)
 
     Returns:
-        str: Message de confirmation ou d'erreur
+        str: Confirmation que le brouillon attend la validation de l'utilisateur, ou erreur
 
     Exemple:
         send_email("user@example.com", "Rapport d'analyse", "Voici les résultats...")
     """
-    return _send_email_impl(to, subject, body)
+    return _draft_email_impl(to, subject, body)
 
 
 @tool
@@ -784,6 +851,18 @@ def system_monitor() -> str:
     return _system_monitor_impl()
 
 
+# Variante de l'équipe d'agents (même nom) : brouillon complet, aucun envoi possible.
+send_email_crew = StructuredTool.from_function(
+    func=_draft_email_for_crew_impl,
+    name="send_email",
+    description=(
+        "Prépare un email (brouillon) : destinataire, objet et corps. Aucun email ne peut être "
+        "envoyé depuis l'équipe d'agents ; reprends le brouillon rendu dans ton rapport."
+    ),
+)
+# Outils remplacés dans l'équipe d'agents (crew_engine.py), par nom.
+CREW_TOOL_OVERRIDES = {"send_email": send_email_crew}
+
 # ========================================
 # REGISTRE DES OUTILS
 # ========================================
@@ -801,59 +880,60 @@ AVAILABLE_TOOLS = [
     system_monitor,
 ]
 
-# Métadonnées des outils pour l'UI
+# Métadonnées des outils pour l'UI. « name » est le nom affiché (lexique d'EXPERIENCE.md) ;
+# la clé reste l'identifiant interne de l'outil.
 TOOLS_METADATA = {
     "get_current_time": {
-        "name": "🕒 Time",
+        "name": "Heure",
         "description": "Heure système",
         "category": "system",
         "requires_config": False,
     },
     "calculator": {
-        "name": "🧮 Calculator",
+        "name": "Calculatrice",
         "description": "Calculs mathématiques",
         "category": "computation",
         "requires_config": False,
     },
     "search_wavestone_internal": {
-        "name": "🏢 Wavestone Search",
+        "name": "Recherche interne Wavestone",
         "description": "Base interne simulée",
         "category": "data",
         "requires_config": False,
     },
     "send_email": {
-        "name": "📧 Email Sender",
-        "description": "Envoi d'emails",
+        "name": "Envoi d'email",
+        "description": "Brouillon d'email, envoyé seulement après validation",
         "category": "communication",
         "requires_config": True,
-        "config_vars": ["SMTP_SERVER", "SMTP_USER", "SMTP_PASSWORD"],
+        "config_vars": list(SMTP_CONFIG_VARS),
     },
     "analyze_csv": {
-        "name": "📊 Data Analyzer",
+        "name": "Analyse de données",
         "description": "Analyse CSV/Excel",
         "category": "data",
         "requires_config": False,
     },
     "generate_document": {
-        "name": "📝 Document Generator",
+        "name": "Génération de document",
         "description": "Création de DOCX",
         "category": "output",
         "requires_config": False,
     },
     "generate_chart": {
-        "name": "📈 Chart Generator",
+        "name": "Génération de graphique",
         "description": "Graphiques PNG",
         "category": "output",
         "requires_config": False,
     },
     "generate_markdown_report": {
-        "name": "📋 Markdown Report",
+        "name": "Rapport Markdown",
         "description": "Rapports MD",
         "category": "output",
         "requires_config": False,
     },
     "system_monitor": {
-        "name": "💾 System Monitor",
+        "name": "Moniteur système",
         "description": "Métriques système",
         "category": "system",
         "requires_config": False,

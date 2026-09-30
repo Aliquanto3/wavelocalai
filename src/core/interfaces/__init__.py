@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from src.core.metrics import InferenceMetrics
+from src.core.metrics import InferenceMetrics, ReasoningChunk
 
 
 class ILLMProvider(ABC):
@@ -50,7 +50,7 @@ class ILLMProvider(ABC):
         messages: list[dict[str, str]],
         temperature: float = 0.7,
         system_prompt: str | None = None,
-    ) -> AsyncGenerator[str | InferenceMetrics, None]:
+    ) -> AsyncGenerator[str | ReasoningChunk | InferenceMetrics, None]:
         """
         Génère une réponse en streaming.
 
@@ -62,6 +62,7 @@ class ILLMProvider(ABC):
 
         Yields:
             str: Tokens générés
+            ReasoningChunk: Raisonnement du modèle, à part de la réponse (facultatif)
             InferenceMetrics: Métriques finales (dernier yield)
         """
         pass

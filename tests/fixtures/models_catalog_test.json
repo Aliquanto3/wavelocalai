@@ -1,0 +1,37 @@
+{
+  "Qwen 2.5 1.5B": {
+    "ollama_tag": "qwen2.5:1.5b",
+    "type": "local",
+    "editor": "Alibaba",
+    "size_gb": "1.0 GB",
+    "params_tot": "1.5B",
+    "params_act": "1.5B",
+    "ctx": 32768,
+    "capabilities": ["chat", "tools"],
+    "langs": ["fr", "en", "zh", "code"],
+    "desc": "Modèle local de test."
+  },
+  "Gemma 3 1B": {
+    "ollama_tag": "gemma3:1b",
+    "type": "local",
+    "editor": "Google",
+    "size_gb": "0.8 GB",
+    "params_tot": "1B",
+    "params_act": "1B",
+    "ctx": 32768,
+    "capabilities": ["chat"],
+    "langs": ["en", "fr"],
+    "desc": "Second modèle local de test."
+  },
+  "Mistral Large": {
+    "ollama_tag": "mistral-large-2512",
+    "type": "api",
+    "editor": "Mistral AI",
+    "params_tot": "123B",
+    "params_act": "123B",
+    "ctx": 131072,
+    "capabilities": ["chat", "tools"],
+    "langs": ["fr", "en"],
+    "desc": "Modèle API de test (aucun appel réseau dans les tests)."
+  }
+}

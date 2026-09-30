@@ -71,7 +71,7 @@ def get_friendly_name_from_tag(tag: str) -> str:
             return name
 
     if "hf.co" in tag:
-        return f"📦 {tag.split('/')[-1]}"
+        return tag.split("/")[-1]
     return tag.split(":")[0].capitalize()
 
 

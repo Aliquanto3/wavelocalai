@@ -60,7 +60,7 @@ class AnthropicProvider(ILLMProvider):
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
             if not self._api_key:
                 raise ValueError("Anthropic API key not configured")
-            self._client = AsyncAnthropic(api_key=self._api_key)
+            self._client = _AsyncAnthropic(api_key=self._api_key)
         return self._client
 
     @property
@@ -106,8 +106,10 @@ class AnthropicProvider(ILLMProvider):
         """Génère une réponse en streaming via l'API Anthropic."""
 
         if not self.is_available:
-            yield "❌ Erreur : Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
-            return
+            # Une erreur n'est jamais renvoyée comme un token : l'appelant l'affiche.
+            raise ValueError(
+                "Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
+            )
 
         # Anthropic utilise un format différent pour le system prompt
         system = system_prompt or "You are a helpful assistant."

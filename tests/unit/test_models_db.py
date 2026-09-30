@@ -3,6 +3,7 @@ Tests unitaires pour models_db (gestion des modèles).
 Usage: pytest tests/unit/test_models_db.py -v
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,21 @@ from src.core.models_db import (
     get_friendly_name_from_tag,
     get_model_info,
 )
+
+TEST_CATALOG = Path(__file__).resolve().parents[1] / "fixtures" / "models_catalog_test.json"
+
+
+@pytest.fixture(autouse=True)
+def test_catalog():
+    """Remplace en place MODELS_DB (chargé à l'import depuis data/models.json, local
+    et non versionné) par le catalogue de test, puis restaure le contenu d'origine."""
+    catalog = json.loads(TEST_CATALOG.read_text(encoding="utf-8"))
+    original = dict(MODELS_DB)
+    MODELS_DB.clear()
+    MODELS_DB.update(catalog)
+    yield MODELS_DB
+    MODELS_DB.clear()
+    MODELS_DB.update(original)
 
 
 class TestModelsDatabase:
@@ -100,7 +116,8 @@ class TestFriendlyNameConversion:
 
         # Devrait nettoyer le nom
         assert "hf.co" not in friendly
-        assert "📦" in friendly  # Emoji pour modèle manuel
+        # Nom du fichier GGUF, sans emoji de marquage
+        assert friendly == "Qwen2.5-7B-Instruct-GGUF:IQ3_M"
 
     def test_unknown_tag_simple(self):
         """Test conversion d'un tag simple inconnu."""
