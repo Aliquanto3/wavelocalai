@@ -360,6 +360,26 @@
       },
       "moe": false
     },
+    "Gemma 4 12B": {
+      "ollama_tag": "gemma4:12b",
+      "type": "local",
+      "editor": "Google",
+      "size_gb": "7.6 GB",
+      "params_tot": "11.9B",
+      "params_act": "11.9B",
+      "ctx": 262144,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Gemma 4 12B dense, Q4_K_M officiel Ollama. Sur 8 Go de VRAM, 67 à 70 % seulement sur le GPU : 10 à 12 tok/s, trois fois moins que la variante Unsloth IQ3_XXS pour une qualité voisine. Empreinte mesurée sur tour-rtx3050, pas sur la machine de référence.",
+      "measured_loaded_gb": 8.339,
+      "measured_at_ctx": 16384,
+      "moe": false
+    },
     "Ministral 3 14B (Unsloth IQ2_M)": {
       "ollama_tag": "ministral3-ud:14b-iq2_m",
       "type": "local",
