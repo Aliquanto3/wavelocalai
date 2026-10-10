@@ -51,6 +51,13 @@ HF_FALLBACK = {
         "file": "Bonsai-27B-Q1_0.gguf",
         "template_from": "qwen3.5:4b",
     },
+    # Qwen3.8-27B en 2 bits par Underdog : même architecture qwen35, d'où le
+    # gabarit (outils et raisonnement) de Qwen 3.5.
+    "saluki:27b-iq2_mix": {
+        "repo": "ConwayResearch/Underdog-Saluki-27B-1.0",
+        "file": "Underdog-Saluki-27B-1.0-IQ2-mix.gguf",
+        "template_from": "qwen3.5:4b",
+    },
     "qwen3.5-ud:9b-q3_k_xl": {
         "repo": "unsloth/Qwen3.5-9B-GGUF",
         "file": "Qwen3.5-9B-UD-Q3_K_XL.gguf",
