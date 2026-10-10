@@ -2616,6 +2616,312 @@
         },
         "response_variance_avg": 0.0
       }
+    },
+    "Underdog Saluki 27B (2-bit)": {
+      "date": "2026-10-10",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0.001,
+      "model_memory_at_max_ctx_gb": 8.713,
+      "gpu_vram_usage_gb": 6.145,
+      "gpu_offload_pct": 67,
+      "avg_tokens_per_second": 6.36,
+      "prefill_tokens_per_second": 295.5,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 1083,
+      "ttft_full_prompt_ms": 15308,
+      "load_time_ms": 4746,
+      "ux_rating": "🐢 Acceptable",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0006087877620093019,
+      "avg_co2_per_1k_tokens": 4.2e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 4.76,
+          "sd": 0.03,
+          "min": 4.74,
+          "max": 4.78,
+          "ci95": [
+            4.51,
+            5.01
+          ],
+          "ci95_half_width": 0.25,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1537.0,
+          "sd": 382.0,
+          "min": 1267.0,
+          "max": 1807.0,
+          "ci95": [
+            -1895.0,
+            4969.0
+          ],
+          "ci95_half_width": 3432.0
+        },
+        "gpu_power_plateau_w": {}
+      },
+      "quality_scores": {
+        "reasoning_avg": 1.0,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      },
+      "measured_with": {
+        "ollama_version": "0.40.2",
+        "benchmark_commit": "6cae7b682f5b05d52d6d89885ec2f67875164b71",
+        "note": "Mesuré après le reste du fichier (Ollama 0.34.3, b36cb8c). 6cae7b6 n'ajoute que le relevé de puissance GPU, non disponible sur la RTX 3050 : scores comparables."
+      }
+    },
+    "Gemma 4 12B": {
+      "date": "2026-10-10",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 8.339,
+      "gpu_vram_usage_gb": 6.192,
+      "gpu_offload_pct": 67,
+      "avg_tokens_per_second": 11.23,
+      "prefill_tokens_per_second": 525.7,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 1100,
+      "ttft_full_prompt_ms": 8639,
+      "load_time_ms": 7696,
+      "ux_rating": "🐢 Acceptable",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0004103937262711026,
+      "avg_co2_per_1k_tokens": 3.1e-05,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 10.61,
+          "sd": 0.47,
+          "min": 10.28,
+          "max": 10.95,
+          "ci95": [
+            6.36,
+            14.87
+          ],
+          "ci95_half_width": 4.26,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 1.0,
+          "sd": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "ci95": [
+            1.0,
+            1.0
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 1736.0,
+          "sd": 397.0,
+          "min": 1455.0,
+          "max": 2017.0,
+          "ci95": [
+            -1836.0,
+            5308.0
+          ],
+          "ci95_half_width": 3572.0
+        },
+        "gpu_power_plateau_w": {}
+      },
+      "quality_scores": {
+        "reasoning_avg": 1.0,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      },
+      "measured_with": {
+        "ollama_version": "0.40.2",
+        "benchmark_commit": "6cae7b682f5b05d52d6d89885ec2f67875164b71",
+        "note": "Mesuré après le reste du fichier (Ollama 0.34.3, b36cb8c). 6cae7b6 n'ajoute que le relevé de puissance GPU, non disponible sur la RTX 3050 : scores comparables."
+      }
+    },
+    "Qwen 3.6 35B-A3B (MoE)": {
+      "date": "2026-10-10",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 20.976,
+      "gpu_vram_usage_gb": 6.321,
+      "gpu_offload_pct": 23,
+      "avg_tokens_per_second": 32.47,
+      "prefill_tokens_per_second": 257.1,
+      "prefill_prompt_tokens": 4517,
+      "avg_ttft_ms": 425,
+      "ttft_full_prompt_ms": 17606,
+      "load_time_ms": 23502,
+      "ux_rating": "🚀 Rapide",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Apache 2.0",
+      "total_co2_emissions_kg": 0.0004470876482376781,
+      "avg_co2_per_1k_tokens": 3.2e-05,
+      "tool_capability": {
+        "function_detection": false,
+        "parameter_extraction": false,
+        "success_rate": 0.5
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 2,
+          "mean": 31.13,
+          "sd": 0.83,
+          "min": 30.55,
+          "max": 31.72,
+          "ci95": [
+            23.7,
+            38.57
+          ],
+          "ci95_half_width": 7.44,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 2,
+          "mean": 0.93,
+          "sd": 0.0,
+          "min": 0.93,
+          "max": 0.93,
+          "ci95": [
+            0.93,
+            0.93
+          ],
+          "ci95_half_width": 0.0
+        },
+        "instruction_following": {
+          "n": 2,
+          "mean": 0.88,
+          "sd": 0.0,
+          "min": 0.88,
+          "max": 0.88,
+          "ci95": [
+            0.88,
+            0.88
+          ],
+          "ci95_half_width": 0.0
+        },
+        "gpu_clock_mhz": {
+          "n": 2,
+          "mean": 2014.0,
+          "sd": 5.0,
+          "min": 2010.0,
+          "max": 2017.0,
+          "ci95": [
+            1969.0,
+            2058.0
+          ],
+          "ci95_half_width": 44.0
+        },
+        "gpu_power_plateau_w": {}
+      },
+      "quality_scores": {
+        "reasoning_avg": 0.93,
+        "instruction_following_avg": 0.88,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 0.67,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      },
+      "measured_with": {
+        "ollama_version": "0.40.2",
+        "benchmark_commit": "6cae7b682f5b05d52d6d89885ec2f67875164b71",
+        "note": "Mesuré après le reste du fichier (Ollama 0.34.3, b36cb8c). 6cae7b6 n'ajoute que le relevé de puissance GPU, non disponible sur la RTX 3050 : scores comparables."
+      }
     }
   },
   "models_vendor": {

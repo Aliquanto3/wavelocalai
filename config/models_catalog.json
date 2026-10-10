@@ -274,6 +274,30 @@
       },
       "moe": false
     },
+    "Underdog Saluki 27B (2-bit)": {
+      "ollama_tag": "saluki:27b-iq2_mix",
+      "type": "local",
+      "editor": "Conway Research (Underdog)",
+      "size_gb": "7.9 GB",
+      "params_tot": "27B",
+      "params_act": "27B",
+      "ctx": 262144,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Qwen3.8-27B dense quantifié en 2 bits (IQ2 mixte, GSQ-RCO d'ISTA-DASLab) par Underdog, réglé pour préserver l'appel d'outils (octobre 2026). Apache 2.0. Fichier de 7,9 Go, trop juste pour 8 Go une fois le cache ajouté : sur tour-rtx3050 (RTX 3050 8 Go), Ollama n'en place que 67 à 75 % en VRAM, d'où 4,8 à 7,4 tok/s. Empreinte mesurée sur tour-rtx3050, pas sur la machine de référence.",
+      "measured_loaded_gb": 8.713,
+      "measured_at_ctx": 16384,
+      "hf_fallback": {
+        "repo": "ConwayResearch/Underdog-Saluki-27B-1.0",
+        "file": "Underdog-Saluki-27B-1.0-IQ2-mix.gguf",
+        "template_from": "qwen3.5:4b"
+      },
+      "moe": false
+    },
     "Gemma 4 E2B (QAT)": {
       "ollama_tag": "gemma4:e2b-it-qat",
       "type": "local",
@@ -334,6 +358,26 @@
         "file": "gemma-4-12b-it-UD-IQ3_XXS.gguf",
         "template_from": "gemma4:e2b-it-qat"
       },
+      "moe": false
+    },
+    "Gemma 4 12B": {
+      "ollama_tag": "gemma4:12b",
+      "type": "local",
+      "editor": "Google",
+      "size_gb": "7.6 GB",
+      "params_tot": "11.9B",
+      "params_act": "11.9B",
+      "ctx": 262144,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking",
+        "vision"
+      ],
+      "role": "assistant_generalist",
+      "desc": "Gemma 4 12B dense, Q4_K_M officiel Ollama. Sur 8 Go de VRAM, 67 à 70 % seulement sur le GPU : 10 à 12 tok/s, trois fois moins que la variante Unsloth IQ3_XXS pour une qualité voisine. Empreinte mesurée sur tour-rtx3050, pas sur la machine de référence.",
+      "measured_loaded_gb": 8.339,
+      "measured_at_ctx": 16384,
       "moe": false
     },
     "Ministral 3 14B (Unsloth IQ2_M)": {
