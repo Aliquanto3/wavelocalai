@@ -62,6 +62,9 @@ extend-exclude = '''
   | \.venv
   | build
   | dist
+  # code emprunté du banc de qualité, tel que publié
+  | scripts/quality_bench/grading/vendored
+  | scripts/quality_bench/envs/vendored
 )/
 '''
 
@@ -69,10 +72,20 @@ extend-exclude = '''
 profile = "black"
 line_length = 100
 skip_gitignore = true
+# Code emprunté du banc de qualité, tel que publié.
+extend_skip_glob = [
+    "scripts/quality_bench/grading/vendored/*",
+    "scripts/quality_bench/envs/vendored/*",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# Code emprunté du banc de qualité, tel que publié.
+extend-exclude = [
+    "scripts/quality_bench/grading/vendored",
+    "scripts/quality_bench/envs/vendored",
+]
 
 # DÉPLACER ces 3 sections dans [tool.ruff.lint]
 [tool.ruff.lint]

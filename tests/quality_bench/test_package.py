@@ -10,14 +10,15 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "scripts" / "quality_bench"
-VENDORED = PACKAGE / "grading" / "vendored"
+VENDORED = (PACKAGE / "grading" / "vendored", PACKAGE / "envs" / "vendored")
 
 
 def _package_modules():
     return sorted(
         path
         for path in PACKAGE.rglob("*.py")
-        if "__pycache__" not in path.parts and VENDORED not in path.parents
+        if "__pycache__" not in path.parts
+        and not any(vendored in path.parents for vendored in VENDORED)
     )
 
 
@@ -70,7 +71,9 @@ def test_forbidden_imports(path):
         ("huggingface_hub", {"questions/importers/remote.py"}),
         ("datasets", {"questions/importers/remote.py"}),
         ("urllib.request", {"questions/importers/remote.py"}),
-        ("nltk", {"questions/importers/nltk_data.py"}),
+        ("nltk", {"questions/importers/nltk_data.py", "grading/nlp.py"}),
+        ("langdetect", {"grading/registry.py"}),
+        ("mpmath", set()),  # code emprunté seulement (envs/vendored/bfcl/math_api.py)
         ("pyarrow", {"questions/importers/jsonschemabench.py"}),
     ],
 )

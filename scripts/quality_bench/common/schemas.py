@@ -1,9 +1,14 @@
-"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8) : seule définition du banc.
+"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8, AD-10, AD-16) : seule
+définition du banc, et seul module qui importe ``jsonschema``.
 
 Chaque ligne et chaque manifeste porte ``schema: "qb.<type>/<n>"``. ``validate(record)`` lit ce
 champ, refuse un ``<n>`` inconnu (``UnknownSchemaError``) et vérifie l'enregistrement contre le
 schéma correspondant (``additionalProperties: false`` partout). Un changement de champ
 incrémente ``<n>`` : le schéma précédent reste lisible tant qu'il figure dans ``SCHEMAS``.
+
+``conformity_error(schema, instance)`` vérifie une sortie de modèle contre le schéma JSON d'une
+question d'extraction : validateur de la version déclarée par ``$schema``, entiers JSON
+standard, aucune résolution distante.
 """
 
 from __future__ import annotations
@@ -14,11 +19,22 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, validators
 from jsonschema.exceptions import best_match
+from jsonschema_specifications import REGISTRY as _METASCHEMAS
+from referencing import Registry
+from referencing.exceptions import NoSuchResource
 
 USAGES = ("reasoning", "instructions", "tools", "extraction", "rag", "abstention", "writing")
 TRACKS = ("think_off", "think_on")
 GENERATION_STATUSES = ("ok", "truncated", "context_exceeded", "error")
 MANIFEST_PHASES = ("generation", "judgment")
+GRADING_STATUSES = (
+    "ok",
+    "truncated",
+    "non_compliant",
+    "context_exceeded",
+    "error",
+    "awaiting_judgment",
+)
 
 _SCHEMA_ID_RE = re.compile(r"^qb\.([a-z_]+)/([1-9][0-9]*)$")
 
@@ -229,10 +245,87 @@ SET_INDEX_V1: dict[str, Any] = {
     "else": {"not": {"anyOf": [{"required": [field]} for field in _SET_INDEX_PUBLIC]}},
 }
 
+# Ligne de correction (AD-10) : seul porteur de score et de success (AD-3). Règles croisées :
+# erreurs du banc et attente du juge sans score ; échecs du modèle à 0 ; rédaction
+# (judge_criteria) sans success ; ailleurs, score = success.
+_UNSCORED = ["context_exceeded", "error", "awaiting_judgment"]
+_MODEL_FAILURES = ["truncated", "non_compliant"]
+GRADING_V1: dict[str, Any] = {
+    **_closed(
+        {
+            "schema": {"const": "qb.grading/1"},
+            "key": _NON_EMPTY,
+            "generation_manifest": _HASH,
+            "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
+            "grader": {"type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$"},
+            "status": {"enum": list(GRADING_STATUSES)},
+            "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "success": {"type": ["boolean", "null"]},
+            "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+        }
+    ),
+    "allOf": [
+        {
+            "if": {"properties": {"status": {"enum": _UNSCORED}}},
+            "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
+        },
+        {
+            "if": {"properties": {"status": {"enum": _MODEL_FAILURES}}},
+            "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
+        },
+        {
+            "if": {"properties": {"status": {"const": "ok"}}},
+            "then": {"properties": {"score": {"type": "number"}}},
+        },
+        {
+            "if": {"properties": {"grader": {"pattern": "^judge_criteria@"}}},
+            "then": {"properties": {"success": {"type": "null"}}},
+            "else": {
+                "if": {"properties": {"status": {"enum": ["ok", *_MODEL_FAILURES]}}},
+                "then": {"properties": {"success": {"type": "boolean"}}},
+            },
+        },
+        {
+            "if": {"properties": {"success": {"const": True}}, "required": ["success"]},
+            "then": {"properties": {"score": {"const": 1}}},
+        },
+        {
+            "if": {"properties": {"success": {"const": False}}, "required": ["success"]},
+            "then": {"properties": {"score": {"const": 0}}},
+        },
+    ],
+}
+
+# Ligne de jugement (AD-16), une par critère : verdict booléen, ou nul avec une erreur.
+JUDGMENT_V1: dict[str, Any] = {
+    **_closed(
+        {
+            "schema": {"const": "qb.judgment/1"},
+            "key": _NON_EMPTY,
+            "generation_key": _NON_EMPTY,
+            "manifest": _HASH,
+            "criterion": _NON_EMPTY,
+            "judge": _NON_EMPTY,
+            "verdict": {"type": ["boolean", "null"]},
+            "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "tokens": _closed({"input": _COUNT, "output": _COUNT}),
+            "cost_usd": {"type": "number", "minimum": 0},
+            "attempts": _COUNT,
+            "error": {"type": ["string", "null"]},
+            "created_at": _TIMESTAMP,
+        }
+    ),
+    "if": {"properties": {"error": {"type": "null"}}},
+    "then": {"properties": {"verdict": {"type": "boolean"}}},
+    "else": {"properties": {"verdict": {"type": "null"}}},
+}
+
 SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.generation/1": GENERATION_V1,
     "qb.manifest/1": MANIFEST_V1,
     "qb.set_index/1": SET_INDEX_V1,
+    "qb.grading/1": GRADING_V1,
+    "qb.judgment/1": JUDGMENT_V1,
 }
 
 
@@ -284,6 +377,30 @@ def instance_errors(schema: Mapping[str, Any], instance: Any) -> str | None:
     (cible d'une question d'extraction maison), ou ``None`` ; jamais de valeur (questions
     privées). Même vérificateur d'entiers stricts (AD-4)."""
     error = best_match(_Validator(dict(schema)).iter_errors(instance))
+    return None if error is None else f"{_json_path(error)} ({error.validator})"
+
+
+def _no_remote_retrieval(uri: str) -> Any:
+    """Aucune résolution distante : seuls les métaschémas embarqués et les références
+    internes au schéma se résolvent."""
+    raise NoSuchResource(ref=uri)
+
+
+_LOCAL_REGISTRY = _METASCHEMAS.combine(Registry(retrieve=_no_remote_retrieval))
+
+
+def conformity_error(schema: Any, instance: Any) -> str | None:
+    """Chemin JSON et mot-clé du premier défaut d'``instance`` (sortie de modèle) contre le
+    schéma d'une question d'extraction, ou ``None`` s'il est conforme.
+
+    Validateur de la version que déclare ``$schema`` (2020-12 par défaut), entiers JSON
+    standard (``1.0`` est un entier, comme le veut JSON Schema), aucune résolution distante.
+    Un schéma invérifiable (référence introuvable, motif invalide) lève l'exception de
+    ``jsonschema`` ou de ``referencing`` : c'est une erreur du banc, jamais un échec du modèle.
+    """
+    validator_class = validators.validator_for(schema, default=Draft202012Validator)
+    validator = validator_class(schema, registry=_LOCAL_REGISTRY)
+    error = best_match(validator.iter_errors(instance))
     return None if error is None else f"{_json_path(error)} ({error.validator})"
 
 

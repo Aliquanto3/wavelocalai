@@ -31,7 +31,7 @@ $env:QUALITY_BENCH_DATA = "D:\quality_bench"
   - sur un fichier local modifié, relancer `fetch` suffit à le retélécharger.
 - **Codes de sortie :** 0 si tout est importé ; 1 si `machine.lock` est occupé, si une empreinte est inattendue ou si le réseau échoue ; 2 pour une source refusée ou inconnue, ou pour une source générée ou maison, qui n'a rien à télécharger (rien n'est téléchargé).
 - **Réexécution :** relancer `fetch` réécrit les candidats, octet pour octet identiques à révision égale.
-- **NLTK :** la correction (story 4) lit ces données par la variable `NLTK_DATA`, qui pointe sur `$QUALITY_BENCH_DATA/nltk_data`. Le code emprunté ne télécharge jamais rien.
+- **NLTK :** la correction lit ces données sous `$QUALITY_BENCH_DATA/nltk_data` et nulle part ailleurs : `grading/nlp.py` réduit `nltk.data.path` à ce seul dossier avant chaque vérification (la variable `NLTK_DATA` n'est pas lue). Le code emprunté ne télécharge jamais rien.
 - **Prompts trop longs :** une question qu'aucun palier `num_ctx` par défaut ne contient (`est × 1,25 + plafond de réponse`) est écartée, et le compte est journalisé. Son numéro n'est pas réattribué.
 - **Journal :** `sources/log-fetch.log` et `sources/log-fetch-nltk.log`.
 
@@ -163,6 +163,63 @@ questions:
   - Journal : `sets/log-build-set.log`, avec l'empreinte du jeu (AD-4) et celle de chaque fichier écrit.
 - **Index versionné** (`qb.set_index/1`, liste blanche d'AD-6) : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` pour les seules questions publiques.
 - **`review-sample`** assemble le jeu en mémoire, sans verrou et sans écrire de jeu (ni `sets/<s>/`, ni `benchmarks/`). Il n'écrit que les deux échantillons sous `$QUALITY_BENCH_DATA/review/` (id, groupe, messages, tours, outils, cible, critères) et son journal `sets/log-review-sample.log`. Ne jamais commiter ni copier les échantillons dans une PR.
+
+## Correction
+
+La correction est une phase séparée, sans réseau, sans GPU et sans verrou machine (AD-3, AD-10). Elle seule écrit un score.
+
+```powershell
+# Réécrit campaigns/<c>/grading.jsonl en entier ; journal campaigns/<c>/log-grade.log
+.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261015
+```
+
+- **Entrées lues :** `campaigns/<c>.yaml` (jeu, `grading.judge`), `campaigns/<c>/manifest.json` et `generation.jsonl`, le jeu `sets/<set>/` et, pour la rédaction, le seul dossier `judgment-<grading.judge>/`. Rien d'autre n'est lu ni modifié.
+- **Sortie :** une ligne `qb.grading/1` par ligne de génération, canonique, triée par `key`, sans date : `generation_manifest` (empreinte du manifeste de génération), `judgment_manifest` (rédaction jugée seulement), `grader` (`nom@version`), `status`, `score`, `success`, `metrics`. Recorriger les mêmes entrées donne des octets identiques.
+- **Statuts :** statut de génération d'abord (`truncated` : 0 et échec, rédaction 0 et `success` nul ; `context_exceeded` et `error` : ni score ni succès), puis borne d'appels (`non_compliant`), puis le correcteur. `non_compliant` (JSON illisible ou hors schéma, appel d'outil mal formé, borne d'appels) est un échec du modèle ; `error` (vérificateur en défaut, identifiant de consigne inconnu, cible illisible, rejeu divergent, verdict du juge en erreur) est une erreur du banc. Rédaction sans verdict complet, sans juge désigné ou sans dossier de jugement : `awaiting_judgment`. `metrics.inline_thinking` vaut 1.0 si la réponse contenait `<think>`.
+- **Codes de sortie :** 0 ; 1 si les entrées sont incohérentes (manifeste absent, jeu ou empreinte du jeu différents, question absente du jeu, `prompt_hash` différent, ligne de génération ou de jugement d'un autre manifeste ou hors schéma) ; 2 si `campaigns/<c>.yaml` est absent ou invalide. Dans les deux cas d'échec, rien n'est écrit.
+- **Journal :** identifiants, statuts, comptes et raisons rédigées par le banc ; jamais de contenu de question ni de réponse.
+
+### Correcteurs
+
+Registre `grading/registry.py`, un correcteur par nom de `GRADERS`, tous en version 1. Seul `grading/answer.py` lit `output` : réponse finale = dernier message `assistant`, texte après la dernière `</think>` (balise ouvrante seule : texte avant elle).
+
+| Correcteur | Sources | Règle |
+|---|---|---|
+| `exact_answer@1` | `bbeh-mini` ; `var-math-fr` | cible chaîne : `evaluate_correctness` de BBEH ; cible entière : dernier « La réponse est : » (casse et espace avant « : » libres), première ligne qui suit, `*`, `$`, `\boxed{}`, espaces de milliers et point final retirés, entier exact ; sans préfixe : échec |
+| `ifbench@1`, `mifeval_fr@1` | `ifbench` ; `mifeval-fr`, `instructions-fr` | boucle « strict » amont, `kwargs` nuls retirés, réponse vide non suivie ; succès = toutes suivies ; `metrics.instructions_followed` |
+| `bfcl_ast@1` | `bfcl-live`, `bfcl-parallel`, `tools-fr` | appels du tour 0, `ast_checker` de BFCL (Python, catégorie de la question) |
+| `bfcl_state@1` | `bfcl-multi` | rejeu des appels dans `envs/`, puis `multi_turn_checker` de BFCL (état et réponses) ; tour absent ou rejeu divergent : erreur |
+| `bfcl_irrelevance@1` | `bfcl-irrelevance` | succès si aucun appel d'outil |
+| `json_schema@1` | `jsonschemabench`, `extraction-fr` | JSON décodé (clôtures Markdown admises) et vérifié contre le schéma (`$schema` déclaré, aucune résolution distante) ; avec cible : feuilles comparées par chemin (clés et indices, listes par position), toutes les feuilles attendues retrouvées, `metrics.f1` |
+| `squad_f1@1` | `piaf` | correspondance exacte après normalisation française, `metrics.f1` de jetons |
+| `oneruler_niah@1`, `oneruler_cwe@1` | `oneruler-fr-niah`, `oneruler-fr-none` ; `oneruler-fr-cwe` | `compare_numbers`, `compare_none` (« aucun ») et `is_correct_order` de OneRuler |
+| `abstention_marker@1` | `abstention-fr` | réponse sans espaces, guillemets, `*`, `` ` `` ni point final en bordure, égale au marqueur sans tenir compte de la casse |
+| `judge_criteria@1` | `writing-fr` | score = part des critères jugés vrais sur tous les critères, `success` nul |
+
+Le hasard global (`random`) est fixé puis restauré autour des vérificateurs de consignes, et `langdetect` reçoit la graine 0 avant tout chargement.
+
+### Code emprunté
+
+Copié tel que publié, avec `LICENSE` et `PROVENANCE.md` (dépôt, commit, empreintes `sha256` amont, modifications, téléchargements retirés) dans chaque dossier ; exclu de black, isort et ruff.
+
+| Dossier | Projet @ commit | Licence | Modifications principales |
+|---|---|---|---|
+| `grading/vendored/ifbench/` | `allenai/IFBench` @ `1c40f0c1` | Apache-2.0 | imports relatifs ; `download_nltk_resources()` et le dossier `.nltk_data` retirés |
+| `grading/vendored/mifeval_fr/` | `lightblue-tech/M-IFEval` @ `10b874db` | Apache-2.0 | fichiers FR seulement, registre réduit aux identifiants `fr:`, `nltk.download` retiré, sans spaCy |
+| `grading/vendored/bfcl/` | `ShishirPatil/gorilla` @ `6ea57973` | Apache-2.0 | `MODEL_CONFIG_MAPPING` remplacé par `underscore_to_dot` ; `multi_turn_checker` avec exécuteur injecté au lieu d'`eval` |
+| `envs/vendored/bfcl/` | `ShishirPatil/gorilla` @ `6ea57973` | Apache-2.0 | classes multi-tours : horloge figée (2024-09-01 10:30), horodatages en UTC, `import subprocess` retiré |
+| `grading/vendored/bbeh/` | `google-deepmind/bbeh` @ `80d12ca9` | Apache-2.0 | `print` d'exemple exécutés à l'import retirés |
+| `grading/vendored/oneruler/` | `mungg/OneRuler` @ `a3fe6af8` | MIT | extrait : `clean_text`, `compare_numbers`, `compare_none`, `is_correct_order`, `none_dict` réduit à `fr` |
+
+Aucun `eval` ni `exec` sur une sortie de modèle ou une cible : une cible BFCL (`"cd(folder='document')"`) est analysée par `ast` (appel d'un nom, arguments littéraux), toute autre forme est une erreur du banc.
+
+### Contrat d'outils (runner, story 5)
+
+Les environnements d'outils vivent sous `envs/` (`bfcl_multi_turn@1`), purs et déterministes, et sont importables par `generation/` sans `grading/`.
+
+1. Pour une question à `env` non nul, le runner crée un environnement neuf par conversation : `make_env(question["env"])`, gardé d'un tour à l'autre.
+2. Pour chaque appel d'outil d'un message `assistant`, dans l'ordre, il appelle `env.call(name, arguments)` (`arguments` : objet JSON de l'appel) et écrit la chaîne rendue, telle quelle, comme `content` du message `tool` qui suit. `env.call` ne lève jamais pour un appel du modèle : une erreur est rendue en chaîne « Error during execution: … », comme dans BFCL.
+3. Il ne persiste aucun état d'environnement : le correcteur rejoue les appels de `output` sur un environnement neuf et vérifie chaque contenu `tool` ; un écart est une erreur du banc.
 
 ## Sources refusées
 

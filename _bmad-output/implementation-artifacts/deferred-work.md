@@ -51,3 +51,15 @@
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
   summary: 87 des 418 critères de `writing-fr.yaml` demandent au juge de compter (mots, phrases, paragraphes, répliques) : les réécrire, les corriger de façon déterministe ou mesurer leur accord à part.
   evidence: Les juges LLM comptent mal. À trancher à la relecture d'Anaël ou à la calibration (story 9). Relevé à la revue de la story 3 (medium).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
+  summary: Story 5 (runner) : fixer le contrat des outils à un seul tour (`bfcl-live`, `bfcl-parallel`, `bfcl-irrelevance`, `tools-fr`, `env` nul) ; `bfcl_ast` réunit aujourd'hui tous les pas du tour 0, alors que BFCL ne décode que la première réponse.
+  evidence: maybe-false, medium si vrai. Si le runner renvoie un contenu d'outil factice et que le modèle rappelle un outil, `bfcl_ast` compterait deux appels. Trancher dans la spec de la story 5 (arrêt après la première réponse) ou limiter le correcteur au premier pas. Relevé à la revue de la story 4.
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
+  summary: Décider si `conformity_error` doit vérifier les mots-clés `format` (date-time, email, uri…) des schémas JSONSchemaBench, aujourd'hui de simples annotations.
+  evidence: maybe-false, medium si vrai. Lire le validateur du dépôt JSONSchemaBench (epfl-dlab) ; s'il active les formats, passer un `FormatChecker` et le consigner dans `SOURCES.md`. Relevé à la revue de la story 4.
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
+  summary: Exclure de `set-v1`, avant de le figer, 5 cibles `bfcl-live` défectueuses dans BFCL lui-même (aucune réponse ne peut les passer).
+  evidence: Exécution réelle : 1 306/1 311 cibles passent comme réponse du modèle ; `live_simple_106-63-0`, `live_simple_112-68-0`, `live_multiple_507-149-4`, `live_multiple_862-181-3`, `live_multiple_964-207-0` échouent aussi avec le correcteur amont (paramètre requis sans valeur possible, ou paramètre non déclaré).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
+  summary: `tools-fr` : 3 valeurs attendues (3 questions sur 30) présentes dans le prompt anglais d'origine mais plus dans la traduction (type « Californie » → CA) ; garder la valeur littérale ou accepter la difficulté, à la relecture d'Anaël.
+  evidence: Mesure locale, comptes seulement : 63 paramètres chaîne attendus, 3 dont aucune valeur admise n'apparaît dans le prompt FR normalisé à la manière de BFCL. Les identifiants M-IFEval FR des 30 questions `instructions-fr` existent tous dans le registre réduit (report de la story 3 levé).

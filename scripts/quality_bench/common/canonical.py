@@ -32,6 +32,14 @@ def pretty_bytes(obj: Any) -> bytes:
     return (text + "\n").encode("utf-8")
 
 
+def plain_json(obj: Any) -> str:
+    """``json.dumps(obj)`` aux réglages par défaut de Python (``", "``, ``": "``, ASCII
+    échappé) : forme que BFCL donne au résultat d'un appel d'outil (``envs/``). Ce n'est pas
+    la forme canonique : ne jamais en calculer d'empreinte. Un objet non sérialisable lève
+    ``TypeError`` ou ``ValueError``, comme ``json.dumps``."""
+    return json.dumps(obj)
+
+
 def sha256_bytes(data: bytes) -> str:
     """Empreinte ``sha256`` hexadécimale minuscule d'octets bruts."""
     return hashlib.sha256(data).hexdigest()
