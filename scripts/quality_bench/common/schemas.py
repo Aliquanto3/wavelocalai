@@ -1,4 +1,4 @@
-"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8, AD-10, AD-16) : seule
+"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8, AD-10, AD-14, AD-16) : seule
 définition du banc, et seul module qui importe ``jsonschema``.
 
 Chaque ligne et chaque manifeste porte ``schema: "qb.<type>/<n>"``. ``validate(record)`` lit ce
@@ -320,8 +320,28 @@ JUDGMENT_V1: dict[str, Any] = {
     "else": {"properties": {"verdict": {"type": "null"}}},
 }
 
+# Chauffe consignée (AD-14) : une ligne par requête de chauffe, jamais par question. ``size``,
+# ``size_vram`` (``/api/ps``) et ``prefill_tok_s`` sont nuls s'ils sont inconnus.
+WARMUP_V1: dict[str, Any] = _closed(
+    {
+        "schema": {"const": "qb.warmup/1"},
+        "key": _NON_EMPTY,
+        "manifest": _HASH,
+        "campaign": _NON_EMPTY,
+        "model": _NON_EMPTY,
+        "num_ctx": {"type": "integer", "minimum": 1},
+        "prompt_tokens": _COUNT,
+        "size": {"type": ["integer", "null"], "minimum": 0},
+        "size_vram": {"type": ["integer", "null"], "minimum": 0},
+        "prefill_tok_s": {"type": ["number", "null"], "minimum": 0},
+        "load_ns": _COUNT,
+        "created_at": _TIMESTAMP,
+    }
+)
+
 SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.generation/1": GENERATION_V1,
+    "qb.warmup/1": WARMUP_V1,
     "qb.manifest/1": MANIFEST_V1,
     "qb.set_index/1": SET_INDEX_V1,
     "qb.grading/1": GRADING_V1,

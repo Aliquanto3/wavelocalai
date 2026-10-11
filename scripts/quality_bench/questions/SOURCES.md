@@ -220,6 +220,32 @@ Les environnements d'outils vivent sous `envs/` (`bfcl_multi_turn@1`), purs et d
 1. Pour une question à `env` non nul, le runner crée un environnement neuf par conversation : `make_env(question["env"])`, gardé d'un tour à l'autre.
 2. Pour chaque appel d'outil d'un message `assistant`, dans l'ordre, il appelle `env.call(name, arguments)` (`arguments` : objet JSON de l'appel) et écrit la chaîne rendue, telle quelle, comme `content` du message `tool` qui suit. `env.call` ne lève jamais pour un appel du modèle : une erreur est rendue en chaîne « Error during execution: … », comme dans BFCL.
 3. Il ne persiste aucun état d'environnement : le correcteur rejoue les appels de `output` sur un environnement neuf et vérifie chaque contenu `tool` ; un écart est une erreur du banc.
+4. Après les messages `tool` d'un pas, il rappelle le modèle. Le tour s'achève sur une réponse sans appel. Les messages de `turns[t-1]` sont alors injectés dans `output` (rôle `user`, `turn = t`) avant le tour suivant.
+5. **Borne d'appels :** un pas dont les appels porteraient le total du tour au-delà de `max_tool_calls_per_turn` n'est pas exécuté. `call_cap_reached` vaut `true` et la question s'arrête, sortie gardée ; `grade` la compte `non_compliant`.
+6. **`env` nul** (`bfcl-live`, `bfcl-parallel`, `bfcl-irrelevance`, `tools-fr`) : le tour s'achève sur la **première** réponse du modèle, appels compris, sans message `tool` ni nouvel appel. BFCL ne lit que la première réponse : « tous les appels du tour 0 » de `bfcl_ast@1` sont donc ceux de cette seule réponse. La borne d'appels ne s'applique qu'aux pas exécutés.
+7. **Appel mal formé** (sans nom, ou arguments qui ne sont pas un objet) : la question s'arrête, sortie gardée, sans exécuter le pas ; `grade` le compte `non_compliant`.
+
+## Générer une campagne
+
+```powershell
+# Campagne décrite par scripts/quality_bench/campaigns/<c>.yaml ; écrit campaigns/<c>/ (hors dépôt)
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261015
+# Autre port local (seuls localhost et 127.0.0.1 sont permis)
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261015 --ollama-url http://127.0.0.1:11435
+```
+
+- **Avant tout manifeste**, la commande lit la configuration et le jeu, prend `machine.lock`, puis fait le préflight de chaque modèle par `/api/tags` et `/api/show`. Elle refuse le lancement (code 2, message qui nomme le modèle et la raison), sans rien écrire sous `campaigns/<c>/`, pour :
+  - un modèle absent de `/api/tags`, sans `digest` ou distant (`remote_host`) ;
+  - une capacité `decision`, ou `completion` absente ;
+  - une piste `think_on` sans capacité `thinking`, ou avec `think_on` faux ou nul ;
+  - une valeur `think` incohérente avec la capacité `thinking`, ou de type chaîne ;
+  - une question à outils sélectionnée pour un modèle sans capacité `tools`.
+- **Contexte effectif :** un palier au-delà de `min(num_ctx_max, <arch>.context_length)` donne une ligne `context_exceeded` sans requête.
+- **Ordre :** modèle, piste (`think_off` puis `think_on`), palier croissant, question, seed. Une chauffe jetée, consignée dans `warmups.jsonl`, précède chaque changement du couple (modèle, `num_ctx`) et suit toute panne du service. Un avertissement est journalisé sous `min_prefill_tok_s` (50 par défaut). Le modèle est déchargé (`keep_alive: 0`) en fin de modèle et à toute sortie.
+- **Arrêt et reprise :** Ctrl+C ou un fichier `campaigns/<c>/STOP` termine la question en cours, puis sort avec le code 0. La même commande reprend en sautant les clés présentes. Un manifeste différent (digest, capacités, version d'Ollama, jeu, configuration, machine, harnais) refuse la reprise.
+- **Pannes :** une erreur d'Ollama compte un essai si `/api/version` répond aussitôt. Sinon, la commande attend le service jusqu'à `ollama_wait_s` sans le redémarrer, puis refait la question en entier sans compter l'essai. Après `max_attempts` essais : ligne `error`. Après `max_consecutive_errors` lignes `error` de suite : code 1.
+- **Codes de sortie :** 0 (campagne complète ou arrêt propre) ; 1 (jeu absent ou incohérent, verrou occupé, Ollama injoignable, manifeste différent, service absent ou revenu dans une autre version, trop d'erreurs de suite) ; 2 (configuration invalide, sélection ou palier hors jeu, préflight refusé, URL non locale).
+- **Journal :** `campaigns/<c>/log-generate.log`, ouvert une fois le préflight accepté. La liste de contrôle d'avant campagne (AD-13, `OLLAMA_NUM_PARALLEL`) y est affichée, et consignée dans `informative.checklist` du manifeste. Le journal ne contient jamais de contenu de question ni de réponse.
 
 ## Sources refusées
 

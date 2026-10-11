@@ -13,6 +13,7 @@ différent ne change pas l'empreinte, une valeur par défaut rendue explicite no
 from __future__ import annotations
 
 import copy
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ DEFAULT_GENERATION: dict[str, Any] = {
     "max_consecutive_errors": 5,
     "ollama_wait_s": 600,
     "max_tool_calls_per_turn": 8,
+    "min_prefill_tok_s": 50,
     "selection": None,
 }
 _GENERATION_KEYS = {*DEFAULT_GENERATION, "models"}
@@ -213,6 +215,19 @@ def _resolve_model(raw: Any, index: int) -> dict[str, Any]:
     return model
 
 
+def _positive_number(value: Any, where: str) -> float:
+    """Nombre fini strictement positif (entier ou flottant, jamais booléen), rendu en flottant :
+    ``50`` et ``50.0`` donnent la même empreinte."""
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ConfigError(f"{where} : nombre > 0 attendu, reçu {value!r}")
+    return float(value)
+
+
 def _bounded(value: dict[str, Any], key: str, minimum: int) -> int:
     """Entier de la section ``generation``, valeur par défaut lue dans ``DEFAULT_GENERATION``."""
     return _int(value.get(key, DEFAULT_GENERATION[key]), f"generation.{key}", minimum)
@@ -241,6 +256,10 @@ def resolve_generation(raw: Any) -> dict[str, Any]:
         "max_consecutive_errors": _bounded(value, "max_consecutive_errors", 1),
         "ollama_wait_s": _bounded(value, "ollama_wait_s", 0),
         "max_tool_calls_per_turn": _bounded(value, "max_tool_calls_per_turn", 1),
+        "min_prefill_tok_s": _positive_number(
+            value.get("min_prefill_tok_s", DEFAULT_GENERATION["min_prefill_tok_s"]),
+            "generation.min_prefill_tok_s",
+        ),
         "selection": _resolve_selection(value.get("selection")),
         "models": resolved_models,
     }

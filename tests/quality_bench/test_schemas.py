@@ -1,5 +1,6 @@
-"""Schémas ``qb.generation/1``, ``qb.manifest/1``, ``qb.grading/1`` et ``qb.judgment/1`` (AD-7,
-AD-8, AD-10, AD-16), et vérification des sorties JSON (``conformity_error``)."""
+"""Schémas ``qb.generation/1``, ``qb.warmup/1``, ``qb.manifest/1``, ``qb.grading/1`` et
+``qb.judgment/1`` (AD-7, AD-8, AD-10, AD-14, AD-16), et vérification des sorties JSON
+(``conformity_error``)."""
 
 import pytest
 
@@ -242,5 +243,55 @@ def test_manifest_closed_sections():
         validate(record)
     record = manifest()
     record["informative"]["gpu"] = "RTX 3050"
+    with pytest.raises(SchemaValidationError):
+        validate(record)
+
+
+def _warmup(**overrides):
+    record = {
+        "schema": "qb.warmup/1",
+        "key": "pilot-20261015|qwen3.5:4b|8192|0",
+        "manifest": HASH_A,
+        "campaign": "pilot-20261015",
+        "model": "qwen3.5:4b",
+        "num_ctx": 8192,
+        "prompt_tokens": 2000,
+        "size": 4_000_000_000,
+        "size_vram": 3_500_000_000,
+        "prefill_tok_s": 812.5,
+        "load_ns": 1_200_000_000,
+        "created_at": "2026-10-15T08:00:00Z",
+    }
+    record.update(overrides)
+    return record
+
+
+def test_warmup_line_validates_with_unknown_values():
+    assert validate(_warmup()) == "qb.warmup/1"
+    validate(_warmup(size=None, size_vram=None, prefill_tok_s=None))
+
+
+@pytest.mark.parametrize(
+    "overrides, field",
+    [
+        ({"num_ctx": 0}, "num_ctx"),
+        ({"prompt_tokens": -1}, "prompt_tokens"),
+        ({"load_ns": None}, "load_ns"),
+        ({"size": 1.5}, "size"),
+        ({"prefill_tok_s": "rapide"}, "prefill_tok_s"),
+        ({"manifest": "x"}, "manifest"),
+        ({"extra": 1}, "(racine)"),
+    ],
+)
+def test_warmup_line_is_closed_and_typed(overrides, field):
+    with pytest.raises(SchemaValidationError) as excinfo:
+        validate(_warmup(**overrides))
+    assert excinfo.value.path == field
+
+
+@pytest.mark.parametrize("name", [name for name in _warmup() if name != "schema"])
+def test_warmup_requires_every_field(name):
+    record = _warmup()
+    del record[name]
     with pytest.raises(SchemaValidationError):
         validate(record)

@@ -36,6 +36,7 @@ def test_defaults_applied(tmp_path):
     assert generation["max_consecutive_errors"] == 5
     assert generation["ollama_wait_s"] == 600
     assert generation["max_tool_calls_per_turn"] == 8
+    assert generation["min_prefill_tok_s"] == 50
     assert generation["selection"] is None
     assert generation["models"] == [
         {
@@ -119,6 +120,11 @@ def test_selection_forms(tmp_path, selection, expected):
         "  max_attempts: 2.5\n",
         "  selection: {ids: [], sample: {}}\n",
         "  selection: {sample: {per_usage: 20}}\n",
+        "  min_prefill_tok_s: 0\n",
+        "  min_prefill_tok_s: -5\n",
+        "  min_prefill_tok_s: true\n",
+        "  min_prefill_tok_s: .nan\n",
+        '  min_prefill_tok_s: "50"\n',
     ],
 )
 def test_invalid_generation_refused(tmp_path, insert):
@@ -280,3 +286,22 @@ def test_unreadable_yaml_is_a_config_error_without_excerpt(tmp_path):
     with pytest.raises(ConfigError, match="YAML illisible") as caught:
         load_set(path, SOURCES, REFUSED_SOURCES)
     assert "VALEUR-SECRETE" not in str(caught.value) and "ligne" in str(caught.value)
+
+
+@pytest.mark.parametrize("value", ["12.5", "80"])
+def test_min_prefill_accepts_positive_numbers(tmp_path, value):
+    text = MINIMAL.replace("generation:\n", f"generation:\n  min_prefill_tok_s: {value}\n")
+    config = load_campaign(_write(tmp_path, text))
+    assert config.generation["min_prefill_tok_s"] == float(value)
+    default = load_campaign(_write(tmp_path, MINIMAL, "b.yaml"))
+    assert config.generation_hash != default.generation_hash
+
+
+@pytest.mark.parametrize("value", ["50", "50.0"])
+def test_explicit_min_prefill_default_keeps_the_hash(tmp_path, value):
+    text = MINIMAL.replace("generation:\n", f"generation:\n  min_prefill_tok_s: {value}\n")
+    explicit = load_campaign(_write(tmp_path, text))
+    default = load_campaign(_write(tmp_path, MINIMAL, "b.yaml"))
+    assert explicit.generation["min_prefill_tok_s"] == 50.0
+    assert isinstance(explicit.generation["min_prefill_tok_s"], float)
+    assert explicit.generation_hash == default.generation_hash
