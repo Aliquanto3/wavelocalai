@@ -1,0 +1,179 @@
+- id: "1"
+  title: "Socle : paquet quality_bench, client Ollama natif, JSONL reprenable, arrêt propre"
+  description: >-
+    Couvre CAP-3 et la base de CAP-2 : paquet scripts/quality_bench/ et sa coquille common/
+    (JSON canonique, JSONL, manifeste enrichi, verrous, arrêt, veille, configuration, schémas),
+    plus le client ollama/ sur /api/chat. Règles : AD-1, AD-2, AD-4, AD-8, AD-9, AD-12 et AD-13 du spine.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Aucune dépendance ; toutes les stories suivantes en dépendent. Seul import de src/ :
+    disable_telemetry (AD-1) ; rien de scripts/benchmark_slm.py. Venv .venv-quality avec
+    scripts/quality_bench/requirements.txt (bornes inférieures du spine, revérifiées sur PyPI) ;
+    ajouter .venv-quality/ à .gitignore, exclure benchmarks/quality/ de detect-secrets et
+    grading/vendored/ de black, isort et ruff. Manifeste bloquant : jeu, configuration résolue,
+    digest des modèles, version d'Ollama, machine, harness_hash. Panne d'Ollama selon AD-13 :
+    pas de redémarrage, attente de /api/version, sortie sans ligne si le service reste absent.
+    Tests dans tests/quality_bench/ sans Ollama ni réseau : httpx2.MockTransport, arrêt brutal
+    par un subprocess tué puis reprise sans doublon ni trou, fragment final tronqué, manifeste
+    différent refusé avec le chemin du premier champ différent. Veille Windows par
+    SetThreadExecutionState. Vérifier si le cache de préfixe d'Ollama se désactive par requête
+    (Deferred du spine).
+- id: "2"
+  title: "Schéma de question, import des jeux publics et téléchargements d'avant campagne"
+  description: >-
+    Couvre CAP-1 côté jeux publics : schéma qb.question/1, importeurs des jeux retenus dans
+    pistes-et-questions.md (exclusions respectées) et téléchargement des données NLTK.
+    Règles : AD-5 et AD-15 du spine.
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Dépend de la story 1. Les téléchargements se font ici, sous machine.lock, jamais pendant
+    une campagne ; données sous $QUALITY_BENCH_DATA, hors dépôt, seules les empreintes et les
+    licences sont versionnées. Données NLTK (punkt, punkt_tab, stopwords,
+    averaged_perceptron_tagger_eng) sous $QUALITY_BENCH_DATA/nltk_data, par une commande
+    documentée. Chaque fichier de questions/importers/ appelle disable_telemetry() avant
+    d'importer huggingface_hub ou datasets et figure dans TELEMETRY_IMPORTERS de
+    tests/unit/test_telemetry.py ; ajouter datasets à TELEMETRY_ROOTS, puis lancer
+    python -m pytest tests/unit (4 échecs préexistants connus, AGENTS.md). Liste fermée des
+    sources et liste des sources refusées dans questions/schema.py : IFEval, IFEval-fr, FQuAD,
+    GSM-Symbolic, MATH-500, MuSR, BFCL non-live AST et web search.
+- id: "3"
+  title: "Générateurs à graine, questions privées en français et construction du jeu"
+  description: >-
+    Couvre CAP-1 côté anti-contamination : générateurs OneRuler FR et maths VAR-MATH, questions
+    privées FR hors dépôt, questions de rédaction versionnées, puis set_builder qui écrit
+    questions.jsonl, tracks.json (~800 en think_off, 400 en think_on) et l'index versionné.
+    Règles : AD-4, AD-5 et AD-6 du spine.
+  spec_checkpoint: true
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Dépend de la story 2. La même graine doit redonner les mêmes empreintes, tirage des 400
+    compris (test). Tirage de think_on stratifié par usage et par groupes entiers ; les
+    variantes VAR-MATH d'un problème partagent une unit, qui ne franchit jamais un group.
+    Questions de rédaction en entier dans scripts/quality_bench/questions/writing/ (non privées :
+    le juge cloud doit les lire). Index benchmarks/quality/sets/<set>/index.jsonl en liste
+    blanche qb.set_index/1 : prompt_hash et target_hash pour les seules questions publiques.
+    Aucune question privée ni extrait dans un commit ou une PR. Pause à la fin pour qu'Anaël
+    relise un échantillon des questions privées et de rédaction.
+- id: "4"
+  title: "Correcteurs déterministes, environnements d'outils et phase grade"
+  description: >-
+    Couvre CAP-4 : environnements d'outils simulés envs/, correcteurs de tous les usages
+    (rédaction comprise, depuis des verdicts), vérificateurs copiés, et commande grade qui
+    réécrit grading.jsonl, seul porteur des scores. Règles : AD-3, AD-10 et AD-11 du spine.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Dépend de la story 2. Correcteur = fonction pure grade(question, generation, verdicts=None)
+    enregistrée sous name@version ; seul grading/answer.py extrait la réponse et décode le JSON.
+    Tests sur des cas à verdict connu, à partir de generation.jsonl et de verdicts synthétiques ;
+    corriger deux fois donne des octets identiques. Code copié sous grading/vendored/<projet>/
+    avec LICENSE et PROVENANCE.md : M-IFEval en fichiers FR seulement, registre réduit, sans
+    spaCy ; nltk.download neutralisé ; lien vers MODEL_CONFIG_MAPPING retiré de ast_checker ;
+    langdetect.DetectorFactory.seed = 0. Les envs/ sont purs et déterministes : la story 5 les
+    exécute, le correcteur les rejoue depuis output. Une sortie JSON hors schéma est un échec du
+    modèle (non_compliant), pas une erreur du banc.
+- id: "5"
+  title: "Génération sur les deux pistes"
+  description: >-
+    Couvre CAP-2 : commande generate qui passe les 20 modèles de modeles.md en think_off, et
+    ceux qui déclarent la capacité thinking en think_on (400 questions), sous plafonds de tokens,
+    vers un generation.jsonl brut. Règles : AD-7, AD-9, AD-11 et AD-14 du spine.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Dépend des stories 1 à 4. Ni score ni réponse analysée dans generation.jsonl (AD-3) : une
+    troncature s'enregistre en status truncated, et c'est grade qui la compte comme échec.
+    Préflight par modèle : /api/show et /api/tags, refus d'un modèle distant ou sans digest,
+    exclusion de la capacité decision, paliers num_ctx au-delà du maximum écrits en
+    context_exceeded ; une piste non permise par les capacités refuse le lancement. Boucle
+    modèle > piste > palier num_ctx > question ; chauffe par couple (modèle, num_ctx) consignée
+    dans warmups.jsonl ; keep_alive 0 en fin de modèle. Outils exécutés par les envs/ de la
+    story 4. Plafonds par piste et par usage paramétrables : 4 096 en raisonnement, 2 048
+    ailleurs par défaut. Test AST : le graphe d'import de generation/ n'atteint ni judge/, ni
+    questions/importers/, ni bibliothèque réseau, ni nltk.download.
+- id: "6"
+  title: "Statistiques et rapport"
+  description: >-
+    Couvre CAP-7 : stats/ pur et commande report qui, depuis grading.jsonl et generation.jsonl,
+    produisent Wilson, McNemar exact apparié, Holm, erreurs-types groupées, groupes
+    indiscernables, taux de troncature et Spearman contre l'indice AA. Règles : AD-6 et AD-17 du spine.
+  spec_checkpoint: false
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Dépend des stories 1 et 4 (formats de génération et de correction) ; se teste sur des JSONL
+    synthétiques. Méthodes dans statistiques.md ; multipletests avec method='holm'. Unité
+    statistique (model, track, unit), agrégée par minimum puis par moyenne des seeds. Le rapport
+    refuse de publier une campagne incomplète, avec des awaiting_judgment ou des manifestes
+    discordants, sauf --partial. Indices AA lus dans benchmarks/quality/references/aa-<date>.json,
+    jamais récupérés en ligne. Exports en liste blanche (qb.score/1) ; un test parcourt
+    benchmarks/quality/ et vérifie les clés. Graphiques à la charte Wavestone.
+- id: "7"
+  title: "Jugement découplé de la rédaction en français"
+  description: >-
+    Couvre CAP-5 : commande judge, séparée et reprenable, qui écrit judgment.jsonl critère par
+    critère pour les juges winnow (contrat /v1/systemone), haiku, mimo et decider en repli. La
+    cascade n'y est pas lancée : elle se simule à la story 9 (AD-16).
+  spec_checkpoint: true
+  done_checkpoint: false
+  invoke_dev_with: >-
+    Dépend de la story 1. Commencer par trancher le serveur du juge local, par mesure sur la
+    tour : WSL2 avec winnow-inference, Winnow-E4B importé dans Ollama comme modèle decision, ou
+    Perplexity Decider hébergé ; consigner le choix et le signaler. Vérifier aussi la tenue en
+    français de Winnow-E4B (dépôt EldanRing/Winnow-E4B et licence Apache-2.0 déjà relevés). Le
+    juge local prend machine.lock et refuse de démarrer si /api/ps liste un modèle de génération
+    chargé. Haiku 5.5 : Message Batches, verdict par sortie structurée, aucune température
+    envoyée, effort et réflexion consignés dans le manifeste du jugement. Lots cloud consignés
+    dans batches.jsonl avant l'attente des résultats. Un juge cloud lève une exception sur toute
+    question private. Clés d'API par l'environnement, jamais commitées. Revérifier les prix
+    avant de coder.
+- id: "8"
+  title: "Pilote sur 4 modèles"
+  description: >-
+    Couvre CAP-8 sur les 4 modèles de modeles.md : campagne pilot-*, rejeu pilot-*-replay et
+    commande pilot qui rapporte discordance, usages au plafond ou au plancher, stabilité, tokens
+    de réflexion, troncature, projection de durée et cohérence d'ordre.
+  spec_checkpoint: false
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Dépend des stories 5 à 7. Sur tour-rtx3050, Ollama 0.40.2. La commande pilot ne fait que
+    lire et rapporter. Rejeu de stabilité dans une campagne distincte <c>-replay (même jeu,
+    generation.selection), joint sur (model, digest, track, question_id, seed) avec prompt_hash
+    égal. Pas de Spearman ici (4 modèles) : contrôle de cohérence d'ordre avec l'ancien banc
+    (chemin et empreinte consignés) et l'indice AA. Projection : tokens mesurés divisés par le
+    débit de chacun des 20 modèles, dégradation du préremplissage par palier (warmups.jsonl)
+    appliquée aux débits de l'ancien banc. Rédaction notée par le juge disponible, marquée
+    provisoire. Si la projection dépasse 6 jours, appliquer l'ordre de réduction de SPEC.md et le
+    consigner. Pause pour décider du N, des plafonds de tokens et de K avant la suite.
+- id: "9"
+  title: "Calibration du juge"
+  description: >-
+    Couvre CAP-6 : ~100 étiquettes humaines sur des réponses de rédaction du pilote, et commande
+    calibrate qui donne l'accord, le coût et la stabilité des 4 configurations, la part escaladée
+    de la cascade simulée et le biais Qwen ; choix du juge consigné.
+  spec_checkpoint: false
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Dépend de la story 8. Les étiquettes sont produites par Anaël dans calibration/labels.jsonl,
+    avec la même clé que les jugements ; leur format détaillé se décide ici. Anaël fixe aussi le
+    seuil d'accord et le biais Qwen maximal toléré. Cascade simulée hors ligne depuis
+    judgment-winnow/ et judgment-haiku/ pour régler ses seuils ; si elle est retenue, elle
+    devient l'entrée winnow-cascade-haiku@<seuils> de judges.yaml. Stabilité de Haiku mesurée
+    par rejeu. Biais Qwen selon la family déclarée par modèle. Juge retenu désigné par
+    grading.judge du YAML de campagne. Pause pour valider le choix du juge avant la campagne.
+- id: "10"
+  title: "Campagne complète et rapport final"
+  description: >-
+    Réalise le signal de succès : campagne full-* avec 20 modèles en think_off et 15 en think_on
+    (400 questions) sur tour-rtx3050 en 5 à 6 jours, jugement de la rédaction, grade, et rapport
+    final avec Spearman.
+  spec_checkpoint: false
+  done_checkpoint: true
+  invoke_dev_with: >-
+    Dépend de la story 9. Lire docs/PROMPT_NOUVELLE_MACHINE.md : aucun téléchargement pendant la
+    campagne. Liste de contrôle d'AD-13 avant le lancement : mises à jour d'Ollama coupées,
+    Windows Update en pause, OLLAMA_NUM_PARALLEL absent ou à 1, GPU libre, données NLTK
+    installées. Seuls les exports en liste blanche d'AD-6 entrent dans le dépôt, sur une branche
+    bench/quality-<campagne>, avec des commits Bench: et une PR qui ne touche que
+    benchmarks/quality/ ; fusion par merge commit.

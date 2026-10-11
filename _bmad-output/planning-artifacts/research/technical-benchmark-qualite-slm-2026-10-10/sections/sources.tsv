@@ -1,0 +1,82 @@
+D1-1	Licence et taille d'IFEval	Google (fiche HF)	https://huggingface.co/datasets/google/IFEval	2023-11	haute
+D1-2	IFBench : 300 prompts, 58 contraintes, saturation d'IFEval, scores	AllenAI (arXiv 2507.02833)	https://arxiv.org/abs/2507.02833	2025-07	haute
+D1-3	Licence ODC-BY-1.0 des données IFBench	AllenAI (fiche HF)	https://huggingface.co/datasets/allenai/IFBench_test	2025-07	haute
+D1-4	Licence Apache-2.0 du code IFBench	AllenAI (GitHub)	https://github.com/allenai/IFBench/blob/main/LICENSE	2025-07	haute
+D1-5	M-IFEval : 235 prompts FR, contraintes propres au français, scores	Lightblue (arXiv 2502.04688)	https://arxiv.org/abs/2502.04688	2025-02	haute
+D1-6	Code M-IFEval Apache-2.0, FR/JA/ES, modèles spaCy (vérifié à la source)	Lightblue (GitHub)	https://github.com/lightblue-tech/M-IFEval	2025-02	haute
+D1-8	IFEval-fr de le-leadboard sans licence déclarée	le-leadboard (fiche HF)	https://huggingface.co/datasets/le-leadboard/IFEval-fr	2025-02	haute
+D1-9	Scores Gemma 3 IT (IFEval, BBH, BBEH)	Google (fiche modèle)	https://ai.google.dev/gemma/docs/core/model_card_3	2025-03	haute
+D1-10	Scores Open LLM Leaderboard v2 de SLM 1B–14B (IFEval, BBH, MATH Lvl5, MuSR)	Hugging Face (résultats bruts)	https://huggingface.co/datasets/open-llm-leaderboard/results	2025-02	haute
+D1-11	Licence Apache-2.0 et tailles BFCL	UC Berkeley Gorilla (fiche HF)	https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard	2024-09	haute
+D1-12	Catégories BFCL v4, web search exige SerpAPI	UC Berkeley Gorilla (GitHub)	https://github.com/ShishirPatil/gorilla/blob/main/berkeley-function-call-leaderboard/TEST_CATEGORIES.md	2025	haute
+D1-13	BFCL v4 web search, notation AST/état déterministe, multi-turn 4 × 200	UC Berkeley Gorilla (blog)	https://gorilla.cs.berkeley.edu/blogs/15_bfcl_v4_web_search.html	2025-07	haute
+D1-14	Scores BFCL des SLM par catégorie	UC Berkeley Gorilla (CSV du leaderboard)	https://gorilla.cs.berkeley.edu/data_overall.csv	2026-04	haute (une source)
+D1-15	BFCL v4 memory : 150+ questions, backends en mémoire	UC Berkeley Gorilla (blog)	https://gorilla.cs.berkeley.edu/blogs/16_bfcl_v4_memory.html	2025	moyenne
+D1-17	Jeu GregoryD : traduction automatique d'un jeu d'entraînement	GregoryD (fiche HF)	https://huggingface.co/datasets/GregoryD/explicit-function-calling-french	2024-02	haute
+D1-18	Licence CC-BY-4.0 et taille de MuSR sur HF	UT Austin TAUR Lab (fiche HF)	https://huggingface.co/datasets/TAUR-Lab/MuSR	2024	haute
+D1-19	Licence MIT de MuSR sur GitHub	Zayne Sprague (GitHub)	https://github.com/Zayne-sprague/MuSR/blob/main/LICENSE	2024	haute
+D1-20	MuSR proche du hasard, format MATH Lvl5 (Open LLM Leaderboard)	Hugging Face (doc)	https://huggingface.co/docs/leaderboards/open_llm_leaderboard/about	2024-06	haute
+D1-21	Anomalie de noms dans musr-fr	le-leadboard (fiche HF)	https://huggingface.co/datasets/le-leadboard/musr-fr	2024-10	moyenne
+D1-22	Licence MIT de BBH	Suzgun et al. (GitHub)	https://github.com/suzgunmirac/BIG-Bench-Hard/blob/main/LICENSE	2022-10	haute
+D1-23	BBH saturé, BBEH plus dur	Google DeepMind (arXiv 2502.19187)	https://arxiv.org/abs/2502.19187	2025-02	haute
+D1-24	BBEH : licences, 4 520 items, mini 460	Google DeepMind (GitHub)	https://github.com/google-deepmind/bbeh	2025-02	haute
+D1-25	bbh-fr Apache-2.0, méthode non documentée	le-leadboard (fiche HF)	https://huggingface.co/datasets/le-leadboard/bbh-fr	2024-10	moyenne
+D1-26	Licence MIT de MATH	Dan Hendrycks (GitHub)	https://github.com/hendrycks/math/blob/main/LICENSE	2021-03	haute
+D1-27	MATH-500 issu de PRM800K, fiche HF sans licence	Hugging Face H4 (fiche HF)	https://huggingface.co/datasets/HuggingFaceH4/MATH-500	2023-05	haute
+D1-28	Contamination de Qwen2.5 sur MATH-500	Fudan et al. (arXiv 2507.10532)	https://arxiv.org/abs/2507.10532	2025-07	moyenne
+D1-29	VAR-MATH : chutes sur variantes, recette réimplémentable	HK PolyU (arXiv 2507.12885)	https://arxiv.org/html/2507.12885	2025-07	moyenne
+D1-30	GSM-Symbolic : baisses sur variantes numériques	Apple (arXiv 2410.05229)	https://arxiv.org/abs/2410.05229	2024-10	haute
+D1-31	Données GSM-Symbolic sous CC-BY-NC-ND-4.0	Apple (fiche HF)	https://huggingface.co/datasets/apple/GSM-Symbolic	2024-10	haute
+D1-32	Anomalie de niveau dans MATH_LVL5_fr	le-leadboard (fiche HF)	https://huggingface.co/datasets/le-leadboard/MATH_LVL5_fr	2024-10	moyenne
+D1-33	RULER : générateur synthétique, 13 tâches, Apache-2.0	NVIDIA (arXiv 2404.06654)	https://arxiv.org/abs/2404.06654	2024-04	haute
+D1-34	OneRuler : 26 langues dont FR, 8K–128K, 50 exemples/config, échecs « aucune réponse »	UMass Amherst (arXiv 2503.01996)	https://arxiv.org/abs/2503.01996	2025-09	haute
+D1-35	Code OneRuler MIT avec scripts de génération (vérifié à la source)	UMass Amherst (GitHub)	https://github.com/mungg/OneRuler	2025-03	haute
+D1-36	JSONSchemaBench : MIT, ≈ 10 000 schémas	EPFL dlab (fiche HF)	https://huggingface.co/datasets/epfl-dlab/JSONSchemaBench	2025-01	haute
+D1-37	PIAF : MIT, 3 835 questions sur Wikipédia FR	Etalab / AgentPublic (fiche HF)	https://huggingface.co/datasets/AgentPublic/piaf	2020-02	haute
+D1-38	FQuAD : non commercial, redistribution interdite	Illuin Technology (fiche HF, via résultat de recherche)	https://huggingface.co/datasets/fquad	2020-02	moyenne
+D1-39	Miroir fquad2_test en Apache-2.0	Manuel Faysse (fiche HF)	https://huggingface.co/datasets/manu/fquad2_test	2024-04	moyenne
+D2-1	lm-eval 0.4.13, MIT, base sans torch	PyPI	https://pypi.org/project/lm-eval/	2026-08	haute
+D2-2	lm-eval : chat-completions en génération seule	EleutherAI (GitHub, API guide)	https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/API_guide.md	2026	haute
+D2-3	Compatibilité OpenAI d'Ollama : pas de num_ctx, tool_choice, echo, logprobs	Ollama (docs)	https://docs.ollama.com/api/openai-compatibility	2026-10	haute
+D2-4	Types des tâches leaderboard de lm-eval (multichoice vs génératif)	EleutherAI (GitHub)	https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/leaderboard/README.md	2026	haute
+D2-5	Champs de --log_samples, bootstrap_iters = 100 000	EleutherAI (code evaluator.py)	https://raw.githubusercontent.com/EleutherAI/lm-evaluation-harness/main/lm_eval/evaluator.py	2026-10	haute
+D2-6	inspect-ai 0.3.278, MIT, cadence de releases	PyPI	https://pypi.org/project/inspect-ai/	2026-10	haute
+D2-7	Provider ollama d'Inspect sur /v1 (vérifié à la source)	UK AISI (docs)	https://inspect.aisi.org.uk/providers.html	2026-10	haute
+D2-8	Scorers intégrés d'Inspect	UK AISI (docs)	https://inspect.aisi.org.uk/scorers.html	2026	haute
+D2-9	Journaux .eval et samples_df d'Inspect	UK AISI (docs)	https://inspect.aisi.org.uk/dataframe.html	2026-10	haute
+D2-10	stderr(cluster) et bootstrap_stderr d'Inspect	UK AISI (docs)	https://inspect.aisi.org.uk/metrics.html	2026-10	haute
+D2-11	Catalogue inspect_evals	UK AISI (GitHub Pages)	https://ukgovernmentbeis.github.io/inspect_evals/	2026	moyenne
+D2-12	BFCL dans inspect_evals : AST et état, sans juge	UK AISI (GitHub)	https://github.com/UKGovernmentBEIS/inspect_evals/tree/main/src/inspect_evals/bfcl	2026	haute
+D2-13	bfcl-eval : Apache-2.0, dépendances lourdes	UC Berkeley Gorilla (pyproject)	https://raw.githubusercontent.com/ShishirPatil/gorilla/main/berkeley-function-call-leaderboard/pyproject.toml	2026-10	haute
+D2-14	Harnais BFCL : serveur compatible OpenAI, handler à écrire	UC Berkeley Gorilla (README)	https://github.com/ShishirPatil/gorilla/blob/main/berkeley-function-call-leaderboard/README.md	2026	haute
+D2-15	ast_checker non importable seul, sortie par item	UC Berkeley Gorilla (code)	https://raw.githubusercontent.com/ShishirPatil/gorilla/main/berkeley-function-call-leaderboard/bfcl_eval/eval_checker/ast_eval/ast_checker.py	2026-10	haute
+D2-16	IFBench : licence et dépendances légères	AllenAI (pyproject)	https://raw.githubusercontent.com/allenai/IFBench/main/pyproject.toml	2026-10	haute
+D2-17	Dépendances du code IFEval de google-research	Google Research (GitHub)	https://raw.githubusercontent.com/google-research/google-research/master/instruction_following_eval/requirements.txt	2026-10	haute
+D2-18	Ollama v0.40.2 (08/10/2026), ordre des releases, capacité decision	Ollama (GitHub releases)	https://github.com/ollama/ollama/releases	2026-10	haute
+D2-19	API native /api/chat : logprobs, think, format, seed	Ollama (docs)	https://docs.ollama.com/api/chat	2026-10	moyenne
+D2-20	Logprobs annoncés en 0.12.11	Ollama (release)	https://github.com/ollama/ollama/releases/tag/v0.12.11	2025-11	moyenne
+D2-21	#18774 : format non appliqué avec think (vérifié à la source)	GitHub ollama/ollama	https://github.com/ollama/ollama/issues/18774	2026-10	haute
+D2-22	Autres échecs de format (#15260, #17933, #18441, #15288)	GitHub ollama/ollama	https://github.com/ollama/ollama/issues/17933	2026	faible
+D2-23	OLLAMA_NUM_PARALLEL retombe en silence (#17556)	GitHub ollama/ollama	https://github.com/ollama/ollama/issues/17556	2026	faible
+D2-24	Première exécution différente (#5321)	GitHub ollama/ollama	https://github.com/ollama/ollama/issues/5321	2024-06	faible
+D2-26	lm-eval sous MIT, extra ifeval	EleutherAI (pyproject)	https://raw.githubusercontent.com/EleutherAI/lm-evaluation-harness/main/pyproject.toml	2026-10	haute
+D3-1	Formule de Connor (1987), puissance McNemar	SAS Institute (PROC POWER)	https://support.sas.com/documentation/cdl/en/statug/67523/HTML/default/statug_power_details55.htm	2014-01	haute
+D3-2	Seuil de ~20 paires discordantes pour le test exact	MetricGate (doc de calculateur)	https://metricgate.com/docs/sample-size-mcnemar-paired	2026-05	moyenne
+D3-3	Erreurs-types appariées et groupées, puissance, K tirages, ≥ 1 000 questions	Evan Miller, Anthropic (arXiv 2411.00640)	https://arxiv.org/abs/2411.00640	2024-11	haute
+D3-4	McNemar seul test à erreur de type I acceptable (exécution unique)	Neural Computation (Dietterich 1998)	https://mlanthology.org/neco/1998/dietterich1998neco-approximate/	1998-10	moyenne
+D3-5	Choix du test : McNemar pour binaire apparié, bootstrap déconseillé sur petit jeu	ACL 2018 (Dror et al.)	https://aclanthology.org/P18-1128.pdf	2018-07	haute
+D3-6	Bootstrap apparié, b = 10⁶	EMNLP-CoNLL 2012 (Berg-Kirkpatrick et al.)	https://nlp.cs.berkeley.edu/pubs/BergKirkpatrick-Burkett-Klein_2012_Significance_paper.pdf	2012-07	haute
+D3-7	Jusqu'à 15 % de variation à température 0	Atil et al. (arXiv 2408.04667)	https://arxiv.org/abs/2408.04667	2024-08	moyenne
+D3-8	Non-déterminisme dû à la non-invariance au lot	Thinking Machines Lab	https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/	2025-09	haute
+D3-9	Holm, BH, k̂_Bonferroni pour plusieurs jeux	TACL 2017 (Dror et al.)	https://aclanthology.org/Q17-1033.pdf	2017-12	haute
+D3-10	Comparaison à un témoin, Holm, Friedman/Nemenyi, diagrammes CD	JMLR (Demšar 2006)	https://www.jmlr.org/papers/volume7/demsar06a/demsar06a.pdf	2006-01	haute
+D3-11	Rang approché par IC simultanés (Chatbot Arena)	Chiang et al. (arXiv 2403.04132, ICML 2024)	https://arxiv.org/abs/2403.04132	2024-03	haute
+D3-12	Hoeffding races, bornes simultanées	NIPS 1993 (Maron et Moore)	https://papers.neurips.cc/paper_files/paper/1993/file/02a32ad2669e6fe298e607fe7cc0e1a0-Paper.pdf	1993-12	haute
+D3-13	Fonction de dépense O'Brien-Fleming (Lan-DeMets)	CRAN gsDesign (doc)	https://rdocumentation.org/packages/gsDesign/versions/3.0-1/topics/sfLDOF	2016-01	moyenne
+D3-14	Arrêt selon les données et couverture des IC ; confidence sequences	Hsu et Shekhar (arXiv 2607.17409)	https://arxiv.org/abs/2607.17409	2026-07	moyenne
+D3-15	tinyBenchmarks : ≈ 2 % d'erreur avec 100 items, limites	Maia Polo et al. (arXiv 2402.14992, ICML 2024)	https://arxiv.org/abs/2402.14992	2024-05	haute
+D3-16	statsmodels mcnemar(exact=True)	statsmodels (doc)	https://www.statsmodels.org/stable/generated/statsmodels.stats.contingency_tables.mcnemar.html	2026-08	haute
+D3-17	multipletests : Holm-Šidák par défaut	statsmodels (doc)	https://www.statsmodels.org/stable/generated/statsmodels.stats.multitest.multipletests.html	2026-08	haute
+D3-18	statsmodels 0.15.0 (27/08/2026)	PyPI	https://pypi.org/project/statsmodels/	2026-08	haute
+D3-19	scipy.stats.binomtest	SciPy (doc)	https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.binomtest.html	2026-10	moyenne
+D3-20	Formule de Machin et al., identique à Connor	NCSS (doc PASS)	https://www.ncss.com/wp-content/themes/ncss/pdf/Procedures/PASS/Tests_for_Two_Correlated_Proportions-McNemar_Test.pdf	inconnue	moyenne
