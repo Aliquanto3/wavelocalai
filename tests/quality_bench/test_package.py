@@ -1,0 +1,168 @@
+"""Paquet : CLI, isolement des imports (AD-1, AD-9) et propriétaires uniques."""
+
+import ast
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+PACKAGE = ROOT / "scripts" / "quality_bench"
+VENDORED = PACKAGE / "grading" / "vendored"
+
+
+def _package_modules():
+    return sorted(
+        path
+        for path in PACKAGE.rglob("*.py")
+        if "__pycache__" not in path.parts and VENDORED not in path.parents
+    )
+
+
+def _absolute_imports(path: Path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                yield alias.name
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            yield node.module
+
+
+def _rel(path: Path) -> str:
+    return path.relative_to(PACKAGE).as_posix()
+
+
+def test_package_has_modules():
+    names = {_rel(path) for path in _package_modules()}
+    assert {"__init__.py", "__main__.py", "common/jsonl.py", "ollama/client.py"} <= names
+
+
+@pytest.mark.parametrize("path", _package_modules(), ids=_rel)
+def test_forbidden_imports(path):
+    """Ni ``scripts.benchmark_slm``, ni ``src.*`` hors ``src.core.telemetry``, ni la
+    bibliothèque ``ollama``, ni ``httpx`` (seulement ``httpx2``)."""
+    for module in _absolute_imports(path):
+        root = module.split(".")[0]
+        assert root not in ("ollama", "httpx"), f"{_rel(path)} importe {module}"
+        assert not module.startswith("scripts.benchmark_slm"), f"{_rel(path)} importe {module}"
+        assert module != "benchmark_slm", f"{_rel(path)} importe {module}"
+        if root == "src":
+            assert module == "src.core.telemetry", f"{_rel(path)} importe {module}"
+
+
+@pytest.mark.parametrize(
+    "library, owner",
+    [
+        ("httpx2", "ollama/client.py"),
+        ("yaml", "common/config.py"),
+        ("jsonschema", "common/schemas.py"),
+        ("src", "__main__.py"),
+    ],
+)
+def test_single_owner_of_each_library(library, owner):
+    importers = {
+        _rel(path)
+        for path in _package_modules()
+        if any(module.split(".")[0] == library for module in _absolute_imports(path))
+    }
+    assert importers <= {owner}, f"{library} importé hors de {owner} : {importers - {owner}}"
+
+
+def test_json_dumps_only_in_canonical():
+    """Seul ``common/canonical.py`` sérialise du JSON (AD-4)."""
+    offenders = []
+    for path in _package_modules():
+        if _rel(path) == "common/canonical.py":
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("dumps", "dump")
+                and getattr(node.func.value, "id", None) == "json"
+            ):
+                offenders.append(f"{_rel(path)}:{node.lineno}")
+    assert not offenders
+
+
+def test_text_open_calls_pass_utf8_encoding():
+    """Tout ``open()``, ``.open()``, ``.read_text()`` ou ``.write_text()`` texte passe
+    ``encoding="utf-8"`` (convention « Encodage ») ; le mode binaire et ``os.open`` (descripteur
+    brut) sont exceptés."""
+    offenders = []
+    for path in _package_modules():
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Name) and func.id == "open":
+                mode_index = 1  # open(fichier, mode)
+            elif isinstance(func, ast.Attribute) and func.attr == "open":
+                if getattr(func.value, "id", None) == "os":
+                    continue
+                mode_index = 0  # Path.open(mode)
+            elif isinstance(func, ast.Attribute) and func.attr in ("read_text", "write_text"):
+                mode_index = None
+            else:
+                continue
+            mode = None
+            if mode_index is not None and len(node.args) > mode_index:
+                mode = node.args[mode_index]
+            mode = next((kw.value for kw in node.keywords if kw.arg == "mode"), mode)
+            if isinstance(mode, ast.Constant) and "b" in str(mode.value):
+                continue
+            encoding = next((kw.value for kw in node.keywords if kw.arg == "encoding"), None)
+            if not (isinstance(encoding, ast.Constant) and encoding.value == "utf-8"):
+                offenders.append(f"{_rel(path)}:{node.lineno}")
+    assert not offenders
+
+
+def test_main_calls_disable_telemetry_before_package_imports():
+    tree = ast.parse((PACKAGE / "__main__.py").read_text(encoding="utf-8"))
+    call_line = next(
+        node.lineno
+        for node in tree.body
+        if isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Call)
+        and getattr(node.value.func, "id", None) == "disable_telemetry"
+    )
+    package_imports = [
+        node.lineno
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+        and (node.level > 0 or (node.module or "").startswith("scripts"))
+    ]
+    assert all(line > call_line for line in package_imports)
+
+
+def test_cli_help_exits_zero():
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONIOENCODING"}
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "scripts.quality_bench", "--help"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")[-2000:]
+    assert "qualité" in result.stdout.decode("utf-8")
+
+
+def test_cli_without_command_prints_help_and_fails():
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "scripts.quality_bench"],
+        cwd=ROOT,
+        capture_output=True,
+        timeout=120,
+    )
+    assert result.returncode == 2
+    assert b"usage" in result.stdout
+
+
+def test_scripts_has_no_init():
+    """``scripts/`` reste un paquet namespace (Code Map de la story 1)."""
+    assert not (ROOT / "scripts" / "__init__.py").exists()
+    assert (PACKAGE / "__init__.py").exists()

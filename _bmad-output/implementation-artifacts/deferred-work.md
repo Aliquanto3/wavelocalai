@@ -24,3 +24,12 @@
 - source_spec: `_bmad-output/specs/spec-fiabilisation-frontend/stories/24-reponse-interrompue-relance-co2-message.md`
   summary: Vérifier au navigateur (recette) que le texte partiel s'efface et que la relance est annoncée pendant la seconde tentative ; AppTest ne voit que l'état final. Les agents (`ChatOllama`) ne sont pas relancés.
   evidence: Story 24 : l'annonce est remplacée par la nouvelle réponse dans le Chat libre et le Banc d'essai ; relance des agents hors intention (flux LangChain, sans détection de coupure).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/1-socle-quality-bench-client-ollama-jsonl-reprenable.md`
+  summary: Lancer `tests/quality_bench` en CI (job qui installe `scripts/quality_bench/requirements.txt`, sous Windows et Linux) : aujourd'hui la suite ne tourne qu'à la main dans `.venv-quality`, et la branche `fcntl` des verrous n'est jamais exécutée.
+  evidence: `.github/workflows/tests.yml` tourne sur les PR vers `master` mais ne lance que `tests/unit tests/app` ; le spine du banc range la CI hors périmètre et la SPEC exclut toute autre machine que la tour. Décision à prendre par Anaël. Relevé à la revue de la story 1.
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/1-socle-quality-bench-client-ollama-jsonl-reprenable.md`
+  summary: Corriger l'écueil d'AGENTS.md « la CI ne se déclenche que sur main et develop » : elle se déclenche sur push et PR vers `master`.
+  evidence: `.github/workflows/tests.yml:3-7` (branches `[ master ]`) depuis le commit 8dfc946 ; fichier de contexte d'agent, hors du diff de la story. Relevé à la revue de la story 1.
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/1-socle-quality-bench-client-ollama-jsonl-reprenable.md`
+  summary: Story 5 (runner) : un `OllamaUnavailableError` que `/api/version` ne confirme pas (délai de lecture dépassé ou 5xx propre à la requête, service vivant) doit compter dans `max_attempts`, sinon la même question est rejouée sans borne.
+  evidence: maybe-false, medium si vrai. Le client classe `ReadTimeout`, la coupure avant `done` et tout 5xx en panne de service (Design Notes de la story 1) ; `wait_for_ollama` rend alors la main aussitôt. Le dommage dépend de la politique du runner : à trancher dans la spec de la story 5.

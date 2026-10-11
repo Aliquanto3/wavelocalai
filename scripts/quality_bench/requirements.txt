@@ -1,0 +1,11 @@
+# Dépendances du banc de qualité difficile (scripts/quality_bench), à installer dans
+# .venv-quality seulement, jamais dans .venv (banc de vitesse) ni .venv-app :
+#   py -3.14 -m venv .venv-quality
+#   .venv-quality\Scripts\python -m pip install -r scripts/quality_bench/requirements.txt
+# Bornes inférieures vérifiées sur PyPI le 2026-10-11 (dernière version publiée à cette date).
+# Story 1 (socle) : chaque story suivante ajoute ses propres dépendances.
+httpx2>=2.13.1
+pyyaml>=6.0.3
+jsonschema>=4.26.0
+python-dotenv>=1.2.4
+pytest>=9.1.1

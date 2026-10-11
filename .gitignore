@@ -34,6 +34,8 @@ env/
 .env/
 .venv/
 .venv-app/
+# Banc de qualité difficile (scripts/quality_bench/requirements.txt)
+.venv-quality/
 # Créé par `uv run` (scripts BMAD) : le dépôt n'est pas un projet uv, et un fichier
 # non suivi bloquerait bmad-build-auto, qui exige un arbre de travail propre.
 uv.lock
