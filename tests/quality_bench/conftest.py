@@ -13,8 +13,9 @@ import warnings
 
 import pytest
 
-# dotenv : importé par src.core.telemetry, que la CLI appelle en tête.
-REQUIRED_MODULES = ("httpx2", "yaml", "jsonschema", "dotenv")
+# dotenv : importé par src.core.telemetry, que la CLI appelle en tête ; huggingface_hub et
+# pyarrow : importeurs des jeux publics (story 2).
+REQUIRED_MODULES = ("httpx2", "yaml", "jsonschema", "dotenv", "huggingface_hub", "pyarrow")
 MISSING_MODULES = [name for name in REQUIRED_MODULES if importlib.util.find_spec(name) is None]
 
 if MISSING_MODULES:

@@ -112,3 +112,37 @@ def manifest(**overrides: Any) -> dict[str, Any]:
     record = copy.deepcopy(_MANIFEST)
     record.update(overrides)
     return record
+
+
+_QUESTION: dict[str, Any] = {
+    "schema": "qb.question/1",
+    "id": "reasoning/bbeh-mini/0001",
+    "usage": "reasoning",
+    "group": "bbeh-mini/0001",
+    "unit": "reasoning/bbeh-mini/0001",
+    "source": "bbeh-mini",
+    "license": "CC-BY-4.0",
+    "private": False,
+    "generator": None,
+    "generator_seed": None,
+    "num_ctx": 8192,
+    "est_prompt_tokens": 120,
+    "messages": [{"role": "user", "content": "Combien font 2 + 2 ? Réponds par un nombre."}],
+    "turns": None,
+    "tools": None,
+    "format": None,
+    "env": None,
+    "grader": {"name": "exact_answer", "params": {}},
+    "target": "4",
+    "criteria": None,
+}
+
+
+def question(**overrides: Any) -> dict[str, Any]:
+    """Question ``qb.question/1`` valide (source ``bbeh-mini``), empreintes recalculées après
+    application de ``overrides``."""
+    from scripts.quality_bench.questions.schema import with_hashes
+
+    record = copy.deepcopy(_QUESTION)
+    record.update(overrides)
+    return with_hashes(record)

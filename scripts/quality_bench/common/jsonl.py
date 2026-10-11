@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from types import TracebackType
 from typing import Any, BinaryIO
@@ -188,3 +188,39 @@ def open_for_append(path: str | os.PathLike[str], lock: FileLock) -> JsonlAppend
             raise JsonlReadError(path, line_no, f"clé en double {key!r}")
         keys.add(key)
     return JsonlAppender(path, keys, lock)
+
+
+def rewrite_jsonl(path: str | os.PathLike[str], records: Iterable[Mapping[str, Any]]) -> int:
+    """Réécrit ``path`` en entier (fichiers « réécrits » d'AD-2 : candidats d'une source,
+    ``grading.jsonl``) : lignes canoniques + ``\n`` dans un fichier temporaire voisin, ``fsync``,
+    puis ``os.replace``. Un arrêt en cours laisse l'ancien fichier intact. Rend le nombre de
+    lignes écrites."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp")
+    count = 0
+    try:
+        with open(tmp, "wb") as handle:
+            for record in records:
+                handle.write(canonical_bytes(dict(record)) + b"\n")
+                count += 1
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return count
+
+
+def read_complete_jsonl(path: str | os.PathLike[str]) -> list[dict[str, Any]]:
+    """Lit un JSONL tiers complet (fichier brut d'une source publique, jamais écrit par le
+    banc) : la dernière ligne peut manquer de ``\n`` sans être un fragment, les lignes vides
+    sont ignorées, toute ligne illisible lève ``JsonlReadError``."""
+    path = Path(path)
+    records = []
+    with open(path, "rb") as handle:
+        for line_no, raw in enumerate(handle, start=1):
+            if raw.strip():
+                records.append(_parse_line(path, line_no, raw.rstrip(b"\r\n") + b"\n"))
+    return records

@@ -96,3 +96,33 @@ def judgment_lock_path(campaign: str, judge: str) -> Path:
 
 def judgment_stop_path(campaign: str, judge: str) -> Path:
     return judgment_dir(campaign, judge) / "STOP"
+
+
+# Sources du jeu de questions et données d'avant campagne (AD-2, AD-15).
+def sources_dir() -> Path:
+    """Racine des sources : ``sources/<slug>/`` par importeur ou générateur."""
+    return data_root() / "sources"
+
+
+def source_dir(slug: str) -> Path:
+    return sources_dir() / check_id(slug, "source")
+
+
+def source_raw_dir(slug: str) -> Path:
+    """Fichiers bruts téléchargés d'une source, à la révision épinglée."""
+    return source_dir(slug) / "raw"
+
+
+def candidates_path(slug: str) -> Path:
+    """Questions candidates ``qb.question/1`` d'une source (réécrit par son seul producteur)."""
+    return source_dir(slug) / "candidates.jsonl"
+
+
+def sources_log_path(command: str) -> Path:
+    """Journal d'une commande de téléchargement : ``sources/log-<commande>.log``."""
+    return sources_dir() / f"log-{check_id(command, 'commande')}.log"
+
+
+def nltk_data_dir() -> Path:
+    """Données NLTK du banc (``NLTK_DATA``) : ``$QUALITY_BENCH_DATA/nltk_data``."""
+    return data_root() / "nltk_data"

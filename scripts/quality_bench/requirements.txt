@@ -9,3 +9,8 @@ pyyaml>=6.0.3
 jsonschema>=4.26.0
 python-dotenv>=1.2.4
 pytest>=9.1.1
+# Story 2 (import des jeux publics, données NLTK), vérifiées sur PyPI le 2026-10-11.
+# datasets n'est pas nécessaire : les importeurs lisent JSON, JSONL et parquet (pyarrow).
+huggingface-hub>=2.2.0
+nltk>=3.10.3
+pyarrow>=26.0.0

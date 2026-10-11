@@ -20,6 +20,7 @@ from src.core.telemetry import disable_telemetry
 disable_telemetry()
 
 # Imports des modules de sous-commandes : ici, après disable_telemetry() (noqa: E402).
+from scripts.quality_bench.questions.importers.commands import FETCH, FETCH_NLTK  # noqa: E402
 
 # (nom, aide, configuration du sous-analyseur, exécution qui rend le code de sortie) ; liste
 # éditée dans ce fichier seulement (voir la docstring).
@@ -29,7 +30,7 @@ Subcommand = tuple[
     Callable[[argparse.ArgumentParser], None],
     Callable[[argparse.Namespace], int],
 ]
-SUBCOMMANDS: list[Subcommand] = []
+SUBCOMMANDS: list[Subcommand] = [FETCH, FETCH_NLTK]
 
 
 def _reconfigure_console() -> None:

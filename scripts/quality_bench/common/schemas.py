@@ -231,6 +231,22 @@ def check_schemas() -> None:
         _Validator.check_schema(schema)
 
 
+def check_schema(schema: Mapping[str, Any]) -> None:
+    """Vérifie qu'un schéma défini hors de ce module (``qb.question/1``) est un JSON Schema
+    valide pour le même vérificateur que ``validate_with`` (tests)."""
+    _Validator.check_schema(dict(schema))
+
+
+def validate_with(name: str, schema: Mapping[str, Any], record: Mapping[str, Any]) -> None:
+    """Valide ``record`` contre ``schema``, un schéma défini hors de ce module (``qb.question/1``
+    vit dans ``questions/schema.py``, AD-5) ; même vérificateur d'entiers stricts (AD-4) et
+    même ``SchemaValidationError`` que ``validate``."""
+    error = best_match(_Validator(dict(schema)).iter_errors(dict(record)))
+    if error is not None:
+        path = "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in error.path)
+        raise SchemaValidationError(name, path.lstrip(".") or "(racine)", error.message)
+
+
 def validate(record: Mapping[str, Any]) -> str:
     """Valide ``record`` contre le schéma que nomme son champ ``schema`` ; rend ce nom."""
     if not isinstance(record, Mapping):

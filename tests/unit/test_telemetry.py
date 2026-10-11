@@ -116,6 +116,7 @@ TELEMETRY_ROOTS = frozenset(
         "langchain_huggingface",
         "transformers",
         "langchain_community",
+        "datasets",
     }
 )
 
@@ -134,6 +135,7 @@ TELEMETRY_IMPORTERS: dict[str, tuple[str, ...]] = {
     ),
     "src/core/rag/ingestion.py": ("langchain_community",),
     "scripts/setup_rag_models.py": ("huggingface_hub",),
+    "scripts/quality_bench/questions/importers/remote.py": ("huggingface_hub",),
 }
 
 

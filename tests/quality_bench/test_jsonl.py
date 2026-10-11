@@ -235,3 +235,24 @@ def test_killed_writer_resumes_without_duplicate_or_gap(jsonl_path):
     assert len(records) == last + 1
     assert len(set(keys)) == last + 1
     assert sorted(record["index"] for record in records) == list(range(last + 1))
+
+
+def test_rewrite_jsonl_replaces_whole_file(tmp_path):
+    from scripts.quality_bench.common.jsonl import rewrite_jsonl
+
+    path = tmp_path / "candidates.jsonl"
+    assert rewrite_jsonl(path, [{"key": "a"}, {"key": "b"}]) == 2
+    assert rewrite_jsonl(path, [{"key": "c", "v": "é"}]) == 1
+    assert path.read_bytes() == '{"key":"c","v":"é"}\n'.encode()
+    assert not path.with_name("candidates.jsonl.tmp").exists()
+
+
+def test_read_complete_jsonl_accepts_last_line_without_newline(tmp_path):
+    from scripts.quality_bench.common.jsonl import JsonlReadError, read_complete_jsonl
+
+    path = tmp_path / "source.jsonl"
+    path.write_bytes(b'{"a":1}\r\n\n{"a":2}')
+    assert read_complete_jsonl(path) == [{"a": 1}, {"a": 2}]
+    path.write_bytes(b'{"a":1}\n{illisible}\n')
+    with pytest.raises(JsonlReadError, match="ligne 2"):
+        read_complete_jsonl(path)

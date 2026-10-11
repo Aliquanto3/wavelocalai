@@ -29,6 +29,9 @@ def _absolute_imports(path: Path):
                 yield alias.name
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             yield node.module
+            # « from urllib import request » : aussi « urllib.request ».
+            for alias in node.names:
+                yield f"{node.module}.{alias.name}"
 
 
 def _rel(path: Path) -> str:
@@ -50,25 +53,37 @@ def test_forbidden_imports(path):
         assert not module.startswith("scripts.benchmark_slm"), f"{_rel(path)} importe {module}"
         assert module != "benchmark_slm", f"{_rel(path)} importe {module}"
         if root == "src":
-            assert module == "src.core.telemetry", f"{_rel(path)} importe {module}"
+            allowed = module == "src.core.telemetry" or module.startswith("src.core.telemetry.")
+            assert allowed, f"{_rel(path)} importe {module}"
 
 
 @pytest.mark.parametrize(
-    "library, owner",
+    "library, owners",
     [
-        ("httpx2", "ollama/client.py"),
-        ("yaml", "common/config.py"),
-        ("jsonschema", "common/schemas.py"),
-        ("src", "__main__.py"),
+        ("httpx2", {"ollama/client.py"}),
+        ("yaml", {"common/config.py"}),
+        ("jsonschema", {"common/schemas.py"}),
+        # disable_telemetry() : en tête de la CLI, et dans chaque module qui importe une
+        # bibliothèque à télémétrie (AD-15 ; tests/unit/test_telemetry.py).
+        ("src", {"__main__.py", "questions/importers/remote.py"}),
+        # Réseau des importeurs (AD-15) : un seul module télécharge les jeux publics.
+        ("huggingface_hub", {"questions/importers/remote.py"}),
+        ("datasets", {"questions/importers/remote.py"}),
+        ("urllib.request", {"questions/importers/remote.py"}),
+        ("nltk", {"questions/importers/nltk_data.py"}),
+        ("pyarrow", {"questions/importers/jsonschemabench.py"}),
     ],
 )
-def test_single_owner_of_each_library(library, owner):
+def test_single_owner_of_each_library(library, owners):
     importers = {
         _rel(path)
         for path in _package_modules()
-        if any(module.split(".")[0] == library for module in _absolute_imports(path))
+        if any(
+            module == library or module.startswith(library + ".")
+            for module in _absolute_imports(path)
+        )
     }
-    assert importers <= {owner}, f"{library} importé hors de {owner} : {importers - {owner}}"
+    assert importers <= owners, f"{library} importé hors de {owners} : {importers - owners}"
 
 
 def test_json_dumps_only_in_canonical():
