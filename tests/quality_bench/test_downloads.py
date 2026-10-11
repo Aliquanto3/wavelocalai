@@ -330,11 +330,25 @@ def test_fetch_nltk_data_refuses_a_download_without_archive(tmp_path, monkeypatc
         nltk_data.fetch_nltk_data(tmp_path, lambda package, root: None)
 
 
+NINE_PUBLIC_SOURCES = [
+    "bbeh-mini",
+    "bfcl-irrelevance",
+    "bfcl-live",
+    "bfcl-multi",
+    "bfcl-parallel",
+    "ifbench",
+    "jsonschemabench",
+    "mifeval-fr",
+    "piaf",
+]
+
+
 def test_importable_slugs_are_the_nine_sources():
     from scripts.quality_bench.questions.schema import SOURCES
 
-    assert commands.importable_slugs() == sorted(SOURCES)
-    assert len(SOURCES) == 9
+    assert commands.importable_slugs() == NINE_PUBLIC_SOURCES
+    others = sorted(set(SOURCES) - set(NINE_PUBLIC_SOURCES))
+    assert all(not SOURCES[slug].producer.startswith("questions/importers/") for slug in others)
 
 
 def test_importers_match_declared_producers():
@@ -342,7 +356,8 @@ def test_importers_match_declared_producers():
 
     from scripts.quality_bench.questions.schema import SOURCES
 
-    for producer in {spec.producer for spec in SOURCES.values()}:
+    importers = {spec.producer for spec in SOURCES.values()}
+    for producer in {p for p in importers if p.startswith("questions/importers/")}:
         module = importlib.import_module(
             "scripts.quality_bench." + producer.removesuffix(".py").replace("/", ".")
         )
@@ -355,8 +370,9 @@ def test_cli_fetch_all_attempts_every_source(monkeypatch, _reset_logging):
 
     seen = []
     monkeypatch.setattr(commands, "fetch_source", lambda slug: seen.append(slug) or 1)
+    monkeypatch.setattr(commands, "fetch_bundle", lambda name: seen.append(name) or 4)
     assert main(["fetch", "--all"]) == 0
-    assert seen == commands.importable_slugs()
+    assert seen == commands.importable_slugs() + ["oneruler-fr"]
 
 
 def test_cli_fetch_continues_after_a_failing_source(monkeypatch, _reset_logging):
@@ -393,3 +409,92 @@ def test_cli_refused_source_is_logged_to_file(_reset_logging):
 
     assert main(["fetch", "--source", "musr"]) == 2
     assert "refusée" in paths.sources_log_path("fetch").read_text(encoding="utf-8")
+
+
+# --- Lots bruts des générateurs et vérification sans réseau (story 3) ----------------------
+
+
+def _fake_bundle(monkeypatch, contents):
+    files = tuple(_remote(content=data, path=name) for name, data in contents.items())
+    monkeypatch.setitem(commands.RAW_BUNDLES, "oneruler-fr", files)
+    return files
+
+
+def test_fetch_bundle_downloads_raw_files_without_candidates(monkeypatch):
+    files = _fake_bundle(monkeypatch, {"LICENSE": b"MIT", "book.txt": "Texte é".encode()})
+    calls = []
+    assert commands.fetch_bundle("oneruler-fr", downloader=_writer_by_path(files, calls)) == 2
+    raw = paths.source_raw_dir("oneruler-fr")
+    assert all(remote.local_path(raw).is_file() for remote in files)
+    assert not paths.candidates_path("oneruler-fr").exists()
+    commands.fetch_bundle("oneruler-fr", downloader=_writer_by_path(files, calls))
+    assert len(calls) == 2  # déjà présents : rien de retéléchargé
+
+
+def _writer_by_path(files, calls):
+    by_path = {remote.path: remote for remote in files}
+    contents = {"LICENSE": b"MIT", "book.txt": "Texte é".encode()}
+
+    def download(remote, target):
+        calls.append(remote.path)
+        assert by_path[remote.path] == remote
+        target.write_bytes(contents[remote.path])
+
+    return download
+
+
+def test_cli_fetch_accepts_the_oneruler_bundle(monkeypatch, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    seen = []
+    monkeypatch.setattr(commands, "fetch_bundle", lambda name: seen.append(name) or 4)
+    assert main(["fetch", "--source", "oneruler-fr"]) == 0
+    assert seen == ["oneruler-fr"]
+
+
+@pytest.mark.parametrize("slug", ["oneruler-fr-niah", "var-math-fr", "writing-fr", "tools-fr"])
+def test_generated_and_house_sources_are_not_fetchable(slug, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    assert main(["fetch", "--source", slug]) == 2
+
+
+def test_verify_local_files_never_downloads(tmp_path):
+    from scripts.quality_bench.questions.pinned import verify_local_files
+
+    remote = _remote()
+    with pytest.raises(SourceIntegrityError, match="absent.*fetch"):
+        verify_local_files([remote], tmp_path)
+    path = remote.local_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"altere")
+    with pytest.raises(SourceIntegrityError, match="Empreinte inattendue.*fetch --source x"):
+        verify_local_files([remote], tmp_path, fetch_hint="fetch --source x")
+    assert path.read_bytes() == b"altere"  # rien de supprimé
+    path.write_bytes(CONTENT)
+    assert verify_local_files([remote], tmp_path) == {remote: path}
+
+
+def test_story2_api_is_reexported():
+    from scripts.quality_bench.questions import build, pinned
+    from scripts.quality_bench.questions.importers import base, remote
+
+    assert remote.RemoteFile is pinned.RemoteFile
+    assert remote.SourceIntegrityError is pinned.SourceIntegrityError
+    assert remote.file_sha256 is pinned.file_sha256
+    for name in ("build_question", "build_questions", "choose_num_ctx", "max_cap"):
+        assert getattr(base, name) is getattr(build, name)
+    for name in ("estimate_prompt_tokens", "encode_floats", "question_id", "PromptTooLongError"):
+        assert getattr(base, name) is getattr(build, name)
+
+
+def test_oneruler_bundle_is_pinned():
+    from scripts.quality_bench.questions.generators import oneruler_fr
+
+    assert commands.RAW_BUNDLES == {"oneruler-fr": oneruler_fr.RAW_FILES}
+    assert {Path(remote.path).name for remote in oneruler_fr.RAW_FILES} == {
+        "LICENSE",
+        "les_miserables_fr.txt",
+        "niah.txt",
+        "cwe.txt",
+    }

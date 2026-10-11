@@ -181,3 +181,43 @@ def test_scripts_has_no_init():
     """``scripts/`` reste un paquet namespace (Code Map de la story 1)."""
     assert not (ROOT / "scripts" / "__init__.py").exists()
     assert (PACKAGE / "__init__.py").exists()
+
+
+NETWORK_FREE = (
+    "questions/build.py",
+    "questions/pinned.py",
+    "questions/house.py",
+    "questions/set_builder.py",
+    "questions/review.py",
+    "questions/generators/__init__.py",
+    "questions/generators/oneruler_fr.py",
+    "questions/generators/var_math.py",
+)
+
+
+def _relative_imports(path: Path):
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.level > 0:
+            yield node.module or ""
+
+
+@pytest.mark.parametrize("name", NETWORK_FREE)
+def test_story3_modules_never_reach_importers(name):
+    """Générateurs, questions maison et construction du jeu : aucun import des importeurs
+    (qui chargent ``huggingface_hub``), ni d'une bibliothèque réseau (AD-15)."""
+    path = PACKAGE / name
+    for module in _relative_imports(path):
+        assert "importers" not in module.split("."), f"{name} importe {module}"
+    for module in _absolute_imports(path):
+        root = module.split(".")[0]
+        assert root not in ("huggingface_hub", "datasets", "urllib", "httpx2", "stanza")
+
+
+def test_var_math_never_calls_eval_or_exec():
+    tree = ast.parse((PACKAGE / "questions/generators/var_math.py").read_text(encoding="utf-8"))
+    calls = {
+        node.func.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    assert not calls & {"eval", "exec", "compile", "__import__"}

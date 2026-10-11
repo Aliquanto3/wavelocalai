@@ -1,4 +1,8 @@
-"""Configuration de campagne (AD-8) : seul module qui lit les YAML.
+"""Configurations de campagne et de jeu (AD-8) : seul module qui lit les YAML.
+
+``load_set(path, sources, refused)`` lit ``scripts/quality_bench/sets/<set>.yaml`` (sources,
+effectifs, graines). Le catalogue des sources (``questions/schema.py``) lui est passé par
+l'appelant : ``common/`` n'importe jamais ``questions/`` (sens des dépendances du spine).
 
 ``load_campaign(path)`` lit ``scripts/quality_bench/campaigns/<c>.yaml``, applique les valeurs
 par défaut d'AD-8, refuse toute clé inconnue (et toute clé en double) et calcule
@@ -10,9 +14,10 @@ from __future__ import annotations
 
 import copy
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import yaml
 
@@ -73,9 +78,15 @@ _UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
 
 
 def read_yaml(path: str | os.PathLike[str]) -> Any:
-    """Lit un YAML (chargeur sûr, clés en double refusées)."""
+    """Lit un YAML (chargeur sûr, clés en double refusées) ; un YAML illisible lève
+    ``ConfigError`` avec sa position seulement, jamais l'extrait du texte (fichiers privés)."""
     with open(path, encoding="utf-8") as handle:
-        return yaml.load(handle, Loader=_UniqueKeyLoader)  # noqa: S506 (SafeLoader dérivé)
+        try:
+            return yaml.load(handle, Loader=_UniqueKeyLoader)  # noqa: S506 (SafeLoader dérivé)
+        except yaml.YAMLError as error:
+            mark = getattr(error, "problem_mark", None)
+            where = f" (ligne {mark.line + 1}, colonne {mark.column + 1})" if mark else ""
+            raise ConfigError(f"YAML illisible : {path}{where}") from None
 
 
 def _config_id(value: str, what: str) -> str:
@@ -265,3 +276,137 @@ def load_campaign(path: str | os.PathLike[str]) -> CampaignConfig:
         generation_hash=sha256_hex(generation),
         grading=_resolve_grading(raw.get("grading")),
     )
+
+
+# --- Jeu de questions : scripts/quality_bench/sets/<set>.yaml ------------------------------
+
+_SET_KEYS = {"set", "seed", "sources", "think_on"}
+_SET_SOURCE_KEYS = {"source", "count", "per_group", "generator_seed", "generator_params"}
+
+
+class SourceInfo(Protocol):
+    """Ce que ``load_set`` lit d'une source du catalogue (``questions/schema.SourceSpec``)."""
+
+    @property
+    def usage(self) -> str: ...
+
+    @property
+    def generated(self) -> bool: ...
+
+
+@dataclass(frozen=True)
+class SetSource:
+    """Une source du jeu : effectif exact, plafond par groupe, graine et réglages."""
+
+    source: str
+    usage: str
+    count: int
+    per_group: int | None
+    generator_seed: int | None
+    generator_params: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class SetConfig:
+    """Configuration résolue d'un jeu : sources dans l'ordre du YAML, effectifs par usage."""
+
+    path: Path
+    set_id: str
+    seed: int
+    sources: tuple[SetSource, ...]
+    think_off: dict[str, int]
+    think_on: dict[str, int]
+
+
+def _set_source(
+    raw: Any,
+    index: int,
+    sources: Mapping[str, SourceInfo],
+    refused: Mapping[str, str],
+) -> SetSource:
+    where = f"sources[{index}]"
+    value = _require_mapping(raw, where)
+    _reject_unknown(value, _SET_SOURCE_KEYS, where)
+    for key in ("source", "count"):
+        if key not in value:
+            raise ConfigError(f"{where}.{key} : obligatoire")
+    slug = value["source"]
+    if not isinstance(slug, str):
+        raise ConfigError(f"{where}.source : chaîne attendue, reçu {slug!r}")
+    if slug in refused:
+        raise ConfigError(f"{where}.source : source refusée « {slug} » ({refused[slug]})")
+    if slug not in sources:
+        raise ConfigError(f"{where}.source : source inconnue {slug!r}")
+    info = sources[slug]
+    per_group = value.get("per_group")
+    if per_group is not None:
+        per_group = _int(per_group, f"{where}.per_group", 1)
+    if info.generated:
+        if "generator_seed" not in value:
+            raise ConfigError(f"{where}.generator_seed : obligatoire pour la source générée {slug}")
+        generator_seed = _int(value["generator_seed"], f"{where}.generator_seed", 0)
+        params = value.get("generator_params")
+        params = {} if params is None else params
+        generator_params = dict(_require_mapping(params, f"{where}.generator_params"))
+    else:
+        for key in ("generator_seed", "generator_params"):
+            if key in value:
+                raise ConfigError(f"{where}.{key} : interdit pour la source non générée {slug}")
+        generator_seed, generator_params = None, {}
+    return SetSource(
+        source=slug,
+        usage=info.usage,
+        count=_int(value["count"], f"{where}.count", 1),
+        per_group=per_group,
+        generator_seed=generator_seed,
+        generator_params=generator_params,
+    )
+
+
+def load_set(
+    path: str | os.PathLike[str],
+    sources: Mapping[str, SourceInfo],
+    refused: Mapping[str, str],
+) -> SetConfig:
+    """Lit et vérifie le YAML de jeu ``path`` ; ``ConfigError`` qui nomme le champ fautif.
+
+    ``sources`` : catalogue fermé des sources (``questions/schema.SOURCES``) ; ``refused`` :
+    sources refusées (``REFUSED_SOURCES``).
+    """
+    path = Path(path)
+    raw = _require_mapping(read_yaml(path), str(path))
+    _reject_unknown(raw, _SET_KEYS, str(path))
+    for key in sorted(_SET_KEYS):
+        if key not in raw:
+            raise ConfigError(f"{path} : clé « {key} » obligatoire")
+    set_id = _config_id(_string(raw["set"], "set"), "set")
+    if set_id != path.stem:
+        raise ConfigError(f"set : {set_id!r} différent du nom du fichier {path.stem!r}")
+    seed = _int(raw["seed"], "seed", 0)
+    if not isinstance(raw["sources"], list) or not raw["sources"]:
+        raise ConfigError("sources : liste non vide attendue")
+    resolved = tuple(
+        _set_source(item, index, sources, refused) for index, item in enumerate(raw["sources"])
+    )
+    slugs = [item.source for item in resolved]
+    if len(set(slugs)) != len(slugs):
+        raise ConfigError("sources : source en double")
+    think_off = {
+        usage: sum(item.count for item in resolved if item.usage == usage)
+        for usage in USAGES
+        if any(item.usage == usage for item in resolved)
+    }
+    raw_think_on = _require_mapping(raw["think_on"], "think_on")
+    _reject_unknown(raw_think_on, set(USAGES), "think_on")
+    think_on = {}
+    for usage in think_off:
+        count = _int(raw_think_on.get(usage, 0), f"think_on.{usage}", 0)
+        if count > think_off[usage]:
+            raise ConfigError(
+                f"think_on.{usage} : {count} au-delà de l'effectif think_off {think_off[usage]}"
+            )
+        think_on[usage] = count
+    for usage in raw_think_on:
+        if usage not in think_off and _int(raw_think_on[usage], f"think_on.{usage}", 0) != 0:
+            raise ConfigError(f"think_on.{usage} : aucun effectif think_off pour cet usage")
+    return SetConfig(path, set_id, seed, resolved, think_off, think_on)

@@ -1,0 +1,40 @@
+# Jeu set-v1 du banc de qualité difficile : 800 questions en think_off, 400 en think_on.
+# Lu par common/config.load_set ; construit par `python -m scripts.quality_bench build-set
+# --set set-v1`. Les sources sont tirées dans cet ordre : un groupe pris par une source est
+# exclu des suivantes (tools-fr, traductions de bfcl-live, vient donc avant bfcl-live).
+set: set-v1
+seed: 20261011
+sources:
+  # reasoning : 130
+  - {source: var-math-fr, count: 60, generator_seed: 1, generator_params: {variants: 3}}
+  - {source: bbeh-mini, count: 70}
+  # instructions : 130
+  - {source: instructions-fr, count: 30}
+  - {source: mifeval-fr, count: 50}
+  - {source: ifbench, count: 50}
+  # tools : 130
+  - {source: tools-fr, count: 30}
+  - {source: bfcl-multi, count: 30}
+  - {source: bfcl-parallel, count: 20}
+  - {source: bfcl-live, count: 50}
+  # extraction : 110
+  - {source: extraction-fr, count: 30}
+  - {source: jsonschemabench, count: 80}
+  # rag : 110
+  - {source: oneruler-fr-niah, count: 36, generator_seed: 2}
+  - {source: oneruler-fr-cwe, count: 24, generator_seed: 3}
+  - {source: piaf, count: 50, per_group: 1}
+  # abstention : 110
+  - {source: oneruler-fr-none, count: 30, generator_seed: 4}
+  - {source: abstention-fr, count: 30}
+  - {source: bfcl-irrelevance, count: 50}
+  # writing : 80
+  - {source: writing-fr, count: 80}
+think_on:
+  reasoning: 65
+  instructions: 65
+  tools: 65
+  extraction: 55
+  rag: 55
+  abstention: 55
+  writing: 40

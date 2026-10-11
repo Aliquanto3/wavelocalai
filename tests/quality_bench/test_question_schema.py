@@ -114,3 +114,73 @@ def test_chat_messages_are_closed():
     record = question(messages=[{"role": "user", "content": "Q ?", "images": []}])
     with pytest.raises(QuestionError, match="qb.question/1"):
         validate_question(record)
+
+
+STORY3_SOURCES = {
+    # slug: (usage, licence, producteur, correcteur, privé)
+    "var-math-fr": (
+        "reasoning",
+        "private",
+        "questions/generators/var_math.py",
+        "exact_answer",
+        True,
+    ),
+    "oneruler-fr-niah": (
+        "rag",
+        "MIT",
+        "questions/generators/oneruler_fr.py",
+        "oneruler_niah",
+        False,
+    ),
+    "oneruler-fr-cwe": ("rag", "MIT", "questions/generators/oneruler_fr.py", "oneruler_cwe", False),
+    "oneruler-fr-none": (
+        "abstention",
+        "MIT",
+        "questions/generators/oneruler_fr.py",
+        "oneruler_niah",
+        False,
+    ),
+    "instructions-fr": ("instructions", "private", "questions/house.py", "mifeval_fr", True),
+    "tools-fr": ("tools", "private", "questions/house.py", "bfcl_ast", True),
+    "extraction-fr": ("extraction", "private", "questions/house.py", "json_schema", True),
+    "abstention-fr": ("abstention", "private", "questions/house.py", "abstention_marker", True),
+    "writing-fr": ("writing", "MIT", "questions/house.py", "judge_criteria", False),
+}
+
+
+@pytest.mark.parametrize("slug", sorted(STORY3_SOURCES))
+def test_story3_sources_declared(slug):
+    usage, license_, producer, grader, private = STORY3_SOURCES[slug]
+    spec = SOURCES[slug]
+    assert (spec.usage, spec.license, spec.producer, spec.grader, spec.private) == (
+        usage,
+        license_,
+        producer,
+        grader,
+        private,
+    )
+    assert spec.generated == producer.startswith("questions/generators/")
+
+
+def test_story3_graders_registered():
+    assert {"oneruler_niah", "oneruler_cwe", "abstention_marker", "judge_criteria"} <= set(
+        schema.GRADERS
+    )
+
+
+def test_every_producer_module_exists():
+    from scripts.quality_bench.common.paths import PACKAGE_DIR
+
+    for spec in SOURCES.values():
+        assert (PACKAGE_DIR / spec.producer).is_file(), spec.producer
+
+
+def test_set_hash_is_order_independent():
+    first = question()
+    second = question(id="reasoning/bbeh-mini/0002", unit="reasoning/bbeh-mini/0002")
+    tracks = {"think_off": [first["id"], second["id"]], "think_on": [first["id"]]}
+    pairs = sorted([q["id"], q["question_hash"]] for q in (first, second))
+    expected = sha256_hex({"questions": pairs, "tracks": tracks})
+    assert schema.set_hash([first, second], tracks) == expected
+    assert schema.set_hash([second, first], tracks) == expected
+    assert schema.set_hash([first, second], {**tracks, "think_on": []}) != expected

@@ -126,3 +126,63 @@ def sources_log_path(command: str) -> Path:
 def nltk_data_dir() -> Path:
     """Données NLTK du banc (``NLTK_DATA``) : ``$QUALITY_BENCH_DATA/nltk_data``."""
     return data_root() / "nltk_data"
+
+
+# Jeux de questions (AD-2, AD-6) : données hors dépôt et index versionné.
+EXPORTS_ENV = "QUALITY_BENCH_EXPORTS"
+
+
+def set_config_path(set_id: str) -> Path:
+    """YAML versionné du jeu : ``scripts/quality_bench/sets/<set>.yaml``."""
+    return PACKAGE_DIR / "sets" / f"{check_id(set_id, 'jeu')}.yaml"
+
+
+def sets_dir() -> Path:
+    return data_root() / "sets"
+
+
+def set_dir(set_id: str) -> Path:
+    """Données du jeu (hors dépôt) : ``sets/<set>/``, écrit une fois par ``build-set``."""
+    return sets_dir() / check_id(set_id, "jeu")
+
+
+def set_questions_path(set_id: str) -> Path:
+    return set_dir(set_id) / "questions.jsonl"
+
+
+def set_tracks_path(set_id: str) -> Path:
+    return set_dir(set_id) / "tracks.json"
+
+
+def sets_log_path(command: str) -> Path:
+    """Journal d'une commande sur les jeux : ``sets/log-<commande>.log``."""
+    return sets_dir() / f"log-{check_id(command, 'commande')}.log"
+
+
+def exports_root() -> Path:
+    """Racine des exports versionnés : ``$QUALITY_BENCH_EXPORTS`` ou ``benchmarks/quality``."""
+    override = os.environ.get(EXPORTS_ENV)
+    return Path(override) if override else REPO_ROOT / "benchmarks" / "quality"
+
+
+def set_index_dir(set_id: str) -> Path:
+    return exports_root() / "sets" / check_id(set_id, "jeu")
+
+
+def set_index_path(set_id: str) -> Path:
+    """Index versionné du jeu (``qb.set_index/1``, liste blanche d'AD-6)."""
+    return set_index_dir(set_id) / "index.jsonl"
+
+
+def private_dir() -> Path:
+    """Questions privées (hors dépôt) : ``$QUALITY_BENCH_DATA/private``."""
+    return data_root() / "private"
+
+
+def private_source_path(slug: str) -> Path:
+    return private_dir() / f"{check_id(slug, 'source')}.yaml"
+
+
+def review_dir() -> Path:
+    """Échantillons de relecture (hors dépôt) : ``$QUALITY_BENCH_DATA/review``."""
+    return data_root() / "review"

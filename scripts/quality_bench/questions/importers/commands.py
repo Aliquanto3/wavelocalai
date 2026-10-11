@@ -1,8 +1,11 @@
 """Sous-commandes d'avant campagne : ``fetch`` (jeux publics) et ``fetch-nltk`` (données NLTK).
 
-Toutes deux prennent ``machine.lock`` en exclusif (AD-12) : aucun téléchargement pendant une
-génération ou un jugement. Les modules d'importeurs (qui chargent ``huggingface_hub``) ne sont
-importés qu'à l'exécution, jamais au chargement de la CLI.
+``fetch`` télécharge aussi les lots bruts des générateurs (``RAW_BUNDLES`` : ``oneruler-fr``),
+sous ``sources/<lot>/raw/``, sans écrire de candidats : ``build-set`` appelle les générateurs en
+mémoire et se contente de vérifier ces fichiers. Toutes deux prennent ``machine.lock`` en
+exclusif (AD-12) : aucun téléchargement pendant une génération ou un jugement. Les modules
+d'importeurs (qui chargent ``huggingface_hub``) ne sont importés qu'à l'exécution, jamais au
+chargement de la CLI.
 """
 
 from __future__ import annotations
@@ -15,11 +18,16 @@ from ...common import paths
 from ...common.jsonl import rewrite_jsonl
 from ...common.locks import FileLock, LockBusyError
 from ...common.logs import setup_logging
+from ..generators import oneruler_fr
 from ..schema import REFUSED_SOURCES, SOURCES
 
 logger = logging.getLogger(__name__)
 
 _IMPORTERS_PREFIX = "questions/importers/"
+
+# Lots de fichiers bruts des générateurs : nom du lot → fichiers épinglés. Téléchargés par
+# ``fetch`` sous ``sources/<lot>/raw/``, vérifiés (jamais téléchargés) par ``build-set``.
+RAW_BUNDLES = {"oneruler-fr": oneruler_fr.RAW_FILES}
 
 
 class UnknownSourceError(ValueError):
@@ -40,7 +48,8 @@ def load_importer(slug: str):
     if slug not in importable_slugs():
         raise UnknownSourceError(
             f"Source inconnue ou sans importeur : {slug!r} (sources importables : "
-            f"{', '.join(importable_slugs())})"
+            f"{', '.join(importable_slugs())} ; lots bruts des générateurs : "
+            f"{', '.join(sorted(RAW_BUNDLES))})"
         )
     module_path = SOURCES[slug].producer.removesuffix(".py").replace("/", ".")
     module = importlib.import_module(f"scripts.quality_bench.{module_path}")
@@ -68,12 +77,40 @@ def fetch_source(slug: str, downloader=None) -> int:
     return count
 
 
+def fetch_bundle(name: str, downloader=None) -> int:
+    """Télécharge et vérifie les fichiers bruts du lot ``name`` ; rend leur nombre."""
+    from .remote import default_downloader, fetch_files
+
+    local = fetch_files(
+        RAW_BUNDLES[name], paths.source_raw_dir(name), downloader or default_downloader
+    )
+    logger.info(
+        "%s : %d fichiers bruts vérifiés sous %s", name, len(local), paths.source_raw_dir(name)
+    )
+    return len(local)
+
+
+def fetchable_names() -> list[str]:
+    """Sources importables puis lots bruts des générateurs (ordre de ``fetch --all``)."""
+    return importable_slugs() + sorted(RAW_BUNDLES)
+
+
+def _check_fetchable(name: str) -> None:
+    if name not in RAW_BUNDLES:
+        load_importer(name)
+
+
 def _configure_fetch(parser: argparse.ArgumentParser) -> None:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
-        "--source", action="append", metavar="<slug>", help="source à importer (répétable)"
+        "--source",
+        action="append",
+        metavar="<slug>",
+        help="source à importer, ou lot brut d'un générateur (oneruler-fr) ; répétable",
     )
-    group.add_argument("--all", action="store_true", help="toutes les sources importables")
+    group.add_argument(
+        "--all", action="store_true", help="toutes les sources importables et les lots bruts"
+    )
 
 
 def _with_machine_lock(command: str, action) -> int:
@@ -92,10 +129,10 @@ def _with_machine_lock(command: str, action) -> int:
 
 
 def _run_fetch(args: argparse.Namespace) -> int:
-    slugs = importable_slugs() if args.all else list(dict.fromkeys(args.source))
+    slugs = fetchable_names() if args.all else list(dict.fromkeys(args.source))
     for slug in slugs:
         try:
-            load_importer(slug)
+            _check_fetchable(slug)
         except UnknownSourceError as error:
             setup_logging("fetch", paths.sources_log_path("fetch"))
             logger.error("%s", error)
@@ -105,7 +142,10 @@ def _run_fetch(args: argparse.Namespace) -> int:
         failed = []
         for slug in slugs:
             try:
-                fetch_source(slug)
+                if slug in RAW_BUNDLES:
+                    fetch_bundle(slug)
+                else:
+                    fetch_source(slug)
             except Exception:  # empreinte, réseau, conversion : journalisé, sources suivantes
                 logger.exception("%s : import échoué, aucun candidat écrit", slug)
                 failed.append(slug)
@@ -140,7 +180,8 @@ def _run_fetch_nltk(args: argparse.Namespace) -> int:
 FETCH = (
     "fetch",
     "Télécharge les jeux publics (révision et empreintes épinglées) et écrit leurs questions "
-    "candidates sous $QUALITY_BENCH_DATA/sources/ ; prend machine.lock.",
+    "candidates sous $QUALITY_BENCH_DATA/sources/, ainsi que les fichiers bruts des "
+    "générateurs (oneruler-fr) ; prend machine.lock.",
     _configure_fetch,
     _run_fetch,
 )
@@ -152,4 +193,13 @@ FETCH_NLTK = (
     _run_fetch_nltk,
 )
 
-__all__ = ["FETCH", "FETCH_NLTK", "fetch_source", "importable_slugs", "load_importer"]
+__all__ = [
+    "FETCH",
+    "FETCH_NLTK",
+    "RAW_BUNDLES",
+    "fetch_bundle",
+    "fetch_source",
+    "fetchable_names",
+    "importable_slugs",
+    "load_importer",
+]

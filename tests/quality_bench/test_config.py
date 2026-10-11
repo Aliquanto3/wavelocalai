@@ -184,3 +184,99 @@ def test_duplicate_model_tags_refused(tmp_path):
     line = '    - {tag: "m", family: f, tracks: [think_off], think_off: null, num_ctx_max: 1}\n'
     with pytest.raises(ConfigError, match="double"):
         load_campaign(_write(tmp_path, "set: s\ngeneration:\n  models:\n" + line + line))
+
+
+# --- YAML de jeu : load_set ------------------------------------------------------------------
+
+from scripts.quality_bench.common.config import load_set  # noqa: E402
+from scripts.quality_bench.questions.schema import REFUSED_SOURCES, SOURCES  # noqa: E402
+
+SET = """\
+set: s1
+seed: 3
+sources:
+  - {source: var-math-fr, count: 6, generator_seed: 1, generator_params: {variants: 3}}
+  - {source: bbeh-mini, count: 4}
+  - {source: piaf, count: 5, per_group: 1}
+think_on: {reasoning: 5, rag: 2}
+"""
+
+
+def test_load_set_resolves_counts(tmp_path):
+    config = load_set(_write(tmp_path, SET, "s1.yaml"), SOURCES, REFUSED_SOURCES)
+    assert config.set_id == "s1" and config.seed == 3
+    assert config.think_off == {"reasoning": 10, "rag": 5}
+    assert config.think_on == {"reasoning": 5, "rag": 2}
+    var_math, bbeh, piaf = config.sources
+    assert (var_math.generator_seed, var_math.generator_params) == (1, {"variants": 3})
+    assert (bbeh.usage, bbeh.generator_seed, bbeh.per_group) == ("reasoning", None, None)
+    assert piaf.per_group == 1
+
+
+@pytest.mark.parametrize(
+    "old, new, message",
+    [
+        ("seed: 3", "seed: 3\nextra: 1", "inconnues"),
+        ("count: 4}", "count: 4, colour: 1}", "inconnues"),
+        ("reasoning: 5", "reasoning: 11", "think_off"),
+        ("rag: 2", "rag: 2, tools: 1", "think_on.tools"),
+        ("rag: 2", "chat: 1", "inconnues"),
+        ("bbeh-mini", "musr", "refusée"),
+        ("bbeh-mini", "squad", "inconnue"),
+        (", generator_seed: 1", "", "generator_seed"),
+        ("count: 4}", "count: 4, generator_seed: 2}", "interdit"),
+        ("count: 4}", "count: 0}", "count"),
+        ("per_group: 1", "per_group: 0", "per_group"),
+        (
+            "  - {source: piaf, count: 5, per_group: 1}\n",
+            "  - {source: bbeh-mini, count: 1}\n",
+            "double",
+        ),
+        ("seed: 3\n", "", "seed"),
+    ],
+)
+def test_load_set_refuses_invalid_yaml(tmp_path, old, new, message):
+    path = _write(tmp_path, SET.replace(old, new, 1), "s1.yaml")
+    with pytest.raises(ConfigError, match=message):
+        load_set(path, SOURCES, REFUSED_SOURCES)
+
+
+def test_load_set_requires_file_name_to_match(tmp_path):
+    with pytest.raises(ConfigError, match="nom du fichier"):
+        load_set(_write(tmp_path, SET, "s2.yaml"), SOURCES, REFUSED_SOURCES)
+
+
+def test_real_set_v1_loads():
+    from scripts.quality_bench.common.paths import set_config_path
+
+    config = load_set(set_config_path("set-v1"), SOURCES, REFUSED_SOURCES)
+    assert sum(config.think_off.values()) == 800 and sum(config.think_on.values()) == 400
+
+
+@pytest.mark.parametrize(
+    "old, new, message",
+    [
+        ("{source: bbeh-mini, count: 4}", "{source: [bbeh-mini], count: 4}", "chaîne"),
+        ("generator_params: {variants: 3}", "generator_params: []", "generator_params"),
+        ("generator_params: {variants: 3}", "generator_params: 0", "generator_params"),
+        ("generator_params: {variants: 3}", "generator_params: false", "generator_params"),
+        ("rag: 2", "rag: 2, tools: abc", "think_on.tools"),
+        ("rag: 2", "rag: 2, tools: 0.0", "think_on.tools"),
+    ],
+)
+def test_load_set_refuses_malformed_values(tmp_path, old, new, message):
+    path = _write(tmp_path, SET.replace(old, new, 1), "s1.yaml")
+    with pytest.raises(ConfigError, match=message):
+        load_set(path, SOURCES, REFUSED_SOURCES)
+
+
+def test_load_set_accepts_explicit_zero_think_on_for_absent_usage(tmp_path):
+    path = _write(tmp_path, SET.replace("rag: 2", "rag: 2, tools: 0", 1), "s1.yaml")
+    assert "tools" not in load_set(path, SOURCES, REFUSED_SOURCES).think_on
+
+
+def test_unreadable_yaml_is_a_config_error_without_excerpt(tmp_path):
+    path = _write(tmp_path, "set: s1\nseed: [3\nsecret: VALEUR-SECRETE\n", "s1.yaml")
+    with pytest.raises(ConfigError, match="YAML illisible") as caught:
+        load_set(path, SOURCES, REFUSED_SOURCES)
+    assert "VALEUR-SECRETE" not in str(caught.value) and "ligne" in str(caught.value)

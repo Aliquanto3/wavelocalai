@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,6 +33,10 @@ GRADERS = (
     "bfcl_irrelevance",  # aucun appel de fonction attendu (abstention)
     "json_schema",  # instance JSON valide contre le schéma (extraction)
     "squad_f1",  # correspondance exacte normalisée et F1, plusieurs réponses admises (RAG)
+    "oneruler_niah",  # valeurs de l'aiguille retrouvées, ou réponse « aucune » (RAG, abstention)
+    "oneruler_cwe",  # mots les plus fréquents de la liste, ensemble attendu (RAG)
+    "abstention_marker",  # marqueur d'abstention imposé par la consigne, et rien d'autre
+    "judge_criteria",  # verdicts du juge retenu sur les critères fermés (rédaction)
 )
 
 HASH_FIELDS = ("question_hash", "prompt_hash", "target_hash")
@@ -49,9 +53,15 @@ class SourceSpec:
     grader: str
     private: bool = False
 
+    @property
+    def generated(self) -> bool:
+        """Source produite par un générateur à graine (``generator_seed`` obligatoire)."""
+        return self.producer.startswith("questions/generators/")
 
-# Liste fermée des sources (slugs) ; chacune n'a qu'un producteur. Les stories suivantes
-# (générateurs, questions maison) y ajoutent les leurs, avec leur producteur.
+
+# Liste fermée des sources (slugs) ; chacune n'a qu'un producteur : un importeur de jeu public
+# (questions/importers/), un générateur à graine (questions/generators/) ou le chargeur des
+# questions maison (questions/house.py), versionnées (rédaction) ou privées (hors dépôt).
 SOURCES: dict[str, SourceSpec] = {
     spec.slug: spec
     for spec in (
@@ -90,6 +100,55 @@ SOURCES: dict[str, SourceSpec] = {
             "json_schema",
         ),
         SourceSpec("piaf", "rag", "MIT", "questions/importers/piaf.py", "squad_f1"),
+        # Générateurs à graine.
+        SourceSpec(
+            "var-math-fr",
+            "reasoning",
+            "private",
+            "questions/generators/var_math.py",
+            "exact_answer",
+            private=True,
+        ),
+        SourceSpec(
+            "oneruler-fr-niah", "rag", "MIT", "questions/generators/oneruler_fr.py", "oneruler_niah"
+        ),
+        SourceSpec(
+            "oneruler-fr-cwe", "rag", "MIT", "questions/generators/oneruler_fr.py", "oneruler_cwe"
+        ),
+        SourceSpec(
+            "oneruler-fr-none",
+            "abstention",
+            "MIT",
+            "questions/generators/oneruler_fr.py",
+            "oneruler_niah",
+        ),
+        # Questions maison : privées (hors dépôt) ou versionnées (rédaction).
+        SourceSpec(
+            "instructions-fr",
+            "instructions",
+            "private",
+            "questions/house.py",
+            "mifeval_fr",
+            private=True,
+        ),
+        SourceSpec("tools-fr", "tools", "private", "questions/house.py", "bfcl_ast", private=True),
+        SourceSpec(
+            "extraction-fr",
+            "extraction",
+            "private",
+            "questions/house.py",
+            "json_schema",
+            private=True,
+        ),
+        SourceSpec(
+            "abstention-fr",
+            "abstention",
+            "private",
+            "questions/house.py",
+            "abstention_marker",
+            private=True,
+        ),
+        SourceSpec("writing-fr", "writing", "MIT", "questions/house.py", "judge_criteria"),
     )
 }
 
@@ -175,7 +234,23 @@ QUESTION_V1["required"] = list(QUESTION_V1["properties"])
 
 
 class QuestionError(ValueError):
-    """Question non conforme à ``qb.question/1`` ou aux règles de sa source."""
+    """Question non conforme à ``qb.question/1`` ou aux règles de sa source.
+
+    Un défaut de schéma JSON porte ``path`` et ``kind`` : ``redacted()`` rend alors un message
+    sans aucune valeur (questions privées). Les autres messages du banc ne citent que des
+    identifiants, des chemins et des noms de champ.
+    """
+
+    def __init__(self, message: str, *, path: str | None = None, kind: str | None = None):
+        super().__init__(message)
+        self.path = path
+        self.kind = kind
+
+    def redacted(self) -> str:
+        """Message sûr pour une question privée : chemin et nature du défaut seulement."""
+        if self.path is None:
+            return str(self)
+        return f"champ {self.path} non conforme ({self.kind})"
 
 
 def prompt_hash(question: Mapping[str, Any]) -> str:
@@ -201,6 +276,12 @@ def with_hashes(question: Mapping[str, Any]) -> dict[str, Any]:
     record["target_hash"] = target_hash(record)
     record["question_hash"] = question_hash(record)
     return record
+
+
+def set_hash(questions: Iterable[Mapping[str, Any]], tracks: Mapping[str, Any]) -> str:
+    """Empreinte du jeu (AD-4) : ``{questions: [[id, question_hash] triés par id], tracks}``."""
+    pairs = sorted([question["id"], question["question_hash"]] for question in questions)
+    return sha256_hex({"questions": pairs, "tracks": dict(tracks)})
 
 
 def _check_nfc(value: Any, where: str) -> None:
@@ -234,7 +315,7 @@ def validate_question(question: Mapping[str, Any]) -> dict[str, Any]:
     try:
         validate_with(QUESTION_SCHEMA_ID, QUESTION_V1, record)
     except SchemaValidationError as error:
-        raise QuestionError(str(error)) from None
+        raise QuestionError(str(error), path=error.path, kind=error.kind) from None
 
     source = record["source"]
     if source in REFUSED_SOURCES:

@@ -42,3 +42,12 @@
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/2-schema-question-import-jeux-publics-telechargements.md`
   summary: Story 3 : télécharger avant campagne les fichiers bruts de OneRuler FR (livre, vocabulaire, gabarits) par le mécanisme épinglé de la story 2 (`RemoteFile`, empreintes, `machine.lock`).
   evidence: `mungg/OneRuler` @ `a3fe6af862dc4b30794afc0a8f3d4f60758cecfa` (`data/books/fr/les_miserables_fr.txt`, `data/prompt/fr/{niah,cwe}.txt`, `data/vocab/100_noun_list_translated.tsv`, `data/vocab/dictionaries/French/French.csv`). Code MIT ; aucune licence ni provenance déclarée pour le texte et les dictionnaires ; `niah.py` appelle `stanza.download` (réseau).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
+  summary: Versionner la provenance d'un jeu (empreinte AD-4, graine, empreintes des fichiers d'entrée, commit) : aujourd'hui elle ne vit que dans `sets/log-build-set.log`, hors dépôt.
+  evidence: `index.jsonl` ne porte que des lignes `qb.set_index/1` ; AD-6 n'admet aucun autre fichier sous `benchmarks/quality/sets/<set>/`. Amender AD-6 (manifeste de jeu en liste blanche), ou s'appuyer sur le manifeste de génération (story 5). Relevé à la revue de la story 3 (medium).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
+  summary: Story 4 : vérifier que les identifiants et les kwargs M-IFEval FR des questions privées `instructions-fr` existent dans le registre réduit copié.
+  evidence: `house.py` ne contrôle que le préfixe `fr:`, l'unicité et l'alignement des kwargs ; le registre n'existe pas encore. Relevé à la revue de la story 3 (low).
+- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
+  summary: 87 des 418 critères de `writing-fr.yaml` demandent au juge de compter (mots, phrases, paragraphes, répliques) : les réécrire, les corriger de façon déterministe ou mesurer leur accord à part.
+  evidence: Les juges LLM comptent mal. À trancher à la relecture d'Anaël ou à la calibration (story 9). Relevé à la revue de la story 3 (medium).

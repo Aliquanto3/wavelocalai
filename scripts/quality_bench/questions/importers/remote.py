@@ -1,24 +1,24 @@
 """Téléchargement des fichiers bruts des sources, à révision épinglée et empreinte vérifiée.
 
 Seule porte réseau des importeurs (AD-15) : un fichier d'un dépôt de données Hugging Face
-(``huggingface_hub``) ou d'un dépôt GitHub à un commit donné (``urllib``). Chaque fichier
-porte son empreinte ``sha256`` attendue, versionnée dans l'importeur. Un fichier déjà présent
-avec la bonne empreinte n'est pas retéléchargé. Une empreinte différente, après téléchargement
-ou sur un fichier local modifié, supprime le fichier et lève ``SourceIntegrityError`` : aucun
-candidat n'est alors écrit, et un nouveau ``fetch`` retélécharge le fichier. Les télémétries sont coupées avant l'import de
-``huggingface_hub`` (``tests/unit/test_telemetry.py``).
+(``huggingface_hub``) ou d'un dépôt GitHub à un commit donné (``urllib``). ``RemoteFile``,
+``file_sha256`` et ``verify_local_files`` (sans réseau) vivent dans ``questions/pinned.py`` et
+sont réexportés ici. Chaque fichier porte son empreinte ``sha256`` attendue, versionnée dans
+l'importeur. Un fichier déjà présent avec la bonne empreinte n'est pas retéléchargé. Une
+empreinte différente, après téléchargement ou sur un fichier local modifié, supprime le fichier
+et lève ``SourceIntegrityError`` : aucun candidat n'est alors écrit, et un nouveau ``fetch``
+retélécharge le fichier. Les télémétries sont coupées avant l'import de ``huggingface_hub``
+(``tests/unit/test_telemetry.py``).
 """
 
 from __future__ import annotations
 
 import logging
-import re
 import shutil
 import tempfile
 import urllib.request
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from src.core.telemetry import disable_telemetry
 
@@ -26,49 +26,26 @@ disable_telemetry()
 
 from huggingface_hub import hf_hub_download  # noqa: E402
 
-from ...common.canonical import sha256_bytes  # noqa: E402
+from ..pinned import (  # noqa: E402 (réexportés : API de la story 2)
+    RemoteFile,
+    SourceIntegrityError,
+    file_sha256,
+    verify_local_files,
+)
 
 logger = logging.getLogger(__name__)
 
 _HTTP_TIMEOUT_S = 120
 
-
-class SourceIntegrityError(RuntimeError):
-    """Fichier téléchargé d'empreinte inattendue (source modifiée ou téléchargement corrompu)."""
-
-
-@dataclass(frozen=True)
-class RemoteFile:
-    """Fichier brut d'une source : dépôt, révision complète, chemin dans le dépôt, empreinte."""
-
-    host: str  # "hf" (dépôt de données Hugging Face) ou "github"
-    repo: str
-    revision: str
-    path: str
-    sha256: str
-
-    def __post_init__(self) -> None:
-        if self.host not in ("hf", "github"):
-            raise ValueError(f"hôte inconnu : {self.host!r}")
-        if not re.fullmatch(r"[0-9a-f]{40}", self.revision):
-            raise ValueError(f"révision non épinglée (SHA complet attendu) : {self.revision!r}")
-        posix = PurePosixPath(self.path)
-        if posix.is_absolute() or ".." in posix.parts:
-            raise ValueError(f"chemin hors du dépôt : {self.path!r}")
-
-    @property
-    def url(self) -> str:
-        if self.host == "github":
-            return f"https://raw.githubusercontent.com/{self.repo}/{self.revision}/{self.path}"
-        return f"https://huggingface.co/datasets/{self.repo}/resolve/{self.revision}/{self.path}"
-
-    def local_path(self, raw_dir: Path) -> Path:
-        """Emplacement local : ``raw/<hôte>/<dépôt>/<révision>/<chemin>``. La révision fait
-        partie du chemin : changer de révision dans l'importeur ne heurte pas l'ancien fichier."""
-        return raw_dir.joinpath(
-            self.host, *self.repo.split("/"), self.revision, *PurePosixPath(self.path).parts
-        )
-
+__all__ = [
+    "Downloader",
+    "RemoteFile",
+    "SourceIntegrityError",
+    "default_downloader",
+    "fetch_files",
+    "file_sha256",
+    "verify_local_files",
+]
 
 Downloader = Callable[[RemoteFile, Path], None]
 
@@ -100,10 +77,6 @@ def default_downloader(remote: RemoteFile, target: Path) -> None:
         _download_github(remote, target)
     else:
         _download_hf(remote, target)
-
-
-def file_sha256(path: Path) -> str | None:
-    return sha256_bytes(path.read_bytes()) if path.is_file() else None
 
 
 def fetch_files(

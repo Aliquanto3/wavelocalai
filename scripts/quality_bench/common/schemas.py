@@ -1,4 +1,4 @@
-"""Schémas JSON des lignes et des manifestes (AD-7, AD-8) : seule définition du banc.
+"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8) : seule définition du banc.
 
 Chaque ligne et chaque manifeste porte ``schema: "qb.<type>/<n>"``. ``validate(record)`` lit ce
 champ, refuse un ``<n>`` inconnu (``UnknownSchemaError``) et vérifie l'enregistrement contre le
@@ -194,9 +194,45 @@ MANIFEST_V1: dict[str, Any] = {
     },
 }
 
+# Index versionné d'un jeu (AD-6) : liste blanche fermée ; empreintes de prompt et de cible
+# pour les seules questions publiques, interdites pour une question privée.
+_SET_INDEX_PUBLIC = ("prompt_hash", "target_hash")
+SET_INDEX_V1: dict[str, Any] = {
+    **_closed(
+        {
+            "schema": {"const": "qb.set_index/1"},
+            "id": _NON_EMPTY,
+            "usage": {"enum": list(USAGES)},
+            "group": _NON_EMPTY,
+            "unit": _NON_EMPTY,
+            "source": _NON_EMPTY,
+            "license": _NON_EMPTY,
+            "private": {"type": "boolean"},
+            "question_hash": _HASH,
+            "prompt_hash": _HASH,
+            "target_hash": _HASH,
+        },
+        required=[
+            "schema",
+            "id",
+            "usage",
+            "group",
+            "unit",
+            "source",
+            "license",
+            "private",
+            "question_hash",
+        ],
+    ),
+    "if": {"properties": {"private": {"const": False}}},
+    "then": {"required": list(_SET_INDEX_PUBLIC)},
+    "else": {"not": {"anyOf": [{"required": [field]} for field in _SET_INDEX_PUBLIC]}},
+}
+
 SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.generation/1": GENERATION_V1,
     "qb.manifest/1": MANIFEST_V1,
+    "qb.set_index/1": SET_INDEX_V1,
 }
 
 
@@ -219,9 +255,10 @@ class UnknownSchemaError(ValueError):
 class SchemaValidationError(ValueError):
     """Enregistrement non conforme à son schéma déclaré."""
 
-    def __init__(self, schema: str, path: str, message: str) -> None:
+    def __init__(self, schema: str, path: str, message: str, kind: str | None = None) -> None:
         self.schema = schema
         self.path = path
+        self.kind = kind  # mot-clé JSON Schema en défaut (type, required…), sans valeur
         super().__init__(f"{schema} : champ {path} non conforme ({message})")
 
 
@@ -237,6 +274,19 @@ def check_schema(schema: Mapping[str, Any]) -> None:
     _Validator.check_schema(dict(schema))
 
 
+def _json_path(error: Any) -> str:
+    path = "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in error.path)
+    return path.lstrip(".") or "(racine)"
+
+
+def instance_errors(schema: Mapping[str, Any], instance: Any) -> str | None:
+    """Chemin JSON et mot-clé du premier défaut d'``instance`` contre un schéma JSON quelconque
+    (cible d'une question d'extraction maison), ou ``None`` ; jamais de valeur (questions
+    privées). Même vérificateur d'entiers stricts (AD-4)."""
+    error = best_match(_Validator(dict(schema)).iter_errors(instance))
+    return None if error is None else f"{_json_path(error)} ({error.validator})"
+
+
 def validate_with(name: str, schema: Mapping[str, Any], record: Mapping[str, Any]) -> None:
     """Valide ``record`` contre ``schema``, un schéma défini hors de ce module (``qb.question/1``
     vit dans ``questions/schema.py``, AD-5) ; même vérificateur d'entiers stricts (AD-4) et
@@ -244,7 +294,9 @@ def validate_with(name: str, schema: Mapping[str, Any], record: Mapping[str, Any
     error = best_match(_Validator(dict(schema)).iter_errors(dict(record)))
     if error is not None:
         path = "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in error.path)
-        raise SchemaValidationError(name, path.lstrip(".") or "(racine)", error.message)
+        raise SchemaValidationError(
+            name, path.lstrip(".") or "(racine)", error.message, str(error.validator)
+        )
 
 
 def validate(record: Mapping[str, Any]) -> str:
@@ -260,5 +312,7 @@ def validate(record: Mapping[str, Any]) -> str:
     error = best_match(validator.iter_errors(dict(record)))
     if error is not None:
         path = "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in error.path)
-        raise SchemaValidationError(name, path.lstrip(".") or "(racine)", error.message)
+        raise SchemaValidationError(
+            name, path.lstrip(".") or "(racine)", error.message, str(error.validator)
+        )
     return name

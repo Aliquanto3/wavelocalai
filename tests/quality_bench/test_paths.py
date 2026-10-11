@@ -50,3 +50,33 @@ def test_campaign_config_path_in_package():
 def test_invalid_identifiers_refused(bad):
     with pytest.raises(ValueError):
         paths.campaign_dir(bad)
+
+
+def test_set_paths(_isolated_data_root, tmp_path, monkeypatch):
+    assert paths.set_config_path("set-v1") == paths.PACKAGE_DIR / "sets" / "set-v1.yaml"
+    base = _isolated_data_root / "sets" / "set-v1"
+    assert paths.set_dir("set-v1") == base
+    assert paths.set_questions_path("set-v1") == base / "questions.jsonl"
+    assert paths.set_tracks_path("set-v1") == base / "tracks.json"
+    assert paths.sets_log_path("build-set") == _isolated_data_root / "sets" / "log-build-set.log"
+    assert paths.private_dir() == _isolated_data_root / "private"
+    assert paths.private_source_path("var-math-fr") == (
+        _isolated_data_root / "private" / "var-math-fr.yaml"
+    )
+    assert paths.review_dir() == _isolated_data_root / "review"
+    exports = tmp_path / "exports"
+    monkeypatch.setenv("QUALITY_BENCH_EXPORTS", str(exports))
+    assert paths.exports_root() == exports
+    assert paths.set_index_path("set-v1") == exports / "sets" / "set-v1" / "index.jsonl"
+
+
+def test_default_exports_root_is_repo_benchmarks(monkeypatch):
+    monkeypatch.delenv("QUALITY_BENCH_EXPORTS")
+    expected = Path(__file__).resolve().parents[2] / "benchmarks" / "quality"
+    assert paths.exports_root() == expected
+
+
+@pytest.mark.parametrize("bad", ["../x", "a/b", "a|b"])
+def test_invalid_set_identifiers_refused(bad):
+    with pytest.raises(ValueError):
+        paths.set_dir(bad)

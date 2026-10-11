@@ -32,9 +32,11 @@ INTEGRATION_ENV = "QUALITY_BENCH_INTEGRATION"
 
 @pytest.fixture(autouse=True)
 def _isolated_data_root(tmp_path, monkeypatch):
-    """Jamais d'écriture dans ``data/`` réel : la racine des données pointe sur ``tmp_path``."""
+    """Jamais d'écriture dans ``data/`` ni dans ``benchmarks/quality/`` réels : la racine des
+    données et celle des exports versionnés pointent sur ``tmp_path``."""
     root = tmp_path / "quality_bench_data"
     monkeypatch.setenv("QUALITY_BENCH_DATA", str(root))
+    monkeypatch.setenv("QUALITY_BENCH_EXPORTS", str(tmp_path / "quality_bench_exports"))
     monkeypatch.delenv("QUALITY_BENCH_MACHINE", raising=False)
     return root
 
