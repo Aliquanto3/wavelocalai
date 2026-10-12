@@ -74,7 +74,11 @@ def test_report_graph_reaches_stats_and_common():
     assert {
         "report/commands.py",
         "report/inputs.py",
+        "report/calibration.py",
+        "report/calibration_measures.py",
+        "report/calibration_markdown.py",
         "stats/spearman.py",
+        "stats/wilson.py",
         "common/selection.py",
         "questions/schema.py",
     } <= reached

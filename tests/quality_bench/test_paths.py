@@ -91,3 +91,15 @@ def test_reserved_export_dirs_are_refused_case_insensitively(name):
 
 def test_campaign_exports_dir():
     assert paths.campaign_exports_dir("pilot-20261015") == paths.exports_root() / "pilot-20261015"
+
+
+def test_calibration_paths(_isolated_data_root):
+    base = _isolated_data_root / "calibration"
+    assert paths.calibration_dir() == base
+    assert paths.labels_path() == base / "labels.jsonl"
+    assert paths.labels_todo_path("pilot-20261015", ".md") == base / "labels-todo-pilot-20261015.md"
+    assert paths.calibration_report_path("c1", ".json") == (
+        _isolated_data_root / "campaigns" / "c1" / "calibration-report.json"
+    )
+    with pytest.raises(ValueError):
+        paths.labels_todo_path("../x", ".jsonl")

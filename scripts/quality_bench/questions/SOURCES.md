@@ -372,6 +372,52 @@ Le pilote (CAP-8) tourne sur les 4 modèles « pilote » de `modeles.md`, avant 
   - Au-delà de `budget_hours`, l'ordre de réduction de `SPEC.md` est chiffré, étapes cumulées, et publié comme **proposition** : plafonds candidats, constat des modèles thinking en piste activée, piste activée ramenée à `think_on_n`. Rien n'est appliqué : N, plafonds et K restent à décider. Un total incomplet (débit ou durée de chargement inconnus) sous le budget est déclaré « indéterminé (débits manquants) ».
 - **Codes de sortie :** 0 (rejeu absent compris) ; 1 si les entrées sont incohérentes (ligne hors schéma, jeu ou section `generation` hors `selection` différents entre pilote et rejeu, ancien banc ou catalogue illisible), rien n'est écrit ; 2 si `campaigns/<c>.yaml` ou `pilot.yaml` est absent ou invalide, ou si `--replay` désigne la campagne pilote.
 
+## Calibration du juge
+
+La calibration (CAP-6) mesure l'accord des juges avec environ 100 étiquettes humaines posées par Anaël sur des réponses de rédaction du pilote, critère par critère. Deux commandes en lecture seule, sans réseau, sans juge, sans Ollama et sans `machine.lock`, qui n'écrivent que hors dépôt :
+
+```powershell
+# 1. Juger la campagne avec chaque juge à comparer (un dossier judgment-<id>/ par juge)
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge winnow
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku --max-cost-usd 5
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge mimo --max-cost-usd 15
+# Rejeu de Haiku (stabilité) : identifiant distinct haiku-replay, mêmes réglages (alias YAML)
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku-replay --max-cost-usd 5
+# 2. Échantillon à étiqueter : calibration/labels-todo-<c>.jsonl et .md
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate-sample --campaign pilot-20261012 --size 100 --seed 9
+# 3. Remplir labels-todo-<c>.jsonl à la main, puis AJOUTER ses lignes à la fin de
+#    calibration/labels.jsonl (créé s'il est absent ; jamais remplacé : multi-campagnes)
+# 4. Rapport (seuils facultatifs : sans les deux, aucune recommandation)
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261012
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261012 --min-agreement 0.85 --max-qwen-bias 0.05
+```
+
+- **Étiquette `qb.label/1`** (schéma fermé de `common/schemas.py`), une ligne par critère dans `$QUALITY_BENCH_DATA/calibration/labels.jsonl`, fichier écrit par Anaël seul (AD-2), qui peut couvrir plusieurs campagnes :
+
+  ```json
+  {"schema": "qb.label/1", "key": "<generation_key>|c3", "label": true, "author": "Anaël", "labeled_at": "2026-10-20", "note": null}
+  ```
+
+  `key` = clé de jugement `<generation_key>|<critère>` ; `label` : `true`, `false`, `"undecidable"` ou `null` (à étiqueter). Une étiquette posée (non nulle) exige `author` (chaîne non vide) et `labeled_at` (`AAAA-MM-JJ` ou horodatage UTC `AAAA-MM-JJTHH:MM:SSZ`) ; `note` : chaîne ou `null`. Fichier en UTF-8 **sans BOM**, chaque ligne terminée par un retour à la ligne (sinon refus : la lecture en ajout seul ignorerait la dernière étiquette).
+- **Lecture des étiquettes :** ligne hors schéma, clé en double, ou clé de la campagne qui n'est pas une unité jugeable : refus, avec le numéro de ligne. Lignes d'autres campagnes (préfixe `<c>|`), `null` et `"undecidable"` : comptées, hors de l'accord.
+- **Unités jugeables :** une par critère des lignes de `generation.jsonl` au manifeste concordant, `usage = writing` et `status = ok` (même règle que la phase `judge`). Biais Qwen selon la famille déclarée (`models_resolved[].family == "qwen"`).
+- **Dossiers de jugement :** chaque `campaigns/<c>/judgment-<id>/` est contrôlé (schéma, manifeste de ligne, juge, clé, unité connue, pas de doublon ; sinon code 1). Sans `manifest.json` (ni `judgment.jsonl`), le juge est « absent » ; `judgment.jsonl` sans `manifest.json` : code 1 ; un manifeste d'une autre génération rend le juge « discordant » : exclu et signalé, sans échec.
+- **`calibrate-sample`** (`--size`, défaut 100 ; `--seed`, défaut 0) : réservoir = unités jugeables publiques. Seul un juge concordant hors `*-replay` qui a une ligne pour **chaque** unité publique restreint le réservoir, aux clés où il rend un verdict booléen ; un juge partiel (plafond de coût, arrêt) est ignoré et sa couverture journalisée. Toute clé de la campagne déjà présente dans `calibration/labels.jsonl` (quelle que soit l'étiquette, `null` compris) est écartée. Un `labels-todo-<c>.jsonl` existant dont une ligne porte déjà une étiquette non nulle bloque un nouveau tirage (code 1). Moitié Qwen, moitié non-Qwen (un éventuel reste au groupe Qwen ; tout à un groupe si l'autre est vide), partagée à parts égales entre les modèles du groupe (reste aux premiers tags dans l'ordre alphabétique). Par modèle, réponses triées par `sha256_hex([seed, "calibration", generation_key])`, critères d'une réponse par `sha256_hex([seed, "calibration", key])` : un critère par réponse, puis un deuxième, etc., jusqu'au quota (modèle trop court : tout le modèle, avertissement). Ordre final par `sha256_hex([seed, "calibration-order", key])`. Même graine, mêmes octets.
+  - `calibration/labels-todo-<c>.jsonl` : une ligne `qb.label/1` par item, `label`, `author`, `labeled_at` et `note` nuls ;
+  - `calibration/labels-todo-<c>.md` : consigne de saisie, puis pour chaque item son numéro (= rang de la ligne de `labels-todo-<c>.jsonl`, écrit avec lui en une seule écriture atomique), la question, la piste, le critère, la consigne et la réponse vues par le juge, sans modèle ni clé. Seul fichier de la calibration qui contient du texte de question et de réponse : il reste sous `data/`.
+- **`calibrate`** écrit `campaigns/<c>/calibration-report.md` (français) et `calibration-report.json`, déterministes et sans date, sans texte de question ni de réponse. Configurations, dans cet ordre : `winnow`, cascade `winnow` → `haiku`, `mimo`, `haiku`, puis tout autre juge présent (ordre alphabétique), hors `*-replay`. Mesures :
+  - **couverture** (lignes / unités), lignes `error`, unités sans ligne ;
+  - **accord** sur les unités étiquetées `true`/`false` qu'un juge a notées d'un verdict booléen, sans pondération sur l'échantillon étiqueté (stratifié : ce n'est pas une estimation pour toute la campagne), intervalle de Wilson à 95 %, indulgence (juge vrai, humain faux), sévérité (juge faux, humain vrai), étiquetées sans ligne ou en `error` ;
+  - **biais Qwen** = accord(Qwen) − accord(non-Qwen), en points, avec effectifs, intervalles et indulgence de chaque groupe ;
+  - **critères de comptage** : accord publié à part ; heuristique sur le texte du critère : nombre (chiffres, deux… cent, « un seul ») + au plus un mot + unité (mots, phrases, paragraphes, répliques, lignes, puces, éléments, étapes, conseils, questions), soit 84 des 418 critères de `writing-fr.yaml` ;
+  - **coût** facturé = Σ `cost_usd` des lots `collected` de `batches.jsonl` s'il y en a (Haiku), sinon Σ `cost_usd` de `judgment.jsonl` ; coût par jugement, projection sur `--projected-judgments` (défaut 11 000) ;
+  - **cascade**, par marge `m` de `--cascade-margins` (défaut `0,0.05,…,0.5` : virgules entre les marges, deux décimales au plus) : probabilité de Winnow `p ≥ 0,5 + m` → vrai, `p ≤ 0,5 − m` → faux, sinon (ou ligne `error`, ou `p` nulle) verdict de Haiku de la même clé ; part escaladée sur les unités notées par Winnow, coût = coût par jugement de Haiku × escaladées, accord et biais ; identifiant `winnow-cascade-haiku@<bas>-<haut>` (`@0.35-0.65`). Sans `winnow` ou sans `haiku` : « non simulable ». La cascade n'est jamais ajoutée à `judges.yaml` ni matérialisée en dossier de jugement ;
+  - **stabilité** par paire `<id>` / `<id>-replay` : comparable si `endpoint`, `model`, `settings`, `prompt_template_hash`, `weights_sha256`, `server_version` et `generation_manifest` sont égaux (sinon « rejeu non comparable » qui nomme le champ) ; sur les clés à verdict booléen des deux côtés, part identique (Wilson) et changements. Sans rejeu : « rejeu absent ».
+- **Seuils** `--min-agreement` et `--max-qwen-bias` (dans [0, 1]), sans valeur par défaut : absents, chaque colonne dit « seuil non fixé » et aucune recommandation n'est écrite. Les deux fournis : candidats = chaque configuration et chaque marge de cascade ; admissible si accord ≥ seuil et |biais| ≤ seuil (biais indéfini : non admissible) ; proposition = accord maximal, puis coût projeté minimal, puis ordre des configurations. C'est une **proposition**, jamais un choix appliqué : le juge retenu se consigne à la main dans `grading.judge`.
+- **Rejeu d'un juge** (AD-12, AD-16) : un identifiant distinct `<id>-replay` dans `judges.yaml` (entrée `haiku-replay`, alias YAML de `haiku`), donc un dossier à lui, jugé par la commande `judge` habituelle sur les mêmes clés ; aucun dossier existant n'est rejugé.
+- **Journaux** `campaigns/<c>/log-calibrate.log` et `log-calibrate-sample.log` : identifiants, comptes et chemins seulement.
+- **Codes de sortie :** 0 (étiquettes absentes, juge absent ou discordant compris) ; 1 si les entrées sont incohérentes (étiquette ou ligne de jugement ou de lot invalide, `labeled_at` qui n'est pas une date réelle, `judgment.jsonl` sans `manifest.json`, `labels-todo-<c>.jsonl` déjà en partie rempli, BOM, dernière ligne sans fin de ligne, échantillon sans unité jugeable), rien n'est écrit ; 2 si `campaigns/<c>.yaml` est absent ou invalide, un seuil hors [0, 1], une marge hors [0, 0,5] ou à plus de deux décimales, `--projected-judgments` < 1 ou `--size` < 1.
+
 ## Sources refusées
 
 Ces sources sont listées dans `REFUSED_SOURCES` de `questions/schema.py`. Une question qui les porte est refusée, et `fetch` ne les télécharge pas.

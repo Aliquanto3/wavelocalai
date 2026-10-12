@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import random
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,7 @@ from scripts.quality_bench.common.jsonl import rewrite_jsonl
 from scripts.quality_bench.common.manifest import blocking_hash
 from scripts.quality_bench.common.schemas import validate
 from scripts.quality_bench.common.selection import selected_ids
-from scripts.quality_bench.questions.schema import set_hash
+from scripts.quality_bench.questions.schema import set_hash, with_hashes
 
 from .factories import JUDGE, generation_record, manifest, model_resolved, question
 
@@ -144,14 +144,20 @@ def make_campaign(
     selection: Mapping[str, Any] | None = None,
     campaign: str = CAMPAIGN,
     set_id: str = SET_ID,
+    families: Sequence[str] | None = None,
+    question_overrides: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Synthetic:
     """Campagne complète écrite sous ``$QUALITY_BENCH_DATA`` ; ``statuses`` : (indice du
     modèle, piste, question, seed) → statut de correction particulier ; ``selection`` :
     section ``generation.selection`` (lignes écrites pour les seules questions du plan) ;
     ``campaign`` : identifiant (pilote et rejeu dans le même ``$QUALITY_BENCH_DATA``) ;
-    ``set_id`` : jeu écrit et cité (un autre jeu pour un rejeu discordant)."""
+    ``set_id`` : jeu écrit et cité (un autre jeu pour un rejeu discordant) ; ``families`` :
+    famille déclarée de chaque modèle (``qwen`` par défaut) ; ``question_overrides`` : champs
+    remplacés par question (empreintes recalculées)."""
     statuses = dict(statuses or {})
     questions, tracks = build_set(small)
+    for qid, overrides in (question_overrides or {}).items():
+        questions[qid] = with_hashes({**questions[qid], **overrides})
     question_list = [questions[qid] for qid in sorted(questions)]
     rewrite_jsonl(paths.set_questions_path(set_id), question_list)
     path = paths.set_tracks_path(set_id)
@@ -162,12 +168,14 @@ def make_campaign(
     yaml_models = []
     for index in range(n_models):
         model = model_resolved(index)
+        if families is not None:
+            model["family"] = families[index]
         if index in think_off_only:
             model["tracks"] = ["think_off"]
         resolved_models.append(model)
         tracks_yaml = ", ".join(model["tracks"])
         yaml_models.append(
-            f'    - {{tag: "{model["tag"]}", family: qwen, tracks: [{tracks_yaml}], '
+            f'    - {{tag: "{model["tag"]}", family: {model["family"]}, tracks: [{tracks_yaml}], '
             "think_off: false, think_on: true, num_ctx_max: 32768}"
         )
     config_dir = tmp_path / "campaigns_yaml"

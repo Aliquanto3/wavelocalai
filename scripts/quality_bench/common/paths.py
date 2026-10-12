@@ -84,6 +84,28 @@ def pilot_report_path(campaign: str, suffix: str) -> Path:
     return campaign_dir(campaign) / f"pilot-report{suffix}"
 
 
+def calibration_dir() -> Path:
+    """Calibration du juge (hors dépôt) : ``$QUALITY_BENCH_DATA/calibration``."""
+    return data_root() / "calibration"
+
+
+def labels_path() -> Path:
+    """Étiquettes humaines ``qb.label/1`` : ``calibration/labels.jsonl`` (écrit par Anaël seul,
+    AD-2 ; plusieurs campagnes possibles)."""
+    return calibration_dir() / "labels.jsonl"
+
+
+def labels_todo_path(campaign: str, suffix: str) -> Path:
+    """Échantillon à étiqueter d'une campagne : ``calibration/labels-todo-<c><suffix>``
+    (``.jsonl`` ou ``.md``, réécrits par ``calibrate-sample``)."""
+    return calibration_dir() / f"labels-todo-{check_id(campaign, 'campagne')}{suffix}"
+
+
+def calibration_report_path(campaign: str, suffix: str) -> Path:
+    """Rapport de calibration (hors dépôt) : ``campaigns/<c>/calibration-report<suffix>``."""
+    return campaign_dir(campaign) / f"calibration-report{suffix}"
+
+
 def judges_config_path() -> Path:
     """YAML versionné des juges : ``scripts/quality_bench/judges.yaml`` (AD-8)."""
     return PACKAGE_DIR / "judges.yaml"

@@ -466,3 +466,61 @@ def test_report_is_closed_at_every_level():
     record["tracks"][0]["scopes"][0]["method"] = "friedman"
     with pytest.raises(SchemaValidationError):
         validate(record)
+
+
+# -- Étiquette humaine de calibration (story 9) : qb.label/1 --------------------------------
+
+LABEL_KEY = "pilot-20261015|qwen3.5:4b|think_off|writing/writing-fr/0001|0|c1"
+
+
+def _label(**overrides):
+    record = {
+        "schema": "qb.label/1",
+        "key": LABEL_KEY,
+        "label": True,
+        "author": "Anaël",
+        "labeled_at": "2026-10-12",
+        "note": None,
+    }
+    record.update(overrides)
+    return record
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {},
+        {"label": False, "note": "réponse ambiguë"},
+        {"label": "undecidable", "labeled_at": "2026-10-12T09:30:00Z"},
+        {"label": None, "author": None, "labeled_at": None},
+    ],
+)
+def test_label_lines_validate(overrides):
+    assert validate(_label(**overrides)) == "qb.label/1"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"label": 1},  # entier, pas un booléen
+        {"label": "true"},
+        {"author": None},  # étiquette posée sans auteur
+        {"author": ""},
+        {"labeled_at": None},  # étiquette posée sans date
+        {"labeled_at": "12/10/2026"},
+        {"labeled_at": "2026-10-12T09:30:00+02:00"},
+        {"key": "pilot|qwen3.5:4b|think_off|writing/writing-fr/0001|0"},  # clé de génération
+        {"note": 3},
+        {"extra": 1},
+    ],
+)
+def test_label_lines_are_closed_and_typed(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(_label(**overrides))
+
+
+def test_label_missing_field_refused():
+    record = _label()
+    del record["note"]
+    with pytest.raises(SchemaValidationError):
+        validate(record)

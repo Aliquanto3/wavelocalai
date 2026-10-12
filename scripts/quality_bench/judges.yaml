@@ -31,7 +31,7 @@ judges:
     timeout_s: 600
   # Claude Haiku 5.5 en Message Batches : ni temperature, ni top_p, ni top_k, ni préremplissage
   # (refusés par l'API) ; effort et réflexion consignés dans le manifeste du jugement.
-  haiku:
+  haiku: &haiku
     kind: anthropic_batch
     endpoint: https://api.anthropic.com
     model: claude-haiku-5-5
@@ -54,6 +54,12 @@ judges:
       long_context: {threshold_tokens: 100000, input_per_mtok: 0.50, output_per_mtok: 2.50}
       source: "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing, Batch processing)"
       checked: 2026-10-12
+  # Rejeu d'un juge (stabilité du verdict, calibration, AD-12, AD-16) : un identifiant distinct
+  # <id>-replay, donc un dossier judgment-<id>-replay/ à lui, jugé par la commande judge
+  # habituelle sur les mêmes clés ; aucun dossier existant n'est rejugé. Ses réglages doivent
+  # rester ceux de <id> (alias YAML) : calibrate compare les deux manifestes et déclare le
+  # rejeu « non comparable » au premier champ différent.
+  haiku-replay: *haiku
   # MiMo-V2.6-Pro (Xiaomi), API compatible OpenAI ; thinking envoyé seulement s'il est réglé.
   mimo:
     kind: openai_chat

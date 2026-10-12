@@ -35,9 +35,9 @@ def _load(tmp_path, text):
     return load_judges(path)
 
 
-def test_versioned_judges_yaml_declares_the_four_judges():
+def test_versioned_judges_yaml_declares_the_judges_and_haiku_replay():
     judges = load_judges(paths.judges_config_path())
-    assert set(judges) == {"winnow", "haiku", "mimo", "decider"}
+    assert set(judges) == {"winnow", "haiku", "haiku-replay", "mimo", "decider"}
     assert judges["winnow"].local and judges["winnow"].prices is None
     assert judges["decider"].endpoint is None and judges["decider"].cloud
     assert judges["haiku"].settings["effort"] in ("low", "medium", "high", "xhigh", "max")
@@ -46,6 +46,21 @@ def test_versioned_judges_yaml_declares_the_four_judges():
         if judge.cloud:
             assert judge.prices["source"] and judge.prices["checked"]
             assert judge.options["api_key_env"]
+
+
+def test_haiku_replay_equals_haiku_except_its_id():
+    """Rejeu de stabilité (story 9) : alias YAML de ``haiku``, seul l'identifiant (donc le
+    dossier et ``config_hash``) diffère."""
+    judges = load_judges(paths.judges_config_path())
+    haiku, replay = judges["haiku"], judges["haiku-replay"]
+    assert replay.id == "haiku-replay" and replay.config_hash != haiku.config_hash
+    for name in ("kind", "endpoint", "model", "settings", "options", "prices"):
+        assert getattr(replay, name) == getattr(haiku, name), name
+    assert (replay.weights_sha256, replay.server_version) == (
+        haiku.weights_sha256,
+        haiku.server_version,
+    )
+    assert replay.cloud and prompt_template_hash(replay.kind) == prompt_template_hash(haiku.kind)
 
 
 def test_defaults_are_applied(tmp_path):

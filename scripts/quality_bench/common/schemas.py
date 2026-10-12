@@ -599,6 +599,32 @@ AA_REFERENCE_V1: dict[str, Any] = _closed(
     }
 )
 
+# Étiquette humaine de calibration (CAP-6), dans ``calibration/labels.jsonl``, écrit par Anaël
+# seul (AD-2) : clé de jugement ``<generation_key>|<critère>`` ; ``label`` nul = à étiqueter.
+# Une étiquette posée (vrai, faux ou indécidable) porte son auteur et sa date (jour ou
+# horodatage UTC).
+LABEL_VALUES = (True, False, "undecidable", None)
+_JUDGMENT_KEY = {"type": "string", "pattern": r"^[^|]+(\|[^|]+){5}$"}
+_DAY_OR_TIMESTAMP = {
+    "type": "string",
+    "pattern": r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}Z)?$",
+}
+LABEL_V1: dict[str, Any] = {
+    **_closed(
+        {
+            "schema": {"const": "qb.label/1"},
+            "key": _JUDGMENT_KEY,
+            "label": {"enum": list(LABEL_VALUES)},
+            "author": {"type": ["string", "null"]},
+            "labeled_at": {"oneOf": [_DAY_OR_TIMESTAMP, {"type": "null"}]},
+            "note": {"type": ["string", "null"]},
+        }
+    ),
+    "if": {"properties": {"label": {"const": None}}},
+    "then": {},
+    "else": {"properties": {"author": _NON_EMPTY, "labeled_at": _DAY_OR_TIMESTAMP}},
+}
+
 SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.generation/1": GENERATION_V1,
     "qb.warmup/1": WARMUP_V1,
@@ -610,6 +636,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.score/1": SCORE_V1,
     "qb.report/1": REPORT_V1,
     "qb.aa_reference/1": AA_REFERENCE_V1,
+    "qb.label/1": LABEL_V1,
 }
 
 
