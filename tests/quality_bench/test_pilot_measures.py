@@ -321,11 +321,23 @@ def test_overhead_reference_tier_and_degradation():
     assert reference_tier(warmups, 1500) == 4096  # égalité : le plus petit palier
     assert reference_tier(warmups, None) is None
     deg = degradation(warmups, ["a", "b"], [4096, 8192, 16384], 8192)
-    # a : 1000 / médiane(800, 820) = 1000 / 810 ; b : 600 / 500 ; médiane des deux.
-    assert deg[4096][0] == pytest.approx((1000 / 810 + 1.2) / 2)
+    # a : 1000 / max(800, 820) = 1000 / 820 ; b : 600 / 500 ; médiane des deux.
+    assert deg[4096][0] == pytest.approx((1000 / 820 + 1.2) / 2)
     assert deg[4096][1:] == (True, 2)
     assert deg[8192] == (1.0, True, 2)
     assert deg[16384] == (1.0, False, 0)
+
+
+def test_degradation_ignores_cold_first_warmup():
+    # Première chauffe à froid (139 tok/s) puis chauffe à chaud au même palier : seule la
+    # seconde compte, sinon le préremplissage semblerait s'améliorer aux grands paliers.
+    warmups = [
+        Warmup("a", 4096, 800, 139.0),
+        Warmup("a", 8192, 1600, 2550.0),
+        Warmup("a", 4096, 800, 1872.0),
+    ]
+    deg = degradation(warmups, ["a"], [4096, 8192], 4096)
+    assert deg[8192][0] == pytest.approx(2550.0 / 1872.0)
 
 
 def _rate(tag="a", *, decode=100.0, prefill=1000.0, load_s=1.0, thinking=False, reason=None):

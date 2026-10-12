@@ -130,6 +130,23 @@ def _resolved(capabilities, tracks=("think_off", "think_on")):
     return {"tag": TAG, "capabilities": capabilities, "tracks": list(tracks)}
 
 
+def test_think_value_outside_published_values_is_refused():
+    # Ollama 0.40.2, LiquidAI/lfm2.5-2.6b : think false n'est pas une valeur permise.
+    show = _show(thinking={"values": [True], "default": True})
+    with pytest.raises(LaunchError, match=r"think_off.*thinking.values"):
+        resolve_model(_cfg(), show, _tags())
+    resolved = resolve_model(_cfg(tracks=["think_on"]), show, _tags())
+    assert resolved["tracks"] == ["think_on"]
+
+
+def test_published_think_values_allow_both_tracks():
+    show = _show(thinking={"values": [False, True], "default": True})
+    assert resolve_model(_cfg(), show, _tags())["tracks"] == ["think_off", "think_on"]
+    # Liste absente ou illisible : aucun contrôle supplémentaire.
+    assert resolve_model(_cfg(), _show(thinking=None), _tags())["think_off"] is False
+    assert resolve_model(_cfg(), _show(thinking={"default": True}), _tags())["think_on"] is True
+
+
 def test_tool_question_without_tools_capability_is_refused():
     questions = {"think_off": [{"id": "tools/bfcl-live/0001", "tools": [{"type": "function"}]}]}
     with pytest.raises(LaunchError, match="tools/bfcl-live/0001") as excinfo:

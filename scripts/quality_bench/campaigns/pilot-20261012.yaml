@@ -20,9 +20,12 @@ generation:
         rag: {think_off: 80, think_on: 40}
         abstention: {think_off: 80, think_on: 40}
         writing: {think_off: 40, think_on: 20}
+  # LiquidAI/lfm2.5-2.6b en think_on seulement : /api/show (Ollama 0.40.2) publie
+  # thinking.values = [true], et sous think false le modèle réfléchit dans content (essai
+  # du 2026-10-12, même complétion qu'en think_on). Le préflight refuse une valeur non publiée.
   models:
     - {tag: "ling3-tiny:8b-q4_k_m", family: ling, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
-    - {tag: "LiquidAI/lfm2.5-2.6b", family: lfm, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "LiquidAI/lfm2.5-2.6b", family: lfm, tracks: [think_on], think_off: false, think_on: true, num_ctx_max: 32768}
     - {tag: "gemma4:e2b-it-qat", family: gemma, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
     - {tag: "qwen3.5:4b", family: qwen, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
 grading:

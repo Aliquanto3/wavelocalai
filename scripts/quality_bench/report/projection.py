@@ -9,8 +9,9 @@ fonctions pures sur les lignes du pilote, ses chauffes et les débits de l'ancie
 - **Palier de référence** : celui dont le ``prompt_tokens`` de chauffe (médiane des chauffes du
   palier) est le plus proche de la médiane des ``prefill_prompt_tokens`` de l'ancien banc des
   modèles du pilote. ``deg(palier)`` = médiane, sur les modèles du pilote, de
-  ``prefill(palier) / prefill(référence)`` (médiane des chauffes d'un même couple) ; 1,0 et
-  signalé sans mesure.
+  ``prefill(palier) / prefill(référence)`` (maximum des chauffes d'un même couple : la première
+  chauffe d'un modèle, à froid, sous-estime le préremplissage, 139 contre 1 872 tok/s mesurés
+  sur la tour le 2026-10-12) ; 1,0 et signalé sans mesure.
 - **Surcoût** ``f = Σ wall_s / Σ (prompt_eval + eval) / 1e9`` sur les lignes requêtées.
 - **Durée d'un modèle et d'une piste** (jeu entier) :
   ``f × Σ_q [C̄/décodage + P̄/(préremplissage × deg(palier))]
@@ -184,8 +185,8 @@ def degradation(
     warmups: Sequence[Warmup], models: Sequence[str], tiers: Iterable[int], reference: int | None
 ) -> dict[int, tuple[float, bool, int]]:
     """``palier → (deg, mesuré, modèles)`` : médiane sur ``models`` de
-    ``prefill(palier) / prefill(référence)`` (médiane des chauffes d'un même couple) ; ``(1.0,
-    False, 0)`` sans mesure."""
+    ``prefill(palier) / prefill(référence)`` (maximum des chauffes d'un même couple, la chauffe à
+    froid sous-estimant le préremplissage) ; ``(1.0, False, 0)`` sans mesure."""
     prefill: dict[tuple[str, int], list[float]] = {}
     for warmup in warmups:
         if warmup.prefill_tok_s is not None and warmup.prefill_tok_s > 0:
@@ -198,7 +199,7 @@ def degradation(
                 at_tier = prefill.get((model, tier))
                 at_reference = prefill.get((model, reference))
                 if at_tier and at_reference:
-                    ratios.append(statistics.median(at_tier) / statistics.median(at_reference))
+                    ratios.append(max(at_tier) / max(at_reference))
         if ratios:
             result[tier] = (float(statistics.median(ratios)), True, len(ratios))
         else:

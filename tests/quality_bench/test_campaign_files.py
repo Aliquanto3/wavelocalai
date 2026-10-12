@@ -67,13 +67,21 @@ def test_replay_counts_are_within_the_pilot(campaigns):
         assert counts["think_off"] - counts["think_on"] <= mine["think_off"] - mine["think_on"]
 
 
+THINK_ON_ONLY = "LiquidAI/lfm2.5-2.6b"
+
+
 def test_campaign_models_are_the_four_pilot_models_of_modeles_md(campaigns):
     expected = [tag for tag, role in _modeles_rows() if role == "pilote"]
     for campaign in campaigns.values():
         models = campaign.generation["models"]
         assert sorted(model["tag"] for model in models) == sorted(expected)
         for model in models:
-            assert model["tracks"] == ["think_off", "think_on"]
+            # LFM 2.5 2.6B ne publie que think true dans /api/show (Ollama 0.40.2) : piste
+            # think_on seulement, le préflight refusant think false.
+            expected_tracks = (
+                ["think_on"] if model["tag"] == THINK_ON_ONLY else ["think_off", "think_on"]
+            )
+            assert model["tracks"] == expected_tracks
             assert (model["think_off"], model["think_on"]) == (False, True)
 
 

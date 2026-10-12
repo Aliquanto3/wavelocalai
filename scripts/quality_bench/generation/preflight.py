@@ -9,7 +9,9 @@ aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
   refuse un modèle absent de ``/api/tags`` ou sans ``digest``, distant (``remote_host``), qui
   déclare ``decision``, sans ``completion``, une piste ``think_on`` sans ``thinking`` ou à valeur
   fausse ou nulle, une piste ``think_off`` à valeur vraie, une valeur ``think`` incohérente avec la capacité ``thinking`` ou de type
-  chaîne (``/api/show`` ne publie aucune liste de valeurs permises).
+  chaîne, ou absente de ``thinking.values`` quand ``/api/show`` publie cette liste (Ollama
+  0.40.2 : ``{"values": [true], "default": true}`` pour ``LiquidAI/lfm2.5-2.6b``, qui réfléchit
+  dans ``content`` sous ``think: false``).
 - ``check_launch`` : refuse une question à outils sélectionnée pour un modèle sans ``tools``.
 - ``effective_ctx_max`` : ``min(num_ctx_max de la configuration, <arch>.context_length)``.
 """
@@ -77,7 +79,21 @@ def _capabilities(tag: str, show: Mapping[str, Any]) -> list[str]:
     return sorted(set(capabilities))
 
 
-def _check_think(tag: str, track: str, value: Any, thinking: bool) -> None:
+def published_think_values(show: Mapping[str, Any]) -> list[bool] | None:
+    """Valeurs booléennes de ``thinking.values`` publiées par ``/api/show``, ou ``None`` si la
+    liste est absente."""
+    published = show.get(THINKING)
+    if not isinstance(published, Mapping):
+        return None
+    values = published.get("values")
+    if not isinstance(values, list):
+        return None
+    return [value for value in values if isinstance(value, bool)]
+
+
+def _check_think(
+    tag: str, track: str, value: Any, thinking: bool, allowed: list[bool] | None
+) -> None:
     if isinstance(value, str):
         raise LaunchError(
             f"{tag} : valeur think {value!r} de la piste {track} refusée (/api/show ne publie "
@@ -92,6 +108,11 @@ def _check_think(tag: str, track: str, value: Any, thinking: bool) -> None:
         raise LaunchError(
             f"{tag} : le modèle ne déclare pas « thinking », la piste {track} doit avoir "
             f"think null (reçu {value!r})"
+        )
+    if allowed is not None and isinstance(value, bool) and value not in allowed:
+        raise LaunchError(
+            f"{tag} : valeur think {value!r} de la piste {track} absente des valeurs publiées "
+            f"par /api/show (thinking.values = {allowed!r})"
         )
 
 
@@ -129,8 +150,9 @@ def resolve_model(
             )
     if "think_off" in tracks and model_cfg.get("think_off") is True:
         raise LaunchError(f"{tag} : piste think_off demandée avec think_off = True")
+    allowed = published_think_values(show)
     for track in tracks:
-        _check_think(tag, track, model_cfg.get(track), thinking)
+        _check_think(tag, track, model_cfg.get(track), thinking, allowed)
     return {
         "tag": tag,
         "digest": digest,

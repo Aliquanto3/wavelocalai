@@ -436,6 +436,10 @@ def test_think_on_without_thinking_capability_exits_2_and_writes_nothing(env, ca
         ),
         (FakeModel(["completion", "thinking", "tools", "decision"]), "decision"),
         (FakeModel(["completion", "thinking"]), "sans capacité « tools »"),
+        (
+            FakeModel(["completion", "thinking", "tools"], thinking_values=[True]),
+            "absente des valeurs publiées",
+        ),
     ],
 )
 def test_preflight_refusals_exit_2(env, model, reason, capsys):

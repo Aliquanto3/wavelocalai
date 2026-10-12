@@ -22,6 +22,8 @@ class FakeModel:
     context_length: int | None = None
     remote_host: str | None = None
     show_remote_host: str | None = None
+    # ``thinking.values`` de ``/api/show`` (Ollama 0.40.2), absent si ``None``.
+    thinking_values: list[bool] | None = None
 
 
 def reply(
@@ -148,6 +150,8 @@ class FakeOllama:
         payload: dict[str, Any] = {"capabilities": list(model.capabilities), "model_info": info}
         if model.show_remote_host is not None:
             payload["remote_host"] = model.show_remote_host
+        if model.thinking_values is not None:
+            payload["thinking"] = {"values": list(model.thinking_values), "default": True}
         return httpx2.Response(200, json=payload)
 
     def _ps(self, body: Any) -> httpx2.Response:
@@ -155,7 +159,20 @@ class FakeOllama:
             return httpx2.Response(200, json={"models": []})
         tag = self.loaded[0]
         return httpx2.Response(
-            200, json={"models": [{"name": tag, "model": tag, "size": 4000, "size_vram": 3000}]}
+            200,
+            json={
+                "models": [
+                    {
+                        "name": tag,
+                        "model": tag,
+                        "size": 4000,
+                        "size_vram": 3000,
+                        # Champs vus sur le vrai 0.40.2, ignorés par le client.
+                        "context_length": self.loaded[1],
+                        "runner": "llamacpp",
+                    }
+                ]
+            },
         )
 
     def _generate(self, body: Any) -> httpx2.Response:
