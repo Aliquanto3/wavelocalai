@@ -372,7 +372,7 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
         logger.info("%s : %d candidats", entry.source, len(candidates[entry.source]))
         if entry.exclude:
             logger.info(
-                "%s : %d questions exclues par le YAML de jeu", entry.source, len(entry.exclude)
+                "%s : %d identifiants à exclure (YAML de jeu)", entry.source, len(entry.exclude)
             )
     return candidates, private_files
 

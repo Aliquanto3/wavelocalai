@@ -112,15 +112,16 @@ def test_exclusion_applies_before_the_draw(config, candidates):
     """Les ids exclus sont retirés avant le tirage : même échantillon que si les candidats en
     étaient privés."""
     live = config.sources[[e.source for e in config.sources].index("bfcl-live")]
-    count = len(candidates["bfcl-live"])
+    count = 20  # bien en deçà des candidats restants : le tirage fait un vrai choix
+    assert len(candidates["bfcl-live"]) - len(SET_V1_EXCLUDED) > 4 * count
     only_live = dataclasses.replace(
         config,
-        sources=(dataclasses.replace(live, count=count - len(SET_V1_EXCLUDED)),),
-        think_off={"tools": count - len(SET_V1_EXCLUDED)},
+        sources=(dataclasses.replace(live, count=count),),
+        think_off={"tools": count},
         think_on={"tools": 0},
     )
     questions, _ = assemble(only_live, candidates)
-    assert len(questions) == count - len(SET_V1_EXCLUDED)
+    assert len(questions) == count
     assert not {q["id"] for q in questions} & set(SET_V1_EXCLUDED)
     stripped = {"bfcl-live": [c for c in candidates["bfcl-live"] if c["id"] not in SET_V1_EXCLUDED]}
     no_exclude = dataclasses.replace(
@@ -524,7 +525,7 @@ def test_cli_build_set_applies_exclude_and_logs_the_count(small_set, _reset_logg
     ids = {row["id"] for row in read_jsonl(paths.set_index_path("small"))}
     assert len(ids) == 13 and not ids & set(excluded)
     log = paths.sets_log_path("build-set").read_text(encoding="utf-8")
-    assert "bbeh-mini : 2 questions exclues par le YAML de jeu" in log
+    assert "bbeh-mini : 2 identifiants à exclure (YAML de jeu)" in log
 
 
 def test_cli_unknown_excluded_id_exits_1_and_writes_nothing(small_set, _reset_logging):

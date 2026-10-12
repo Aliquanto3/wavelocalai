@@ -2,7 +2,7 @@
 title: 'Figer set-v1 : exclusion versionnée des 5 cibles bfcl-live défectueuses'
 type: 'chore'
 created: '2026-10-12'
-status: 'in-progress'
+status: 'done'
 route: 'dispatch'
 baseline_commit: '89c93318c43bb5999e9fedd31e5c21bfa47b5069'
 review_loop_iteration: 0
@@ -80,3 +80,25 @@ Ids de questions plutôt qu'ids BFCL : la clé reste générique (toute source),
 - `.venv-quality\Scripts\python -m pytest tests/quality_bench -q` -- expected: tout passe.
 - `.venv-quality\Scripts\python -m ruff check scripts/quality_bench tests/quality_bench` et `black --check` sur les fichiers touchés -- expected: propre.
 - `.venv-quality\Scripts\python -m scripts.quality_bench build-set --set set-v1` (deux fois) -- expected: code 0, empreintes identiques.
+
+## Implementation Notes
+
+- Construction réelle du 2026-10-12 (deux fois, dossiers déplacés au scratchpad entre les deux) : empreinte du jeu `7fb574ec6082a19c576af6066d14bfe9f2e5ffb911f7f794db5c666d0d0ee5dc`, `index.jsonl` `90f21ec540fdf0894c34acdfd7e26dcd5bc8fe06e133f0c1fb660d1dd0fdc990`, identiques aux deux passes. Index : 800 lignes, 180 privées sans `prompt_hash` ni `target_hash`, aucun des 5 ids exclus.
+- Correspondance id de question → id BFCL vérifiée sur les vrais candidats (`grader.params.bfcl_id`) ; aucune question `tools-fr` n'est dérivée d'une des 5 cibles (`derived_from`).
+- `core.autocrlf=true` sur la tour, sans `.gitattributes` : le blob commité est en LF, mais un checkout Windows neuf réécrit l'index en CRLF (empreinte sur disque différente).
+
+## Review Triage Log
+
+| # | Constat (relecteur) | Verdict | Preuve / route |
+|---|---|---|---|
+| 1 | L'index manque au diff relu (blind) | false | Exclu volontairement du diff de relecture (800 lignes d'empreintes générées) ; commité dans cfa7713 et audité à part : 800 lignes, 0 id exclu, 180 privées sans hash. |
+| 2 | Empreintes non consignées dans la spec (blind) | low | Rejeté (correctif = éditer la spec) ; consignées malgré tout dans Implementation Notes. |
+| 3 | Une traduction `tools-fr` d'une cible exclue contournerait l'exclusion (blind, edge, verification) | low | Réel en théorie, absent aujourd'hui (0 `derived_from` vers les 5 ids) ; set-v1 s'écrit une fois. Correctif = garde supplémentaire sur les groupes : rejeté (peu probable, ajoute une branche). |
+| 4 | Journal « N questions exclues » écrit avant le contrôle de présence (blind, edge) | low | patch : libellé « identifiants à exclure ». |
+| 5 | `test_exclusion_applies_before_the_draw` prend tous les candidats, aucun vrai tirage (blind) | low | patch : effectif bien inférieur au disponible. |
+| 6 | Id entouré d'espaces ou d'une autre source : code 1 au lieu de 2 (blind) | low | Rejeté : le message nomme la source et l'id fautif ; correctif = gardes de format supplémentaires. |
+| 7 | Entrées retirées de `deferred-work.md` sans trace (blind) | false | Retrait décidé par Anaël (bloc figé, « entrées tranchées ») ; l'historique git garde le texte. |
+| 8 | Correspondance id ↔ id BFCL vérifiée à la main seulement (blind) | low | Rejeté : un test exigerait `data/` (interdit) ; vérifiée à la construction (Implementation Notes). |
+| 9 | `SOURCES.md` ne dit pas que `review-sample` applique `exclude` (blind) | low | patch : une incise. |
+| 10 | Fabrique : id reconstruit non comparé à l'id du YAML (blind, edge) | low | patch : assertion d'égalité. |
+| 11 | La CI ne lance pas `tests/quality_bench` (verification) | medium | defer, antérieur : déjà suivi dans `deferred-work.md` (entrée de la story 1), pas de doublon ajouté. |

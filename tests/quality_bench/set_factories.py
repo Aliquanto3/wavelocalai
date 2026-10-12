@@ -87,5 +87,7 @@ def synthetic_candidates(config: SetConfig, spare: int = 2) -> dict[str, list[di
         for question_id in entry.exclude:
             if question_id not in present:
                 number = int(question_id.rsplit("/", 1)[1])
-                candidates[source].append(synthetic_question(source, number))
+                question = synthetic_question(source, number)
+                assert question["id"] == question_id, (question["id"], question_id)
+                candidates[source].append(question)
     return candidates

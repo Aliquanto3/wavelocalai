@@ -161,9 +161,9 @@ questions:
   - Mêmes entrées et même graine : les trois fichiers sont identiques octet pour octet.
   - Le jeu s'écrit une fois : la commande refuse si `sets/<s>/` ou `benchmarks/quality/sets/<s>/` existe, et n'écrit rien en cas d'échec.
   - Codes de sortie : 0 ; 1 si la machine est occupée, si le jeu existe, si une source ou un fichier privé manque, si un fichier brut a une empreinte inattendue, si un identifiant exclu est absent des candidats, si un effectif est inatteignable ou si un palier est insuffisant ; 2 si le YAML de jeu est invalide.
-  - Journal : `sets/log-build-set.log`, avec le nombre de questions exclues par source, l'empreinte du jeu (AD-4) et celle de chaque fichier écrit.
+  - Journal : `sets/log-build-set.log`, avec le nombre d'identifiants à exclure par source, l'empreinte du jeu (AD-4) et celle de chaque fichier écrit.
 - **Index versionné** (`qb.set_index/1`, liste blanche d'AD-6) : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` pour les seules questions publiques.
-- **`review-sample`** assemble le jeu en mémoire, sans verrou et sans écrire de jeu (ni `sets/<s>/`, ni `benchmarks/`). Il n'écrit que les deux échantillons sous `$QUALITY_BENCH_DATA/review/` (id, groupe, messages, tours, outils, cible, critères) et son journal `sets/log-review-sample.log`. Ne jamais commiter ni copier les échantillons dans une PR.
+- **`review-sample`** assemble le jeu en mémoire par le même `assemble` que `build-set` (il applique donc `exclude` et refuse un identifiant exclu inconnu), sans verrou et sans écrire de jeu (ni `sets/<s>/`, ni `benchmarks/`). Il n'écrit que les deux échantillons sous `$QUALITY_BENCH_DATA/review/` (id, groupe, messages, tours, outils, cible, critères) et son journal `sets/log-review-sample.log`. Ne jamais commiter ni copier les échantillons dans une PR.
 
 ## Correction
 
