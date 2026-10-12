@@ -1,0 +1,29 @@
+# Pilote CAP-8 : 4 modèles de modeles.md sur les deux pistes, tirage par groupes entiers de
+# set-v1 (562 questions think_off, 282 think_on). Taille et estimation de durée dans la story 8
+# (_bmad-output/specs/spec-benchmark-qualite-difficile/stories/8-pilote-sur-4-modeles.md).
+# Le rejeu de stabilité est la campagne distincte pilot-20261012-replay (même graine, effectifs
+# plus petits : sous-ensemble garanti). La section grading n'est pas bloquante : le juge retenu
+# peut changer sans nouvel identifiant de campagne.
+set: set-v1
+generation:
+  request: {temperature: 0, seed_base: 0, k: 1}
+  caps: {think_on: {reasoning: 4096, default: 2048}, think_off: {default: 2048}}
+  num_ctx_tiers: [4096, 8192, 16384, 32768]
+  selection:
+    groups:
+      seed: 8
+      per_usage:
+        reasoning: {think_off: 70, think_on: 36}
+        instructions: {think_off: 90, think_on: 44}
+        tools: {think_off: 90, think_on: 44}
+        extraction: {think_off: 80, think_on: 40}
+        rag: {think_off: 80, think_on: 40}
+        abstention: {think_off: 80, think_on: 40}
+        writing: {think_off: 40, think_on: 20}
+  models:
+    - {tag: "ling3-tiny:8b-q4_k_m", family: ling, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "LiquidAI/lfm2.5-2.6b", family: lfm, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "gemma4:e2b-it-qat", family: gemma, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "qwen3.5:4b", family: qwen, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+grading:
+  judge: haiku

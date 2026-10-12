@@ -17,6 +17,7 @@ from scripts.quality_bench.common.jsonl import read_jsonl, rewrite_jsonl
 from scripts.quality_bench.common.locks import FileLock
 from scripts.quality_bench.common.manifest import blocking_hash
 from scripts.quality_bench.common.schemas import TRACKS, validate
+from scripts.quality_bench.common.selection import selected_ids
 from scripts.quality_bench.generation import commands
 from scripts.quality_bench.generation.preflight import LaunchError
 from scripts.quality_bench.generation.runner import build_plan, warmup_prompt
@@ -595,6 +596,147 @@ def test_selection_sample_draw_is_pinned():
     assert sorted(with_writing["think_off"]) == sorted(
         [*seven["think_off"], "writing/writing-fr/0001"]
     )
+
+
+def _grouped_set():
+    """Jeu à groupes : raisonnement (bbeh-mini, 12 groupes d'une question ; var-math-fr,
+    6 groupes de trois variantes), RAG (piaf, 8 groupes de deux). ``think_on`` : les groupes
+    pairs de chaque source, en entier."""
+    questions, think_on = {}, []
+    for source, usage, groups, size in (
+        ("bbeh-mini", "reasoning", 12, 1),
+        ("var-math-fr", "reasoning", 6, 3),
+        ("piaf", "rag", 8, 2),
+    ):
+        for g in range(groups):
+            for v in range(size):
+                qid = f"{usage}/{source}/{g:04d}-{v}"
+                questions[qid] = {
+                    "id": qid,
+                    "usage": usage,
+                    "source": source,
+                    "group": f"{source}/g{g}",
+                }
+                if g % 2 == 0:
+                    think_on.append(qid)
+    return questions, sorted(questions), think_on
+
+
+def _groups(seed, reasoning, rag=(0, 0)):
+    per_usage = {"reasoning": {"think_off": reasoning[0], "think_on": reasoning[1]}}
+    if rag != (0, 0):
+        per_usage["rag"] = {"think_off": rag[0], "think_on": rag[1]}
+    return {"groups": {"seed": seed, "per_usage": per_usage}}
+
+
+def _group_of(questions, ids):
+    return {questions[qid]["group"] for qid in ids}
+
+
+@pytest.mark.parametrize("seed", [0, 8, 41])
+def test_selection_groups_prefix_is_a_subset_of_whole_groups(seed):
+    questions, think_off, think_on = _grouped_set()
+    big = selected_ids(_groups(seed, (12, 6), (6, 3)), questions, think_off, think_on)
+    small = selected_ids(_groups(seed, (5, 2), (2, 1)), questions, think_off, think_on)
+    assert small <= big
+    for chosen, (reasoning, rag) in ((big, ((12, 6), (6, 3))), (small, ((5, 2), (2, 1)))):
+        groups = _group_of(questions, chosen)
+        # Groupes entiers : toutes les questions think_off d'un groupe retenu.
+        assert chosen == {qid for qid in think_off if questions[qid]["group"] in groups}
+        for usage, (total, on) in (("reasoning", reasoning), ("rag", rag)):
+            mine = {
+                g
+                for g in groups
+                if any(
+                    questions[q]["usage"] == usage and questions[q]["group"] == g for q in chosen
+                )
+            }
+            with_on = {
+                g for g in mine if any(q in think_on and questions[q]["group"] == g for q in chosen)
+            }
+            assert (len(mine), len(with_on)) == (total, on)
+
+
+@pytest.mark.parametrize("seed", [0, 8, 41])
+def test_selection_groups_represents_each_source_in_proportion(seed):
+    questions, think_off, think_on = _grouped_set()
+    on_ids = set(think_on)
+    pools = {}  # (ensemble, source) → nombre de groupes de la source dans l'ensemble
+    for qid in think_off:
+        q = questions[qid]
+        if q["usage"] != "reasoning":
+            continue
+        pool = (
+            "on"
+            if any(o in on_ids and questions[o]["group"] == q["group"] for o in questions)
+            else "off"
+        )
+        pools.setdefault((pool, q["source"]), set()).add(q["group"])
+    sizes = {key: len(groups) for key, groups in pools.items()}
+    total = {pool: sum(n for (p, _), n in sizes.items() if p == pool) for pool in ("on", "off")}
+    for on in range(total["on"] + 1):
+        for off in range(total["off"] + 1):
+            chosen = selected_ids(_groups(seed, (on + off, on)), questions, think_off, think_on)
+            groups = _group_of(questions, chosen)
+            for (pool, source), n in sizes.items():
+                count = len(groups & pools[(pool, source)])
+                wanted = (on if pool == "on" else off) * n / total[pool]
+                assert abs(count - wanted) <= 1, (pool, source, on, off)
+
+
+def test_selection_groups_short_pool_takes_everything_and_warns(caplog):
+    import logging
+
+    questions, think_off, think_on = _grouped_set()
+    logger = logging.getLogger("scripts.quality_bench.common.selection")
+    logger.addHandler(caplog.handler)  # le logger du paquet peut ne pas propager
+    try:
+        with caplog.at_level(logging.WARNING, logger=logger.name):
+            # Raisonnement : 9 groupes avec think_on (6 bbeh-mini + 3 var-math-fr), 9 sans.
+            chosen = selected_ids(_groups(1, (40, 20)), questions, think_off, think_on)
+    finally:
+        logger.removeHandler(caplog.handler)
+    reasoning = {qid for qid in think_off if questions[qid]["usage"] == "reasoning"}
+    assert chosen == reasoning  # les deux ensembles trop courts : tout est pris
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(
+        "9 groupes avec une question think_on seulement (20 demandés)" in m for m in messages
+    )
+    assert any("9 groupes sans think_on seulement (20 demandés)" in m for m in messages)
+
+
+def test_selection_groups_plan_keeps_the_think_on_intersection():
+    qs = [synthetic_question("bbeh-mini", n) for n in range(1, 9)]
+    qs += [synthetic_question("piaf", n, group=f"piaf/{n // 2}") for n in range(1, 9)]
+    by_id = {q["id"]: q for q in qs}
+    think_on = [q["id"] for q in qs if q["id"].endswith(("1", "2", "3"))]
+    tracks = {"think_off": sorted(by_id), "think_on": think_on}
+    generation = {
+        "selection": {
+            "groups": {
+                "seed": 5,
+                "per_usage": {
+                    "reasoning": {"think_off": 4, "think_on": 2},
+                    "rag": {"think_off": 2, "think_on": 1},
+                },
+            }
+        },
+        "num_ctx_tiers": [4096, 8192],
+        "caps": DEFAULT_GENERATION["caps"],
+    }
+    plan = build_plan(generation, by_id, tracks)
+    off = [q["id"] for q in plan["think_off"]]
+    on = [q["id"] for q in plan["think_on"]]
+    assert set(off) == selected_ids(generation["selection"], by_id, tracks["think_off"], think_on)
+    assert on == sorted(set(off) & set(think_on))
+    assert sum(1 for qid in off if qid.startswith("reasoning/")) == 4
+    rag_groups = {by_id[qid]["group"] for qid in off if qid.startswith("rag/")}
+    assert len(rag_groups) == 2
+    for group in rag_groups:  # groupes entiers
+        members = {q["id"] for q in qs if q["group"] == group}
+        assert members <= set(off)
+    # Le tirage sample et le tirage épinglé restent inchangés (test précédent).
+    assert _sample_plan(7)["think_on"] == ["rag/piaf/0002"]
 
 
 # --- Manifeste ---------------------------------------------------------------------------

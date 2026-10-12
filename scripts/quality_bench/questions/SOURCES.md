@@ -314,6 +314,64 @@ Le rapport est une phase séparée, sans réseau, sans GPU et sans verrou machin
 
   Sans fichier, la section Spearman est marquée « indice AA absent », sans échec. Chemin et `sha256` du fichier lu sont consignés dans `summary.json`.
 
+## Pilote
+
+Le pilote (CAP-8) tourne sur les 4 modèles « pilote » de `modeles.md`, avant toute campagne complète. Deux campagnes versionnées :
+
+- `campaigns/pilot-20261012.yaml` : 562 questions en `think_off` et 282 en `think_on` ;
+- `campaigns/pilot-20261012-replay.yaml` : le rejeu de stabilité, au quart (140 et 70 questions), sous-ensemble garanti du pilote.
+
+```powershell
+# 1. Génération du pilote, puis du rejeu (campagne distincte, AD-4)
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261012
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261012-replay
+# 2. Jugement de la rédaction (non bloquant : le pilote se lit aussi sans juge)
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku --max-cost-usd 5
+# 3. Correction des deux campagnes
+.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261012
+.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261012-replay
+# 4. Rapport du pilote (rejeu <c>-replay par défaut ; indice AA le plus récent par défaut)
+.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261012
+.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261012 --replay pilot-20261012-replay --aa-date 2026-10-01
+```
+
+- **Sélection `groups`** de `generation.selection` : tirage par **groupes entiers**, stratifié par source.
+
+  ```yaml
+  selection:
+    groups:
+      seed: 8
+      per_usage:
+        reasoning: {think_off: 70, think_on: 36}   # effectifs en GROUPES, think_on ≤ think_off
+  ```
+
+  Pour chaque usage cité, les groupes de la piste `think_off` sont partagés entre ceux qui ont au moins une question en piste `think_on` et les autres. La source d'un groupe est celle de sa première question par `id`. Dans chaque source, les groupes sont triés par `sha256_hex([seed, "groups", usage, groupe])` ; le rang `r` d'une source de `n` groupes donne la position `(r + 0.5) / n`, puis l'ensemble est trié par position. Sont retenus les `think_on` premiers groupes du premier ensemble et les `think_off − think_on` premiers du second. Tout est pris, avec un avertissement, si un ensemble est trop court. La sélection prend toutes les questions `think_off` des groupes retenus ; la piste `think_on` en garde l'intersection. Le préfixe est stable : même graine et effectifs plus petits donnent un sous-ensemble, d'où un rejeu inclus dans le pilote. Clé inconnue, usage inconnu, entier négatif, `think_on > think_off` ou `per_usage` vide : code 2.
+- **Réglage** `scripts/quality_bench/pilot.yaml` : ancien banc et catalogue (chemins relatifs à la racine du dépôt, lus seulement), `budget_hours` (144 h = 6 jours), seuils `ceiling` et `floor`, plafonds candidats **partiels** (fusionnés sur les plafonds résolus de la campagne pilote : un plafond non cité reste celui de la campagne) et `think_on_n` de la réduction, et les 20 tags de la campagne complète.
+- **Lecture seule :** `pilot` lit les configurations, manifestes, `generation.jsonl`, `grading.jsonl`, `warmups.jsonl` et `log-generate.log` du pilote et du rejeu, le jeu, `pilot.yaml`, l'ancien banc, le catalogue et un éventuel `benchmarks/quality/references/aa-<date>.json`. Ni verrou machine, ni réseau, ni Ollama. La complétude de chaque campagne est publiée, jamais bloquante.
+- **Sorties** (hors dépôt) : `campaigns/<c>/pilot-report.md` (français), `campaigns/<c>/pilot-report.json` et le journal `campaigns/<c>/log-pilot.log`. Les deux rapports sont déterministes, sans date, et ne contiennent ni texte de question ni sortie de modèle.
+- **Mesures :**
+  - ψ par paire et par usage binaire (et global hors rédaction), sur les unités définies pour les deux modèles ; N indicatif par l'approximation de Connor pour 10 et 20 points ;
+  - usages au plafond ou au plancher ;
+  - stabilité au rejeu : jointure sur (modèle, digest, piste, question, seed) à `prompt_hash` égal, paires exclues comptées ; sorties et scores changés comptés à part sur les paires requêtées des deux côtés, paires non requêtées et changements de statut comptés à part, ratio au ψ moyen global de la piste. Le rejeu doit reprendre la section `generation` résolue du pilote, `selection` exceptée ;
+  - tokens de réflexion et de complétion par usage (moyenne, médiane, 90ᵉ centile, maximum), troncature par modèle et par usage, troncature projetée de chaque plafond candidat ;
+  - cohérence d'ordre avec l'ancien banc et l'indice AA : décompte de paires concordantes, discordantes et à égalité, sans Spearman. Le global comparé à l'ancien banc porte, des deux côtés, sur raisonnement, consignes et outils ;
+  - rédaction notée par `grading.jsonl`, **provisoire** ; `awaiting_judgment` compté à part ; sans jugement, « non notée » ;
+  - points à trancher : `context_exceeded` par source (`bfcl-multi` toujours montrée) et par palier, unités non communes et meneur sur unités communes, reprises non comptées du journal, cache de préfixe.
+- **Projection de durée**, par modèle des 20 et par piste (piste activée pour les seuls modèles `thinking` du catalogue), sur le jeu entier :
+
+  ```text
+  f × Σ_questions [ C̄ / décodage + P̄ / (préremplissage × deg(palier)) ]
+    + Σ_paliers ( chargement + palier/4 / préremplissage )
+  ```
+
+  - `C̄` : complétion moyenne mesurée par (piste, usage) ; `P̄` : `tokens.prompt` moyen par (piste, usage, palier), repli sur la piste et l'usage. Usage sans mesure : `C̄` = plafond, `P̄` = `est_prompt_tokens`, signalé.
+  - Débits de décodage, de préremplissage et chargement : ancien banc (`avg_tokens_per_second`, `prefill_tokens_per_second`, `load_time_ms`), par le nom du catalogue. Un modèle absent est listé « débit inconnu » et le total marqué incomplet.
+  - `deg(palier)` : médiane, sur les modèles du pilote, du préremplissage de chauffe du palier rapporté à celui du palier de référence (celui dont le prompt de chauffe est le plus proche des `prefill_prompt_tokens` de l'ancien banc).
+  - `f = Σ wall_s / Σ (prompt_eval + eval)` : surcoût hors modèle.
+  - Contrôle : la même formule appliquée aux questions du pilote, comparée au `wall_s` mesuré, et le décodage mesuré face à l'ancien banc.
+  - Au-delà de `budget_hours`, l'ordre de réduction de `SPEC.md` est chiffré, étapes cumulées, et publié comme **proposition** : plafonds candidats, constat des modèles thinking en piste activée, piste activée ramenée à `think_on_n`. Rien n'est appliqué : N, plafonds et K restent à décider. Un total incomplet (débit ou durée de chargement inconnus) sous le budget est déclaré « indéterminé (débits manquants) ».
+- **Codes de sortie :** 0 (rejeu absent compris) ; 1 si les entrées sont incohérentes (ligne hors schéma, jeu ou section `generation` hors `selection` différents entre pilote et rejeu, ancien banc ou catalogue illisible), rien n'est écrit ; 2 si `campaigns/<c>.yaml` ou `pilot.yaml` est absent ou invalide, ou si `--replay` désigne la campagne pilote.
+
 ## Sources refusées
 
 Ces sources sont listées dans `REFUSED_SOURCES` de `questions/schema.py`. Une question qui les porte est refusée, et `fetch` ne les télécharge pas.

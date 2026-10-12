@@ -62,7 +62,8 @@ def report_campaign(campaign: str, *, partial: bool = False, aa_date: str | None
     return target
 
 
-def _aa_date(value: str) -> str:
+def aa_date_argument(value: str) -> str:
+    """Type argparse de ``--aa-date`` (``report`` et ``pilot``) : date ``AAAA-MM-JJ``."""
     if not _DATE_RE.fullmatch(value):
         raise argparse.ArgumentTypeError(f"date AAAA-MM-JJ attendue, reçu {value!r}")
     return value
@@ -78,7 +79,7 @@ def _configure(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--aa-date",
-        type=_aa_date,
+        type=aa_date_argument,
         default=None,
         metavar="AAAA-MM-JJ",
         help="date du fichier benchmarks/quality/references/aa-<date>.json (le plus récent par "

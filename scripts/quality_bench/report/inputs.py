@@ -251,7 +251,7 @@ def expected_keys(
     if not (isinstance(k, int) and k >= 1 and isinstance(seed_base, int) and seed_base >= 0):
         raise ReportError("manifeste : generation.resolved.request.k ou seed_base invalide")
     try:
-        selected = selected_ids(selection, questions, tracks["think_off"])
+        selected = selected_ids(selection, questions, tracks["think_off"], tracks["think_on"])
     except SelectionError as exc:
         raise ReportError(f"manifeste : {exc}") from None
     except (KeyError, TypeError):

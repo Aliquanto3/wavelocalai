@@ -335,3 +335,132 @@ def test_explicit_min_prefill_default_keeps_the_hash(tmp_path, value):
     assert explicit.generation["min_prefill_tok_s"] == 50.0
     assert isinstance(explicit.generation["min_prefill_tok_s"], float)
     assert explicit.generation_hash == default.generation_hash
+
+
+# --- Sélection par groupes entiers (mode groups, story 8) ----------------------------------
+
+
+def _with_selection(tmp_path, selection, name="pilot-20261015.yaml"):
+    text = MINIMAL.replace("generation:\n", f"generation:\n  selection: {selection}\n")
+    return load_campaign(_write(tmp_path, text, name))
+
+
+def test_selection_groups_is_resolved(tmp_path):
+    config = _with_selection(
+        tmp_path,
+        "{groups: {seed: 8, per_usage: {reasoning: {think_off: 70, think_on: 36}, "
+        "writing: {think_on: 0, think_off: 4}}}}",
+    )
+    assert config.generation["selection"] == {
+        "groups": {
+            "seed": 8,
+            "per_usage": {
+                "reasoning": {"think_off": 70, "think_on": 36},
+                "writing": {"think_off": 4, "think_on": 0},
+            },
+        }
+    }
+
+
+def test_selection_groups_hash_ignores_key_order(tmp_path):
+    a = _with_selection(
+        tmp_path,
+        "{groups: {seed: 8, per_usage: {rag: {think_off: 2, think_on: 1}, "
+        "tools: {think_off: 3, think_on: 0}}}}",
+        "a.yaml",
+    )
+    b = _with_selection(
+        tmp_path,
+        "{groups: {per_usage: {tools: {think_on: 0, think_off: 3}, "
+        "rag: {think_on: 1, think_off: 2}}, seed: 8}}",
+        "b.yaml",
+    )
+    assert a.generation_hash == b.generation_hash
+
+
+@pytest.mark.parametrize(
+    "selection, message",
+    [
+        ("{groups: {seed: 8, per_usage: {}}}", "au moins un usage"),
+        ("{groups: {seed: 8}}", "per_usage : obligatoire"),
+        ("{groups: {per_usage: {rag: {think_off: 1, think_on: 0}}}}", "seed : obligatoire"),
+        ("{groups: {seed: 8, extra: 1, per_usage: {rag: {think_off: 1, think_on: 0}}}}", "extra"),
+        ("{groups: {seed: 8, per_usage: {chat: {think_off: 1, think_on: 0}}}}", "chat"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 1, think_on: 0, x: 1}}}}", "'x'"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 1}}}}", "think_on : obligatoire"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: -1, think_on: 0}}}}", "entier ≥ 0"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 2, think_on: -1}}}}", "entier ≥ 0"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 2, think_on: 3}}}}", "au-delà"),
+        ("{groups: {seed: -1, per_usage: {rag: {think_off: 1, think_on: 0}}}}", "seed"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 1.5, think_on: 0}}}}", "entier"),
+        ("{groups: {seed: 8, per_usage: [rag]}}", "objet"),
+        ("{groups: {seed: 8, per_usage: {rag: {think_off: 1, think_on: 0}}}, ids: [a]}", "attendu"),
+    ],
+)
+def test_selection_groups_refused(tmp_path, selection, message):
+    with pytest.raises(ConfigError, match=message):
+        _with_selection(tmp_path, selection)
+
+
+# --- pilot.yaml (story 8) ------------------------------------------------------------------
+
+from scripts.quality_bench.common import paths  # noqa: E402
+from scripts.quality_bench.common.config import load_pilot_settings  # noqa: E402
+
+PILOT = """\
+old_bench: benchmarks/results/ancien.json
+catalog: /absolu/catalogue.json
+budget_hours: 144
+ceiling: 0.9
+floor: 0.1
+reduction:
+  caps:
+    - {think_on: {reasoning: 3072, default: 1536}}
+  think_on_n: 330
+full_models: [a:1b, b:2b]
+"""
+
+
+def test_load_pilot_settings(tmp_path):
+    settings = load_pilot_settings(_write(tmp_path, PILOT, "pilot.yaml"))
+    assert settings.old_bench == "benchmarks/results/ancien.json"
+    assert settings.old_bench_path == paths.REPO_ROOT / "benchmarks/results/ancien.json"
+    assert settings.catalog_path.is_absolute()
+    assert settings.budget_hours == 144.0
+    assert (settings.ceiling, settings.floor) == (0.9, 0.1)
+    # Plafond candidat partiel, sans valeur par défaut : fusionné sur la campagne au pilote.
+    assert settings.reduction_caps == ({"think_on": {"reasoning": 3072, "default": 1536}},)
+    assert settings.think_on_n == 330
+    assert settings.full_models == ("a:1b", "b:2b")
+
+
+@pytest.mark.parametrize(
+    "old, new, message",
+    [
+        ("budget_hours: 144\n", "budget_hours: 144\nextra: 1\n", "extra"),
+        ("budget_hours: 144\n", "", "budget_hours"),
+        ("budget_hours: 144", "budget_hours: 0", "budget_hours"),
+        ("ceiling: 0.9", "ceiling: 1.5", "ceiling"),
+        ("floor: 0.1", "floor: 0.95", "floor"),
+        ("think_on_n: 330", "think_on_n: 0", "think_on_n"),
+        ("    - {think_on: {reasoning: 3072, default: 1536}}\n", "    []\n", "reduction.caps"),
+        ("{think_on: {reasoning: 3072", "{think_on: {chat: 1, reasoning: 3072", "chat"),
+        ("{think_on: {reasoning: 3072", "{think_maybe: {reasoning: 3072", "think_maybe"),
+        ("{think_on: {reasoning: 3072, default: 1536}}", "{}", "au moins une piste"),
+        ("{think_on: {reasoning: 3072, default: 1536}}", "{think_on: {}}", "au moins un plafond"),
+        ("reasoning: 3072, default: 1536", "reasoning: 0, default: 1536", "entier ≥ 1"),
+        ("  think_on_n: 330\n", "  think_on_n: 330\n  other: 1\n", "other"),
+        ("[a:1b, b:2b]", "[a:1b, a:1b]", "double"),
+        ("[a:1b, b:2b]", "[]", "full_models"),
+        ("old_bench: benchmarks/results/ancien.json", "old_bench: ''", "old_bench"),
+    ],
+)
+def test_invalid_pilot_settings_refused(tmp_path, old, new, message):
+    assert old in PILOT
+    with pytest.raises(ConfigError, match=message):
+        load_pilot_settings(_write(tmp_path, PILOT.replace(old, new), "pilot.yaml"))
+
+
+def test_missing_pilot_settings_is_a_config_error(tmp_path):
+    with pytest.raises(ConfigError, match="absent"):
+        load_pilot_settings(tmp_path / "pilot.yaml")

@@ -74,6 +74,16 @@ def log_path(campaign: str, command: str) -> Path:
     return campaign_dir(campaign) / f"log-{check_id(command, 'commande')}.log"
 
 
+def pilot_settings_path() -> Path:
+    """Réglage versionné de la commande ``pilot`` : ``scripts/quality_bench/pilot.yaml``."""
+    return PACKAGE_DIR / "pilot.yaml"
+
+
+def pilot_report_path(campaign: str, suffix: str) -> Path:
+    """Rapport du pilote (hors dépôt) : ``campaigns/<c>/pilot-report<suffix>``."""
+    return campaign_dir(campaign) / f"pilot-report{suffix}"
+
+
 def judges_config_path() -> Path:
     """YAML versionné des juges : ``scripts/quality_bench/judges.yaml`` (AD-8)."""
     return PACKAGE_DIR / "judges.yaml"

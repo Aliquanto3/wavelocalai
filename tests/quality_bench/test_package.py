@@ -70,6 +70,7 @@ STATS_MODULES = {
         "bootstrap",
         "groups",
         "spearman",
+        "describe",
     )
 }
 

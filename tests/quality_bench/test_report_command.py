@@ -671,6 +671,28 @@ def test_selection_sample_gives_a_complete_campaign(tmp_path, monkeypatch):
     assert export_problems(paths.exports_root()) == []
 
 
+def test_selection_groups_gives_a_complete_campaign(tmp_path, monkeypatch):
+    """Sélection par groupes entiers (pilote) : le runner (plan de la fabrique, même
+    ``selected_ids``) et le rapport résolvent les mêmes clés."""
+    selection = {
+        "groups": {
+            "seed": 8,
+            "per_usage": {
+                "reasoning": {"think_off": 5, "think_on": 2},
+                "rag": {"think_off": 3, "think_on": 0},
+                "writing": {"think_off": 3, "think_on": 2},
+            },
+        }
+    }
+    campaign = make_campaign(tmp_path, monkeypatch, selection=selection)
+    assert 0 < len(campaign.generation) < 3 * len(campaign.questions)
+    assert any("|think_on|" in line["key"] for line in campaign.generation)
+    assert _run() == 0
+    completeness = _summary()["completeness"]
+    assert completeness["expected"] == completeness["retained"] == len(campaign.generation)
+    assert completeness["generation_missing"] == completeness["grading_missing"] == 0
+
+
 def test_selection_ids_never_leak_into_the_exported_manifest(tmp_path, monkeypatch):
     ids = ["reasoning/var-math/0000", "reasoning/var-math/0000-v1", "writing/writing-fr/0001"]
     campaign = make_campaign(tmp_path, monkeypatch, selection={"ids": ids})

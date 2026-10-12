@@ -7,6 +7,9 @@ l'appelant : ``common/`` n'importe jamais ``questions/`` (sens des dépendances 
 ``load_judges(path)`` lit ``scripts/quality_bench/judges.yaml`` (AD-16) : un ``JudgeConfig`` par
 juge, clés fermées par ``kind``, empreinte ``config_hash`` de sa partie bloquante.
 
+``load_pilot_settings(path)`` lit ``scripts/quality_bench/pilot.yaml`` (commande ``pilot``,
+CAP-8) : références hors ligne, budget, seuils et plafonds candidats.
+
 ``load_campaign(path)`` lit ``scripts/quality_bench/campaigns/<c>.yaml``, applique les valeurs
 par défaut d'AD-8, refuse toute clé inconnue (et toute clé en double) et calcule
 ``generation_hash`` sur la section ``generation`` résolue : un commentaire ou un ordre de clés
@@ -27,7 +30,7 @@ from typing import Any, Protocol
 import yaml
 
 from .canonical import sha256_hex
-from .paths import check_id
+from .paths import REPO_ROOT, check_id
 from .schemas import TRACKS, USAGES
 
 DEFAULT_GENERATION: dict[str, Any] = {
@@ -154,6 +157,27 @@ def _resolve_caps(raw: Any) -> dict[str, Any]:
     return caps
 
 
+def _partial_caps(raw: Any, where: str) -> dict[str, dict[str, int]]:
+    """Plafonds candidats **partiels** (clés de ``generation.caps``, entiers ≥ 1), sans valeur
+    par défaut : ils se fusionnent sur les plafonds résolus de la campagne au moment de la
+    projection, si bien qu'un plafond non cité reste celui de la campagne."""
+    value = _require_mapping(raw, where)
+    if not value:
+        raise ConfigError(f"{where} : au moins une piste attendue")
+    _reject_unknown(value, set(TRACKS), where)
+    caps: dict[str, dict[str, int]] = {}
+    for track, track_caps in value.items():
+        track_where = f"{where}.{track}"
+        track_caps = _require_mapping(track_caps, track_where)
+        if not track_caps:
+            raise ConfigError(f"{track_where} : au moins un plafond attendu")
+        _reject_unknown(track_caps, _CAP_KEYS, track_where)
+        caps[track] = {
+            usage: _int(cap, f"{track_where}.{usage}", 1) for usage, cap in track_caps.items()
+        }
+    return caps
+
+
 def _resolve_tiers(raw: Any) -> list[int]:
     if not isinstance(raw, list) or not raw:
         raise ConfigError("generation.num_ctx_tiers : liste non vide attendue")
@@ -167,8 +191,12 @@ def _resolve_selection(raw: Any) -> dict[str, Any] | None:
     if raw is None:
         return None
     value = _require_mapping(raw, "generation.selection")
-    if len(value) != 1 or next(iter(value)) not in ("ids", "sample"):
-        raise ConfigError("generation.selection : null, {ids: [...]} ou {sample: {...}} attendu")
+    if len(value) != 1 or next(iter(value)) not in ("ids", "sample", "groups"):
+        raise ConfigError(
+            "generation.selection : null, {ids: [...]}, {sample: {...}} ou {groups: {...}} attendu"
+        )
+    if "groups" in value:
+        return {"groups": _resolve_groups(value["groups"])}
     if "ids" in value:
         ids = value["ids"]
         if not isinstance(ids, list) or not ids or len(set(ids)) != len(ids):
@@ -185,6 +213,37 @@ def _resolve_selection(raw: Any) -> dict[str, Any] | None:
             "seed": _int(sample["seed"], "generation.selection.sample.seed", 0),
         }
     }
+
+
+def _resolve_groups(raw: Any) -> dict[str, Any]:
+    """Mode ``groups`` : ``{seed, per_usage: {<usage>: {think_off, think_on}}}``, effectifs en
+    groupes entiers, ``think_on ≤ think_off`` (``common/selection.group_ids``)."""
+    where = "generation.selection.groups"
+    groups = _require_mapping(raw, where)
+    _reject_unknown(groups, {"per_usage", "seed"}, where)
+    for key in ("per_usage", "seed"):
+        if key not in groups:
+            raise ConfigError(f"{where}.{key} : obligatoire")
+    per_usage = _require_mapping(groups["per_usage"], f"{where}.per_usage")
+    if not per_usage:
+        raise ConfigError(f"{where}.per_usage : au moins un usage attendu")
+    _reject_unknown(per_usage, set(USAGES), f"{where}.per_usage")
+    resolved: dict[str, dict[str, int]] = {}
+    for usage, counts in per_usage.items():
+        usage_where = f"{where}.per_usage.{usage}"
+        counts = _require_mapping(counts, usage_where)
+        _reject_unknown(counts, set(TRACKS), usage_where)
+        for track in TRACKS:
+            if track not in counts:
+                raise ConfigError(f"{usage_where}.{track} : obligatoire")
+        think_off = _int(counts["think_off"], f"{usage_where}.think_off", 0)
+        think_on = _int(counts["think_on"], f"{usage_where}.think_on", 0)
+        if think_on > think_off:
+            raise ConfigError(
+                f"{usage_where} : think_on ({think_on}) au-delà de think_off ({think_off})"
+            )
+        resolved[usage] = {"think_off": think_off, "think_on": think_on}
+    return {"seed": _int(groups["seed"], f"{where}.seed", 0), "per_usage": resolved}
 
 
 def _resolve_model(raw: Any, index: int) -> dict[str, Any]:
@@ -298,6 +357,109 @@ def load_campaign(path: str | os.PathLike[str]) -> CampaignConfig:
         generation=generation,
         generation_hash=sha256_hex(generation),
         grading=_resolve_grading(raw.get("grading")),
+    )
+
+
+# --- Pilote : scripts/quality_bench/pilot.yaml (CAP-8) -------------------------------------
+
+_PILOT_KEYS = {
+    "old_bench",
+    "catalog",
+    "budget_hours",
+    "ceiling",
+    "floor",
+    "reduction",
+    "full_models",
+}
+_REDUCTION_KEYS = {"caps", "think_on_n"}
+
+
+@dataclass(frozen=True)
+class PilotSettings:
+    """Réglage versionné de la commande ``pilot`` : références hors ligne (chemins tels
+    qu'écrits et résolus depuis la racine du dépôt), budget, seuils de plafond et de plancher,
+    plafonds candidats **partiels** (fusionnés sur ceux de la campagne à la projection) et
+    modèles de la campagne complète."""
+
+    path: Path
+    old_bench: str
+    old_bench_path: Path
+    catalog: str
+    catalog_path: Path
+    budget_hours: float
+    ceiling: float
+    floor: float
+    reduction_caps: tuple[dict[str, Any], ...]
+    think_on_n: int
+    full_models: tuple[str, ...]
+
+
+def _repo_path(value: Any, where: str) -> tuple[str, Path]:
+    """Chemin relatif à la racine du dépôt (un chemin absolu reste absolu)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"{where} : chemin non vide attendu, reçu {value!r}")
+    path = Path(value)
+    return value, path if path.is_absolute() else REPO_ROOT / path
+
+
+def _fraction(value: Any, where: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or not 0 <= value <= 1
+    ):
+        raise ConfigError(f"{where} : nombre entre 0 et 1 attendu, reçu {value!r}")
+    return float(value)
+
+
+def load_pilot_settings(path: str | os.PathLike[str]) -> PilotSettings:
+    """Lit ``scripts/quality_bench/pilot.yaml`` : clés fermées, valeurs vérifiées ;
+    ``ConfigError`` qui nomme le champ fautif (fichier absent compris)."""
+    path = Path(path)
+    if not path.exists():
+        raise ConfigError(f"réglage du pilote absent : {path}")
+    raw = _require_mapping(read_yaml(path), str(path))
+    _reject_unknown(raw, _PILOT_KEYS, str(path))
+    for key in sorted(_PILOT_KEYS):
+        if key not in raw:
+            raise ConfigError(f"{path} : clé « {key} » obligatoire")
+    old_bench, old_bench_path = _repo_path(raw["old_bench"], "old_bench")
+    catalog, catalog_path = _repo_path(raw["catalog"], "catalog")
+    ceiling = _fraction(raw["ceiling"], "ceiling")
+    floor = _fraction(raw["floor"], "floor")
+    if floor >= ceiling:
+        raise ConfigError(f"floor ({floor}) : inférieur à ceiling ({ceiling}) attendu")
+    reduction = _require_mapping(raw["reduction"], "reduction")
+    _reject_unknown(reduction, _REDUCTION_KEYS, "reduction")
+    for key in sorted(_REDUCTION_KEYS):
+        if key not in reduction:
+            raise ConfigError(f"reduction.{key} : obligatoire")
+    candidates = reduction["caps"]
+    if not isinstance(candidates, list) or not candidates:
+        raise ConfigError("reduction.caps : liste non vide de plafonds candidats attendue")
+    caps = tuple(
+        _partial_caps(candidate, f"reduction.caps[{index}]")
+        for index, candidate in enumerate(candidates)
+    )
+    models = raw["full_models"]
+    if not isinstance(models, list) or not models:
+        raise ConfigError("full_models : liste non vide de tags attendue")
+    tags = tuple(_string(tag, "full_models[]") for tag in models)
+    if len(set(tags)) != len(tags):
+        raise ConfigError("full_models : tag en double")
+    return PilotSettings(
+        path=path,
+        old_bench=old_bench,
+        old_bench_path=old_bench_path,
+        catalog=catalog,
+        catalog_path=catalog_path,
+        budget_hours=_positive_number(raw["budget_hours"], "budget_hours"),
+        ceiling=ceiling,
+        floor=floor,
+        reduction_caps=caps,
+        think_on_n=_int(reduction["think_on_n"], "reduction.think_on_n", 1),
+        full_models=tags,
     )
 
 

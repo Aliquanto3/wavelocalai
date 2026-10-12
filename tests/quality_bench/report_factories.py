@@ -42,12 +42,14 @@ class Synthetic:
     models: list[str]
     k: int
     scores: dict[str, float | None] = field(default_factory=dict)  # clé → score
+    campaign: str = CAMPAIGN
 
     def write_generation(self, lines=None) -> None:
-        rewrite_jsonl(paths.generation_path(CAMPAIGN), self.generation if lines is None else lines)
+        path = paths.generation_path(self.campaign)
+        rewrite_jsonl(path, self.generation if lines is None else lines)
 
     def write_grading(self, lines=None) -> None:
-        rewrite_jsonl(paths.grading_path(CAMPAIGN), self.grading if lines is None else lines)
+        rewrite_jsonl(paths.grading_path(self.campaign), self.grading if lines is None else lines)
 
 
 def _question(qid: str, usage: str, group: str, unit: str, grader: str) -> dict[str, Any]:
@@ -140,15 +142,19 @@ def make_campaign(
     statuses: Mapping[tuple[int, str, str, int], str] | None = None,
     think_off_only: tuple[int, ...] = (2,),
     selection: Mapping[str, Any] | None = None,
+    campaign: str = CAMPAIGN,
+    set_id: str = SET_ID,
 ) -> Synthetic:
     """Campagne complète écrite sous ``$QUALITY_BENCH_DATA`` ; ``statuses`` : (indice du
     modèle, piste, question, seed) → statut de correction particulier ; ``selection`` :
-    section ``generation.selection`` (lignes écrites pour les seules questions du plan)."""
+    section ``generation.selection`` (lignes écrites pour les seules questions du plan) ;
+    ``campaign`` : identifiant (pilote et rejeu dans le même ``$QUALITY_BENCH_DATA``) ;
+    ``set_id`` : jeu écrit et cité (un autre jeu pour un rejeu discordant)."""
     statuses = dict(statuses or {})
     questions, tracks = build_set(small)
     question_list = [questions[qid] for qid in sorted(questions)]
-    rewrite_jsonl(paths.set_questions_path(SET_ID), question_list)
-    path = paths.set_tracks_path(SET_ID)
+    rewrite_jsonl(paths.set_questions_path(set_id), question_list)
+    path = paths.set_tracks_path(set_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(pretty_bytes(tracks))
 
@@ -167,21 +173,23 @@ def make_campaign(
     config_dir = tmp_path / "campaigns_yaml"
     config_dir.mkdir(exist_ok=True)
     yaml_text = (
-        f"set: {SET_ID}\ngeneration:\n  request: {{temperature: 0, seed_base: 0, k: {k}}}\n"
+        f"set: {set_id}\ngeneration:\n  request: {{temperature: 0, seed_base: 0, k: {k}}}\n"
         + ("" if selection is None else f"  selection: {json.dumps(selection)}\n")
         + "  models:\n"
         + "\n".join(yaml_models)
         + f"\ngrading:\n  judge: {JUDGE_ID}\n"
     )
-    (config_dir / f"{CAMPAIGN}.yaml").write_text(yaml_text, encoding="utf-8")
+    (config_dir / f"{campaign}.yaml").write_text(yaml_text, encoding="utf-8")
     monkeypatch.setattr(paths, "campaign_config_path", lambda c: config_dir / f"{c}.yaml")
-    campaign_config = config.load_campaign(config_dir / f"{CAMPAIGN}.yaml")
+    campaign_config = config.load_campaign(config_dir / f"{campaign}.yaml")
     # Plan du runner : même résolution de la sélection que generate et report.
-    selected = selected_ids(campaign_config.generation["selection"], questions, tracks["think_off"])
+    selected = selected_ids(
+        campaign_config.generation["selection"], questions, tracks["think_off"], tracks["think_on"]
+    )
 
-    generation_manifest = manifest(campaign=CAMPAIGN)
+    generation_manifest = manifest(campaign=campaign)
     generation_manifest["blocking"]["set"] = {
-        "id": SET_ID,
+        "id": set_id,
         "hash": set_hash(question_list, tracks),
         "n": {track: len(tracks[track]) for track in tracks},
     }
@@ -191,14 +199,14 @@ def make_campaign(
     }
     generation_manifest["blocking"]["models_resolved"] = resolved_models
     validate(generation_manifest)
-    _write_json(paths.generation_manifest_path(CAMPAIGN), generation_manifest)
+    _write_json(paths.generation_manifest_path(campaign), generation_manifest)
     generation_hash = blocking_hash(generation_manifest)
 
-    judgment_manifest = manifest(campaign=CAMPAIGN, phase="judgment")
+    judgment_manifest = manifest(campaign=campaign, phase="judgment")
     judgment_manifest["blocking"]["judge"] = dict(JUDGE)
     judgment_manifest["blocking"]["generation_manifest"] = generation_hash
     validate(judgment_manifest)
-    _write_json(paths.judgment_manifest_path(CAMPAIGN, JUDGE_ID), judgment_manifest)
+    _write_json(paths.judgment_manifest_path(campaign, JUDGE_ID), judgment_manifest)
     judgment_hash = blocking_hash(judgment_manifest)
 
     generation, grading, scores = [], [], {}
@@ -214,7 +222,7 @@ def make_campaign(
                 for epoch in range(k):
                     seed = epoch
                     status = statuses.get((index, track, qid, seed), "ok")
-                    key = f"{CAMPAIGN}|{tag}|{track}|{qid}|{seed}"
+                    key = f"{campaign}|{tag}|{track}|{qid}|{seed}"
                     gen_status = (
                         status if status in ("truncated", "context_exceeded", "error") else "ok"
                     )
@@ -222,7 +230,7 @@ def make_campaign(
                         generation_record(
                             key=key,
                             manifest=generation_hash,
-                            campaign=CAMPAIGN,
+                            campaign=campaign,
                             model=tag,
                             digest=model["digest"],
                             track=track,
@@ -277,6 +285,7 @@ def make_campaign(
         models=[m["tag"] for m in resolved_models],
         k=k,
         scores=scores,
+        campaign=campaign,
     )
     for record in synthetic.grading:
         validate(record)

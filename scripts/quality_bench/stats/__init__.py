@@ -12,7 +12,9 @@ Une valeur indéfinie (effectif nul, variance nulle) est rendue en ``nan`` : c'e
 - ``multiple`` : Holm, BH, k̂_Bonferroni ;
 - ``bootstrap`` : bootstrap apparié par groupes, à graine fixée ;
 - ``groups`` : IC simultanés, rang approché, groupes indiscernables ;
-- ``spearman`` : validation externe contre l'indice AA.
+- ``spearman`` : validation externe contre l'indice AA ;
+- ``power`` : taille d'échantillon indicative de McNemar (Connor), pour le pilote ;
+- ``describe`` : effectif, moyenne et centiles d'une distribution (pilote).
 """
 
 ALPHA = 0.05

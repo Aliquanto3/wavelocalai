@@ -1,0 +1,36 @@
+# Réglage de la commande pilot (CAP-8), lu par common/config.load_pilot_settings. Chemins
+# relatifs à la racine du dépôt (un chemin absolu reste absolu), lus en lecture seule.
+# Les plafonds candidats et think_on_n ne servent qu'à chiffrer une proposition de réduction
+# (ordre des Constraints de SPEC.md) : rien n'est appliqué, N, plafonds et K restent à décider.
+old_bench: benchmarks/results/tour-rtx3050-a2b6baf5.json
+catalog: config/models_catalog.json
+budget_hours: 144          # 6 jours
+ceiling: 0.9               # usage au plafond : moyenne de chaque modèle ≥ 0,9
+floor: 0.1                 # usage au plancher : moyenne de chaque modèle ≤ 0,1
+reduction:
+  caps:
+    - {think_on: {reasoning: 3072, default: 1536}}
+    - {think_on: {reasoning: 2048, default: 1024}}
+  think_on_n: 330
+# Les 20 modèles de la campagne complète, dans l'ordre de modeles.md (débit décroissant).
+full_models:
+  - lfm2.5-thinking:1.2b
+  - ling3-tiny:8b-q4_k_m
+  - minicpm5:2b-q4_k_m
+  - LiquidAI/lfm2.5-2.6b
+  - gemma4:e2b-it-qat
+  - bonsai:8b-q1_0
+  - qwen3.5:2b
+  - ministral-3:3b
+  - granite4.2:3b
+  - phi4-mini:3.8b
+  - nemotron-3-nano:4b
+  - qwen3.5:4b
+  - gemma4:e4b-it-qat
+  - qwen3.5:9b
+  - qwen3.6:35b-a3b
+  - granite4.2:8b
+  - gemma4-ud:12b-iq3_xxs
+  - ministral-3:8b
+  - bonsai:27b-q1_0
+  - ministral3-ud:14b-iq2_m

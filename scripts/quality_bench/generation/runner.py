@@ -1,9 +1,10 @@
 """Boucle de génération (AD-7, AD-13, AD-14) : plan, essais, pannes, chauffe et déchargement.
 
 - **Plan** (``build_plan``) : questions de chaque piste (``tracks.json``) restreintes à
-  ``selection`` (résolue par ``common/selection.py``, partagé avec le rapport : ``ids``, ou
-  tirage de ``per_usage`` questions par usage dans ``think_off`` ; ``think_on`` en garde
-  l'intersection), triées par palier ``num_ctx`` croissant puis par ``id``.
+  ``selection`` (résolue par ``common/selection.py``, partagé avec le rapport : ``ids``,
+  tirage de ``per_usage`` questions par usage dans ``think_off``, ou tirage par groupes entiers
+  ``groups`` ; ``think_on`` en garde l'intersection), triées par palier ``num_ctx`` croissant
+  puis par ``id``.
 - **Ordre** : modèle (ordre de la configuration) > piste (``think_off`` puis ``think_on``) >
   palier > question > seed (``seed_base + epoch``, ``epoch < k``). Clé
   ``"{campaign}|{model}|{track}|{question_id}|{seed}"`` ; toute clé présente est sautée.
@@ -101,7 +102,9 @@ def build_plan(
         if missing:
             raise SetError(f"tracks.json : {len(missing)} question(s) absente(s) ({missing[0]})")
     try:
-        selected = selected_ids(generation["selection"], questions, tracks["think_off"])
+        selected = selected_ids(
+            generation["selection"], questions, tracks["think_off"], tracks["think_on"]
+        )
     except SelectionError as exc:
         raise LaunchError(str(exc)) from None
     tiers = set(generation["num_ctx_tiers"])

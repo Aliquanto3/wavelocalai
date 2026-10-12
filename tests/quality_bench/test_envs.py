@@ -144,9 +144,7 @@ def test_ticket_error_text_does_not_depend_on_the_hash_seed():
             check=True,
         )
         outputs.add(completed.stdout)
-    assert outputs == {
-        '{"error": "Invalid fields for update: assignee, due_date, owner, zone"}'
-    }
+    assert outputs == {'{"error": "Invalid fields for update: assignee, due_date, owner, zone"}'}
 
 
 def test_unrenderable_result_is_rendered_as_an_error():

@@ -1,0 +1,28 @@
+# Rejeu de stabilité du pilote CAP-8 (AD-4) : campagne distincte de pilot-20261012, même
+# section generation hors selection, même graine, effectifs au quart (140 questions think_off,
+# 70 think_on). Le tirage par groupes à préfixe stable en fait un sous-ensemble du pilote ; la
+# commande pilot joint les deux sur (model, digest, track, question_id, seed) à prompt_hash égal.
+# La section grading n'est pas bloquante : le juge retenu peut changer.
+set: set-v1
+generation:
+  request: {temperature: 0, seed_base: 0, k: 1}
+  caps: {think_on: {reasoning: 4096, default: 2048}, think_off: {default: 2048}}
+  num_ctx_tiers: [4096, 8192, 16384, 32768]
+  selection:
+    groups:
+      seed: 8
+      per_usage:
+        reasoning: {think_off: 18, think_on: 9}
+        instructions: {think_off: 22, think_on: 11}
+        tools: {think_off: 22, think_on: 11}
+        extraction: {think_off: 20, think_on: 10}
+        rag: {think_off: 20, think_on: 10}
+        abstention: {think_off: 20, think_on: 10}
+        writing: {think_off: 10, think_on: 5}
+  models:
+    - {tag: "ling3-tiny:8b-q4_k_m", family: ling, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "LiquidAI/lfm2.5-2.6b", family: lfm, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "gemma4:e2b-it-qat", family: gemma, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+    - {tag: "qwen3.5:4b", family: qwen, tracks: [think_off, think_on], think_off: false, think_on: true, num_ctx_max: 32768}
+grading:
+  judge: haiku
