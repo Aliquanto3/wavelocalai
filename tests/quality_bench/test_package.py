@@ -58,6 +58,22 @@ def test_forbidden_imports(path):
             assert allowed, f"{_rel(path)} importe {module}"
 
 
+STATS_MODULES = {
+    f"stats/{name}.py"
+    for name in (
+        "__init__",
+        "units",
+        "wilson",
+        "clustered",
+        "mcnemar",
+        "multiple",
+        "bootstrap",
+        "groups",
+        "spearman",
+    )
+}
+
+
 @pytest.mark.parametrize(
     "library, owners",
     [
@@ -75,6 +91,10 @@ def test_forbidden_imports(path):
         ("langdetect", {"grading/registry.py"}),
         ("mpmath", set()),  # code emprunté seulement (envs/vendored/bfcl/math_api.py)
         ("pyarrow", {"questions/importers/jsonschemabench.py"}),
+        # Statistiques (AD-17) : stats/ seulement.
+        ("numpy", STATS_MODULES),
+        ("scipy", STATS_MODULES),
+        ("statsmodels", STATS_MODULES),
     ],
 )
 def test_single_owner_of_each_library(library, owners):

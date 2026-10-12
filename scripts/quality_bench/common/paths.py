@@ -174,6 +174,35 @@ def set_index_path(set_id: str) -> Path:
     return set_index_dir(set_id) / "index.jsonl"
 
 
+# Exports d'une campagne et références hors ligne (AD-6, AD-17), écrits ou lus par report/.
+# Dossiers réservés de benchmarks/quality/ : jamais un identifiant de campagne.
+RESERVED_EXPORT_DIRS = ("sets", "references", "calibration")
+_AA_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def campaign_exports_dir(campaign: str) -> Path:
+    """Exports versionnés d'une campagne : ``benchmarks/quality/<c>/`` (réécrit par ``report``)."""
+    check_id(campaign, "campagne")
+    # Insensible à la casse : sous Windows, « References » désigne le dossier réservé.
+    if campaign.casefold() in RESERVED_EXPORT_DIRS:
+        raise ValueError(
+            f"campagne invalide : {campaign!r} (dossier réservé de benchmarks/quality)"
+        )
+    return exports_root() / campaign
+
+
+def references_dir() -> Path:
+    """Références hors ligne versionnées : ``benchmarks/quality/references/``."""
+    return exports_root() / "references"
+
+
+def aa_reference_path(date: str) -> Path:
+    """Indices Artificial Analysis datés : ``references/aa-<AAAA-MM-JJ>.json``."""
+    if not isinstance(date, str) or not _AA_DATE_RE.fullmatch(date):
+        raise ValueError(f"date invalide : {date!r} (AAAA-MM-JJ)")
+    return references_dir() / f"aa-{date}.json"
+
+
 def private_dir() -> Path:
     """Questions privées (hors dépôt) : ``$QUALITY_BENCH_DATA/private``."""
     return data_root() / "private"

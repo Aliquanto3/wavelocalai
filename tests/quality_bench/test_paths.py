@@ -80,3 +80,14 @@ def test_default_exports_root_is_repo_benchmarks(monkeypatch):
 def test_invalid_set_identifiers_refused(bad):
     with pytest.raises(ValueError):
         paths.set_dir(bad)
+
+
+@pytest.mark.parametrize("name", ["sets", "references", "calibration", "References", "SETS"])
+def test_reserved_export_dirs_are_refused_case_insensitively(name):
+    """Sous Windows, « References » désigne le dossier réservé ``references/``."""
+    with pytest.raises(ValueError, match="dossier réservé"):
+        paths.campaign_exports_dir(name)
+
+
+def test_campaign_exports_dir():
+    assert paths.campaign_exports_dir("pilot-20261015") == paths.exports_root() / "pilot-20261015"

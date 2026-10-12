@@ -1,8 +1,8 @@
 """Boucle de génération (AD-7, AD-13, AD-14) : plan, essais, pannes, chauffe et déchargement.
 
 - **Plan** (``build_plan``) : questions de chaque piste (``tracks.json``) restreintes à
-  ``selection`` (``ids``, ou tirage de ``per_usage`` questions par usage dans ``think_off``, à
-  graine dérivée ``sha256_hex([seed, "selection", usage])`` ; ``think_on`` en garde
+  ``selection`` (résolue par ``common/selection.py``, partagé avec le rapport : ``ids``, ou
+  tirage de ``per_usage`` questions par usage dans ``think_off`` ; ``think_on`` en garde
   l'intersection), triées par palier ``num_ctx`` croissant puis par ``id``.
 - **Ordre** : modèle (ordre de la configuration) > piste (``think_off`` puis ``think_on``) >
   palier > question > seed (``seed_base + epoch``, ``epoch < k``). Clé
@@ -27,15 +27,15 @@ de réponse.
 from __future__ import annotations
 
 import logging
-import random
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 
-from ..common.canonical import sha256_hex, utc_now
+from ..common.canonical import utc_now
 from ..common.jsonl import JsonlAppender
 from ..common.schemas import TRACKS, validate
+from ..common.selection import SelectionError, selected_ids
 from ..ollama.client import (
     OllamaClient,
     OllamaError,
@@ -81,30 +81,6 @@ class StopSignal(Protocol):
 # -- Plan -----------------------------------------------------------------------------------
 
 
-def _sample(
-    ids: Sequence[str], questions: Mapping[str, Mapping[str, Any]], sample: Mapping[str, Any]
-) -> set[str]:
-    """Tirage de ``per_usage`` questions par usage parmi ``ids`` (piste ``think_off``), à graine
-    dérivée par usage : ajouter un usage au jeu ne change pas le tirage des autres."""
-    by_usage: dict[str, list[str]] = {}
-    for qid in ids:
-        by_usage.setdefault(questions[qid]["usage"], []).append(qid)
-    chosen: set[str] = set()
-    for usage in sorted(by_usage):
-        pool = sorted(by_usage[usage])
-        seed = int(sha256_hex([sample["seed"], "selection", usage]), 16)
-        count = min(sample["per_usage"], len(pool))
-        if count < sample["per_usage"]:
-            logger.warning(
-                "Sélection : %d questions %s seulement dans think_off (%d demandées), toutes prises",
-                len(pool),
-                usage,
-                sample["per_usage"],
-            )
-        chosen.update(random.Random(seed).sample(pool, count))
-    return chosen
-
-
 def build_plan(
     generation: Mapping[str, Any],
     questions: Mapping[str, Mapping[str, Any]],
@@ -123,16 +99,10 @@ def build_plan(
         missing = [qid for qid in listed if qid not in questions]
         if missing:
             raise SetError(f"tracks.json : {len(missing)} question(s) absente(s) ({missing[0]})")
-    selection = generation["selection"]
-    if selection is None:
-        selected: set[str] | None = None
-    elif "ids" in selection:
-        unknown = [qid for qid in selection["ids"] if qid not in questions]
-        if unknown:
-            raise LaunchError(f"sélection : {len(unknown)} question(s) hors du jeu ({unknown[0]})")
-        selected = set(selection["ids"])
-    else:
-        selected = _sample(tracks["think_off"], questions, selection["sample"])
+    try:
+        selected = selected_ids(generation["selection"], questions, tracks["think_off"])
+    except SelectionError as exc:
+        raise LaunchError(str(exc)) from None
     tiers = set(generation["num_ctx_tiers"])
     plan: dict[str, list[Mapping[str, Any]]] = {}
     for track in TRACKS:

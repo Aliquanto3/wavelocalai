@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 
 # dotenv : importé par src.core.telemetry, que la CLI appelle en tête ; huggingface_hub et
-# pyarrow : importeurs des jeux publics (story 2) ; absl à nltk : correction (story 4).
+# pyarrow : importeurs des jeux publics (story 2) ; absl à nltk : correction (story 4) ; numpy,
+# scipy et statsmodels : statistiques (story 6).
 REQUIRED_MODULES = (
     "httpx2",
     "yaml",
@@ -30,6 +31,9 @@ REQUIRED_MODULES = (
     "syllapy",
     "mpmath",
     "nltk",
+    "numpy",
+    "scipy",
+    "statsmodels",
 )
 MISSING_MODULES = [name for name in REQUIRED_MODULES if importlib.util.find_spec(name) is None]
 

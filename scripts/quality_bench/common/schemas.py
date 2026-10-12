@@ -1,5 +1,5 @@
-"""Schémas JSON des lignes et des manifestes (AD-6, AD-7, AD-8, AD-10, AD-14, AD-16) : seule
-définition du banc, et seul module qui importe ``jsonschema``.
+"""Schémas JSON des lignes, des manifestes et des exports (AD-6, AD-7, AD-8, AD-10, AD-14,
+AD-16, AD-17) : seule définition du banc, et seul module qui importe ``jsonschema``.
 
 Chaque ligne et chaque manifeste porte ``schema: "qb.<type>/<n>"``. ``validate(record)`` lit ce
 champ, refuse un ``<n>`` inconnu (``UnknownSchemaError``) et vérifie l'enregistrement contre le
@@ -339,6 +339,221 @@ WARMUP_V1: dict[str, Any] = _closed(
     }
 )
 
+# Exports d'une campagne (AD-6, AD-17), écrits par report/ sous benchmarks/quality/<c>/ :
+# schémas fermés, flottants finis seulement, ``null`` pour une valeur indéfinie.
+_NUMBER = {"type": "number"}
+_MAYBE_NUMBER = {"type": ["number", "null"]}
+_MAYBE_COUNT = {"type": ["integer", "null"], "minimum": 0}
+_MAYBE_TAG = {"type": ["string", "null"], "minLength": 1}
+_DATE = {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
+CONTINUOUS_METRICS = ("instructions_followed", "f1")
+REPORT_METHODS = ("mcnemar", "paired_z")
+SPEARMAN_CONCLUSIONS = ("inconclusive", "investigate", "concordant", "not_significant")
+AA_STATUSES = ("measured", "estimated")
+AA_VARIANTS = ("reasoning", "non_reasoning")
+
+# Score d'une question pour un modèle (AD-6) : ni identifiant ni texte de question.
+SCORE_V1: dict[str, Any] = _closed(
+    {
+        "schema": {"const": "qb.score/1"},
+        "question_hash": _HASH,
+        "model": _NON_EMPTY,
+        "digest": _NON_EMPTY,
+        "track": {"enum": list(TRACKS)},
+        "seed": _COUNT,
+        "status": {"enum": list(GRADING_STATUSES)},
+        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "success": {"type": ["boolean", "null"]},
+        "metrics": {"type": "object", "additionalProperties": _NUMBER},
+    }
+)
+
+_REPORT_MODEL_STATS = _closed(
+    {
+        "model": _NON_EMPTY,
+        "mean": _MAYBE_NUMBER,
+        "n": _COUNT,
+        "excluded": _COUNT,
+        "se": _MAYBE_NUMBER,
+        "ci_low": _MAYBE_NUMBER,
+        "ci_high": _MAYBE_NUMBER,
+        "sim_ci_low": _MAYBE_NUMBER,
+        "sim_ci_high": _MAYBE_NUMBER,
+        "rank": {"type": ["integer", "null"], "minimum": 1},
+        "group": {"type": ["integer", "null"], "minimum": 1},
+        "graded": _COUNT,
+        "truncated": _COUNT,
+        "truncation_rate": _MAYBE_NUMBER,
+    }
+)
+_REPORT_COMPARISON = _closed(
+    {
+        "model": _NON_EMPTY,
+        "n": _COUNT,
+        "diff": _MAYBE_NUMBER,
+        "se": _MAYBE_NUMBER,
+        "ci_low": _MAYBE_NUMBER,
+        "ci_high": _MAYBE_NUMBER,
+        "bootstrap_ci_low": _MAYBE_NUMBER,
+        "bootstrap_ci_high": _MAYBE_NUMBER,
+        "correlation": _MAYBE_NUMBER,
+        "b": _MAYBE_COUNT,
+        "c": _MAYBE_COUNT,
+        "p": _MAYBE_NUMBER,
+        "p_holm": _MAYBE_NUMBER,
+        "reject": {"type": "boolean"},
+    }
+)
+_REPORT_PAIR = _closed(
+    {
+        "a": _NON_EMPTY,
+        "b": _NON_EMPTY,
+        "n": _COUNT,
+        "diff": _MAYBE_NUMBER,
+        "p": _MAYBE_NUMBER,
+        "p_bh": _MAYBE_NUMBER,
+        "reject": {"type": "boolean"},
+    }
+)
+_REPORT_CONTINUOUS = _closed(
+    {
+        "metric": {"enum": list(CONTINUOUS_METRICS)},
+        "leader": _MAYBE_TAG,
+        "models": {
+            "type": "array",
+            "items": _closed(
+                {"model": _NON_EMPTY, "mean": _MAYBE_NUMBER, "n": _COUNT, "excluded": _COUNT}
+            ),
+        },
+        "comparisons": {
+            "type": "array",
+            "items": _closed(
+                {
+                    "model": _NON_EMPTY,
+                    "n": _COUNT,
+                    "diff": _MAYBE_NUMBER,
+                    "bootstrap_ci_low": _MAYBE_NUMBER,
+                    "bootstrap_ci_high": _MAYBE_NUMBER,
+                }
+            ),
+        },
+    }
+)
+_REPORT_SCOPE = _closed(
+    {
+        "usage": {"enum": [*USAGES, None]},
+        "method": {"enum": list(REPORT_METHODS)},
+        "units": _COUNT,
+        "leader": _MAYBE_TAG,
+        "models": {"type": "array", "items": _REPORT_MODEL_STATS},
+        "comparisons": {"type": "array", "items": _REPORT_COMPARISON},
+        "matrix": {"type": "array", "items": _REPORT_PAIR},
+        "continuous": {"oneOf": [_REPORT_CONTINUOUS, {"type": "null"}]},
+    }
+)
+_REPORT_TRACK = _closed(
+    {
+        "track": {"enum": list(TRACKS)},
+        "scopes": {"type": "array", "items": _REPORT_SCOPE},
+        "k_bonferroni": _closed(
+            {
+                "leader": _MAYBE_TAG,
+                "usages": _COUNT,
+                "alpha_per_test": _MAYBE_NUMBER,
+                "models": {
+                    "type": "array",
+                    "items": _closed({"model": _NON_EMPTY, "wins": _COUNT, "tests": _COUNT}),
+                },
+            }
+        ),
+        "spearman": _closed(
+            {
+                "status": {"enum": ["absent", "computed"]},
+                "variant": {"enum": list(AA_VARIANTS)},
+                "n": _COUNT,
+                "models": {"type": "array", "items": _NON_EMPTY},
+                "rho": _MAYBE_NUMBER,
+                "p": _MAYBE_NUMBER,
+                "ci_low": _MAYBE_NUMBER,
+                "ci_high": _MAYBE_NUMBER,
+                "conclusion": {"enum": [*SPEARMAN_CONCLUSIONS, None]},
+            }
+        ),
+    }
+)
+
+# Résumé statistique d'une campagne (AD-6, AD-17) : agrégats seuls, aucun identifiant ni texte
+# de question.
+REPORT_V1: dict[str, Any] = _closed(
+    {
+        "schema": {"const": "qb.report/1"},
+        "campaign": _NON_EMPTY,
+        "partial": {"type": "boolean"},
+        "set": _closed({"id": _NON_EMPTY, "hash": _HASH}),
+        "generation_manifest": _HASH,
+        "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
+        "k": {"type": "integer", "minimum": 1},
+        "method": _closed(
+            {
+                "alpha": _NUMBER,
+                "bootstrap_resamples": {"type": "integer", "minimum": 1},
+                "bootstrap_seed": _COUNT,
+            }
+        ),
+        "completeness": _closed(
+            {
+                "expected": _COUNT,
+                "retained": _COUNT,
+                "generation_missing": _COUNT,
+                "generation_discordant": _COUNT,
+                "grading_missing": _COUNT,
+                "grading_discordant": _COUNT,
+                "awaiting_judgment": _COUNT,
+                "config_discordant": {"type": "boolean"},
+            }
+        ),
+        "models": {
+            "type": "array",
+            "items": _closed(
+                {
+                    "tag": _NON_EMPTY,
+                    "digest": _NON_EMPTY,
+                    "family": _NON_EMPTY,
+                    "tracks": {"type": "array", "items": {"enum": list(TRACKS)}},
+                }
+            ),
+        },
+        "tracks": {"type": "array", "items": _REPORT_TRACK},
+        "aa_reference": {
+            "oneOf": [
+                _closed({"path": _NON_EMPTY, "sha256": _HASH, "date": _DATE}),
+                {"type": "null"},
+            ]
+        },
+    }
+)
+
+# Indices Artificial Analysis datés, fournis hors ligne (AD-17) :
+# benchmarks/quality/references/aa-<AAAA-MM-JJ>.json.
+AA_REFERENCE_V1: dict[str, Any] = _closed(
+    {
+        "schema": {"const": "qb.aa_reference/1"},
+        "date": _DATE,
+        "source": _NON_EMPTY,
+        "entries": {
+            "type": "array",
+            "items": _closed(
+                {
+                    "tag": _NON_EMPTY,
+                    "index": _NUMBER,
+                    "status": {"enum": list(AA_STATUSES)},
+                    "variant": {"enum": list(AA_VARIANTS)},
+                }
+            ),
+        },
+    }
+)
+
 SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.generation/1": GENERATION_V1,
     "qb.warmup/1": WARMUP_V1,
@@ -346,6 +561,9 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.set_index/1": SET_INDEX_V1,
     "qb.grading/1": GRADING_V1,
     "qb.judgment/1": JUDGMENT_V1,
+    "qb.score/1": SCORE_V1,
+    "qb.report/1": REPORT_V1,
+    "qb.aa_reference/1": AA_REFERENCE_V1,
 }
 
 

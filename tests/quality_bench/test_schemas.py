@@ -295,3 +295,174 @@ def test_warmup_requires_every_field(name):
     del record[name]
     with pytest.raises(SchemaValidationError):
         validate(record)
+
+
+# -- Exports d'une campagne (story 6) : qb.score/1, qb.report/1, qb.aa_reference/1 -----------
+
+
+def _score(**overrides):
+    record = {
+        "schema": "qb.score/1",
+        "question_hash": HASH_A,
+        "model": "qwen3.5:4b",
+        "digest": "sha256:" + "c" * 64,
+        "track": "think_on",
+        "seed": 0,
+        "status": "ok",
+        "score": 1.0,
+        "success": True,
+        "metrics": {"f1": 0.92, "inline_thinking": 0.0},
+    }
+    record.update(overrides)
+    return record
+
+
+def test_score_line_validates():
+    assert validate(_score()) == "qb.score/1"
+    validate(_score(status="error", score=None, success=None, metrics={}))
+
+
+@pytest.mark.parametrize(
+    "overrides, field",
+    [
+        ({"question_id": "tools/bfcl-multi/0042"}, "(racine)"),
+        ({"key": "x"}, "(racine)"),
+        ({"metrics": {"f1": "0,9"}}, "metrics.f1"),
+        ({"score": 1.5}, "score"),
+        ({"question_hash": "x"}, "question_hash"),
+        ({"status": "failed"}, "status"),
+    ],
+)
+def test_score_line_is_closed(overrides, field):
+    with pytest.raises(SchemaValidationError) as excinfo:
+        validate(_score(**overrides))
+    assert excinfo.value.path == field
+
+
+def _aa(**overrides):
+    record = {
+        "schema": "qb.aa_reference/1",
+        "date": "2026-10-01",
+        "source": "Artificial Analysis",
+        "entries": [
+            {"tag": "qwen3.5:4b", "index": 21.5, "status": "measured", "variant": "reasoning"}
+        ],
+    }
+    record.update(overrides)
+    return record
+
+
+def test_aa_reference_validates():
+    assert validate(_aa()) == "qb.aa_reference/1"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"date": "01/10/2026"},
+        {"entries": [{"tag": "m", "index": 1, "status": "guessed", "variant": "reasoning"}]},
+        {"entries": [{"tag": "m", "index": 1, "status": "measured", "variant": "thinking"}]},
+        {"entries": [{"tag": "m", "index": None, "status": "measured", "variant": "reasoning"}]},
+        {"url": "https://artificialanalysis.ai"},
+    ],
+)
+def test_aa_reference_is_closed(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(_aa(**overrides))
+
+
+def _report():
+    return {
+        "schema": "qb.report/1",
+        "campaign": "pilot-20261015",
+        "partial": False,
+        "set": {"id": "set-v1", "hash": HASH_A},
+        "generation_manifest": HASH_A,
+        "judgment_manifest": None,
+        "k": 1,
+        "method": {"alpha": 0.05, "bootstrap_resamples": 2000, "bootstrap_seed": 1},
+        "completeness": {
+            "expected": 10,
+            "retained": 10,
+            "generation_missing": 0,
+            "generation_discordant": 0,
+            "grading_missing": 0,
+            "grading_discordant": 0,
+            "awaiting_judgment": 0,
+            "config_discordant": False,
+        },
+        "models": [
+            {"tag": "m:1b", "digest": "sha256:x", "family": "qwen", "tracks": ["think_off"]}
+        ],
+        "tracks": [
+            {
+                "track": "think_off",
+                "scopes": [
+                    {
+                        "usage": None,
+                        "method": "mcnemar",
+                        "units": 10,
+                        "leader": "m:1b",
+                        "models": [
+                            {
+                                "model": "m:1b",
+                                "mean": 0.5,
+                                "n": 10,
+                                "excluded": 0,
+                                "se": 0.1,
+                                "ci_low": 0.3,
+                                "ci_high": 0.7,
+                                "sim_ci_low": 0.3,
+                                "sim_ci_high": 0.7,
+                                "rank": 1,
+                                "group": 1,
+                                "graded": 10,
+                                "truncated": 0,
+                                "truncation_rate": 0.0,
+                            }
+                        ],
+                        "comparisons": [],
+                        "matrix": [],
+                        "continuous": None,
+                    }
+                ],
+                "k_bonferroni": {
+                    "leader": "m:1b",
+                    "usages": 0,
+                    "alpha_per_test": None,
+                    "models": [],
+                },
+                "spearman": {
+                    "status": "absent",
+                    "variant": "non_reasoning",
+                    "n": 0,
+                    "models": [],
+                    "rho": None,
+                    "p": None,
+                    "ci_low": None,
+                    "ci_high": None,
+                    "conclusion": None,
+                },
+            }
+        ],
+        "aa_reference": None,
+    }
+
+
+def test_report_validates():
+    assert validate(_report()) == "qb.report/1"
+
+
+def test_report_is_closed_at_every_level():
+    record = _report()
+    record["questions"] = []
+    with pytest.raises(SchemaValidationError):
+        validate(record)
+    record = _report()
+    record["tracks"][0]["scopes"][0]["models"][0]["question_id"] = "x"
+    with pytest.raises(SchemaValidationError):
+        validate(record)
+    record = _report()
+    record["tracks"][0]["scopes"][0]["method"] = "friedman"
+    with pytest.raises(SchemaValidationError):
+        validate(record)

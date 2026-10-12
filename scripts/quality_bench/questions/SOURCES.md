@@ -247,6 +247,72 @@ Les environnements d'outils vivent sous `envs/` (`bfcl_multi_turn@1`), purs et d
 - **Codes de sortie :** 0 (campagne complète ou arrêt propre) ; 1 (jeu absent ou incohérent, verrou occupé, Ollama injoignable, manifeste différent, service absent ou revenu dans une autre version, trop d'erreurs de suite) ; 2 (configuration invalide, sélection ou palier hors jeu, préflight refusé, URL non locale).
 - **Journal :** `campaigns/<c>/log-generate.log`, ouvert une fois le préflight accepté. La liste de contrôle d'avant campagne (AD-13, `OLLAMA_NUM_PARALLEL`) y est affichée, et consignée dans `informative.checklist` du manifeste. Le journal ne contient jamais de contenu de question ni de réponse.
 
+## Rapport
+
+Le rapport est une phase séparée, sans réseau, sans GPU et sans verrou machine (AD-6, AD-17). Il lit `grading.jsonl` pour les scores, jamais `judgment.jsonl` ni `labels.jsonl`.
+
+```powershell
+# Réécrit benchmarks/quality/<c>/ en entier ; journal campaigns/<c>/log-report.log
+.venv-quality\Scripts\python -m scripts.quality_bench report --campaign pilot-20261015
+# Campagne incomplète : lignes écartées et comptées, rapport marqué partiel
+.venv-quality\Scripts\python -m scripts.quality_bench report --campaign pilot-20261015 --partial
+# Indice AA d'une date précise (par défaut : le fichier le plus récent)
+.venv-quality\Scripts\python -m scripts.quality_bench report --campaign pilot-20261015 --aa-date 2026-10-01
+```
+
+- **Entrées lues :** `campaigns/<c>.yaml`, `campaigns/<c>/manifest.json`, `generation.jsonl`, `grading.jsonl`, le seul `judgment-<grading.judge>/manifest.json`, le jeu `sets/<set>/` et un fichier `benchmarks/quality/references/aa-<AAAA-MM-JJ>.json`. Rien d'autre n'est lu ni modifié.
+- **Complétude :** les clés attendues sont `models_resolved` × pistes du modèle × questions de la piste restreintes à `selection` × seeds (`seed_base + epoch`, `epoch < k`), calculées depuis le `blocking` du manifeste et le jeu (même résolution de `selection` que le runner, `common/selection.py`).
+- **Refus (code 1, rien n'est écrit) :**
+  - une clé attendue manque dans `generation.jsonl` ou dans `grading.jsonl` ;
+  - il reste une ligne `awaiting_judgment` ;
+  - une empreinte ne concorde pas : ligne de génération d'un autre manifeste, `generation_manifest` ou `judgment_manifest` d'une ligne de correction différent, section `generation` de la configuration modifiée depuis le manifeste.
+
+  Le journal nomme le premier écart et donne les comptes.
+- **`--partial` :** les lignes manquantes, discordantes ou en attente du juge sont écartées et comptées (`completeness` du résumé). Une question écartée rend son unité nulle pour ce modèle, et le rapport est marqué partiel.
+- **Entrées incohérentes (code 1, même avec `--partial`) :**
+  - manifeste absent ou d'un autre jeu, empreinte du jeu différente ;
+  - ligne hors schéma ou clé en double ;
+  - question absente du jeu ou `prompt_hash` différent ;
+  - clé de correction inconnue de `generation.jsonl` ;
+  - référence AA hors schéma, ou date demandée absente ;
+  - campagne nommée `sets`, `references` ou `calibration`.
+- **Configuration :** `campaigns/<c>.yaml` absent ou invalide : code 2.
+- **Statistiques :** unité = (`model`, `track`, `unit`). Les questions d'une unité sont agrégées par minimum, puis les seeds par moyenne. Une erreur du banc (`error`, `context_exceeded`) rend l'unité nulle pour ce modèle : elle est retirée de ses seules comparaisons, et comptée (`excluded`). Avec `k = 1`, un usage binaire est testé par McNemar exact avec un intervalle de Wilson. Avec `k > 1`, en rédaction, ou pour le score global d'une piste qui contient la rédaction : test z apparié à erreur-type groupée et IC bootstrap apparié (graine fixée). Le rapport publie aussi :
+  - Holm sur les m − 1 comparaisons au meneur (m modèles du périmètre) ;
+  - la matrice « qui bat qui » corrigée par BH ;
+  - les groupes indiscernables, les IC simultanés et le rang approché ;
+  - le taux de troncature ;
+  - k̂_Bonferroni ;
+  - Spearman contre l'indice AA.
+- **Exports** (`benchmarks/quality/<c>/`, liste blanche d'AD-6, sans date, octets identiques d'une passe à l'autre) :
+  - `scores/<modèle>.jsonl` (`qb.score/1` ; caractère hors `[A-Za-z0-9._-]` remplacé par `_`) ;
+  - `summary.json` (`qb.report/1`) ;
+  - `manifest.json` (copie du manifeste de génération ; une sélection `{ids: [...]}` y devient `{ids_count, ids_sha256}`, effectif et empreinte des `question_id` triés, pour qu'aucun identifiant de question ne sorte) ;
+  - `report.md` en français et `charts/<piste>-<global|usage>.svg`.
+
+  Aucun texte de question, sortie de modèle ni `question_id` n'y figure. Le dossier est assemblé à côté (`.<c>.tmp`), puis mis en place par renommage.
+- **Fichier AA à fournir** (par Anaël, jamais récupéré en ligne) : `benchmarks/quality/references/aa-<AAAA-MM-JJ>.json`, la date du nom égale au champ `date`.
+
+  ```json
+  {
+    "schema": "qb.aa_reference/1",
+    "date": "2026-10-01",
+    "source": "Artificial Analysis, relevé manuel du 2026-10-01",
+    "entries": [
+      {"tag": "qwen3.5:4b", "index": 21.5, "status": "measured", "variant": "reasoning"},
+      {"tag": "qwen3.5:4b", "index": 14.0, "status": "estimated", "variant": "non_reasoning"}
+    ]
+  }
+  ```
+
+  `tag` = tag Ollama de la campagne ; `variant` : `reasoning` (comparé à la piste `think_on`) ou `non_reasoning` (piste `think_off`). Seuls les indices `measured` comptent, et un couple (`tag`, `variant`) n'apparaît qu'une fois. Lecture de ρ :
+  - moins de 8 modèles mesurés : sans conclusion ;
+  - ρ < 0 : enquête ;
+  - p unilatérale < 0,05 : concordant ;
+  - sinon : non significatif.
+
+  Sans fichier, la section Spearman est marquée « indice AA absent », sans échec. Chemin et `sha256` du fichier lu sont consignés dans `summary.json`.
+
 ## Sources refusées
 
 Ces sources sont listées dans `REFUSED_SOURCES` de `questions/schema.py`. Une question qui les porte est refusée, et `fetch` ne les télécharge pas.
