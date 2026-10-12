@@ -4,6 +4,10 @@ déterministe, sur un état initial synthétique."""
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -103,6 +107,46 @@ def test_call_errors_are_rendered_never_raised():
     unexpected = env.call("cd", {"dossier": "docs"})
     assert unexpected.startswith("Error during execution: ")
     assert "unexpected keyword argument 'dossier'" in unexpected
+
+
+TICKET_SCRIPT = """
+import sys
+from scripts.quality_bench.envs.registry import make_env
+env = make_env({
+    "name": "bfcl_multi_turn",
+    "initial_state": {
+        "involved_classes": ["TicketAPI"],
+        "initial_config": {"TicketAPI": {
+            "ticket_queue": [{"id": 1, "title": "t", "description": "", "status": "Open",
+                              "priority": 1, "created_by": "u"}],
+            "ticket_counter": 2,
+            "current_user": "u",
+        }},
+    },
+})
+updates = {"owner": "a", "assignee": "b", "due_date": "c", "zone": "d"}
+sys.stdout.write(env.call("edit_ticket", {"ticket_id": 1, "updates": updates}))
+"""
+
+
+def test_ticket_error_text_does_not_depend_on_the_hash_seed():
+    """``edit_ticket`` joignait un ``set`` : l'ordre changeait avec ``PYTHONHASHSEED``, donc
+    entre la génération et le rejeu de ``grade`` (rejeu divergent)."""
+    root = Path(__file__).resolve().parents[2]
+    outputs = set()
+    for seed in ("1", "2", "3", "4", "5"):
+        completed = subprocess.run(
+            [sys.executable, "-c", TICKET_SCRIPT],
+            cwd=root,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        outputs.add(completed.stdout)
+    assert outputs == {
+        '{"error": "Invalid fields for update: assignee, due_date, owner, zone"}'
+    }
 
 
 def test_unrenderable_result_is_rendered_as_an_error():

@@ -156,7 +156,7 @@ questions:
 ```
 
 - **`build-set`** lit `scripts/quality_bench/sets/<s>.yaml` : `set`, `seed`, `sources: [{source, count, per_group?, generator_seed?, generator_params?, exclude?}]` et `think_on: {<usage>: effectif}`.
-  - `exclude` : liste d'identifiants de questions de la source (`tools/bfcl-live/0107`), chaînes non vides et sans doublon (sinon code 2). Ils sont retirés des candidats avant tout tirage. Un identifiant absent des candidats (faute de frappe, renumérotation après un changement de révision) refuse le jeu (code 1). Le commentaire du YAML garde la raison et l'identifiant amont de chaque exclusion. `set-v1` exclut ainsi 5 cibles `bfcl-live` défectueuses dans BFCL lui-même : aucune réponse ne les passe, même avec le correcteur amont. On exclut par cette liste, jamais en éditant les candidats.
+  - `exclude` : liste d'identifiants de questions de la source (`tools/bfcl-live/0107`), chaînes non vides et sans doublon (sinon code 2). Ils sont retirés des candidats avant tout tirage. Un identifiant absent des candidats (faute de frappe, renumérotation après un changement de révision) refuse le jeu (code 1). Une renumérotation qui garde l'identifiant passe inaperçue (les identifiants sont des numéros d'ordre) : après un changement de révision, revérifier l'identifiant amont noté en commentaire. Le commentaire du YAML garde la raison et l'identifiant amont de chaque exclusion. `set-v1` exclut ainsi 5 cibles `bfcl-live` défectueuses dans BFCL lui-même : aucune réponse ne les passe, même avec le correcteur amont. On exclut par cette liste, jamais en éditant les candidats.
   - Il tire chaque source par groupes entiers, dans l'ordre du YAML, puis `think_on` par usage et par groupes entiers.
   - Mêmes entrées et même graine : les trois fichiers sont identiques octet pour octet.
   - Le jeu s'écrit une fois : la commande refuse si `sets/<s>/` ou `benchmarks/quality/sets/<s>/` existe, et n'écrit rien en cas d'échec.
@@ -174,10 +174,10 @@ La correction est une phase séparée, sans réseau, sans GPU et sans verrou mac
 .venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261015
 ```
 
-- **Entrées lues :** `campaigns/<c>.yaml` (jeu, `grading.judge`), `campaigns/<c>/manifest.json` et `generation.jsonl`, le jeu `sets/<set>/` et, pour la rédaction, le seul dossier `judgment-<grading.judge>/`. Rien d'autre n'est lu ni modifié.
+- **Entrées lues :** `campaigns/<c>.yaml` (jeu, `grading.judge`), `campaigns/<c>/manifest.json` et `generation.jsonl`, le jeu `sets/<set>/` et, pour la rédaction, le seul dossier `judgment-<grading.judge>/`. Les consignes (`ifbench`, `mifeval_fr`) lisent aussi les données NLTK du banc, `$QUALITY_BENCH_DATA/nltk_data`. Rien d'autre n'est lu ni modifié.
 - **Sortie :** une ligne `qb.grading/1` par ligne de génération, canonique, triée par `key`, sans date : `generation_manifest` (empreinte du manifeste de génération), `judgment_manifest` (rédaction jugée seulement), `grader` (`nom@version`), `status`, `score`, `success`, `metrics`. Recorriger les mêmes entrées donne des octets identiques.
-- **Statuts :** statut de génération d'abord (`truncated` : 0 et échec, rédaction 0 et `success` nul ; `context_exceeded` et `error` : ni score ni succès), puis borne d'appels (`non_compliant`), puis le correcteur. `non_compliant` (JSON illisible ou hors schéma, appel d'outil mal formé, borne d'appels) est un échec du modèle ; `error` (vérificateur en défaut, identifiant de consigne inconnu, cible illisible, rejeu divergent, verdict du juge en erreur) est une erreur du banc. Rédaction sans verdict complet, sans juge désigné ou sans dossier de jugement : `awaiting_judgment`. `metrics.inline_thinking` vaut 1.0 si la réponse contenait `<think>`.
-- **Codes de sortie :** 0 ; 1 si les entrées sont incohérentes (manifeste absent, jeu ou empreinte du jeu différents, question absente du jeu, `prompt_hash` différent, ligne de génération ou de jugement d'un autre manifeste ou hors schéma) ; 2 si `campaigns/<c>.yaml` est absent ou invalide. Dans les deux cas d'échec, rien n'est écrit.
+- **Statuts :** statut de génération d'abord (`truncated` : 0 et échec, rédaction 0 et `success` nul ; `context_exceeded` et `error` : ni score ni succès), puis borne d'appels (`non_compliant`), puis le correcteur. `non_compliant` (JSON illisible ou hors schéma, appel d'outil mal formé, borne d'appels) est un échec du modèle ; `error` (vérificateur en défaut, identifiant de consigne inconnu, cible illisible, rejeu divergent, verdict du juge en erreur) est une erreur du banc. Rédaction sans verdict complet, sans juge désigné ou sans dossier de jugement : `awaiting_judgment`. `metrics.inline_thinking` vaut 1.0 si la réponse contenait `<think>` ou `</think>`.
+- **Codes de sortie :** 0 ; 1 si les entrées sont incohérentes (manifeste absent, jeu ou empreinte du jeu différents, question absente du jeu, `prompt_hash` différent, ligne de génération ou de jugement d'un autre manifeste ou hors schéma, données NLTK absentes alors qu'une question `ifbench` ou `mifeval_fr` est à corriger) ; 2 si `campaigns/<c>.yaml` est absent ou invalide. Dans les deux cas d'échec, rien n'est écrit.
 - **Journal :** identifiants, statuts, comptes et raisons rédigées par le banc ; jamais de contenu de question ni de réponse.
 
 ### Correcteurs
@@ -193,7 +193,7 @@ Registre `grading/registry.py`, un correcteur par nom de `GRADERS`, tous en vers
 | `bfcl_irrelevance@1` | `bfcl-irrelevance` | succès si aucun appel d'outil |
 | `json_schema@1` | `jsonschemabench`, `extraction-fr` | JSON décodé (clôtures Markdown admises) et vérifié contre le schéma (`$schema` déclaré, aucune résolution distante) ; avec cible : feuilles comparées par chemin (clés et indices, listes par position), toutes les feuilles attendues retrouvées, `metrics.f1` |
 | `squad_f1@1` | `piaf` | correspondance exacte après normalisation française, `metrics.f1` de jetons |
-| `oneruler_niah@1`, `oneruler_cwe@1` | `oneruler-fr-niah`, `oneruler-fr-none` ; `oneruler-fr-cwe` | `compare_numbers`, `compare_none` (« aucun ») et `is_correct_order` de OneRuler |
+| `oneruler_niah@1`, `oneruler_cwe@1` | `oneruler-fr-niah`, `oneruler-fr-none` ; `oneruler-fr-cwe` | `compare_numbers`, `compare_none` (réponse attendue `grader.params.none_answer`) et `is_correct_order` de OneRuler |
 | `abstention_marker@1` | `abstention-fr` | réponse sans espaces, guillemets, `*`, `` ` `` ni point final en bordure, égale au marqueur sans tenir compte de la casse |
 | `judge_criteria@1` | `writing-fr` | score = part des critères jugés vrais sur tous les critères, `success` nul |
 
@@ -288,7 +288,7 @@ Le rapport est une phase séparée, sans réseau, sans GPU et sans verrou machin
 - **Exports** (`benchmarks/quality/<c>/`, liste blanche d'AD-6, sans date, octets identiques d'une passe à l'autre) :
   - `scores/<modèle>.jsonl` (`qb.score/1` ; caractère hors `[A-Za-z0-9._-]` remplacé par `_`) ;
   - `summary.json` (`qb.report/1`) ;
-  - `manifest.json` (copie du manifeste de génération ; une sélection `{ids: [...]}` y devient `{ids_count, ids_sha256}`, effectif et empreinte des `question_id` triés, pour qu'aucun identifiant de question ne sorte) ;
+  - `manifest.json` (copie du manifeste de génération ; une sélection `{ids: [...]}` y devient `{ids_count, ids_sha256}`, effectif et empreinte des `question_id` triés, pour qu'aucun identifiant de question ne sorte ; l'empreinte `blocking` de cette copie diffère alors de `summary.generation_manifest`, calculée sur le manifeste d'origine) ;
   - `report.md` en français et `charts/<piste>-<global|usage>.svg`.
 
   Aucun texte de question, sortie de modèle ni `question_id` n'y figure. Le dossier est assemblé à côté (`.<c>.tmp`), puis mis en place par renommage.

@@ -160,6 +160,13 @@ deferred:
   - `[low]` `[reject]` (EC) Entier géant pour `min_prefill_tok_s` : `OverflowError` — valeur absurde ; garde supplémentaire.
   - `[low]` `[patch]` (EC) Échec de `/api/show` au préflight : code 1 et message « ligne en cours » — message corrigé (entrée BH) ; le code 1 reste (panne ou refus du service, pas un refus de configuration).
 
+### 2026-10-12 — Revue de suivi (stories 4 à 6)
+- Revue de suivi `e033e3f..HEAD` ; les correctifs `attempts > 0` et `think_off: true` tiennent.
+- `[low]` `[patch]` (AA, BH) Nouvelle chauffe après tout essai compté : après un 4xx le modèle reste chargé et l'invite de chauffe revient du cache de préfixe (débit faux) ; après le dernier essai d'un 5xx, la question suivante partait à froid — chauffe seulement après `OllamaUnavailableError` service vivant, y compris au dernier essai ; test (4 chauffes en 500, 1 en 400).
+- `[low]` `[patch]` (BH) Docstring : l'arrêt est lu avant chaque clé (question, seed).
+- `[low]` `[patch]` (VG) Tests ajoutés : sommes de tokens et durées sur plusieurs appels et réflexion renvoyée au modèle ; défaut du banc levé sans essai compté ni ligne ; échec du déchargement et de `/api/ps` sans arrêt de la campagne.
+- Rejetés : reprises non comptées sans borne (déjà reporté), `EnvError`, `tool_calls` hors format, `tools` sans `env`, traces brutes (déjà tranchés) ; chauffe ratée marquée chargée (voulu par la spec) ; refus `num_predict ≥ num_ctx` trop large, `check_launch` au-delà du palier max, `tool_name` absent de la sortie, cycle `raise cause from failure`, `think` recalculé (low, sans effet pratique) ; journal des écarts de spec (modifier la spec).
+
 ## Design Notes
 
 - **Décision du report « outils à un seul tour » :** arrêt après la première réponse quand `env` est nul. `bfcl_ast@1` reste inchangé : avec une seule réponse, « tous les pas du tour 0 » = la première réponse, comme BFCL.

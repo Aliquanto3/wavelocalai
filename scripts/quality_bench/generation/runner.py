@@ -14,11 +14,12 @@
   ``max_attempts`` essais comptés : ligne ``error`` (sortie et compteurs du dernier essai,
   message d'Ollama). ``max_consecutive_errors`` lignes ``error`` de suite : ``GenerationAbortedError``.
 - **Chauffe** : une requête jetée chaque fois que le couple (modèle, ``num_ctx``) chargé change,
-  avant la première question à requêter du palier, et après toute panne du service ; une ligne
+  avant la première question à requêter du palier, après toute panne du service et après un
+  essai compté en ``OllamaUnavailableError`` (5xx ou coupure, service vivant) ; une ligne
   ``qb.warmup/1`` dans ``warmups.jsonl``. Échec de la chauffe, service vivant : journalisé, sans
   ligne, la génération continue.
-- **Arrêt** : ``stop.should_stop()`` lu entre deux questions ; le modèle en cours est déchargé
-  (``keep_alive: 0``) en fin de modèle et à toute sortie, au mieux.
+- **Arrêt** : ``stop.should_stop()`` lu avant chaque clé (question, seed) ; le modèle en cours
+  est déchargé (``keep_alive: 0``) en fin de modèle et à toute sortie, au mieux.
 
 Le journal ne porte que des identifiants, statuts et comptes : jamais de contenu de question ni
 de réponse.
@@ -304,12 +305,16 @@ class Runner:
                     self.generation["max_attempts"],
                     type(cause).__name__,
                 )
+                if isinstance(cause, OllamaUnavailableError):
+                    # 5xx ou coupure, service vivant : le runner du modèle a pu tomber et le
+                    # décharger. Nouvelle chauffe avant la requête suivante (cet essai ou la
+                    # question suivante), pour ne pas compter un rechargement à froid dans ses
+                    # durées. Un refus 4xx laisse le modèle chargé : rechauffer relirait
+                    # l'invite de chauffe depuis le cache de préfixe et fausserait son débit.
+                    self.loaded = None
                 if attempts >= self.generation["max_attempts"]:
                     self._write(line, failure.partial, attempts=attempts, error=str(cause))
                     return
-                # Le modèle a pu être déchargé : nouvelle chauffe, pour ne pas compter un
-                # rechargement à froid dans les durées de l'essai suivant.
-                self.loaded = None
                 self._ensure_warm(model, num_ctx, think)
                 continue
             self._write(line, outcome, attempts=attempts + 1, error=None)

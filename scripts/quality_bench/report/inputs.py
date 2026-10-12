@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -279,6 +280,14 @@ def _reject_constant(name: str) -> Any:
     raise ValueError(f"constante non finie {name}")
 
 
+def _finite_float(text: str) -> float:
+    """Nombre JSON décimal ; un littéral qui déborde (``1e999`` → ``inf``) est refusé."""
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f"nombre non fini {text}")
+    return value
+
+
 def load_aa_reference(date: str | None) -> AAReference | None:
     """Fichier ``references/aa-<date>.json`` (le plus récent sans ``date``) ; ``None`` si aucun
     fichier. ``ReportError`` si la date demandée est absente ou si le fichier est hors schéma."""
@@ -304,7 +313,9 @@ def load_aa_reference(date: str | None) -> AAReference | None:
     assert match is not None  # noqa: S101 (nom construit ou filtré ci-dessus)
     try:
         data = path.read_bytes()
-        document = json.loads(data.decode("utf-8"), parse_constant=_reject_constant)
+        document = json.loads(
+            data.decode("utf-8"), parse_constant=_reject_constant, parse_float=_finite_float
+        )
     except (OSError, ValueError) as exc:
         raise ReportError(f"référence AA illisible : {path} ({type(exc).__name__})") from None
     where = f"référence AA {path.name}"

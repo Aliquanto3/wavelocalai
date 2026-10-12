@@ -183,6 +183,16 @@ deferred:
   - `[false]` `[reject]` (intention) Arguments d'outil hors schéma de paramètres non comptés non_compliant — la spec ne range en non_compliant que l'appel mal formé ; un mauvais argument est une mauvaise réponse, comme dans BFCL.
   - `[false]` `[reject]` (intention) Aucune preuve de l'exécution réelle — comptes consignés dans l'Auto Run Result.
 
+### 2026-10-12 — Revue de suivi (stories 4 à 6)
+- Revue de suivi `e033e3f..HEAD` (stories 4 à 6, gel de `set-v1`), quatre couches par lot ; les 5 correctifs medium de la passe précédente tiennent.
+- `[medium]` `[patch]` (AA) `TicketAPI.edit_ticket` joignait un `set` : ordre dépendant de `PYTHONHASHSEED`, rejeu de `grade` divergent d'un processus à l'autre — `sorted(...)` dans la copie, consigné dans `envs/vendored/bfcl/PROVENANCE.md` ; test en sous-processus sur cinq graines.
+- `[low]` `[patch]` (AA) `judgment_manifest` posé sur des lignes `awaiting_judgment` — nul quand aucun verdict complet ; attente du test ajustée.
+- `[low]` `[patch]` (BH, AA) SOURCES.md : données NLTK lues et refus faute de NLTK (code 1), `</think>` seul, `none_answer`, renumérotation non détectée par `exclude` ; docstring de `conformity_error` (draft 4 : `1.0` n'est pas un entier).
+- `[low]` `[patch]` (VG) Tests ajoutés : `grade` sans juge désigné ; refus d'une ligne de jugement d'un autre juge, à clé incohérente, ou de clé de génération absente.
+- `[medium]` `[defer]` (BH) Verdict du juge en erreur → ligne `error` sans relance : règle à fixer à la story 7 (`deferred-work.md`).
+- `[low]` `[defer]` (AA) AD-15 dit « via `NLTK_DATA` », le code l'ignore à dessein : amendement du spine (`deferred-work.md`). Draft 4 et `integer` ajouté au report `format` existant.
+- Rejetés : traces brutes sur défaut du banc, doublons d'identifiants, grader inconnu, `SCORE_V1` sans règles croisées (déjà tranchés) ; `random.seed` unique (liste fixe par question, déterministe) ; dépendances transitives de `jsonschema`, `oxed` imbriqué, branche morte de `leaf_scores`, noms réservés vérifiés au seul `report`, OverflowError ou RecursionError d'une réponse absurde (low, improbables).
+
 ## Design Notes
 
 - **Ordre des statuts :** statut de génération ≠ `ok` d'abord ; puis `call_cap_reached` → `non_compliant` ; puis le correcteur. `inline_thinking` (1.0 / 0.0) figure dans `metrics` de toute ligne corrigée depuis une sortie `ok`.

@@ -156,6 +156,16 @@ deferred:
   - `[low]` `[reject]` (EC) « Écriture atomique » : deux renommages laissent une fenêtre sans dossier — même cause que l'entrée BH `.old`.
   - `[low]` `[patch]` (EC) Les schémas « flottants finis » acceptent NaN à la validation — même correctif que l'entrée EC « index AA » ; les exports sont écrits par `canonical_bytes` (`allow_nan=False`).
 
+### 2026-10-12 — Revue de suivi (stories 4 à 6)
+- Revue de suivi `e033e3f..HEAD` ; les correctifs `awaiting_judgment`, `b = c = None`, casse des noms réservés et des tags, « sans score » tiennent.
+- `[low]` `[patch]` (EC, AA) Index AA `1e999` lu en `inf` malgré le refus des constantes non finies — `parse_float` refuse un nombre non fini ; cas ajouté au test.
+- `[low]` `[patch]` (BH, AA) Titre « questions sur documents (rag) » — seule l'initiale passe en minuscule ; texte de méthode : une unité exclue l'est aussi pour contexte dépassé et, sous `--partial`, ligne absente, discordante ou en attente.
+- `[low]` `[patch]` (AA) SOURCES.md : l'empreinte de `manifest.json` réduit diffère de `summary.generation_manifest`.
+- `[low]` `[patch]` (VG) Tests ajoutés : Wilson à α et α/m, table de McNemar orientée, Holm et BH recalculés ; bootstrap par groupes ; échec du renommage qui garde l'ancien export ; score global binaire sans rédaction ; remplissage des points du SVG.
+- `[medium]` `[defer]` (BH, AA) `z_test` : ET nulle → p = 0 quel que soit l'effectif (choix de méthode, `deferred-work.md`). Différence appariée négative au meneur « distinguée » mais rangée au groupe 1 : ajoutée au report AD-10 existant.
+- `[low]` `[defer]` (AA) `manifest.json` réduit alors que les `question_id` sont publics dans `index.jsonl` ; `ollama_env` publié tel quel (`deferred-work.md`).
+- Rejetés : `.old` supprimé après un arrêt entre deux renommages, `OSError` non rattrapée, Wilson sans regroupement, AA le plus récent par défaut, date AA lâche (déjà tranchés) ; groupes d'une p indéfinie (cas `--partial` extrême, déjà tranché) ; version de correcteur non vérifiée (`grade` réécrit tout le fichier) ; tags longs tronqués, `_pair` calculé deux fois, k̂ comptant les p indéfinies (prudent et publié), `m` incluant les modèles sans unité, aria-label « — » (low).
+
 ## Design Notes
 
 - **Groupes indiscernables :** meneurs successifs. Le premier groupe = meneur + modèles que Holm (k−1 comparaisons au meneur) ne distingue pas ; on retire ce groupe et on recommence sur le reste. Égalité de moyenne : ordre de la configuration.

@@ -631,8 +631,9 @@ def conformity_error(schema: Any, instance: Any) -> str | None:
     """Chemin JSON et mot-clé du premier défaut d'``instance`` (sortie de modèle) contre le
     schéma d'une question d'extraction, ou ``None`` s'il est conforme.
 
-    Validateur de la version que déclare ``$schema`` (2020-12 par défaut), entiers JSON
-    standard (``1.0`` est un entier, comme le veut JSON Schema), aucune résolution distante.
+    Validateur de la version que déclare ``$schema`` (2020-12 par défaut), entiers JSON de
+    cette version (``1.0`` est un entier à partir du draft 6 ; les drafts 3 et 4 le refusent),
+    aucune résolution distante.
     Un schéma invérifiable (référence introuvable, motif invalide) lève l'exception de
     ``jsonschema`` ou de ``referencing`` : c'est une erreur du banc, jamais un échec du modèle.
     """

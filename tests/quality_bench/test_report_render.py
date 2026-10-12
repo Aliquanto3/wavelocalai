@@ -9,7 +9,7 @@ import unicodedata
 import pytest
 
 from scripts.quality_bench.common.schemas import validate
-from scripts.quality_bench.report.charts import PRIMARY, _x, charts, scope_chart
+from scripts.quality_bench.report.charts import BACKGROUND, PRIMARY, _x, charts, scope_chart
 from scripts.quality_bench.report.markdown import (
     fr_decimal,
     fr_int,
@@ -210,6 +210,10 @@ def test_svg_chart_follows_the_charter():
     assert "<title>Piste sans réflexion (think_off) : raisonnement</title>" in svg
     # Moyenne connue : 75 % placée à _x(0,75).
     assert f'<circle cx="{_x(0.75):.1f}"' in svg
+    # Point plein pour le groupe de tête, vide pour un autre groupe.
+    circles = dict(re.findall(r'<circle cx="([^"]+)"[^>]* fill="([^"]+)"', svg))
+    assert circles == {f"{_x(0.75):.1f}": PRIMARY, f"{_x(0.4):.1f}": BACKGROUND}
+    assert BACKGROUND != PRIMARY
     assert f">75,0{NBSP}%</text>" in svg
     assert ">sans score</text>" in svg  # colonne des valeurs du modèle sans score
     assert not _has_emoji(svg)

@@ -205,6 +205,28 @@ def test_paired_bootstrap_is_reproducible():
     assert first[0] <= diff <= first[1]
 
 
+def test_paired_bootstrap_resamples_whole_groups():
+    """Deux unités identiques par groupe : le tirage par groupes équivaut à un tirage des
+    groupes réduits à une unité (mêmes tirages, même graine) ; un tirage par unité, non."""
+    a = [1, 0, 1, 0.5, 0.25, 1, 0, 0.75]
+    b = [0, 0, 1, 0.0, 0.5, 0, 0, 0.25]
+    single = paired_bootstrap_ci(a, b, list(range(len(a))), seed=11)
+    doubled = paired_bootstrap_ci(
+        [x for x in a for _ in (0, 1)],
+        [y for y in b for _ in (0, 1)],
+        [g for g in range(len(a)) for _ in (0, 1)],
+        seed=11,
+    )
+    assert doubled == pytest.approx(single)
+    by_unit = paired_bootstrap_ci(
+        [x for x in a for _ in (0, 1)],
+        [y for y in b for _ in (0, 1)],
+        list(range(2 * len(a))),
+        seed=11,
+    )
+    assert by_unit != pytest.approx(single)
+
+
 def test_paired_bootstrap_of_identical_models_is_zero():
     values = [1, 0, 1, 0.5]
     assert paired_bootstrap_ci(values, values, [1, 2, 3, 4]) == (0.0, 0.0)

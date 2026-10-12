@@ -190,6 +190,29 @@ def test_two_cli_passes_are_byte_identical(campaign):
     assert leftovers == []
 
 
+def test_failed_swap_keeps_the_previous_export(campaign, monkeypatch):
+    """Échec du renommage du dossier assemblé (fichier verrouillé sous Windows) : l'ancien
+    export est remis en place, intact, sans dossier ``.tmp`` ni ``.old`` laissé."""
+    from scripts.quality_bench.report import export
+
+    assert _run() == 0
+    before = _tree(_export_dir())
+    staging = _export_dir().with_name(f".{_export_dir().name}.tmp")
+    real_replace = os.replace
+
+    def replace(src, dst):
+        if Path(src) == staging:
+            raise PermissionError("fichier verrouillé")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(export.os, "replace", replace)
+    with pytest.raises(PermissionError):
+        export.write_export_dir(CAMPAIGN, {"summary.json": b"{}"})
+    assert _tree(_export_dir()) == before
+    leftovers = {p.name for p in _export_dir().parent.iterdir() if p.name.startswith(".")}
+    assert leftovers == set()
+
+
 def test_rewrite_replaces_the_whole_directory(campaign):
     stale = _export_dir() / "charts" / "ancien.svg"
     stale.parent.mkdir(parents=True)
@@ -303,6 +326,66 @@ def test_leader_comparisons_use_holm_and_groups(campaign):
             wins += pair["p"] is not None and pair["p"] < threshold and diff > 0
         assert entry["wins"] == wins
         assert entry["tests"] == len(usage_scopes)
+
+
+def _unit_scores(campaign, model, track, usage):
+    """Unité → score (minimum de ses questions, ``None`` si l'une est sans score)."""
+    by_unit: dict[str, list[float | None]] = {}
+    for g in campaign.generation:
+        if g["model"] == model and g["track"] == track and g["usage"] == usage:
+            by_unit.setdefault(g["unit"], []).append(campaign.scores[g["key"]])
+    return {unit: None if None in v else min(v) for unit, v in by_unit.items()}
+
+
+def test_binary_scope_statistics_match_the_reference_functions(campaign):
+    """Câblage de ``scope_stats`` : Wilson à α et à α/m, table de McNemar orientée (meneur
+    seul, autre seul), Holm sur les comparaisons au meneur, BH sur la matrice."""
+    from scripts.quality_bench.stats.mcnemar import mcnemar_exact
+    from scripts.quality_bench.stats.multiple import benjamini_hochberg, holm
+    from scripts.quality_bench.stats.wilson import wilson_interval
+
+    assert _run() == 0
+    scope = _scope(_summary(), "think_off", "reasoning")
+    assert scope["method"] == "mcnemar"
+    models = campaign.models
+    units = {model: _unit_scores(campaign, model, "think_off", "reasoning") for model in models}
+    for model in models:
+        values = [v for v in units[model].values() if v is not None]
+        entry = _entry(scope, model)
+        ci = wilson_interval(sum(values), len(values), 0.05)
+        sim = wilson_interval(sum(values), len(values), 0.05 / len(models))
+        assert (entry["ci_low"], entry["ci_high"]) == pytest.approx(ci)
+        assert (entry["sim_ci_low"], entry["sim_ci_high"]) == pytest.approx(sim)
+
+    def table(a, b):
+        common = [u for u in units[a] if units[a][u] is not None and units[b].get(u) is not None]
+        only_a = sum(1 for u in common if units[a][u] >= 0.5 > units[b][u])
+        only_b = sum(1 for u in common if units[b][u] >= 0.5 > units[a][u])
+        return only_a, only_b
+
+    leader = scope["leader"]
+    raw = []
+    for comparison in scope["comparisons"]:
+        only_a, only_b = table(leader, comparison["model"])
+        assert (comparison["b"], comparison["c"]) == (only_a, only_b)
+        raw.append(mcnemar_exact(only_a, only_b))
+        assert comparison["p"] == pytest.approx(raw[-1])
+    assert any(c["b"] != c["c"] for c in scope["comparisons"])  # orientation observable
+    assert [c["p_holm"] for c in scope["comparisons"]] == pytest.approx(holm(raw)[1])
+    matrix_raw = [mcnemar_exact(*table(row["a"], row["b"])) for row in scope["matrix"]]
+    assert [row["p"] for row in scope["matrix"]] == pytest.approx(matrix_raw)
+    assert [row["p_bh"] for row in scope["matrix"]] == pytest.approx(
+        benjamini_hochberg(matrix_raw)[1]
+    )
+
+
+def test_global_scope_without_writing_is_binary(tmp_path, monkeypatch):
+    """k = 1 et piste sans rédaction : le score global est binaire (McNemar, table publiée)."""
+    make_campaign(tmp_path, monkeypatch, small=True, think_off_only=())
+    assert _run() == 0
+    scope = _scope(_summary(), "think_off", None)
+    assert scope["method"] == "mcnemar"
+    assert all(c["b"] is not None and c["c"] is not None for c in scope["comparisons"])
 
 
 def test_k2_averages_seeds_and_uses_the_z_test(tmp_path, monkeypatch):
@@ -657,12 +740,13 @@ def test_judgment_manifest_of_another_generation_is_refused(campaign):
     assert "jugement d'un autre manifeste de génération" in _log()
 
 
-def test_non_finite_aa_index_is_refused_even_partial(campaign):
+@pytest.mark.parametrize("index", ["NaN", "Infinity", "1e999"])
+def test_non_finite_aa_index_is_refused_even_partial(campaign, index):
     path = paths.references_dir() / "aa-2026-10-01.json"
     path.parent.mkdir(parents=True)
     path.write_text(
         '{"schema": "qb.aa_reference/1", "date": "2026-10-01", "source": "test", "entries": '
-        '[{"tag": "model-0:4b", "index": NaN, "status": "measured", '
+        f'[{{"tag": "model-0:4b", "index": {index}, "status": "measured", '
         '"variant": "non_reasoning"}]}',
         encoding="utf-8",
     )

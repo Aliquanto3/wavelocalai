@@ -93,8 +93,10 @@ def fr_interval(low: float | None, high: float | None, *, points: bool = False) 
 
 
 def scope_title(track: str, usage: str | None) -> str:
-    where = "score global" if usage is None else USAGE_LABELS[usage].lower()
-    return f"{TRACK_LABELS[track]} : {where}"
+    if usage is None:
+        return f"{TRACK_LABELS[track]} : score global"
+    label = USAGE_LABELS[usage]  # seule l'initiale passe en minuscule : « (RAG) » reste un sigle
+    return f"{TRACK_LABELS[track]} : {label[0].lower()}{label[1:]}"
 
 
 def chart_name(track: str, usage: str | None) -> str:
@@ -296,7 +298,8 @@ def render(summary: Mapping[str, Any]) -> str:
         f"tirages, graine {method['bootstrap_seed']}.",
         "",
         "Unité statistique : (modèle, piste, unité) ; les questions d'une unité sont agrégées "
-        "par minimum, puis les seeds par moyenne. Une unité sans score (erreur du banc) est "
+        "par minimum, puis les seeds par moyenne. Une unité sans score (erreur du banc, contexte "
+        "dépassé ; avec --partial, ligne absente, discordante ou en attente du juge) est "
         "retirée des seules comparaisons de son modèle, et comptée dans « Exclues ».",
         "",
         "## Complétude",

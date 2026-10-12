@@ -149,6 +149,40 @@ def test_multi_turn_tools_execute_env_and_inject_turns():
     assert (grade["status"], grade["success"]) == ("ok", True)
 
 
+def test_counters_are_summed_and_thinking_is_sent_back():
+    """Tokens, durées et temps sont les sommes des appels de l'essai (AD-7) ; la réflexion d'un
+    appel d'outil est renvoyée au modèle, et absente quand elle est vide."""
+    question = questions()["bfcl_multi"]
+    first = result(
+        tool_calls=[tool_call("cd", {"folder": "docs"})], prompt=11, cached=3, thinking="je cherche"
+    )
+    second = result("Fait.", prompt=17, cached=5)
+    rest = _multi_turn_results(GOOD_STEPS[1:])
+    chat = ScriptedChat(first, second, *rest)
+    outcome = _run(question, chat)
+    assert outcome.status == "ok"
+    calls = 2 + len(rest)
+    assert outcome.calls == calls
+    assert outcome.tokens == {
+        "prompt": 11 + 17 + 10 * len(rest),
+        "prompt_cached": 3 + 5,
+        "completion": 5 * calls,
+        "thinking_est": 3,
+        "answer_est": 2 * sum(1 for r in [second, *rest] if r.content),
+    }
+    assert outcome.durations_ns == {
+        "total": 100 * calls,
+        "load": 10 * calls,
+        "prompt_eval": 20 * calls,
+        "eval": 30 * calls,
+    }
+    assert outcome.wall_s == pytest.approx(0.5 * calls)
+    sent_back = chat.requests[1][0][-2]
+    assert sent_back["role"] == "assistant" and sent_back["thinking"] == "je cherche"
+    later = [m for m in chat.requests[2][0] if m["role"] == "assistant"]
+    assert "thinking" not in later[-1]
+
+
 def test_call_cap_is_not_executed_and_stops():
     question = questions()["bfcl_multi"]
     calls = [tool_call("cd", {"folder": "docs"}), tool_call("ls", {})]

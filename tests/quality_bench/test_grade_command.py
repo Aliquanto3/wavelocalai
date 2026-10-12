@@ -229,8 +229,13 @@ def test_grade_writes_one_sorted_line_per_generation(campaign, _reset_logging):
             campaign["expected"][record["key"]]
         ), record["key"]
         assert record["generation_manifest"] == campaign["generation_hash"]
-        # Rédaction jugée seulement : une sortie non ok n'est jamais jugée.
-        judged = record["grader"] == "judge_criteria@1" and generation_status[record["key"]] == "ok"
+        # Rédaction jugée seulement : une sortie non ok n'est jamais jugée, une ligne en attente
+        # (verdicts incomplets) non plus.
+        judged = (
+            record["grader"] == "judge_criteria@1"
+            and generation_status[record["key"]] == "ok"
+            and record["status"] != "awaiting_judgment"
+        )
         assert record["judgment_manifest"] == (campaign["judgment_hash"] if judged else None)
     truncated_writing = [
         r for r in records if r["grader"] == "judge_criteria@1" and r["status"] == "truncated"
@@ -472,3 +477,45 @@ def test_judgment_of_an_unknown_criterion_is_refused(campaign, _reset_logging):
     extra = _judgment_line(first["generation_key"], "c9", True, campaign["judgment_hash"])
     _rewrite_judgments([*campaign["judgments"], extra])
     _assert_refused(1)
+
+
+def _grade_log():
+    return paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+
+
+def test_judgment_line_of_another_judge_is_refused(campaign, _reset_logging):
+    other = dict(campaign["judgments"][0], judge="mimo")
+    _rewrite_judgments([other, *campaign["judgments"][1:]])
+    _assert_refused(1)
+    assert "juge mimo au lieu de" in _grade_log()
+
+
+def test_judgment_key_inconsistent_with_generation_key_is_refused(campaign, _reset_logging):
+    first = campaign["judgments"][0]
+    broken = dict(first, key=f"{first['generation_key']}|c9")
+    _rewrite_judgments([broken, *campaign["judgments"][1:]])
+    _assert_refused(1)
+    assert "clé incohérente" in _grade_log()
+
+
+def test_judgment_of_an_unknown_generation_key_is_refused(campaign, _reset_logging):
+    first = campaign["judgments"][0]
+    generation_key = first["generation_key"].rsplit("|", 1)[0] + "|99"
+    extra = _judgment_line(generation_key, "c1", True, campaign["judgment_hash"])
+    _rewrite_judgments([*campaign["judgments"], extra])
+    _assert_refused(1)
+    assert "clé de génération absente" in _grade_log()
+
+
+def test_without_designated_judge_writing_awaits(campaign, _reset_logging):
+    """Sans section ``grading`` (aucun juge désigné), la rédaction attend, même si un dossier de
+    jugement existe."""
+    yaml_text = CAMPAIGN_YAML.replace(f"grading:\n  judge: {JUDGE_ID}\n", "")
+    assert "grading" not in yaml_text
+    (campaign["config_dir"] / f"{CAMPAIGN}.yaml").write_text(yaml_text, encoding="utf-8")
+    assert _run() == 0
+    records = read_jsonl(paths.grading_path(CAMPAIGN))
+    writing = [r for r in records if r["grader"] == "judge_criteria@1"]
+    ok_writing = [r for r in writing if r["status"] != "truncated"]
+    assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
+    assert all(r["judgment_manifest"] is None for r in records)

@@ -27,12 +27,13 @@ Ces classes vivent sous `envs/` et non sous `grading/vendored/` (écart au spine
 
 ## Modifications
 
-Sources de non-déterminisme figées (horloge et fuseau de la machine) ; le reste est tel que publié.
+Sources de non-déterminisme figées (horloge et fuseau de la machine, ordre d'un ensemble) ; le reste est tel que publié.
 
 - **Imports** `from bfcl_eval…long_context import (…)` rendus relatifs (`from .long_context import (…)`) dans `gorilla_file_system.py`, `trading_bot.py`, `travel_booking.py` et `vehicle_control.py`.
 - **`gorilla_file_system.py`** : les trois `datetime.datetime.now()` de `File` (attribut privé `_last_modified`, jamais lu ni comparé) deviennent la constante `_FROZEN_NOW = datetime.datetime(2024, 9, 1, 10, 30)`, la date de `CURRENT_TIME` de `trading_bot.py`. `import subprocess`, inutilisé, est retiré.
 - **`travel_booking.py`** : `datetime.today()` (calcul de l'âge dans `verify_traveler_information`) devient `datetime(2024, 9, 1, 10, 30)`.
 - **`trading_bot.py`** : `_generate_transaction_timestamp` convertit `CURRENT_TIME` en horodatage et retour en UTC (`replace(tzinfo=timezone.utc)`, `datetime.fromtimestamp(…, tz=timezone.utc)`) au lieu de l'heure locale de la machine ; hors changement d'heure dans la journée, la chaîne produite est celle de BFCL, sur toute machine.
+- **`ticket_api.py`** : `edit_ticket` joint les champs refusés dans l'ordre trié (`', '.join(sorted(invalid_fields))`) et non dans celui d'un `set`, qui dépend de `PYTHONHASHSEED` et change d'un processus à l'autre : sans cela, `grade` rejoue le message dans un autre ordre que la génération et sort la ligne en `error` (rejeu divergent).
 
 Le hasard reste celui de BFCL : chaque classe tire dans son propre `random.Random(random_seed)` de l'état initial, jamais dans le `random` global.
 

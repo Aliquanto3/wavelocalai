@@ -243,6 +243,8 @@ def grade_campaign(campaign: str) -> int:
             verdicts = judgments.by_generation_key.get(key, {})
             judgment_manifest = judgments.manifest_hash
         graded = grade_line(question, generation, verdicts)
+        if graded.record["status"] == "awaiting_judgment":
+            judgment_manifest = None  # aucun verdict complet : la ligne n'a pas été jugée
         record = {
             **graded.record,
             "generation_manifest": generation_hash,

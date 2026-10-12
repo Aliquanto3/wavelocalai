@@ -702,6 +702,12 @@ def test_live_service_failures_count_attempts_then_error(env, status):
     assert str(status) in first["error"] and "panne synthétique" in first["error"]
     assert first["output"] == [] and first["calls"] == 0
     assert state["failures"] == 3 * len(lines)  # aucune autre ligne en erreur
+    # 5xx : le modèle a pu tomber, nouvelle chauffe après chaque essai compté, y compris le
+    # dernier (avant la question suivante du palier, bfcl-live). 4xx : le modèle reste chargé,
+    # aucune chauffe de plus (l'invite de chauffe viendrait du cache de préfixe).
+    warmups = [(w["model"], w["num_ctx"]) for w in read_jsonl(paths.warmups_path(CAMPAIGN))]
+    count = 4 if status == 500 else 1
+    assert warmups[: count + 1] == [(THINK, 4096)] * count + [(THINK, 8192)]
 
 
 def test_live_unavailable_counts_attempt_then_succeeds(env):
@@ -791,6 +797,41 @@ def test_consecutive_errors_stop_campaign(env):
     lines = _lines()
     assert [line["status"] for line in lines] == ["error", "error"]
     assert env["fake"].unloads == [THINK]
+
+
+def test_bench_defect_is_raised_never_counted_as_an_attempt(env, monkeypatch):
+    """Un défaut du banc (paramètre refusé par le client, avant toute requête) remonte tel
+    quel : ni essai compté, ni ligne ``error`` qui marquerait la clé comme faite."""
+    from scripts.quality_bench.ollama.client import OllamaClient
+
+    target = env["named"]["piaf"]["messages"][0]["content"]
+    original = OllamaClient.chat
+
+    def chat(self, model, messages, **kwargs):
+        if messages[0]["content"] == target:
+            raise ValueError("format refusé par le client")
+        return original(self, model, messages, **kwargs)
+
+    monkeypatch.setattr(OllamaClient, "chat", chat)
+    with pytest.raises(ValueError, match="format refusé"):
+        _run()
+    piaf = env["named"]["piaf"]["id"]
+    assert _lines() and not any(line["question_id"] == piaf for line in _lines())
+    assert not any(line["status"] == "error" for line in _lines())
+
+
+def test_failed_unload_and_ps_do_not_stop_the_campaign(env):
+    """Déchargement (``keep_alive: 0``) et ``/api/ps`` après la chauffe sont « au mieux » :
+    leur échec est journalisé, la campagne continue."""
+    fake = env["fake"]
+    fake._generate = lambda body: httpx2.Response(500, json={"error": "déchargement"})
+    fake._ps = lambda body: httpx2.Response(500, json={"error": "ps"})
+    assert _run() == 0
+    assert [line["key"] for line in _lines()] == _expected_keys(env)
+    warmups = read_jsonl(paths.warmups_path(CAMPAIGN))
+    assert warmups and all(w["size"] is None and w["size_vram"] is None for w in warmups)
+    log = paths.log_path(CAMPAIGN, "generate").read_text(encoding="utf-8")
+    assert "déchargement impossible" in log and "/api/ps illisible" in log
 
 
 # --- Outils ------------------------------------------------------------------------------

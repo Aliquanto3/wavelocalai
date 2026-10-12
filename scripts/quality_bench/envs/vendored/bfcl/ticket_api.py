@@ -162,7 +162,7 @@ class TicketAPI:
         valid_fields = {"title", "description", "status", "priority"}
         invalid_fields = set(updates.keys()) - valid_fields
         if invalid_fields:
-            return {"error": f"Invalid fields for update: {', '.join(invalid_fields)}"}
+            return {"error": f"Invalid fields for update: {', '.join(sorted(invalid_fields))}"}
 
         for key, value in updates.items():
             if value is not None:
