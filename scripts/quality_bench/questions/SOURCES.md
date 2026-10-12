@@ -155,12 +155,13 @@ questions:
 .venv-quality\Scripts\python -m scripts.quality_bench review-sample --set set-v1 --per-source 5 --writing 10
 ```
 
-- **`build-set`** lit `scripts/quality_bench/sets/<s>.yaml` : `set`, `seed`, `sources: [{source, count, per_group?, generator_seed?, generator_params?}]` et `think_on: {<usage>: effectif}`.
+- **`build-set`** lit `scripts/quality_bench/sets/<s>.yaml` : `set`, `seed`, `sources: [{source, count, per_group?, generator_seed?, generator_params?, exclude?}]` et `think_on: {<usage>: effectif}`.
+  - `exclude` : liste d'identifiants de questions de la source (`tools/bfcl-live/0107`), chaînes non vides et sans doublon (sinon code 2). Ils sont retirés des candidats avant tout tirage. Un identifiant absent des candidats (faute de frappe, renumérotation après un changement de révision) refuse le jeu (code 1). Le commentaire du YAML garde la raison et l'identifiant amont de chaque exclusion. `set-v1` exclut ainsi 5 cibles `bfcl-live` défectueuses dans BFCL lui-même : aucune réponse ne les passe, même avec le correcteur amont. On exclut par cette liste, jamais en éditant les candidats.
   - Il tire chaque source par groupes entiers, dans l'ordre du YAML, puis `think_on` par usage et par groupes entiers.
   - Mêmes entrées et même graine : les trois fichiers sont identiques octet pour octet.
   - Le jeu s'écrit une fois : la commande refuse si `sets/<s>/` ou `benchmarks/quality/sets/<s>/` existe, et n'écrit rien en cas d'échec.
-  - Codes de sortie : 0 ; 1 si la machine est occupée, si le jeu existe, si une source ou un fichier privé manque, si un fichier brut a une empreinte inattendue, si un effectif est inatteignable ou si un palier est insuffisant ; 2 si le YAML de jeu est invalide.
-  - Journal : `sets/log-build-set.log`, avec l'empreinte du jeu (AD-4) et celle de chaque fichier écrit.
+  - Codes de sortie : 0 ; 1 si la machine est occupée, si le jeu existe, si une source ou un fichier privé manque, si un fichier brut a une empreinte inattendue, si un identifiant exclu est absent des candidats, si un effectif est inatteignable ou si un palier est insuffisant ; 2 si le YAML de jeu est invalide.
+  - Journal : `sets/log-build-set.log`, avec le nombre de questions exclues par source, l'empreinte du jeu (AD-4) et celle de chaque fichier écrit.
 - **Index versionné** (`qb.set_index/1`, liste blanche d'AD-6) : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` pour les seules questions publiques.
 - **`review-sample`** assemble le jeu en mémoire, sans verrou et sans écrire de jeu (ni `sets/<s>/`, ni `benchmarks/`). Il n'écrit que les deux échantillons sous `$QUALITY_BENCH_DATA/review/` (id, groupe, messages, tours, outils, cible, critères) et son journal `sets/log-review-sample.log`. Ne jamais commiter ni copier les échantillons dans une PR.
 

@@ -16,7 +16,16 @@ sources:
   - {source: tools-fr, count: 30}
   - {source: bfcl-multi, count: 30}
   - {source: bfcl-parallel, count: 20}
-  - {source: bfcl-live, count: 50}
+  # exclude : cibles défectueuses dans BFCL lui-même, qu'aucune réponse ne peut passer, même
+  # avec le correcteur amont (révision épinglée 6ea57973 ; ids de questions, id BFCL en regard).
+  - source: bfcl-live
+    count: 50
+    exclude:
+      - tools/bfcl-live/0107  # live_simple_106-63-0 : paramètres requis sans valeur possible
+      - tools/bfcl-live/0113  # live_simple_112-68-0 : paramètres requis sans valeur possible
+      - tools/bfcl-live/0766  # live_multiple_507-149-4 : origin_airport requis, seule son omission admise
+      - tools/bfcl-live/1121  # live_multiple_862-181-3 : paramètre journey_start_time non déclaré
+      - tools/bfcl-live/1223  # live_multiple_964-207-0 : paramètre question non déclaré (statement)
   # extraction : 110
   - {source: extraction-fr, count: 30}
   - {source: jsonschemabench, count: 80}

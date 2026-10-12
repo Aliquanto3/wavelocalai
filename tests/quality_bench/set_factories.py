@@ -62,7 +62,9 @@ def synthetic_question(source: str, number: int, group: str | None = None, **ext
 def synthetic_candidates(config: SetConfig, spare: int = 2) -> dict[str, list[dict[str, Any]]]:
     """Candidats de chaque source du jeu : ``spare`` fois l'effectif, groupes d'une question,
     sauf ``var-math-fr`` (vrai générateur, groupes de 3), ``piaf`` (groupes de 5) et
-    ``tools-fr`` (traductions qui reprennent des groupes de ``bfcl-live``)."""
+    ``tools-fr`` (traductions qui reprennent des groupes de ``bfcl-live``). Les questions de
+    ``entry.exclude`` absentes sont ajoutées (numéro tiré du suffixe de l'id), pour que le jeu
+    s'assemble."""
     candidates: dict[str, list[dict[str, Any]]] = {}
     for entry in config.sources:
         source, total = entry.source, entry.count * spare
@@ -81,4 +83,9 @@ def synthetic_candidates(config: SetConfig, spare: int = 2) -> dict[str, list[di
             ]
         else:
             candidates[source] = [synthetic_question(source, n) for n in range(1, total + 1)]
+        present = {question["id"] for question in candidates[source]}
+        for question_id in entry.exclude:
+            if question_id not in present:
+                number = int(question_id.rsplit("/", 1)[1])
+                candidates[source].append(synthetic_question(source, number))
     return candidates

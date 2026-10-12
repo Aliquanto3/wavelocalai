@@ -217,6 +217,14 @@ def test_load_set_resolves_counts(tmp_path):
     assert (var_math.generator_seed, var_math.generator_params) == (1, {"variants": 3})
     assert (bbeh.usage, bbeh.generator_seed, bbeh.per_group) == ("reasoning", None, None)
     assert piaf.per_group == 1
+    assert var_math.exclude == bbeh.exclude == piaf.exclude == ()
+
+
+def test_load_set_reads_exclude(tmp_path):
+    text = SET.replace("count: 4}", "count: 4, exclude: [reasoning/bbeh-mini/0002]}", 1)
+    config = load_set(_write(tmp_path, text, "s1.yaml"), SOURCES, REFUSED_SOURCES)
+    assert config.sources[1].exclude == ("reasoning/bbeh-mini/0002",)
+    assert config.sources[0].exclude == ()
 
 
 @pytest.mark.parametrize(
@@ -239,6 +247,11 @@ def test_load_set_resolves_counts(tmp_path):
             "double",
         ),
         ("seed: 3\n", "", "seed"),
+        (
+            "count: 4}",
+            "count: 4, exclude: [reasoning/bbeh-mini/0001, reasoning/bbeh-mini/0001]}",
+            r"sources\[1\]\.exclude : identifiants en double",
+        ),
     ],
 )
 def test_load_set_refuses_invalid_yaml(tmp_path, old, new, message):
@@ -257,6 +270,16 @@ def test_real_set_v1_loads():
 
     config = load_set(set_config_path("set-v1"), SOURCES, REFUSED_SOURCES)
     assert sum(config.think_off.values()) == 800 and sum(config.think_on.values()) == 400
+    exclude = {entry.source: entry.exclude for entry in config.sources if entry.exclude}
+    assert exclude == {
+        "bfcl-live": (
+            "tools/bfcl-live/0107",
+            "tools/bfcl-live/0113",
+            "tools/bfcl-live/0766",
+            "tools/bfcl-live/1121",
+            "tools/bfcl-live/1223",
+        )
+    }
 
 
 @pytest.mark.parametrize(
@@ -268,6 +291,13 @@ def test_real_set_v1_loads():
         ("generator_params: {variants: 3}", "generator_params: false", "generator_params"),
         ("rag: 2", "rag: 2, tools: abc", "think_on.tools"),
         ("rag: 2", "rag: 2, tools: 0.0", "think_on.tools"),
+        ("count: 4}", "count: 4, exclude: reasoning/bbeh-mini/0001}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: {a: 1}}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: null}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: [1]}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: ['']}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: [' ']}", r"sources\[1\]\.exclude"),
+        ("count: 4}", "count: 4, exclude: [null]}", r"sources\[1\]\.exclude"),
     ],
 )
 def test_load_set_refuses_malformed_values(tmp_path, old, new, message):

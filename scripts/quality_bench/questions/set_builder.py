@@ -2,8 +2,10 @@
 
 **Cœur pur** : ``assemble(config, candidates_by_source) -> (questions, tracks)``.
 
-- Sources dans l'ordre du YAML. Un groupe déjà pris par une source précédente est exclu des
-  suivantes (une traduction garde le groupe de son origine : pas de doublon).
+- Sources dans l'ordre du YAML. Les identifiants de ``exclude`` (liste facultative par source
+  du YAML) sont retirés des candidats de la source avant tout tirage ; un identifiant absent des
+  candidats est une ``SetBuildError``. Un groupe déjà pris par une source précédente est exclu
+  des suivantes (une traduction garde le groupe de son origine : pas de doublon).
 - Échantillon ``think_off`` d'une source par groupes entiers (``per_group`` plafonne le nombre
   de questions gardées par groupe) : groupes triés, mélangés par
   ``Random(sha256([seed, "sample", source]))``, ajoutés tant que le total reste ≤ effectif ;
@@ -192,6 +194,24 @@ def draw_think_on(questions: list[dict[str, Any]], config: SetConfig) -> list[st
     return sorted(selected)
 
 
+def exclude_candidates(
+    candidates: list[dict[str, Any]], exclude: Iterable[str], source: str
+) -> list[dict[str, Any]]:
+    """Candidats de ``source`` privés des identifiants ``exclude`` (liste du YAML de jeu) ; un
+    identifiant absent des candidats est une ``SetBuildError`` qui nomme la source et l'id."""
+    excluded = set(exclude)
+    if not excluded:
+        return candidates
+    present = {candidate["id"] for candidate in candidates}
+    missing = sorted(excluded - present)
+    if missing:
+        raise SetBuildError(
+            f"source {source} : identifiants exclus absents des candidats {missing} (faute de "
+            "frappe, ou renumérotation après un changement de révision)"
+        )
+    return [candidate for candidate in candidates if candidate["id"] not in excluded]
+
+
 def assemble(
     config: SetConfig, candidates_by_source: Mapping[str, list[dict[str, Any]]]
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
@@ -207,6 +227,7 @@ def assemble(
                 raise SetBuildError(
                     f"source {entry.source} : candidat d'une autre source ({candidate.get('id')})"
                 )
+        candidates = exclude_candidates(candidates, entry.exclude, entry.source)
         available = [c for c in candidates if c["group"] not in taken_groups]
         sample = sample_source(available, entry.count, config.seed, entry.source, entry.per_group)
         taken_groups.update(question["group"] for question in sample)
@@ -349,6 +370,10 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
                 )
             candidates[entry.source] = read_jsonl(path)
         logger.info("%s : %d candidats", entry.source, len(candidates[entry.source]))
+        if entry.exclude:
+            logger.info(
+                "%s : %d questions exclues par le YAML de jeu", entry.source, len(entry.exclude)
+            )
     return candidates, private_files
 
 
@@ -485,6 +510,7 @@ __all__ = [
     "assemble",
     "build_set",
     "draw_whole_groups",
+    "exclude_candidates",
     "index_rows",
     "prepare_set",
     "read_set_config",

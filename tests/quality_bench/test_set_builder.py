@@ -86,6 +86,74 @@ def test_set_v1_composition(config):
     }
     order = [entry.source for entry in config.sources]
     assert order.index("tools-fr") < order.index("bfcl-live")
+    exclude = {entry.source: entry.exclude for entry in config.sources if entry.exclude}
+    assert exclude == {"bfcl-live": SET_V1_EXCLUDED}
+
+
+SET_V1_EXCLUDED = (
+    "tools/bfcl-live/0107",  # live_simple_106-63-0
+    "tools/bfcl-live/0113",  # live_simple_112-68-0
+    "tools/bfcl-live/0766",  # live_multiple_507-149-4
+    "tools/bfcl-live/1121",  # live_multiple_862-181-3
+    "tools/bfcl-live/1223",  # live_multiple_964-207-0
+)
+
+
+def test_excluded_ids_never_reach_the_set(config, candidates, assembled):
+    questions, tracks = assembled
+    ids = {question["id"] for question in questions}
+    assert not ids & set(SET_V1_EXCLUDED)
+    assert not set(tracks["think_on"]) & set(SET_V1_EXCLUDED)
+    live = {candidate["id"] for candidate in candidates["bfcl-live"]}
+    assert set(SET_V1_EXCLUDED) <= live  # présents parmi les candidats, donc bien filtrés
+
+
+def test_exclusion_applies_before_the_draw(config, candidates):
+    """Les ids exclus sont retirés avant le tirage : même échantillon que si les candidats en
+    étaient privés."""
+    live = config.sources[[e.source for e in config.sources].index("bfcl-live")]
+    count = len(candidates["bfcl-live"])
+    only_live = dataclasses.replace(
+        config,
+        sources=(dataclasses.replace(live, count=count - len(SET_V1_EXCLUDED)),),
+        think_off={"tools": count - len(SET_V1_EXCLUDED)},
+        think_on={"tools": 0},
+    )
+    questions, _ = assemble(only_live, candidates)
+    assert len(questions) == count - len(SET_V1_EXCLUDED)
+    assert not {q["id"] for q in questions} & set(SET_V1_EXCLUDED)
+    stripped = {"bfcl-live": [c for c in candidates["bfcl-live"] if c["id"] not in SET_V1_EXCLUDED]}
+    no_exclude = dataclasses.replace(
+        only_live, sources=(dataclasses.replace(only_live.sources[0], exclude=()),)
+    )
+    again, _ = assemble(no_exclude, stripped)
+    assert again == questions
+
+
+def test_unknown_excluded_id_names_the_source_and_the_id(config, candidates):
+    entries = tuple(
+        (
+            dataclasses.replace(e, exclude=(*e.exclude, "tools/bfcl-live/9999"))
+            if e.source == "bfcl-live"
+            else e
+        )
+        for e in config.sources
+    )
+    with pytest.raises(SetBuildError, match=r"source bfcl-live : .*tools/bfcl-live/9999"):
+        assemble(dataclasses.replace(config, sources=entries), candidates)
+
+
+def test_without_exclude_the_draw_is_unchanged(config, candidates, assembled):
+    """Sans liste, les candidats passent tels quels (même objet) ; la liste de bfcl-live ne
+    change l'échantillon d'aucune autre source."""
+    assert set_builder.exclude_candidates(candidates["piaf"], (), "piaf") is candidates["piaf"]
+    plain = dataclasses.replace(
+        config, sources=tuple(dataclasses.replace(e, exclude=()) for e in config.sources)
+    )
+    questions, _ = assemble(plain, candidates)
+    assert [q for q in questions if q["source"] != "bfcl-live"] == [
+        q for q in assembled[0] if q["source"] != "bfcl-live"
+    ]
 
 
 def test_assemble_is_reproducible_with_expected_counts(config, candidates, assembled):
@@ -432,6 +500,8 @@ def test_oneruler_raw_files_are_verified_never_downloaded(small_set, tamper, _re
         ("variants: 3", "variants: true"),
         ("bbeh-mini", "musr"),
         ("bbeh-mini", "squad"),
+        ("count: 4}", "count: 4, exclude: reasoning/bbeh-mini/0001}"),
+        ("count: 4}", "count: 4, exclude: [reasoning/bbeh-mini/0001, reasoning/bbeh-mini/0001]}"),
     ],
 )
 def test_invalid_set_yaml_exits_2(small_set, replace, insert, _reset_logging):
@@ -440,6 +510,34 @@ def test_invalid_set_yaml_exits_2(small_set, replace, insert, _reset_logging):
     small_set.write_text(SMALL_SET.replace(replace, insert, 1), encoding="utf-8")
     assert main(["build-set", "--set", "small"]) == 2
     assert not paths.set_dir("small").exists()
+
+
+def test_cli_build_set_applies_exclude_and_logs_the_count(small_set, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    excluded = ["reasoning/bbeh-mini/0003", "reasoning/bbeh-mini/0005"]
+    small_set.write_text(
+        SMALL_SET.replace("count: 4}", f"count: 4, exclude: [{', '.join(excluded)}]}}", 1),
+        encoding="utf-8",
+    )
+    assert main(["build-set", "--set", "small"]) == 0
+    ids = {row["id"] for row in read_jsonl(paths.set_index_path("small"))}
+    assert len(ids) == 13 and not ids & set(excluded)
+    log = paths.sets_log_path("build-set").read_text(encoding="utf-8")
+    assert "bbeh-mini : 2 questions exclues par le YAML de jeu" in log
+
+
+def test_cli_unknown_excluded_id_exits_1_and_writes_nothing(small_set, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    small_set.write_text(
+        SMALL_SET.replace("count: 4}", "count: 4, exclude: [reasoning/bbeh-mini/0042]}", 1),
+        encoding="utf-8",
+    )
+    assert main(["build-set", "--set", "small"]) == 1
+    log = paths.sets_log_path("build-set").read_text(encoding="utf-8")
+    assert "source bbeh-mini" in log and "reasoning/bbeh-mini/0042" in log
+    assert not paths.set_dir("small").exists() and not paths.set_index_dir("small").exists()
 
 
 def test_cli_build_set_subprocess_refuses_when_busy(_isolated_data_root):

@@ -30,9 +30,6 @@
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/1-socle-quality-bench-client-ollama-jsonl-reprenable.md`
   summary: Corriger l'écueil d'AGENTS.md « la CI ne se déclenche que sur main et develop » : elle se déclenche sur push et PR vers `master`.
   evidence: `.github/workflows/tests.yml:3-7` (branches `[ master ]`) depuis le commit 8dfc946 ; fichier de contexte d'agent, hors du diff de la story. Relevé à la revue de la story 1.
-- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/1-socle-quality-bench-client-ollama-jsonl-reprenable.md`
-  summary: Story 5 (runner) : un `OllamaUnavailableError` que `/api/version` ne confirme pas (délai de lecture dépassé ou 5xx propre à la requête, service vivant) doit compter dans `max_attempts`, sinon la même question est rejouée sans borne.
-  evidence: maybe-false, medium si vrai. Le client classe `ReadTimeout`, la coupure avant `done` et tout 5xx en panne de service (Design Notes de la story 1) ; `wait_for_ollama` rend alors la main aussitôt. Le dommage dépend de la politique du runner : à trancher dans la spec de la story 5.
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/2-schema-question-import-jeux-publics-telechargements.md`
   summary: Contexte des questions multi-tours (bfcl-multi) : la règle d'AD-5 (`num_ctx ≥ est × 1,25 + plafond`) ignore l'historique des tours ; 89 conversations sont à 8192 et 111 à 16384 pour jusqu'à 7 tours.
   evidence: `base.choose_num_ctx` ; le runner (AD-7) écrira `context_exceeded` plutôt que de tronquer, mais une part de bfcl-multi risque de sortir des comparaisons. Règle multi-tours à trancher dans le spine, puis appliquée par set_builder (story 3) ou mesurée au pilote. Relevé à la revue de la story 2 (medium).
@@ -46,23 +43,11 @@
   summary: Versionner la provenance d'un jeu (empreinte AD-4, graine, empreintes des fichiers d'entrée, commit) : aujourd'hui elle ne vit que dans `sets/log-build-set.log`, hors dépôt.
   evidence: `index.jsonl` ne porte que des lignes `qb.set_index/1` ; AD-6 n'admet aucun autre fichier sous `benchmarks/quality/sets/<set>/`. Amender AD-6 (manifeste de jeu en liste blanche), ou s'appuyer sur le manifeste de génération (story 5). Relevé à la revue de la story 3 (medium).
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
-  summary: Story 4 : vérifier que les identifiants et les kwargs M-IFEval FR des questions privées `instructions-fr` existent dans le registre réduit copié.
-  evidence: `house.py` ne contrôle que le préfixe `fr:`, l'unicité et l'alignement des kwargs ; le registre n'existe pas encore. Relevé à la revue de la story 3 (low).
-- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/3-generateurs-graine-questions-privees-construction-jeu.md`
   summary: 87 des 418 critères de `writing-fr.yaml` demandent au juge de compter (mots, phrases, paragraphes, répliques) : les réécrire, les corriger de façon déterministe ou mesurer leur accord à part.
   evidence: Les juges LLM comptent mal. À trancher à la relecture d'Anaël ou à la calibration (story 9). Relevé à la revue de la story 3 (medium).
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
-  summary: Story 5 (runner) : fixer le contrat des outils à un seul tour (`bfcl-live`, `bfcl-parallel`, `bfcl-irrelevance`, `tools-fr`, `env` nul) ; `bfcl_ast` réunit aujourd'hui tous les pas du tour 0, alors que BFCL ne décode que la première réponse.
-  evidence: maybe-false, medium si vrai. Si le runner renvoie un contenu d'outil factice et que le modèle rappelle un outil, `bfcl_ast` compterait deux appels. Trancher dans la spec de la story 5 (arrêt après la première réponse) ou limiter le correcteur au premier pas. Relevé à la revue de la story 4.
-- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
   summary: Décider si `conformity_error` doit vérifier les mots-clés `format` (date-time, email, uri…) des schémas JSONSchemaBench, aujourd'hui de simples annotations.
   evidence: maybe-false, medium si vrai. Lire le validateur du dépôt JSONSchemaBench (epfl-dlab) ; s'il active les formats, passer un `FormatChecker` et le consigner dans `SOURCES.md`. Relevé à la revue de la story 4.
-- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
-  summary: Exclure de `set-v1`, avant de le figer, 5 cibles `bfcl-live` défectueuses dans BFCL lui-même (aucune réponse ne peut les passer).
-  evidence: Exécution réelle : 1 306/1 311 cibles passent comme réponse du modèle ; `live_simple_106-63-0`, `live_simple_112-68-0`, `live_multiple_507-149-4`, `live_multiple_862-181-3`, `live_multiple_964-207-0` échouent aussi avec le correcteur amont (paramètre requis sans valeur possible, ou paramètre non déclaré).
-- source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/4-correcteurs-deterministes-environnements-outils-phase-grade.md`
-  summary: `tools-fr` : 3 valeurs attendues (3 questions sur 30) présentes dans le prompt anglais d'origine mais plus dans la traduction (type « Californie » → CA) ; garder la valeur littérale ou accepter la difficulté, à la relecture d'Anaël.
-  evidence: Mesure locale, comptes seulement : 63 paramètres chaîne attendus, 3 dont aucune valeur admise n'apparaît dans le prompt FR normalisé à la manière de BFCL. Les identifiants M-IFEval FR des 30 questions `instructions-fr` existent tous dans le registre réduit (report de la story 3 levé).
 - source_spec: `_bmad-output/specs/spec-benchmark-qualite-difficile/stories/5-generation-deux-pistes.md`
   summary: Borner les reprises non comptées par clé si le pilote montre qu'une question (ou une chauffe) fait tomber le serveur Ollama entier, relancé aussitôt : aujourd'hui la question est refaite sans fin.
   evidence: maybe-false, medium si vrai. Après un `OllamaUnavailableError` dont la sonde `/api/version` échoue, `Runner._process` et `Runner._ensure_warm` attendent puis refont sans compter l'essai (AD-13). Un plantage du runner llama rend un 5xx service vivant (essai compté) : la boucle n'existe que si le serveur entier tombe à chaque essai. À observer au pilote (story 8), puis amender AD-13 s'il le faut. Relevé à la revue de la story 5.

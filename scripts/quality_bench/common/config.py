@@ -300,7 +300,14 @@ def load_campaign(path: str | os.PathLike[str]) -> CampaignConfig:
 # --- Jeu de questions : scripts/quality_bench/sets/<set>.yaml ------------------------------
 
 _SET_KEYS = {"set", "seed", "sources", "think_on"}
-_SET_SOURCE_KEYS = {"source", "count", "per_group", "generator_seed", "generator_params"}
+_SET_SOURCE_KEYS = {
+    "source",
+    "count",
+    "per_group",
+    "generator_seed",
+    "generator_params",
+    "exclude",
+}
 
 
 class SourceInfo(Protocol):
@@ -315,7 +322,8 @@ class SourceInfo(Protocol):
 
 @dataclass(frozen=True)
 class SetSource:
-    """Une source du jeu : effectif exact, plafond par groupe, graine et réglages."""
+    """Une source du jeu : effectif exact, plafond par groupe, graine, réglages et
+    identifiants de questions exclues du tirage (``exclude``)."""
 
     source: str
     usage: str
@@ -323,6 +331,7 @@ class SetSource:
     per_group: int | None
     generator_seed: int | None
     generator_params: dict[str, Any]
+    exclude: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -379,7 +388,21 @@ def _set_source(
         per_group=per_group,
         generator_seed=generator_seed,
         generator_params=generator_params,
+        exclude=_exclude(value.get("exclude", []), f"{where}.exclude"),
     )
+
+
+def _exclude(value: Any, where: str) -> tuple[str, ...]:
+    """Identifiants de questions exclues : liste de chaînes non vides, sans doublon."""
+    if not isinstance(value, list):
+        raise ConfigError(f"{where} : liste d'identifiants de questions attendue, reçu {value!r}")
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ConfigError(f"{where} : identifiant non vide attendu, reçu {item!r}")
+    duplicates = sorted({item for item in value if value.count(item) > 1})
+    if duplicates:
+        raise ConfigError(f"{where} : identifiants en double {duplicates}")
+    return tuple(value)
 
 
 def load_set(
