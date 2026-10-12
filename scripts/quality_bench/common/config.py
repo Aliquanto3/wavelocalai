@@ -4,6 +4,9 @@
 effectifs, graines). Le catalogue des sources (``questions/schema.py``) lui est passé par
 l'appelant : ``common/`` n'importe jamais ``questions/`` (sens des dépendances du spine).
 
+``load_judges(path)`` lit ``scripts/quality_bench/judges.yaml`` (AD-16) : un ``JudgeConfig`` par
+juge, clés fermées par ``kind``, empreinte ``config_hash`` de sa partie bloquante.
+
 ``load_campaign(path)`` lit ``scripts/quality_bench/campaigns/<c>.yaml``, applique les valeurs
 par défaut d'AD-8, refuse toute clé inconnue (et toute clé en double) et calcule
 ``generation_hash`` sur la section ``generation`` résolue : un commentaire ou un ordre de clés
@@ -17,6 +20,7 @@ import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -452,3 +456,280 @@ def load_set(
         if usage not in think_off and _int(raw_think_on[usage], f"think_on.{usage}", 0) != 0:
             raise ConfigError(f"think_on.{usage} : aucun effectif think_off pour cet usage")
     return SetConfig(path, set_id, seed, resolved, think_off, think_on)
+
+
+# --- Juges : scripts/quality_bench/judges.yaml (AD-8, AD-16) -------------------------------
+
+JUDGE_KINDS = ("systemone", "anthropic_batch", "openai_chat")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# Réglage de réflexion envoyé tel quel : Haiku 5.5 n'admet que adaptive ou disabled (pas de
+# budget de tokens) ; MiMo (extra_body.thinking) admet enabled ou disabled.
+THINKING_TYPES = {
+    "anthropic_batch": ("adaptive", "disabled"),
+    "openai_chat": ("enabled", "disabled"),
+}
+# Clés d'exploitation : elles ne changent aucun verdict et n'entrent ni dans ``settings`` ni
+# dans ``config_hash`` (les modifier ne bloque pas une reprise). ``prices`` est informatif.
+JUDGE_OPERATIONAL_KEYS = (
+    "api_key_env",
+    "batch_size",
+    "chars_per_token",
+    "ollama_url",
+    "poll_s",
+    "retry_wait_s",
+    "timeout_s",
+    "unload_after",
+)
+_JUDGE_COMMON_DEFAULTS: dict[str, Any] = {
+    "max_attempts": 3,
+    "retry_wait_s": 10,
+    "timeout_s": 300,
+    "server_version": None,
+    "weights_sha256": None,
+}
+_JUDGE_KIND_DEFAULTS: dict[str, dict[str, Any]] = {
+    "systemone": {
+        "ollama_url": "http://127.0.0.1:11434",
+        "unload_after": True,
+        "api_key_env": None,
+        "prices": None,
+        "chars_per_token": 3.0,
+    },
+    "anthropic_batch": {
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "thinking": None,
+        "batch_size": 1000,
+        "poll_s": 60,
+        "chars_per_token": 2.5,
+    },
+    "openai_chat": {"thinking": None, "chars_per_token": 3.0},
+}
+_JUDGE_KIND_REQUIRED: dict[str, tuple[str, ...]] = {
+    "systemone": ("local",),
+    "anthropic_batch": ("max_tokens", "effort", "prices"),
+    "openai_chat": ("api_key_env", "max_tokens", "prices"),
+}
+_PRICE_KEYS = {
+    "input_per_mtok",
+    "output_per_mtok",
+    "batch_discount",
+    "long_context",
+    "source",
+    "checked",
+}
+_LONG_CONTEXT_KEYS = {"threshold_tokens", "input_per_mtok", "output_per_mtok"}
+_HEX = set("0123456789abcdef")
+
+
+@dataclass(frozen=True)
+class JudgeConfig:
+    """Juge résolu : valeurs par défaut appliquées, empreinte de sa partie bloquante.
+
+    ``settings`` = réglages qui peuvent changer un verdict (consignés dans ``blocking.judge``) ;
+    ``options`` = entrée résolue complète (exploitation et prix compris) ; ``prices`` est
+    informatif (``informative.prices``) et n'entre pas dans ``config_hash``.
+    """
+
+    id: str
+    kind: str
+    endpoint: str | None
+    model: str
+    settings: dict[str, Any]
+    options: dict[str, Any]
+    prices: dict[str, Any] | None
+    weights_sha256: str | None
+    server_version: str | None
+    config_hash: str
+
+    @property
+    def local(self) -> bool:
+        return bool(self.options.get("local"))
+
+    @property
+    def cloud(self) -> bool:
+        """Les requêtes quittent la machine (juge non local) : questions privées refusées."""
+        return not self.local
+
+
+def _non_negative_number(value: Any, where: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ConfigError(f"{where} : nombre ≥ 0 attendu, reçu {value!r}")
+    return float(value)
+
+
+def _date(value: Any, where: str) -> str:
+    # PyYAML lit une date nue (2026-10-12) en datetime.date : on rend la chaîne ISO.
+    text = value.isoformat() if hasattr(value, "isoformat") else value
+    try:
+        valid = isinstance(text, str) and len(text) == 10 and bool(date.fromisoformat(text))
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ConfigError(f"{where} : date AAAA-MM-JJ attendue, reçu {value!r}")
+    return text
+
+
+def _resolve_prices(raw: Any, where: str) -> dict[str, Any]:
+    value = _require_mapping(raw, where)
+    _reject_unknown(value, _PRICE_KEYS, where)
+    for key in ("input_per_mtok", "output_per_mtok", "source", "checked"):
+        if key not in value:
+            raise ConfigError(f"{where}.{key} : obligatoire")
+    prices: dict[str, Any] = {
+        "input_per_mtok": _non_negative_number(value["input_per_mtok"], f"{where}.input_per_mtok"),
+        "output_per_mtok": _non_negative_number(
+            value["output_per_mtok"], f"{where}.output_per_mtok"
+        ),
+        "batch_discount": _non_negative_number(
+            value.get("batch_discount", 0), f"{where}.batch_discount"
+        ),
+        "long_context": None,
+        "source": _string(value["source"], f"{where}.source"),
+        "checked": _date(value["checked"], f"{where}.checked"),
+    }
+    if prices["batch_discount"] >= 1:
+        raise ConfigError(f"{where}.batch_discount : fraction < 1 attendue (0,5 = −50 %)")
+    long_context = value.get("long_context")
+    if long_context is not None:
+        lc_where = f"{where}.long_context"
+        lc = _require_mapping(long_context, lc_where)
+        _reject_unknown(lc, _LONG_CONTEXT_KEYS, lc_where)
+        for key in sorted(_LONG_CONTEXT_KEYS):
+            if key not in lc:
+                raise ConfigError(f"{lc_where}.{key} : obligatoire")
+        prices["long_context"] = {
+            "threshold_tokens": _int(lc["threshold_tokens"], f"{lc_where}.threshold_tokens", 1),
+            "input_per_mtok": _non_negative_number(
+                lc["input_per_mtok"], f"{lc_where}.input_per_mtok"
+            ),
+            "output_per_mtok": _non_negative_number(
+                lc["output_per_mtok"], f"{lc_where}.output_per_mtok"
+            ),
+        }
+    return prices
+
+
+def _resolve_thinking(raw: Any, where: str, allowed: tuple[str, ...]) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    value = _require_mapping(raw, where)
+    _reject_unknown(value, {"type"}, where)
+    if value.get("type") not in allowed:
+        raise ConfigError(f"{where}.type : une valeur de {list(allowed)} attendue")
+    return {"type": value["type"]}
+
+
+def _optional_string(value: Any, where: str) -> str | None:
+    return None if value is None else _string(value, where)
+
+
+def _resolve_judge(judge_id: str, raw: Any) -> JudgeConfig:
+    where = f"judges.{judge_id}"
+    _config_id(judge_id, "juge")
+    value = _require_mapping(raw, where)
+    kind = value.get("kind")
+    if kind not in JUDGE_KINDS:
+        raise ConfigError(f"{where}.kind : une valeur de {list(JUDGE_KINDS)} attendue")
+    defaults = {**_JUDGE_COMMON_DEFAULTS, **_JUDGE_KIND_DEFAULTS[kind]}
+    required = ("kind", "endpoint", "model", *_JUDGE_KIND_REQUIRED[kind])
+    _reject_unknown(value, {*required, *defaults}, where)
+    for key in required:
+        if key not in value:
+            raise ConfigError(f"{where}.{key} : obligatoire (null permis pour endpoint)")
+    resolved: dict[str, Any] = {**defaults, **value}
+    resolved["model"] = _string(resolved["model"], f"{where}.model")
+    resolved["endpoint"] = _optional_string(resolved["endpoint"], f"{where}.endpoint")
+    resolved["server_version"] = _optional_string(
+        resolved["server_version"], f"{where}.server_version"
+    )
+    weights = resolved["weights_sha256"]
+    if weights is not None and (
+        not isinstance(weights, str) or len(weights) != 64 or not set(weights) <= _HEX
+    ):
+        raise ConfigError(f"{where}.weights_sha256 : sha256 hexadécimal minuscule ou null")
+    resolved["max_attempts"] = _int(resolved["max_attempts"], f"{where}.max_attempts", 1)
+    resolved["retry_wait_s"] = _non_negative_number(
+        resolved["retry_wait_s"], f"{where}.retry_wait_s"
+    )
+    resolved["timeout_s"] = _positive_number(resolved["timeout_s"], f"{where}.timeout_s")
+    resolved["chars_per_token"] = _positive_number(
+        resolved["chars_per_token"], f"{where}.chars_per_token"
+    )
+    resolved["api_key_env"] = _optional_string(resolved["api_key_env"], f"{where}.api_key_env")
+    if resolved["prices"] is not None:
+        resolved["prices"] = _resolve_prices(resolved["prices"], f"{where}.prices")
+
+    if kind == "systemone":
+        for key in ("local", "unload_after"):
+            if not isinstance(resolved[key], bool):
+                raise ConfigError(f"{where}.{key} : booléen attendu")
+        resolved["ollama_url"] = _string(resolved["ollama_url"], f"{where}.ollama_url")
+        if not resolved["local"]:
+            if resolved["api_key_env"] is None:
+                raise ConfigError(f"{where}.api_key_env : obligatoire pour un juge hébergé")
+            if resolved["prices"] is None:
+                raise ConfigError(f"{where}.prices : obligatoire pour un juge hébergé")
+        settings: dict[str, Any] = {"local": resolved["local"], "threshold": 0.5}
+    else:
+        # Juge cloud : clé d'API et prix obligatoires, null compris (sinon coût et plafond nuls).
+        if resolved["api_key_env"] is None:
+            raise ConfigError(f"{where}.api_key_env : obligatoire pour un juge cloud")
+        if resolved["prices"] is None:
+            raise ConfigError(f"{where}.prices : obligatoire pour un juge cloud")
+        resolved["max_tokens"] = _int(resolved["max_tokens"], f"{where}.max_tokens", 1)
+        resolved["thinking"] = _resolve_thinking(
+            resolved["thinking"], f"{where}.thinking", THINKING_TYPES[kind]
+        )
+        settings = {"max_tokens": resolved["max_tokens"], "thinking": resolved["thinking"]}
+        if kind == "anthropic_batch":
+            if resolved["effort"] not in EFFORTS:
+                raise ConfigError(f"{where}.effort : une valeur de {list(EFFORTS)} attendue")
+            resolved["batch_size"] = _int(resolved["batch_size"], f"{where}.batch_size", 1)
+            if resolved["batch_size"] > 100_000:
+                raise ConfigError(f"{where}.batch_size : 100 000 requêtes au plus par lot")
+            resolved["poll_s"] = _positive_number(resolved["poll_s"], f"{where}.poll_s")
+            settings["effort"] = resolved["effort"]
+    settings["max_attempts"] = resolved["max_attempts"]
+
+    blocking = {
+        "id": judge_id,
+        "kind": kind,
+        "endpoint": resolved["endpoint"],
+        "model": resolved["model"],
+        "settings": settings,
+        "weights_sha256": resolved["weights_sha256"],
+        "server_version": resolved["server_version"],
+    }
+    return JudgeConfig(
+        id=judge_id,
+        kind=kind,
+        endpoint=resolved["endpoint"],
+        model=resolved["model"],
+        settings=settings,
+        options=resolved,
+        prices=resolved["prices"],
+        weights_sha256=resolved["weights_sha256"],
+        server_version=resolved["server_version"],
+        config_hash=sha256_hex(blocking),
+    )
+
+
+def load_judges(path: str | os.PathLike[str]) -> dict[str, JudgeConfig]:
+    """Lit ``scripts/quality_bench/judges.yaml`` (``{judges: {<id>: {...}}}``) : clés fermées
+    par ``kind``, valeurs par défaut appliquées ; ``ConfigError`` qui nomme le champ fautif.
+
+    ``config_hash`` porte sur ``{id, kind, endpoint, model, settings, weights_sha256,
+    server_version}`` : ni les prix (informatifs) ni les clés d'exploitation
+    (``JUDGE_OPERATIONAL_KEYS``) n'y entrent."""
+    path = Path(path)
+    raw = _require_mapping(read_yaml(path), str(path))
+    _reject_unknown(raw, {"judges"}, str(path))
+    judges = _require_mapping(raw.get("judges"), "judges")
+    if not judges:
+        raise ConfigError("judges : au moins un juge attendu")
+    return {str(key): _resolve_judge(str(key), entry) for key, entry in judges.items()}

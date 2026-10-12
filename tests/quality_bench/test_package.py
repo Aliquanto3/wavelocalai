@@ -77,7 +77,12 @@ STATS_MODULES = {
 @pytest.mark.parametrize(
     "library, owners",
     [
-        ("httpx2", {"ollama/client.py"}),
+        # Ollama : ollama/client.py seul (AD-9) ; contrat /v1/systemone du juge, local ou
+        # hébergé (AD-16) : judge/systemone.py.
+        ("httpx2", {"ollama/client.py", "judge/systemone.py"}),
+        # SDK des juges cloud (AD-15) : judge/ seulement.
+        ("anthropic", {"judge/haiku.py"}),
+        ("openai", {"judge/mimo.py"}),
         ("yaml", {"common/config.py"}),
         ("jsonschema", {"common/schemas.py"}),
         # disable_telemetry() : en tête de la CLI, et dans chaque module qui importe une

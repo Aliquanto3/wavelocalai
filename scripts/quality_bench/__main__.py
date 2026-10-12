@@ -22,6 +22,7 @@ disable_telemetry()
 # Imports des modules de sous-commandes : ici, après disable_telemetry() (noqa: E402).
 from scripts.quality_bench.generation.commands import GENERATE  # noqa: E402
 from scripts.quality_bench.grading.commands import GRADE  # noqa: E402
+from scripts.quality_bench.judge.commands import JUDGE  # noqa: E402
 from scripts.quality_bench.questions.importers.commands import FETCH, FETCH_NLTK  # noqa: E402
 from scripts.quality_bench.questions.review import REVIEW_SAMPLE  # noqa: E402
 from scripts.quality_bench.questions.set_builder import BUILD_SET  # noqa: E402
@@ -41,6 +42,7 @@ SUBCOMMANDS: list[Subcommand] = [
     BUILD_SET,
     REVIEW_SAMPLE,
     GENERATE,
+    JUDGE,
     GRADE,
     REPORT,
 ]

@@ -1,0 +1,91 @@
+# Juges de la phase judge (AD-8, AD-16), lus par common/config.load_judges seulement.
+# Lancement : python -m scripts.quality_bench judge --campaign <c> --judge <id> [--max-cost-usd X]
+#
+# Clés fermées par kind :
+# - systemone : contrat POST /v1/systemone (questions noul, verdict à probabilité ≥ 0,5) ; local
+#   (localhost seulement, contrôle /api/ps d'Ollama avant tout appel) ou hébergé (clé d'API) ;
+# - anthropic_batch : SDK anthropic, Message Batches, verdict par sortie structurée ;
+# - openai_chat : SDK openai (chat.completions), verdict JSON lu dans le contenu.
+# Clés d'API : par l'environnement seulement (variable nommée par api_key_env), jamais ici.
+# Prix : informatifs (manifeste, informative.prices), par million de tokens, en USD.
+# Bloquant (config_hash, reprise refusée s'il change) : kind, endpoint, model, réglages qui
+# changent un verdict (max_tokens, effort, thinking, max_attempts), weights_sha256,
+# server_version. Exploitation non bloquante : poll_s, timeout_s, retry_wait_s, batch_size,
+# chars_per_token, unload_after, ollama_url, api_key_env.
+judges:
+  # Winnow-E4B (EldanRing/Winnow-E4B, GGUF Q8_0, Apache-2.0) importé dans Ollama 0.40.2 comme
+  # modèle à capacité « decision » ; Ollama sert /v1/systemone (décision d'Anaël, story 7).
+  # Import et mesures sur la tour : procédure manuelle dans juge-et-calibration.md.
+  winnow:
+    kind: systemone
+    local: true
+    endpoint: http://127.0.0.1:11434
+    model: winnow-e4b
+    ollama_url: http://127.0.0.1:11434
+    unload_after: true
+    # sha256 du GGUF importé, à relever à l'import (comparé à SHA256SUMS du dépôt).
+    weights_sha256: null
+    server_version: ollama-0.40.2
+    max_attempts: 3
+    retry_wait_s: 10
+    timeout_s: 600
+  # Claude Haiku 5.5 en Message Batches : ni temperature, ni top_p, ni top_k, ni préremplissage
+  # (refusés par l'API) ; effort et réflexion consignés dans le manifeste du jugement.
+  haiku:
+    kind: anthropic_batch
+    endpoint: https://api.anthropic.com
+    model: claude-haiku-5-5
+    api_key_env: ANTHROPIC_API_KEY
+    max_tokens: 2048
+    effort: low
+    thinking: {type: adaptive}
+    batch_size: 1000
+    poll_s: 60
+    max_attempts: 3
+    retry_wait_s: 30
+    timeout_s: 600
+    # Tokenizer de Haiku 5.5 : environ +30 % de tokens, d'où une estimation prudente.
+    chars_per_token: 2.5
+    prices:
+      input_per_mtok: 0.10
+      output_per_mtok: 0.50
+      batch_discount: 0.5
+      # Au-delà de 100 000 tokens d'entrée par requête : 0,50 $ / 2,50 $ (avant remise de lot).
+      long_context: {threshold_tokens: 100000, input_per_mtok: 0.50, output_per_mtok: 2.50}
+      source: "https://platform.claude.com/docs/en/about-claude/pricing (Model pricing, Batch processing)"
+      checked: 2026-10-12
+  # MiMo-V2.6-Pro (Xiaomi), API compatible OpenAI ; thinking envoyé seulement s'il est réglé.
+  mimo:
+    kind: openai_chat
+    endpoint: https://api.xiaomimimo.com/v1
+    model: mimo-v2.6-pro
+    api_key_env: MIMO_API_KEY
+    max_tokens: 2048
+    thinking: null
+    max_attempts: 3
+    retry_wait_s: 30
+    timeout_s: 300
+    chars_per_token: 3.0
+    prices:
+      input_per_mtok: 0.435
+      output_per_mtok: 0.87
+      source: "https://docs.litellm.ai/blog/mimo_v2_6 et agrégateurs (OpenRouter, llmreference.com) ; page officielle de Xiaomi non atteinte ; lecture en cache à 0,0036 $ non comptée"
+      checked: 2026-10-12
+  # Perplexity Decider v1.1 hébergé (pplx-decider-v1.1-27b), repli si Winnow est inutilisable :
+  # même contrat /v1/systemone. Point d'accès hébergé non encore relevé : endpoint nul, le
+  # lancement est refusé (code 2) tant qu'il n'est pas renseigné.
+  decider:
+    kind: systemone
+    local: false
+    endpoint: null
+    model: pplx-decider-v1.1-27b
+    api_key_env: PERPLEXITY_API_KEY
+    max_attempts: 3
+    retry_wait_s: 30
+    timeout_s: 300
+    chars_per_token: 3.0
+    prices:
+      input_per_mtok: 0.02
+      output_per_mtok: 0.0
+      source: "OpenRouter et llmreference.com (agrégateurs, relevés le 2026-10-07, non revérifiés depuis)"
+      checked: 2026-10-07

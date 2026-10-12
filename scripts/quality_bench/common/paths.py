@@ -74,6 +74,11 @@ def log_path(campaign: str, command: str) -> Path:
     return campaign_dir(campaign) / f"log-{check_id(command, 'commande')}.log"
 
 
+def judges_config_path() -> Path:
+    """YAML versionné des juges : ``scripts/quality_bench/judges.yaml`` (AD-8)."""
+    return PACKAGE_DIR / "judges.yaml"
+
+
 def judgment_dir(campaign: str, judge: str) -> Path:
     return campaign_dir(campaign) / f"judgment-{check_id(judge, 'juge')}"
 

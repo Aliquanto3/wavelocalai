@@ -320,6 +320,51 @@ JUDGMENT_V1: dict[str, Any] = {
     "else": {"properties": {"verdict": {"type": "null"}}},
 }
 
+# Lot cloud consigné (AD-16), dans ``judgment-<juge>/batches.jsonl`` : ligne ``submitted`` écrite
+# avant toute attente (clés du lot dans l'ordre des ``custom_id``), puis ligne ``collected`` après
+# lecture des résultats (comptes, tokens, coût réel, issue de chaque clé). Aucun texte.
+BATCH_OUTCOMES = ("ok", "transient", "unit")
+_BATCH_COMMON = {
+    "schema": {"const": "qb.batch/1"},
+    "key": _NON_EMPTY,
+    "batch_id": _NON_EMPTY,
+    "judge": _NON_EMPTY,
+    "manifest": _HASH,
+    "created_at": _TIMESTAMP,
+}
+BATCH_V1: dict[str, Any] = {
+    "oneOf": [
+        _closed(
+            {
+                **_BATCH_COMMON,
+                "status": {"const": "submitted"},
+                "keys": {
+                    "type": "array",
+                    "items": _NON_EMPTY,
+                    "minItems": 1,
+                    "uniqueItems": True,
+                },
+                "estimate_usd": {"type": "number", "minimum": 0},
+            }
+        ),
+        _closed(
+            {
+                **_BATCH_COMMON,
+                "status": {"const": "collected"},
+                "counts": _closed(
+                    {"succeeded": _COUNT, "errored": _COUNT, "canceled": _COUNT, "expired": _COUNT}
+                ),
+                "tokens": _closed({"input": _COUNT, "output": _COUNT}),
+                "cost_usd": {"type": "number", "minimum": 0},
+                "outcomes": {
+                    "type": "object",
+                    "additionalProperties": {"enum": list(BATCH_OUTCOMES)},
+                },
+            }
+        ),
+    ]
+}
+
 # Chauffe consignée (AD-14) : une ligne par requête de chauffe, jamais par question. ``size``,
 # ``size_vram`` (``/api/ps``) et ``prefill_tok_s`` sont nuls s'ils sont inconnus.
 WARMUP_V1: dict[str, Any] = _closed(
@@ -561,6 +606,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.set_index/1": SET_INDEX_V1,
     "qb.grading/1": GRADING_V1,
     "qb.judgment/1": JUDGMENT_V1,
+    "qb.batch/1": BATCH_V1,
     "qb.score/1": SCORE_V1,
     "qb.report/1": REPORT_V1,
     "qb.aa_reference/1": AA_REFERENCE_V1,
