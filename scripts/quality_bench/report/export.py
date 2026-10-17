@@ -25,6 +25,7 @@ from typing import Any
 
 from ..common import paths
 from ..common.canonical import canonical_bytes, pretty_bytes, sha256_hex
+from ..common.manifest import public_ollama_env
 from ..common.schemas import validate
 from .inputs import CampaignInputs, ReportError
 
@@ -53,6 +54,9 @@ def exported_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(selection, dict) and "ids" in selection:
         ids = sorted(selection["ids"])
         resolved["selection"] = {"ids_count": len(ids), "ids_sha256": sha256_hex(ids)}
+    informative = exported.get("informative")
+    if isinstance(informative, dict) and isinstance(informative.get("ollama_env"), dict):
+        informative["ollama_env"] = public_ollama_env(informative["ollama_env"])
     return exported
 
 

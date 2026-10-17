@@ -19,7 +19,12 @@ from scripts.quality_bench.common.manifest import (
     harness_hash,
     machine_label,
 )
-from scripts.quality_bench.common.schemas import SchemaValidationError, UnknownSchemaError
+from scripts.quality_bench.common.schemas import (
+    SchemaValidationError,
+    UnknownSchemaError,
+    validate,
+)
+from scripts.quality_bench.report.export import exported_manifest
 from tests.quality_bench.factories import HASH_A, HASH_B, manifest
 
 
@@ -215,6 +220,29 @@ def test_collect_informative_masks_secret_ollama_values(monkeypatch):
         assert env[name] == "<masqué>"
         assert value not in json.dumps(env)
     assert env["OLLAMA_KEEP_ALIVE"] == "5m"
+
+
+def test_exported_manifest_publishes_only_whitelisted_ollama_env():
+    built = manifest()
+    built["informative"]["ollama_env"] = {
+        "OLLAMA_NUM_PARALLEL": "1",
+        "OLLAMA_FLASH_ATTENTION": "1",
+        "OLLAMA_MODELS": "C:\\Users\\prenom.nom\\modeles",
+        "OLLAMA_HOST": "192.168.1.20:11434",
+        "OLLAMA_API_KEY": "<masqué>",
+    }
+    exported = exported_manifest(built)
+    assert exported["informative"]["ollama_env"] == {
+        "OLLAMA_API_KEY": "<non publié>",
+        "OLLAMA_FLASH_ATTENTION": "1",
+        "OLLAMA_HOST": "<non publié>",
+        "OLLAMA_MODELS": "<non publié>",
+        "OLLAMA_NUM_PARALLEL": "1",
+    }
+    # Le manifeste local garde tout, et la partie bloquante est inchangée.
+    assert built["informative"]["ollama_env"]["OLLAMA_MODELS"].startswith("C:")
+    assert exported["blocking"] == built["blocking"]
+    validate(exported)
 
 
 def test_informative_difference_logged_on_resume(manifest_path, caplog):
