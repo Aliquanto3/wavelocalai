@@ -59,6 +59,8 @@ class Outcome:
     tokens: dict[str, int] = field(default_factory=empty_tokens)
     durations_ns: dict[str, int] = field(default_factory=empty_durations)
     wall_s: float = 0.0
+    # Prompt mesuré de l'appel en dépassement (``context_exceeded``) : fonde sa cause (AD-7).
+    context_prompt: int = 0
 
     def add_call(self, result: Any) -> None:
         self.calls += 1
@@ -143,6 +145,7 @@ def run_conversation(
             prompt = result.prompt_eval_count + result.prompt_eval_cached_count
             if prompt >= num_ctx - num_predict:
                 outcome.status = STATUS_CONTEXT_EXCEEDED
+                outcome.context_prompt = prompt
                 return outcome
             if result.done_reason == "length":
                 outcome.status = STATUS_TRUNCATED

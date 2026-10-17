@@ -34,7 +34,13 @@ from ..common import config, paths
 from ..common.canonical import sha256_bytes
 from ..common.jsonl import JsonlReadError, read_jsonl
 from ..common.manifest import blocking_hash
-from ..common.schemas import TRACKS, SchemaValidationError, UnknownSchemaError, validate
+from ..common.schemas import (
+    TRACKS,
+    SchemaValidationError,
+    UnknownSchemaError,
+    check_context_limit_era,
+    validate,
+)
 from ..common.selection import SelectionError, selected_ids
 from ..questions.schema import set_hash
 
@@ -77,6 +83,7 @@ class Row:
     score: float | None
     success: bool | None
     metrics: dict[str, float]
+    context_limit: str | None = None  # cause d'un context_exceeded : model | bench
 
 
 @dataclass
@@ -152,6 +159,7 @@ class CampaignInputs:
 
 def _validated(record: Any, expected: str, where: str) -> None:
     # Message sans valeur : le chemin et le mot-clé en défaut seulement.
+    check_context_limit_era(record, where)
     try:
         name = validate(record)
     except UnknownSchemaError:
@@ -492,6 +500,7 @@ def load_inputs(
             score=None if grading["score"] is None else float(grading["score"]),
             success=grading["success"],
             metrics={name: float(value) for name, value in grading["metrics"].items()},
+            context_limit=grading.get("context_limit"),
         )
     completeness.retained = len(rows)
 

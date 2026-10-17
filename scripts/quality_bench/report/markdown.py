@@ -132,7 +132,10 @@ def _models_table(scope: Mapping[str, Any]) -> list[str]:
             fr_interval(e["sim_ci_low"], e["sim_ci_high"]),
             fr_decimal(e["se"], 3),
             fr_int(e["n"]),
+            f"{fr_percent(e['mean_all'])} ({fr_int(e['n_all'])})",
+            fr_percent(e["coverage"]) + ("" if e["eligible"] else " (hors classement)"),
             fr_int(e["excluded"]),
+            f"{fr_int(e['context_exceeded_model'])} / {fr_int(e['context_exceeded_bench'])}",
             f"{fr_percent(e['truncation_rate'])} ({fr_int(e['truncated'])}/{fr_int(e['graded'])})",
         ]
         for e in entries
@@ -141,12 +144,15 @@ def _models_table(scope: Mapping[str, Any]) -> list[str]:
         "Groupe",
         "Rang",
         "Modèle",
-        "Score",
+        "Score (unités communes)",
         "IC 95 %",
         "IC simultané",
         "ET groupée",
-        "Unités",
+        "Unités communes",
+        "Score (toutes unités définies)",
+        "Couverture",
         "Exclues",
+        "Contexte dépassé : modèle / banc",
         "Troncature",
     ]
     return _table(headers, rows)
@@ -208,10 +214,27 @@ def _continuous_lines(block: Mapping[str, Any]) -> list[str]:
         "",
     ]
     rows = [
-        [f"`{e['model']}`", fr_percent(e["mean"]), fr_int(e["n"]), fr_int(e["excluded"])]
+        [
+            f"`{e['model']}`",
+            fr_percent(e["mean"]),
+            fr_int(e["n"]),
+            f"{fr_percent(e['mean_all'])} ({fr_int(e['n_all'])})",
+            fr_percent(e["coverage"]) + ("" if e["eligible"] else " (hors classement)"),
+            fr_int(e["excluded"]),
+        ]
         for e in block["models"]
     ]
-    lines += _table(["Modèle", "Moyenne", "Unités", "Exclues"], rows)
+    lines += _table(
+        [
+            "Modèle",
+            "Moyenne (unités communes)",
+            "Unités communes",
+            "Moyenne (toutes)",
+            "Couverture",
+            "Exclues",
+        ],
+        rows,
+    )
     if block["comparisons"]:
         lines += ["", "Différence au meneur, IC bootstrap apparié à 95 % :", ""]
         rows = [
@@ -234,9 +257,20 @@ def _scope_lines(track: str, scope: Mapping[str, Any], level: str) -> list[str]:
     lines = [
         f"{level} {title}",
         "",
-        f"Méthode : {METHOD_LABELS[scope['method']]}. Unités : {fr_int(scope['units'])}. "
-        f"Meneur : {DASH if leader is None else '`' + leader + '`'}.",
+        f"Méthode : {METHOD_LABELS[scope['method']]}. Unités : {fr_int(scope['units'])}, dont "
+        f"{fr_int(scope['common_units'])} communes aux modèles classés (classement, meneur et "
+        f"comparaisons). Meneur : {DASH if leader is None else '`' + leader + '`'}.",
         "",
+    ]
+    ineligible = [e for e in scope["models"] if not e["eligible"]]
+    if ineligible:
+        names = ", ".join(f"`{e['model']}` ({fr_percent(e['coverage'])})" for e in ineligible)
+        lines += [
+            f"Avertissement : hors classement, couverture sous le seuil : {names}. Leur score "
+            "sur leurs seules unités définies est publié sans rang, groupe ni comparaison.",
+            "",
+        ]
+    lines += [
         f"![{scope_title(track, usage)}](charts/{chart_name(track, usage)})",
         "",
     ]
@@ -309,8 +343,16 @@ def render(summary: Mapping[str, Any]) -> str:
         "",
         "Unité statistique : (modèle, piste, unité) ; les questions d'une unité sont agrégées "
         "par minimum, puis les seeds par moyenne. Une unité sans score (erreur du banc, contexte "
-        "dépassé ; avec --partial, ligne absente, discordante ou en attente du juge) est "
-        "retirée des seules comparaisons de son modèle, et comptée dans « Exclues ».",
+        "du banc dépassé ; avec --partial, ligne absente, discordante ou en attente du juge) est "
+        "écartée et comptée dans « Exclues ». Un contexte du modèle dépassé (le prompt seul ne "
+        "tient pas dans son contexte maximal déclaré, moins une marge de 256 tokens) vaut un "
+        "échec (score 0) ; un dépassement dû au plafond de réponse, au palier ou au plafond de "
+        "la configuration est un contexte du banc dépassé. Un modèle est classé sur un "
+        "périmètre si sa couverture (unités définies sur unités du périmètre) atteint "
+        f"{fr_percent(method['common_min_coverage'])}. Le classement, le meneur, les groupes "
+        "indiscernables, les comparaisons et la corrélation de Spearman portent sur les modèles "
+        "classés et sur les unités définies pour chacun d'eux ; le score sur toutes les unités "
+        "définies de chaque modèle est publié à côté, avec son effectif et sa couverture.",
         "",
         "## Complétude",
         "",

@@ -30,7 +30,13 @@ from ..common import config, paths
 from ..common.canonical import pretty_bytes, sha256_bytes, sha256_hex
 from ..common.jsonl import JsonlReadError, read_jsonl
 from ..common.logs import setup_logging
-from ..common.schemas import SchemaValidationError, UnknownSchemaError, validate
+from ..common.schemas import (
+    LegacyCampaignError,
+    SchemaValidationError,
+    UnknownSchemaError,
+    check_context_limit_era,
+    validate,
+)
 from .commands import aa_date_argument
 from .inputs import CampaignInputs, ReportError, load_inputs
 
@@ -47,6 +53,7 @@ RETRY_MESSAGE = "Ollama ne répond plus"
 
 
 def _validated(record: Any, expected: str, where: str) -> None:
+    check_context_limit_era(record, where)
     try:
         name = validate(record)
     except UnknownSchemaError:
@@ -123,6 +130,7 @@ def campaign_data(inputs: CampaignInputs) -> CampaignData:
             eval_ns=durations["eval"],
             prompt_hash=record["prompt_hash"],
             output_hash=sha256_hex(record["output"]),
+            context_limit=record.get("context_limit"),
         )
     grading_status = {
         record["key"]: record["status"]
@@ -346,6 +354,9 @@ def _run(args: argparse.Namespace) -> int:
         pilot_campaign(args.campaign, replay=args.replay, aa_date=args.aa_date)
     except config.ConfigError as exc:
         logger.error("Configuration invalide : %s", exc)
+        return 2
+    except LegacyCampaignError as exc:
+        logger.error("Rapport du pilote refusé, rien n'est écrit : %s", exc)
         return 2
     except ReportError as exc:
         logger.error("Rapport du pilote refusé, rien n'est écrit : %s", exc)

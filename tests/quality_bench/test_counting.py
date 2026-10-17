@@ -1,6 +1,6 @@
 """Comptage déterministe en français et critères de rédaction vérifiés par le code (AD-10) :
 mots, phrases, paragraphes, lignes, éléments de liste, corps de courriel, bornes, tolérance
-« environ », forme du ``check`` et note du correcteur ``judge_criteria@2``. Textes synthétiques."""
+« environ », forme du ``check`` et note du correcteur ``judge_criteria@3``. Textes synthétiques."""
 
 from __future__ import annotations
 
@@ -459,7 +459,7 @@ def _verdicts(**values):
 def test_grader_combines_code_and_judge_verdicts():
     question = _question(COUNT_3, None, None, None)
     record = _grade(question, "un deux trois", _verdicts(c2=True, c3=False, c4=True))
-    assert record["grader"] == "judge_criteria@2"
+    assert record["grader"] == "judge_criteria@3"
     assert (record["status"], record["score"], record["success"]) == ("ok", 0.75, None)
     record = _grade(question, "un deux", _verdicts(c2=True, c3=False, c4=True))
     assert (record["status"], record["score"]) == ("ok", 0.5)  # le comptage échoue

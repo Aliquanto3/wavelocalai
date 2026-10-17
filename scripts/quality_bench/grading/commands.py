@@ -30,7 +30,13 @@ from ..common import config, paths
 from ..common.jsonl import JsonlReadError, read_jsonl, rewrite_jsonl
 from ..common.logs import setup_logging
 from ..common.manifest import blocking_hash
-from ..common.schemas import SchemaValidationError, UnknownSchemaError, validate
+from ..common.schemas import (
+    LegacyCampaignError,
+    SchemaValidationError,
+    UnknownSchemaError,
+    check_context_limit_era,
+    validate,
+)
 from ..questions.schema import set_hash
 from .base import WRITING_GRADER
 
@@ -56,6 +62,7 @@ class Judgments:
 def _validated(record: Any, expected: str, where: str) -> None:
     # Message sans valeur : le chemin et le mot-clé en défaut seulement (une ligne de génération
     # porte la sortie du modèle, une question privée peut y figurer).
+    check_context_limit_era(record, where)
     try:
         name = validate(record)
     except UnknownSchemaError:
@@ -195,7 +202,9 @@ def _load_judgments(
         criteria[line["criterion"]] = {"verdict": line["verdict"], "error": line["error"]}
     if ignored:
         logger.warning(
-            "judgment-%s : %d verdicts ignorés sur des critères vérifiés par le code", judge, ignored
+            "judgment-%s : %d verdicts ignorés sur des critères vérifiés par le code",
+            judge,
+            ignored,
         )
     return Judgments(manifest_hash, by_key)
 
@@ -290,6 +299,9 @@ def _run(args: argparse.Namespace) -> int:
         grade_campaign(args.campaign)
     except config.ConfigError as exc:
         logger.error("Configuration invalide : %s", exc)
+        return 2
+    except LegacyCampaignError as exc:
+        logger.error("Correction refusée, rien n'est écrit : %s", exc)
         return 2
     except GradeError as exc:
         logger.error("Correction refusée, rien n'est écrit : %s", exc)

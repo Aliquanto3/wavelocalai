@@ -9,6 +9,10 @@
   palier > question > seed (``seed_base + epoch``, ``epoch < k``). Clé
   ``"{campaign}|{model}|{track}|{question_id}|{seed}"`` ; toute clé présente est sautée.
 - **Palier au-delà du maximum effectif** du modèle : ligne ``context_exceeded`` sans requête.
+  Toute ligne ``context_exceeded`` porte sa cause ``context_limit`` (``context_limit_cause``,
+  AD-7) : ``model`` si le prompt seul (mesuré, ou estimé pour un palier écarté) dépasse le
+  contexte déclaré moins 256 tokens, ``bench`` sinon (plafond de réponse, palier ou plafond de la
+  configuration).
 - **Essais (AD-13)** : ``OllamaRequestError`` compte un essai ; ``OllamaUnavailableError`` aussi
   si ``/api/version`` répond aussitôt (service vivant), sinon ``wait_for_ollama`` puis la
   question est refaite en entier sans compter l'essai, après une nouvelle chauffe. Après
@@ -54,7 +58,7 @@ from .conversation import (
     Outcome,
     run_conversation,
 )
-from .preflight import LaunchError, find_tag
+from .preflight import LaunchError, context_limit_cause, find_tag
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +273,13 @@ class Runner:
         }
         if num_ctx > model["num_ctx_max"]:
             # Palier écarté par le préflight (AD-7, AD-9) : ligne écrite sans requête.
-            self._write(line, Outcome(status=STATUS_CONTEXT_EXCEEDED), attempts=0, error=None)
+            self._write(
+                line,
+                Outcome(status=STATUS_CONTEXT_EXCEEDED),
+                attempts=0,
+                error=None,
+                context_limit=context_limit_cause(model, question["est_prompt_tokens"]),
+            )
             return
         self.requested.add(model["tag"])
         self._ensure_warm(model, num_ctx, think)
@@ -328,7 +338,12 @@ class Runner:
                     return
                 self._ensure_warm(model, num_ctx, think)
                 continue
-            self._write(line, outcome, attempts=attempts + 1, error=None)
+            limit = (
+                context_limit_cause(model, outcome.context_prompt)
+                if outcome.status == STATUS_CONTEXT_EXCEEDED
+                else None
+            )
+            self._write(line, outcome, attempts=attempts + 1, error=None, context_limit=limit)
             return
 
     def _write(
@@ -338,9 +353,11 @@ class Runner:
         *,
         attempts: int,
         error: str | None,
+        context_limit: str | None = None,
     ) -> None:
         """Valide et écrit la ligne ; ``error`` non nul : statut ``error`` (sortie et compteurs
-        du dernier essai, message d'Ollama)."""
+        du dernier essai, message d'Ollama). ``context_limit`` n'est écrit que pour une ligne
+        ``context_exceeded`` (champ interdit sinon, AD-7)."""
         record = {
             **line,
             "status": STATUS_ERROR if error is not None else outcome.status,
@@ -354,6 +371,8 @@ class Runner:
             "error": error,
             "created_at": utc_now(),
         }
+        if record["status"] == STATUS_CONTEXT_EXCEEDED:
+            record["context_limit"] = context_limit
         validate(record)
         self.generations.append(record)
         status = record["status"]

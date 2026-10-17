@@ -66,6 +66,7 @@ class Line:
     eval_ns: int
     prompt_hash: str
     output_hash: str
+    context_limit: str | None = None  # cause d'un context_exceeded : model | bench
 
     @property
     def requested(self) -> bool:

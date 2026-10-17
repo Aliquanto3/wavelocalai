@@ -68,64 +68,75 @@ def _turn_message(role: str, extra: dict[str, Any] | None = None) -> dict[str, A
     return _closed(properties)
 
 
-GENERATION_V1: dict[str, Any] = _closed(
-    {
-        "schema": {"const": "qb.generation/1"},
-        "key": _NON_EMPTY,
-        "manifest": _HASH,
-        "campaign": _NON_EMPTY,
-        "model": _NON_EMPTY,
-        "digest": _NON_EMPTY,
-        "track": {"enum": list(TRACKS)},
-        "question_id": _NON_EMPTY,
-        "usage": {"enum": list(USAGES)},
-        "group": _NON_EMPTY,
-        "unit": _NON_EMPTY,
-        "prompt_hash": _HASH,
-        "seed": _COUNT,
-        "epoch": _COUNT,
-        "think": _THINK_VALUE,
-        "backend": {"const": "ollama"},
-        "ollama_version": _NON_EMPTY,
-        "num_ctx": {"type": "integer", "minimum": 1},
-        "num_predict": {"type": "integer", "minimum": 1},
-        "status": {"enum": list(GENERATION_STATUSES)},
-        "output": {
-            "type": "array",
-            "items": {
-                "oneOf": [
-                    _turn_message(
-                        "assistant",
-                        {
-                            "thinking": {"type": ["string", "null"]},
-                            "tool_calls": {"type": "array", "items": {"type": "object"}},
-                        },
-                    ),
-                    _turn_message("tool"),
-                    _turn_message("user"),
-                ]
-            },
+CONTEXT_LIMITS = ("model", "bench")
+
+_GENERATION_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.generation/1"},
+    "key": _NON_EMPTY,
+    "manifest": _HASH,
+    "campaign": _NON_EMPTY,
+    "model": _NON_EMPTY,
+    "digest": _NON_EMPTY,
+    "track": {"enum": list(TRACKS)},
+    "question_id": _NON_EMPTY,
+    "usage": {"enum": list(USAGES)},
+    "group": _NON_EMPTY,
+    "unit": _NON_EMPTY,
+    "prompt_hash": _HASH,
+    "seed": _COUNT,
+    "epoch": _COUNT,
+    "think": _THINK_VALUE,
+    "backend": {"const": "ollama"},
+    "ollama_version": _NON_EMPTY,
+    "num_ctx": {"type": "integer", "minimum": 1},
+    "num_predict": {"type": "integer", "minimum": 1},
+    "status": {"enum": list(GENERATION_STATUSES)},
+    "output": {
+        "type": "array",
+        "items": {
+            "oneOf": [
+                _turn_message(
+                    "assistant",
+                    {
+                        "thinking": {"type": ["string", "null"]},
+                        "tool_calls": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                _turn_message("tool"),
+                _turn_message("user"),
+            ]
         },
-        "call_cap_reached": {"type": "boolean"},
-        "tokens": _closed(
-            {
-                "prompt": _COUNT,
-                "prompt_cached": _COUNT,
-                "completion": _COUNT,
-                "thinking_est": _COUNT,
-                "answer_est": _COUNT,
-            }
-        ),
-        "durations_ns": _closed(
-            {"total": _COUNT, "load": _COUNT, "prompt_eval": _COUNT, "eval": _COUNT}
-        ),
-        "wall_s": {"type": "number", "minimum": 0},
-        "calls": _COUNT,
-        "attempts": _COUNT,
-        "error": {"type": ["string", "null"]},
-        "created_at": _TIMESTAMP,
-    }
-)
+    },
+    "call_cap_reached": {"type": "boolean"},
+    "tokens": _closed(
+        {
+            "prompt": _COUNT,
+            "prompt_cached": _COUNT,
+            "completion": _COUNT,
+            "thinking_est": _COUNT,
+            "answer_est": _COUNT,
+        }
+    ),
+    "durations_ns": _closed(
+        {"total": _COUNT, "load": _COUNT, "prompt_eval": _COUNT, "eval": _COUNT}
+    ),
+    "wall_s": {"type": "number", "minimum": 0},
+    "calls": _COUNT,
+    "attempts": _COUNT,
+    "error": {"type": ["string", "null"]},
+    "created_at": _TIMESTAMP,
+    # Cause d'une ligne context_exceeded (AD-7) : requis dans ce seul statut, interdit sinon.
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
+GENERATION_V1: dict[str, Any] = {
+    **_closed(
+        _GENERATION_PROPERTIES,
+        required=[name for name in _GENERATION_PROPERTIES if name != "context_limit"],
+    ),
+    "if": {"properties": {"status": {"const": "context_exceeded"}}, "required": ["status"]},
+    "then": {"required": ["context_limit"]},
+    "else": {"not": {"required": ["context_limit"]}},
+}
 
 _MODEL_RESOLVED = _closed(
     {
@@ -142,6 +153,9 @@ _MODEL_RESOLVED = _closed(
         "think_off": _THINK_VALUE,
         "think_on": _THINK_VALUE,
         "num_ctx_max": {"type": "integer", "minimum": 1},
+        # Contexte maximal déclaré par /api/show (null si illisible) : sépare la limite du modèle
+        # de celle du banc dans une ligne context_exceeded (AD-7).
+        "context_length": {"type": ["integer", "null"], "minimum": 1},
     }
 )
 
@@ -279,30 +293,57 @@ SET_MANIFEST_V1: dict[str, Any] = _closed(
 
 # Ligne de correction (AD-10) : seul porteur de score et de success (AD-3). Règles croisées :
 # erreurs du banc et attente du juge sans score ; échecs du modèle à 0 ; rédaction
-# (judge_criteria) sans success ; ailleurs, score = success.
-_UNSCORED = ["context_exceeded", "error", "awaiting_judgment"]
+# (judge_criteria) sans success ; ailleurs, score = success. ``context_exceeded`` suit sa cause
+# ``context_limit`` (requise dans ce seul statut, interdite sinon) : ``model`` est un échec du
+# modèle (score 0, comme une troncature), ``bench`` une erreur du banc (sans score).
+_UNSCORED = ["error", "awaiting_judgment"]
 _MODEL_FAILURES = ["truncated", "non_compliant"]
+_CONTEXT_EXCEEDED = {"status": {"const": "context_exceeded"}}
+_CONTEXT_MODEL = {
+    "properties": {**_CONTEXT_EXCEEDED, "context_limit": {"const": "model"}},
+    "required": ["context_limit"],
+}
+_CONTEXT_BENCH = {
+    "properties": {**_CONTEXT_EXCEEDED, "context_limit": {"const": "bench"}},
+    "required": ["context_limit"],
+}
+_GRADING_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.grading/1"},
+    "key": _NON_EMPTY,
+    "generation_manifest": _HASH,
+    "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
+    "grader": {"type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$"},
+    "status": {"enum": list(GRADING_STATUSES)},
+    "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "success": {"type": ["boolean", "null"]},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
 GRADING_V1: dict[str, Any] = {
     **_closed(
-        {
-            "schema": {"const": "qb.grading/1"},
-            "key": _NON_EMPTY,
-            "generation_manifest": _HASH,
-            "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
-            "grader": {"type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$"},
-            "status": {"enum": list(GRADING_STATUSES)},
-            "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-            "success": {"type": ["boolean", "null"]},
-            "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
-        }
+        _GRADING_PROPERTIES,
+        required=[name for name in _GRADING_PROPERTIES if name != "context_limit"],
     ),
     "allOf": [
+        {
+            "if": {"properties": _CONTEXT_EXCEEDED},
+            "then": {"required": ["context_limit"]},
+            "else": {"not": {"required": ["context_limit"]}},
+        },
         {
             "if": {"properties": {"status": {"enum": _UNSCORED}}},
             "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
         },
         {
+            "if": _CONTEXT_BENCH,
+            "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
+        },
+        {
             "if": {"properties": {"status": {"enum": _MODEL_FAILURES}}},
+            "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
+        },
+        {
+            "if": _CONTEXT_MODEL,
             "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
         },
         {
@@ -313,7 +354,12 @@ GRADING_V1: dict[str, Any] = {
             "if": {"properties": {"grader": {"pattern": "^judge_criteria@"}}},
             "then": {"properties": {"success": {"type": "null"}}},
             "else": {
-                "if": {"properties": {"status": {"enum": ["ok", *_MODEL_FAILURES]}}},
+                "if": {
+                    "anyOf": [
+                        {"properties": {"status": {"enum": ["ok", *_MODEL_FAILURES]}}},
+                        _CONTEXT_MODEL,
+                    ]
+                },
                 "then": {"properties": {"success": {"type": "boolean"}}},
             },
         },
@@ -431,26 +477,57 @@ AA_STATUSES = ("measured", "estimated")
 AA_VARIANTS = ("reasoning", "non_reasoning")
 
 # Score d'une question pour un modèle (AD-6) : ni identifiant ni texte de question.
-SCORE_V1: dict[str, Any] = _closed(
-    {
-        "schema": {"const": "qb.score/1"},
-        "question_hash": _HASH,
-        "model": _NON_EMPTY,
-        "digest": _NON_EMPTY,
-        "track": {"enum": list(TRACKS)},
-        "seed": _COUNT,
-        "status": {"enum": list(GRADING_STATUSES)},
-        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-        "success": {"type": ["boolean", "null"]},
-        "metrics": {"type": "object", "additionalProperties": _NUMBER},
-    }
-)
+_SCORE_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.score/1"},
+    "question_hash": _HASH,
+    "model": _NON_EMPTY,
+    "digest": _NON_EMPTY,
+    "track": {"enum": list(TRACKS)},
+    "seed": _COUNT,
+    "status": {"enum": list(GRADING_STATUSES)},
+    "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "success": {"type": ["boolean", "null"]},
+    "metrics": {"type": "object", "additionalProperties": _NUMBER},
+    # Cause d'un context_exceeded (AD-6) : requis dans ce seul statut, interdit sinon.
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
+SCORE_V1: dict[str, Any] = {
+    **_closed(
+        _SCORE_PROPERTIES,
+        required=[name for name in _SCORE_PROPERTIES if name != "context_limit"],
+    ),
+    "allOf": [
+        {
+            "if": {"properties": {"status": {"const": "context_exceeded"}}},
+            "then": {"required": ["context_limit"]},
+            "else": {"not": {"required": ["context_limit"]}},
+        },
+        # Mêmes règles que la ligne de correction (AD-10) : limite du modèle = échec (score 0),
+        # limite du banc = unité nulle.
+        {
+            "if": _CONTEXT_MODEL,
+            "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
+        },
+        {
+            "if": _CONTEXT_BENCH,
+            "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
+        },
+    ],
+}
 
 _REPORT_MODEL_STATS = _closed(
     {
         "model": _NON_EMPTY,
+        # mean, n, se, IC, rang, groupe : sur les unités communes aux modèles éligibles du
+        # périmètre (AD-17), nuls pour un modèle non éligible ; mean_all et n_all : toutes les
+        # unités définies du modèle ; coverage : n_all / unités du périmètre (null si vide) ;
+        # eligible : coverage ≥ method.common_min_coverage.
         "mean": _MAYBE_NUMBER,
         "n": _COUNT,
+        "mean_all": _MAYBE_NUMBER,
+        "n_all": _COUNT,
+        "coverage": _MAYBE_NUMBER,
+        "eligible": {"type": "boolean"},
         "excluded": _COUNT,
         "se": _MAYBE_NUMBER,
         "ci_low": _MAYBE_NUMBER,
@@ -462,6 +539,10 @@ _REPORT_MODEL_STATS = _closed(
         "graded": _COUNT,
         "truncated": _COUNT,
         "truncation_rate": _MAYBE_NUMBER,
+        # Lignes context_exceeded du périmètre, par cause (AD-10) : model compte comme un échec
+        # (score 0), bench est une unité nulle.
+        "context_exceeded_model": _COUNT,
+        "context_exceeded_bench": _COUNT,
     }
 )
 _REPORT_COMPARISON = _closed(
@@ -502,7 +583,16 @@ _REPORT_CONTINUOUS = _closed(
         "models": {
             "type": "array",
             "items": _closed(
-                {"model": _NON_EMPTY, "mean": _MAYBE_NUMBER, "n": _COUNT, "excluded": _COUNT}
+                {
+                    "model": _NON_EMPTY,
+                    "mean": _MAYBE_NUMBER,
+                    "n": _COUNT,
+                    "mean_all": _MAYBE_NUMBER,
+                    "n_all": _COUNT,
+                    "coverage": _MAYBE_NUMBER,
+                    "eligible": {"type": "boolean"},
+                    "excluded": _COUNT,
+                }
             ),
         },
         "comparisons": {
@@ -524,6 +614,7 @@ _REPORT_SCOPE = _closed(
         "usage": {"enum": [*USAGES, None]},
         "method": {"enum": list(REPORT_METHODS)},
         "units": _COUNT,
+        "common_units": _COUNT,
         "leader": _MAYBE_TAG,
         "models": {"type": "array", "items": _REPORT_MODEL_STATS},
         "comparisons": {"type": "array", "items": _REPORT_COMPARISON},
@@ -578,6 +669,7 @@ REPORT_V1: dict[str, Any] = _closed(
                 "alpha": _NUMBER,
                 "bootstrap_resamples": {"type": "integer", "minimum": 1},
                 "bootstrap_seed": _COUNT,
+                "common_min_coverage": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
             }
         ),
         "completeness": _closed(
@@ -686,6 +778,37 @@ _Validator = validators.extend(
     type_checker=Draft202012Validator.TYPE_CHECKER.redefine("integer", _is_strict_integer),
 )
 _VALIDATORS = {name: _Validator(schema) for name, schema in SCHEMAS.items()}
+
+
+LEGACY_CONTEXT_LIMIT_MESSAGE = (
+    "campagne antérieure à context_limit (2026-10-17) : relancer la génération dans une "
+    "nouvelle campagne"
+)
+
+
+class LegacyCampaignError(Exception):
+    """Enregistrement d'une campagne écrite avant ``context_limit`` (code 2) : manifeste sans
+    ``models_resolved[].context_length``, ou ligne ``context_exceeded`` sans ``context_limit``.
+    Pas de version ``/2`` des schémas : aucune campagne de cette époque n'est conservée."""
+
+
+def check_context_limit_era(record: Any, where: str) -> None:
+    """Lève ``LegacyCampaignError`` si ``record`` date d'avant ``context_limit``, avant sa
+    validation : un message clair plutôt qu'une erreur de schéma brute."""
+    if not isinstance(record, Mapping):
+        return
+    name = record.get("schema")
+    legacy = False
+    if name == "qb.manifest/1":
+        blocking = record.get("blocking")
+        resolved = blocking.get("models_resolved") if isinstance(blocking, Mapping) else None
+        legacy = isinstance(resolved, list) and any(
+            isinstance(entry, Mapping) and "context_length" not in entry for entry in resolved
+        )
+    elif name in ("qb.generation/1", "qb.grading/1"):
+        legacy = record.get("status") == "context_exceeded" and "context_limit" not in record
+    if legacy:
+        raise LegacyCampaignError(f"{where} : {LEGACY_CONTEXT_LIMIT_MESSAGE}")
 
 
 class UnknownSchemaError(ValueError):

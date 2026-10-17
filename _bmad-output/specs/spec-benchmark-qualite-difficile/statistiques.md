@@ -17,9 +17,20 @@ Toutes les analyses partent de `grading.jsonl` (scores) et de `generation.jsonl`
 - **Test z sur la différence appariée** (erreur-type groupée) pour les périmètres non binaires. Quand l'ET groupée est nulle (au bruit flottant près : |ET| ≤ 1e-12 + 1e-9·|diff|) avec une différence non nulle, le z donnerait p = 0 quel que soit l'effectif : repli sur le **test exact des signes** bilatéral sur les **groupes**, cohérent avec l'erreur-type groupée (différence moyenne par groupe, groupes ex aequo écartés, binomiale de paramètre 1/2 ; deux groupes positifs donnent p = 0,5). Il est signalé par `p_method: "sign"` dans le rapport (`"z"` ou `"mcnemar"` sinon), sur les comparaisons au meneur comme dans la matrice BH, et par une note sous le tableau des comparaisons et sous la matrice. Le champ `method` du périmètre (`paired_z`) désigne la famille de tests, pas le test de chaque paire.
 - Friedman/Nemenyi est exclu pour une analyse par question : son N compte des jeux de données.
 
+## Unités communes (décision d'Anaël, 2026-10-17)
+
+Un modèle privé d'unités (erreur du banc, `context_exceeded` à limite du banc, ligne en attente du juge sous `--partial`) serait noté sur un sous-ensemble plus facile que ses concurrents. Pour chaque périmètre (piste en global, puis chaque usage) :
+
+- **Éligibilité (revue du 2026-10-17) :** un modèle est classé sur un périmètre si sa **couverture** (unités définies du modèle / unités du périmètre définies pour au moins un modèle) atteint `common_min_coverage` (0,9 par défaut, option `--common-min-coverage` de `report`, publiée dans `method`). Une unité nulle pour tous (NIAH sans `f1`, erreur du banc partout) ne pèse sur la couverture de personne. Sans ce seuil, un seul modèle à faible couverture effaçait meneur, rangs, groupes et Spearman pour tous ; à 2 % d'unités nulles par modèle, l'intersection sur 20 modèles ne gardait que 67 % des unités.
+- **Score, erreur-type, IC, rang approché, groupes indiscernables, meneur, comparaisons au meneur (Holm), matrice (BH), k̂_Bonferroni et Spearman** portent sur les **modèles classés** et sur les unités **définies pour chacun d'eux**. Les tests appariés restent des McNemar ou des z appariés, sur ces unités. L'ensemble commun est le même pour toutes les statistiques du périmètre (cohérence du meneur et des tests) ; le seuil limite la perte de puissance.
+- Un modèle **non classé** reste publié : `mean_all`, `n_all`, `coverage`, `eligible = false`, `excluded` et ses comptes, sans score commun, rang, groupe ni comparaison ; il est hors k̂_Bonferroni (un usage où le meneur ou lui n'est pas classé compte comme un test sans victoire) et hors Spearman. Le rapport et le journal le nomment, avec sa couverture.
+- Le résumé publie à côté, par modèle, la moyenne sur **toutes ses unités définies** (`mean_all`) avec son effectif (`n_all`), les unités écartées (`excluded`), l'effectif commun du périmètre (`common_units`) et le nombre d'unités (`units`).
+- `context_exceeded` est compté **séparément selon sa cause** : `context_exceeded_model` (prompt seul au-delà du contexte déclaré moins 256 tokens : échec compté, score 0, unité définie, hors du dénominateur du taux de troncature) et `context_exceeded_bench` (plafond de la campagne ou erreur d'estimation du banc : unité nulle, hors des unités communes).
+- Rapport du pilote : mêmes comptes, par source et par palier.
+
 ## Classement
 
-Le classement se présente en **groupes de modèles indiscernables**. Un rang approché est possible, à la Chatbot Arena : 1 + le nombre de modèles dont l'IC simultané est entièrement au-dessus. Pour une conclusion transversale (« A gagne sur la plupart des usages »), compter les usages gagnés avec k̂_Bonferroni.
+Le classement se présente en **groupes de modèles indiscernables**, calculés sur les unités communes. Un rang approché est possible, à la Chatbot Arena : 1 + le nombre de modèles dont l'IC simultané est entièrement au-dessus. Pour une conclusion transversale (« A gagne sur la plupart des usages »), compter les usages gagnés avec k̂_Bonferroni.
 
 ## Tirages
 

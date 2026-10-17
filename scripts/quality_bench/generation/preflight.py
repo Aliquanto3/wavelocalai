@@ -5,7 +5,7 @@ Tout refus lève ``LaunchError`` (code 2) avec un message qui nomme le modèle e
 aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
 
 - ``resolve_model`` : entrée de ``models_resolved`` (``tag``, ``digest``, ``family``,
-  ``capabilities`` triées, ``tracks``, ``think_off``, ``think_on``, ``num_ctx_max`` effectif) ;
+  ``capabilities`` triées, ``tracks``, ``think_off``, ``think_on``, ``num_ctx_max`` effectif, ``context_length`` déclaré) ;
   refuse un modèle absent de ``/api/tags`` ou sans ``digest``, distant (``remote_host``), qui
   déclare ``decision``, sans ``completion``, une piste ``think_on`` sans ``thinking`` ou à valeur
   fausse ou nulle, une piste ``think_off`` à valeur vraie, une valeur ``think`` incohérente avec la capacité ``thinking`` ou de type
@@ -14,6 +14,9 @@ aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
   dans ``content`` sous ``think: false``).
 - ``check_launch`` : refuse une question à outils sélectionnée pour un modèle sans ``tools``.
 - ``effective_ctx_max`` : ``min(num_ctx_max de la configuration, <arch>.context_length)``.
+- ``context_limit_cause`` : cause d'une ligne ``context_exceeded`` (``model`` si le prompt seul
+  dépasse le contexte déclaré moins ``CONTEXT_LIMIT_MARGIN``, ``bench`` sinon, AD-7).
+  ``models_resolved[].context_length`` garde le contexte déclaré (``null`` s'il n'est pas lu).
 """
 
 from __future__ import annotations
@@ -68,6 +71,34 @@ def effective_ctx_max(num_ctx_max: int, show: Mapping[str, Any]) -> int:
     """Contexte maximal effectif : le plus petit du plafond configuré et du contexte déclaré."""
     declared = declared_context_length(show)
     return num_ctx_max if declared is None else min(num_ctx_max, declared)
+
+
+CONTEXT_LIMIT_MODEL = "model"
+CONTEXT_LIMIT_BENCH = "bench"
+# Marge fixe (tokens) sous le contexte déclaré : un prompt qui ne tient pas dans
+# ``context_length - CONTEXT_LIMIT_MARGIN`` ne laisse pas de place à une réponse utile, quel que
+# soit le plafond ``num_predict`` du banc (AD-7, revue du 2026-10-17).
+CONTEXT_LIMIT_MARGIN = 256
+
+
+def context_limit_cause(model: Mapping[str, Any], prompt_tokens: int) -> str:
+    """Cause d'une ligne ``context_exceeded`` (AD-7) d'après la taille du prompt seul.
+
+    - ``model`` : le contexte déclaré par le modèle (``context_length``, lu au préflight) ne
+      contient pas le prompt seul moins la marge fixe : ``prompt_tokens > context_length -
+      CONTEXT_LIMIT_MARGIN``. Aucun palier ni aucun plafond de réponse n'aurait aidé.
+    - ``bench`` sinon : le prompt tient, c'est le plafond ``num_predict``, le palier choisi ou le
+      plafond ``num_ctx_max`` de la configuration qui manque. Un contexte déclaré inconnu
+      (``null``) ne permet pas d'établir une limite du modèle : ``bench``.
+
+    ``prompt_tokens`` : après une requête, le prompt mesuré par Ollama de l'appel en dépassement
+    (``prompt_eval_count + prompt_eval_cached_count``) ; pour un palier écarté sans requête,
+    l'estimation ``est_prompt_tokens`` de la question (AD-5).
+    """
+    declared = model.get("context_length")
+    if declared is not None and prompt_tokens > declared - CONTEXT_LIMIT_MARGIN:
+        return CONTEXT_LIMIT_MODEL
+    return CONTEXT_LIMIT_BENCH
 
 
 def _capabilities(tag: str, show: Mapping[str, Any]) -> list[str]:
@@ -162,6 +193,7 @@ def resolve_model(
         "think_off": model_cfg.get("think_off"),
         "think_on": model_cfg.get("think_on"),
         "num_ctx_max": effective_ctx_max(model_cfg["num_ctx_max"], show),
+        "context_length": declared_context_length(show),
     }
 
 

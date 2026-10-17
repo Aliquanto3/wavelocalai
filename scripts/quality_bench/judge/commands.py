@@ -46,6 +46,7 @@ from ..common.manifest import (
     collect_informative,
     ensure_manifest,
 )
+from ..common.schemas import LegacyCampaignError
 from ..common.stop import StopFlag
 from ..ollama.client import OllamaClient, OllamaError, check_local_base_url
 from .base import (
@@ -289,7 +290,9 @@ def judge_campaign(campaign: str, judge_id: str, max_cost_usd: float | None = No
                     generation_manifest=inputs.manifest_hash,
                     informative=collect_informative(
                         checklist=None if gpu_result is None else {"gpu_check": gpu_result},
-                        prices=None if judge.prices is None else {"judge": judge_id, **judge.prices}
+                        prices=(
+                            None if judge.prices is None else {"judge": judge_id, **judge.prices}
+                        ),
                     ),
                 )
                 existing = ensure_manifest(
@@ -402,6 +405,9 @@ def _run(args: argparse.Namespace) -> int:
     try:
         judge_campaign(args.campaign, args.judge, args.max_cost_usd)
     except (config.ConfigError, JudgeConfigError) as exc:
+        logger.error("Lancement refusé, rien n'est écrit : %s", exc)
+        return 2
+    except LegacyCampaignError as exc:
         logger.error("Lancement refusé, rien n'est écrit : %s", exc)
         return 2
     except CostCapError as exc:

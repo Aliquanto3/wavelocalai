@@ -406,12 +406,18 @@ def test_unrequested_pairs_and_status_changes_are_counted_apart(env):
     target = next(
         line for line in lines if line["usage"] == "reasoning" and line["track"] == "think_off"
     )
-    target.update(status="context_exceeded", calls=0, output=[])
+    target.update(status="context_exceeded", calls=0, output=[], context_limit="bench")
     rewrite_jsonl(paths.generation_path(REPLAY), lines)
     grading = read_jsonl(paths.grading_path(REPLAY))
     for line in grading:
         if line["key"] == target["key"]:
-            line.update(status="context_exceeded", score=None, success=None, metrics={})
+            line.update(
+                status="context_exceeded",
+                context_limit="bench",
+                score=None,
+                success=None,
+                metrics={},
+            )
     rewrite_jsonl(paths.grading_path(REPLAY), grading)
     assert _run() == 0
     block = _track(_report()["stability"]["tracks"], "think_off")
@@ -682,3 +688,15 @@ def test_json_report_is_written_canonically(env):
     assert _run() == 0
     data = paths.pilot_report_path(PILOT, ".json").read_bytes()
     assert data == pretty_bytes(json.loads(data))
+
+
+def test_campaign_before_context_limit_is_refused_with_code_2(env):
+    """Manifeste sans models_resolved[].context_length (pilot-20261012) : code 2, message clair."""
+    manifest_path = paths.generation_manifest_path(PILOT)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for model in manifest["blocking"]["models_resolved"]:
+        del model["context_length"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert _run() == 2
+    assert _outputs_exist() == [False, False]
+    assert "campagne antérieure à context_limit" in _log()

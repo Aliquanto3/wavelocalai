@@ -22,6 +22,7 @@ from pathlib import Path
 
 from ..common import config, paths
 from ..common.logs import setup_logging
+from ..common.schemas import LegacyCampaignError
 from .inputs import IncompleteError, ReportError, load_inputs
 
 logger = logging.getLogger(__name__)
@@ -30,14 +31,20 @@ COMMAND = "report"
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
-def report_campaign(campaign: str, *, partial: bool = False, aa_date: str | None = None) -> Path:
+def report_campaign(
+    campaign: str,
+    *,
+    partial: bool = False,
+    aa_date: str | None = None,
+    common_min_coverage: float | None = None,
+) -> Path:
     """Produit et écrit les exports de ``campaign`` ; rend le dossier écrit.
 
     ``config.ConfigError`` (code 2) ; ``ReportError`` ou ``IncompleteError`` (code 1) : rien
     n'est écrit."""
     # Import tardif : numpy, scipy et statsmodels (stats/), que les autres sous-commandes n'ont
     # pas à charger.
-    from .campaign import build_summary
+    from .campaign import COMMON_MIN_COVERAGE, build_summary
     from .charts import charts
     from .export import export_files, write_export_dir
     from .markdown import render
@@ -47,7 +54,10 @@ def report_campaign(campaign: str, *, partial: bool = False, aa_date: str | None
     except ValueError as exc:
         raise ReportError(str(exc)) from None
     inputs = load_inputs(campaign, partial=partial, aa_date=aa_date)
-    summary = build_summary(inputs)
+    summary = build_summary(
+        inputs,
+        min_coverage=COMMON_MIN_COVERAGE if common_min_coverage is None else common_min_coverage,
+    )
     files = export_files(inputs, summary, render(summary), charts(summary))
     write_export_dir(campaign, files)
     completeness = inputs.completeness
@@ -69,6 +79,17 @@ def aa_date_argument(value: str) -> str:
     return value
 
 
+def coverage_argument(value: str) -> float:
+    """Type argparse de ``--common-min-coverage`` : fraction dans ]0, 1]."""
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"fraction attendue, reçu {value!r}") from None
+    if not 0 < number <= 1:
+        raise argparse.ArgumentTypeError(f"fraction dans ]0, 1] attendue, reçu {value!r}")
+    return number
+
+
 def _configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--campaign", required=True, help="identifiant de la campagne")
     parser.add_argument(
@@ -85,6 +106,14 @@ def _configure(parser: argparse.ArgumentParser) -> None:
         help="date du fichier benchmarks/quality/references/aa-<date>.json (le plus récent par "
         "défaut)",
     )
+    parser.add_argument(
+        "--common-min-coverage",
+        type=coverage_argument,
+        default=None,
+        metavar="FRACTION",
+        help="couverture minimale (unités définies / unités du périmètre) d'un modèle classé ; "
+        "0,9 par défaut (AD-17)",
+    )
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -96,9 +125,17 @@ def _run(args: argparse.Namespace) -> int:
         return 2
     setup_logging(COMMAND, log_file)
     try:
-        report_campaign(args.campaign, partial=args.partial, aa_date=args.aa_date)
+        report_campaign(
+            args.campaign,
+            partial=args.partial,
+            aa_date=args.aa_date,
+            common_min_coverage=args.common_min_coverage,
+        )
     except config.ConfigError as exc:
         logger.error("Configuration invalide : %s", exc)
+        return 2
+    except LegacyCampaignError as exc:
+        logger.error("Rapport refusé, rien n'est écrit : %s", exc)
         return 2
     except IncompleteError as exc:
         logger.error("Rapport refusé (campagne incomplète), rien n'est écrit : %s", exc)

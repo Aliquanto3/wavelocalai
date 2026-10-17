@@ -13,8 +13,8 @@
 - **Cohérence d'ordre** avec l'ancien banc et l'indice AA : décompte de paires concordantes,
   discordantes et à égalité, sans Spearman ni test.
 - **Rédaction** notée par ``grading.jsonl``, provisoire ; ``awaiting_judgment`` compté à part.
-- **Points différés** (``deferred-work.md``) : ``context_exceeded`` par source et par palier,
-  unités non communes et meneur sur unités communes, reprises non comptées, cache de préfixe.
+- **Points différés** (``deferred-work.md``) : ``context_exceeded`` par source et par palier, avec
+  les comptes par cause (``model`` : échec compté, ``bench`` : unité nulle), unités non communes et meneur sur unités communes, reprises non comptées, cache de préfixe.
 
 Aucune fonction ne lit de fichier ; aucun texte de question ni de sortie n'entre dans le
 résultat. Les flottants passent par ``campaign.number`` (finis ou ``None``).
@@ -653,6 +653,17 @@ def writing(data: CampaignData) -> dict[str, Any]:
 # -- Points différés ------------------------------------------------------------------------
 
 
+def _exceeded(lines: Sequence[Line]) -> dict[str, Any]:
+    """Lignes ``context_exceeded`` et leur répartition par cause (AD-10) : ``model`` est un
+    échec compté (score 0), ``bench`` une unité nulle."""
+    exceeded = [line for line in lines if line.status == "context_exceeded"]
+    return {
+        "context_exceeded": len(exceeded),
+        "context_exceeded_model": sum(1 for line in exceeded if line.context_limit == "model"),
+        "context_exceeded_bench": sum(1 for line in exceeded if line.context_limit == "bench"),
+    }
+
+
 def _context_exceeded(lines: Sequence[Line], models: Sequence[str]) -> dict[str, Any]:
     by_source = []
     sources = sorted({line.source for line in lines} | {BFCL_MULTI})
@@ -665,27 +676,31 @@ def _context_exceeded(lines: Sequence[Line], models: Sequence[str]) -> dict[str,
                 of_source = [line for line in mine if line.source == source]
                 if not of_source and source != BFCL_MULTI:
                     continue
-                exceeded = sum(1 for line in of_source if line.status == "context_exceeded")
+                counts = _exceeded(of_source)
                 by_source.append(
                     {
                         "track": track,
                         "model": model,
                         "source": source,
                         "lines": len(of_source),
-                        "context_exceeded": exceeded,
-                        "rate": number(exceeded / len(of_source)) if of_source else None,
+                        **counts,
+                        "rate": (
+                            number(counts["context_exceeded"] / len(of_source))
+                            if of_source
+                            else None
+                        ),
                     }
                 )
     by_tier = []
     for tier in sorted({line.num_ctx for line in lines}):
         of_tier = [line for line in lines if line.num_ctx == tier]
-        exceeded = sum(1 for line in of_tier if line.status == "context_exceeded")
+        counts = _exceeded(of_tier)
         by_tier.append(
             {
                 "num_ctx": tier,
                 "lines": len(of_tier),
-                "context_exceeded": exceeded,
-                "rate": number(exceeded / len(of_tier)),
+                **counts,
+                "rate": number(counts["context_exceeded"] / len(of_tier)),
             }
         )
     return {"by_source": by_source, "by_tier": by_tier}

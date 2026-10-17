@@ -73,7 +73,8 @@ CASES = {
 STATUS_CASES = {
     ("piaf", 1): ("truncated", False, ("truncated", 0.0, False)),
     ("writing", 1): ("truncated", False, ("truncated", 0.0, None)),
-    ("piaf", 2): ("context_exceeded", False, ("context_exceeded", None, None)),
+    ("piaf", 2): ("context_exceeded", False, ("context_exceeded", None, None)),  # limite du banc
+    ("piaf", 4): ("context_exceeded:model", False, ("context_exceeded", 0.0, False)),
     ("piaf", 3): ("error", False, ("error", None, None)),
     ("bfcl_multi", 1): ("ok", True, ("non_compliant", 0.0, False)),
     ("writing", 2): ("ok", False, ("awaiting_judgment", None, None)),
@@ -114,6 +115,7 @@ def _campaign_lines(qs, manifest_hash):
     for (qname, seed), (status, cap, outcome) in STATUS_CASES.items():
         question = qs[qname]
         content = "conversation" if qname == "bfcl_multi" else "Texte."
+        status, _, limit = status.partition(":")  # « context_exceeded:model » : cause explicite
         line = generation_for(
             question,
             _output(qname, question, content),
@@ -122,6 +124,7 @@ def _campaign_lines(qs, manifest_hash):
             manifest=manifest_hash,
             campaign=CAMPAIGN,
             seed=seed,
+            context_limit=limit or None,
         )
         lines.append(line)
         expected[line["key"]] = outcome
@@ -232,13 +235,19 @@ def test_grade_writes_one_sorted_line_per_generation(campaign, _reset_logging):
         # Rédaction jugée seulement : une sortie non ok n'est jamais jugée, une ligne en attente
         # (verdicts incomplets) non plus.
         judged = (
-            record["grader"] == "judge_criteria@2"
+            record["grader"] == "judge_criteria@3"
             and generation_status[record["key"]] == "ok"
             and record["status"] != "awaiting_judgment"
         )
         assert record["judgment_manifest"] == (campaign["judgment_hash"] if judged else None)
+    exceeded = [r for r in records if r["status"] == "context_exceeded"]
+    assert sorted((r["context_limit"], r["score"]) for r in exceeded) == [
+        ("bench", None),
+        ("model", 0.0),
+    ]
+    assert all("context_limit" not in r for r in records if r["status"] != "context_exceeded")
     truncated_writing = [
-        r for r in records if r["grader"] == "judge_criteria@2" and r["status"] == "truncated"
+        r for r in records if r["grader"] == "judge_criteria@3" and r["status"] == "truncated"
     ]
     assert truncated_writing and truncated_writing[0]["judgment_manifest"] is None
     assert {r["grader"].split("@")[0] for r in records} == {
@@ -370,7 +379,7 @@ def test_without_judgment_folder_writing_awaits(campaign, _reset_logging):
     paths.judgment_dir(CAMPAIGN, JUDGE_ID).rmdir()
     assert _run() == 0
     records = read_jsonl(paths.grading_path(CAMPAIGN))
-    writing = [r for r in records if r["grader"] == "judge_criteria@2"]
+    writing = [r for r in records if r["grader"] == "judge_criteria@3"]
     ok_writing = [r for r in writing if r["status"] != "truncated"]
     assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
     assert all(r["judgment_manifest"] is None for r in records)
@@ -515,7 +524,18 @@ def test_without_designated_judge_writing_awaits(campaign, _reset_logging):
     (campaign["config_dir"] / f"{CAMPAIGN}.yaml").write_text(yaml_text, encoding="utf-8")
     assert _run() == 0
     records = read_jsonl(paths.grading_path(CAMPAIGN))
-    writing = [r for r in records if r["grader"] == "judge_criteria@2"]
+    writing = [r for r in records if r["grader"] == "judge_criteria@3"]
     ok_writing = [r for r in writing if r["status"] != "truncated"]
     assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
     assert all(r["judgment_manifest"] is None for r in records)
+
+
+def test_campaign_before_context_limit_is_refused_with_code_2(campaign, _reset_logging):
+    """Ligne context_exceeded sans context_limit (campagne pilot-20261012) : code 2, message clair."""
+    lines = [dict(line) for line in campaign["lines"]]
+    lines[0]["status"] = "context_exceeded"
+    lines[0].pop("context_limit", None)
+    _rewrite_generation(lines)
+    _assert_refused(2)
+    log = paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+    assert "campagne antérieure à context_limit" in log

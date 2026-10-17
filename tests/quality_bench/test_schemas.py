@@ -55,6 +55,27 @@ def test_generation_field_errors_name_the_field(overrides, field):
     assert excinfo.value.path == field
 
 
+@pytest.mark.parametrize("limit", ["model", "bench"])
+def test_generation_context_limit_required_with_context_exceeded(limit):
+    assert validate(generation_record(status="context_exceeded", context_limit=limit))
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded"},  # cause absente
+        {"status": "context_exceeded", "context_limit": None},
+        {"status": "context_exceeded", "context_limit": "banc"},  # liste fermée
+        {"status": "ok", "context_limit": "bench"},  # interdit hors context_exceeded
+        {"status": "truncated", "context_limit": "model"},
+        {"status": "error", "context_limit": "model"},
+    ],
+)
+def test_generation_context_limit_rules(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(generation_record(**overrides))
+
+
 def test_generation_closed_nested_objects():
     record = generation_record()
     record["tokens"]["reasoning"] = 3
@@ -133,7 +154,27 @@ def _judgment(**overrides):
         {"status": "truncated", "score": 0, "success": False, "metrics": {}},
         {"status": "non_compliant", "score": 0.0, "success": False},
         {"status": "error", "score": None, "success": None, "metrics": {}},
-        {"status": "context_exceeded", "score": None, "success": None, "metrics": {}},
+        {
+            "status": "context_exceeded",
+            "context_limit": "bench",
+            "score": None,
+            "success": None,
+            "metrics": {},
+        },
+        {
+            "status": "context_exceeded",
+            "context_limit": "model",
+            "score": 0,
+            "success": False,
+            "metrics": {},
+        },
+        {
+            "grader": "judge_criteria@1",
+            "status": "context_exceeded",
+            "context_limit": "model",
+            "score": 0,
+            "success": None,
+        },
         {"grader": "judge_criteria@1", "score": 0.75, "success": None, "judgment_manifest": HASH_B},
         {"grader": "judge_criteria@1", "status": "truncated", "score": 0.0, "success": None},
         {
@@ -157,6 +198,15 @@ def test_grading_lines_validate(overrides):
         {"success": None},  # hors rédaction, une ligne notée a un succès
         {"status": "truncated"},  # échec du modèle : score 0
         {"status": "error"},  # erreur du banc : ni score ni succès
+        {"status": "context_exceeded", "score": None, "success": None},  # cause absente
+        {"status": "context_exceeded", "context_limit": "bench"},  # banc : sans score
+        {"status": "context_exceeded", "context_limit": "bench", "score": 0, "success": False},
+        {"status": "context_exceeded", "context_limit": "model", "score": None, "success": None},
+        {"status": "context_exceeded", "context_limit": "model", "score": 1.0, "success": True},
+        {"status": "context_exceeded", "context_limit": "model", "score": 0, "success": None},
+        {"status": "context_exceeded", "context_limit": "banc", "score": None, "success": None},
+        {"status": "truncated", "context_limit": "model", "score": 0, "success": False},
+        {"context_limit": "model"},  # interdit hors context_exceeded
         {"status": "awaiting_judgment", "score": None, "success": False},
         {"status": "ok", "score": None, "success": None},
         {"grader": "judge_criteria@1", "score": 1.0, "success": True},
@@ -380,6 +430,34 @@ def test_score_line_is_closed(overrides, field):
     assert excinfo.value.path == field
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded", "context_limit": "model", "score": 0.0, "success": False},
+        {"status": "context_exceeded", "context_limit": "bench", "score": None, "success": None},
+    ],
+)
+def test_score_line_carries_the_context_limit(overrides):
+    assert validate(_score(**overrides)) == "qb.score/1"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded", "score": None, "success": None},  # cause absente
+        {"status": "context_exceeded", "context_limit": "banc"},
+        {"context_limit": "bench"},  # interdit hors context_exceeded
+        # Limite du modèle : échec à 0 ; limite du banc : sans score (revue du 2026-10-17).
+        {"status": "context_exceeded", "context_limit": "model", "score": 1.0, "success": True},
+        {"status": "context_exceeded", "context_limit": "model", "score": None, "success": None},
+        {"status": "context_exceeded", "context_limit": "bench", "score": 0.0, "success": False},
+    ],
+)
+def test_score_line_context_limit_rules(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(_score(**overrides))
+
+
 def _aa(**overrides):
     record = {
         "schema": "qb.aa_reference/1",
@@ -421,7 +499,12 @@ def _report():
         "generation_manifest": HASH_A,
         "judgment_manifest": None,
         "k": 1,
-        "method": {"alpha": 0.05, "bootstrap_resamples": 2000, "bootstrap_seed": 1},
+        "method": {
+            "alpha": 0.05,
+            "bootstrap_resamples": 2000,
+            "bootstrap_seed": 1,
+            "common_min_coverage": 0.9,
+        },
         "completeness": {
             "expected": 10,
             "retained": 10,
@@ -443,12 +526,17 @@ def _report():
                         "usage": None,
                         "method": "mcnemar",
                         "units": 10,
+                        "common_units": 10,
                         "leader": "m:1b",
                         "models": [
                             {
                                 "model": "m:1b",
                                 "mean": 0.5,
                                 "n": 10,
+                                "mean_all": 0.5,
+                                "n_all": 10,
+                                "coverage": 1.0,
+                                "eligible": True,
                                 "excluded": 0,
                                 "se": 0.1,
                                 "ci_low": 0.3,
@@ -460,6 +548,8 @@ def _report():
                                 "graded": 10,
                                 "truncated": 0,
                                 "truncation_rate": 0.0,
+                                "context_exceeded_model": 0,
+                                "context_exceeded_bench": 0,
                             }
                         ],
                         "comparisons": [],
