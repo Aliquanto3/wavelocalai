@@ -47,11 +47,20 @@ def fichiers_modifies() -> list[str]:
     )
 
 
+def uvx(outil: str) -> list[str]:
+    """`uvx --offline` si l'outil est déjà en cache : sinon uvx interroge PyPI à chaque appel,
+    ce qui coûte jusqu'à une minute quand le réseau est lent ou coupé."""
+    sonde = subprocess.run(
+        ["uvx", "--offline", outil, "--version"], capture_output=True, text=True, timeout=30
+    )
+    return ["uvx", "--offline", outil] if sonde.returncode == 0 else ["uvx", outil]
+
+
 def commandes(fichiers: list[str]) -> list[list[str]]:
     return [
-        ["uvx", "ruff@0.14.9", "check", "-q", *fichiers],
-        ["uvx", "black@25.12.0", "--check", "-q", *fichiers],
-        ["uvx", "isort@7.0.0", "--profile", "black", "--check-only", "-q", *fichiers],
+        [*uvx("ruff@0.14.9"), "check", "-q", *fichiers],
+        [*uvx("black@25.12.0"), "--check", "-q", *fichiers],
+        [*uvx("isort@7.0.0"), "--profile", "black", "--check-only", "-q", *fichiers],
     ]
 
 
@@ -77,14 +86,15 @@ def main() -> int:
     echecs = []
     if fichiers:
         for commande in commandes(fichiers):
+            nom = [mot for mot in commande if mot != "--offline"][:2]
             try:
                 resultat = subprocess.run(commande, capture_output=True, text=True, timeout=120)
             except (OSError, subprocess.TimeoutExpired) as erreur:
-                echecs.append((commande[:2], str(erreur)))
+                echecs.append((nom, str(erreur)))
                 continue
             if resultat.returncode != 0:
                 sortie = (resultat.stdout + resultat.stderr).strip().splitlines()
-                echecs.append((commande[:2], "\n".join(sortie[:MAX_LIGNES_PAR_COMMANDE])))
+                echecs.append((nom, "\n".join(sortie[:MAX_LIGNES_PAR_COMMANDE])))
         erreur_architecture = verifier_architecture(fichiers)
         if erreur_architecture:
             echecs.append((["architecture"], erreur_architecture))
