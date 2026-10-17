@@ -25,7 +25,7 @@ annotated-doc==0.0.5
     # via typer
 annotated-types==0.8.0
     # via pydantic
-anthropic==1.8.0
+anthropic==1.15.0
     # via
     #   -r requirements.txt
     #   langchain-anthropic
@@ -700,6 +700,7 @@ openpyxl==3.1.5
     #   docling-slim
 opentelemetry-api==1.45.0
     # via
+    #   anthropic
     #   chromadb
     #   crewai
     #   crewai-core

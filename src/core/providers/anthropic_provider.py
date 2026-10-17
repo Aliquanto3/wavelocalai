@@ -110,8 +110,11 @@ class AnthropicProvider(ILLMProvider):
         # Anthropic reçoit le system à part : on y réunit `system_prompt` et le contenu des
         # messages system (contexte RAG compris) ; le défaut ne sert que s'il n'y en a aucun.
         system_parts = [system_prompt] if system_prompt else []
-        system_parts += [m["content"] for m in messages if m.get("role") == "system"]
-        system = "\n\n".join(p for p in system_parts if p) or "You are a helpful assistant."
+        system_parts += [m.get("content") for m in messages if m.get("role") == "system"]
+        system = (
+            "\n\n".join(p for p in system_parts if isinstance(p, str) and p)
+            or "You are a helpful assistant."
+        )
 
         filtered_messages = [m for m in messages if m.get("role") != "system"]
 

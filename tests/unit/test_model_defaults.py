@@ -679,6 +679,17 @@ def test_cloud_judge_order_is_fixed_in_code():
     ]
 
 
+def test_claude_judge_order_puts_opus_before_fable():
+    """Opus 5.5 est le juge Claude par défaut, devant Fable 5.1 (environ 2,5 fois plus cher)."""
+    tags = ["claude-haiku-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-opus-5-5"]
+    assert sorted(tags, key=md.cloud_judge_rank) == [
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5",
+    ]
+
+
 GROQ_MODELS = [
     {"model": tag, "type": "cloud", "provider": "groq"}
     for tag in (
