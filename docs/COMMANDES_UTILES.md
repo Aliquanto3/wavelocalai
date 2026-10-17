@@ -35,7 +35,8 @@ git push
 
 ## Mettre à jour les dépendances
 ```bash
-.venv\Scripts\python -m pip install -r requirements.txt
+git pull
+uv sync
 ```
 
 ## Lancer l'application

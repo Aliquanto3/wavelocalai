@@ -25,11 +25,9 @@ Validez la robustesse du cœur logique (`src/core`) avant de proposer des change
 
 **Prérequis :**
 ```bash
-# Windows
-.venv\Scripts\python -m pip install pytest pytest-mock
-
-# Mac/Linux
-.venv/bin/python -m pip install pytest pytest-mock
+# `uv sync` installe aussi le groupe dev (pytest, pytest-mock, pre-commit, detect-secrets) ;
+# le .venv créé par uv n'a pas pip.
+uv sync
 ```
 
 **Lancer les tests :**
