@@ -58,6 +58,8 @@ def _model(model, mean, low, high, rank, group, **extra):
         "n": 40,
         "mean_all": mean,
         "n_all": 40,
+        "coverage": 1.0,
+        "eligible": True,
         "excluded": 0,
         "se": 0.05,
         "ci_low": low,
@@ -86,7 +88,20 @@ def _summary():
         "models": [
             _model("alpha:4b", 0.75, 0.6, 0.86, 1, 1, mean_all=0.7, n_all=42),
             _model("beta:1b", 0.4, 0.26, 0.56, 2, 2, mean_all=0.5, n_all=41, excluded=1),
-            _model("gamma:1b", None, None, None, None, None, n=0, n_all=0, excluded=42, se=None),
+            _model(
+                "gamma:1b",
+                None,
+                None,
+                None,
+                None,
+                None,
+                n=0,
+                n_all=0,
+                excluded=42,
+                se=None,
+                coverage=0.0,
+                eligible=False,
+            ),
         ],
         "comparisons": [
             {
@@ -129,7 +144,12 @@ def _summary():
         "generation_manifest": "b" * 64,
         "judgment_manifest": None,
         "k": 1,
-        "method": {"alpha": 0.05, "bootstrap_resamples": 2000, "bootstrap_seed": 20261011},
+        "method": {
+            "alpha": 0.05,
+            "bootstrap_resamples": 2000,
+            "bootstrap_seed": 20261011,
+            "common_min_coverage": 0.9,
+        },
         "completeness": {
             "expected": 120,
             "retained": 118,
@@ -187,10 +207,16 @@ def test_markdown_renders_leader_comparison_and_spearman():
     assert "**Rapport partiel**" in text
     assert (
         f"| 1 | 1 | `alpha:4b` | 75,0{NBSP}% | [60,0{NBSP}% ; 86,0{NBSP}%] | "
-        f"[60,0{NBSP}% ; 86,0{NBSP}%] | 0,050 | 40 | 70,0{NBSP}% (42) | 0 | 1 / 3 | "
+        f"[60,0{NBSP}% ; 86,0{NBSP}%] | 0,050 | 40 | 70,0{NBSP}% (42) | 100,0{NBSP}% | 0 | 1 / 3 | "
         f"5,0{NBSP}% (2/40) |"
     ) in text
-    assert "Unités : 42, dont 40 communes à tous les modèles" in text
+    assert "Unités : 42, dont 40 communes aux modèles classés" in text
+    assert f"0,0{NBSP}% (hors classement)" in text
+    assert (
+        f"Avertissement : hors classement, couverture sous le seuil : `gamma:1b` (0,0{NBSP}%)"
+        in text
+    )
+    assert f"atteint 90,0{NBSP}%" in text
     assert (
         f"| `beta:1b` | 40 | +35,0{NBSP}pts | 0,080 | [+19,0{NBSP}pts ; +51,0{NBSP}pts] | 16 | 2 "
         f"| 0,12 | <{NBSP}0,001 | 0,001 | oui |"
@@ -215,7 +241,7 @@ def test_svg_chart_follows_the_charter():
     label = re.search(r'aria-label="([^"]*)"', svg).group(1)
     assert label.startswith("Piste sans réflexion (think_off) : raisonnement.")
     assert f"alpha:4b : 75,0{NBSP}% (IC à 95 % de 60,0{NBSP}% à 86,0{NBSP}%)" in label
-    assert "gamma:1b : sans score" in label
+    assert "gamma:1b : hors classement" in label
     assert "<title>Piste sans réflexion (think_off) : raisonnement</title>" in svg
     # Moyenne connue : 75 % placée à _x(0,75).
     assert f'<circle cx="{_x(0.75):.1f}"' in svg
@@ -224,7 +250,7 @@ def test_svg_chart_follows_the_charter():
     assert circles == {f"{_x(0.75):.1f}": PRIMARY, f"{_x(0.4):.1f}": BACKGROUND}
     assert BACKGROUND != PRIMARY
     assert f">75,0{NBSP}%</text>" in svg
-    assert ">sans score</text>" in svg  # colonne des valeurs du modèle sans score
+    assert ">hors classement</text>" in svg  # colonne des valeurs du modèle hors classement
     assert not _has_emoji(svg)
     assert set(charts(summary)) == {"think_off-global.svg", "think_off-reasoning.svg"}
 

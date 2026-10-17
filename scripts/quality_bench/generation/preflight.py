@@ -14,7 +14,8 @@ aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
   dans ``content`` sous ``think: false``).
 - ``check_launch`` : refuse une question à outils sélectionnée pour un modèle sans ``tools``.
 - ``effective_ctx_max`` : ``min(num_ctx_max de la configuration, <arch>.context_length)``.
-- ``context_limit_cause`` : cause d'une ligne ``context_exceeded`` (``model`` ou ``bench``, AD-7).
+- ``context_limit_cause`` : cause d'une ligne ``context_exceeded`` (``model`` si le prompt seul
+  dépasse le contexte déclaré moins ``CONTEXT_LIMIT_MARGIN``, ``bench`` sinon, AD-7).
   ``models_resolved[].context_length`` garde le contexte déclaré (``null`` s'il n'est pas lu).
 """
 
@@ -74,21 +75,28 @@ def effective_ctx_max(num_ctx_max: int, show: Mapping[str, Any]) -> int:
 
 CONTEXT_LIMIT_MODEL = "model"
 CONTEXT_LIMIT_BENCH = "bench"
+# Marge fixe (tokens) sous le contexte déclaré : un prompt qui ne tient pas dans
+# ``context_length - CONTEXT_LIMIT_MARGIN`` ne laisse pas de place à une réponse utile, quel que
+# soit le plafond ``num_predict`` du banc (AD-7, revue du 2026-10-17).
+CONTEXT_LIMIT_MARGIN = 256
 
 
-def context_limit_cause(model: Mapping[str, Any], num_ctx: int, *, requested: bool) -> str:
-    """Cause d'une ligne ``context_exceeded`` pour un palier ``num_ctx`` (AD-7).
+def context_limit_cause(model: Mapping[str, Any], prompt_tokens: int) -> str:
+    """Cause d'une ligne ``context_exceeded`` (AD-7) d'après la taille du prompt seul.
 
-    - ``model`` : le contexte déclaré par le modèle (``context_length``, lu au préflight) est
-      inférieur au palier (palier écarté sans requête, ``requested = False``), ou, après une
-      requête (``requested = True``), le palier l'égale déjà : aucun palier plus grand n'aurait
-      aidé, le modèle est impropre à cette question.
-    - ``bench`` sinon : plafond ``num_ctx_max`` de la configuration, ou dépassement à l'exécution
-      sous le maximum du modèle (erreur d'estimation du banc). Un contexte déclaré inconnu
+    - ``model`` : le contexte déclaré par le modèle (``context_length``, lu au préflight) ne
+      contient pas le prompt seul moins la marge fixe : ``prompt_tokens > context_length -
+      CONTEXT_LIMIT_MARGIN``. Aucun palier ni aucun plafond de réponse n'aurait aidé.
+    - ``bench`` sinon : le prompt tient, c'est le plafond ``num_predict``, le palier choisi ou le
+      plafond ``num_ctx_max`` de la configuration qui manque. Un contexte déclaré inconnu
       (``null``) ne permet pas d'établir une limite du modèle : ``bench``.
+
+    ``prompt_tokens`` : après une requête, le prompt mesuré par Ollama de l'appel en dépassement
+    (``prompt_eval_count + prompt_eval_cached_count``) ; pour un palier écarté sans requête,
+    l'estimation ``est_prompt_tokens`` de la question (AD-5).
     """
     declared = model.get("context_length")
-    if declared is not None and (num_ctx >= declared if requested else num_ctx > declared):
+    if declared is not None and prompt_tokens > declared - CONTEXT_LIMIT_MARGIN:
         return CONTEXT_LIMIT_MODEL
     return CONTEXT_LIMIT_BENCH
 

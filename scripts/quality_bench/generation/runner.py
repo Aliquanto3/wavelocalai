@@ -10,8 +10,9 @@
   ``"{campaign}|{model}|{track}|{question_id}|{seed}"`` ; toute clé présente est sautée.
 - **Palier au-delà du maximum effectif** du modèle : ligne ``context_exceeded`` sans requête.
   Toute ligne ``context_exceeded`` porte sa cause ``context_limit`` (``context_limit_cause``,
-  AD-7) : ``model`` (contexte déclaré du modèle atteint) ou ``bench`` (plafond de la
-  configuration, ou erreur d'estimation du banc).
+  AD-7) : ``model`` si le prompt seul (mesuré, ou estimé pour un palier écarté) dépasse le
+  contexte déclaré moins 256 tokens, ``bench`` sinon (plafond de réponse, palier ou plafond de la
+  configuration).
 - **Essais (AD-13)** : ``OllamaRequestError`` compte un essai ; ``OllamaUnavailableError`` aussi
   si ``/api/version`` répond aussitôt (service vivant), sinon ``wait_for_ollama`` puis la
   question est refaite en entier sans compter l'essai, après une nouvelle chauffe. Après
@@ -277,7 +278,7 @@ class Runner:
                 Outcome(status=STATUS_CONTEXT_EXCEEDED),
                 attempts=0,
                 error=None,
-                context_limit=context_limit_cause(model, num_ctx, requested=False),
+                context_limit=context_limit_cause(model, question["est_prompt_tokens"]),
             )
             return
         self.requested.add(model["tag"])
@@ -338,7 +339,7 @@ class Runner:
                 self._ensure_warm(model, num_ctx, think)
                 continue
             limit = (
-                context_limit_cause(model, num_ctx, requested=True)
+                context_limit_cause(model, outcome.context_prompt)
                 if outcome.status == STATUS_CONTEXT_EXCEEDED
                 else None
             )

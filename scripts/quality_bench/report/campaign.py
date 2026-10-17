@@ -6,10 +6,15 @@
   ``context_exceeded`` à limite du banc, attente du juge sous ``--partial``, ligne écartée) rend
   l'unité nulle pour ce modèle, et comptée (``excluded``). Un ``context_exceeded`` à limite du
   modèle vaut 0 (échec compté) ; les deux causes sont comptées à part par modèle.
-- **Unités communes** (AD-17, 2026-10-17) : score, ET, IC, rang approché, groupes indiscernables,
-  meneur, comparaisons, matrice et Spearman portent sur les unités définies pour **tous** les
-  modèles du périmètre ; la moyenne de chaque modèle sur toutes ses unités définies est publiée
-  à côté (``mean_all``, ``n_all``).
+- **Unités communes** (AD-17, 2026-10-17) : un modèle est **éligible** sur un périmètre si sa
+  couverture (unités définies / unités du périmètre définies pour au moins un modèle) atteint
+  ``common_min_coverage`` (0,9 par
+  défaut, option ``--common-min-coverage`` de ``report``). Score, ET, IC, rang approché, groupes
+  indiscernables, meneur, comparaisons, matrice, k̂_Bonferroni et Spearman portent sur les seuls
+  modèles éligibles et sur les unités définies pour **chacun** d'eux. Un modèle non éligible
+  reste publié (``mean_all``, ``n_all``, ``coverage``, ``eligible = false``) sans score commun,
+  rang, groupe ni comparaison, et il est nommé dans le journal et le rapport. La moyenne de
+  chaque modèle sur toutes ses unités définies est publiée à côté (``mean_all``, ``n_all``).
 - **Périmètres** : chaque piste en global, puis chaque usage de la piste.
 - **Méthode** : choisie sur ``generation.request.k`` du manifeste et les usages du périmètre,
   jamais sur les valeurs observées. Binaire (``k == 1`` et aucun usage ``writing``) : McNemar
@@ -22,6 +27,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -51,6 +57,10 @@ CONTINUOUS_BY_USAGE = {"instructions": "instructions_followed", "extraction": "f
 AA_VARIANT_BY_TRACK = {"think_on": "reasoning", "think_off": "non_reasoning"}
 MODEL_FAILURES = ("truncated", "non_compliant")
 SIGNIFICANT_DIGITS = 12
+# Couverture minimale (unités définies / unités du périmètre) d'un modèle classé (AD-17).
+COMMON_MIN_COVERAGE = 0.9
+
+logger = logging.getLogger(__name__)
 
 
 def number(value: float | None) -> float | None:
@@ -144,8 +154,15 @@ def _pair(scope: Scope, a: str, b: str, z: float) -> Pair:
 
 
 def _truncation(rows: Sequence[Row]) -> tuple[int, int]:
-    """(lignes notées, lignes ``truncated``) : taux de troncature publié à part."""
-    graded = sum(1 for row in rows if row.score is not None)
+    """(lignes notées, lignes ``truncated``) : taux de troncature publié à part. Les lignes
+    ``context_exceeded`` à limite du modèle (score 0) sont hors du dénominateur, comptées à part
+    (``context_exceeded_model``) : aucune génération n'y a été tronquée."""
+    graded = sum(
+        1
+        for row in rows
+        if row.score is not None
+        and not (row.status == "context_exceeded" and row.context_limit == "model")
+    )
     truncated = sum(1 for row in rows if row.status == "truncated")
     return graded, truncated
 
@@ -161,28 +178,112 @@ def _mean_all(scope: Scope, model: str) -> tuple[float, int]:
     return (math.fsum(values) / len(values) if values else math.nan), len(values)
 
 
+def _scorable(scope: Scope, models: Sequence[str]) -> int:
+    """Unités du périmètre définies pour au moins un des ``models`` : une unité nulle pour tous
+    (NIAH sans ``f1``, erreur du banc partout) ne pèse sur la couverture d'aucun modèle."""
+    return sum(
+        1 for unit in scope.units if any(scope.scores[model][unit] is not None for model in models)
+    )
+
+
+def _coverage(scope: Scope, model: str, models: Sequence[str]) -> float | None:
+    """Unités définies du modèle / unités évaluables du périmètre (``None`` si aucune)."""
+    scorable = _scorable(scope, models)
+    if not scorable:
+        return None
+    return _mean_all(scope, model)[1] / scorable
+
+
+def eligible_models(
+    scope: Scope, models: Sequence[str], min_coverage: float = COMMON_MIN_COVERAGE
+) -> list[str]:
+    """Modèles dont la couverture atteint ``min_coverage`` (tous sur un périmètre vide)."""
+    return [
+        model
+        for model in models
+        if (coverage := _coverage(scope, model, models)) is None or coverage >= min_coverage
+    ]
+
+
+def _warn_ineligible(
+    scope: Scope, models: Sequence[str], eligible: Sequence[str], min_coverage: float, what: str
+) -> None:
+    for model in models:
+        if model not in eligible:
+            logger.warning(
+                "%s, périmètre %s : %s hors classement, couverture %.1f %% sous le seuil de "
+                "%.1f %% (unités définies %d sur %d)",
+                what,
+                scope.usage or "global",
+                model,
+                100 * (_coverage(scope, model, models) or 0.0),
+                100 * min_coverage,
+                _mean_all(scope, model)[1],
+                _scorable(scope, models),
+            )
+
+
 def scope_stats(
     full_scope: Scope,
     models: Sequence[str],
     rows_by_model: Mapping[str, Sequence[Row]],
+    *,
+    min_coverage: float = COMMON_MIN_COVERAGE,
 ) -> tuple[dict[str, Any], dict[tuple[str, str], Pair]]:
-    """Bloc ``scopes[]`` du résumé et comparaisons appariées de toutes les paires.
+    """Bloc ``scopes[]`` du résumé et comparaisons appariées des paires de modèles éligibles.
 
-    Tout est calculé sur les **unités communes** à tous les modèles (``Scope.common``) : score,
-    ET, IC, rang approché, groupes indiscernables, meneur, comparaisons et matrice. La moyenne
-    de chaque modèle sur toutes ses unités définies est publiée à côté (``mean_all``, ``n_all``).
+    Tout est calculé sur les modèles **éligibles** (couverture ≥ ``min_coverage``) et sur les
+    **unités communes** à chacun d'eux (``Scope.common``) : score, ET, IC, rang approché,
+    groupes indiscernables, meneur, comparaisons et matrice. La moyenne de chaque modèle sur
+    toutes ses unités définies est publiée à côté (``mean_all``, ``n_all``) ; un modèle non
+    éligible n'a que celle-là, sa couverture et ses comptes.
     """
-    scope = full_scope.common(models)
+    eligible = eligible_models(full_scope, models, min_coverage)
+    _warn_ineligible(full_scope, models, eligible, min_coverage, "score")
+    scope = full_scope.common(eligible)
     z = z_value(ALPHA)
-    m = len(models)
+    m = len(eligible)
     z_sim = z_value(bonferroni_alpha(ALPHA, m))
-    means, lows, highs, entries = [], [], [], []
+    means, lows, highs, entries, ranked = [], [], [], [], []
     for model in models:
+        mean_all, n_all = _mean_all(full_scope, model)
+        graded, truncated = _truncation(rows_by_model[model])
+        counts = {
+            "mean_all": number(mean_all),
+            "n_all": n_all,
+            "coverage": number(_coverage(full_scope, model, models)),
+            "eligible": model in eligible,
+            "excluded": len(full_scope.units) - n_all,
+        }
+        tail = {
+            "graded": graded,
+            "truncated": truncated,
+            "truncation_rate": number(truncated / graded) if graded else None,
+            "context_exceeded_model": _context_exceeded(rows_by_model[model], "model"),
+            "context_exceeded_bench": _context_exceeded(rows_by_model[model], "bench"),
+        }
+        if model not in eligible:
+            entries.append(
+                {
+                    "model": model,
+                    "mean": None,
+                    "n": 0,
+                    **counts,
+                    "se": None,
+                    "ci_low": None,
+                    "ci_high": None,
+                    "sim_ci_low": None,
+                    "sim_ci_high": None,
+                    **tail,
+                    "rank": None,
+                    "group": None,
+                }
+            )
+            continue
         values = [scope.scores[model][u] for u in scope.units]
         groups = [scope.groups[u] for u in scope.units]
         mean, se = clustered_mean_se(values, groups)
         n = len(values)
-        mean_all, n_all = _mean_all(full_scope, model)
         if scope.binary:
             successes = sum(values)
             ci = wilson_interval(successes, n, ALPHA)
@@ -190,49 +291,44 @@ def scope_stats(
         else:
             ci = mean_interval(mean, se, z)
             sim = mean_interval(mean, se, z_sim)
-        graded, truncated = _truncation(rows_by_model[model])
         means.append(mean)
         lows.append(sim[0])
         highs.append(sim[1])
-        entries.append(
-            {
-                "model": model,
-                "mean": number(mean),
-                "n": n,
-                "mean_all": number(mean_all),
-                "n_all": n_all,
-                "excluded": len(full_scope.units) - n_all,
-                "se": number(se),
-                "ci_low": number(ci[0]),
-                "ci_high": number(ci[1]),
-                "sim_ci_low": number(sim[0]),
-                "sim_ci_high": number(sim[1]),
-                "graded": graded,
-                "truncated": truncated,
-                "truncation_rate": number(truncated / graded) if graded else None,
-                "context_exceeded_model": _context_exceeded(rows_by_model[model], "model"),
-                "context_exceeded_bench": _context_exceeded(rows_by_model[model], "bench"),
-            }
-        )
+        entry = {
+            "model": model,
+            "mean": number(mean),
+            "n": n,
+            **counts,
+            "se": number(se),
+            "ci_low": number(ci[0]),
+            "ci_high": number(ci[1]),
+            "sim_ci_low": number(sim[0]),
+            "sim_ci_high": number(sim[1]),
+            **tail,
+            "rank": None,
+            "group": None,
+        }
+        entries.append(entry)
+        ranked.append(entry)
 
     pairs: dict[tuple[str, str], Pair] = {}
-    for i, a in enumerate(models):
-        for b in models[i + 1 :]:
+    for i, a in enumerate(eligible):
+        for b in eligible[i + 1 :]:
             pairs[(a, b)] = _pair(scope, a, b, z)
             pairs[(b, a)] = _pair(scope, b, a, z)
-    diffs = [[pairs[(a, b)].diff if a != b else 0.0 for b in models] for a in models]
-    pvalues = [[pairs[(a, b)].p if a != b else 1.0 for b in models] for a in models]
+    diffs = [[pairs[(a, b)].diff if a != b else 0.0 for b in eligible] for a in eligible]
+    pvalues = [[pairs[(a, b)].p if a != b else 1.0 for b in eligible] for a in eligible]
     groups = indistinguishable_groups(means, diffs, pvalues, ALPHA)
     ranks = approximate_ranks(lows, highs)
-    for entry, rank, group in zip(entries, ranks, groups, strict=True):
+    for entry, rank, group in zip(ranked, ranks, groups, strict=True):
         entry["rank"] = rank
         entry["group"] = group
 
     order = leader_order(means)
-    leader = models[order[0]] if order else None
+    leader = eligible[order[0]] if order else None
     comparisons = []
     if leader is not None:
-        others = [model for model in models if model != leader]
+        others = [model for model in eligible if model != leader]
         reject, corrected = holm([pairs[(leader, other)].p for other in others], ALPHA)
         for other, rejected, p_holm in zip(others, reject, corrected, strict=True):
             pair = pairs[(leader, other)]
@@ -261,7 +357,7 @@ def scope_stats(
             )
 
     # Matrice exploratoire « qui bat qui » : toutes les paires, corrigées par BH.
-    matrix_pairs = [(a, b) for i, a in enumerate(models) for b in models[i + 1 :]]
+    matrix_pairs = [(a, b) for i, a in enumerate(eligible) for b in eligible[i + 1 :]]
     reject, corrected = benjamini_hochberg([pairs[pair].p for pair in matrix_pairs], ALPHA)
     matrix = [
         {
@@ -290,16 +386,28 @@ def scope_stats(
     return block, pairs
 
 
-def continuous_stats(full_scope: Scope, metric: str, models: Sequence[str]) -> dict[str, Any]:
-    """Bloc ``continuous`` : moyenne par modèle et IC bootstrap apparié au meneur, sur les unités
-    communes (``mean_all`` et ``n_all`` : toutes les unités définies du modèle)."""
-    scope = full_scope.common(models)
+def continuous_stats(
+    full_scope: Scope,
+    metric: str,
+    models: Sequence[str],
+    *,
+    min_coverage: float = COMMON_MIN_COVERAGE,
+) -> dict[str, Any]:
+    """Bloc ``continuous`` : moyenne par modèle et IC bootstrap apparié au meneur, sur les
+    modèles éligibles et leurs unités communes (``mean_all`` et ``n_all`` : toutes les unités
+    définies du modèle ; un modèle non éligible n'a que celles-là)."""
+    eligible = eligible_models(full_scope, models, min_coverage)
+    _warn_ineligible(full_scope, models, eligible, min_coverage, metric)
+    scope = full_scope.common(eligible)
     entries, means = [], []
     for model in models:
-        values = [scope.scores[model][u] for u in scope.units]
-        mean = math.fsum(values) / len(values) if values else math.nan
         mean_all, n_all = _mean_all(full_scope, model)
-        means.append(mean)
+        if model in eligible:
+            values = [scope.scores[model][u] for u in scope.units]
+            mean = math.fsum(values) / len(values) if values else math.nan
+            means.append(mean)
+        else:
+            values, mean = [], math.nan
         entries.append(
             {
                 "model": model,
@@ -307,14 +415,16 @@ def continuous_stats(full_scope: Scope, metric: str, models: Sequence[str]) -> d
                 "n": len(values),
                 "mean_all": number(mean_all),
                 "n_all": n_all,
+                "coverage": number(_coverage(full_scope, model, models)),
+                "eligible": model in eligible,
                 "excluded": len(full_scope.units) - n_all,
             }
         )
     order = leader_order(means)
-    leader = models[order[0]] if order else None
+    leader = eligible[order[0]] if order else None
     comparisons = []
     if leader is not None:
-        for other in models:
+        for other in eligible:
             if other == leader:
                 continue
             a_values, b_values, groups = _paired_values(scope, leader, other)
@@ -441,7 +551,9 @@ def _spearman(
     }
 
 
-def track_stats(inputs: CampaignInputs, track: str) -> dict[str, Any] | None:
+def track_stats(
+    inputs: CampaignInputs, track: str, *, min_coverage: float = COMMON_MIN_COVERAGE
+) -> dict[str, Any] | None:
     """Bloc ``tracks[]`` d'une piste, ou ``None`` si aucun modèle ne la suit."""
     models = [model["tag"] for model in inputs.models if track in model["tracks"]]
     if not models:
@@ -464,28 +576,37 @@ def track_stats(inputs: CampaignInputs, track: str) -> dict[str, Any] | None:
         return result
 
     global_scope = _scope(inputs, track, models, usages, usage=None)
-    global_block, _ = scope_stats(global_scope, models, rows_for(None))
+    global_block, _ = scope_stats(global_scope, models, rows_for(None), min_coverage=min_coverage)
     scopes = [global_block]
     usage_pairs: dict[str, dict[tuple[str, str], Pair]] = {}
     for usage in usages:
         scope = _scope(inputs, track, models, [usage], usage=usage)
-        block, pairs = scope_stats(scope, models, rows_for(usage))
+        block, pairs = scope_stats(scope, models, rows_for(usage), min_coverage=min_coverage)
         metric = CONTINUOUS_BY_USAGE.get(usage)
         if metric is not None:
             continuous_scope = _scope(inputs, track, models, [usage], usage=usage, metric=metric)
-            block["continuous"] = continuous_stats(continuous_scope, metric, models)
+            block["continuous"] = continuous_stats(
+                continuous_scope, metric, models, min_coverage=min_coverage
+            )
         scopes.append(block)
         usage_pairs[usage] = pairs
 
-    # k̂_Bonferroni : usages où le meneur global bat chaque modèle à α/m.
+    # k̂_Bonferroni : usages où le meneur global bat chaque modèle éligible à α/m. Un usage où
+    # l'un des deux n'est pas éligible compte comme un test sans victoire (p indéfini) : le
+    # seuil reste α / nombre d'usages.
     leader = global_block["leader"]
+    global_eligible = {entry["model"] for entry in global_block["models"] if entry["eligible"]}
     k_models = []
     if leader is not None:
         for other in models:
-            if other == leader:
+            if other == leader or other not in global_eligible:
                 continue
-            tested = [usage_pairs[usage][(leader, other)] for usage in usages]
-            wins = bonferroni_wins([p.p for p in tested], [p.diff for p in tested], ALPHA)
+            tested = [usage_pairs[usage].get((leader, other)) for usage in usages]
+            wins = bonferroni_wins(
+                [math.nan if p is None else p.p for p in tested],
+                [math.nan if p is None else p.diff for p in tested],
+                ALPHA,
+            )
             k_models.append({"model": other, "wins": wins, "tests": len(usages)})
     k_bonferroni = {
         "leader": leader,
@@ -501,9 +622,15 @@ def track_stats(inputs: CampaignInputs, track: str) -> dict[str, Any] | None:
     }
 
 
-def build_summary(inputs: CampaignInputs) -> dict[str, Any]:
+def build_summary(
+    inputs: CampaignInputs, *, min_coverage: float = COMMON_MIN_COVERAGE
+) -> dict[str, Any]:
     """Résumé ``qb.report/1`` de la campagne (agrégats seuls)."""
-    tracks = [block for track in TRACKS if (block := track_stats(inputs, track)) is not None]
+    tracks = [
+        block
+        for track in TRACKS
+        if (block := track_stats(inputs, track, min_coverage=min_coverage)) is not None
+    ]
     aa = inputs.aa_reference
     return {
         "schema": "qb.report/1",
@@ -517,6 +644,7 @@ def build_summary(inputs: CampaignInputs) -> dict[str, Any]:
             "alpha": ALPHA,
             "bootstrap_resamples": DEFAULT_RESAMPLES,
             "bootstrap_seed": DEFAULT_SEED,
+            "common_min_coverage": min_coverage,
         },
         "completeness": inputs.completeness.as_record(),
         "models": [

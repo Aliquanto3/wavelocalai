@@ -688,3 +688,15 @@ def test_json_report_is_written_canonically(env):
     assert _run() == 0
     data = paths.pilot_report_path(PILOT, ".json").read_bytes()
     assert data == pretty_bytes(json.loads(data))
+
+
+def test_campaign_before_context_limit_is_refused_with_code_2(env):
+    """Manifeste sans models_resolved[].context_length (pilot-20261012) : code 2, message clair."""
+    manifest_path = paths.generation_manifest_path(PILOT)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for model in manifest["blocking"]["models_resolved"]:
+        del model["context_length"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert _run() == 2
+    assert _outputs_exist() == [False, False]
+    assert "campagne antérieure à context_limit" in _log()

@@ -21,7 +21,12 @@ from typing import Any
 from ..common import paths
 from ..common.jsonl import JsonlReadError, read_jsonl
 from ..common.manifest import blocking_hash
-from ..common.schemas import SchemaValidationError, UnknownSchemaError, validate
+from ..common.schemas import (
+    SchemaValidationError,
+    UnknownSchemaError,
+    check_context_limit_era,
+    validate,
+)
 from ..questions.schema import set_hash
 from .base import JudgeInputError
 from .prompt import final_answer, render_instruction
@@ -52,6 +57,7 @@ class Inputs:
 
 
 def _validated(record: Any, expected: str, where: str) -> None:
+    check_context_limit_era(record, where)
     try:
         name = validate(record)
     except UnknownSchemaError:

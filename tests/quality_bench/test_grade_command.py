@@ -528,3 +528,14 @@ def test_without_designated_judge_writing_awaits(campaign, _reset_logging):
     ok_writing = [r for r in writing if r["status"] != "truncated"]
     assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
     assert all(r["judgment_manifest"] is None for r in records)
+
+
+def test_campaign_before_context_limit_is_refused_with_code_2(campaign, _reset_logging):
+    """Ligne context_exceeded sans context_limit (campagne pilot-20261012) : code 2, message clair."""
+    lines = [dict(line) for line in campaign["lines"]]
+    lines[0]["status"] = "context_exceeded"
+    lines[0].pop("context_limit", None)
+    _rewrite_generation(lines)
+    _assert_refused(2)
+    log = paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+    assert "campagne antérieure à context_limit" in log

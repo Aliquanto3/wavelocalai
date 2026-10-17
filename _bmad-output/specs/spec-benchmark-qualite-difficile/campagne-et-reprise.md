@@ -32,7 +32,7 @@ C'est une phase séparée (`grade`), sans réseau ni GPU. Elle lit `generation.j
 
 - `truncated` et `non_compliant` (JSON hors schéma, appel d'outil invalide, borne d'appels atteinte) sont des échecs du modèle : score 0, comptés à part.
 - `error` est une erreur du banc : sans score, écartée des comparaisons, et comptée.
-- `context_exceeded` suit sa cause `context_limit` (décision d'Anaël, 2026-10-17). `model` (le contexte maximal déclaré du modèle, lu dans `/api/show` au préflight, est inférieur au palier, ou le dépassement survient à l'exécution alors que le palier l'égale déjà) : échec du modèle, score 0, compté comme une troncature. `bench` (plafond `num_ctx_max` de la campagne, ou dépassement sous le maximum du modèle, donc erreur d'estimation du banc) : erreur du banc, sans score, écartée et comptée.
+- `context_exceeded` suit sa cause `context_limit` (décision d'Anaël, 2026-10-17 ; règle précisée à la revue du même jour) : `model` si le prompt seul ne tient pas dans le contexte maximal déclaré du modèle (`models_resolved[].context_length`, lu dans `/api/show` au préflight) moins une marge fixe de 256 tokens (`CONTEXT_LIMIT_MARGIN`) : prompt mesuré par Ollama sur l'appel en dépassement (`prompt_eval_count + prompt_eval_cached_count`), ou, pour un palier écarté sans requête, estimation `est_prompt_tokens` de la question (AD-5) ; `bench` sinon (le prompt tient, mais pas avec le plafond de réponse `num_predict`, le palier ou le plafond `num_ctx_max` de la configuration) ; un contexte déclaré illisible donne toujours `bench`. `model` : échec du modèle, score 0, compté comme une troncature. `bench` : erreur du banc, sans score, écartée et comptée.
 
 ## Manifeste
 
@@ -45,6 +45,8 @@ Il est écrit au premier lancement et comparé à chaque reprise. Sa partie bloq
 - l'empreinte du harnais : code de `common/`, `ollama/`, `generation/` et `envs/`.
 
 Si l'une de ces valeurs diffère, la reprise est refusée, avec un message qui nomme le premier champ différent. Un modèle retéléchargé ou un harnais modifié bloque donc la reprise. Une partie informative (Python, paquets, commit, pilote NVIDIA, liste de contrôle) ne bloque jamais.
+
+**Campagne antérieure à `context_limit` :** les schémas `qb.manifest/1`, `qb.generation/1` et `qb.grading/1` ont gagné `models_resolved[].context_length` et `context_limit` sans changer de version (aucune campagne de cette époque n'est conservée : la campagne d'essai `pilot-20261012` repart de zéro). `grade`, `report`, `pilot` et `judge` refusent une telle campagne avant toute validation de schéma, code 2, avec le message « campagne antérieure à context_limit (2026-10-17) : relancer la génération dans une nouvelle campagne ». La seule issue est une nouvelle campagne.
 
 Le manifeste de jugement ajoute le juge (configuration, réglages, empreinte du gabarit de prompt et, pour un juge local, des poids) et l'empreinte du manifeste de génération lu.
 

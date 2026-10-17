@@ -637,8 +637,9 @@ def _deferred(report: Mapping[str, Any]) -> list[str]:
     lines += [
         "",
         "Sources sans dépassement omises, sauf `bfcl-multi`, toujours montrée. Limite du modèle : "
-        "son contexte déclaré est inférieur au palier (ou le dépasse au palier maximal), échec "
-        "compté (score 0). Limite du banc : plafond de la configuration ou erreur d'estimation, "
+        "le prompt seul (mesuré, ou estimé pour un palier écarté) ne tient pas dans son contexte "
+        "déclaré moins 256 tokens, échec compté (score 0). Limite du banc : le prompt tient, "
+        "mais pas avec le plafond de réponse, le palier ou le plafond de la configuration, "
         "unité écartée.",
         "",
     ]

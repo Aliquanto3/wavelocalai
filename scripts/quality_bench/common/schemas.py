@@ -496,20 +496,38 @@ SCORE_V1: dict[str, Any] = {
         _SCORE_PROPERTIES,
         required=[name for name in _SCORE_PROPERTIES if name != "context_limit"],
     ),
-    "if": {"properties": {"status": {"const": "context_exceeded"}}},
-    "then": {"required": ["context_limit"]},
-    "else": {"not": {"required": ["context_limit"]}},
+    "allOf": [
+        {
+            "if": {"properties": {"status": {"const": "context_exceeded"}}},
+            "then": {"required": ["context_limit"]},
+            "else": {"not": {"required": ["context_limit"]}},
+        },
+        # Mêmes règles que la ligne de correction (AD-10) : limite du modèle = échec (score 0),
+        # limite du banc = unité nulle.
+        {
+            "if": _CONTEXT_MODEL,
+            "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
+        },
+        {
+            "if": _CONTEXT_BENCH,
+            "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
+        },
+    ],
 }
 
 _REPORT_MODEL_STATS = _closed(
     {
         "model": _NON_EMPTY,
-        # mean, n, se, IC, rang, groupe : sur les unités communes à tous les modèles du
-        # périmètre (AD-17) ; mean_all et n_all : toutes les unités définies du modèle.
+        # mean, n, se, IC, rang, groupe : sur les unités communes aux modèles éligibles du
+        # périmètre (AD-17), nuls pour un modèle non éligible ; mean_all et n_all : toutes les
+        # unités définies du modèle ; coverage : n_all / unités du périmètre (null si vide) ;
+        # eligible : coverage ≥ method.common_min_coverage.
         "mean": _MAYBE_NUMBER,
         "n": _COUNT,
         "mean_all": _MAYBE_NUMBER,
         "n_all": _COUNT,
+        "coverage": _MAYBE_NUMBER,
+        "eligible": {"type": "boolean"},
         "excluded": _COUNT,
         "se": _MAYBE_NUMBER,
         "ci_low": _MAYBE_NUMBER,
@@ -571,6 +589,8 @@ _REPORT_CONTINUOUS = _closed(
                     "n": _COUNT,
                     "mean_all": _MAYBE_NUMBER,
                     "n_all": _COUNT,
+                    "coverage": _MAYBE_NUMBER,
+                    "eligible": {"type": "boolean"},
                     "excluded": _COUNT,
                 }
             ),
@@ -649,6 +669,7 @@ REPORT_V1: dict[str, Any] = _closed(
                 "alpha": _NUMBER,
                 "bootstrap_resamples": {"type": "integer", "minimum": 1},
                 "bootstrap_seed": _COUNT,
+                "common_min_coverage": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
             }
         ),
         "completeness": _closed(
@@ -757,6 +778,37 @@ _Validator = validators.extend(
     type_checker=Draft202012Validator.TYPE_CHECKER.redefine("integer", _is_strict_integer),
 )
 _VALIDATORS = {name: _Validator(schema) for name, schema in SCHEMAS.items()}
+
+
+LEGACY_CONTEXT_LIMIT_MESSAGE = (
+    "campagne antérieure à context_limit (2026-10-17) : relancer la génération dans une "
+    "nouvelle campagne"
+)
+
+
+class LegacyCampaignError(Exception):
+    """Enregistrement d'une campagne écrite avant ``context_limit`` (code 2) : manifeste sans
+    ``models_resolved[].context_length``, ou ligne ``context_exceeded`` sans ``context_limit``.
+    Pas de version ``/2`` des schémas : aucune campagne de cette époque n'est conservée."""
+
+
+def check_context_limit_era(record: Any, where: str) -> None:
+    """Lève ``LegacyCampaignError`` si ``record`` date d'avant ``context_limit``, avant sa
+    validation : un message clair plutôt qu'une erreur de schéma brute."""
+    if not isinstance(record, Mapping):
+        return
+    name = record.get("schema")
+    legacy = False
+    if name == "qb.manifest/1":
+        blocking = record.get("blocking")
+        resolved = blocking.get("models_resolved") if isinstance(blocking, Mapping) else None
+        legacy = isinstance(resolved, list) and any(
+            isinstance(entry, Mapping) and "context_length" not in entry for entry in resolved
+        )
+    elif name in ("qb.generation/1", "qb.grading/1"):
+        legacy = record.get("status") == "context_exceeded" and "context_limit" not in record
+    if legacy:
+        raise LegacyCampaignError(f"{where} : {LEGACY_CONTEXT_LIMIT_MESSAGE}")
 
 
 class UnknownSchemaError(ValueError):

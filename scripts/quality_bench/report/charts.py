@@ -36,6 +36,10 @@ def _num(value: float) -> str:
     return f"{value:.1f}"
 
 
+def _no_score(entry: Mapping[str, Any]) -> str:
+    return "sans score" if entry.get("eligible", True) else "hors classement"
+
+
 def scope_chart(track: str, scope: Mapping[str, Any]) -> str:
     """SVG d'un périmètre : un point (score) et un segment (IC à 95 %) par modèle, dans l'ordre
     des groupes puis des scores."""
@@ -48,7 +52,7 @@ def scope_chart(track: str, scope: Mapping[str, Any]) -> str:
     described = []
     for e in entries:
         if e["mean"] is None:
-            described.append(f"{e['model']} : sans score")
+            described.append(f"{e['model']} : {_no_score(e)}")
         else:
             described.append(
                 f"{e['model']} : {fr_percent(e['mean'])} (IC à 95 % de "
@@ -86,7 +90,7 @@ def scope_chart(track: str, scope: Mapping[str, Any]) -> str:
         if e["mean"] is None:
             parts.append(
                 f'<text x="{WIDTH - VALUE_WIDTH}" y="{_num(y + 4)}" font-family="{FONT}" '
-                f'font-size="12" fill="{MUTED}">sans score</text>'
+                f'font-size="12" fill="{MUTED}">{escape(_no_score(e))}</text>'
             )
             continue
         if e["ci_low"] is not None and e["ci_high"] is not None:

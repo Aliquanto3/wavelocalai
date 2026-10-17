@@ -91,24 +91,23 @@ def test_resolved_model_keeps_declared_context_beside_effective_maximum():
 
 
 @pytest.mark.parametrize(
-    "declared, num_ctx, requested, expected",
+    "declared, prompt, expected",
     [
-        (4096, 8192, False, "model"),  # préflight : contexte déclaré < palier
-        (4096, 4096, False, "bench"),  # palier = maximum déclaré : jouable, pas écarté
-        (131072, 65536, False, "bench"),  # palier au-delà de num_ctx_max : plafond du banc
-        (None, 65536, False, "bench"),  # contexte déclaré inconnu : jamais la faute du modèle
-        (32768, 16384, True, "bench"),  # dépassement à l'exécution sous le maximum du modèle
-        (16384, 16384, True, "model"),  # dépassement au maximum du modèle
-        (None, 16384, True, "bench"),
+        (4096, 3841, "model"),  # prompt seul > 4096 − 256 : aucun palier n'aurait aidé
+        (4096, 3840, "bench"),  # le prompt tient avec la marge : plafond de réponse du banc
+        (4096, 3000, "bench"),  # cas du second avis : palier = contexte déclaré, prompt qui tient
+        (131072, 30000, "bench"),  # plafond num_ctx_max de la configuration
+        (None, 10**6, "bench"),  # contexte déclaré inconnu : jamais la faute du modèle
+        (16384, 16384, "model"),  # prompt mesuré au maximum du modèle
     ],
 )
-def test_context_limit_cause(declared, num_ctx, requested, expected):
+def test_context_limit_cause(declared, prompt, expected):
     model = {"num_ctx_max": 4096, "context_length": declared}
-    assert context_limit_cause(model, num_ctx, requested=requested) == expected
+    assert context_limit_cause(model, prompt) == expected
 
 
 def test_context_limit_cause_without_declared_key_is_bench():
-    assert context_limit_cause({"num_ctx_max": 4096}, 8192, requested=False) == "bench"
+    assert context_limit_cause({"num_ctx_max": 4096}, 10**6) == "bench"
 
 
 def test_effective_ctx_max_ignores_other_architecture_keys():

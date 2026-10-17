@@ -302,6 +302,17 @@ def test_truncation_rate_is_published_apart(campaign):
     assert global_entry["truncated"] == 2
 
 
+def test_model_context_limit_rows_are_out_of_the_truncation_denominator(campaign):
+    """Même nombre de lignes de raisonnement par modèle : le modèle 0 (un non_compliant, noté)
+    les a toutes notées ; le modèle 1 en perd deux, son erreur du banc (sans score) et sa
+    limite du modèle (score 0, mais hors du dénominateur du taux de troncature)."""
+    assert _run() == 0
+    scope = _scope(_summary(), "think_off", "reasoning")
+    first, second = _entry(scope, campaign.models[0]), _entry(scope, campaign.models[1])
+    assert second["context_exceeded_model"] == 1
+    assert second["graded"] == first["graded"] - 2
+
+
 def test_continuous_metrics_and_comparisons(campaign):
     assert _run() == 0
     summary = _summary()
@@ -427,10 +438,14 @@ def test_leader_groups_and_spearman_use_common_units(tmp_path, monkeypatch):
         for tag, value in index.items()
     ]
     write_aa_reference(aa_reference("2026-10-01", entries))
-    assert _run() == 0
+    # Couverture de C : 9 / 12 = 0,75 ; seuil abaissé à 0,7 pour la classer.
+    assert _run("--common-min-coverage", "0.7") == 0
     summary = _summary()
+    assert summary["method"]["common_min_coverage"] == 0.7
     scope = _scope(summary, "think_off", None)
     assert (scope["units"], scope["common_units"]) == (12, 9)
+    assert all(e["eligible"] for e in scope["models"])
+    assert _entry(scope, tags[2])["coverage"] == pytest.approx(0.75)
     assert scope["leader"] == tags[1]
     for i, tag in enumerate(tags):
         entry = _entry(scope, tag)
@@ -457,6 +472,45 @@ def test_leader_groups_and_spearman_use_common_units(tmp_path, monkeypatch):
     # de toutes les unités définies (A > B > C), il aurait valu 0,5.
     spearman = next(b for b in summary["tracks"] if b["track"] == "think_off")["spearman"]
     assert spearman["n"] == 3 and math.isclose(spearman["rho"], 1.0)
+
+
+def test_model_under_the_coverage_threshold_is_published_out_of_ranking(tmp_path, monkeypatch):
+    """Même campagne, seuil par défaut (0,9) : C (couverture 9 / 12 = 0,75) est hors classement ;
+    A et B sont classés sur leurs 12 unités communes. Valeurs calculées à la main : A 10 / 12,
+    B 9 / 12, A mène ; C garde sa moyenne sur ses 9 unités définies, sans rang ni groupe."""
+    tags = [model_resolved(i)["tag"] for i in range(3)]
+    units = [_synthetic_unit_scores(tags[i], PROFILES[i]) for i in range(3)]
+    won_by_a_only = sorted(u for u in units[0] if units[0][u] == 1.0 and units[1][u] == 0.0)
+    statuses = {(2, "think_off", unit, 0): "context_exceeded" for unit in won_by_a_only}
+    make_campaign(tmp_path, monkeypatch, small=True, statuses=statuses)
+    entries = [
+        {"tag": tag, "index": value, "status": "measured", "variant": "non_reasoning"}
+        for tag, value in {tags[0]: 30.0, tags[1]: 20.0, tags[2]: 10.0}.items()
+    ]
+    write_aa_reference(aa_reference("2026-10-01", entries))
+    assert _run() == 0
+    summary = _summary()
+    assert summary["method"]["common_min_coverage"] == 0.9
+    scope = _scope(summary, "think_off", None)
+    assert (scope["units"], scope["common_units"]) == (12, 12)
+    assert scope["leader"] == tags[0]
+    a, b, c = (_entry(scope, tag) for tag in tags)
+    assert (a["mean"], a["n"], a["eligible"]) == (pytest.approx(10 / 12), 12, True)
+    assert (b["mean"], b["n"], b["eligible"]) == (pytest.approx(9 / 12), 12, True)
+    common_c = [u for u in units[2] if u not in won_by_a_only]
+    assert (c["mean"], c["n"], c["rank"], c["group"], c["eligible"]) == (None, 0, None, None, False)
+    assert c["mean_all"] == pytest.approx(sum(units[2][u] for u in common_c) / 9)
+    assert (c["n_all"], c["coverage"], c["excluded"]) == (9, pytest.approx(0.75), 3)
+    assert [cmp["model"] for cmp in scope["comparisons"]] == [tags[1]]
+    assert {(m["a"], m["b"]) for m in scope["matrix"]} == {(tags[0], tags[1])}
+    spearman = next(t for t in summary["tracks"] if t["track"] == "think_off")["spearman"]
+    assert spearman["models"] == [tags[0], tags[1]]
+    k_models = next(t for t in summary["tracks"] if t["track"] == "think_off")["k_bonferroni"]
+    assert [m["model"] for m in k_models["models"]] == [tags[1]]
+    # Avertissement nominatif : journal et rapport.
+    assert f"{tags[2]} hors classement, couverture 75.0 %" in _log()
+    report = (_export_dir() / "report.md").read_text(encoding="utf-8")
+    assert "Avertissement : hors classement" in report and f"`{tags[2]}`" in report
 
 
 def _unit_scores(campaign, model, track, usage):
@@ -662,6 +716,24 @@ def test_set_hash_mismatch_is_refused_even_partial(campaign):
     paths.set_tracks_path("small-report").write_text(json.dumps(tracks), encoding="utf-8")
     _assert_refused(1, "--partial")
     assert "empreinte du jeu" in _log()
+
+
+@pytest.mark.parametrize("target", ["manifest", "generation", "grading"])
+def test_campaign_before_context_limit_is_refused_with_code_2(campaign, target):
+    """Campagne écrite avant context_limit (pilot-20261012) : refus clair, code 2."""
+    if target == "manifest":
+        manifest_path = paths.generation_manifest_path(CAMPAIGN)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for model in manifest["blocking"]["models_resolved"]:
+            del model["context_length"]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    else:
+        lines = [dict(g) for g in getattr(campaign, target)]
+        lines[0]["status"] = "context_exceeded"
+        lines[0].pop("context_limit", None)
+        getattr(campaign, f"write_{target}")(lines)
+    _assert_refused(2)
+    assert "campagne antérieure à context_limit" in _log()
 
 
 def test_line_out_of_schema_is_refused_even_partial(campaign):
