@@ -28,6 +28,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 - Appeler l'interpréteur directement (`.venv\Scripts\python -m …`) plutôt qu'activer le venv : l'exécution de scripts PowerShell peut être bloquée.
 - Sur certaines machines, `.venv` ne contient que les dépendances du benchmark (pas Streamlit) : l'app tourne alors dans `.venv-app` (ignoré par git). Ne jamais installer `requirements.txt` dans un `.venv` réservé au benchmark.
 - Tests : `python -m pytest tests/unit`. Un `pytest` nu ou `pytest tests/` lance aussi `tests/integration`, qui exige Ollama et `qwen2.5:1.5b`.
+- Contrôle rapide (lint, format, imports, sur les fichiers modifiés depuis `master`) : `.venv\Scripts\python .claude/cost-kit/controle_rapide.py`.
 - `pytest.ini` prime sur la section pytest de `pyproject.toml`, dont les options de couverture sont donc ignorées ; la CI ajoute `--cov` elle-même.
 - Viser Python 3.10+ (cible black/ruff `py310`, CI de 3.10 à 3.12).
 
