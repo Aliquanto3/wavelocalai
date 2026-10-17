@@ -3,7 +3,8 @@ seule à écrire ``campaigns/<c>/manifest.json``, ``generation.jsonl`` et ``warm
 
 Étapes : configuration ``campaigns/<c>.yaml`` ; jeu ``sets/<set>/`` et son empreinte ; plan
 (sélection, paliers) ; ``machine.lock`` ; version d'Ollama et préflight de chaque modèle
-(``/api/tags``, ``/api/show``) ; ``generation.lock`` ; manifeste écrit ou comparé (liste de
+(``/api/tags``, ``/api/show``) précédé du contrôle du GPU (``nvidia-smi``, AD-13) ;
+``generation.lock`` ; manifeste écrit ou comparé (liste de
 contrôle d'AD-13 consignée dans ``informative.checklist`` et affichée) ; ``keep_awake()`` ;
 ``StopFlag`` ; boucle du runner.
 
@@ -28,6 +29,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from ..common import config, paths
+from ..common.gpu import GpuCheckError, GpuCheckSettings, check_gpu
 from ..common.jsonl import JsonlReadError, open_for_append, read_jsonl
 from ..common.keepawake import keep_awake
 from ..common.locks import FileLock, LockBusyError
@@ -53,7 +55,7 @@ CHECKLIST_REMINDERS = (
     "Mises à jour automatiques d'Ollama coupées",
     "Windows Update en pause pour la durée de la campagne",
     "OLLAMA_NUM_PARALLEL absent ou à 1 pour le service Ollama",
-    "Aucun autre usage du GPU",
+    "Aucun autre usage du GPU (contrôlé par nvidia-smi : gpu_check de la campagne)",
     "Données NLTK et dépendances installées",
 )
 NUM_PARALLEL_ENV = "OLLAMA_NUM_PARALLEL"
@@ -113,12 +115,37 @@ def load_set(set_id: str) -> tuple[dict[str, dict[str, Any]], dict[str, Any], st
     return {question["id"]: question for question in questions}, tracks, digest
 
 
-def preflight(client: OllamaClient, models: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def check_gpu_free(client: OllamaClient, settings: GpuCheckSettings) -> dict[str, Any]:
+    """Contrôle du GPU (``nvidia-smi``, AD-13) avec les modèles de ``/api/ps`` ; ``LaunchError``
+    (code 2) s'il est occupé par autre chose qu'Ollama ou si le contrôle est impossible."""
+    if not settings.enabled:
+        return check_gpu(settings, None)
+    try:
+        entries = client.ps()
+    except OllamaError as exc:
+        logger.warning("/api/ps illisible (%s) : seule la règle des processus GPU s'applique", exc)
+        loaded = None
+    else:
+        names = [str(entry.get("name") or entry.get("model") or "") for entry in entries]
+        loaded = [name for name in names if name]
+    try:
+        return check_gpu(settings, loaded)
+    except GpuCheckError as exc:
+        raise LaunchError(str(exc)) from None
+
+
+def preflight(
+    client: OllamaClient,
+    models: Sequence[Mapping[str, Any]],
+    gpu_check: GpuCheckSettings | None = None,
+) -> list[dict[str, Any]]:
     """``models_resolved`` de chaque modèle, dans l'ordre de la configuration ; ``LaunchError``
-    au premier refus."""
+    au premier refus (GPU compris quand ``gpu_check`` est donné, avant chaque modèle)."""
     tags = client.tags()
     resolved = []
     for model in models:
+        if gpu_check is not None:
+            check_gpu_free(client, gpu_check)
         if find_tag(tags, model["tag"]) is None:
             resolve_model(model, {}, tags)  # lève LaunchError (modèle absent de /api/tags)
         resolved.append(resolve_model(model, client.show(model["tag"]), tags))
@@ -153,7 +180,8 @@ def generate_campaign(campaign: str, base_url: str = DEFAULT_BASE_URL) -> bool:
         client = make_client(base_url)
         try:
             ollama_version = client.version()
-            models_resolved = preflight(client, generation["models"])
+            gpu_result = check_gpu_free(client, campaign_config.gpu_check)
+            models_resolved = preflight(client, generation["models"], campaign_config.gpu_check)
             check_launch(models_resolved, plan)
             with FileLock(paths.generation_lock_path(campaign)) as generation_lock:
                 setup_logging(COMMAND, paths.log_path(campaign, COMMAND))
@@ -165,6 +193,7 @@ def generate_campaign(campaign: str, base_url: str = DEFAULT_BASE_URL) -> bool:
                     len(models_resolved),
                 )
                 items = checklist()
+                items["gpu_check"] = gpu_result
                 _log_checklist(items)
                 manifest = build_manifest(
                     phase="generation",

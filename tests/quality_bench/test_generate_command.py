@@ -75,8 +75,10 @@ def _set_questions():
     return chosen
 
 
-def _write_campaign(config_dir, models=None, **generation):
+def _write_campaign(config_dir, models=None, gpu_check_off=False, **generation):
     doc = {"set": SET_ID, "generation": {**generation, "models": models or MODELS}}
+    if gpu_check_off:
+        doc["gpu_check"] = {"enabled": False}
     (config_dir / f"{CAMPAIGN}.yaml").write_text(
         yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8"
     )
@@ -446,6 +448,59 @@ def test_preflight_refusals_exit_2(env, model, reason, capsys):
     env["fake"].models[THINK] = model
     _assert_nothing_written(2)
     _assert_refusal_logged(capsys, THINK, reason)
+
+
+def test_foreign_gpu_process_refuses_launch_and_writes_nothing(env, capsys, monkeypatch):
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import LLAMA_SERVER_LINE, FakeSmi
+
+    monkeypatch.setattr(gpu, "RUN", FakeSmi(apps=[LLAMA_SERVER_LINE], used=[6187]))
+    _assert_nothing_written(2)
+    _assert_refusal_logged(capsys, "llama-server.exe", "pid 22792", "6187 MiB")
+
+
+def test_gpu_checked_before_each_model_in_preflight(env, monkeypatch):
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import FakeSmi
+
+    smi = FakeSmi()
+    monkeypatch.setattr(gpu, "RUN", smi)
+    assert _run() == 0
+    apps_queries = [c for c in smi.commands if "--query-compute-apps" in c[1]]
+    assert len(apps_queries) == 1 + len(MODELS)  # lancement, puis un contrôle par modèle
+
+
+def test_gpu_check_disabled_never_calls_nvidia_smi(env, monkeypatch):
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import FakeSmi
+
+    smi = FakeSmi(error=FileNotFoundError("nvidia-smi"))
+    monkeypatch.setattr(gpu, "RUN", smi)
+    _write_campaign(env["config_dir"], gpu_check_off=True)
+    assert _run() == 0
+    assert smi.commands == []
+    manifest = json.loads(paths.generation_manifest_path(CAMPAIGN).read_text(encoding="utf-8"))
+    assert manifest["informative"]["checklist"]["gpu_check"] == {"enabled": False}
+
+
+def test_missing_nvidia_smi_refuses_launch(env, capsys, monkeypatch):
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import FakeSmi
+
+    monkeypatch.setattr(gpu, "RUN", FakeSmi(error=FileNotFoundError("nvidia-smi")))
+    _assert_nothing_written(2)
+    _assert_refusal_logged(capsys, "nvidia-smi introuvable", "gpu_check")
+
+
+def test_gpu_check_result_is_in_the_informative_manifest(env):
+    assert _run() == 0
+    manifest = json.loads(paths.generation_manifest_path(CAMPAIGN).read_text(encoding="utf-8"))
+    result = manifest["informative"]["checklist"]["gpu_check"]
+    assert result["enabled"] is True and result["used_mib"] == 300
 
 
 def test_model_absent_from_tags_exits_2(env, capsys):

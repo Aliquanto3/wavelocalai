@@ -34,7 +34,7 @@ from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
-from ..common import config, paths
+from ..common import config, gpu, paths
 from ..common.jsonl import JsonlReadError, open_for_append, read_jsonl
 from ..common.keepawake import keep_awake
 from ..common.locks import FileLock, LockBusyError
@@ -184,6 +184,28 @@ def check_loaded_models(judge: config.JudgeConfig, client: OllamaClient) -> None
         )
 
 
+def check_judge_gpu(campaign: str, client: OllamaClient) -> dict[str, Any]:
+    """Juge local : contrôle du GPU (``nvidia-smi``, AD-13), réglé par ``gpu_check`` de la
+    configuration de la campagne (valeurs par défaut si le fichier est absent) ; refuse avec
+    ``JudgeLaunchError`` si un processus autre qu'Ollama occupe le GPU."""
+    config_path = paths.campaign_config_path(campaign)
+    settings = (
+        config.load_campaign(config_path).gpu_check
+        if config_path.exists()
+        else gpu.GpuCheckSettings()
+    )
+    if not settings.enabled:
+        return gpu.check_gpu(settings, None)
+    try:
+        loaded = [str(entry.get("name") or entry.get("model") or "") for entry in client.ps()]
+        return gpu.check_gpu(settings, [name for name in loaded if name])
+    except gpu.GpuCheckError as exc:
+        raise JudgeLaunchError(str(exc)) from None
+    except OllamaError as exc:
+        logger.warning("Ollama injoignable (%s) : contrôle du GPU impossible, lancement permis", exc)
+        return {"enabled": True, "skipped": "ollama_unreachable"}
+
+
 def unload_local_judge(judge: config.JudgeConfig, client: OllamaClient) -> None:
     """``keep_alive: 0`` sur le modèle du juge local, au mieux (jamais une erreur)."""
     try:
@@ -233,10 +255,12 @@ def judge_campaign(campaign: str, judge_id: str, max_cost_usd: float | None = No
     with FileLock(paths.machine_lock_path()):
         ollama = make_ollama_client(judge.options["ollama_url"]) if judge.local else None
         engine: Judge | None = None
+        gpu_result: dict[str, Any] | None = None
         checked = False
         try:
             if ollama is not None:
                 check_loaded_models(judge, ollama)
+                gpu_result = check_judge_gpu(campaign, ollama)
                 checked = True
             with FileLock(paths.judgment_lock_path(campaign, judge_id)) as judgment_lock:
                 setup_logging(COMMAND, paths.log_path(campaign, COMMAND))
@@ -259,6 +283,7 @@ def judge_campaign(campaign: str, judge_id: str, max_cost_usd: float | None = No
                     judge=manifest_judge(judge),
                     generation_manifest=inputs.manifest_hash,
                     informative=collect_informative(
+                        checklist=None if gpu_result is None else {"gpu_check": gpu_result},
                         prices=None if judge.prices is None else {"judge": judge_id, **judge.prices}
                     ),
                 )
