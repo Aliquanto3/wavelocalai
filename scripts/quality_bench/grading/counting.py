@@ -14,21 +14,29 @@ d'une locale, ni d'un modèle de langue, ni d'une bibliothèque : mêmes entrée
 - **Phrase :** la ligne coupe toujours. Dans une ligne, ``.``, ``!``, ``?`` ou ``…`` (suivis de
   guillemets ou parenthèses fermants éventuels) terminent une phrase quand une espace ou la fin
   de ligne suit, sauf si le mot qui précède est une abréviation française courante ou une initiale
-  (« M. », « Mme », « p. ex. », « Paul D. »), ou si la suite commence par une minuscule (« etc. et »,
-  « Vraiment ? » dit-elle). ``:`` et ``;`` ne terminent rien ; « 4.2 » ne coupe pas ; un titre
-  Markdown, une ligne en gras seule ou un filet horizontal ne sont pas des phrases.
+  (« M. », « Mme », « p. ex. », « c.-à-d. », « Paul D. »), ou si la suite commence par une
+  minuscule (« etc. et », « Vraiment ? » dit-elle). Une unité en minuscules après un nombre
+  (« 2 m. Elle », « 5 km. Puis ») n'est pas une abréviation. Une majuscule seule est une initiale
+  (« J. Dupont »), sauf après « : », « ( » ou les mots « réponse », « option », « choix »,
+  « lettre » (« Réponse : B. Ensuite » : deux phrases). ``:`` et ``;`` ne terminent rien ; « 4.2 »
+  ne coupe pas ; un titre Markdown, une ligne en gras seule ou un filet horizontal ne sont pas
+  des phrases.
 - **Paragraphe :** bloc séparé du suivant par au moins une ligne vide ; les blocs qui ne sont que
   des titres Markdown, des lignes en gras seules ou des filets horizontaux ne comptent pas.
 - **Ligne :** ligne non vide. **Élément de liste :** ligne qui commence par une puce (``- * • + –
-  —``) ou un numéro (``1.`` ou ``1)``) suivi d'une espace ; une ligne indentée qui suit prolonge
+  —``) ou un numéro (``1.`` ou ``1)``) suivi d'une espace, au premier niveau (indentation la plus
+  faible des lignes à marqueur) ; une ligne plus indentée qui suit, sous-puce comprise, prolonge
   l'élément.
 - **Corps d'un courriel (``scope: body``) :** la réponse privée de la ligne « Objet : » (parmi les
   trois premières lignes non vides), de la formule d'appel (premier paragraphe d'une ligne, au plus
   huit mots, sans point final) et de la formule de politesse avec sa signature (un des trois
   derniers paragraphes contient « cordialement », « salutations », « agréer »… et fait au plus
   quatre lignes et 45 mots, les paragraphes qui le suivent étant des signatures : au plus trois
-  lignes, 15 mots, sans ponctuation finale de phrase). Sans formule de politesse trouvée, rien
-  n'est retiré à la fin.
+  lignes, 15 mots, sans ponctuation finale de phrase). Ce paragraphe n'est une formule de
+  politesse que s'il est suivi d'une signature, si la ligne qui porte la formule est courte (au
+  plus six mots : « Cordialement, », « À bientôt ! ») ou si la formule est soutenue (« agréer »,
+  « salutations », « sentiments distingués ») : un paragraphe de contenu qui contient « à
+  bientôt » reste dans le corps. Sans formule de politesse trouvée, rien n'est retiré à la fin.
 """
 
 from __future__ import annotations
@@ -55,9 +63,14 @@ _ABBREVIATIONS = frozenset(
     {
         *("m", "mm", "mme", "mmes", "mlle", "mlles", "dr", "drs", "pr", "prs", "st", "ste"),
         *("sts", "stes", "cie", "tél", "tel", "réf", "ref", "ex", "cf", "av", "bd", "env"),
-        *("vs", "fig", "éd", "vol", "chap", "art", "no", "prof"),
+        *("vs", "fig", "éd", "vol", "chap", "art", "no", "prof", "à-d"),
     }
 )
+# Unités courtes en minuscules : après un nombre, « m. » ou « mm. » ne sont pas des titres.
+_UNITS = frozenset({"m", "mm", "cm", "km", "g", "kg", "mg", "l", "ml", "cl", "h", "min", "s"})
+_NUMBER_BEFORE_RE = re.compile(r"\d\s*$")
+# Majuscule seule après « : », « ( » ou ces mots : une réponse (« Réponse : B. »), pas une initiale.
+_LETTER_ANSWER_RE = re.compile(r"(?:[:(]|\b(?:réponse|option|choix|lettre))\s*$", re.IGNORECASE)
 _SUBJECT_RE = re.compile(r"^[\s*_#>]*(?:objet|subject)\s*[:：]", re.IGNORECASE)
 _GREETING_RE = re.compile(
     r"^[\s*_]*(?:bonjour|bonsoir|salut|madame|monsieur|mesdames|messieurs|chers?|chères?)\b",
@@ -68,6 +81,9 @@ _CLOSING_RE = re.compile(
     r"bien à toi|à bientôt",
     re.IGNORECASE,
 )
+# Formules soutenues, propres à la formule de politesse.
+_FORMAL_CLOSING_RE = re.compile(r"agréer|salutations|sentiments\s+distingués", re.IGNORECASE)
+_CLOSING_LINE_MAX_WORDS = 6
 _SENTENCE_END = ".?…!"
 _GREETING_MAX_WORDS = 8
 _CLOSING_MAX_LINES, _CLOSING_MAX_WORDS = 4, 45
@@ -118,7 +134,12 @@ def _is_boundary(line: str, start: int, end: int) -> bool:
         match = _PREVIOUS_WORD_RE.search(line[:start])
         if match:
             word = match.group(1)
-            if word.casefold() in _ABBREVIATIONS or (len(word) == 1 and word.isupper()):
+            before = line[: match.start()]
+            if word in _UNITS and _NUMBER_BEFORE_RE.search(before):
+                return True
+            if len(word) == 1 and word.isupper():
+                return _LETTER_ANSWER_RE.search(before) is not None
+            if word.casefold() in _ABBREVIATIONS:
                 return False
     return True
 
@@ -178,11 +199,22 @@ def list_items(text: str, marker: str = "any", sequential: bool = False) -> list
     """Éléments de liste de ``text`` ; ``None`` si ``sequential`` et que les numéros ne lisent
     pas 1, 2, 3… dans l'ordre."""
     patterns = _marker_pattern(marker)
+    text_lines = [line.expandtabs(4) for line in text.split("\n")]
+
+    def marker_of(line: str) -> re.Match[str] | None:
+        return next((m for m in (p.match(line) for p in patterns) if m), None)
+
+    def indent(line: str) -> int:
+        return len(line) - len(line.lstrip())
+
+    top = min((indent(line) for line in text_lines if marker_of(line)), default=0)
     items: list[str] = []
     numbers: list[int] = []
     open_item = False
-    for line in text.split("\n"):
-        match = next((m for m in (p.match(line) for p in patterns) if m), None)
+    for line in text_lines:
+        match = marker_of(line)
+        if match and open_item and indent(line) > top:
+            match = None  # sous-puce : prolonge l'élément de premier niveau
         if match:
             items.append(line[match.end() :].strip())
             number = _NUMBER_RE.match(line)
@@ -207,12 +239,20 @@ def _is_greeting(block: str) -> bool:
     return block[-1] in ",:!" or _GREETING_RE.match(block) is not None
 
 
-def _is_closing(block: str) -> bool:
-    return (
-        len(block.split("\n")) <= _CLOSING_MAX_LINES
-        and len(block.split()) <= _CLOSING_MAX_WORDS
-        and _CLOSING_RE.search(block) is not None
+def _is_closing(block: str, signed: bool) -> bool:
+    """Formule de politesse : courte, et suivie d'une signature (``signed``), portée par une
+    ligne courte ou soutenue ; un paragraphe de contenu qui contient « à bientôt » n'en est pas."""
+    if (
+        len(block.split("\n")) > _CLOSING_MAX_LINES
+        or len(block.split()) > _CLOSING_MAX_WORDS
+        or _CLOSING_RE.search(block) is None
+    ):
+        return False
+    short_line = any(
+        _CLOSING_RE.search(line) and len(line.split()) <= _CLOSING_LINE_MAX_WORDS
+        for line in block.split("\n")
     )
+    return signed or short_line or _FORMAL_CLOSING_RE.search(block) is not None
 
 
 def _is_signature(block: str) -> bool:
@@ -242,7 +282,8 @@ def email_body(text: str) -> str:
         blocks = blocks[1:]
     for offset in range(1, min(_CLOSING_WINDOW, len(blocks)) + 1):
         index = len(blocks) - offset
-        if _is_closing(blocks[index]) and all(_is_signature(b) for b in blocks[index + 1 :]):
+        after = blocks[index + 1 :]
+        if all(_is_signature(b) for b in after) and _is_closing(blocks[index], bool(after)):
             blocks = blocks[:index]
             break
     return "\n\n".join(blocks)

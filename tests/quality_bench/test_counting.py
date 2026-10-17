@@ -127,6 +127,30 @@ def test_list_item_continuation_lines_are_joined():
     assert list_items(text, "bullet") == ["premier suite du premier", "second"]
 
 
+def test_nested_bullets_extend_the_top_level_item():
+    text = "- a\n  - a1\n  - a2\n- b\n\t* b1\n- c"
+    assert list_items(text, "bullet") == ["a - a1 - a2", "b * b1", "c"]
+    assert len(list_items("  - a\n  - b", "bullet")) == 2  # liste entière indentée
+    assert list_items("1. a\n   - x\n2. b", "number", sequential=True) == ["a - x", "b"]
+    assert evaluate_check({"count": "items", "op": "<=", "n": 3}, text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Elle a couru 2 m. Elle s'arrête.", 2),
+        ("Il marche 5 km. Puis il rentre.", 2),
+        ("Réponse : B. Ensuite on voit.", 2),
+        ("La bonne réponse B. Ensuite rien.", 2),
+        ("Selon J. Dupont, oui. Non.", 2),  # initiale
+        ("Le c.-à-d. Paris est loin.", 1),
+        ("Il y a 3 MM. Dupont ici.", 1),  # « MM. » en majuscules : titre
+    ],
+)
+def test_sentence_units_answer_letters_and_abbreviations(text, expected):
+    assert len(sentences(text)) == expected
+
+
 def test_sequential_numbering():
     assert list_items("1. a\n2. b\n3. c", "number", sequential=True) == ["a", "b", "c"]
     assert list_items("1. a\n3. b", "number", sequential=True) is None
@@ -185,6 +209,16 @@ def test_email_body_subject_only_within_the_first_lines():
 
 def test_email_body_without_any_structure_is_the_text():
     assert email_body("Juste une phrase.") == "Juste une phrase."
+
+
+def test_email_body_keeps_a_content_paragraph_that_contains_a_closing_word():
+    body = "Nous nous verrons à bientôt pour la suite du projet, avec un plan détaillé."
+    assert email_body(f"Bonjour,\n\n{body}") == body
+    # Signée, une même phrase est la formule de politesse ; courte ou soutenue, aussi.
+    assert email_body(f"Bonjour,\n\nCorps.\n\n{body}\n\nJean Dupont") == "Corps."
+    assert email_body("Bonjour,\n\nCorps.\n\nÀ bientôt !") == "Corps."
+    formal = "Je vous prie d'agréer, Madame, l'expression de mes sentiments distingués."
+    assert email_body(f"Madame,\n\nCorps.\n\n{formal}") == "Corps."
 
 
 def test_before_last_scope_drops_the_last_paragraph():
