@@ -33,14 +33,10 @@ class AnthropicProvider(ILLMProvider):
 
     # Modèles disponibles avec leurs métadonnées
     AVAILABLE_MODELS = {
-        "claude-sonnet-4-20250514": {"name": "Claude Sonnet 4", "params": "?", "context": 200000},
-        "claude-3-5-sonnet-20241022": {
-            "name": "Claude 3.5 Sonnet",
-            "params": "?",
-            "context": 200000,
-        },
-        "claude-3-5-haiku-20241022": {"name": "Claude 3.5 Haiku", "params": "?", "context": 200000},
-        "claude-3-opus-20240229": {"name": "Claude 3 Opus", "params": "?", "context": 200000},
+        "claude-opus-5-5": {"name": "Claude Opus 5.5", "params": "?", "context": 1000000},
+        "claude-sonnet-5-5": {"name": "Claude Sonnet 5.5", "params": "?", "context": 1000000},
+        "claude-haiku-5-5": {"name": "Claude Haiku 5.5", "params": "?", "context": 1000000},
+        "claude-fable-5-1": {"name": "Claude Fable 5.1", "params": "?", "context": 1000000},
     }
 
     def __init__(self, api_key: str | None = None):
@@ -126,12 +122,13 @@ class AnthropicProvider(ILLMProvider):
             client = self._get_client()
             timer.start()
 
+            # `temperature` est ignorée : le SDK 1.x ne l'accepte plus et les modèles
+            # Claude actuels refusent les paramètres d'échantillonnage (erreur 400).
             async with client.messages.stream(
                 model=model_name,
                 max_tokens=4096,
                 system=system,
                 messages=filtered_messages,
-                temperature=temperature,
             ) as stream:
                 async for text in stream.text_stream:
                     full_text += text
@@ -187,7 +184,7 @@ class AnthropicProvider(ILLMProvider):
 
             client = anthropic.Anthropic(api_key=self._api_key)
             client.messages.create(
-                model="claude-3-5-haiku-20241022",
+                model="claude-haiku-5-5",
                 max_tokens=10,
                 messages=[{"role": "user", "content": "Hi"}],
             )

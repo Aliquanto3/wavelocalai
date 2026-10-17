@@ -809,6 +809,69 @@ class TestPrefixedCloudRouting:
         client_cls.assert_called_once_with(api_key="cle-factice")
 
     @pytest.mark.asyncio
+    async def test_anthropic_chat_stream_matches_sdk_signature(self):
+        """Les arguments passés à `messages.stream()` respectent la signature du SDK installé
+        (le SDK 1.x a retiré `temperature`) et le flux rend tokens puis métriques."""
+        import inspect
+
+        from anthropic.resources.messages import AsyncMessages
+
+        from src.core.providers import anthropic_provider
+
+        calls = []
+
+        class _FakeAnthropicStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            @property
+            async def text_stream(self):
+                for token in ("Bon", "jour"):
+                    yield token
+
+            async def get_final_message(self):
+                return MagicMock(usage=MagicMock(input_tokens=5, output_tokens=2))
+
+        def stream(**kwargs):
+            inspect.signature(AsyncMessages.stream).bind(None, **kwargs)
+            calls.append(kwargs)
+            return _FakeAnthropicStream()
+
+        client = MagicMock()
+        client.messages.stream = stream
+        with (
+            patch.object(anthropic_provider, "ANTHROPIC_AVAILABLE", True),
+            patch.object(anthropic_provider, "_AsyncAnthropic", return_value=client),
+        ):
+            provider = anthropic_provider.AnthropicProvider(api_key="cle-factice")
+            chunks = [
+                c
+                async for c in provider.chat_stream(
+                    "claude-haiku-5-5",
+                    [{"role": "system", "content": "Ignoré"}, {"role": "user", "content": "Salut"}],
+                    temperature=0.2,
+                )
+            ]
+        assert "temperature" not in calls[0]
+        assert calls[0]["messages"] == [{"role": "user", "content": "Salut"}]
+        assert chunks[:2] == ["Bon", "jour"]
+        assert isinstance(chunks[2], InferenceMetrics)
+        assert chunks[2].output_tokens == 2
+
+    def test_anthropic_available_models_are_current(self):
+        from src.core.providers.anthropic_provider import AnthropicProvider
+
+        assert set(AnthropicProvider.AVAILABLE_MODELS) == {
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5",
+            "claude-fable-5-1",
+        }
+
+    @pytest.mark.asyncio
     async def test_openai_chat_stream_reaches_mocked_client(self):
         from src.core.providers.openai_provider import OpenAIProvider
 
