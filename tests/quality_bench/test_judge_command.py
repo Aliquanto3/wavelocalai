@@ -376,17 +376,29 @@ def test_grade_combines_code_and_judge_verdicts(server, tmp_path, monkeypatch):
         assert after[key]["grader"] == "judge_criteria@2"
 
 
-def test_grade_refuses_a_judgment_of_a_criterion_checked_by_code(server, tmp_path, monkeypatch):
-    build_campaign(checked=True)
+def test_grade_ignores_a_stale_judgment_of_a_criterion_checked_by_code(
+    server, tmp_path, monkeypatch
+):
+    campaign = build_campaign(checked=True)
     _write_campaign_yaml(tmp_path, monkeypatch)
     assert _run() == 0
     lines = _lines()
-    forged = {**lines[0], "criterion": "c1", "key": f"{lines[0]['generation_key']}|c1"}
-    rewrite_jsonl(paths.judgment_path(CAMPAIGN, JUDGE_ID), [forged, *lines[1:]])
+    # Verdict périmé (faux) sur c1, vérifié par le code : ignoré, compté au journal.
+    forged = {
+        **lines[0],
+        "criterion": "c1",
+        "key": f"{lines[0]['generation_key']}|c1",
+        "verdict": False,
+    }
+    rewrite_jsonl(paths.judgment_path(CAMPAIGN, JUDGE_ID), [forged, *lines])
     from scripts.quality_bench.__main__ import main
 
-    assert main(["grade", "--campaign", CAMPAIGN]) == 1
-    assert "vérifié par le code" in paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+    assert main(["grade", "--campaign", CAMPAIGN]) == 0
+    log = paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+    assert "1 verdicts ignorés sur des critères vérifiés par le code" in log
+    after = {r["key"]: r for r in read_jsonl(paths.grading_path(CAMPAIGN))}
+    for key in campaign["writing_keys"]:
+        assert (after[key]["status"], after[key]["score"]) == ("ok", 0.75)  # c1 par le code
 
 
 def test_ps_entry_without_name_is_ignored(server, monkeypatch):
