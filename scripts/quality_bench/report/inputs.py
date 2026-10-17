@@ -77,6 +77,7 @@ class Row:
     score: float | None
     success: bool | None
     metrics: dict[str, float]
+    context_limit: str | None = None  # cause d'un context_exceeded : model | bench
 
 
 @dataclass
@@ -492,6 +493,7 @@ def load_inputs(
             score=None if grading["score"] is None else float(grading["score"]),
             success=grading["success"],
             metrics={name: float(value) for name, value in grading["metrics"].items()},
+            context_limit=grading.get("context_limit"),
         )
     completeness.retained = len(rows)
 

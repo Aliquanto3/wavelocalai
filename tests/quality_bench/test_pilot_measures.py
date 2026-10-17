@@ -710,23 +710,58 @@ def test_common_units_without_any_common_unit_is_undetermined():
 def test_context_exceeded_by_source_and_tier():
     lines = [
         _line(qid="q1", num_ctx=4096),
-        _line(qid="q2", num_ctx=4096, status="context_exceeded", calls=0),
-        _line(qid="q3", num_ctx=8192, status="context_exceeded", calls=0, source="piaf"),
+        _line(qid="q2", num_ctx=4096, status="context_exceeded", calls=0, context_limit="bench"),
+        _line(
+            qid="q3",
+            num_ctx=8192,
+            status="context_exceeded",
+            calls=0,
+            source="piaf",
+            context_limit="model",
+        ),
+        _line(
+            qid="q4",
+            num_ctx=8192,
+            status="context_exceeded",
+            calls=1,
+            source="piaf",
+            context_limit="model",
+        ),
     ]
     result = _context_exceeded(lines, ["a"])
+    # Comptes séparés par cause : « model » (échec compté) et « bench » (unité écartée).
     assert result["by_tier"] == [
-        {"num_ctx": 4096, "lines": 2, "context_exceeded": 1, "rate": 0.5},
-        {"num_ctx": 8192, "lines": 1, "context_exceeded": 1, "rate": 1.0},
+        {
+            "num_ctx": 4096,
+            "lines": 2,
+            "context_exceeded": 1,
+            "context_exceeded_model": 0,
+            "context_exceeded_bench": 1,
+            "rate": 0.5,
+        },
+        {
+            "num_ctx": 8192,
+            "lines": 2,
+            "context_exceeded": 2,
+            "context_exceeded_model": 2,
+            "context_exceeded_bench": 0,
+            "rate": 1.0,
+        },
     ]
     by_source = {e["source"]: e for e in result["by_source"]}
     assert by_source["bbeh-mini"]["rate"] == 0.5
-    assert by_source["piaf"]["context_exceeded"] == 1
+    assert by_source["bbeh-mini"]["context_exceeded_bench"] == 1
+    assert by_source["piaf"]["context_exceeded"] == 2
+    piaf = by_source["piaf"]
+    assert (piaf["context_exceeded_model"], piaf["context_exceeded_bench"]) == (2, 0)
     assert by_source["bfcl-multi"] == {
         "track": "think_off",
         "model": "a",
         "source": "bfcl-multi",
         "lines": 0,
         "context_exceeded": 0,
+        "context_exceeded_model": 0,
+        "context_exceeded_bench": 0,
         "rate": None,
     }
 

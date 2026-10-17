@@ -56,6 +56,8 @@ def _model(model, mean, low, high, rank, group, **extra):
         "model": model,
         "mean": mean,
         "n": 40,
+        "mean_all": mean,
+        "n_all": 40,
         "excluded": 0,
         "se": 0.05,
         "ci_low": low,
@@ -67,6 +69,8 @@ def _model(model, mean, low, high, rank, group, **extra):
         "graded": 40,
         "truncated": 2,
         "truncation_rate": 0.05,
+        "context_exceeded_model": 1,
+        "context_exceeded_bench": 3,
     }
     entry.update(extra)
     return entry
@@ -76,12 +80,15 @@ def _summary():
     scope = {
         "usage": "reasoning",
         "method": "mcnemar",
-        "units": 40,
+        "units": 42,
+        "common_units": 40,
         "leader": "alpha:4b",
         "models": [
-            _model("alpha:4b", 0.75, 0.6, 0.86, 1, 1),
-            _model("beta:1b", 0.4, 0.26, 0.56, 2, 2),
-            _model("gamma:1b", None, None, None, None, None, n=0, excluded=40, se=None),
+            _model("alpha:4b", 0.75, 0.6, 0.86, 1, 1, mean_all=0.7, n_all=42),
+            _model("beta:1b", 0.4, 0.26, 0.56, 2, 2, mean_all=0.5, n_all=41, excluded=1),
+            _model(
+                "gamma:1b", None, None, None, None, None, n=0, n_all=0, excluded=42, se=None
+            ),
         ],
         "comparisons": [
             {
@@ -182,8 +189,10 @@ def test_markdown_renders_leader_comparison_and_spearman():
     assert "**Rapport partiel**" in text
     assert (
         f"| 1 | 1 | `alpha:4b` | 75,0{NBSP}% | [60,0{NBSP}% ; 86,0{NBSP}%] | "
-        f"[60,0{NBSP}% ; 86,0{NBSP}%] | 0,050 | 40 | 0 | 5,0{NBSP}% (2/40) |"
+        f"[60,0{NBSP}% ; 86,0{NBSP}%] | 0,050 | 40 | 70,0{NBSP}% (42) | 0 | 1 / 3 | "
+        f"5,0{NBSP}% (2/40) |"
     ) in text
+    assert "Unités : 42, dont 40 communes à tous les modèles" in text
     assert (
         f"| `beta:1b` | 40 | +35,0{NBSP}pts | 0,080 | [+19,0{NBSP}pts ; +51,0{NBSP}pts] | 16 | 2 "
         f"| 0,12 | <{NBSP}0,001 | 0,001 | oui |"

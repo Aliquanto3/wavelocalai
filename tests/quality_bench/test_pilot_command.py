@@ -406,12 +406,18 @@ def test_unrequested_pairs_and_status_changes_are_counted_apart(env):
     target = next(
         line for line in lines if line["usage"] == "reasoning" and line["track"] == "think_off"
     )
-    target.update(status="context_exceeded", calls=0, output=[])
+    target.update(status="context_exceeded", calls=0, output=[], context_limit="bench")
     rewrite_jsonl(paths.generation_path(REPLAY), lines)
     grading = read_jsonl(paths.grading_path(REPLAY))
     for line in grading:
         if line["key"] == target["key"]:
-            line.update(status="context_exceeded", score=None, success=None, metrics={})
+            line.update(
+                status="context_exceeded",
+                context_limit="bench",
+                score=None,
+                success=None,
+                metrics={},
+            )
     rewrite_jsonl(paths.grading_path(REPLAY), grading)
     assert _run() == 0
     block = _track(_report()["stability"]["tracks"], "think_off")

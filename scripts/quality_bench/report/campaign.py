@@ -3,8 +3,13 @@
 
 - **Unité statistique** : (``model``, ``track``, ``unit``), score d'unité par ``stats.units``
   (minimum des questions, puis moyenne des seeds). Une question sans score (erreur du banc,
-  attente du juge sous ``--partial``, ligne écartée) rend l'unité nulle pour ce modèle : elle est
-  retirée des seules comparaisons qui l'impliquent, et comptée (``excluded``).
+  ``context_exceeded`` à limite du banc, attente du juge sous ``--partial``, ligne écartée) rend
+  l'unité nulle pour ce modèle, et comptée (``excluded``). Un ``context_exceeded`` à limite du
+  modèle vaut 0 (échec compté) ; les deux causes sont comptées à part par modèle.
+- **Unités communes** (AD-17, 2026-10-17) : score, ET, IC, rang approché, groupes indiscernables,
+  meneur, comparaisons, matrice et Spearman portent sur les unités définies pour **tous** les
+  modèles du périmètre ; la moyenne de chaque modèle sur toutes ses unités définies est publiée
+  à côté (``mean_all``, ``n_all``).
 - **Périmètres** : chaque piste en global, puis chaque usage de la piste.
 - **Méthode** : choisie sur ``generation.request.k`` du manifeste et les usages du périmètre,
   jamais sur les valeurs observées. Binaire (``k == 1`` et aucun usage ``writing``) : McNemar
@@ -64,6 +69,15 @@ class Scope:
     units: tuple[str, ...]
     groups: dict[str, str]
     scores: dict[str, dict[str, float | None]]  # modèle → unité → score
+
+    def common(self, models: Sequence[str]) -> Scope:
+        """Périmètre restreint aux unités définies pour **chacun** des ``models`` (AD-17)."""
+        kept = tuple(
+            unit
+            for unit in self.units
+            if all(self.scores[model][unit] is not None for model in models)
+        )
+        return Scope(self.usage, self.binary, kept, self.groups, self.scores)
 
 
 @dataclass(frozen=True)
@@ -136,21 +150,39 @@ def _truncation(rows: Sequence[Row]) -> tuple[int, int]:
     return graded, truncated
 
 
+def _context_exceeded(rows: Sequence[Row], limit: str) -> int:
+    """Lignes ``context_exceeded`` de cause ``limit`` (``model`` ou ``bench``)."""
+    return sum(1 for row in rows if row.status == "context_exceeded" and row.context_limit == limit)
+
+
+def _mean_all(scope: Scope, model: str) -> tuple[float, int]:
+    """Moyenne du modèle sur toutes ses unités définies, et leur effectif."""
+    values = [scope.scores[model][u] for u in scope.units if scope.scores[model][u] is not None]
+    return (math.fsum(values) / len(values) if values else math.nan), len(values)
+
+
 def scope_stats(
-    scope: Scope,
+    full_scope: Scope,
     models: Sequence[str],
     rows_by_model: Mapping[str, Sequence[Row]],
 ) -> tuple[dict[str, Any], dict[tuple[str, str], Pair]]:
-    """Bloc ``scopes[]`` du résumé et comparaisons appariées de toutes les paires."""
+    """Bloc ``scopes[]`` du résumé et comparaisons appariées de toutes les paires.
+
+    Tout est calculé sur les **unités communes** à tous les modèles (``Scope.common``) : score,
+    ET, IC, rang approché, groupes indiscernables, meneur, comparaisons et matrice. La moyenne
+    de chaque modèle sur toutes ses unités définies est publiée à côté (``mean_all``, ``n_all``).
+    """
+    scope = full_scope.common(models)
     z = z_value(ALPHA)
     m = len(models)
     z_sim = z_value(bonferroni_alpha(ALPHA, m))
     means, lows, highs, entries = [], [], [], []
     for model in models:
-        values = [scope.scores[model][u] for u in scope.units if scope.scores[model][u] is not None]
-        groups = [scope.groups[u] for u in scope.units if scope.scores[model][u] is not None]
+        values = [scope.scores[model][u] for u in scope.units]
+        groups = [scope.groups[u] for u in scope.units]
         mean, se = clustered_mean_se(values, groups)
         n = len(values)
+        mean_all, n_all = _mean_all(full_scope, model)
         if scope.binary:
             successes = sum(values)
             ci = wilson_interval(successes, n, ALPHA)
@@ -167,7 +199,9 @@ def scope_stats(
                 "model": model,
                 "mean": number(mean),
                 "n": n,
-                "excluded": len(scope.units) - n,
+                "mean_all": number(mean_all),
+                "n_all": n_all,
+                "excluded": len(full_scope.units) - n_all,
                 "se": number(se),
                 "ci_low": number(ci[0]),
                 "ci_high": number(ci[1]),
@@ -176,6 +210,8 @@ def scope_stats(
                 "graded": graded,
                 "truncated": truncated,
                 "truncation_rate": number(truncated / graded) if graded else None,
+                "context_exceeded_model": _context_exceeded(rows_by_model[model], "model"),
+                "context_exceeded_bench": _context_exceeded(rows_by_model[model], "bench"),
             }
         )
 
@@ -243,7 +279,8 @@ def scope_stats(
     block = {
         "usage": scope.usage,
         "method": "mcnemar" if scope.binary else "paired_z",
-        "units": len(scope.units),
+        "units": len(full_scope.units),
+        "common_units": len(scope.units),
         "leader": leader,
         "models": entries,
         "comparisons": comparisons,
@@ -253,19 +290,24 @@ def scope_stats(
     return block, pairs
 
 
-def continuous_stats(scope: Scope, metric: str, models: Sequence[str]) -> dict[str, Any]:
-    """Bloc ``continuous`` : moyenne par modèle et IC bootstrap apparié au meneur."""
+def continuous_stats(full_scope: Scope, metric: str, models: Sequence[str]) -> dict[str, Any]:
+    """Bloc ``continuous`` : moyenne par modèle et IC bootstrap apparié au meneur, sur les unités
+    communes (``mean_all`` et ``n_all`` : toutes les unités définies du modèle)."""
+    scope = full_scope.common(models)
     entries, means = [], []
     for model in models:
-        values = [scope.scores[model][u] for u in scope.units if scope.scores[model][u] is not None]
+        values = [scope.scores[model][u] for u in scope.units]
         mean = math.fsum(values) / len(values) if values else math.nan
+        mean_all, n_all = _mean_all(full_scope, model)
         means.append(mean)
         entries.append(
             {
                 "model": model,
                 "mean": number(mean),
                 "n": len(values),
-                "excluded": len(scope.units) - len(values),
+                "mean_all": number(mean_all),
+                "n_all": n_all,
+                "excluded": len(full_scope.units) - n_all,
             }
         )
     order = leader_order(means)
@@ -293,12 +335,15 @@ def continuous_stats(scope: Scope, metric: str, models: Sequence[str]) -> dict[s
 
 def _metric_value(row: Row | None, metric: str) -> float | None:
     """Métrique continue d'une question : valeur publiée, 0 pour un échec du modèle sans
-    métrique, ``None`` sinon (unité nulle : ligne absente, erreur du banc, NIAH sans ``f1``)."""
+    métrique (dont un contexte du modèle dépassé), ``None`` sinon (unité nulle : ligne absente,
+    erreur du banc, contexte du banc dépassé, NIAH sans ``f1``)."""
     if row is None:
         return None
     if metric in row.metrics:
         return row.metrics[metric]
-    if row.status in MODEL_FAILURES:
+    if row.status in MODEL_FAILURES or (
+        row.status == "context_exceeded" and row.context_limit == "model"
+    ):
         return 0.0
     return None
 

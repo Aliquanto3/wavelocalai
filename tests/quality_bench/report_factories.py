@@ -111,12 +111,13 @@ def _draw(model: str, track: str, qid: str, seed: int) -> float:
 def grade_for(
     q: Mapping[str, Any], model: str, profile: float, track: str, seed: int, status: str
 ) -> tuple[float | None, bool | None, dict[str, float]]:
-    """(score, success, metrics) synthétiques d'une question."""
+    """(score, success, metrics) synthétiques d'une question. Statut ``context_exceeded`` : limite
+    du banc (unité nulle) ; ``context_exceeded_model`` : limite du modèle (échec, score 0)."""
     usage = q["usage"]
     writing = usage == "writing"
-    if status in ("error", "context_exceeded", "awaiting_judgment"):
+    if status in ("error", "context_exceeded", "context_exceeded_bench", "awaiting_judgment"):
         return None, None, {}
-    if status in ("truncated", "non_compliant"):
+    if status in ("truncated", "non_compliant", "context_exceeded_model"):
         metrics = {"f1": 0.0} if status == "non_compliant" and usage == "rag" else {}
         return 0.0, None if writing else False, metrics
     r = _draw(model, track, q["id"], seed)
@@ -231,11 +232,17 @@ def make_campaign(
                     seed = epoch
                     status = statuses.get((index, track, qid, seed), "ok")
                     key = f"{campaign}|{tag}|{track}|{qid}|{seed}"
+                    limit = None
+                    if status in ("context_exceeded", "context_exceeded_model"):
+                        limit = "model" if status.endswith("_model") else "bench"
+                        status = "context_exceeded"
                     gen_status = (
                         status if status in ("truncated", "context_exceeded", "error") else "ok"
                     )
+                    context = {} if limit is None else {"context_limit": limit}
                     generation.append(
                         generation_record(
+                            **context,
                             key=key,
                             manifest=generation_hash,
                             campaign=campaign,
@@ -261,12 +268,14 @@ def make_campaign(
                             ],
                         )
                     )
+                    graded_as = f"{status}_{limit}" if limit else status
                     score, success, metrics = grade_for(
-                        q, tag, PROFILES[index], track, seed, status
+                        q, tag, PROFILES[index], track, seed, graded_as
                     )
                     writing = q["usage"] == "writing"
                     grading.append(
                         {
+                            **context,
                             "schema": "qb.grading/1",
                             "key": key,
                             "generation_manifest": generation_hash,

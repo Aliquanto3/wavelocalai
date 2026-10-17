@@ -479,26 +479,39 @@ AA_STATUSES = ("measured", "estimated")
 AA_VARIANTS = ("reasoning", "non_reasoning")
 
 # Score d'une question pour un modèle (AD-6) : ni identifiant ni texte de question.
-SCORE_V1: dict[str, Any] = _closed(
-    {
-        "schema": {"const": "qb.score/1"},
-        "question_hash": _HASH,
-        "model": _NON_EMPTY,
-        "digest": _NON_EMPTY,
-        "track": {"enum": list(TRACKS)},
-        "seed": _COUNT,
-        "status": {"enum": list(GRADING_STATUSES)},
-        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-        "success": {"type": ["boolean", "null"]},
-        "metrics": {"type": "object", "additionalProperties": _NUMBER},
-    }
-)
+_SCORE_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.score/1"},
+    "question_hash": _HASH,
+    "model": _NON_EMPTY,
+    "digest": _NON_EMPTY,
+    "track": {"enum": list(TRACKS)},
+    "seed": _COUNT,
+    "status": {"enum": list(GRADING_STATUSES)},
+    "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "success": {"type": ["boolean", "null"]},
+    "metrics": {"type": "object", "additionalProperties": _NUMBER},
+    # Cause d'un context_exceeded (AD-6) : requis dans ce seul statut, interdit sinon.
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
+SCORE_V1: dict[str, Any] = {
+    **_closed(
+        _SCORE_PROPERTIES,
+        required=[name for name in _SCORE_PROPERTIES if name != "context_limit"],
+    ),
+    "if": {"properties": {"status": {"const": "context_exceeded"}}},
+    "then": {"required": ["context_limit"]},
+    "else": {"not": {"required": ["context_limit"]}},
+}
 
 _REPORT_MODEL_STATS = _closed(
     {
         "model": _NON_EMPTY,
+        # mean, n, se, IC, rang, groupe : sur les unités communes à tous les modèles du
+        # périmètre (AD-17) ; mean_all et n_all : toutes les unités définies du modèle.
         "mean": _MAYBE_NUMBER,
         "n": _COUNT,
+        "mean_all": _MAYBE_NUMBER,
+        "n_all": _COUNT,
         "excluded": _COUNT,
         "se": _MAYBE_NUMBER,
         "ci_low": _MAYBE_NUMBER,
@@ -510,6 +523,10 @@ _REPORT_MODEL_STATS = _closed(
         "graded": _COUNT,
         "truncated": _COUNT,
         "truncation_rate": _MAYBE_NUMBER,
+        # Lignes context_exceeded du périmètre, par cause (AD-10) : model compte comme un échec
+        # (score 0), bench est une unité nulle.
+        "context_exceeded_model": _COUNT,
+        "context_exceeded_bench": _COUNT,
     }
 )
 _REPORT_COMPARISON = _closed(
@@ -550,7 +567,14 @@ _REPORT_CONTINUOUS = _closed(
         "models": {
             "type": "array",
             "items": _closed(
-                {"model": _NON_EMPTY, "mean": _MAYBE_NUMBER, "n": _COUNT, "excluded": _COUNT}
+                {
+                    "model": _NON_EMPTY,
+                    "mean": _MAYBE_NUMBER,
+                    "n": _COUNT,
+                    "mean_all": _MAYBE_NUMBER,
+                    "n_all": _COUNT,
+                    "excluded": _COUNT,
+                }
             ),
         },
         "comparisons": {
@@ -572,6 +596,7 @@ _REPORT_SCOPE = _closed(
         "usage": {"enum": [*USAGES, None]},
         "method": {"enum": list(REPORT_METHODS)},
         "units": _COUNT,
+        "common_units": _COUNT,
         "leader": _MAYBE_TAG,
         "models": {"type": "array", "items": _REPORT_MODEL_STATS},
         "comparisons": {"type": "array", "items": _REPORT_COMPARISON},

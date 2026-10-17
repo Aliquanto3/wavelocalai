@@ -123,6 +123,7 @@ def campaign_data(inputs: CampaignInputs) -> CampaignData:
             eval_ns=durations["eval"],
             prompt_hash=record["prompt_hash"],
             output_hash=sha256_hex(record["output"]),
+            context_limit=record.get("context_limit"),
         )
     grading_status = {
         record["key"]: record["status"]

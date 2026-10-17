@@ -92,6 +92,8 @@ def score_files(inputs: CampaignInputs) -> dict[str, bytes]:
             "success": row.success,
             "metrics": dict(row.metrics),
         }
+        if row.status == "context_exceeded":
+            record["context_limit"] = row.context_limit
         by_model[row.model].append(dict(_checked(record, "qb.score/1")))
     files = {}
     for tag, records in by_model.items():

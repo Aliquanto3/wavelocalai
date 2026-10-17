@@ -622,23 +622,40 @@ def _deferred(report: Mapping[str, Any]) -> list[str]:
             f"`{e['source']}`",
             fr_int(e["lines"]),
             fr_int(e["context_exceeded"]),
+            fr_int(e["context_exceeded_model"]),
+            fr_int(e["context_exceeded_bench"]),
             fr_percent(e["rate"]),
         ]
         for e in section["context_exceeded"]["by_source"]
         if e["context_exceeded"] or e["source"] == "bfcl-multi"
     ]
-    lines += _table(["Piste", "Modèle", "Source", "Lignes", "Dépassées", "Part"], rows)
-    lines += ["", "Sources sans dépassement omises, sauf `bfcl-multi`, toujours montrée.", ""]
+    lines += _table(
+        ["Piste", "Modèle", "Source", "Lignes", "Dépassées", "Limite du modèle", "Limite du banc"]
+        + ["Part"],
+        rows,
+    )
+    lines += [
+        "",
+        "Sources sans dépassement omises, sauf `bfcl-multi`, toujours montrée. Limite du modèle : "
+        "son contexte déclaré est inférieur au palier (ou le dépasse au palier maximal), échec "
+        "compté (score 0). Limite du banc : plafond de la configuration ou erreur d'estimation, "
+        "unité écartée.",
+        "",
+    ]
     rows = [
         [
             fr_int(e["num_ctx"]),
             fr_int(e["lines"]),
             fr_int(e["context_exceeded"]),
+            fr_int(e["context_exceeded_model"]),
+            fr_int(e["context_exceeded_bench"]),
             fr_percent(e["rate"]),
         ]
         for e in section["context_exceeded"]["by_tier"]
     ]
-    lines += _table(["Palier", "Lignes", "Dépassées", "Part"], rows)
+    lines += _table(
+        ["Palier", "Lignes", "Dépassées", "Limite du modèle", "Limite du banc", "Part"], rows
+    )
     lines += [
         "",
         "### Unités non communes et meneur (AD-10)",

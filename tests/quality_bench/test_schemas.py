@@ -430,6 +430,30 @@ def test_score_line_is_closed(overrides, field):
     assert excinfo.value.path == field
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded", "context_limit": "model", "score": 0.0, "success": False},
+        {"status": "context_exceeded", "context_limit": "bench", "score": None, "success": None},
+    ],
+)
+def test_score_line_carries_the_context_limit(overrides):
+    assert validate(_score(**overrides)) == "qb.score/1"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded", "score": None, "success": None},  # cause absente
+        {"status": "context_exceeded", "context_limit": "banc"},
+        {"context_limit": "bench"},  # interdit hors context_exceeded
+    ],
+)
+def test_score_line_context_limit_rules(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(_score(**overrides))
+
+
 def _aa(**overrides):
     record = {
         "schema": "qb.aa_reference/1",
@@ -493,12 +517,15 @@ def _report():
                         "usage": None,
                         "method": "mcnemar",
                         "units": 10,
+                        "common_units": 10,
                         "leader": "m:1b",
                         "models": [
                             {
                                 "model": "m:1b",
                                 "mean": 0.5,
                                 "n": 10,
+                                "mean_all": 0.5,
+                                "n_all": 10,
                                 "excluded": 0,
                                 "se": 0.1,
                                 "ci_low": 0.3,
@@ -510,6 +537,8 @@ def _report():
                                 "graded": 10,
                                 "truncated": 0,
                                 "truncation_rate": 0.0,
+                                "context_exceeded_model": 0,
+                                "context_exceeded_bench": 0,
                             }
                         ],
                         "comparisons": [],
