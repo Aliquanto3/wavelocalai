@@ -65,6 +65,7 @@ SAMPLE_COMMAND = "calibrate-sample"
 JUDGMENT_PREFIX = "judgment-"
 DEFAULT_SAMPLE_SIZE = 100
 DEFAULT_SEED = 0
+_TODO_FIELDS = ("label", "author", "labeled_at", "note")
 
 
 # -- Consigne et réponse vues par le juge (reprises de judge/prompt.py, test d'égalité) -----
@@ -232,13 +233,29 @@ def _check_labeled_at(value: str | None, where: str) -> None:
     """Date réelle : le schéma ne vérifie que la forme (``2026-13-45`` y passe)."""
     if value is None:
         return
-    day, _, time = value.partition("T")
+    # strptime plutôt que fromisoformat : celui-ci accepte ``24:00:00`` depuis Python 3.11.
+    layout = "%Y-%m-%dT%H:%M:%SZ" if "T" in value else "%Y-%m-%d"
     try:
-        datetime.date.fromisoformat(day)
-        if time:
-            datetime.time.fromisoformat(time.rstrip("Z"))
+        datetime.datetime.strptime(value, layout)
     except ValueError:
         raise ReportError(f"{where} : labeled_at {value} n'est pas une date réelle") from None
+
+
+def _check_hand_edited(path: Path) -> None:
+    """Fichier rempli à la main : BOM UTF-8 en tête ou dernière ligne sans fin de ligne refusés
+    (``read_jsonl`` ignorerait la dernière ligne)."""
+    name = path.name
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise ReportError(f"{name} illisible : {path} ({type(exc).__name__})") from None
+    if data.startswith(codecs.BOM_UTF8):
+        raise ReportError(f"{name} : BOM UTF-8 en tête ({path}) ; l'enregistrer en UTF-8 sans BOM")
+    if data and not data.endswith(b"\n"):
+        raise ReportError(
+            f"{name} : dernière ligne sans fin de ligne ({path}) ; read_jsonl ignorerait "
+            "la dernière ligne : ajouter un retour à la ligne final"
+        )
 
 
 def read_labels(campaign: str, unit_keys: frozenset[str]) -> Labels:
@@ -251,19 +268,7 @@ def read_labels(campaign: str, unit_keys: frozenset[str]) -> Labels:
     path = paths.labels_path()
     if not path.exists():
         return Labels(False, 0, {}, 0, 0, 0)
-    try:
-        data = path.read_bytes()
-    except OSError as exc:
-        raise ReportError(f"labels.jsonl illisible : {path} ({type(exc).__name__})") from None
-    if data.startswith(codecs.BOM_UTF8):
-        raise ReportError(
-            f"labels.jsonl : BOM UTF-8 en tête ({path}) ; l'enregistrer en UTF-8 sans BOM"
-        )
-    if data and not data.endswith(b"\n"):
-        raise ReportError(
-            f"labels.jsonl : dernière ligne sans fin de ligne ({path}) ; read_jsonl ignorerait "
-            "la dernière étiquette : ajouter un retour à la ligne final"
-        )
+    _check_hand_edited(path)
     prefix = f"{campaign}|"
     values: dict[str, bool] = {}
     seen: set[str] = set()
@@ -442,10 +447,13 @@ def calibrate_sample(
         raise config.ConfigError(f"--size : entier ≥ 1 attendu ({size})")
     jsonl_path = paths.labels_todo_path(campaign, ".jsonl")
     target = paths.labels_todo_path(campaign, ".md")
+    if jsonl_path.exists():
+        _check_hand_edited(jsonl_path)
+    # Toute saisie compte : label, mais aussi author, labeled_at ou note posés avant le label.
     filled = [
         line_no
         for line_no, record in enumerate(_lines(jsonl_path, jsonl_path.name), start=1)
-        if record.get("label") is not None
+        if any(record.get(field) is not None for field in _TODO_FIELDS)
     ]
     if filled:
         raise ReportError(
@@ -478,6 +486,11 @@ def calibrate_sample(
             )
             continue
         restricting.append(data)
+    if not restricting:
+        logger.warning(
+            "Aucun juge complet : réservoir non réduit aux unités notées (toutes les unités "
+            "publiques)"
+        )
     reservoir = [
         unit
         for unit in public
@@ -499,7 +512,10 @@ def calibrate_sample(
         ),
     )
     if not reservoir:
-        raise ReportError(f"aucune unité jugeable à échantillonner dans la campagne {campaign}")
+        raise ReportError(
+            f"aucune unité jugeable à échantillonner dans la campagne {campaign}"
+            + (" (toutes déjà présentes dans labels.jsonl)" if already else "")
+        )
     sample = draw_sample(reservoir, size, seed)
     for model in sorted(sample.quotas):
         if sample.drawn[model] < sample.quotas[model]:
