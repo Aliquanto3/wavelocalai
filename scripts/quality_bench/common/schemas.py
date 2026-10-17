@@ -17,7 +17,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from jsonschema import Draft202012Validator, validators
+from jsonschema import Draft202012Validator, FormatChecker, validators
 from jsonschema.exceptions import best_match
 from jsonschema_specifications import REGISTRY as _METASCHEMAS
 from referencing import Registry
@@ -699,6 +699,13 @@ def _no_remote_retrieval(uri: str) -> Any:
 
 _LOCAL_REGISTRY = _METASCHEMAS.combine(Registry(retrieve=_no_remote_retrieval))
 
+# Formats vérifiés par conformity_error (json_schema@2), comme le FormatChecker de JSONSchemaBench
+# (core/evaluator.py) mais figés : ceux que jsonschema contrôle sans dépendance facultative. Les
+# autres (date-time, uri, hostname...) restent des annotations ; `time` est écarté (le contrôle
+# de jsonschema sans extra suit le draft 3, pas RFC 3339).
+FORMAT_CHECKED = ("date", "email", "idn-email", "ipv4", "ipv6", "regex", "uuid")
+_FORMAT_CHECKER = FormatChecker(FORMAT_CHECKED)
+
 
 def conformity_error(schema: Any, instance: Any) -> str | None:
     """Chemin JSON et mot-clé du premier défaut d'``instance`` (sortie de modèle) contre le
@@ -706,12 +713,12 @@ def conformity_error(schema: Any, instance: Any) -> str | None:
 
     Validateur de la version que déclare ``$schema`` (2020-12 par défaut), entiers JSON de
     cette version (``1.0`` est un entier à partir du draft 6 ; les drafts 3 et 4 le refusent),
-    aucune résolution distante.
+    aucune résolution distante, mots-clés `format` de `FORMAT_CHECKED` vérifiés.
     Un schéma invérifiable (référence introuvable, motif invalide) lève l'exception de
     ``jsonschema`` ou de ``referencing`` : c'est une erreur du banc, jamais un échec du modèle.
     """
     validator_class = validators.validator_for(schema, default=Draft202012Validator)
-    validator = validator_class(schema, registry=_LOCAL_REGISTRY)
+    validator = validator_class(schema, registry=_LOCAL_REGISTRY, format_checker=_FORMAT_CHECKER)
     error = best_match(validator.iter_errors(instance))
     return None if error is None else f"{_json_path(error)} ({error.validator})"
 

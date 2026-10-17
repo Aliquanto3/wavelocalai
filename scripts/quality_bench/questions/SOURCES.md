@@ -191,11 +191,13 @@ Registre `grading/registry.py`, un correcteur par nom de `GRADERS`, tous en vers
 | `bfcl_ast@1` | `bfcl-live`, `bfcl-parallel`, `tools-fr` | appels du tour 0, `ast_checker` de BFCL (Python, catégorie de la question) |
 | `bfcl_state@1` | `bfcl-multi` | rejeu des appels dans `envs/`, puis `multi_turn_checker` de BFCL (état et réponses) ; tour absent ou rejeu divergent : erreur |
 | `bfcl_irrelevance@1` | `bfcl-irrelevance` | succès si aucun appel d'outil |
-| `json_schema@1` | `jsonschemabench`, `extraction-fr` | JSON décodé (clôtures Markdown admises) et vérifié contre le schéma (`$schema` déclaré, aucune résolution distante) ; avec cible : feuilles comparées par chemin (clés et indices, listes par position), toutes les feuilles attendues retrouvées, `metrics.f1` |
+| `json_schema@2` | `jsonschemabench`, `extraction-fr` | JSON décodé (clôtures Markdown admises) et vérifié contre le schéma (`$schema` déclaré, aucune résolution distante, mots-clés `format` vérifiés, voir ci-dessous) ; avec cible : feuilles comparées par chemin (clés et indices, listes par position), toutes les feuilles attendues retrouvées, `metrics.f1` |
 | `squad_f1@1` | `piaf` | correspondance exacte après normalisation française, `metrics.f1` de jetons |
 | `oneruler_niah@1`, `oneruler_cwe@1` | `oneruler-fr-niah`, `oneruler-fr-none` ; `oneruler-fr-cwe` | `compare_numbers`, `compare_none` (réponse attendue `grader.params.none_answer`) et `is_correct_order` de OneRuler |
 | `abstention_marker@1` | `abstention-fr` | réponse sans espaces, guillemets, `*`, `` ` `` ni point final en bordure, égale au marqueur sans tenir compte de la casse |
 | `judge_criteria@1` | `writing-fr` | score = part des critères jugés vrais sur tous les critères, `success` nul |
+
+**`format` dans `json_schema@2` :** le validateur de JSONSchemaBench (`core/evaluator.py`, `epfl-dlab/jsonschemabench` @ `8003e8405c4d8d8b327b1eb472c9856297d75493`, https://github.com/epfl-dlab/jsonschemabench/blob/8003e8405c4d8d8b327b1eb472c9856297d75493/core/evaluator.py) active les formats : `Draft202012Validator(schema, format_checker=FormatChecker())`, avec `ipv4`, `ipv6` et `uuid` redéfinis (`IPv4Address`, `IPv6Address`, `UUID`). `conformity_error` fait de même, avec une liste figée (`common/schemas.FORMAT_CHECKED` : `date`, `email`, `idn-email`, `ipv4`, `ipv6`, `regex`, `uuid`) pour ne pas dépendre des extras installés : les autres formats (`date-time`, `uri`, `hostname`, `time`...) restent des annotations, faute de dépendance facultative (le `FormatChecker()` de l'amont en dépend aussi). Écart connu : l'amont valide toujours en draft 2020-12, alors que le banc suit le `$schema` déclaré.
 
 Le hasard global (`random`) est fixé puis restauré autour des vérificateurs de consignes, et `langdetect` reçoit la graine 0 avant tout chargement.
 

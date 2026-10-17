@@ -45,7 +45,10 @@ def _outcome(record):
 def test_registry_has_the_twelve_graders_at_version_one():
     assert set(GRADERS) == set(GRADER_NAMES)
     assert len(GRADERS) == 12
-    assert all(registered.version == f"{name}@1" for name, registered in GRADERS.items())
+    assert all(
+        registered.version == f"{name}@{2 if name == 'json_schema' else 1}"
+        for name, registered in GRADERS.items()
+    )
 
 
 def test_langdetect_seed_fixed_by_registry():
