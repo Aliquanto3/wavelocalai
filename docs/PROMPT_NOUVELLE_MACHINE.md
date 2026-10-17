@@ -27,28 +27,28 @@ Déroulé attendu :
    sur la bonne branche et mets-la à jour. Signale-moi tout travail local non
    commité avant de toucher à quoi que ce soit.
 
-2. Prépare l'environnement : venv Python, puis installe uniquement
+2. Prépare l'environnement : crée le venv du banc `.venv-bench` (`python -m venv .venv-bench`, pas `.venv`, réservé à l'application), puis installe uniquement
    `ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"`.
    N'installe pas tout `requirements.txt`, qui tire torch et docling pour rien.
    Vérifie qu'Ollama est présent et en version 0.30 minimum (0.34+ recommandé) :
    en dessous, les modèles récents et les GGUF en 1 bit ne se chargent pas.
 
-3. Lance `python scripts/bench_here.py plan --label <nom-court-de-la-machine>` et
+3. Lance `.venv-bench/Scripts/python scripts/bench_here.py plan --label <nom-court-de-la-machine>` et
    montre-moi le résultat : matériel détecté, budget mémoire, modèles retenus et
    volume à télécharger. Choisis un label parlant, par exemple `tour-rtx4090` ou
    `pro-thinkpad`.
 
 4. **Attends ma validation avant tout téléchargement**, et dis-moi le volume total.
    Si je suis en partage de connexion, je te donnerai un plafond. Ensuite :
-   `python scripts/bench_here.py install --label <label>`
+   `.venv-bench/Scripts/python scripts/bench_here.py install --label <label>`
 
-5. Lance le benchmark : `python scripts/bench_here.py run --label <label>`
+5. Lance le benchmark : `.venv-bench/Scripts/python scripts/bench_here.py run --label <label>`
    Fais-le tourner en arrière-plan et préviens-moi de l'avancement. Machine au
    repos : ne télécharge rien pendant ce temps, cela coûte jusqu'à 30 % de débit.
    Compte deux à trois minutes par modèle avec GPU, bien plus sans.
 
 6. Exporte et publie :
-   `python scripts/bench_here.py export --label <label>`
+   `.venv-bench/Scripts/python scripts/bench_here.py export --label <label>`
    puis crée la branche `bench/<machine_id>`, commite le seul fichier de résultats,
    pousse, et ouvre une PR avec `gh pr create`. Dans la description, indique le
    matériel, le mode (GPU ou CPU), le nombre de modèles testés et toute anomalie.

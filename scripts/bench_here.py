@@ -197,7 +197,7 @@ def pull_via_hf(entry: dict[str, Any], tag: str) -> bool:
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
     target = GGUF_DIR / fb["file"]
 
-    hf = shutil.which("hf") or str(ROOT / ".venv" / "Scripts" / "hf.exe")
+    hf = shutil.which("hf") or str(ROOT / ".venv-bench" / "Scripts" / "hf.exe")
     print(f"    téléchargement Hugging Face : {fb['repo']}/{fb['file']}")
     if subprocess.run([hf, "download", fb["repo"], fb["file"],
                        "--local-dir", str(GGUF_DIR)]).returncode != 0:

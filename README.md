@@ -27,57 +27,56 @@ WaveLocalAI est un **proof of concept** conçu pour :
 
 ### Prérequis
 
-- **Python 3.10+**
+- **uv** (installe Python lui-même ; 3.10 à 3.12 pris en charge)
 - **Ollama** : [Télécharger ici](https://ollama.com/download)
 - *Optionnel :* Clé API Mistral pour comparaison Cloud
 
 ### Installation (5 min)
 
-L'application s'installe dans son propre environnement, `.venv-app`, distinct du `.venv` réservé au banc de benchmark sur certaines machines. Les versions exactes sont figées dans `constraints.txt` : toujours installer avec `-c constraints.txt`.
+L'installation passe par [uv](https://docs.astral.sh/uv/), sans droits administrateur : uv télécharge lui-même Python (3.12). Les versions exactes sont figées dans `uv.lock`.
 
-```bash
-# 1. Cloner le projet
+```powershell
+# 1. Installer uv (Windows, sans droits administrateur)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Mac/Linux : curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Récupérer le projet (git clone, ou le zip du dépôt décompressé)
 git clone https://github.com/Aliquanto3/wavelocalai.git
 cd wavelocalai
 
-# 2. Créer l'environnement virtuel de l'application
-python -m venv .venv-app
+# 3. Lancer l'application : le premier lancement crée .venv, installe les dépendances
+#    et crée data/models.json depuis config/models_catalog.json
+uv run wavelocalai
 
-# 3. Installer les dépendances aux versions figées (Windows)
-.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
-
-# Mac/Linux
-.venv-app/bin/python -m pip install -r requirements.txt -c constraints.txt
-
-# 4. Configurer (optionnel)
-cp .env.example .env
-# Éditer .env pour ajouter MISTRAL_API_KEY si souhaité
-
-# 5. Télécharger un modèle local
+# 4. Télécharger un modèle local (Ollama doit être installé)
 ollama pull qwen2.5:1.5b
-
-# 6. Lancer l'application, depuis la racine du dépôt (Windows)
-.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
-
-# Mac/Linux
-.venv-app/bin/python -m streamlit run src/app/Accueil.py
 ```
 
-L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Lancer depuis la racine du dépôt : Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le fichier n'est pas lu et le serveur écoute sur le réseau.
+Configuration optionnelle : `cp .env.example .env`, puis ajouter `MISTRAL_API_KEY` pour la comparaison Cloud.
+
+Sur un réseau d'entreprise qui intercepte le HTTPS (proxy avec certificat maison), faire utiliser à uv le magasin de certificats du système, comme pour WaveStack : `$env:UV_SYSTEM_CERTS = "1"` avant `uv run`.
+
+**Mettre à jour** : `git pull`, puis `uv sync` (ou directement `uv run wavelocalai`).
+
+L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Le lanceur se place lui-même à la racine du dépôt, car Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le serveur écouterait sur le réseau.
 
 **Ouvrir l'application sur le réseau** (démonstration depuis un autre poste) est un choix explicite, à faire au lancement uniquement, sur un réseau de confiance :
 
-```bash
-# Windows
-.venv-app\Scripts\python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
-
-# Mac/Linux
-.venv-app/bin/python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+```powershell
+uv run wavelocalai --server.address 0.0.0.0
 ```
 
-Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau.
+Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau. Les arguments supplémentaires sont transmis à `streamlit run`.
 
-**Mettre à jour une dépendance** : modifier `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier (`uv pip compile requirements.txt --universal --python-version 3.10 -o constraints.txt`) et vérifier par une installation réelle.
+**Sans uv** : créer un environnement et installer aux versions figées de `constraints.txt`, puis lancer Streamlit depuis la racine du dépôt.
+
+```bash
+python -m venv .venv-app
+.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt   # Mac/Linux : .venv-app/bin/python
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
+```
+
+**Mettre à jour une dépendance** : modifier `pyproject.toml`, puis `uv lock` (et reporter le changement dans `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier, pour la méthode sans uv). Le venv du banc de benchmark est `.venv-bench` (voir `docs/PROMPT_NOUVELLE_MACHINE.md`).
 
 **Tests** : `python -m pytest tests/unit tests/app` tourne sans Ollama, clé d'API ni réseau. `tests/integration` exige Ollama et `qwen2.5:1.5b` ; les tests marqués `e2e` sont exclus par défaut (`-m e2e` pour les lancer).
 

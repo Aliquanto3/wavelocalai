@@ -128,41 +128,41 @@ Un « environnement virtuel » isole les bibliothèques du projet du reste de vo
 machine.
 
 ```bash
-python -m venv .venv
+python -m venv .venv-bench
 ```
 
 Installez ensuite les cinq bibliothèques nécessaires. **Windows :**
 
 ```powershell
-.venv\Scripts\python -m pip install --upgrade pip
-.venv\Scripts\python -m pip install ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"
+.venv-bench\Scripts\python -m pip install --upgrade pip
+.venv-bench\Scripts\python -m pip install ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"
 ```
 
 **macOS / Linux :**
 
 ```bash
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"
+.venv-bench/bin/python -m pip install --upgrade pip
+.venv-bench/bin/python -m pip install ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"
 ```
 
 > **Pourquoi ne pas faire `pip install -r requirements.txt` ?** Ce fichier installe
 > toute l'application (PyTorch, Docling, CrewAI), soit plusieurs gigaoctets inutiles
 > pour le benchmark.
 
-> **Pourquoi écrire `.venv\Scripts\python` au lieu d'activer l'environnement ?**
+> **Pourquoi écrire `.venv-bench\Scripts\python` au lieu d'activer l'environnement ?**
 > En entreprise, la politique de sécurité Windows bloque souvent les scripts
 > d'activation. Invoquer directement l'exécutable contourne le problème. C'est aussi
 > ce que recommande [TROUBLESHOOT.md](TROUBLESHOOT.md).
 
-Dans la suite du guide, **remplacez `python` par `.venv\Scripts\python`** (Windows)
-ou `.venv/bin/python` (macOS/Linux).
+Dans la suite du guide, **remplacez `python` par `.venv-bench\Scripts\python`** (Windows)
+ou `.venv-bench/bin/python` (macOS/Linux).
 
 ---
 
 ## 5. Découvrir ce que votre machine peut faire tourner
 
 ```powershell
-.venv\Scripts\python scripts\bench_here.py plan --label mon-pc
+.venv-bench\Scripts\python scripts\bench_here.py plan --label mon-pc
 ```
 
 Choisissez une étiquette courte et parlante à la place de `mon-pc` : `tour-rtx4090`,
@@ -201,7 +201,7 @@ l'étape suivante en ne prenant qu'une partie des modèles.
 ## 6. Télécharger les modèles
 
 ```powershell
-.venv\Scripts\python scripts\bench_here.py install --label mon-pc
+.venv-bench\Scripts\python scripts\bench_here.py install --label mon-pc
 ```
 
 Le script liste ce qui manque, annonce le volume, puis **demande confirmation**.
@@ -239,7 +239,7 @@ Fermez les applications lourdes — navigateur avec cinquante onglets, jeux, mac
 virtuelles. **Une machine occupée fausse les mesures jusqu'à 30 %.**
 
 ```powershell
-.venv\Scripts\python scripts\bench_here.py run --label mon-pc
+.venv-bench\Scripts\python scripts\bench_here.py run --label mon-pc
 ```
 
 Le script affiche, modèle par modèle :
@@ -286,7 +286,7 @@ relancez la même commande en ajoutant `--skip-tested` pour reprendre où vous e
 Les mesures s'accumulent dans `data/models.json`. Pour un tableau lisible :
 
 ```powershell
-.venv\Scripts\python scripts\benchmark_slm.py --report-only
+.venv-bench\Scripts\python scripts\benchmark_slm.py --report-only
 ```
 
 Cela écrit `data/benchmark_report.md`, ouvrable dans n'importe quel éditeur de texte
@@ -308,7 +308,7 @@ Ce qu'il faut regarder en priorité :
 ### Générer le fichier
 
 ```powershell
-.venv\Scripts\python scripts\bench_here.py export --label mon-pc
+.venv-bench\Scripts\python scripts\bench_here.py export --label mon-pc
 ```
 
 Cela crée `benchmarks/results/mon-pc-<identifiant>.json`, contenant votre profil
@@ -347,8 +347,8 @@ C'est terminé. Vos résultats sont partagés.
 Une fois plusieurs fichiers de résultats présents :
 
 ```powershell
-.venv\Scripts\python scripts\merge_results.py
-.venv\Scripts\python scripts\merge_results.py --csv
+.venv-bench\Scripts\python scripts\merge_results.py
+.venv-bench\Scripts\python scripts\merge_results.py --csv
 ```
 
 Le tableau affiche un modèle par ligne et une machine par colonne. Le script
@@ -366,7 +366,7 @@ modèles conçus pour raisonner.
 Une seconde campagne les mesure dans leurs conditions optimales :
 
 ```powershell
-.venv\Scripts\python scripts\benchmark_slm.py --params vendor --thinking on --max-context 8192 --force-tool-test
+.venv-bench\Scripts\python scripts\benchmark_slm.py --params vendor --thinking on --max-context 8192 --force-tool-test
 ```
 
 Elle écrit sous une clé séparée (`benchmark_stats_vendor`) et **n'écrase pas** la
@@ -387,7 +387,7 @@ produisant beaucoup plus de texte.
 | Le processus est tué pendant un gros modèle | RAM insuffisante | Évitez les modèles MoE (23 Go) en dessous de 32 Go de RAM |
 | `VRAM non fiable (relevé WMI)` | pilote graphique absent | Forcez la valeur : `scripts\machine_profile.py --label mon-pc --vram-gb 12` |
 | Téléchargement interrompu qui reprend à zéro | l'outil Hugging Face perd les fichiers partiels | Relancez : les fichiers déjà complets sont conservés |
-| `running scripts is disabled on this system` | politique PowerShell | N'activez pas l'environnement : utilisez `.venv\Scripts\python` directement |
+| `running scripts is disabled on this system` | politique PowerShell | N'activez pas l'environnement : utilisez `.venv-bench\Scripts\python` directement |
 | Vitesses anormalement basses | machine occupée | Fermez les applications lourdes et recommencez |
 
 ---

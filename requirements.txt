@@ -1,3 +1,4 @@
+# Méthode recommandée : uv (`uv sync`, voir pyproject.toml et uv.lock). Ce fichier ne sert plus qu'à l'installation sans uv.
 # Dépendances directes de l'application.
 # Les versions exactes sont figées dans constraints.txt (généré par uv pip compile) :
 #   uv pip install -r requirements.txt -c constraints.txt
