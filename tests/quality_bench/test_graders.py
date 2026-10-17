@@ -476,9 +476,12 @@ def test_context_exceeded_by_model_on_writing_has_no_success(q):
         q["writing"], answer_output("Texte."), status="context_exceeded", context_limit="model"
     )
     assert _outcome(record) == ("context_exceeded", 0.0, None)
-    assert _grade(
-        q["writing"], answer_output("Texte."), status="context_exceeded", context_limit="bench"
-    )["score"] is None
+    assert (
+        _grade(
+            q["writing"], answer_output("Texte."), status="context_exceeded", context_limit="bench"
+        )["score"]
+        is None
+    )
 
 
 def test_context_exceeded_precedes_call_cap(q):

@@ -70,66 +70,64 @@ def _turn_message(role: str, extra: dict[str, Any] | None = None) -> dict[str, A
 
 CONTEXT_LIMITS = ("model", "bench")
 
-_GENERATION_PROPERTIES: dict[str, Any] = (
-    {
-        "schema": {"const": "qb.generation/1"},
-        "key": _NON_EMPTY,
-        "manifest": _HASH,
-        "campaign": _NON_EMPTY,
-        "model": _NON_EMPTY,
-        "digest": _NON_EMPTY,
-        "track": {"enum": list(TRACKS)},
-        "question_id": _NON_EMPTY,
-        "usage": {"enum": list(USAGES)},
-        "group": _NON_EMPTY,
-        "unit": _NON_EMPTY,
-        "prompt_hash": _HASH,
-        "seed": _COUNT,
-        "epoch": _COUNT,
-        "think": _THINK_VALUE,
-        "backend": {"const": "ollama"},
-        "ollama_version": _NON_EMPTY,
-        "num_ctx": {"type": "integer", "minimum": 1},
-        "num_predict": {"type": "integer", "minimum": 1},
-        "status": {"enum": list(GENERATION_STATUSES)},
-        "output": {
-            "type": "array",
-            "items": {
-                "oneOf": [
-                    _turn_message(
-                        "assistant",
-                        {
-                            "thinking": {"type": ["string", "null"]},
-                            "tool_calls": {"type": "array", "items": {"type": "object"}},
-                        },
-                    ),
-                    _turn_message("tool"),
-                    _turn_message("user"),
-                ]
-            },
+_GENERATION_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.generation/1"},
+    "key": _NON_EMPTY,
+    "manifest": _HASH,
+    "campaign": _NON_EMPTY,
+    "model": _NON_EMPTY,
+    "digest": _NON_EMPTY,
+    "track": {"enum": list(TRACKS)},
+    "question_id": _NON_EMPTY,
+    "usage": {"enum": list(USAGES)},
+    "group": _NON_EMPTY,
+    "unit": _NON_EMPTY,
+    "prompt_hash": _HASH,
+    "seed": _COUNT,
+    "epoch": _COUNT,
+    "think": _THINK_VALUE,
+    "backend": {"const": "ollama"},
+    "ollama_version": _NON_EMPTY,
+    "num_ctx": {"type": "integer", "minimum": 1},
+    "num_predict": {"type": "integer", "minimum": 1},
+    "status": {"enum": list(GENERATION_STATUSES)},
+    "output": {
+        "type": "array",
+        "items": {
+            "oneOf": [
+                _turn_message(
+                    "assistant",
+                    {
+                        "thinking": {"type": ["string", "null"]},
+                        "tool_calls": {"type": "array", "items": {"type": "object"}},
+                    },
+                ),
+                _turn_message("tool"),
+                _turn_message("user"),
+            ]
         },
-        "call_cap_reached": {"type": "boolean"},
-        "tokens": _closed(
-            {
-                "prompt": _COUNT,
-                "prompt_cached": _COUNT,
-                "completion": _COUNT,
-                "thinking_est": _COUNT,
-                "answer_est": _COUNT,
-            }
-        ),
-        "durations_ns": _closed(
-            {"total": _COUNT, "load": _COUNT, "prompt_eval": _COUNT, "eval": _COUNT}
-        ),
-        "wall_s": {"type": "number", "minimum": 0},
-        "calls": _COUNT,
-        "attempts": _COUNT,
-        "error": {"type": ["string", "null"]},
-        "created_at": _TIMESTAMP,
-        # Cause d'une ligne context_exceeded (AD-7) : requis dans ce seul statut, interdit sinon.
-        "context_limit": {"enum": list(CONTEXT_LIMITS)},
-    }
-)
+    },
+    "call_cap_reached": {"type": "boolean"},
+    "tokens": _closed(
+        {
+            "prompt": _COUNT,
+            "prompt_cached": _COUNT,
+            "completion": _COUNT,
+            "thinking_est": _COUNT,
+            "answer_est": _COUNT,
+        }
+    ),
+    "durations_ns": _closed(
+        {"total": _COUNT, "load": _COUNT, "prompt_eval": _COUNT, "eval": _COUNT}
+    ),
+    "wall_s": {"type": "number", "minimum": 0},
+    "calls": _COUNT,
+    "attempts": _COUNT,
+    "error": {"type": ["string", "null"]},
+    "created_at": _TIMESTAMP,
+    # Cause d'une ligne context_exceeded (AD-7) : requis dans ce seul statut, interdit sinon.
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
 GENERATION_V1: dict[str, Any] = {
     **_closed(
         _GENERATION_PROPERTIES,

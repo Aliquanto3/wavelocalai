@@ -86,9 +86,7 @@ def _summary():
         "models": [
             _model("alpha:4b", 0.75, 0.6, 0.86, 1, 1, mean_all=0.7, n_all=42),
             _model("beta:1b", 0.4, 0.26, 0.56, 2, 2, mean_all=0.5, n_all=41, excluded=1),
-            _model(
-                "gamma:1b", None, None, None, None, None, n=0, n_all=0, excluded=42, se=None
-            ),
+            _model("gamma:1b", None, None, None, None, None, n=0, n_all=0, excluded=42, se=None),
         ],
         "comparisons": [
             {

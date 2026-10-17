@@ -20,11 +20,12 @@ from scripts.quality_bench.common.jsonl import read_jsonl
 from scripts.quality_bench.common.schemas import validate
 from scripts.quality_bench.report.export import model_file_name
 
+from .factories import model_resolved
 from .report_factories import (
     CAMPAIGN,
     JUDGE_ID,
-    SECRET_OUTPUT,
     PROFILES,
+    SECRET_OUTPUT,
     SECRET_QUESTION,
     aa_reference,
     build_set,
@@ -32,7 +33,6 @@ from .report_factories import (
     make_campaign,
     write_aa_reference,
 )
-from .factories import model_resolved
 from .test_exports import export_problems
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -286,7 +286,9 @@ def test_bench_error_nulls_the_unit_and_is_counted(campaign):
     assert {p["n"] for p in scope["matrix"]} == {22}
     assert {c["n"] for c in scope["comparisons"]} == {22}
     # Limite du modèle : l'unité vaut 0 pour ce modèle (et non nulle).
-    assert _unit_scores(campaign, second, "think_off", "reasoning")["reasoning/var-math/0009"] == 0.0
+    assert (
+        _unit_scores(campaign, second, "think_off", "reasoning")["reasoning/var-math/0009"] == 0.0
+    )
 
 
 def test_truncation_rate_is_published_apart(campaign):
@@ -410,7 +412,7 @@ def test_leader_groups_and_spearman_use_common_units(tmp_path, monkeypatch):
     assert (sum(units[0].values()), sum(units[1].values())) == (10.0, 9.0)
     assert len(won_by_a_only) == 3
     statuses = {(2, "think_off", unit, 0): "context_exceeded" for unit in won_by_a_only}
-    campaign = make_campaign(tmp_path, monkeypatch, small=True, statuses=statuses)
+    make_campaign(tmp_path, monkeypatch, small=True, statuses=statuses)
     common = [u for u in units[0] if u not in won_by_a_only]
     assert len(common) == 9
     # A : 7 réussites sur les 9 unités communes ; B : 9 sur 9 ; C : ses réussites hors des 3 unités.
@@ -468,8 +470,11 @@ def _unit_scores(campaign, model, track, usage):
 
 def _common_units(campaign, track, usage):
     """Unités définies pour tous les modèles de la piste (réponse calculée sans le rapport)."""
-    models = [m for m in campaign.models if any(g["model"] == m and g["track"] == track
-                                                for g in campaign.generation)]
+    models = [
+        m
+        for m in campaign.models
+        if any(g["model"] == m and g["track"] == track for g in campaign.generation)
+    ]
     scores = [_unit_scores(campaign, m, track, usage) for m in models]
     return sorted(u for u in scores[0] if all(s.get(u) is not None for s in scores))
 
