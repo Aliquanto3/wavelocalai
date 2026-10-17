@@ -31,11 +31,28 @@ def ensure_models_json(root: Path = ROOT) -> bool:
 def main(argv: list[str] | None = None) -> int:
     from streamlit.web import cli as stcli
 
-    os.chdir(ROOT)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
-    if ensure_models_json(ROOT):
-        print("data/models.json créé depuis config/models_catalog.json")
+    # Hors installation éditable (`uv tool install`, `--no-editable`), ROOT pointe dans
+    # site-packages, sans config/ ni .streamlit/ : refuser plutôt que d'écouter sur le réseau.
+    required = [ROOT / "src" / "app" / "Accueil.py", ROOT / ".streamlit" / "config.toml"]
+    missing = [p for p in required if not p.exists()]
+    if missing:
+        print(
+            f"Racine du dépôt introuvable ({ROOT}) : lancer `uv run wavelocalai` depuis le"
+            " clone du dépôt (installation éditable).",
+            file=sys.stderr,
+        )
+        return 1
+    os.chdir(ROOT)
+    try:
+        if ensure_models_json(ROOT):
+            print("data/models.json créé depuis config/models_catalog.json")
+    except (OSError, ValueError, KeyError) as exc:
+        print(
+            f"Impossible de créer data/models.json depuis le catalogue : {exc!r}", file=sys.stderr
+        )
+        return 1
     extra = sys.argv[1:] if argv is None else argv
     sys.argv = ["streamlit", "run", str(ROOT / "src" / "app" / "Accueil.py"), *extra]
     return stcli.main() or 0

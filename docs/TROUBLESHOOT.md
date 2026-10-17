@@ -17,7 +17,7 @@ Ce guide détaille l'installation de **WaveLocalAI** sur un poste de travail sta
 En entreprise, l'exécution de scripts (`activate.ps1` ou `.bat`) est souvent bloquée par les politiques de sécurité. Nous recommandons la méthode de l'**Invocation Directe**.
 
 ### A. Création de l'environnement
-Pour ne pas polluer votre Python global, l'application a son propre environnement, `.venv-app` (ignoré par git). Sur certaines machines, `.venv` est réservé au banc de benchmark et ne contient que ses dépendances : ne jamais y installer `requirements.txt`.
+Méthode recommandée : `uv run wavelocalai` (voir le README), qui crée et remplit `.venv`. Cette section décrit l'installation sans uv, dans un environnement `.venv-app` (ignoré par git). Le venv du banc de benchmark s'appelle `.venv-bench` : ne jamais y installer `requirements.txt`.
 
 ```bash
 # À la racine du projet

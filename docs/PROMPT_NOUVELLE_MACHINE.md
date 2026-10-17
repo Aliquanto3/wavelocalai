@@ -28,6 +28,7 @@ Déroulé attendu :
    commité avant de toucher à quoi que ce soit.
 
 2. Prépare l'environnement : crée le venv du banc `.venv-bench` (`python -m venv .venv-bench`, pas `.venv`, réservé à l'application), puis installe uniquement
+   (si un ancien `.venv` du banc existe, ne lance ni `uv sync` ni `uv run` : recrée le banc dans `.venv-bench`)
    `ollama codecarbon psutil python-dotenv "huggingface_hub[hf_xet]"`.
    N'installe pas tout `requirements.txt`, qui tire torch et docling pour rien.
    Vérifie qu'Ollama est présent et en version 0.30 minimum (0.34+ recommandé) :

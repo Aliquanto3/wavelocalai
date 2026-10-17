@@ -56,6 +56,8 @@ Configuration optionnelle : `cp .env.example .env`, puis ajouter `MISTRAL_API_KE
 
 Sur un réseau d'entreprise qui intercepte le HTTPS (proxy avec certificat maison), faire utiliser à uv le magasin de certificats du système, comme pour WaveStack : `$env:UV_SYSTEM_CERTS = "1"` avant `uv run`.
 
+> **Machine de banc installée avant le passage à uv** : son `.venv` est encore le venv du banc, et `uv sync` ou `uv run` remplacerait son contenu par celui de l'application. Avant le premier `uv run`, recréer le banc dans `.venv-bench` (étape 2 de `docs/PROMPT_NOUVELLE_MACHINE.md`) puis supprimer l'ancien `.venv`. Ne pas se contenter de le renommer : sous Windows, les exécutables du venv (`hf.exe`) gardent le chemin de l'ancien dossier.
+
 **Mettre à jour** : `git pull`, puis `uv sync` (ou directement `uv run wavelocalai`).
 
 L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Le lanceur se place lui-même à la racine du dépôt, car Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le serveur écouterait sur le réseau.
