@@ -97,6 +97,7 @@ def _summary():
                 "b": 16,
                 "c": 2,
                 "p": 0.0007,
+                "p_method": "mcnemar",
                 "p_holm": 0.0014,
                 "reject": True,
             }
@@ -218,3 +219,11 @@ def test_svg_chart_follows_the_charter():
     assert ">sans score</text>" in svg  # colonne des valeurs du modèle sans score
     assert not _has_emoji(svg)
     assert set(charts(summary)) == {"think_off-global.svg", "think_off-reasoning.svg"}
+
+
+def test_markdown_notes_the_sign_test_fallback():
+    summary = _summary()
+    comparison = summary["tracks"][0]["scopes"][1]["comparisons"][0]
+    assert "test exact des signes" not in render(summary)
+    comparison["p_method"] = "sign"
+    assert "test exact des signes" in render(summary)
