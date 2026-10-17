@@ -21,7 +21,8 @@ FORBIDDEN_LIBRARIES = (
     "nltk",
     "spacy",
 )
-ALLOWED_QUESTIONS = {"questions/__init__.py", "questions/schema.py"}
+# questions/checks.py : forme pure des critères vérifiés par le code, importée par schema.py.
+ALLOWED_QUESTIONS = {"questions/__init__.py", "questions/schema.py", "questions/checks.py"}
 
 
 def _generation_graph():

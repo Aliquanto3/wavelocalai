@@ -1,4 +1,4 @@
-"""Fichiers réels du pilote (story 8) : ``campaigns/pilot-20261012.yaml``, son rejeu et
+"""Fichiers réels du pilote (story 8) : ``campaigns/pilot-20261017.yaml``, son rejeu et
 ``pilot.yaml`` se chargent et respectent la spec (modeles.md, rejeu sous-ensemble du pilote)."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import pytest
 from scripts.quality_bench.common import config, paths
 from scripts.quality_bench.common.config import DEFAULT_GENERATION
 
-PILOT = "pilot-20261012"
+PILOT = "pilot-20261017"
 REPLAY = f"{PILOT}-replay"
 MODELES = paths.REPO_ROOT / "_bmad-output/specs/spec-benchmark-qualite-difficile/modeles.md"
 
@@ -41,7 +41,7 @@ def test_modeles_table_is_parsed():
 
 def test_both_campaigns_load_with_the_same_generation_but_selection(campaigns):
     pilot, replay = campaigns[PILOT], campaigns[REPLAY]
-    assert pilot.set_id == replay.set_id == "set-v1"
+    assert pilot.set_id == replay.set_id == "set-v2"
     assert pilot.grading == replay.grading == {"judge": "haiku"}
     without = []
     for campaign in (pilot, replay):

@@ -1,9 +1,9 @@
-# Rejeu de stabilité du pilote CAP-8 (AD-4) : campagne distincte de pilot-20261012, même
+# Rejeu de stabilité du pilote CAP-8 (AD-4) : campagne distincte de pilot-20261017, même
 # section generation hors selection, même graine, effectifs au quart (140 questions think_off,
 # 70 think_on). Le tirage par groupes à préfixe stable en fait un sous-ensemble du pilote ; la
 # commande pilot joint les deux sur (model, digest, track, question_id, seed) à prompt_hash égal.
 # La section grading n'est pas bloquante : le juge retenu peut changer.
-set: set-v1
+set: set-v2
 generation:
   request: {temperature: 0, seed_base: 0, k: 1}
   caps: {think_on: {reasoning: 4096, default: 2048}, think_off: {default: 2048}}

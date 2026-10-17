@@ -358,21 +358,23 @@ Le rapport est une phase séparée, sans réseau, sans GPU et sans verrou machin
 
 Le pilote (CAP-8) tourne sur les 4 modèles « pilote » de `modeles.md`, avant toute campagne complète. Deux campagnes versionnées :
 
-- `campaigns/pilot-20261012.yaml` : 562 questions en `think_off` et 282 en `think_on` ;
-- `campaigns/pilot-20261012-replay.yaml` : le rejeu de stabilité, au quart (140 et 70 questions), sous-ensemble garanti du pilote.
+- `campaigns/pilot-20261017.yaml` : 562 questions en `think_off` et 282 en `think_on` ;
+- `campaigns/pilot-20261017-replay.yaml` : le rejeu de stabilité, au quart (140 et 70 questions), sous-ensemble garanti du pilote.
+
+Les deux lisent `set-v2` (2026-10-17) ; le tirage `groups` y donne les mêmes questions que sur `set-v1` (mêmes groupes, même graine) et le rejeu reste inclus dans le pilote. `pilot-20261012`, lancée sur `set-v1`, n'est qu'un essai historique, resté dans `data/` : le pilote repart de zéro.
 
 ```powershell
 # 1. Génération du pilote, puis du rejeu (campagne distincte, AD-4)
-.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261012
-.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261012-replay
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261017
+.venv-quality\Scripts\python -m scripts.quality_bench generate --campaign pilot-20261017-replay
 # 2. Jugement de la rédaction (non bloquant : le pilote se lit aussi sans juge)
-.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku --max-cost-usd 5
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261017 --judge haiku --max-cost-usd 5
 # 3. Correction des deux campagnes
-.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261012
-.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261012-replay
+.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261017
+.venv-quality\Scripts\python -m scripts.quality_bench grade --campaign pilot-20261017-replay
 # 4. Rapport du pilote (rejeu <c>-replay par défaut ; indice AA le plus récent par défaut)
-.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261012
-.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261012 --replay pilot-20261012-replay --aa-date 2026-10-01
+.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261017
+.venv-quality\Scripts\python -m scripts.quality_bench pilot --campaign pilot-20261017 --replay pilot-20261017-replay --aa-date 2026-10-01
 ```
 
 - **Sélection `groups`** de `generation.selection` : tirage par **groupes entiers**, stratifié par source.
@@ -418,18 +420,18 @@ La calibration (CAP-6) mesure l'accord des juges avec environ 100 étiquettes hu
 
 ```powershell
 # 1. Juger la campagne avec chaque juge à comparer (un dossier judgment-<id>/ par juge)
-.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge winnow
-.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku --max-cost-usd 5
-.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge mimo --max-cost-usd 15
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261017 --judge winnow
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261017 --judge haiku --max-cost-usd 5
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261017 --judge mimo --max-cost-usd 15
 # Rejeu de Haiku (stabilité) : identifiant distinct haiku-replay, mêmes réglages (alias YAML)
-.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261012 --judge haiku-replay --max-cost-usd 5
+.venv-quality\Scripts\python -m scripts.quality_bench judge --campaign pilot-20261017 --judge haiku-replay --max-cost-usd 5
 # 2. Échantillon à étiqueter : calibration/labels-todo-<c>.jsonl et .md
-.venv-quality\Scripts\python -m scripts.quality_bench calibrate-sample --campaign pilot-20261012 --size 100 --seed 9
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate-sample --campaign pilot-20261017 --size 100 --seed 9
 # 3. Remplir labels-todo-<c>.jsonl à la main, puis AJOUTER ses lignes à la fin de
 #    calibration/labels.jsonl (créé s'il est absent ; jamais remplacé : multi-campagnes)
 # 4. Rapport (seuils facultatifs : sans les deux, aucune recommandation)
-.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261012
-.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261012 --min-agreement 0.85 --max-qwen-bias 0.05
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261017
+.venv-quality\Scripts\python -m scripts.quality_bench calibrate --campaign pilot-20261017 --min-agreement 0.85 --max-qwen-bias 0.05
 ```
 
 - **Étiquette `qb.label/1`** (schéma fermé de `common/schemas.py`), une ligne par critère dans `$QUALITY_BENCH_DATA/calibration/labels.jsonl`, fichier écrit par Anaël seul (AD-2), qui peut couvrir plusieurs campagnes :
