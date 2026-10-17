@@ -68,7 +68,9 @@ def _turn_message(role: str, extra: dict[str, Any] | None = None) -> dict[str, A
     return _closed(properties)
 
 
-GENERATION_V1: dict[str, Any] = _closed(
+CONTEXT_LIMITS = ("model", "bench")
+
+_GENERATION_PROPERTIES: dict[str, Any] = (
     {
         "schema": {"const": "qb.generation/1"},
         "key": _NON_EMPTY,
@@ -124,8 +126,19 @@ GENERATION_V1: dict[str, Any] = _closed(
         "attempts": _COUNT,
         "error": {"type": ["string", "null"]},
         "created_at": _TIMESTAMP,
+        # Cause d'une ligne context_exceeded (AD-7) : requis dans ce seul statut, interdit sinon.
+        "context_limit": {"enum": list(CONTEXT_LIMITS)},
     }
 )
+GENERATION_V1: dict[str, Any] = {
+    **_closed(
+        _GENERATION_PROPERTIES,
+        required=[name for name in _GENERATION_PROPERTIES if name != "context_limit"],
+    ),
+    "if": {"properties": {"status": {"const": "context_exceeded"}}, "required": ["status"]},
+    "then": {"required": ["context_limit"]},
+    "else": {"not": {"required": ["context_limit"]}},
+}
 
 _MODEL_RESOLVED = _closed(
     {
@@ -142,6 +155,9 @@ _MODEL_RESOLVED = _closed(
         "think_off": _THINK_VALUE,
         "think_on": _THINK_VALUE,
         "num_ctx_max": {"type": "integer", "minimum": 1},
+        # Contexte maximal déclaré par /api/show (null si illisible) : sépare la limite du modèle
+        # de celle du banc dans une ligne context_exceeded (AD-7).
+        "context_length": {"type": ["integer", "null"], "minimum": 1},
     }
 )
 

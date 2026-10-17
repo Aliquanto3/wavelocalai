@@ -55,6 +55,27 @@ def test_generation_field_errors_name_the_field(overrides, field):
     assert excinfo.value.path == field
 
 
+@pytest.mark.parametrize("limit", ["model", "bench"])
+def test_generation_context_limit_required_with_context_exceeded(limit):
+    assert validate(generation_record(status="context_exceeded", context_limit=limit))
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "context_exceeded"},  # cause absente
+        {"status": "context_exceeded", "context_limit": None},
+        {"status": "context_exceeded", "context_limit": "banc"},  # liste fermée
+        {"status": "ok", "context_limit": "bench"},  # interdit hors context_exceeded
+        {"status": "truncated", "context_limit": "model"},
+        {"status": "error", "context_limit": "model"},
+    ],
+)
+def test_generation_context_limit_rules(overrides):
+    with pytest.raises(SchemaValidationError):
+        validate(generation_record(**overrides))
+
+
 def test_generation_closed_nested_objects():
     record = generation_record()
     record["tokens"]["reasoning"] = 3

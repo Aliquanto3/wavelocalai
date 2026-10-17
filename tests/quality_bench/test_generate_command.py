@@ -176,6 +176,7 @@ def test_nominal_campaign_writes_ordered_raw_lines(env):
     assert [m["tag"] for m in resolved] == [THINK, PLAIN]
     assert resolved[0]["capabilities"] == ["completion", "thinking", "tools"]
     assert resolved[1]["num_ctx_max"] == 4096  # contexte déclaré plus petit que la configuration
+    assert [m["context_length"] for m in resolved] == [None, 4096]
     assert manifest["blocking"]["ollama_version"] == "0.40.2"
     assert manifest["informative"]["checklist"]["reminders"]
 
@@ -190,10 +191,11 @@ def test_nominal_campaign_writes_ordered_raw_lines(env):
     # Paliers au-delà du maximum effectif : context_exceeded sans requête.
     plain_8192 = [line for line in lines if line["model"] == PLAIN and line["num_ctx"] == 8192]
     assert plain_8192 and all(
-        (line["status"], line["calls"], line["attempts"], line["output"])
-        == ("context_exceeded", 0, 0, [])
+        (line["status"], line["calls"], line["attempts"], line["output"], line["context_limit"])
+        == ("context_exceeded", 0, 0, [], "model")  # contexte déclaré 4096 < palier 8192
         for line in plain_8192
     )
+    assert all("context_limit" not in x for x in lines if x["status"] != "context_exceeded")
     assert all(line["status"] == "ok" for line in lines if line not in plain_8192)
 
     # Requêtes : think seulement si la capacité est déclarée, tools seulement si la question en a,
@@ -400,6 +402,47 @@ def test_context_exceeded_by_prompt(env):
         line["status"] for line in _lines() if line["model"] == THINK and line["num_ctx"] == 4096
     }
     assert statuses == {"context_exceeded"}  # 3100 ≥ 4096 − 2048
+    causes = {
+        line["context_limit"]
+        for line in _lines()
+        if line["model"] == THINK and line["status"] == "context_exceeded"
+    }
+    assert causes == {"bench"}  # contexte déclaré inconnu : jamais la limite du modèle
+
+
+def test_context_exceeded_at_runtime_below_model_maximum_is_bench(env):
+    env["fake"].models[THINK].context_length = 32768
+    env["fake"].responder = lambda body, fake: reply("x", prompt=3000, cached=100)
+    assert _run() == 0
+    exceeded = [
+        line for line in _lines() if line["model"] == THINK and line["status"] == "context_exceeded"
+    ]
+    assert exceeded and {line["context_limit"] for line in exceeded} == {"bench"}
+
+
+def test_context_exceeded_at_runtime_at_model_maximum_is_model(env):
+    # PLAIN déclare 4096 : le palier 4096 égale déjà son maximum, le dépassement est le sien.
+    env["fake"].responder = lambda body, fake: reply("x", prompt=3000, cached=100)
+    assert _run() == 0
+    plain = {
+        (line["num_ctx"], line["context_limit"])
+        for line in _lines()
+        if line["model"] == PLAIN and line["status"] == "context_exceeded"
+    }
+    assert plain == {(4096, "model"), (8192, "model")}
+
+
+def test_tier_above_configured_cap_is_bench(env):
+    # Plafond du banc (num_ctx_max de la configuration) sous le palier, contexte déclaré de 32768.
+    env["fake"].models[THINK].context_length = 32768
+    capped = {**MODELS[0], "num_ctx_max": 4096}
+    _write_campaign(env["config_dir"], models=[capped])
+    assert _run() == 0
+    skipped = [line for line in _lines() if line["num_ctx"] == 8192]
+    assert skipped and all(
+        (line["status"], line["calls"], line["context_limit"]) == ("context_exceeded", 0, "bench")
+        for line in skipped
+    )
 
 
 # --- Préflight, configuration et jeu ------------------------------------------------------

@@ -5,7 +5,7 @@ Tout refus lève ``LaunchError`` (code 2) avec un message qui nomme le modèle e
 aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
 
 - ``resolve_model`` : entrée de ``models_resolved`` (``tag``, ``digest``, ``family``,
-  ``capabilities`` triées, ``tracks``, ``think_off``, ``think_on``, ``num_ctx_max`` effectif) ;
+  ``capabilities`` triées, ``tracks``, ``think_off``, ``think_on``, ``num_ctx_max`` effectif, ``context_length`` déclaré) ;
   refuse un modèle absent de ``/api/tags`` ou sans ``digest``, distant (``remote_host``), qui
   déclare ``decision``, sans ``completion``, une piste ``think_on`` sans ``thinking`` ou à valeur
   fausse ou nulle, une piste ``think_off`` à valeur vraie, une valeur ``think`` incohérente avec la capacité ``thinking`` ou de type
@@ -14,6 +14,8 @@ aucun modèle, aucune piste ni aucune question n'est omis en silence (AD-8).
   dans ``content`` sous ``think: false``).
 - ``check_launch`` : refuse une question à outils sélectionnée pour un modèle sans ``tools``.
 - ``effective_ctx_max`` : ``min(num_ctx_max de la configuration, <arch>.context_length)``.
+- ``context_limit_cause`` : cause d'une ligne ``context_exceeded`` (``model`` ou ``bench``, AD-7).
+  ``models_resolved[].context_length`` garde le contexte déclaré (``null`` s'il n'est pas lu).
 """
 
 from __future__ import annotations
@@ -68,6 +70,27 @@ def effective_ctx_max(num_ctx_max: int, show: Mapping[str, Any]) -> int:
     """Contexte maximal effectif : le plus petit du plafond configuré et du contexte déclaré."""
     declared = declared_context_length(show)
     return num_ctx_max if declared is None else min(num_ctx_max, declared)
+
+
+CONTEXT_LIMIT_MODEL = "model"
+CONTEXT_LIMIT_BENCH = "bench"
+
+
+def context_limit_cause(model: Mapping[str, Any], num_ctx: int, *, requested: bool) -> str:
+    """Cause d'une ligne ``context_exceeded`` pour un palier ``num_ctx`` (AD-7).
+
+    - ``model`` : le contexte déclaré par le modèle (``context_length``, lu au préflight) est
+      inférieur au palier (palier écarté sans requête, ``requested = False``), ou, après une
+      requête (``requested = True``), le palier l'égale déjà : aucun palier plus grand n'aurait
+      aidé, le modèle est impropre à cette question.
+    - ``bench`` sinon : plafond ``num_ctx_max`` de la configuration, ou dépassement à l'exécution
+      sous le maximum du modèle (erreur d'estimation du banc). Un contexte déclaré inconnu
+      (``null``) ne permet pas d'établir une limite du modèle : ``bench``.
+    """
+    declared = model.get("context_length")
+    if declared is not None and (num_ctx >= declared if requested else num_ctx > declared):
+        return CONTEXT_LIMIT_MODEL
+    return CONTEXT_LIMIT_BENCH
 
 
 def _capabilities(tag: str, show: Mapping[str, Any]) -> list[str]:
@@ -162,6 +185,7 @@ def resolve_model(
         "think_off": model_cfg.get("think_off"),
         "think_on": model_cfg.get("think_on"),
         "num_ctx_max": effective_ctx_max(model_cfg["num_ctx_max"], show),
+        "context_length": declared_context_length(show),
     }
 
 

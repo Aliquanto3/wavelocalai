@@ -61,6 +61,7 @@ def model_resolved(index: int = 0) -> dict[str, Any]:
         "think_off": False,
         "think_on": True,
         "num_ctx_max": 32768,
+        "context_length": 131072,
     }
 
 

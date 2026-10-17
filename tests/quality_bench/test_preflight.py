@@ -8,6 +8,7 @@ from scripts.quality_bench.common.schemas import validate
 from scripts.quality_bench.generation.preflight import (
     LaunchError,
     check_launch,
+    context_limit_cause,
     effective_ctx_max,
     find_tag,
     resolve_model,
@@ -58,6 +59,7 @@ def test_resolved_model_has_sorted_capabilities_and_effective_context():
         "think_off": False,
         "think_on": True,
         "num_ctx_max": 16384,
+        "context_length": 16384,
     }
     record = manifest()
     record["blocking"]["models_resolved"] = [resolved]
@@ -72,6 +74,7 @@ def test_model_without_thinking_on_think_off_only():
     )
     assert resolved["think_off"] is None and resolved["tracks"] == ["think_off"]
     assert resolved["num_ctx_max"] == 32768  # contexte non déclaré : plafond configuré
+    assert resolved["context_length"] is None
 
 
 @pytest.mark.parametrize(
@@ -80,6 +83,32 @@ def test_model_without_thinking_on_think_off_only():
 )
 def test_effective_ctx_max_is_the_minimum(declared, expected):
     assert effective_ctx_max(32768, _show(context_length=declared)) == expected
+
+
+def test_resolved_model_keeps_declared_context_beside_effective_maximum():
+    resolved = resolve_model(_cfg(num_ctx_max=8192), _show(context_length=131072), _tags())
+    assert (resolved["num_ctx_max"], resolved["context_length"]) == (8192, 131072)
+
+
+@pytest.mark.parametrize(
+    "declared, num_ctx, requested, expected",
+    [
+        (4096, 8192, False, "model"),  # préflight : contexte déclaré < palier
+        (4096, 4096, False, "bench"),  # palier = maximum déclaré : jouable, pas écarté
+        (131072, 65536, False, "bench"),  # palier au-delà de num_ctx_max : plafond du banc
+        (None, 65536, False, "bench"),  # contexte déclaré inconnu : jamais la faute du modèle
+        (32768, 16384, True, "bench"),  # dépassement à l'exécution sous le maximum du modèle
+        (16384, 16384, True, "model"),  # dépassement au maximum du modèle
+        (None, 16384, True, "bench"),
+    ],
+)
+def test_context_limit_cause(declared, num_ctx, requested, expected):
+    model = {"num_ctx_max": 4096, "context_length": declared}
+    assert context_limit_cause(model, num_ctx, requested=requested) == expected
+
+
+def test_context_limit_cause_without_declared_key_is_bench():
+    assert context_limit_cause({"num_ctx_max": 4096}, 8192, requested=False) == "bench"
 
 
 def test_effective_ctx_max_ignores_other_architecture_keys():
