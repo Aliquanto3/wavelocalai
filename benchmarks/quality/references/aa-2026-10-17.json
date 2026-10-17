@@ -1,7 +1,7 @@
 {
   "schema": "qb.aa_reference/1",
   "date": "2026-10-17",
-  "source": "Artificial Analysis Intelligence Index v4.3.2, relevé manuel du 2026-10-17 sur les pages https://artificialanalysis.ai/models/<slug> (variante non_reasoning : slug suffixé -non-reasoning quand AA publie les deux variantes). estimated = valeur marquée « Estimate (independent evaluation forthcoming) » par AA. Tags quantifiés (QAT, IQ3_XXS, IQ2_M) appariés au modèle de base publié par AA. Absents d'AA : bonsai:8b-q1_0, bonsai:27b-q1_0.",
+  "source": "Artificial Analysis Intelligence Index v4.3.2, relevé manuel du 2026-10-17 sur les pages https://artificialanalysis.ai/models/<slug> (variante non_reasoning : slug suffixé -non-reasoning quand AA publie les deux variantes). estimated = valeur marquée « Estimate (independent evaluation forthcoming) » par AA. Tags quantifiés (QAT, IQ3_XXS) appariés au modèle de base publié par AA. Absents d'AA : bonsai:8b-q1_0, bonsai:27b-q1_0. Retiré : ministral3-ud:14b-iq2_m (IQ2_M trop dégradé pour reprendre la valeur mesurée du modèle de base). Aucune valeur non_reasoning pour les modèles dont AA ne publie que la variante reasoning.",
   "entries": [
     {"tag": "lfm2.5-thinking:1.2b", "index": 5, "status": "estimated", "variant": "reasoning"},
     {"tag": "ling3-tiny:8b-q4_k_m", "index": 11, "status": "measured", "variant": "reasoning"},
@@ -26,7 +26,6 @@
     {"tag": "granite4.2:8b", "index": 11, "status": "measured", "variant": "reasoning"},
     {"tag": "gemma4-ud:12b-iq3_xxs", "index": 14, "status": "estimated", "variant": "reasoning"},
     {"tag": "gemma4-ud:12b-iq3_xxs", "index": 9, "status": "estimated", "variant": "non_reasoning"},
-    {"tag": "ministral-3:8b", "index": 5, "status": "measured", "variant": "non_reasoning"},
-    {"tag": "ministral3-ud:14b-iq2_m", "index": 6, "status": "measured", "variant": "non_reasoning"}
+    {"tag": "ministral-3:8b", "index": 5, "status": "measured", "variant": "non_reasoning"}
   ]
 }
