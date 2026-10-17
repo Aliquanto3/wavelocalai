@@ -851,11 +851,17 @@ class TestPrefixedCloudRouting:
                 c
                 async for c in provider.chat_stream(
                     "claude-haiku-5-5",
-                    [{"role": "system", "content": "Ignoré"}, {"role": "user", "content": "Salut"}],
+                    [
+                        {"role": "system", "content": "Contexte RAG : le ciel est bleu."},
+                        {"role": "user", "content": "Salut"},
+                    ],
                     temperature=0.2,
+                    system_prompt="Consigne.",
                 )
             ]
         assert "temperature" not in calls[0]
+        # Le contexte system (RAG) est conservé, jamais remplacé par le défaut.
+        assert calls[0]["system"] == "Consigne.\n\nContexte RAG : le ciel est bleu."
         assert calls[0]["messages"] == [{"role": "user", "content": "Salut"}]
         assert chunks[:2] == ["Bon", "jour"]
         assert isinstance(chunks[2], InferenceMetrics)

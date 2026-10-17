@@ -107,10 +107,12 @@ class AnthropicProvider(ILLMProvider):
                 "Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
             )
 
-        # Anthropic utilise un format différent pour le system prompt
-        system = system_prompt or "You are a helpful assistant."
+        # Anthropic reçoit le system à part : on y réunit `system_prompt` et le contenu des
+        # messages system (contexte RAG compris) ; le défaut ne sert que s'il n'y en a aucun.
+        system_parts = [system_prompt] if system_prompt else []
+        system_parts += [m["content"] for m in messages if m.get("role") == "system"]
+        system = "\n\n".join(p for p in system_parts if p) or "You are a helpful assistant."
 
-        # Filtrer les messages système (Anthropic les gère séparément)
         filtered_messages = [m for m in messages if m.get("role") != "system"]
 
         timer = MetricsCalculator()
@@ -170,9 +172,9 @@ class AnthropicProvider(ILLMProvider):
 
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(
-            model=model_name, api_key=self._api_key, temperature=temperature, **kwargs
-        )
+        # `temperature` reste dans la signature publique mais n'est pas transmise : les
+        # modèles Claude actuels refusent les paramètres d'échantillonnage (erreur 400).
+        return ChatAnthropic(model=model_name, api_key=self._api_key, **kwargs)
 
     def health_check(self) -> bool:
         """Vérifie si l'API Anthropic est accessible."""

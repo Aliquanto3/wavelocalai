@@ -6939,7 +6939,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "anthropic", specifier = ">=1.15.0" },
     { name = "chromadb", specifier = ">=0.4.22" },
     { name = "codecarbon", specifier = ">=2.8.0" },
     { name = "crewai", specifier = ">=0.30.0" },

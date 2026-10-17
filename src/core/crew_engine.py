@@ -114,7 +114,7 @@ class CrewFactory:
             return LLM(
                 model=f"anthropic/{model_tag}",
                 api_key=anthropic_provider.ANTHROPIC_API_KEY,
-                temperature=temperature,
+                # Pas de temperature : les modèles Claude actuels refusent l'échantillonnage.
             )
 
         # 3. Routing Cloud (Mistral)

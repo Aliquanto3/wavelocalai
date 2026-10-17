@@ -110,12 +110,13 @@ AGENT_MIN_TOOL_SUCCESS = 0.75
 # Juges cloud, du plus capable au moins capable (préfixes de tag) ; les autres modèles cloud
 # suivent par ordre alphabétique. Un fournisseur ajouté plus tard s'insère dans cette liste.
 CLOUD_JUDGE_PREFERENCE = (
-    "claude-sonnet-4",
+    "claude-fable-5-1",
+    "claude-opus-5-5",
     "gpt-4o",  # hors gpt-4o-mini (CLOUD_JUDGE_DEMOTED)
     "openai/gpt-oss-120b",  # Groq
     "mistral-large",
-    "claude-3-5-sonnet",
-    "claude-3-opus",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
     "gpt-4-turbo",
     "mistral-medium",
     "llama-3.3-70b-versatile",  # Groq

@@ -636,7 +636,7 @@ RTX_INSTALLED = [_local(tag) for tag, *_ in RTX_MODELS.values()]
 # Débits de data/models.json sur ce poste (tous connus : ils départagent les locaux).
 RTX_SPEEDS = _speeds(**{tag: s for tag, _, _, _, s in RTX_MODELS.values()})
 
-CLAUDE = {"model": "claude-sonnet-4-20250514", "type": "cloud", "provider": "anthropic"}
+CLAUDE = {"model": "claude-opus-5-5", "type": "cloud", "provider": "anthropic"}
 GPT4O = {"model": "gpt-4o", "type": "cloud", "provider": "openai"}
 GPT4O_MINI = {"model": "gpt-4o-mini", "type": "cloud", "provider": "openai"}
 
@@ -651,11 +651,11 @@ def _rtx(models=None, available_gb=16.7):
 
 
 def test_cloud_allowed_judge_is_most_capable_cloud():
-    """Cloud autorisé, Claude Sonnet 4 et GPT-4o listés : juge = Claude Sonnet 4."""
+    """Cloud autorisé, Claude Opus 5.5 et GPT-4o listés : juge = Claude Opus 5.5."""
     ranked = _rtx([GPT4O, *RTX_INSTALLED, CLAUDE])
 
     judge = md.choose_judge(ranked, RTX_BENCH, allow_cloud=True)
-    assert judge.choice.tag == "claude-sonnet-4-20250514"
+    assert judge.choice.tag == "claude-opus-5-5"
     assert judge.choice.is_cloud and judge.reason == md.JUDGE_BY_CLOUD
     assert not judge.choice.weak_judge
 
@@ -670,11 +670,11 @@ def test_cloud_judge_order_is_fixed_in_code():
 
     ranked = _rank([GPT4O_MINI, unknown, PETIT], 8.0)
     assert md.default_judge(ranked, allow_cloud=True).tag == "aaa-cloud-model"
-    tags = ["gpt-4o-mini", "claude-3-opus-20240229", "claude-3-5-sonnet-20241022", "gpt-4o"]
+    tags = ["gpt-4o-mini", "claude-haiku-5-5", "claude-sonnet-5-5", "gpt-4o"]
     assert sorted(tags, key=md.cloud_judge_rank) == [
         "gpt-4o",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-opus-20240229",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5",
         "gpt-4o-mini",
     ]
 
@@ -701,10 +701,10 @@ def test_groq_judge_order():
         "gpt-4o",
         "mistral-medium-2508",
         "llama-3.1-8b-instant",
-        "claude-sonnet-4-20250514",
+        "claude-opus-5-5",
     ]
     assert sorted(tags, key=md.cloud_judge_rank) == [
-        "claude-sonnet-4-20250514",
+        "claude-opus-5-5",
         "gpt-4o",
         "openai/gpt-oss-120b",
         "mistral-large-2512",
@@ -733,7 +733,7 @@ def test_no_cloud_judge_when_cloud_is_disabled():
 
     judge = md.choose_judge(ranked, RTX_BENCH, allow_cloud=False)
     assert judge.choice.tag == "gemma4:e4b-it-qat"
-    assert md.default_judge(ranked).tag != "claude-sonnet-4-20250514"
+    assert md.default_judge(ranked).tag != "claude-opus-5-5"
 
 
 def test_cloud_allowed_without_cloud_model_uses_benchmark():
@@ -984,7 +984,7 @@ def test_agent_default_excludes_small_reasoning_and_cloud_models():
         "LiquidAI/lfm2.5-2.6b": best,
         "big-thinking:8b": best,
         "mystery:7b": best,
-        "claude-sonnet-4-20250514": best,
+        "claude-opus-5-5": best,
     }
     assert md.agent_default(ranked, bench) is None
 
