@@ -591,6 +591,23 @@
       },
       "moe": false
     },
+    "LFM 2.5 8B-A1B (MoE)": {
+      "ollama_tag": "lfm2.5:8b-a1b-q4_K_M",
+      "type": "local",
+      "editor": "Liquid AI",
+      "size_gb": "5.2 GB",
+      "params_tot": "8.5B",
+      "params_act": "1.5B",
+      "ctx": 128000,
+      "capabilities": [
+        "chat",
+        "tools",
+        "thinking"
+      ],
+      "role": "assistant_light",
+      "desc": "MoE hybride convolution + attention (lfm2moe). Licence LFM Open. Essai du 2026-10-17.",
+      "moe": true
+    },
     "K2 Horizon 3.7B": {
       "ollama_tag": "k2-horizon:3.7b-q4_k_m",
       "type": "local",
