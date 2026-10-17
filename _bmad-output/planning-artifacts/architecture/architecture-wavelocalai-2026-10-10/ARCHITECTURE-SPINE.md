@@ -176,7 +176,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 - **Rule:** seuls ces schémas fermés s'écrivent sous `benchmarks/quality/`, par `report/` et `set_builder` ; tout champ hors liste est une erreur.
   - `qb.set_index/1` : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` **pour les seules questions publiques**.
   - `qb.set_manifest/1` (amendement validé par Anaël, 2026-10-17) : un fichier `benchmarks/quality/sets/<set>/manifest.json` par jeu, écrit par `build-set` avec l'index. Champs : `set, set_hash` (empreinte du jeu, AD-4), `seed, counts` (`think_off`, `think_on`), `generators` (versions `name@n` des générateurs), `inputs` (par fichier d'entrée **public** : `source, kind` parmi `candidates` | `raw` | `house`, `path, sha256`), `index_sha256`, `commit` (dépôt à la construction) et `dirty` (fichiers suivis de `scripts/quality_bench` modifiés à ce moment). Rien de privé : ni fichier privé ni son empreinte, ni texte de question, ni cible. Il rend vérifiables la provenance du jeu et ses entrées, que le seul journal `sets/log-build-set.log` (hors dépôt) ne conservait pas.
-  - `qb.score/1` : `question_hash, model, digest, track, seed, status, score, success, metrics`. `metrics` ne contient que des flottants finis. Fichiers découpés par modèle : `benchmarks/quality/<c>/scores/<model>.jsonl`.
+  - `qb.score/1` : `question_hash, model, digest, track, seed, status, score, success, metrics`, plus `context_limit` (`model` | `bench`) **pour les seules lignes `context_exceeded`** (amendement du 2026-10-17). `metrics` ne contient que des flottants finis. Fichiers découpés par modèle : `benchmarks/quality/<c>/scores/<model>.jsonl`.
   - Manifestes, agrégats et rapports ne contiennent ni texte de question ni sortie de modèle.
   - Un test de `tests/quality_bench/` parcourt tout `benchmarks/quality/` et vérifie les clés de chaque ligne.
   - Aucune clé d'API dans un fichier : clés par l'environnement (`ANTHROPIC_API_KEY`, `MIMO_API_KEY`).
@@ -225,11 +225,14 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 }
 ```
 
+  - `context_limit` (`"model"` | `"bench"`, amendement du 2026-10-17 validé par Anaël) : champ fermé, **requis quand `status = context_exceeded`, interdit sinon** (une seule clé en plus ; aucune autre ligne ne change). Il dit à qui revient le dépassement :
+    - `model` : le contexte maximal déclaré du modèle (`models_resolved[].context_length`, lu au préflight dans `/api/show`) est **inférieur au palier** `num_ctx` de la question (ligne écrite sans requête), ou un dépassement survient à l'exécution alors que le palier **égale déjà** ce maximum (cas limite tranché : un palier plus grand n'aurait pas aidé, le modèle est impropre à l'usage) ;
+    - `bench` : le palier dépasse le plafond `num_ctx_max` de la configuration de campagne (le modèle déclare davantage ou ne déclare rien), ou un dépassement survient à l'exécution sous le maximum du modèle (erreur d'estimation du banc, AD-5). Un contexte déclaré illisible (`context_length = null`) ne permet jamais d'établir une limite du modèle : `bench`.
   - `output` = tous les messages postérieurs à `messages`, tours utilisateur injectés compris, chacun annoté `turn`.
   - `call_cap_reached` = la borne `max_tool_calls_per_turn` a été atteinte.
   - `tokens.prompt`, `prompt_cached` et `completion` = sommes de `prompt_eval_count`, `prompt_eval_cached_count` et `eval_count` sur les appels de l'essai réussi (ils font foi). `thinking_est` et `answer_est` = fragments du flux comptés par champ : ce sont des estimations, car Ollama ne compte pas à part les tokens de réflexion (issue #17843).
   - `status = truncated` dès qu'un appel renvoie `done_reason == "length"`. `num_predict` est le plafond **par appel**.
-  - `status = context_exceeded` si `prompt + prompt_cached ≥ num_ctx − num_predict` sur un appel, ou si le préflight (AD-9) a écarté le palier pour ce modèle (ligne écrite sans requête).
+  - `status = context_exceeded` si `prompt + prompt_cached ≥ num_ctx − num_predict` sur un appel, ou si le préflight (AD-9) a écarté le palier pour ce modèle (ligne écrite sans requête). La ligne porte alors `context_limit`.
   - `think` = valeur envoyée, `null` seulement si le modèle n'a pas la capacité thinking.
 
 ### AD-8 — Configuration et manifeste `qb.manifest/1`
@@ -271,7 +274,7 @@ grading:
   "blocking": {
     "set": {"id": "set-v1", "hash": "…", "n": {"think_off": 800, "think_on": 400}},
     "generation": {"hash": "…", "resolved": {}},
-    "models_resolved": [{"tag": "qwen3.5:4b", "digest": "sha256:…", "family": "qwen", "capabilities": ["completion", "thinking", "tools"], "tracks": ["think_off", "think_on"], "think_off": false, "think_on": true, "num_ctx_max": 32768}],
+    "models_resolved": [{"tag": "qwen3.5:4b", "digest": "sha256:…", "family": "qwen", "capabilities": ["completion", "thinking", "tools"], "tracks": ["think_off", "think_on"], "think_off": false, "think_on": true, "num_ctx_max": 32768, "context_length": 40960}],
     "ollama_version": "0.40.2",
     "machine": "tour-rtx3050",
     "harness_hash": "…",
@@ -283,7 +286,7 @@ grading:
 ```
 
   - `generation.hash` porte sur la section `generation` résolue (un commentaire ne bloque pas). `harness_hash` = empreinte du contenu de `common/`, `ollama/`, `generation/` et `envs/`.
-  - `models_resolved` est figé au premier lancement depuis `/api/show` et `/api/tags`. Si une piste de la configuration n'est pas permise par les capacités, le lancement est refusé, jamais une omission silencieuse.
+  - `models_resolved` est figé au premier lancement depuis `/api/show` et `/api/tags`. `num_ctx_max` y est le maximum **effectif** (le plus petit du plafond configuré et du contexte déclaré) ; `context_length` garde le contexte déclaré seul (`null` s'il est illisible), pour distinguer la limite du modèle de celle du banc (AD-7). Si une piste de la configuration n'est pas permise par les capacités, le lancement est refusé, jamais une omission silencieuse.
   - Pour `phase = judgment` : `judge` = `{id, config_hash, endpoint, model, settings, prompt_template_hash, weights_sha256, server_version}` et `generation_manifest` = empreinte du `blocking` de génération lu.
   - Reprise refusée si une valeur de `blocking` diffère, avec le chemin JSON du premier champ différent dans le message (`blocking.models_resolved[3].digest`). `informative` ne bloque jamais.
   - Chaque ligne JSONL porte l'empreinte du `blocking` qui l'a produite. La version d'Ollama est relue après chaque retour du service : un changement arrête la campagne.
@@ -300,7 +303,7 @@ grading:
     - lire `/api/show` ;
     - refuser un modèle distant (`remote_host` déclaré) ou sans `digest` dans `/api/tags` ;
     - exclure un modèle qui déclare `decision` ;
-    - écarter les paliers au-delà du contexte maximal déclaré ou de `num_ctx_max` (AD-7).
+    - écarter les paliers au-delà du contexte maximal déclaré ou de `num_ctx_max` (AD-7), en consignant la cause : `model` si le palier dépasse le contexte déclaré, `bench` s'il ne dépasse que le plafond configuré.
   - **`think` :** envoyé seulement si la capacité `thinking` est déclarée, avec la valeur `think_off` en piste coupée et `think_on` en piste activée. Une valeur chaîne doit figurer parmi les valeurs déclarées.
   - **`tools` :** envoyé seulement si la capacité `tools` est déclarée.
 
@@ -335,7 +338,11 @@ grading:
 | writing | `null` | moyenne des verdicts vrais sur **tous** les `criteria` : verdicts du code (`grading/counting.py`) pour les critères à `check`, du juge retenu pour les autres | — |
 
   - `truncated`, `non_compliant` (JSON hors schéma, appel d'outil invalide, `call_cap_reached`) : `score = 0`, `success = false` (rédaction : `null`). Ce sont des échecs du modèle, comptés à part.
-  - `error`, `context_exceeded` : `score = success = null`. Les statistiques retirent la question des comparaisons qui impliquent ce modèle et publient le compte.
+  - `error` : `score = success = null`. Les statistiques retirent la question des comparaisons qui impliquent ce modèle et publient le compte.
+  - `context_exceeded` suit la cause `context_limit` de la ligne de génération (AD-7), reprise dans `qb.grading/1` (champ requis dans ce seul statut, interdit sinon) ; amendement du 2026-10-17 validé par Anaël :
+    - `model` : échec du modèle, impropre à cet usage. `score = 0`, `success = false` (rédaction : `null`), comme une troncature ; la question reste dans les comparaisons et dans leurs effectifs, `metrics = {}` ;
+    - `bench` : erreur du banc. `score = success = null`, comme `error` : unité nulle, hors comparaisons, compte publié.
+  - Versions : tous les correcteurs passent à la version suivante (`@2`, `json_schema@3`, `judge_criteria@3`) : leur sortie change pour une génération à `context_limit = model` (le code de chaque correcteur reste le même, l'étiquette `grader` dit quelle règle de statut a produit la ligne).
   - Rédaction : un critère **jugé** sans verdict donne `awaiting_judgment`, un verdict en erreur donne `error` ; une question dont tous les critères sont vérifiés par le code n'attend aucun juge. Un `check` mal formé donne `error`. `judge_criteria@2` (2026-10-17) remplace `@1`, qui ne connaissait que le juge. Un jugement d'un critère à `check` est refusé par `grade`.
   - La sortie JSON est validée contre le schéma côté client (`jsonschema`), jamais supposée conforme parce que `format` a été envoyé. `inline_thinking` = texte de réflexion trouvé dans `content`.
   - `grading/registry.py` fixe `langdetect.DetectorFactory.seed = 0` avant tout chargement. Le code emprunté ne télécharge rien à l'import. Corriger deux fois le même fichier donne des octets identiques (test).
@@ -454,6 +461,7 @@ grading:
     - Spearman selon les règles de `statistiques.md` ;
     - ni Friedman/Nemenyi, ni test non apparié.
   - **Unité statistique :** (`model`, `track`, `unit`). Les questions d'une `unit` sont agrégées par minimum (score strict), puis les seeds par moyenne. La méthode (McNemar ou erreur-type appariée sur les moyennes) se choisit sur `generation.request.k`, jamais sur les lignes observées.
+  - **Unités communes (amendement du 2026-10-17, validé par Anaël) :** pour chaque périmètre (piste en global, puis chaque usage), le **score, l'erreur-type, les IC, le rang approché, les groupes indiscernables, le meneur, les comparaisons au meneur (Holm), la matrice (BH), k̂_Bonferroni et le Spearman** portent sur les unités **définies pour tous les modèles comparés du périmètre**. Un modèle privé d'unités par une erreur du banc ou une limite du banc (AD-10) ne peut donc plus être noté sur un sous-ensemble plus facile que ses concurrents. Le résumé publie à côté, par modèle, la moyenne sur **toutes ses unités définies** (`mean_all`) avec son effectif (`n_all`), les unités écartées (`excluded`), l'effectif commun du périmètre (`common_units`) et, séparément, les lignes `context_exceeded` de limite du modèle (`context_exceeded_model`, comptées comme des échecs) et de limite du banc (`context_exceeded_bench`, unités nulles). Le rapport du pilote reprend les mêmes comptes par source et par palier.
   - **Complétude :** le rapport calcule les clés attendues (`models_resolved` × pistes × `selection` × seeds) et refuse de publier s'il en manque, s'il reste des `awaiting_judgment`, ou si les empreintes de manifeste ne concordent pas, sauf avec `--partial`, qui marque le rapport comme partiel.
   - **Jointure entre campagnes** (rejeu du pilote) : sur (`model`, `digest`, `track`, `question_id`, `seed`), avec `prompt_hash` égal.
   - **Références hors ligne :** indices AA lus dans `benchmarks/quality/references/aa-<AAAA-MM-JJ>.json` (`{tag, index, status: measured|estimated, variant: reasoning|non_reasoning}`). Le fichier de l'ancien banc lu par le pilote est consigné dans le rapport par chemin et empreinte.
@@ -468,7 +476,7 @@ grading:
 | Dates et unités | ISO 8601 UTC avec `Z`, à la seconde ; durées d'Ollama en ns, durée murale en s ; coûts en USD. |
 | Encodage | Tout `open()` texte passe `encoding="utf-8"` ; la console et les journaux sont reconfigurés en UTF-8. |
 | Journal | `logging` vers `campaigns/<c>/log-<commande>.log` et la console, en français ; jamais de contenu de question privée. |
-| Erreurs | Erreur du banc (`error`, `context_exceeded`, exception) ≠ échec du modèle (`truncated`, `non_compliant`, mauvaise réponse). Aucun `except` ne transforme l'un en l'autre. |
+| Erreurs | Erreur du banc (`error`, `context_exceeded` à `context_limit = bench`, exception) ≠ échec du modèle (`truncated`, `non_compliant`, `context_exceeded` à `context_limit = model`, mauvaise réponse). Aucun `except` ne transforme l'un en l'autre. |
 | Code emprunté | `grading/vendored/<projet>/` avec `LICENSE`, `NOTICE` s'il existe, et `PROVENANCE.md` (dépôt, commit, fichiers, modifications, téléchargements retirés). M-IFEval : fichiers FR seulement, avec un registre réduit (sans spaCy). BFCL : lien vers `MODEL_CONFIG_MAPPING` retiré. |
 | Tests | Dossier `tests/quality_bench/` (avec `__init__.py`), sans Ollama ni réseau : Ollama simulé par `httpx2.MockTransport`, arrêt brutal par un `subprocess` tué. Une fixture `autouse` fixe `QUALITY_BENCH_DATA` sur `tmp_path`. Échantillons sous `tests/quality_bench/samples/` (`fixtures/`, `data/` et `lib/` sont ignorés par git). Le `conftest.py` exclut le dossier par `collect_ignore_glob`, avec un message, si les dépendances manquent. Le marqueur `integration` est désactivé sauf `QUALITY_BENCH_INTEGRATION=1`. Commande : `.venv-quality\Scripts\python -m pytest tests/quality_bench`. |
 | Dépôt | La story 1 ajoute `.venv-quality/` à `.gitignore`, exclut `benchmarks/quality/` de `detect-secrets` et `grading/vendored/` de black, isort et ruff (`.pre-commit-config.yaml`). |

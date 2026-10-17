@@ -19,7 +19,7 @@ Ce fichier porte le contrat. Les schémas exacts des lignes et du manifeste sont
 
 Une ligne par (modèle, piste, question, `seed`), écrite en ajout seul et forcée sur disque (`fsync`) sitôt la question terminée. Elle est brute : ni score, ni réponse analysée (AD-3).
 
-**Champs :** `key`, `manifest`, `campaign`, `model`, `digest`, `track`, `question_id`, `usage`, `group`, `unit`, `prompt_hash`, `seed`, `epoch`, `think`, `backend`, `ollama_version`, `num_ctx`, `num_predict`, `status` (`ok`, `truncated`, `context_exceeded`, `error`), `output` (sortie brute, tous tours compris), `call_cap_reached`, `tokens`, `durations_ns`, `wall_s`, `calls`, `attempts`, `error`, `created_at`.
+**Champs :** `key`, `manifest`, `campaign`, `model`, `digest`, `track`, `question_id`, `usage`, `group`, `unit`, `prompt_hash`, `seed`, `epoch`, `think`, `backend`, `ollama_version`, `num_ctx`, `num_predict`, `status` (`ok`, `truncated`, `context_exceeded`, `error`), `context_limit` (`model` ou `bench`, seulement avec `context_exceeded`), `output` (sortie brute, tous tours compris), `call_cap_reached`, `tokens`, `durations_ns`, `wall_s`, `calls`, `attempts`, `error`, `created_at`.
 
 - `tokens` : prompt, prompt en cache et complétion font foi. Les tokens de réflexion et de réponse sont des estimations, car Ollama ne les compte pas à part (issue #17843).
 - `status = truncated` signale la troncature.
@@ -31,7 +31,8 @@ Une ligne par (modèle, piste, question, `seed`), écrite en ajout seul et forc�
 C'est une phase séparée (`grade`), sans réseau ni GPU. Elle lit `generation.jsonl` et, pour la rédaction, les verdicts du juge retenu, puis réécrit `grading.jsonl` en entier. C'est le seul fichier qui porte `score` et `success`.
 
 - `truncated` et `non_compliant` (JSON hors schéma, appel d'outil invalide, borne d'appels atteinte) sont des échecs du modèle : score 0, comptés à part.
-- `error` et `context_exceeded` sont des erreurs du banc : sans score, retirées des comparaisons qui impliquent ce modèle, et comptées.
+- `error` est une erreur du banc : sans score, écartée des comparaisons, et comptée.
+- `context_exceeded` suit sa cause `context_limit` (décision d'Anaël, 2026-10-17). `model` (le contexte maximal déclaré du modèle, lu dans `/api/show` au préflight, est inférieur au palier, ou le dépassement survient à l'exécution alors que le palier l'égale déjà) : échec du modèle, score 0, compté comme une troncature. `bench` (plafond `num_ctx_max` de la campagne, ou dépassement sous le maximum du modèle, donc erreur d'estimation du banc) : erreur du banc, sans score, écartée et comptée.
 
 ## Manifeste
 
