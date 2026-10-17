@@ -109,6 +109,7 @@ def _summary():
                 "n": 40,
                 "diff": 0.35,
                 "p": 0.0007,
+                "p_method": "mcnemar",
                 "p_bh": 0.0021,
                 "reject": True,
             }
@@ -226,4 +227,9 @@ def test_markdown_notes_the_sign_test_fallback():
     comparison = summary["tracks"][0]["scopes"][1]["comparisons"][0]
     assert "test exact des signes" not in render(summary)
     comparison["p_method"] = "sign"
-    assert "test exact des signes" in render(summary)
+    notes = render(summary).count("test exact des signes")
+    assert notes >= 1 and "binomiale de paramètre 1/2" in render(summary)
+    # Matrice BH : même note quand une de ses paires vient du test des signes (les deux
+    # périmètres de la fixture partagent leurs listes, d'où le double).
+    summary["tracks"][0]["scopes"][1]["matrix"][0]["p_method"] = "sign"
+    assert render(summary).count("test exact des signes") == 2 * notes

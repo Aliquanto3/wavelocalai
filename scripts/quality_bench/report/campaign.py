@@ -111,7 +111,7 @@ def _pair(scope: Scope, a: str, b: str, z: float) -> Pair:
     else:
         only_a = only_b = None
         differences = [x - y for x, y in zip(a_values, b_values, strict=True)]
-        p, p_method = paired_test(paired.diff, paired.se, differences)
+        p, p_method = paired_test(paired.diff, paired.se, differences, groups)
     return Pair(
         paired.n,
         paired.diff,
@@ -234,6 +234,7 @@ def scope_stats(
             "n": pairs[(a, b)].n,
             "diff": number(pairs[(a, b)].diff),
             "p": number(pairs[(a, b)].p),
+            "p_method": pairs[(a, b)].p_method,
             "p_bh": number(p_bh),
             "reject": rejected,
         }

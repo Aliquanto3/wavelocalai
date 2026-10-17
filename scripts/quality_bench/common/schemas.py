@@ -460,6 +460,7 @@ _REPORT_PAIR = _closed(
         "n": _COUNT,
         "diff": _MAYBE_NUMBER,
         "p": _MAYBE_NUMBER,
+        "p_method": {"enum": list(P_METHODS)},
         "p_bh": _MAYBE_NUMBER,
         "reject": {"type": "boolean"},
     }

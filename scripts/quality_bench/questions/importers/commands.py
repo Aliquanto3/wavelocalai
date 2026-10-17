@@ -171,7 +171,7 @@ def _run_fetch_nltk(args: argparse.Namespace) -> int:
         root = paths.nltk_data_dir()
         for package, digest in fetch_nltk_data(root).items():
             logger.info("NLTK %s : sha256 %s", package, digest)
-        logger.info("Données NLTK prêtes sous %s (variable NLTK_DATA)", root)
+        logger.info("Données NLTK prêtes sous %s", root)
         return 0
 
     return _with_machine_lock("fetch-nltk", action)

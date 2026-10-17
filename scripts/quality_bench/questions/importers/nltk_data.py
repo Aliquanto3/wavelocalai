@@ -1,8 +1,8 @@
 """Téléchargement des données NLTK d'avant campagne (AD-15) : ``fetch-nltk``.
 
 Les vérificateurs IFBench et M-IFEval (story 4) lisent ``punkt``, ``punkt_tab``,
-``stopwords`` et ``averaged_perceptron_tagger_eng`` sous ``$QUALITY_BENCH_DATA/nltk_data``
-(variable ``NLTK_DATA``), sans jamais rien télécharger pendant une campagne. Seul ce module
+``stopwords`` et ``averaged_perceptron_tagger_eng`` sous ``$QUALITY_BENCH_DATA/nltk_data``,
+sans jamais rien télécharger pendant une campagne. Seul ce module
 appelle ``nltk.download`` ; chaque archive est vérifiée contre l'empreinte ``sha256`` épinglée
 ci-dessous, et un paquet déjà présent avec la bonne empreinte n'est pas retéléchargé. Une
 empreinte inattendue après téléchargement supprime l'archive et son dossier extrait, puis lève
