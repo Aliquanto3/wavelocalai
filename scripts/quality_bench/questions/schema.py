@@ -17,6 +17,7 @@ from typing import Any
 
 from ..common.canonical import sha256_hex
 from ..common.schemas import USAGES, SchemaValidationError, validate_with
+from .checks import CheckError, validate_checks
 
 QUESTION_SCHEMA_ID = "qb.question/1"
 
@@ -219,7 +220,13 @@ QUESTION_V1: dict[str, Any] = {
             "minItems": 1,
             "items": {
                 "type": "object",
-                "properties": {"id": _NON_EMPTY, "question": _NON_EMPTY},
+                # ``check`` : critère vérifié par le code (forme : ``questions/checks.py``,
+                # validée par ``validate_question``) ; absent, le critère va au juge.
+                "properties": {
+                    "id": _NON_EMPTY,
+                    "question": _NON_EMPTY,
+                    "check": {"type": ["object", "array"]},
+                },
                 "required": ["id", "question"],
                 "additionalProperties": False,
             },
@@ -342,6 +349,12 @@ def validate_question(question: Mapping[str, Any]) -> dict[str, Any]:
         raise QuestionError("generator et generator_seed vont ensemble (tous deux nuls ou non)")
     if (record["criteria"] is None) != (record["usage"] != "writing"):
         raise QuestionError("criteria : obligatoire en rédaction, nul ailleurs")
+    for criterion in record["criteria"] or ():
+        if "check" in criterion:
+            try:
+                validate_checks(criterion["check"])
+            except CheckError as error:
+                raise QuestionError(f"critère {criterion['id']} : {error}") from None
 
     _check_nfc(record, "question")
     _check_no_float(record["target"], "target")

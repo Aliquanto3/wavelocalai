@@ -59,8 +59,9 @@ _FUNCTIONS: dict[str, GraderFunction] = {
     "abstention_marker": abstention_marker,
     "judge_criteria": judge_criteria,
 }
-# Version quand elle dépasse 1 (json_schema@2 : mots-clés `format` vérifiés).
-_VERSIONS = {"json_schema": 2}
+# Version quand elle dépasse 1 (json_schema@2 : mots-clés `format` vérifiés ;
+# judge_criteria@2 : critères de comptage vérifiés par le code).
+_VERSIONS = {"json_schema": 2, "judge_criteria": 2}
 GRADERS: dict[str, Registered] = {
     name: Registered(f"{name}@{_VERSIONS.get(name, 1)}", function)
     for name, function in _FUNCTIONS.items()

@@ -271,8 +271,13 @@ def index_rows(questions: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def check_generator_params(config: SetConfig) -> None:
-    """Réglages de générateur permis (``ConfigError`` : YAML de jeu invalide)."""
+    """Réglages de générateur et fichier maison permis (``ConfigError`` : YAML de jeu invalide)."""
     for entry in config.sources:
+        spec = SOURCES[entry.source]
+        if entry.file is not None and (spec.producer != HOUSE_PRODUCER or spec.private):
+            raise ConfigError(
+                f"{entry.source}.file : réservé aux questions maison versionnées (rédaction)"
+            )
         allowed = _GENERATOR_PARAMS.get(entry.source, set())
         unknown = sorted(set(entry.generator_params) - allowed)
         if unknown:
@@ -296,8 +301,8 @@ def read_set_config(set_id: str) -> SetConfig:
     return config
 
 
-def _private_file(source: str, private_files: dict[str, str]) -> Path:
-    path = house_path(source) if SOURCES[source].producer == HOUSE_PRODUCER else None
+def _private_file(source: str, private_files: dict[str, str], file: str | None = None) -> Path:
+    path = house_path(source, file) if SOURCES[source].producer == HOUSE_PRODUCER else None
     if path is None:
         path = paths.private_source_path(source)
     if not path.is_file():
@@ -364,7 +369,7 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
                 entry.generator_params.get("variants", var_math.DEFAULT_VARIANTS),
             )
         elif spec.producer == HOUSE_PRODUCER:
-            path = _private_file(entry.source, private_files)
+            path = _private_file(entry.source, private_files, entry.file)
             try:
                 candidates[entry.source] = load_house(path, entry.source)
             except ConfigError as error:  # YAML illisible ou clé en double : pas le YAML de jeu
@@ -439,7 +444,7 @@ def public_inputs(config: SetConfig) -> list[dict[str, str]]:
                 for remote in oneruler_fr.RAW_FILES
             ]
         elif spec.producer == HOUSE_PRODUCER:
-            path = house_path(entry.source)
+            path = house_path(entry.source, entry.file)
             inputs.append(
                 {
                     "source": entry.source,

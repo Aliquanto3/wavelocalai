@@ -7,7 +7,7 @@ Entrées, sans aucun YAML de campagne :
 - jeu ``sets/<blocking.set.id>/`` dont l'empreinte égale ``blocking.set.hash``.
 
 Unités : lignes ``usage = writing`` et ``status = ok`` seulement, une par critère de
-``question.criteria``, clé ``"{generation_key}|{criterion}"``. Aucun message d'erreur ne cite de
+``question.criteria`` sans ``check`` (un critère de comptage est vérifié par le code), clé ``"{generation_key}|{criterion}"``. Aucun message d'erreur ne cite de
 texte de question ni de réponse.
 """
 
@@ -147,6 +147,8 @@ def load_inputs(campaign: str) -> Inputs:
         instruction = render_instruction(question["messages"])
         answer = final_answer(line["output"])
         for criterion in criteria:
+            if "check" in criterion:
+                continue  # vérifié par le code (grading/counting.py) : jamais soumis au juge
             units.append(
                 Unit(
                     key=f"{line['key']}|{criterion['id']}",

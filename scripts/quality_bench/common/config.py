@@ -21,6 +21,7 @@ from __future__ import annotations
 import copy
 import math
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -500,7 +501,10 @@ _SET_SOURCE_KEYS = {
     "generator_seed",
     "generator_params",
     "exclude",
+    "file",
 }
+# Nom d'un fichier de questions maison versionné (``questions/writing/``) : pas de chemin.
+_HOUSE_FILE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.yaml")
 
 
 class SourceInfo(Protocol):
@@ -516,7 +520,9 @@ class SourceInfo(Protocol):
 @dataclass(frozen=True)
 class SetSource:
     """Une source du jeu : effectif exact, plafond par groupe, graine, réglages et
-    identifiants de questions exclues du tirage (``exclude``)."""
+    identifiants de questions exclues du tirage (``exclude``). ``file`` : fichier de questions
+    maison versionné à lire à la place de ``<source>.yaml`` (un jeu garde ainsi les questions
+    qu'il a figées quand une version suivante les modifie)."""
 
     source: str
     usage: str
@@ -525,6 +531,7 @@ class SetSource:
     generator_seed: int | None
     generator_params: dict[str, Any]
     exclude: tuple[str, ...] = ()
+    file: str | None = None
 
 
 @dataclass(frozen=True)
@@ -574,6 +581,11 @@ def _set_source(
             if key in value:
                 raise ConfigError(f"{where}.{key} : interdit pour la source non générée {slug}")
         generator_seed, generator_params = None, {}
+    house_file = value.get("file")
+    if house_file is not None and (
+        not isinstance(house_file, str) or not _HOUSE_FILE_RE.fullmatch(house_file)
+    ):
+        raise ConfigError(f"{where}.file : nom de fichier .yaml sans chemin attendu")
     return SetSource(
         source=slug,
         usage=info.usage,
@@ -582,6 +594,7 @@ def _set_source(
         generator_seed=generator_seed,
         generator_params=generator_params,
         exclude=_exclude(value.get("exclude", []), f"{where}.exclude"),
+        file=house_file,
     )
 
 

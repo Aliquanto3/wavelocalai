@@ -334,6 +334,61 @@ def test_retry_then_success_counts_attempts(server):
     assert {line["attempts"] for line in _lines()} == {2}
 
 
+def _write_campaign_yaml(tmp_path, monkeypatch):
+    config_dir = tmp_path / "campaigns_yaml"
+    config_dir.mkdir()
+    (config_dir / f"{CAMPAIGN}.yaml").write_text(
+        f"set: {SET_ID}\n"
+        "generation:\n"
+        "  models:\n"
+        '    - {tag: "m:1b", family: qwen, tracks: [think_off], think_off: false, '
+        "num_ctx_max: 32768}\n"
+        f"grading:\n  judge: {JUDGE_ID}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(paths, "campaign_config_path", lambda c: config_dir / f"{c}.yaml")
+
+
+def test_criteria_checked_by_code_are_never_submitted_to_the_judge(server):
+    campaign = build_campaign(checked=True)
+    assert _run() == 0
+    keys = sorted(line["key"] for line in _lines())
+    assert keys == campaign["expected_keys"] and keys
+    assert not any(key.endswith("|c1") for key in keys)
+    for body in server.systemone_bodies():
+        assert [q["id"] for q in body["questions"]] == ["c2", "c3", "c4"]
+
+
+def test_grade_combines_code_and_judge_verdicts(server, tmp_path, monkeypatch):
+    campaign = build_campaign(checked=True)
+    _write_campaign_yaml(tmp_path, monkeypatch)
+    from scripts.quality_bench.__main__ import main
+
+    assert main(["grade", "--campaign", CAMPAIGN]) == 0
+    before = {r["key"]: r for r in read_jsonl(paths.grading_path(CAMPAIGN))}
+    assert all(before[key]["status"] == "awaiting_judgment" for key in campaign["writing_keys"])
+    assert _run() == 0
+    assert main(["grade", "--campaign", CAMPAIGN]) == 0
+    after = {r["key"]: r for r in read_jsonl(paths.grading_path(CAMPAIGN))}
+    for key in campaign["writing_keys"]:
+        # c1 (code : 4 mots, vrai) + c2 vrai, c3 faux, c4 vrai (juge) : 3 sur 4.
+        assert (after[key]["status"], after[key]["score"]) == ("ok", 0.75)
+        assert after[key]["grader"] == "judge_criteria@2"
+
+
+def test_grade_refuses_a_judgment_of_a_criterion_checked_by_code(server, tmp_path, monkeypatch):
+    build_campaign(checked=True)
+    _write_campaign_yaml(tmp_path, monkeypatch)
+    assert _run() == 0
+    lines = _lines()
+    forged = {**lines[0], "criterion": "c1", "key": f"{lines[0]['generation_key']}|c1"}
+    rewrite_jsonl(paths.judgment_path(CAMPAIGN, JUDGE_ID), [forged, *lines[1:]])
+    from scripts.quality_bench.__main__ import main
+
+    assert main(["grade", "--campaign", CAMPAIGN]) == 1
+    assert "vérifié par le code" in paths.log_path(CAMPAIGN, "grade").read_text(encoding="utf-8")
+
+
 def test_ps_entry_without_name_is_ignored(server, monkeypatch):
     build_campaign(writing=1)
 

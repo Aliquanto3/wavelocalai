@@ -181,8 +181,14 @@ def _load_judgments(
         question = questions[generation["question_id"]]
         if question["grader"]["name"] != WRITING_GRADER:
             raise GradeError(f"{where} : jugement d'une question hors rédaction")
-        if line["criterion"] not in {item["id"] for item in question["criteria"]}:
+        known = {item["id"]: item for item in question["criteria"]}
+        if line["criterion"] not in known:
             raise GradeError(f"{where} : critère inconnu de la question {question['id']}")
+        if "check" in known[line["criterion"]]:
+            raise GradeError(
+                f"{where} : critère {line['criterion']} de {question['id']} vérifié par le code, "
+                "jamais jugé"
+            )
         criteria = by_key.setdefault(line["generation_key"], {})
         if line["criterion"] in criteria:
             raise GradeError(f"{where} : clé en double {line['key']}")

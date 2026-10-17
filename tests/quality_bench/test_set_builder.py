@@ -571,6 +571,62 @@ def test_invalid_set_yaml_exits_2(small_set, replace, insert, _reset_logging):
     assert not paths.set_dir("small").exists()
 
 
+WRITING_LINE = "  - {source: writing-fr, count: 3}\n"
+
+
+def test_set_source_file_selects_a_versioned_house_file(small_set, _reset_logging):
+    import json
+
+    from scripts.quality_bench.__main__ import main
+
+    small_set.write_text(
+        SMALL_SET.replace(
+            WRITING_LINE, "  - {source: writing-fr, count: 3, file: writing-fr-v2.yaml}\n"
+        ),
+        encoding="utf-8",
+    )
+    assert main(["build-set", "--set", "small"]) == 0
+    writing = [q for q in read_jsonl(paths.set_questions_path("small")) if q["usage"] == "writing"]
+    assert len(writing) == 3
+    assert any("check" in c for q in writing for c in q["criteria"])  # lu dans la version 2
+    manifest = json.loads(paths.set_manifest_path("small").read_text(encoding="utf-8"))
+    house = next(item for item in manifest["inputs"] if item["kind"] == "house")
+    assert house["path"].endswith("questions/writing/writing-fr-v2.yaml")
+
+
+@pytest.mark.parametrize(
+    "replace, insert, code",
+    [
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: ../x.yaml}\n", 2),
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: x.txt}\n", 2),
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: 3}\n", 2),
+        ("count: 4}", "count: 4, file: writing-fr-v2.yaml}", 2),  # source publique importée
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: absent.yaml}\n", 1),
+    ],
+)
+def test_set_source_file_is_checked(small_set, replace, insert, code, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    small_set.write_text(SMALL_SET.replace(replace, insert, 1), encoding="utf-8")
+    assert main(["build-set", "--set", "small"]) == code
+    assert not paths.set_dir("small").exists() and not paths.set_index_dir("small").exists()
+
+
+def test_set_source_file_is_refused_for_a_private_house_source(tmp_path):
+    from scripts.quality_bench.common.config import ConfigError
+
+    path = tmp_path / "p.yaml"
+    path.write_text(
+        "set: p\nseed: 1\nsources:\n"
+        "  - {source: abstention-fr, count: 1, file: abstention-fr.yaml}\n"
+        "think_on: {}\n",
+        encoding="utf-8",
+    )
+    loaded = load_set(path, SOURCES, REFUSED_SOURCES)
+    with pytest.raises(ConfigError, match="réservé aux questions maison versionnées"):
+        set_builder.check_generator_params(loaded)
+
+
 def test_cli_build_set_applies_exclude_and_logs_the_count(small_set, _reset_logging):
     from scripts.quality_bench.__main__ import main
 

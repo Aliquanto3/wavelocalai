@@ -166,7 +166,8 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
   - `grader.name` n'a pas de version : la version vit dans le registre et dans `grading.jsonl` (AD-10).
   - Liste fermée des `source` (slugs) dans `questions/schema.py`, chacune avec un seul producteur, plus une liste des sources refusées (exclusions de `pistes-et-questions.md`). Une question dérivée (traduction, variante) garde le `group` de son origine.
   - `tracks.json` : `{"think_off": [ids], "think_on": [ids]}`, `think_on` ⊂ `think_off`, tirage stratifié par usage **par groupes entiers**, graine dans `sets/<set>.yaml`.
-  - Les questions de rédaction, non privées, sont versionnées en entier dans `scripts/quality_bench/questions/writing/`.
+  - Les questions de rédaction, non privées, sont versionnées en entier dans `scripts/quality_bench/questions/writing/`. Le YAML de jeu choisit le fichier de la source par la clé facultative `file` (`set-v1` : `writing-fr.yaml` ; `set-v2` : `writing-fr-v2.yaml`) : un jeu garde les questions qu'il a figées.
+  - **Critères vérifiés par le code (2026-10-17) :** un critère de rédaction est `{id, question}` et, s'il demande de compter (mots, phrases, paragraphes, lignes, éléments de liste), porte en plus un `check` structuré (forme dans `questions/checks.py`, règles de comptage dans `questions/SOURCES.md`). `check` fait partie de `criteria`, donc de `target_hash`. Le juge ne reçoit pas ces critères (AD-16) ; le correcteur les vérifie (AD-10). Les critères ambigus restent au juge.
 
 ### AD-6 — Exports versionnés en liste blanche
 
@@ -331,11 +332,11 @@ grading:
 | extraction | schéma valide et toutes les valeurs attendues | = `success` | F1 par champ |
 | rag | correspondance exacte normalisée | = `success` | F1 |
 | abstention | abstention correcte | = `success` | — |
-| writing | `null` | moyenne des verdicts vrais sur **tous** les `criteria` | — |
+| writing | `null` | moyenne des verdicts vrais sur **tous** les `criteria` : verdicts du code (`grading/counting.py`) pour les critères à `check`, du juge retenu pour les autres | — |
 
   - `truncated`, `non_compliant` (JSON hors schéma, appel d'outil invalide, `call_cap_reached`) : `score = 0`, `success = false` (rédaction : `null`). Ce sont des échecs du modèle, comptés à part.
   - `error`, `context_exceeded` : `score = success = null`. Les statistiques retirent la question des comparaisons qui impliquent ce modèle et publient le compte.
-  - Rédaction : un critère sans verdict donne `awaiting_judgment`, un verdict en erreur donne `error`.
+  - Rédaction : un critère **jugé** sans verdict donne `awaiting_judgment`, un verdict en erreur donne `error` ; une question dont tous les critères sont vérifiés par le code n'attend aucun juge. Un `check` mal formé donne `error`. `judge_criteria@2` (2026-10-17) remplace `@1`, qui ne connaissait que le juge. Un jugement d'un critère à `check` est refusé par `grade`.
   - La sortie JSON est validée contre le schéma côté client (`jsonschema`), jamais supposée conforme parce que `format` a été envoyé. `inline_thinking` = texte de réflexion trouvé dans `content`.
   - `grading/registry.py` fixe `langdetect.DetectorFactory.seed = 0` avant tout chargement. Le code emprunté ne télécharge rien à l'import. Corriger deux fois le même fichier donne des octets identiques (test).
 
@@ -410,7 +411,7 @@ grading:
 - **Prevents:** un jugement qui re-juge après reprise, paie deux fois un lot cloud, juge des réponses inutiles ou dépend d'un serveur précis.
 - **Rule:**
   - **Interface :** `Judge.judge(items) -> list[Verdict]`, avec une implémentation par entrée de `judges.yaml` : `winnow`, `mimo`, `haiku`, `decider` en repli. Lancement : `judge --campaign <c> --judge <id>`, un dossier `judgment-<id>/` par identifiant.
-  - **Lignes jugées :** seulement celles où `usage = writing` et `status = ok`, une par critère. Ligne `qb.judgment/1` :
+  - **Lignes jugées :** seulement celles où `usage = writing` et `status = ok`, une par critère **sans `check`** (un critère vérifié par le code n'est jamais soumis au juge, AD-5). `calibrate` et `calibrate-sample` les ignorent aussi. Ligne `qb.judgment/1` :
 
 ```json
 {

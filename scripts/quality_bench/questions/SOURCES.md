@@ -114,7 +114,7 @@ Elles sont lues par `questions/house.py`, au format `qb.house/1`.
 
 | Slug | Usage | Correcteur | Licence | Fichier |
 |---|---|---|---|---|
-| `writing-fr` | `writing` | `judge_criteria` | MIT | `questions/writing/writing-fr.yaml` (versionné : le juge cloud doit le lire) |
+| `writing-fr` | `writing` | `judge_criteria` | MIT | `questions/writing/writing-fr.yaml` (`set-v1`) ou `writing-fr-v2.yaml` (`set-v2`, clé `file` du YAML de jeu) ; versionnés : le juge cloud doit les lire |
 | `instructions-fr` | `instructions` | `mifeval_fr` | privée | `$QUALITY_BENCH_DATA/private/instructions-fr.yaml` |
 | `tools-fr` | `tools` | `bfcl_ast` | privée | `$QUALITY_BENCH_DATA/private/tools-fr.yaml` |
 | `extraction-fr` | `extraction` | `json_schema` | privée | `$QUALITY_BENCH_DATA/private/extraction-fr.yaml` |
@@ -130,7 +130,7 @@ questions:
     turns: null                          # facultatifs : turns, tools, format
     grader_params: {schema: {…}, subset: extraction-fr}
     target: {…}
-    criteria: [{id: c1, question: "… ?"}]   # rédaction seulement : 4 à 6 questions fermées
+    criteria: [{id: c1, question: "… ?"}]   # rédaction seulement : 4 à 6 questions fermées ; check: facultatif
   - number: 2
     derived_from: tools/bfcl-live/0042   # tools-fr seulement : clés number, derived_from, messages
     messages: [{role: user, content: "…"}]
@@ -140,7 +140,7 @@ questions:
   - `mifeval_fr` : `{instruction_id_list, key, kwargs}`, identifiants `fr:…`, `kwargs` alignés ;
   - `json_schema` : `{schema, subset}`, schéma recopié dans le prompt sous la forme `json.dumps(…, sort_keys=True, ensure_ascii=False, indent=2)`, cible conforme au schéma ;
   - `abstention_marker` : `{marker}`, marqueur cité tel quel dans la consigne ;
-  - `judge_criteria` : `{}`.
+  - `judge_criteria` : `{}`. Un critère de rédaction porte `{id, question}` et, s'il demande de compter, un `check` vérifié par le code (section « Comptage en français »).
 - **Traductions (`derived_from`) :** la question copie `tools`, `format`, `env`, `turns`, `grader.params`, `target` et `group` du candidat d'origine (`sources/bfcl-live/candidates.jsonl`) et ne remplace que `messages`, avec les mêmes rôles. `tools-fr` vient avant `bfcl-live` dans le YAML de jeu : le groupe pris par la traduction est exclu de l'échantillon anglais.
 - **Questions privées :** `private = true`, `license = "private"`, groupe et `unit` opaques. Elles ne vivent que sous `$QUALITY_BENCH_DATA/private/`, jamais dans le dépôt, un test, un échantillon de `tests/`, une PR ou un journal. Le journal de `build-set` ne porte que l'empreinte `sha256` de chaque fichier lu.
 - **Sauvegarde des fichiers privés :** copier `private/` hors de la machine (support chiffré ou coffre personnel) après chaque modification. Sans ces fichiers, un jeu qui les cite ne peut plus être reconstruit.
@@ -156,7 +156,8 @@ questions:
 .venv-quality\Scripts\python -m scripts.quality_bench review-sample --set set-v1 --per-source 5 --writing 10
 ```
 
-- **`build-set`** lit `scripts/quality_bench/sets/<s>.yaml` : `set`, `seed`, `sources: [{source, count, per_group?, generator_seed?, generator_params?, exclude?}]` et `think_on: {<usage>: effectif}`.
+- **`build-set`** lit `scripts/quality_bench/sets/<s>.yaml` : `set`, `seed`, `sources: [{source, count, per_group?, generator_seed?, generator_params?, exclude?, file?}]` et `think_on: {<usage>: effectif}`.
+  - `file` : nom d'un fichier `.yaml` de `questions/writing/` à lire à la place de `<source>.yaml`, pour la seule source de rédaction (code 2 sinon). Un jeu garde ainsi les questions qu'il a figées quand une version suivante les modifie : `set-v1` lit `writing-fr.yaml`, `set-v2` lit `writing-fr-v2.yaml`.
   - `exclude` : liste d'identifiants de questions de la source (`tools/bfcl-live/0107`), chaînes non vides et sans doublon (sinon code 2). Ils sont retirés des candidats avant tout tirage. Un identifiant absent des candidats (faute de frappe, renumérotation après un changement de révision) refuse le jeu (code 1). Une renumérotation qui garde l'identifiant passe inaperçue (les identifiants sont des numéros d'ordre) : après un changement de révision, revérifier l'identifiant amont noté en commentaire. Le commentaire du YAML garde la raison et l'identifiant amont de chaque exclusion. `set-v1` exclut ainsi 5 cibles `bfcl-live` défectueuses dans BFCL lui-même : aucune réponse ne les passe, même avec le correcteur amont. On exclut par cette liste, jamais en éditant les candidats.
   - Il tire chaque source par groupes entiers, dans l'ordre du YAML, puis `think_on` par usage et par groupes entiers.
   - Mêmes entrées et même graine : `questions.jsonl`, `tracks.json` et `index.jsonl` sont identiques octet pour octet. `manifest.json` l'est aussi à commit égal (il porte le commit de construction).
@@ -182,7 +183,7 @@ La correction est une phase séparée, sans réseau, sans GPU et sans verrou mac
 - **Entrées lues :** `campaigns/<c>.yaml` (jeu, `grading.judge`), `campaigns/<c>/manifest.json` et `generation.jsonl`, le jeu `sets/<set>/` et, pour la rédaction, le seul dossier `judgment-<grading.judge>/`. Les consignes (`ifbench`, `mifeval_fr`) lisent aussi les données NLTK du banc, `$QUALITY_BENCH_DATA/nltk_data`. Rien d'autre n'est lu ni modifié.
 - **Sortie :** une ligne `qb.grading/1` par ligne de génération, canonique, triée par `key`, sans date : `generation_manifest` (empreinte du manifeste de génération), `judgment_manifest` (rédaction jugée seulement), `grader` (`nom@version`), `status`, `score`, `success`, `metrics`. Recorriger les mêmes entrées donne des octets identiques.
 - **Statuts :** statut de génération d'abord (`truncated` : 0 et échec, rédaction 0 et `success` nul ; `context_exceeded` et `error` : ni score ni succès), puis borne d'appels (`non_compliant`), puis le correcteur. `non_compliant` (JSON illisible ou hors schéma, appel d'outil mal formé, borne d'appels) est un échec du modèle ; `error` (vérificateur en défaut, identifiant de consigne inconnu, cible illisible, rejeu divergent, verdict du juge en erreur) est une erreur du banc. Rédaction sans verdict complet, sans juge désigné ou sans dossier de jugement : `awaiting_judgment`. `metrics.inline_thinking` vaut 1.0 si la réponse contenait `<think>` ou `</think>`.
-- **Codes de sortie :** 0 ; 1 si les entrées sont incohérentes (manifeste absent, jeu ou empreinte du jeu différents, question absente du jeu, `prompt_hash` différent, ligne de génération ou de jugement d'un autre manifeste ou hors schéma, données NLTK absentes alors qu'une question `ifbench` ou `mifeval_fr` est à corriger) ; 2 si `campaigns/<c>.yaml` est absent ou invalide. Dans les deux cas d'échec, rien n'est écrit.
+- **Codes de sortie :** 0 ; 1 si les entrées sont incohérentes (manifeste absent, jeu ou empreinte du jeu différents, question absente du jeu, `prompt_hash` différent, ligne de génération ou de jugement d'un autre manifeste ou hors schéma, jugement d'un critère vérifié par le code, données NLTK absentes alors qu'une question `ifbench` ou `mifeval_fr` est à corriger) ; 2 si `campaigns/<c>.yaml` est absent ou invalide. Dans les deux cas d'échec, rien n'est écrit.
 - **Journal :** identifiants, statuts, comptes et raisons rédigées par le banc ; jamais de contenu de question ni de réponse.
 
 ### Correcteurs
@@ -200,11 +201,42 @@ Registre `grading/registry.py`, un correcteur par nom de `GRADERS`, tous en vers
 | `squad_f1@1` | `piaf` | correspondance exacte après normalisation française, `metrics.f1` de jetons |
 | `oneruler_niah@1`, `oneruler_cwe@1` | `oneruler-fr-niah`, `oneruler-fr-none` ; `oneruler-fr-cwe` | `compare_numbers`, `compare_none` (réponse attendue `grader.params.none_answer`) et `is_correct_order` de OneRuler |
 | `abstention_marker@1` | `abstention-fr` | réponse sans espaces, guillemets, `*`, `` ` `` ni point final en bordure, égale au marqueur sans tenir compte de la casse |
-| `judge_criteria@1` | `writing-fr` | score = part des critères jugés vrais sur tous les critères, `success` nul |
+| `judge_criteria@2` | `writing-fr` | score = part des critères vrais (verdicts du code pour ceux qui portent un `check`, du juge pour les autres) sur tous les critères, `success` nul ; sans critère jugé, aucun verdict de juge n'est attendu |
 
 **`format` dans `json_schema@2` :** le validateur de JSONSchemaBench (`core/evaluator.py`, `epfl-dlab/jsonschemabench` @ `8003e8405c4d8d8b327b1eb472c9856297d75493`, https://github.com/epfl-dlab/jsonschemabench/blob/8003e8405c4d8d8b327b1eb472c9856297d75493/core/evaluator.py) active les formats : `Draft202012Validator(schema, format_checker=FormatChecker())`, avec `ipv4`, `ipv6` et `uuid` redéfinis (`IPv4Address`, `IPv6Address`, `UUID`). `conformity_error` fait de même, redéfinitions comprises (une adresse IPv6 à zone ou un UUID sans tirets passent, comme dans l'amont ; `format` ne contraint que les chaînes), avec une liste figée (`common/schemas.FORMAT_CHECKED` : `date`, `email`, `idn-email`, `ipv4`, `ipv6`, `regex`, `uuid`) pour ne pas dépendre des extras installés : les autres formats (`date-time`, `uri`, `hostname`, `time`...) restent des annotations, faute de dépendance facultative (le `FormatChecker()` de l'amont en dépend aussi). Écart connu : l'amont valide toujours en draft 2020-12, alors que le banc suit le `$schema` déclaré. Le format `regex` dépend du moteur `re` de la version de Python, comme dans l'amont.
 
 Le hasard global (`random`) est fixé puis restauré autour des vérificateurs de consignes, et `langdetect` reçoit la graine 0 avant tout chargement.
+
+### Comptage en français (critères de rédaction vérifiés par le code)
+
+Les juges LLM comptent mal. Depuis `set-v2` (`writing-fr-v2.yaml`), un critère de rédaction qui demande de compter porte un `check` : `judge` ne le soumet pas, `grade` le vérifie par `grading/counting.py` (version `judge_criteria@2`), et `calibrate` et `calibrate-sample` l'ignorent (ni jugé, ni étiqueté). Un critère dont le périmètre ou le sens reste ambigu garde le juge. `set-v1` et `writing-fr.yaml` restent tels quels.
+
+Forme (`questions/checks.py`) : un objet, ou une liste d'objets qui doivent tous être vrais.
+
+```yaml
+- {id: c2, question: "… moins de 120 mots ?", check: {count: words, scope: body, op: "<", n: 120}}
+- {id: c4, question: "… entre 4 et 6 phrases ?", check: {count: sentences, op: between, min: 4, max: 6}}
+- {id: c2, question: "… chaque phrase … moins de 20 mots ?", check: {count: words, per: sentence, op: "<", n: 20}}
+- {id: c2, question: "… première phrase … moins de dix mots ?", check: {count: words, of: {sentence: 1}, op: "<", n: 10}}
+- {id: c1, question: "… exactement sept étapes numérotées de 1 à 7 ?", check: {count: items, marker: number, sequential: true, op: "==", n: 7}}
+```
+
+- `count` : `words`, `sentences`, `paragraphs`, `lines`, `items` ; `op` : `<`, `<=`, `>`, `>=`, `==` avec `n`, ou `between` avec `min` et `max` inclus. « Entre 4 et 6 » est inclusif, « moins de 120 » exclut 120, « au plus 5 » l'inclut. Un critère qui présuppose une liste (« la liste comporte au maximum 3 éléments ») se code `between 1 et 3` : une réponse sans liste ne le satisfait pas.
+- `scope` : `text` (défaut, toute la réponse finale, réflexion en ligne retirée), `body` (corps de courriel), `before_last` (tout sauf le dernier paragraphe, pour « deux paragraphes avant la ligne finale »).
+- `of: {paragraph|sentence: N}` : compter dans cette seule unité (à partir de 1) ; absente, la vérification échoue (« moins de dix mots » ne se satisfait jamais d'une phrase manquante). `per: sentence|paragraph|item|line` : la borne vaut pour chaque unité, au moins une unité.
+- `marker` (éléments de liste) : `bullet` (`- * • + – —`), `number` (`1.` ou `1)`), `dash` (`- – —`, répliques de dialogue), `any` (puces ou numéros, défaut). `sequential: true` : les numéros lisent 1, 2, 3… dans l'ordre.
+- `approx: true` pour un critère qui dit « environ » : les bornes se relâchent de 10 %, arrondies vers l'extérieur et calculées en fractions exactes (`between 100 et 100` accepte 90 à 110). Aucun critère de `writing-fr-v2.yaml` ne le dit aujourd'hui ; la règle est prête et testée.
+
+Règles de comptage (déterministes, sans locale ni modèle ; tests dans `tests/quality_bench/test_counting.py`) :
+
+- **Texte :** NFC, fins de ligne `\n`, caractères de largeur nulle et trait d'union conditionnel retirés. L'espace insécable (U+00A0, U+202F) est une espace.
+- **Mots :** les suites séparées par des espaces qui contiennent au moins un caractère alphanumérique. Comme un traitement de texte : l'élision et le trait d'union ne coupent pas (« l'école », « peut-être », « c'est-à-dire », « et/ou » : un mot chacun) ; un nombre écrit avec des espaces compte pour plusieurs mots (« 1 450 » : deux) ; la ponctuation isolée (« : », « — », « » ») et le marqueur de liste ou de titre en début de ligne ne comptent pas. Les titres comptent comme du texte.
+- **Phrases :** la fin de ligne coupe toujours (un texte à retours à la ligne forcés compterait trop de phrases). Dans une ligne, `.`, `!`, `?` et `…`, suivis de guillemets ou parenthèses fermants éventuels (avec ou sans espace avant, comme en typographie française), ferment une phrase quand une espace ou la fin de ligne suit, sauf si la suite commence par une minuscule (« etc. et », « Vraiment ? » dit-il, « il hésite... puis ») ou si le point suit une abréviation courante (`M.`, `Mme`, `Dr`, `St`, `p. ex.`, `n°`, `réf.`, `vs`…) ou une initiale isolée (« Paul D. »). `:` et `;` ne coupent pas ; « 4.2 » et les adresses en ligne ne coupent pas. Un titre Markdown, une ligne en gras seule et un filet horizontal ne sont pas des phrases. Limite connue : une phrase qui commence par une minuscule (rare) n'est pas coupée, et une abréviation hors liste suivie d'une majuscule coupe.
+- **Paragraphes :** blocs séparés par une ou plusieurs lignes vides ; les blocs qui ne sont que des titres Markdown, des lignes en gras seules ou des filets ne comptent pas. Un titre en texte brut sans balisage compte comme un paragraphe.
+- **Lignes :** lignes non vides (les titres comptent). **Éléments :** lignes qui commencent par le marqueur ; une ligne indentée qui suit prolonge l'élément ; une ligne non indentée qui n'a pas de marqueur n'en est pas un.
+- **Corps de courriel (`scope: body`) :** la réponse privée de la ligne « Objet : » (parmi les trois premières lignes non vides, balisage Markdown toléré), de la formule d'appel (premier paragraphe d'une ligne, au plus huit mots, ne finissant pas par `. ? …`, qui finit par `, : !` ou commence par Bonjour, Madame, Monsieur, Cher…) et de la formule de politesse avec la signature : un des trois derniers paragraphes qui contient « cordialement », « salutations », « agréer », « respectueusement », « sincèrement »… (au plus 4 lignes et 45 mots) est retiré avec les paragraphes qui le suivent, à condition que ceux-ci ressemblent à une signature (au plus 3 lignes et 15 mots, sans ponctuation finale de phrase). Sans formule de politesse trouvée, rien n'est retiré à la fin : le comptage reste fidèle au texte plutôt que de deviner.
+
+**`writing-fr-v2.yaml` :** mêmes 80 questions, mêmes critères et mêmes `prompt_hash` que `writing-fr.yaml`, avec 69 critères sur 418 portant un `check` (349 restent au juge). Les critères de comptage qui restent au juge, parce que leur périmètre ou leur sens est ambigu (section, « partie réponse », « paragraphe principal », unités sans marqueur, nombre d'arguments, format de réplique, mots distincts…), sont, par numéro de question (`writing/writing-fr/NNNN`) et critère : 0014.c1, 0014.c2, 0016.c1, 0019.c1, 0024.c2, 0028.c1, 0044.c2, 0049.c5, 0051.c3, 0056.c2, 0056.c3, 0060.c2, 0060.c4, 0060.c5, 0062.c2, 0066.c1, 0066.c3, 0070.c2, 0070.c4, 0075.c3, 0077.c5, 0078.c3, 0079.c5, 0080.c3, plus 0007.c6 (« au plus une phrase d'excuse ») et les « au moins N » sur des arguments, risques, pistes ou découvertes (0019.c4, 0042.c3, 0042.c5, 0043.c3, 0046.c2). `calibrate` continue de publier à part l'accord de ceux que l'heuristique `is_counting` reconnaît (17 sur `set-v2`).
 
 ### Code emprunté
 

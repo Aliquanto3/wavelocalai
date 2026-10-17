@@ -235,6 +235,50 @@ def test_real_writing_file_has_80_valid_questions():
         assert not question["private"] and question["license"] == "MIT"
 
 
+def test_house_path_chooses_a_versioned_file():
+    chosen = house_path("writing-fr", "writing-fr-v2.yaml")
+    assert chosen == paths.PACKAGE_DIR / "questions" / "writing" / "writing-fr-v2.yaml"
+    with pytest.raises(QuestionError, match="source privée"):
+        house_path("abstention-fr", "x.yaml")
+
+
+def test_writing_v2_keeps_the_v1_questions_and_adds_checks_only():
+    v1 = load_house(house_path("writing-fr"), "writing-fr")
+    v2 = load_house(house_path("writing-fr", "writing-fr-v2.yaml"), "writing-fr")
+    assert [q["id"] for q in v2] == [q["id"] for q in v1] and len(v2) == 80
+    checked = 0
+    for old, new in zip(v1, v2, strict=True):
+        assert validate_question(new) == new
+        assert new["messages"] == old["messages"] and new["group"] == old["group"]
+        assert new["prompt_hash"] == old["prompt_hash"]  # le prompt est celui de set-v1
+        assert [(c["id"], c["question"]) for c in new["criteria"]] == [
+            (c["id"], c["question"]) for c in old["criteria"]
+        ]
+        checked += sum(1 for c in new["criteria"] if "check" in c)
+    assert checked == 69
+    assert sum(len(q["criteria"]) for q in v2) == 418
+    assert sum(1 for q in v2 for c in q["criteria"] if "check" not in c) == 418 - 69
+
+
+def test_check_with_a_bad_form_is_refused_by_the_house_loader():
+    question = {
+        "number": 1,
+        "messages": _user("Rédige."),
+        "grader_params": {},
+        "target": None,
+        "criteria": [
+            {"id": f"c{i}", "question": f"Critère {i} ?"}
+            | ({"check": {"count": "words"}} if i == 1 else {})
+            for i in range(1, 5)
+        ],
+    }
+    with pytest.raises(QuestionError, match="critère 1"):
+        build_house(_doc("writing-fr", question), "writing-fr")
+    question["criteria"][0] = {"id": "c1", "question": "Critère 1 ?", "juge": True}
+    with pytest.raises(QuestionError, match="critère 1"):
+        build_house(_doc("writing-fr", question), "writing-fr")
+
+
 SECRET = "VALEUR-SECRETE-4242"
 
 

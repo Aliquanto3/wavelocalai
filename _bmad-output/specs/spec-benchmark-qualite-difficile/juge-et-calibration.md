@@ -6,6 +6,8 @@ Interface, lignes de jugement et lots : AD-16 du spine d'architecture.
 
 Chaque critère de rédaction est formulé en **question fermée** (oui ou non), pour être jugé critère par critère, avec une ligne de `judgment.jsonl` par critère.
 
+**Critères de comptage (décision d'Anaël, 2026-10-17, depuis `set-v2`).** Les juges LLM comptent mal : un critère qui demande de compter (mots, phrases, paragraphes, lignes, éléments de liste) porte un `check` structuré et est vérifié par le code (`grading/counting.py`, règles dans `questions/SOURCES.md`). Il n'est ni soumis au juge, ni étiqueté, ni calibré ; le correcteur `judge_criteria@2` combine les verdicts du code et ceux du juge. 69 critères sur 418 sont dans ce cas ; les critères ambigus restent au juge. Le volume de jugements de la campagne (~11 000 ci-dessous) baisse d'environ 16 % (349 critères jugés sur 418).
+
 Les questions de rédaction ne sont **pas privées** : le juge doit voir la consigne, et une tâche ouverte notée sur critères craint peu la contamination. Aucune question privée ne quitte la machine.
 
 ## Configurations comparées

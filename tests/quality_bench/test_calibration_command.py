@@ -860,6 +860,22 @@ def test_units_and_texts_match_the_judge_phase(env):
     assert calibration.render_instruction(messages) == prompt.render_instruction(messages)
 
 
+def test_criteria_checked_by_code_are_not_calibration_units(env):
+    """Un critère à ``check`` est vérifié par le code : ni jugé, ni étiqueté, ni calibré."""
+    from scripts.quality_bench.report.inputs import load_inputs
+
+    inputs = load_inputs(CAMPAIGN, partial=True)
+    before, _ = calibration.read_units(inputs)
+    assert any(unit.criterion == "c1" for unit in before)
+    check = {"count": "words", "op": ">=", "n": 1}
+    for question in inputs.questions.values():
+        if question["criteria"]:
+            question["criteria"][0] = {**question["criteria"][0], "check": check}
+    after, _ = calibration.read_units(inputs)
+    assert after and not any(unit.criterion == "c1" for unit in after)
+    assert len(after) < len(before)
+
+
 # -- Échantillon : tirages successifs et juges partiels -------------------------------------
 
 
