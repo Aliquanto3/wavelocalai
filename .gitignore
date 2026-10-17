@@ -116,3 +116,6 @@ outputs/*.md
 
 # Mais garder le dossier
 !outputs/.gitkeep
+
+# Compteur d'échecs du contrôle rapide (agent-cost-kit)
+.claude/cost-kit/.blocages
