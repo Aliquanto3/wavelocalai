@@ -32,7 +32,7 @@ from ..stats.groups import (
     indistinguishable_groups,
     leader_order,
 )
-from ..stats.mcnemar import discordant_counts, mcnemar_exact, paired_difference, z_test
+from ..stats.mcnemar import discordant_counts, mcnemar_exact, paired_difference, paired_test
 from ..stats.multiple import benjamini_hochberg, bonferroni_wins, holm
 from ..stats.spearman import spearman_test
 from ..stats.units import unit_scores
@@ -77,6 +77,7 @@ class Pair:
     b: int | None
     c: int | None
     p: float
+    p_method: str
     a_values: tuple[float, ...]
     b_values: tuple[float, ...]
     groups: tuple[str, ...]
@@ -102,12 +103,15 @@ def _pair(scope: Scope, a: str, b: str, z: float) -> Pair:
         if a_values:
             only_a, only_b = discordant_counts(a_values, b_values)
             p = mcnemar_exact(only_a, only_b)
+            p_method = "mcnemar"
         else:  # aucune unité appariée : ni table ni test
             only_a = only_b = None
             p = math.nan
+            p_method = "mcnemar"
     else:
         only_a = only_b = None
-        p = z_test(paired.diff, paired.se)
+        differences = [x - y for x, y in zip(a_values, b_values, strict=True)]
+        p, p_method = paired_test(paired.diff, paired.se, differences, groups)
     return Pair(
         paired.n,
         paired.diff,
@@ -118,6 +122,7 @@ def _pair(scope: Scope, a: str, b: str, z: float) -> Pair:
         only_a,
         only_b,
         p,
+        p_method,
         tuple(a_values),
         tuple(b_values),
         tuple(groups),
@@ -213,6 +218,7 @@ def scope_stats(
                     "b": pair.b,
                     "c": pair.c,
                     "p": number(pair.p),
+                    "p_method": pair.p_method,
                     "p_holm": number(p_holm),
                     "reject": rejected,
                 }
@@ -228,6 +234,7 @@ def scope_stats(
             "n": pairs[(a, b)].n,
             "diff": number(pairs[(a, b)].diff),
             "p": number(pairs[(a, b)].p),
+            "p_method": pairs[(a, b)].p_method,
             "p_bh": number(p_bh),
             "reject": rejected,
         }

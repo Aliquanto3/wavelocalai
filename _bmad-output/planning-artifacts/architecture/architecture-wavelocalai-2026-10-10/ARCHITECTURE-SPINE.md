@@ -399,7 +399,7 @@ grading:
   - **Bibliothèques réseau :** seul `judge/` importe `anthropic` ou `openai`. Seul `questions/importers/` importe `huggingface_hub` ou `datasets`, chaque fichier appelant `disable_telemetry()` (nom nu, niveau module) avant l'import et figurant dans `TELEMETRY_IMPORTERS` de `tests/unit/test_telemetry.py`. La story 2 y ajoute `datasets` à `TELEMETRY_ROOTS`.
   - **Test AST :** un test de `tests/quality_bench/` vérifie que les graphes d'import de `generation/` et de `grading/` n'atteignent ni `judge/`, ni `questions/importers/`, ni ces bibliothèques, ni `nltk.download`.
   - **Questions privées :** un juge cloud lève une exception sur toute question `private = true`, avant tout envoi.
-  - **Téléchargements avant campagne :** jeux publics, données NLTK (`punkt`, `punkt_tab`, `stopwords`, `averaged_perceptron_tagger_eng`, sous `$QUALITY_BENCH_DATA/nltk_data` via `NLTK_DATA`) et poids du juge local (téléchargement manuel documenté, `sha256` comparé à `SHA256SUMS`).
+  - **Téléchargements avant campagne :** jeux publics, données NLTK (`punkt`, `punkt_tab`, `stopwords`, `averaged_perceptron_tagger_eng`, sous `$QUALITY_BENCH_DATA/nltk_data`, que `nlp.bench_data()` lit directement ; la variable `NLTK_DATA` est ignorée à dessein, pour qu'un autre dossier de données NLTK ne s'y substitue pas) et poids du juge local (téléchargement manuel documenté, `sha256` comparé à `SHA256SUMS`).
 
 ### AD-16 — Phase de jugement
 

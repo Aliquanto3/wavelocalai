@@ -22,6 +22,11 @@ USAGE_LABELS = {
     "abstention": "Abstention",
     "writing": "Rédaction",
 }
+SIGN_TEST_NOTE = (
+    "Pour les paires dont l'erreur-type groupée est nulle avec une différence non nulle, le "
+    "test z est indéfini : `p` vient alors du test exact des signes sur les différences "
+    "moyennes par groupe non nulles (binomiale de paramètre 1/2)."
+)
 METHOD_LABELS = {
     "mcnemar": "McNemar exact apparié, intervalle de Wilson",
     "paired_z": (
@@ -172,7 +177,10 @@ def _comparisons_table(scope: Mapping[str, Any]) -> list[str]:
             "oui" if c["reject"] else "non",
         ]
         rows.append(row)
-    return _table(headers, rows)
+    lines = _table(headers, rows)
+    if any(c["p_method"] == "sign" for c in scope["comparisons"]):
+        lines += ["", SIGN_TEST_NOTE]
+    return lines
 
 
 def _matrix_lines(scope: Mapping[str, Any]) -> list[str]:
@@ -186,7 +194,9 @@ def _matrix_lines(scope: Mapping[str, Any]) -> list[str]:
             f"p BH {fr_pvalue(pair['p_bh'])})"
         )
     if not wins:
-        return ["Aucune paire distinguée après correction de Benjamini-Hochberg."]
+        wins = ["Aucune paire distinguée après correction de Benjamini-Hochberg."]
+    if any(pair["p_method"] == "sign" for pair in scope["matrix"]):
+        wins += ["", SIGN_TEST_NOTE]
     return wins
 
 

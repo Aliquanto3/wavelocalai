@@ -14,6 +14,7 @@ Toutes les analyses partent de `grading.jsonl` (scores) et de `generation.jsonl`
 - **Holm** sur les k−1 comparaisons au meneur (19 tests pour 20 modèles). Passer `method='holm'` à `multipletests`, dont la valeur par défaut est Holm-Šidák.
 - **BH (FDR)** réservé à la matrice exploratoire « qui bat qui ».
 - **Bootstrap apparié** pour les métriques non binaires (F1 d'extraction, note du juge).
+- **Test z sur la différence appariée** (erreur-type groupée) pour les périmètres non binaires. Quand l'ET groupée est nulle (au bruit flottant près : |ET| ≤ 1e-12 + 1e-9·|diff|) avec une différence non nulle, le z donnerait p = 0 quel que soit l'effectif : repli sur le **test exact des signes** bilatéral sur les **groupes**, cohérent avec l'erreur-type groupée (différence moyenne par groupe, groupes ex aequo écartés, binomiale de paramètre 1/2 ; deux groupes positifs donnent p = 0,5). Il est signalé par `p_method: "sign"` dans le rapport (`"z"` ou `"mcnemar"` sinon), sur les comparaisons au meneur comme dans la matrice BH, et par une note sous le tableau des comparaisons et sous la matrice. Le champ `method` du périmètre (`paired_z`) désigne la famille de tests, pas le test de chaque paire.
 - Friedman/Nemenyi est exclu pour une analyse par question : son N compte des jeux de données.
 
 ## Classement
@@ -53,3 +54,17 @@ En piste activée, une réponse tronquée au plafond compte comme un échec. Le 
 | 20 points | 39 | 61 | 84 |
 
 Ces effectifs supposent des questions indépendantes : en présence de groupes, ils se comptent en groupes.
+
+## Revue
+
+Revue de `fix/quality-stats-ci` (2026-10-17), constats du second avis (Haiku) et de la revue Opus.
+
+- high | second avis | corrigé | `se == 0.0` laissait passer une ET de bruit flottant (9,8e-18 pour six différences de 0,1 en deux groupes) et rendait p = 0 : tolérance absolue et relative (`_is_zero`), testée sur ce cas.
+- medium | second avis | corrigé | le test des signes comptait les ex aequo de bruit flottant (5,6e-17) comme des victoires : même tolérance.
+- medium | second avis | corrigé | test des signes sur les unités alors que l'ET est groupée, anticonservateur avec peu de groupes : il porte sur les différences moyennes par groupe (décision de l'orchestrateur).
+- low | second avis | corrigé | `p_method` absent de la matrice BH et note absente sous la matrice : champ ajouté (schéma, rapport) et note commune ; `method: "paired_z"` reste le nom de la famille de tests, précisé ci-dessus.
+- low | second avis | corrigé | « binomiale, p = 0,5 » ambigu : « binomiale de paramètre 1/2 ».
+- low | second avis | corrigé | textes qui citaient encore la variable `NLTK_DATA` (commande `fetch-nltk`, `paths.py`, `nltk_data.py`) ; `common/` change donc `harness_hash`, sans effet puisque le pilote repart de zéro.
+- low | second avis | rejeté | `actions/cache@v6` existe (tags v6, v6.0.0, v6.1.0 du 2026-06-23 sur github.com/actions/cache).
+- low | second avis | corrigé | politique Python 3.10–3.12 contre job en 3.14 : documenté dans l'écueil CI d'AGENTS.md.
+- low | revue | reporté | le job CI `quality-bench` n'a jamais tourné : vérifier au premier push qu'il passe (téléchargement NLTK, cache, 3.14 sur `windows-latest`).

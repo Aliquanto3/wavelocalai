@@ -22,7 +22,10 @@ from scripts.quality_bench.stats.mcnemar import (
     correlation,
     discordant_counts,
     mcnemar_exact,
+    group_mean_differences,
     paired_difference,
+    paired_test,
+    sign_test_exact,
     z_test,
 )
 from scripts.quality_bench.stats.multiple import benjamini_hochberg, bonferroni_wins, holm
@@ -148,8 +151,75 @@ def test_correlation_of_a_constant_model_is_undefined():
 def test_z_test():
     assert z_test(0.1, 0.05) == pytest.approx(0.0455003, abs=1e-6)
     assert z_test(0.0, 0.0) == 1.0
-    assert z_test(0.2, 0.0) == 0.0
+    # ET nulle et différence non nulle : z indéfini (le repli est paired_test), pas p = 0.
+    assert math.isnan(z_test(0.2, 0.0))
     assert math.isnan(z_test(math.nan, 0.1))
+
+
+def test_sign_test_exact_by_hand():
+    # 2 positives, 0 négative : 2 · (1/2)² = 0,5. Les zéros sont écartés.
+    assert sign_test_exact([1, 0, 1, 0]) == pytest.approx(0.5)
+    # 8 positives sur 8 : 2 · (1/2)⁸ = 2/256.
+    assert sign_test_exact([1] * 8) == pytest.approx(2 / 256)
+    # 7 positives, 1 négative : 2 · (1 + 8)/256 = 18/256.
+    assert sign_test_exact([1] * 7 + [-1]) == pytest.approx(18 / 256)
+    # 3 contre 3 : p = 1 ; aucune différence : p = 1.
+    assert sign_test_exact([1, 1, 1, -1, -1, -1]) == pytest.approx(1.0)
+    assert sign_test_exact([0, 0]) == 1.0
+
+
+def test_sign_test_ignores_float_noise_ties():
+    # 0,3 − 0,1 − 0,2 = 5,6e-17 : un ex aequo au bruit flottant près, pas une victoire.
+    assert sign_test_exact([0.3 - 0.1 - 0.2, 1, -1]) == pytest.approx(1.0)
+
+
+def test_group_mean_differences():
+    assert group_mean_differences([1, 0, 1, 1, -1], ["g1", "g1", "g2", "g2", "g3"]) == [
+        0.5,
+        1.0,
+        -1.0,
+    ]
+
+
+def test_paired_test_falls_back_to_the_sign_test_on_groups_when_the_pooled_se_is_zero():
+    # Reproduction : d = (1, 0, 1, 0), un résidu de groupe nul par groupe, donc ET groupée
+    # nulle ; le z donnait p = 0 à n = 4. Deux groupes de moyenne 0,5 > 0 : 2 · (1/2)² = 0,5.
+    groups = ["g1", "g1", "g2", "g2"]
+    paired = paired_difference([1, 0, 1, 0], [0, 0, 0, 0], groups, Z95)
+    assert paired.diff == 0.5 and paired.se == 0.0
+    p, method = paired_test(paired.diff, paired.se, [1, 0, 1, 0], groups)
+    assert method == "sign" and p == pytest.approx(0.5)
+    # 8 unités mais 2 groupes : le test porte sur les 2 groupes (p = 0,5), pas sur les 4
+    # unités non nulles (p = 0,125, anticonservateur).
+    groups = ["g1"] * 4 + ["g2"] * 4
+    p, method = paired_test(0.5, 0.0, [1, 0, 1, 0, 1, 0, 1, 0], groups)
+    assert method == "sign" and p == pytest.approx(0.5)
+    # 4 groupes positifs : 2 · (1/2)⁴ = 0,125.
+    groups = ["g1", "g1", "g2", "g2", "g3", "g3", "g4", "g4"]
+    p, method = paired_test(0.5, 0.0, [1, 0, 1, 0, 1, 0, 1, 0], groups)
+    assert method == "sign" and p == pytest.approx(0.125)
+
+
+def test_paired_test_treats_float_noise_se_as_zero():
+    # Six différences de 0,1 en deux groupes : ET groupée de 9,8e-18 (bruit flottant), que le
+    # z transformait en p = 0.
+    d = [0.1] * 6
+    groups = ["g1", "g1", "g1", "g2", "g2", "g2"]
+    paired = paired_difference(d, [0.0] * 6, groups, Z95)
+    assert 0.0 < paired.se < 1e-15
+    assert math.isnan(z_test(paired.diff, paired.se))
+    p, method = paired_test(paired.diff, paired.se, d, groups)
+    assert method == "sign" and p == pytest.approx(0.5)
+    # Différence et ET toutes deux au bruit flottant près : aucune différence, p = 1.
+    assert paired_test(5.6e-17, 1e-18, [5.6e-17, 0.0], ["g1", "g2"]) == (1.0, "z")
+
+
+def test_paired_test_keeps_the_z_test_otherwise():
+    p, method = paired_test(0.1, 0.05, [1, 0, 0], ["g1", "g2", "g3"])
+    assert method == "z" and p == pytest.approx(0.0455003, abs=1e-6)
+    assert paired_test(0.0, 0.0, [0, 0], ["g1", "g2"]) == (1.0, "z")
+    p, method = paired_test(math.nan, math.nan, [1], ["g1"])
+    assert method == "z" and math.isnan(p)
 
 
 # -- Comparaisons multiples -----------------------------------------------------------------

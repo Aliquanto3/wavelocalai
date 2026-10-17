@@ -161,7 +161,7 @@ def sources_log_path(command: str) -> Path:
 
 
 def nltk_data_dir() -> Path:
-    """Données NLTK du banc (``NLTK_DATA``) : ``$QUALITY_BENCH_DATA/nltk_data``."""
+    """Données NLTK du banc : ``$QUALITY_BENCH_DATA/nltk_data``."""
     return data_root() / "nltk_data"
 
 
