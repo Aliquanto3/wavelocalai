@@ -187,7 +187,8 @@ def check_loaded_models(judge: config.JudgeConfig, client: OllamaClient) -> None
 def check_judge_gpu(campaign: str, client: OllamaClient) -> dict[str, Any]:
     """Juge local : contrôle du GPU (``nvidia-smi``, AD-13), réglé par ``gpu_check`` de la
     configuration de la campagne (valeurs par défaut si le fichier est absent) ; refuse avec
-    ``JudgeLaunchError`` si un processus autre qu'Ollama occupe le GPU."""
+    ``JudgeLaunchError`` si un processus autre qu'Ollama occupe le GPU (``/api/ps`` illisible :
+    seule la règle des processus s'applique, comme pour ``generate``)."""
     config_path = paths.campaign_config_path(campaign)
     settings = (
         config.load_campaign(config_path).gpu_check
@@ -196,14 +197,18 @@ def check_judge_gpu(campaign: str, client: OllamaClient) -> dict[str, Any]:
     )
     if not settings.enabled:
         return gpu.check_gpu(settings, None)
+    loaded: list[str] | None
     try:
-        loaded = [str(entry.get("name") or entry.get("model") or "") for entry in client.ps()]
-        return gpu.check_gpu(settings, [name for name in loaded if name])
+        names = [str(entry.get("name") or entry.get("model") or "") for entry in client.ps()]
+    except OllamaError as exc:
+        logger.warning("/api/ps illisible (%s) : seule la règle des processus GPU s'applique", exc)
+        loaded = None
+    else:
+        loaded = [name for name in names if name]
+    try:
+        return gpu.check_gpu(settings, loaded)
     except gpu.GpuCheckError as exc:
         raise JudgeLaunchError(str(exc)) from None
-    except OllamaError as exc:
-        logger.warning("Ollama injoignable (%s) : contrôle du GPU impossible, lancement permis", exc)
-        return {"enabled": True, "skipped": "ollama_unreachable"}
 
 
 def unload_local_judge(judge: config.JudgeConfig, client: OllamaClient) -> None:

@@ -13,6 +13,7 @@ OLLAMA_RUNNER = r"C:\Users\Utilisateur\AppData\Local\Programs\Ollama\ollama.exe"
 # Relevé réel : mémoire par processus « [N/A] » sous WDDM.
 LLAMA_SERVER_LINE = f"22792, {LLAMA_SERVER}, [N/A]"
 OLLAMA_LINE = f"4012, {OLLAMA_RUNNER}, [N/A]"
+DRIVER_VERSION = "000.00-test"
 
 
 class FakeSmi:
@@ -35,9 +36,27 @@ class FakeSmi:
             raise self.error
         if "--query-compute-apps=pid,process_name,used_memory" in command:
             lines = self.apps
+        elif "--query-gpu=driver_version" in command:
+            lines = [DRIVER_VERSION]
         else:
             assert "--query-gpu=index,memory.used" in command
             lines = [f"{index}, {value}" for index, value in enumerate(self.used)]
         return subprocess.CompletedProcess(
             command, self.returncode, "\n".join(lines) + ("\n" if lines else ""), self.stderr
         )
+
+
+class SequencedSmi(FakeSmi):
+    """``FakeSmi`` dont l'état change au fil des contrôles : ``states`` = liste de couples
+    ``(apps, used)``, un par paire de requêtes (le dernier reste ensuite)."""
+
+    def __init__(self, states):
+        super().__init__()
+        self.states = list(states)
+        self.checks = 0
+
+    def __call__(self, command, **kwargs):
+        if "--query-compute-apps=pid,process_name,used_memory" in command:
+            self.apps, self.used = self.states[min(self.checks, len(self.states) - 1)]
+            self.checks += 1
+        return super().__call__(command, **kwargs)

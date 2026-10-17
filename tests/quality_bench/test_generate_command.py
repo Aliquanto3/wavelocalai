@@ -472,6 +472,23 @@ def test_gpu_checked_before_each_model_in_preflight(env, monkeypatch):
     assert len(apps_queries) == 1 + len(MODELS)  # lancement, puis un contrôle par modèle
 
 
+def test_gpu_busy_before_second_model_stops_cleanly_and_resumes(env, capsys, monkeypatch):
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import LLAMA_SERVER_LINE, FakeSmi, SequencedSmi
+
+    # Contrôles : lancement, avant THINK (libres), puis avant PLAIN (processus étranger).
+    smi = SequencedSmi([([], [300]), ([], [300]), ([LLAMA_SERVER_LINE], [6187])])
+    monkeypatch.setattr(gpu, "RUN", smi)
+    assert _run() == 1
+    assert "llama-server.exe" in capsys.readouterr().err
+    assert {line["model"] for line in _lines()} == {THINK}
+    monkeypatch.setattr(gpu, "RUN", FakeSmi())
+    assert _run() == 0
+    assert {line["model"] for line in _lines()} == {THINK, PLAIN}
+    assert len(_lines()) == len(_expected_keys(env))
+
+
 def test_gpu_check_disabled_never_calls_nvidia_smi(env, monkeypatch):
     from scripts.quality_bench.common import gpu
 
@@ -481,7 +498,8 @@ def test_gpu_check_disabled_never_calls_nvidia_smi(env, monkeypatch):
     monkeypatch.setattr(gpu, "RUN", smi)
     _write_campaign(env["config_dir"], gpu_check_off=True)
     assert _run() == 0
-    assert smi.commands == []
+    # Seule la version du pilote (partie informative) est demandée, jamais le contrôle.
+    assert all("--query-gpu=driver_version" in command for command in smi.commands)
     manifest = json.loads(paths.generation_manifest_path(CAMPAIGN).read_text(encoding="utf-8"))
     assert manifest["informative"]["checklist"]["gpu_check"] == {"enabled": False}
 

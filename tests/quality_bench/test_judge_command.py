@@ -173,6 +173,26 @@ def test_foreign_gpu_process_refuses_local_judge(server, monkeypatch, capsys):
     assert server.systemone_bodies() == []
 
 
+def test_unreadable_ps_still_applies_the_gpu_process_rule(server, monkeypatch):
+    from scripts.quality_bench.common import gpu
+    from scripts.quality_bench.judge import commands as judge_commands
+    from scripts.quality_bench.ollama.client import OllamaUnavailableError
+
+    from .gpu_fakes import LLAMA_SERVER_LINE, FakeSmi
+
+    class DeadPs:
+        def ps(self):
+            raise OllamaUnavailableError("injoignable")
+
+    build_campaign()
+    monkeypatch.setattr(gpu, "RUN", FakeSmi(apps=[LLAMA_SERVER_LINE], used=[6187]))
+    with pytest.raises(judge_commands.JudgeLaunchError, match="llama-server"):
+        judge_commands.check_judge_gpu(CAMPAIGN, DeadPs())
+    monkeypatch.setattr(gpu, "RUN", FakeSmi(apps=[], used=[6187]))
+    result = judge_commands.check_judge_gpu(CAMPAIGN, DeadPs())  # règle de mémoire sautée
+    assert result["used_mib"] == 6187
+
+
 def test_gpu_check_result_is_in_the_judgment_manifest(server):
     build_campaign()
     assert _run() == 0

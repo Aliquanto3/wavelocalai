@@ -30,7 +30,7 @@ from typing import Any, Protocol
 import yaml
 
 from .canonical import sha256_hex
-from .gpu import DEFAULT_MAX_IDLE_USED_MIB, GpuCheckSettings
+from .gpu import DEFAULT_MAX_IDLE_USED_MIB, DEFAULT_RELEASE_WAIT_S, GpuCheckSettings
 from .paths import REPO_ROOT, check_id
 from .schemas import TRACKS, USAGES
 
@@ -342,12 +342,13 @@ def _resolve_grading(raw: Any) -> dict[str, Any]:
 
 
 def _resolve_gpu_check(raw: Any) -> GpuCheckSettings:
-    """``gpu_check: {enabled: true, max_idle_used_mib: 1024}`` : hors ``generation`` donc hors
-    ``generation_hash`` (c'est un contrôle d'exploitation, pas un réglage de mesure)."""
+    """``gpu_check: {enabled: true, max_idle_used_mib: 1024, release_wait_s: 30}`` : hors
+    ``generation`` donc hors ``generation_hash`` (c'est un contrôle d'exploitation, pas un
+    réglage de mesure)."""
     if raw is None:
         return GpuCheckSettings()
     value = _require_mapping(raw, "gpu_check")
-    _reject_unknown(value, {"enabled", "max_idle_used_mib"}, "gpu_check")
+    _reject_unknown(value, {"enabled", "max_idle_used_mib", "release_wait_s"}, "gpu_check")
     enabled = value.get("enabled", True)
     if not isinstance(enabled, bool):
         raise ConfigError("gpu_check.enabled : booléen attendu")
@@ -357,6 +358,9 @@ def _resolve_gpu_check(raw: Any) -> GpuCheckSettings:
             value.get("max_idle_used_mib", DEFAULT_MAX_IDLE_USED_MIB),
             "gpu_check.max_idle_used_mib",
             0,
+        ),
+        release_wait_s=_int(
+            value.get("release_wait_s", DEFAULT_RELEASE_WAIT_S), "gpu_check.release_wait_s", 0
         ),
     )
 

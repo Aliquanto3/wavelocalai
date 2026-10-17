@@ -231,7 +231,12 @@ def test_exported_manifest_publishes_only_whitelisted_ollama_env():
         "OLLAMA_HOST": "192.168.1.20:11434",
         "OLLAMA_API_KEY": "<masqué>",
     }
+    built["informative"]["checklist"] = {
+        "gpu_check": {"enabled": True, "used_mib": 300, "processes": ["llama-server.exe"]}
+    }
     exported = exported_manifest(built)
+    assert exported["informative"]["checklist"]["gpu_check"]["processes"] == 1
+    assert "llama-server" not in repr(exported)
     assert exported["informative"]["ollama_env"] == {
         "OLLAMA_API_KEY": "<non publié>",
         "OLLAMA_FLASH_ATTENTION": "1",
@@ -241,6 +246,7 @@ def test_exported_manifest_publishes_only_whitelisted_ollama_env():
     }
     # Le manifeste local garde tout, et la partie bloquante est inchangée.
     assert built["informative"]["ollama_env"]["OLLAMA_MODELS"].startswith("C:")
+    assert built["informative"]["checklist"]["gpu_check"]["processes"] == ["llama-server.exe"]
     assert exported["blocking"] == built["blocking"]
     validate(exported)
 

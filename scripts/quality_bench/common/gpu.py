@@ -11,8 +11,17 @@ d'un autre projet, par exemple) fausserait les débits mesurés sans alerte. ``c
 
 Sous Windows (WDDM), ``--query-compute-apps`` rend ``[N/A]`` pour la mémoire par processus : la
 règle de mémoire repose donc sur ``--query-gpu=memory.used``, jamais sur la mémoire par
-processus. ``nvidia-smi`` absent, lent ou illisible refuse aussi quand le contrôle est actif
+processus. Cette valeur compte aussi la mémoire graphique (affichage, navigateurs, overlays) :
+sur une machine dont l'affichage passe par le GPU NVIDIA, relever ``max_idle_used_mib``.
+``memory.used`` lui-même inconnu (``[N/A]``) : la règle de mémoire est sautée, avec un
+avertissement journalisé et ``memory_rule: "skipped_unknown"`` dans le résultat (la règle des
+processus reste appliquée ; refuser bloquerait sans recours les cartes qui ne rendent pas
+cette valeur). ``nvidia-smi`` absent, lent ou illisible refuse quand le contrôle est actif
 (``gpu_check: {enabled: false}`` dans la configuration de campagne pour le désactiver).
+
+En cours de campagne (``wait_gpu_released``, avant chaque modèle), le modèle précédent vient
+d'être déchargé : la règle de mémoire attend sa libération (``/api/ps`` vide, puis
+``memory.used`` sous le seuil) jusqu'à ``release_wait_s`` secondes avant de refuser.
 
 Le résultat (``gpu_check_result``) va dans ``informative.checklist`` du manifeste : jamais
 bloquant à la reprise.
@@ -20,13 +29,19 @@ bloquant à la reprise.
 
 from __future__ import annotations
 
+import logging
 import ntpath
 import subprocess
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_MAX_IDLE_USED_MIB = 1024
+DEFAULT_RELEASE_WAIT_S = 30
+RELEASE_POLL_S = 2
 TIMEOUT_S = 10
 _APPS_QUERY = ["nvidia-smi", "--query-compute-apps=pid,process_name,used_memory"]
 _MEMORY_QUERY = ["nvidia-smi", "--query-gpu=index,memory.used"]
@@ -40,12 +55,17 @@ class GpuCheckError(RuntimeError):
     """GPU occupé, ou contrôle impossible alors qu'il est actif : lancement refusé."""
 
 
+class GpuMemoryBusyError(GpuCheckError):
+    """Règle de mémoire : GPU trop occupé alors qu'aucun modèle n'est chargé."""
+
+
 @dataclass(frozen=True)
 class GpuCheckSettings:
     """Section ``gpu_check`` de la configuration de campagne."""
 
     enabled: bool = True
     max_idle_used_mib: int = DEFAULT_MAX_IDLE_USED_MIB
+    release_wait_s: int = DEFAULT_RELEASE_WAIT_S
 
 
 @dataclass(frozen=True)
@@ -117,12 +137,13 @@ def parse_compute_apps(lines: Sequence[str]) -> list[GpuProcess]:
     return processes
 
 
-def parse_memory_used(lines: Sequence[str]) -> list[int]:
-    """Lignes ``index, memory.used`` : mémoire utilisée (MiB) de chaque GPU."""
-    used = []
+def parse_memory_used(lines: Sequence[str]) -> list[int | None]:
+    """Lignes ``index, memory.used`` : mémoire utilisée (MiB) de chaque GPU, ``None`` si
+    ``nvidia-smi`` la dit inconnue (``[N/A]``)."""
+    used: list[int | None] = []
     for line in lines:
         try:
-            used.append(_mib(line.split(",", 1)[1]) or 0)
+            used.append(_mib(line.split(",", 1)[1]))
         except (IndexError, ValueError):
             raise GpuCheckError(f"sortie de nvidia-smi illisible : {line!r}") from None
     return used
@@ -139,12 +160,15 @@ def check_gpu(
     résultat consignable (``enabled``, ``used_mib``, ``processes``...). Contrôle inactif :
     ``{"enabled": False}`` sans appel à ``nvidia-smi``. ``loaded_models`` : modèles de
     ``/api/ps`` (la règle de mémoire ne s'applique qu'à vide ; ``None`` = ``/api/ps``
-    illisible, seule la règle des processus s'applique)."""
+    illisible, seule la règle des processus s'applique). ``memory.used`` inconnu : règle de
+    mémoire sautée, avertissement journalisé, ``memory_rule: "skipped_unknown"``."""
     if not settings.enabled:
         return {"enabled": False}
     processes = parse_compute_apps(_nvidia_smi(_APPS_QUERY))
     used = parse_memory_used(_nvidia_smi(_MEMORY_QUERY))
-    total_used = sum(used)
+    known = [value for value in used if value is not None]
+    total_used: int | None = sum(known) if used and len(known) == len(used) else None
+    total_text = "mémoire inconnue" if total_used is None else f"{total_used} MiB utilisés"
 
     def describe(item: GpuProcess) -> str:
         memory = "mémoire inconnue (WDDM)" if item.used_mib is None else f"{item.used_mib} MiB"
@@ -154,20 +178,68 @@ def check_gpu(
     if others:
         raise GpuCheckError(
             "GPU occupé par un processus de calcul autre qu'Ollama : "
-            f"{', '.join(describe(item) for item in others)} ; {total_used} MiB utilisés au "
+            f"{', '.join(describe(item) for item in others)} ; {total_text} au "
             "total sur le GPU. Arrêter ce processus avant la mesure : il fausserait les débits."
         )
-    if loaded_models is not None and not loaded_models and total_used > settings.max_idle_used_mib:
-        names = ", ".join(describe(item) for item in processes) or "aucun processus de calcul listé"
-        raise GpuCheckError(
-            f"{total_used} MiB de mémoire GPU utilisés alors qu'aucun modèle n'est chargé dans "
-            f"Ollama (seuil {settings.max_idle_used_mib} MiB ; processus : {names}). "
-            "Libérer le GPU, ou relever gpu_check.max_idle_used_mib dans la campagne."
-        )
-    return {
+    result: dict[str, Any] = {
         "enabled": True,
         "used_mib": total_used,
         "max_idle_used_mib": settings.max_idle_used_mib,
         "loaded_models": len(loaded_models or ()),
         "processes": [item.name for item in processes],
     }
+    idle = loaded_models is not None and not loaded_models
+    if total_used is None:
+        logger.warning(
+            "nvidia-smi ne rend pas memory.used ([N/A]) : règle de mémoire GPU sautée, "
+            "seule la règle des processus s'applique"
+        )
+        result["memory_rule"] = "skipped_unknown"
+    elif idle and total_used > settings.max_idle_used_mib:
+        names = ", ".join(describe(item) for item in processes) or "aucun processus de calcul listé"
+        raise GpuMemoryBusyError(
+            f"{total_used} MiB de mémoire GPU utilisés (memory.used, mémoire graphique comprise : "
+            "affichage, navigateurs) alors qu'aucun modèle n'est chargé dans Ollama, au-dessus "
+            f"du seuil de {settings.max_idle_used_mib} MiB (processus de calcul : {names}). "
+            "Libérer le GPU, ou relever gpu_check.max_idle_used_mib dans la campagne."
+        )
+    return result
+
+
+def wait_gpu_released(
+    settings: GpuCheckSettings,
+    list_loaded: Callable[[], Sequence[str] | None],
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> dict[str, Any]:
+    """Contrôle d'avant modèle, en cours de campagne : attend jusqu'à ``release_wait_s`` que
+    ``list_loaded()`` (modèles de ``/api/ps``, ``None`` si illisible) soit vide puis que la
+    règle de mémoire passe ; au-delà, ``GpuMemoryBusyError``. Un modèle encore listé à
+    l'échéance : seule la règle des processus s'applique (comme au lancement). Processus
+    étranger ou ``nvidia-smi`` en échec : refus immédiat."""
+    if not settings.enabled:
+        return {"enabled": False}
+    deadline = clock() + settings.release_wait_s
+    while True:
+        loaded = list_loaded()
+        expired = clock() >= deadline
+        if loaded and not expired:
+            sleep(RELEASE_POLL_S)
+            continue
+        try:
+            return check_gpu(settings, loaded)
+        except GpuMemoryBusyError:
+            if expired:
+                raise
+        sleep(RELEASE_POLL_S)
+
+
+def driver_version() -> str | None:
+    """Version du pilote NVIDIA pour la partie informative du manifeste (``None`` sans
+    ``nvidia-smi``), par le même point d'injection ``RUN`` que le contrôle."""
+    try:
+        lines = _nvidia_smi(["nvidia-smi", "--query-gpu=driver_version"])
+    except GpuCheckError:
+        return None
+    return lines[0] if lines else None

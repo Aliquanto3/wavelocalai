@@ -13,7 +13,9 @@ standard, aucune résolution distante.
 
 from __future__ import annotations
 
+import ipaddress
 import re
+import uuid
 from collections.abc import Mapping
 from typing import Any
 
@@ -702,9 +704,26 @@ _LOCAL_REGISTRY = _METASCHEMAS.combine(Registry(retrieve=_no_remote_retrieval))
 # Formats vérifiés par conformity_error (json_schema@2), comme le FormatChecker de JSONSchemaBench
 # (core/evaluator.py) mais figés : ceux que jsonschema contrôle sans dépendance facultative. Les
 # autres (date-time, uri, hostname...) restent des annotations ; `time` est écarté (le contrôle
-# de jsonschema sans extra suit le draft 3, pas RFC 3339).
+# de jsonschema sans extra suit le draft 3, pas RFC 3339). `ipv4`, `ipv6` et `uuid` sont
+# redéfinis comme dans l'amont (constructeur de `ipaddress` ou `uuid` seul) : jsonschema refuse
+# en plus une adresse IPv6 à zone (`fe80::1%eth0`) et un UUID sans tirets ou entre accolades.
+# `regex` dépend du moteur `re` de la version de Python, comme dans l'amont.
 FORMAT_CHECKED = ("date", "email", "idn-email", "ipv4", "ipv6", "regex", "uuid")
-_FORMAT_CHECKER = FormatChecker(FORMAT_CHECKED)
+_FORMAT_CHECKER = FormatChecker(("date", "email", "idn-email", "regex"))
+
+
+def _upstream_format(name: str, parse: Any, raises: Any) -> None:
+    def check(instance: object) -> bool:
+        if isinstance(instance, str):  # `format` ne contraint que les chaînes
+            parse(instance)
+        return True
+
+    _FORMAT_CHECKER.checks(name, raises=raises)(check)
+
+
+_upstream_format("ipv4", ipaddress.IPv4Address, ValueError)
+_upstream_format("ipv6", ipaddress.IPv6Address, ValueError)
+_upstream_format("uuid", uuid.UUID, ValueError)
 
 
 def conformity_error(schema: Any, instance: Any) -> str | None:
