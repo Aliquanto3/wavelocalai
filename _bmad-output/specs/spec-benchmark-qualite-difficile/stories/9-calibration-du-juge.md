@@ -160,6 +160,17 @@ deferred: []
   - `[low]` `[patch]` (EC) Dates impossibles — même correctif que (BH).
   - `[medium]` `[patch]` (EC) Rang des items après ajout à `labels.jsonl` — même correctif que la consigne d'ajout (IA) : le rang vaut pour le todo seulement.
 
+### 2026-10-17 — Revue de suivi (règles du réservoir de `calibrate-sample`)
+
+- source : second avis (SA, Haiku) puis revue (R, Opus), une passe, sans Ollama ni réseau. Règles relues : juges complets seulement (couverture comptée sur les unités publiques, clés `error` écartées ensuite), clés déjà dans `labels.jsonl` écartées (y compris les lignes à `label` nul), refus d'un todo rempli. Aucun constat high ; aucun nouveau constat medium de la revue.
+  - `[medium]` `[patch]` (SA) Étiquette posée sur la dernière ligne du todo sans fin de ligne finale : `read_jsonl` l'ignorait et un nouveau tirage l'écrasait (reproduit) — le todo passe par le même contrôle que `labels.jsonl` (`_check_hand_edited` : BOM et fin de ligne manquante refusés, code 1) ; test `test_todo_labeled_on_last_line_without_newline_blocks_a_new_draw`.
+  - `[low]` `[patch]` (SA) Refus du re-tirage limité à `label` : `author`, `labeled_at` ou `note` saisis seuls étaient écrasés — toute saisie de ces quatre champs bloque ; test `test_todo_with_author_but_no_label_blocks_a_new_draw`.
+  - `[low]` `[reject]` (SA) Journal et dossier `campaigns/<c>/` créés pour une campagne inconnue — même schéma que `grade` (`grading/commands.py`) ; « rien n'est écrit » vise les sorties, le journal est la trace attendue du refus.
+  - `[low]` `[patch]` (SA) `datetime.time.fromisoformat` accepte `24:00:00` depuis Python 3.11 (vérifié sous 3.14), pas sous 3.10 — contrôle par `datetime.strptime` sur la forme du schéma, identique de 3.10 à 3.14 ; test `test_unreal_labeled_at_is_refused_on_every_python`.
+  - `[low]` `[patch]` (SA) Sans juge complet, réservoir de toutes les unités publiques, même non notées — règle du spec gardée ; avertissement journalisé « Aucun juge complet ».
+  - `[low]` `[patch]` (SA) « aucune unité jugeable » trompeur quand tout est déjà étiqueté — message complété « (toutes déjà présentes dans labels.jsonl) » ; test `test_all_units_already_labeled_says_so`.
+  - `[low]` `[reject]` (SA) `qb.label/1` accepte `author` « " " » et un `label` nul avec `author`/`labeled_at` — le second est l'état normal d'un todo en cours (compté « à étiqueter ») ; le premier est sans effet sur les mesures, et `common/schemas.py` entre dans `harness_hash` : pas de changement de schéma pour un cas cosmétique.
+
 ## Design Notes
 
 **Accord.** Sur les unités étiquetées `true`/`false` qu'un juge a notées d'un verdict booléen : `accord = #égaux / n`, Wilson à 95 % ; publiés aussi : indulgence (juge vrai, humain faux), sévérité (juge faux, humain vrai), étiquetées sans ligne, lignes `error`. **Biais Qwen** = accord(Qwen) − accord(non-Qwen), en points, avec les deux effectifs et intervalles, et l'indulgence de chaque groupe ; comparé en valeur absolue à `--max-qwen-bias`. **Critères de comptage** : heuristique `nombre (chiffres, deux…cent, « un seul ») + au plus un mot + unité (mots, phrases, paragraphes, répliques, lignes, puces, éléments, étapes, conseils, questions)` sur le texte du critère ; accord publié à part, nombre détecté sur `writing-fr.yaml` épinglé par un test.

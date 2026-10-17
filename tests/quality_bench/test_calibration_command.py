@@ -875,6 +875,41 @@ def test_filled_labels_todo_blocks_a_new_draw(sample_env):
     assert "contient déjà des étiquettes (ligne 4" in _log("calibrate-sample", "sample-test")
 
 
+def test_todo_labeled_on_last_line_without_newline_blocks_a_new_draw(sample_env):
+    assert _sample("--size", "10", "--seed", "1", campaign="sample-test") == 0
+    path = paths.labels_todo_path("sample-test", ".jsonl")
+    lines = read_jsonl(path)
+    lines[-1].update(label=False, author="Anaël", labeled_at="2026-10-12")
+    raw = b"\n".join(canonical_bytes(line) for line in lines)  # éditeur sans fin de ligne finale
+    path.write_bytes(raw)
+    assert _sample("--size", "10", "--seed", "2", campaign="sample-test") == 1
+    assert path.read_bytes() == raw
+    assert "sans fin de ligne" in _log("calibrate-sample", "sample-test")
+
+
+def test_todo_with_author_but_no_label_blocks_a_new_draw(sample_env):
+    assert _sample("--size", "10", "--seed", "1", campaign="sample-test") == 0
+    path = paths.labels_todo_path("sample-test", ".jsonl")
+    lines = read_jsonl(path)
+    lines[1].update(note="à revoir")
+    rewrite_jsonl(path, lines)
+    assert _sample("--size", "10", "--seed", "2", campaign="sample-test") == 1
+    assert "contient déjà des étiquettes (ligne 2" in _log("calibrate-sample", "sample-test")
+
+
+def test_all_units_already_labeled_says_so(sample_env):
+    write_labels([label_line(k, True) for k in unit_keys(sample_env)])
+    assert _sample("--size", "10", "--seed", "1", campaign="sample-test") == 1
+    assert "toutes déjà présentes dans labels.jsonl" in _log("calibrate-sample", "sample-test")
+
+
+@pytest.mark.parametrize("value", ["2026-10-12T24:00:00Z", "2026-02-30", "2026-10-12T23:59:60Z"])
+def test_unreal_labeled_at_is_refused_on_every_python(value):
+    with pytest.raises(calibration.ReportError, match="pas une date réelle"):
+        calibration._check_labeled_at(value, "ligne 1")
+    calibration._check_labeled_at("2026-10-12T23:59:59Z", "ligne 1")
+
+
 def test_partial_judge_is_ignored_and_error_keys_are_excluded(sample_env):
     keys = unit_keys(sample_env)
     qwen_keys = [k for k in keys if k.split("|")[1] == "model-0:4b"]
