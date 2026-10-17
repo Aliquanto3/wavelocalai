@@ -65,7 +65,10 @@ def render_question(question: Mapping[str, Any]) -> str:
     lines += ["**Cible**", "", _json(question["target"]), ""]
     if question["criteria"]:
         lines += ["**Critères**", ""]
-        lines += [f"- {c['id']} : {c['question']}" for c in question["criteria"]]
+        lines += [
+            f"- {c['id']} : {c['question']}" + (" *(vérifié par le code)*" if "check" in c else "")
+            for c in question["criteria"]
+        ]
         lines.append("")
     return "\n".join(lines)
 

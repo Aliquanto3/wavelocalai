@@ -109,6 +109,8 @@ def read_units(inputs: CampaignInputs) -> tuple[list[Unit], dict[str, dict[str, 
             )
         records[record["key"]] = record
         for criterion in criteria:
+            if "check" in criterion:
+                continue  # vérifié par le code : ni jugé, ni étiqueté, ni calibré
             units.append(
                 Unit(
                     key=f"{record['key']}|{criterion['id']}",

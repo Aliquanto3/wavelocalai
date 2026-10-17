@@ -1,0 +1,5 @@
+# Fichiers versionnés que le banc de qualité hache octet pour octet (index et manifeste des
+# jeux, références AA) ou relit comme entrées publiques : fins de ligne LF sur toutes les
+# machines, même avec core.autocrlf=true sous Windows.
+benchmarks/quality/** text eol=lf
+scripts/quality_bench/questions/writing/*.yaml text eol=lf

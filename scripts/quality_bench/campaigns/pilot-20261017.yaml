@@ -1,10 +1,10 @@
 # Pilote CAP-8 : 4 modèles de modeles.md sur les deux pistes, tirage par groupes entiers de
-# set-v1 (562 questions think_off, 282 think_on). Taille et estimation de durée dans la story 8
+# set-v2 (562 questions think_off, 282 think_on). Taille et estimation de durée dans la story 8
 # (_bmad-output/specs/spec-benchmark-qualite-difficile/stories/8-pilote-sur-4-modeles.md).
-# Le rejeu de stabilité est la campagne distincte pilot-20261012-replay (même graine, effectifs
+# Le rejeu de stabilité est la campagne distincte pilot-20261017-replay (même graine, effectifs
 # plus petits : sous-ensemble garanti). La section grading n'est pas bloquante : le juge retenu
 # peut changer sans nouvel identifiant de campagne.
-set: set-v1
+set: set-v2
 generation:
   request: {temperature: 0, seed_base: 0, k: 1}
   caps: {think_on: {reasoning: 4096, default: 2048}, think_off: {default: 2048}}

@@ -13,6 +13,11 @@ Les fonctions passent au format d'outil d'Ollama comme le fait BFCL pour les mod
 de fonction : types Gorilla convertis (``dict`` → ``object``, ``float`` → ``number``…), points
 des noms remplacés par ``_``. Les déclarations d'origine restent dans ``grader.params`` pour le
 correcteur AST (``ast_checker``).
+
+**Contexte des conversations ``bfcl-multi`` (AD-5) :** les candidats comptent l'historique
+des tours rejoué sur la cible (``questions/multi_turn.gold_history``). La règle est versionnée
+par le jeu : ``set_builder`` réestime chaque candidat (``multi_turn.reestimate_multi``) selon
+l'option ``multi_turn_history`` du YAML de jeu.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ...common.jsonl import read_complete_jsonl
+from ..multi_turn import gold_history
 from .base import Importer, build_questions
 from .remote import RemoteFile
 
@@ -187,6 +193,7 @@ LIVE = ("BFCL_v4_live_simple.json", "BFCL_v4_live_multiple.json")
 PARALLEL = ("BFCL_v4_live_parallel.json", "BFCL_v4_live_parallel_multiple.json")
 IRRELEVANCE = ("BFCL_v4_live_irrelevance.json",)
 MULTI = "BFCL_v4_multi_turn_base.json"
+MULTI_SOURCE = "bfcl-multi"
 
 
 def convert_live(local: Mapping[str, Path]) -> list[dict[str, Any]]:
@@ -210,7 +217,7 @@ def convert_multi(local: Mapping[str, Path]) -> list[dict[str, Any]]:
         for cls, doc in CLASS_DOCS.items()
     }
     answers = _answers(local, MULTI)
-    return build_questions("bfcl-multi", _multi_items(local, docs, answers))
+    return build_questions(MULTI_SOURCE, _multi_items(local, docs, answers))
 
 
 def _multi_items(
@@ -229,19 +236,22 @@ def _multi_items(
             for function in functions
         ]
         turns = row["question"]
+        env = {
+            "name": "bfcl_multi_turn",
+            "initial_state": {
+                "involved_classes": row["involved_classes"],
+                "initial_config": row["initial_config"],
+            },
+        }
+        target = answers[row["id"]]
         yield {
             "number": number,
             "group": f"bfcl-multi/{number:04d}",
             "messages": turns[0],
             "turns": turns[1:] or None,
             "tools": to_ollama_tools(declarations),
-            "env": {
-                "name": "bfcl_multi_turn",
-                "initial_state": {
-                    "involved_classes": row["involved_classes"],
-                    "initial_config": row["initial_config"],
-                },
-            },
+            "env": env,
+            "history": gold_history(env, target),
             "grader_params": {
                 "bfcl_id": row["id"],
                 "category": "multi_turn_base",
@@ -249,7 +259,7 @@ def _multi_items(
                 "functions": functions,
                 "underscore_to_dot": True,
             },
-            "target": answers[row["id"]],
+            "target": target,
         }
 
 

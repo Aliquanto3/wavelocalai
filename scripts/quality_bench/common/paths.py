@@ -211,6 +211,11 @@ def set_index_path(set_id: str) -> Path:
     return set_index_dir(set_id) / "index.jsonl"
 
 
+def set_manifest_path(set_id: str) -> Path:
+    """Manifeste versionné du jeu (``qb.set_manifest/1``, liste blanche d'AD-6)."""
+    return set_index_dir(set_id) / "manifest.json"
+
+
 # Exports d'une campagne et références hors ligne (AD-6, AD-17), écrits ou lus par report/.
 # Dossiers réservés de benchmarks/quality/ : jamais un identifiant de campagne.
 RESERVED_EXPORT_DIRS = ("sets", "references", "calibration")

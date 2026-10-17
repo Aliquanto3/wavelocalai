@@ -247,6 +247,36 @@ SET_INDEX_V1: dict[str, Any] = {
     "else": {"not": {"anyOf": [{"required": [field]} for field in _SET_INDEX_PUBLIC]}},
 }
 
+# Manifeste versionné d'un jeu (AD-6, amendement du 2026-10-17) : provenance publique seulement.
+# Aucun texte de question, aucune empreinte de fichier privé : les entrées listées sont les
+# fichiers publics (candidats des importeurs, fichiers bruts des générateurs, questions maison
+# versionnées).
+SET_INPUT_KINDS = ("candidates", "raw", "house")
+SET_MANIFEST_V1: dict[str, Any] = _closed(
+    {
+        "schema": {"const": "qb.set_manifest/1"},
+        "set": _NON_EMPTY,
+        "set_hash": _HASH,
+        "seed": _COUNT,
+        "counts": _closed({"think_off": _COUNT, "think_on": _COUNT}),
+        "generators": {"type": "array", "items": _NON_EMPTY, "uniqueItems": True},
+        "inputs": {
+            "type": "array",
+            "items": _closed(
+                {
+                    "source": _NON_EMPTY,
+                    "kind": {"enum": list(SET_INPUT_KINDS)},
+                    "path": _NON_EMPTY,
+                    "sha256": _HASH,
+                }
+            ),
+        },
+        "index_sha256": _HASH,
+        "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "dirty": {"type": ["boolean", "null"]},
+    }
+)
+
 # Ligne de correction (AD-10) : seul porteur de score et de success (AD-3). Règles croisées :
 # erreurs du banc et attente du juge sans score ; échecs du modèle à 0 ; rédaction
 # (judge_criteria) sans success ; ailleurs, score = success.
@@ -635,6 +665,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "qb.warmup/1": WARMUP_V1,
     "qb.manifest/1": MANIFEST_V1,
     "qb.set_index/1": SET_INDEX_V1,
+    "qb.set_manifest/1": SET_MANIFEST_V1,
     "qb.grading/1": GRADING_V1,
     "qb.judgment/1": JUDGMENT_V1,
     "qb.batch/1": BATCH_V1,

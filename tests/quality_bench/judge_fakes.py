@@ -40,10 +40,27 @@ def _write_json(path, obj) -> None:
     path.write_bytes(pretty_bytes(obj))
 
 
-def build_campaign(writing: int = 2, *, private: bool = False) -> dict[str, Any]:
+def build_campaign(
+    writing: int = 2, *, private: bool = False, checked: bool = False
+) -> dict[str, Any]:
     """Campagne ``judge-test`` : ``writing`` réponses de rédaction ``ok`` (4 critères chacune),
-    une rédaction tronquée et une question de raisonnement (jamais jugées)."""
+    une rédaction tronquée et une question de raisonnement (jamais jugées). ``checked`` : le
+    critère c1 est vérifié par le code (la réponse a 4 mots) et n'est donc jamais jugé."""
     writing_questions = [synthetic_question("writing-fr", n) for n in range(1, writing + 1)]
+    if checked:
+        count = {"count": "words", "op": "==", "n": 4}
+        writing_questions = [
+            synthetic_question(
+                "writing-fr",
+                n,
+                criteria=[
+                    {"id": f"c{i}", "question": f"Critère synthétique {i} ?"}
+                    | ({"check": count} if i == 1 else {})
+                    for i in range(1, 5)
+                ],
+            )
+            for n in range(1, writing + 1)
+        ]
     if private:
         writing_questions[0] = with_hashes({**writing_questions[0], "private": True})
     reasoning = synthetic_question("bbeh-mini", 1, target="a")
@@ -92,7 +109,8 @@ def build_campaign(writing: int = 2, *, private: bool = False) -> dict[str, Any]
     )
     rewrite_jsonl(paths.generation_path(CAMPAIGN), lines)
     ok_writing = [line for line in lines if line["usage"] == "writing" and line["status"] == "ok"]
-    expected_keys = sorted(f"{line['key']}|c{i}" for line in ok_writing for i in range(1, 5))
+    judged = range(2, 5) if checked else range(1, 5)
+    expected_keys = sorted(f"{line['key']}|c{i}" for line in ok_writing for i in judged)
     return {
         "generation_hash": generation_hash,
         "lines": lines,

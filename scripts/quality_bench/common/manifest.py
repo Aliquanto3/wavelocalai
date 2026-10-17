@@ -115,7 +115,8 @@ def machine_label() -> str:
     return label or socket.gethostname()
 
 
-def _run(command: list[str]) -> str | None:
+def _run_text(command: list[str]) -> str | None:
+    """Sortie standard de ``command`` (``""`` si vide), ``None`` si la commande échoue."""
     try:
         result = subprocess.run(  # noqa: S603 (commande fixe, sans shell)
             command,
@@ -128,8 +129,24 @@ def _run(command: list[str]) -> str | None:
         )
     except (OSError, subprocess.SubprocessError):
         return None
-    output = result.stdout.strip()
-    return output.splitlines()[0].strip() if result.returncode == 0 and output else None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _run(command: list[str]) -> str | None:
+    output = _run_text(command)
+    return output.splitlines()[0].strip() if output else None
+
+
+def code_commit() -> str | None:
+    """Commit courant du dépôt (``None`` hors dépôt git ou sans git)."""
+    return _run(["git", "rev-parse", "HEAD"])
+
+
+def code_dirty(*pathspecs: str) -> bool | None:
+    """Fichiers suivis modifiés sous ``pathspecs`` depuis le commit courant (``None`` sans git).
+    Les fichiers non suivis ne comptent pas : ils n'ont pas servi à une construction commitée."""
+    output = _run_text(["git", "status", "--porcelain", "--untracked-files=no", "--", *pathspecs])
+    return None if output is None else bool(output)
 
 
 def collect_informative(
@@ -147,7 +164,7 @@ def collect_informative(
     return {
         "python": platform.python_version(),
         "packages": dict(sorted(packages.items())),
-        "code_commit": _run(["git", "rev-parse", "HEAD"]),
+        "code_commit": code_commit(),
         "nvidia_driver": gpu.driver_version(),
         "ollama_env": {
             name: _MASKED if any(word in name.upper() for word in _SECRET_WORDS) else value

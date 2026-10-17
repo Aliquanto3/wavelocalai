@@ -15,7 +15,7 @@ questions:
     turns: null                         # facultatifs : turns, tools, format
     grader_params: {schema: {…}, subset: extraction-fr}
     target: {…}
-    criteria: [{id: c1, question: "… ?"}]   # rédaction seulement
+    criteria: [{id: c1, question: "… ?"}]   # rédaction seulement ; check: facultatif, voir checks.py
   - number: 2
     derived_from: tools/bfcl-live/0042  # tools-fr seulement : ne remplace que messages
     messages: [{role: user, content: "…"}]
@@ -40,6 +40,7 @@ from ..common.config import read_yaml
 from ..common.jsonl import read_jsonl
 from ..common.schemas import check_schema, instance_errors
 from .build import build_question
+from .checks import CheckError, validate_checks
 from .schema import SOURCES, QuestionError
 
 SCHEMA_ID = "qb.house/1"
@@ -75,14 +76,19 @@ def house_sources() -> list[str]:
     return sorted(slug for slug, spec in SOURCES.items() if spec.producer == PRODUCER)
 
 
-def house_path(source: str) -> Path:
-    """Fichier d'une source maison : privé (hors dépôt) ou versionné (rédaction)."""
+def house_path(source: str, file: str | None = None) -> Path:
+    """Fichier d'une source maison : privé (hors dépôt) ou versionné (rédaction).
+
+    ``file`` (clé ``file`` du YAML de jeu) : autre fichier versionné de la source, sous
+    ``questions/writing/`` ; refusé pour une source privée."""
     spec = SOURCES.get(source)
     if spec is None or spec.producer != PRODUCER:
         raise QuestionError(f"source maison inconnue : {source!r}")
     if spec.private:
+        if file is not None:
+            raise QuestionError(f"{source} : fichier choisi interdit pour une source privée")
         return paths.private_source_path(source)
-    return WRITING_DIR / f"{source}.yaml"
+    return WRITING_DIR / (file or f"{source}.yaml")
 
 
 def _fail(where: str, message: str) -> QuestionError:
@@ -156,7 +162,7 @@ def _has_float(value: Any) -> bool:
     return False
 
 
-def _criteria(value: Any, writing: bool, where: str) -> list[dict[str, str]] | None:
+def _criteria(value: Any, writing: bool, where: str) -> list[dict[str, Any]] | None:
     if not writing:
         if value is not None:
             raise _fail(where, "criteria : réservés à la rédaction")
@@ -166,12 +172,20 @@ def _criteria(value: Any, writing: bool, where: str) -> list[dict[str, str]] | N
     for index, criterion in enumerate(value, start=1):
         if (
             not isinstance(criterion, Mapping)
-            or set(criterion) != {"id", "question"}
+            or not {"id", "question"} <= set(criterion) <= {"id", "question", "check"}
             or criterion["id"] != f"c{index}"
             or not isinstance(criterion["question"], str)
             or not criterion["question"].strip().endswith("?")
         ):
-            raise _fail(where, f"critère {index} : {{id: c{index}, question: « … ? »}} attendu")
+            raise _fail(
+                where,
+                f"critère {index} : {{id: c{index}, question: « … ? », check: (facultatif)}} attendu",
+            )
+        if "check" in criterion:
+            try:
+                validate_checks(criterion["check"])
+            except CheckError as error:
+                raise _fail(where, f"critère {index} : {error}") from None
     return [dict(criterion) for criterion in value]
 
 

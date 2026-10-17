@@ -36,7 +36,8 @@ def test_judge_graph_stays_inside_its_permissions():
         top = relative.split("/")[0]
         assert top in ("judge", "ollama", "questions", "common", "__init__.py"), relative
         if top == "questions":
-            assert relative in ("questions/__init__.py", "questions/schema.py"), relative
+            allowed = ("questions/__init__.py", "questions/schema.py", "questions/checks.py")
+            assert relative in allowed, relative
 
 
 @pytest.mark.parametrize("start", ["generation", "grading"])

@@ -22,7 +22,7 @@ Les effectifs sont indicatifs (hypothèse) et seront réajustés après le pilot
 | Extraction JSON (`extraction`) | 110 | échantillon stratifié de JSONSchemaBench (MIT) ; documents FR maison à extraire | validation du schéma côté client, puis valeurs attendues |
 | RAG long contexte FR (`rag`) | 110 | OneRuler FR (code MIT) : NIAH et CWE, de 8K à 32K selon la mémoire ; échantillon de PIAF (MIT ; contamination soupçonnée, Wikipédia FR étant dans les corpus de pré-entraînement) | correspondance exacte ; F1 |
 | Abstention (`abstention`) | 110 | variante « aucune aiguille » de OneRuler ; irrelevance de BFCL ; questions maison | déterministe |
-| Rédaction FR (`writing`) | 80 | questions maison, versionnées (non privées : le juge cloud doit les voir) | juge (`juge-et-calibration.md`) |
+| Rédaction FR (`writing`) | 80 | questions maison, versionnées (non privées : le juge cloud doit les voir) | juge (`juge-et-calibration.md`) pour les critères de sens ; code pour les critères qui demandent de compter (depuis `set-v2`, `grading/counting.py`) |
 
 **Raison de l'effectif réduit en rédaction :** contenir le coût du juge.
 

@@ -1,0 +1,103 @@
+{
+  "commit": "2ff1e0d42542d56051064ac4e6e644cb8bac1705",
+  "counts": {
+    "think_off": 800,
+    "think_on": 400
+  },
+  "dirty": false,
+  "generators": [
+    "oneruler_fr@1",
+    "var_math_fr@1"
+  ],
+  "index_sha256": "ff2cce1b1b643b51753319c3dbe54ecae01031671157d2b68a6788994a87825e",
+  "inputs": [
+    {
+      "kind": "candidates",
+      "path": "sources/bbeh-mini/candidates.jsonl",
+      "sha256": "b6f416904fa89e103a5f32769282c864e2a425bb4763a05725620a37a0f0a05c",
+      "source": "bbeh-mini"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/bfcl-irrelevance/candidates.jsonl",
+      "sha256": "ca2fb35b7eb3a4b4b80d0b69071cf4f0205299a73c3305d6d1d594a0f1f0ec99",
+      "source": "bfcl-irrelevance"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/bfcl-live/candidates.jsonl",
+      "sha256": "e6e2c00297fcd27fa3cd917dd7af78aa2ed7429b3afbb1ffc2edf4e68767967d",
+      "source": "bfcl-live"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/bfcl-multi/candidates.jsonl",
+      "sha256": "8cfbe72418dc1d95569f4d208ced6f0b338a6379f848c892edff2a3cbbf8a950",
+      "source": "bfcl-multi"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/bfcl-parallel/candidates.jsonl",
+      "sha256": "3d52482b7298560c089422d2ed56b8c8d710a31382f93cddc464fff1ba0ea649",
+      "source": "bfcl-parallel"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/ifbench/candidates.jsonl",
+      "sha256": "9ff39b725218d219b37d13295c1d8c41ea0d8389f16c47325ed8be4041aa794f",
+      "source": "ifbench"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/jsonschemabench/candidates.jsonl",
+      "sha256": "da897054f3157294e37af2b659992b0f3ce46ae5af3d05bc2709b33456be7359",
+      "source": "jsonschemabench"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/mifeval-fr/candidates.jsonl",
+      "sha256": "8417f80a901c84bc2961b408cee1cc0a72d3a5e94a0b8474e1691fc6be025c19",
+      "source": "mifeval-fr"
+    },
+    {
+      "kind": "raw",
+      "path": "LICENSE",
+      "sha256": "1446bc54001a59261b6da027dbfb252932076bbc351c8e7f0d345b6c604edc48",
+      "source": "oneruler-fr"
+    },
+    {
+      "kind": "raw",
+      "path": "OneRuler/data/books/fr/les_miserables_fr.txt",
+      "sha256": "61ea68ac4f11ec9f5d76fbaf7c8ec866274cbc7441b4bc63a513623fc8d7c2d9",
+      "source": "oneruler-fr"
+    },
+    {
+      "kind": "raw",
+      "path": "OneRuler/data/prompt/fr/cwe.txt",
+      "sha256": "dc74806ffde8d0203245fb88954117ffeaec4175da12954b13e308226eb7dda8",
+      "source": "oneruler-fr"
+    },
+    {
+      "kind": "raw",
+      "path": "OneRuler/data/prompt/fr/niah.txt",
+      "sha256": "ad1a21dc5ce1c10d41cc9a825744e61e7fb639cc55acfd401d152c9a9a8972d7",
+      "source": "oneruler-fr"
+    },
+    {
+      "kind": "candidates",
+      "path": "sources/piaf/candidates.jsonl",
+      "sha256": "346da20a8e58175c23fafc39bbd1a2c4b9149154bd2c411165e5384151c5cd52",
+      "source": "piaf"
+    },
+    {
+      "kind": "house",
+      "path": "scripts/quality_bench/questions/writing/writing-fr-v2.yaml",
+      "sha256": "828f0e233d9b95046b36c11d302f6426d70e5e542174f9c23312a7a0fbe68cf5",
+      "source": "writing-fr"
+    }
+  ],
+  "schema": "qb.set_manifest/1",
+  "seed": 20261011,
+  "set": "set-v2",
+  "set_hash": "35a95e3d01912d9c43bb5fdef03d18504fca71b7ed719512e0ab4464c63c08e8"
+}

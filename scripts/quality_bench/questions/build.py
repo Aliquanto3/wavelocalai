@@ -6,13 +6,18 @@ cible, calcule les empreintes et valide la question. Les importeurs (``importers
 générateurs (``generators/``) et le chargeur des questions maison (``house.py``) passent tous
 par ici. ``build_questions`` écarte et compte les prompts trop longs. ``set_builder`` refait le
 contrôle de palier sur chaque question du jeu.
+
+**Multi-tours (AD-5) :** le runner renvoie au modèle tout l'historique à chaque appel (messages,
+appels d'outils, résultats d'outils et réponses des tours précédents). L'estimation du prompt
+d'une conversation compte donc cet historique : l'appelant passe ``history``, les messages que
+produirait un modèle qui suit la cible (``multi_turn.py``), jusqu'au dernier tour.
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from ..common.canonical import canonical_bytes, nfc
@@ -62,9 +67,15 @@ def max_cap(usage: str, caps: Mapping[str, Mapping[str, int]] | None = None) -> 
     return max(track_caps.get(usage, track_caps["default"]) for track_caps in caps.values())
 
 
-def estimate_prompt_tokens(prompt: Mapping[str, Any]) -> int:
-    """Estimation du nombre de tokens du prompt (messages, tours, outils, format)."""
-    chars = len(canonical_bytes(dict(prompt)).decode("utf-8"))
+def estimate_prompt_tokens(
+    prompt: Mapping[str, Any], history: Sequence[Mapping[str, Any]] | None = None
+) -> int:
+    """Estimation du nombre de tokens du prompt (messages, tours, outils, format) et, pour une
+    conversation multi-tours, de l'historique accumulé jusqu'au dernier tour (``history``)."""
+    payload = dict(prompt)
+    if history:
+        payload["history"] = [dict(message) for message in history]
+    chars = len(canonical_bytes(payload).decode("utf-8"))
     return max(1, math.ceil(chars / CHARS_PER_TOKEN))
 
 
@@ -103,12 +114,17 @@ def build_question(
     criteria: list[dict[str, Any]] | None = None,
     generator: str | None = None,
     generator_seed: int | None = None,
+    history: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Construit et valide une question de ``source`` (importée, générée ou maison)."""
+    """Construit et valide une question de ``source`` (importée, générée ou maison).
+
+    ``history`` : messages accumulés par les tours d'une conversation (voir la docstring du
+    module) ; ils entrent dans l'estimation du prompt, donc dans le palier ``num_ctx``, mais ne
+    sont pas écrits dans la question."""
     spec = SOURCES[source]
     qid = question_id(spec.usage, source, number)
     prompt = normalize({"messages": messages, "turns": turns, "tools": tools, "format": format})
-    est = estimate_prompt_tokens(prompt)
+    est = estimate_prompt_tokens(prompt, history)
     record = {
         "schema": QUESTION_SCHEMA_ID,
         "id": qid,

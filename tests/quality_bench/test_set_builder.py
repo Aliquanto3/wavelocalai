@@ -401,6 +401,62 @@ def test_cli_build_set_writes_three_files(small_set, _reset_logging):
     assert not leftovers
 
 
+def test_build_set_writes_a_public_whitelisted_manifest(small_set, _reset_logging):
+    import json
+
+    from scripts.quality_bench.__main__ import main
+    from scripts.quality_bench.common.schemas import validate
+
+    assert main(["build-set", "--set", "small"]) == 0
+    questions = read_jsonl(paths.set_questions_path("small"))
+    tracks = json.loads(paths.set_tracks_path("small").read_text(encoding="utf-8"))
+    manifest = json.loads(paths.set_manifest_path("small").read_text(encoding="utf-8"))
+    assert validate(manifest) == "qb.set_manifest/1"
+    assert manifest["set"] == "small" and manifest["seed"] == 7
+    assert manifest["set_hash"] == set_hash(questions, tracks)
+    assert manifest["counts"] == {"think_off": 13, "think_on": 5}
+    assert manifest["generators"] == ["var_math_fr@1"]
+    assert manifest["index_sha256"] == sha256_bytes(paths.set_index_path("small").read_bytes())
+    assert manifest["commit"] is None or len(manifest["commit"]) == 40
+    by_kind = {(item["source"], item["kind"]): item for item in manifest["inputs"]}
+    assert set(by_kind) == {("bbeh-mini", "candidates"), ("writing-fr", "house")}
+    candidates_file = paths.candidates_path("bbeh-mini")
+    assert by_kind[("bbeh-mini", "candidates")]["sha256"] == sha256_bytes(
+        candidates_file.read_bytes()
+    )
+    house = by_kind[("writing-fr", "house")]
+    assert house["path"] == "scripts/quality_bench/questions/writing/writing-fr.yaml"
+    # Rien de privé : ni la source, ni l'empreinte de son fichier, ni un texte de question.
+    private_digest = sha256_bytes(paths.private_source_path("var-math-fr").read_bytes())
+    text = paths.set_manifest_path("small").read_text(encoding="utf-8")
+    assert private_digest not in text and "var-math-fr" not in text and "Synthétique" not in text
+    assert "manifest.json : sha256" in paths.sets_log_path("build-set").read_text(encoding="utf-8")
+
+
+def test_manifest_hash_of_a_house_file_ignores_line_endings(tmp_path):
+    lf, crlf = tmp_path / "lf.yaml", tmp_path / "crlf.yaml"
+    lf.write_bytes(b"a: 1\nb: 2\n")
+    crlf.write_bytes(b"a: 1\r\nb: 2\r\n")
+    assert set_builder._line_normalized_sha256(lf) == set_builder._line_normalized_sha256(crlf)
+
+
+def test_oneruler_raw_files_are_listed_once_in_the_manifest(tmp_path):
+    path = tmp_path / "rag.yaml"
+    path.write_text(
+        "set: rag\nseed: 1\nsources:\n"
+        "  - {source: oneruler-fr-niah, count: 1, generator_seed: 1}\n"
+        "  - {source: oneruler-fr-cwe, count: 1, generator_seed: 2}\n"
+        "  - {source: oneruler-fr-none, count: 1, generator_seed: 3}\n"
+        "think_on: {}\n",
+        encoding="utf-8",
+    )
+    inputs = set_builder.public_inputs(load_set(path, SOURCES, REFUSED_SOURCES))
+    assert sorted((item["path"], item["sha256"]) for item in inputs) == sorted(
+        (remote.path, remote.sha256) for remote in oneruler_fr.RAW_FILES
+    )
+    assert {(item["source"], item["kind"]) for item in inputs} == {("oneruler-fr", "raw")}
+
+
 def test_build_set_is_byte_identical_across_roots(small_set, tmp_path, monkeypatch):
     digests = []
     for name in ("a", "b"):
@@ -421,7 +477,9 @@ def test_build_set_is_byte_identical_across_roots(small_set, tmp_path, monkeypat
             )
             _write_var_math(paths.private_source_path("var-math-fr"))
         set_builder.build_set("small")
-        digests.append([sha256_bytes(p.read_bytes()) for p in _outputs()])
+        digests.append(
+            [sha256_bytes(p.read_bytes()) for p in (*_outputs(), paths.set_manifest_path("small"))]
+        )
     assert digests[0] == digests[1]
 
 
@@ -511,6 +569,62 @@ def test_invalid_set_yaml_exits_2(small_set, replace, insert, _reset_logging):
     small_set.write_text(SMALL_SET.replace(replace, insert, 1), encoding="utf-8")
     assert main(["build-set", "--set", "small"]) == 2
     assert not paths.set_dir("small").exists()
+
+
+WRITING_LINE = "  - {source: writing-fr, count: 3}\n"
+
+
+def test_set_source_file_selects_a_versioned_house_file(small_set, _reset_logging):
+    import json
+
+    from scripts.quality_bench.__main__ import main
+
+    small_set.write_text(
+        SMALL_SET.replace(
+            WRITING_LINE, "  - {source: writing-fr, count: 3, file: writing-fr-v2.yaml}\n"
+        ),
+        encoding="utf-8",
+    )
+    assert main(["build-set", "--set", "small"]) == 0
+    writing = [q for q in read_jsonl(paths.set_questions_path("small")) if q["usage"] == "writing"]
+    assert len(writing) == 3
+    assert any("check" in c for q in writing for c in q["criteria"])  # lu dans la version 2
+    manifest = json.loads(paths.set_manifest_path("small").read_text(encoding="utf-8"))
+    house = next(item for item in manifest["inputs"] if item["kind"] == "house")
+    assert house["path"].endswith("questions/writing/writing-fr-v2.yaml")
+
+
+@pytest.mark.parametrize(
+    "replace, insert, code",
+    [
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: ../x.yaml}\n", 2),
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: x.txt}\n", 2),
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: 3}\n", 2),
+        ("count: 4}", "count: 4, file: writing-fr-v2.yaml}", 2),  # source publique importée
+        (WRITING_LINE, "  - {source: writing-fr, count: 3, file: absent.yaml}\n", 1),
+    ],
+)
+def test_set_source_file_is_checked(small_set, replace, insert, code, _reset_logging):
+    from scripts.quality_bench.__main__ import main
+
+    small_set.write_text(SMALL_SET.replace(replace, insert, 1), encoding="utf-8")
+    assert main(["build-set", "--set", "small"]) == code
+    assert not paths.set_dir("small").exists() and not paths.set_index_dir("small").exists()
+
+
+def test_set_source_file_is_refused_for_a_private_house_source(tmp_path):
+    from scripts.quality_bench.common.config import ConfigError
+
+    path = tmp_path / "p.yaml"
+    path.write_text(
+        "set: p\nseed: 1\nsources:\n"
+        "  - {source: abstention-fr, count: 1, file: abstention-fr.yaml}\n"
+        "think_on: {}\n",
+        encoding="utf-8",
+    )
+    loaded = load_set(path, SOURCES, REFUSED_SOURCES)
+    with pytest.raises(ConfigError, match="réservé aux questions maison versionnées"):
+        set_builder.check_generator_params(loaded)
 
 
 def test_cli_build_set_applies_exclude_and_logs_the_count(small_set, _reset_logging):

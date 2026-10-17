@@ -20,6 +20,12 @@ générateurs en mémoire, lit les fichiers maison, vérifie les fichiers bruts 
 ``benchmarks/quality/sets/<s>/index.jsonl`` dans des dossiers temporaires voisins puis les
 renomme ; rien n'est écrit en cas d'échec. Journal : identifiants, comptes et empreintes
 seulement, jamais de contenu de question privée.
+
+**Manifeste du jeu** (``qb.set_manifest/1``, AD-6) : ``benchmarks/quality/sets/<s>/manifest.json``
+est écrit avec l'index. Il porte l'empreinte du jeu (AD-4), la graine, les effectifs, la version
+des générateurs, l'empreinte de l'index, le commit (et si le code suivi était modifié) et
+l'empreinte de chaque fichier d'entrée **public** : candidats des importeurs, fichiers bruts de
+OneRuler, questions maison versionnées. Aucun fichier privé n'y figure.
 """
 
 from __future__ import annotations
@@ -41,11 +47,13 @@ from ..common.config import DEFAULT_GENERATION, ConfigError, SetConfig, load_set
 from ..common.jsonl import read_jsonl, rewrite_jsonl
 from ..common.locks import FileLock, LockBusyError
 from ..common.logs import setup_logging
+from ..common.manifest import code_commit, code_dirty
 from ..common.schemas import USAGES, validate
-from .build import required_num_ctx
+from .build import PromptTooLongError, required_num_ctx
 from .generators import oneruler_fr, var_math
 from .generators.var_math import GeneratorError
 from .house import PRODUCER as HOUSE_PRODUCER
+from .multi_turn import reestimate_multi
 from .house import house_path, load_house
 from .pinned import SourceIntegrityError, verify_local_files
 from .schema import REFUSED_SOURCES, SOURCES, QuestionError, set_hash, validate_question
@@ -53,6 +61,11 @@ from .schema import REFUSED_SOURCES, SOURCES, QuestionError, set_hash, validate_
 logger = logging.getLogger(__name__)
 
 SET_INDEX_SCHEMA = "qb.set_index/1"
+SET_MANIFEST_SCHEMA = "qb.set_manifest/1"
+# Code dont la modification fausse la provenance d'un jeu (champ ``dirty`` du manifeste).
+_CODE_PATHSPEC = "scripts/quality_bench"
+# Source multi-tours réestimée selon ``multi_turn_history`` (``multi_turn.reestimate_multi``).
+MULTI_TURN_SOURCE = "bfcl-multi"
 _INDEX_FIELDS = ("id", "usage", "group", "unit", "source", "license", "private", "question_hash")
 _PUBLIC_INDEX_FIELDS = ("prompt_hash", "target_hash")
 # Réglages permis par générateur (generator_params du YAML de jeu).
@@ -261,8 +274,13 @@ def index_rows(questions: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 def check_generator_params(config: SetConfig) -> None:
-    """Réglages de générateur permis (``ConfigError`` : YAML de jeu invalide)."""
+    """Réglages de générateur et fichier maison permis (``ConfigError`` : YAML de jeu invalide)."""
     for entry in config.sources:
+        spec = SOURCES[entry.source]
+        if entry.file is not None and (spec.producer != HOUSE_PRODUCER or spec.private):
+            raise ConfigError(
+                f"{entry.source}.file : réservé aux questions maison versionnées (rédaction)"
+            )
         allowed = _GENERATOR_PARAMS.get(entry.source, set())
         unknown = sorted(set(entry.generator_params) - allowed)
         if unknown:
@@ -286,8 +304,8 @@ def read_set_config(set_id: str) -> SetConfig:
     return config
 
 
-def _private_file(source: str, private_files: dict[str, str]) -> Path:
-    path = house_path(source) if SOURCES[source].producer == HOUSE_PRODUCER else None
+def _private_file(source: str, private_files: dict[str, str], file: str | None = None) -> Path:
+    path = house_path(source, file) if SOURCES[source].producer == HOUSE_PRODUCER else None
     if path is None:
         path = paths.private_source_path(source)
     if not path.is_file():
@@ -354,7 +372,7 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
                 entry.generator_params.get("variants", var_math.DEFAULT_VARIANTS),
             )
         elif spec.producer == HOUSE_PRODUCER:
-            path = _private_file(entry.source, private_files)
+            path = _private_file(entry.source, private_files, entry.file)
             try:
                 candidates[entry.source] = load_house(path, entry.source)
             except ConfigError as error:  # YAML illisible ou clé en double : pas le YAML de jeu
@@ -369,6 +387,14 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
                     f"`python -m scripts.quality_bench fetch --source {entry.source}`"
                 )
             candidates[entry.source] = read_jsonl(path)
+            if entry.source == MULTI_TURN_SOURCE:
+                try:
+                    candidates[entry.source] = [
+                        reestimate_multi(question, config.multi_turn_history)
+                        for question in candidates[entry.source]
+                    ]
+                except PromptTooLongError as error:
+                    raise SetBuildError(f"{entry.source} : {error}") from None
         logger.info("%s : %d candidats", entry.source, len(candidates[entry.source]))
         if entry.exclude:
             logger.info(
@@ -396,12 +422,88 @@ def _refuse_existing(set_id: str) -> None:
             )
 
 
+def _line_normalized_sha256(path: Path) -> str:
+    """Empreinte d'un fichier texte versionné, fins de ligne normalisées en ``\\n`` : la même
+    sous Windows (``core.autocrlf``) et sous Linux."""
+    return sha256_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
+
+
+def public_inputs(config: SetConfig) -> list[dict[str, str]]:
+    """Fichiers d'entrée publics du jeu, avec leur empreinte (``inputs`` du manifeste).
+
+    Candidats des importeurs (``sources/<slug>/candidates.jsonl``), fichiers bruts épinglés des
+    générateurs publics (lot ``oneruler-fr``) et questions maison versionnées. Les sources
+    privées n'y figurent pas : ni leur fichier, ni son empreinte.
+    """
+    inputs: list[dict[str, str]] = []
+    bundles: set[str] = set()
+    for entry in config.sources:
+        spec = SOURCES[entry.source]
+        if spec.private:
+            continue
+        if entry.source in oneruler_fr.GENERATORS:
+            if oneruler_fr.BUNDLE in bundles:
+                continue
+            bundles.add(oneruler_fr.BUNDLE)
+            inputs += [
+                {
+                    "source": oneruler_fr.BUNDLE,
+                    "kind": "raw",
+                    "path": remote.path,
+                    "sha256": remote.sha256,
+                }
+                for remote in oneruler_fr.RAW_FILES
+            ]
+        elif spec.producer == HOUSE_PRODUCER:
+            path = house_path(entry.source, entry.file)
+            inputs.append(
+                {
+                    "source": entry.source,
+                    "kind": "house",
+                    "path": path.relative_to(paths.REPO_ROOT).as_posix(),
+                    "sha256": _line_normalized_sha256(path),
+                }
+            )
+        else:
+            path = paths.candidates_path(entry.source)
+            inputs.append(
+                {
+                    "source": entry.source,
+                    "kind": "candidates",
+                    "path": f"sources/{entry.source}/candidates.jsonl",
+                    "sha256": sha256_bytes(path.read_bytes()),
+                }
+            )
+    return sorted(inputs, key=lambda item: (item["source"], item["kind"], item["path"]))
+
+
+def set_manifest(built: BuiltSet, index_digest: str) -> dict[str, Any]:
+    """Manifeste ``qb.set_manifest/1`` du jeu (liste blanche d'AD-6), validé."""
+    manifest = {
+        "schema": SET_MANIFEST_SCHEMA,
+        "set": built.config.set_id,
+        "set_hash": built.hash,
+        "seed": built.config.seed,
+        "counts": {
+            "think_off": len(built.tracks["think_off"]),
+            "think_on": len(built.tracks["think_on"]),
+        },
+        "generators": sorted({q["generator"] for q in built.questions if q["generator"]}),
+        "inputs": public_inputs(built.config),
+        "index_sha256": index_digest,
+        "commit": code_commit(),
+        "dirty": code_dirty(_CODE_PATHSPEC),
+    }
+    validate(manifest)
+    return manifest
+
+
 def _tmp_dir(directory: Path) -> Path:
     return directory.with_name(f".{directory.name}.tmp")
 
 
 def write_set(built: BuiltSet) -> dict[str, str]:
-    """Écrit les trois fichiers du jeu (dossiers temporaires voisins, puis renommage) ; rend
+    """Écrit les quatre fichiers du jeu (dossiers temporaires voisins, puis renommage) ; rend
     leurs empreintes ``sha256``."""
     set_id = built.config.set_id
     data_dir, index_dir = paths.set_dir(set_id), paths.set_index_dir(set_id)
@@ -417,10 +519,16 @@ def write_set(built: BuiltSet) -> dict[str, str]:
             handle.flush()
             os.fsync(handle.fileno())
         rewrite_jsonl(tmp_index / "index.jsonl", index_rows(built.questions))
+        index_digest = sha256_bytes((tmp_index / "index.jsonl").read_bytes())
+        with open(tmp_index / "manifest.json", "wb") as handle:
+            handle.write(pretty_bytes(set_manifest(built, index_digest)))
+            handle.flush()
+            os.fsync(handle.fileno())
         digests = {
             "questions.jsonl": sha256_bytes((tmp_data / "questions.jsonl").read_bytes()),
             "tracks.json": sha256_bytes((tmp_data / "tracks.json").read_bytes()),
-            "index.jsonl": sha256_bytes((tmp_index / "index.jsonl").read_bytes()),
+            "index.jsonl": index_digest,
+            "manifest.json": sha256_bytes((tmp_index / "manifest.json").read_bytes()),
         }
         _refuse_existing(set_id)
         os.rename(tmp_data, data_dir)
@@ -496,8 +604,9 @@ def _run_build_set(args: argparse.Namespace) -> int:
 BUILD_SET = (
     "build-set",
     "Construit le jeu --set <s> (sets/<s>.yaml) : questions.jsonl et tracks.json sous "
-    "$QUALITY_BENCH_DATA/sets/<s>/, index versionné benchmarks/quality/sets/<s>/index.jsonl ; "
-    "écrit une fois, sans réseau, sous machine.lock.",
+    "$QUALITY_BENCH_DATA/sets/<s>/, index et manifeste versionnés "
+    "benchmarks/quality/sets/<s>/{index.jsonl,manifest.json} ; écrit une fois, sans réseau, "
+    "sous machine.lock.",
     _configure_build_set,
     _run_build_set,
 )
@@ -513,5 +622,7 @@ __all__ = [
     "exclude_candidates",
     "index_rows",
     "prepare_set",
+    "public_inputs",
     "read_set_config",
+    "set_manifest",
 ]

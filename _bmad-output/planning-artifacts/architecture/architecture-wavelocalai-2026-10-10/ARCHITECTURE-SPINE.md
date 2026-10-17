@@ -7,7 +7,7 @@ paradigm: 'pipes-and-filters : phases découplées par fichiers en ajout seul, n
 scope: 'Banc de qualité difficile pour les SLM locaux de wavelocalai v1 : jeu de questions, génération Ollama, correction, jugement, statistiques et rapports'
 status: final
 created: '2026-10-10'
-updated: '2026-10-11'
+updated: '2026-10-17'
 binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8]
 sources:
   - ../../../specs/spec-benchmark-qualite-difficile/SPEC.md
@@ -66,6 +66,7 @@ flowchart TD
   judge --> ollama & questions & common
   report --> stats & questions & common
   questions --> common
+  questions -.->|"multi_turn.py seul (AD-5)"| envs
   ollama --> common
   envs --> common
   stats["stats (aucun import du paquet)"]
@@ -91,7 +92,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 | Fichier | Propriétaire | Mode |
 | --- | --- | --- |
 | `sources/<slug>/…` (candidats) | l'importeur ou le générateur `<slug>`, un seul par slug | réécrit |
-| `sets/<set>/questions.jsonl`, `tracks.json` ; `benchmarks/quality/sets/<set>/index.jsonl` | `questions/set_builder.py` | écrit une fois ; refus si le dossier existe |
+| `sets/<set>/questions.jsonl`, `tracks.json` ; `benchmarks/quality/sets/<set>/index.jsonl`, `manifest.json` | `questions/set_builder.py` | écrit une fois ; refus si le dossier existe |
 | `campaigns/<c>/manifest.json`, `generation.jsonl`, `warmups.jsonl` | `generation/` | ajout seul + `fsync` |
 | `campaigns/<c>/judgment-<judge>/manifest.json`, `judgment.jsonl`, `batches.jsonl` | `judge/` | ajout seul + `fsync` |
 | `campaigns/<c>/grading.jsonl` | `grading/` | réécrit en entier (temporaire + `os.replace`) |
@@ -161,10 +162,12 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
   - Les champs sans objet valent `null` : `generator` et `generator_seed` hors questions générées, `turns` hors multi-tours, `env` hors outils exécutés, `criteria` hors rédaction.
   - `unit` = unité de score : `id` par défaut. Pour VAR-MATH, toutes les variantes d'un problème partagent une `unit`, réussie seulement si toutes ses questions le sont (agrégation dans `stats/`, AD-17). Une `unit` ne franchit jamais un `group`.
   - `num_ctx` fait partie des `num_ctx_tiers` de la configuration, et `num_ctx ≥ est_prompt_tokens × 1,25 + plafond maximal de num_predict` (contrôle de `set_builder`).
+  - **Multi-tours :** le runner renvoie tout l'historique à chaque appel, donc `est_prompt_tokens` d'une conversation compte, en plus de `messages`, `turns`, `tools` et `format`, **tous les messages accumulés jusqu'au dernier tour** : appels d'outils, résultats d'outils et réponses de chaque tour. L'importeur les estime en rejouant la cible dans l'environnement simulé (AD-11) et ajoute une réponse de 100 tokens par tour ; l'historique n'est pas écrit dans la question. Seul `questions/multi_turn.py` importe `envs/`, en lecture seule, pour ce rejeu. La règle est versionnée par le jeu (option `multi_turn_history` du YAML de jeu, vraie depuis set-v2) : `build-set` réestime les candidats, et set-v1 reste reconstructible à l'identique. Les réponses d'un modèle qui s'écarte de la cible, et sa réflexion renvoyée dans l'historique, restent couvertes par la marge de 1,25 et par `context_exceeded` (AD-7), que le pilote mesure.
   - `grader.name` n'a pas de version : la version vit dans le registre et dans `grading.jsonl` (AD-10).
   - Liste fermée des `source` (slugs) dans `questions/schema.py`, chacune avec un seul producteur, plus une liste des sources refusées (exclusions de `pistes-et-questions.md`). Une question dérivée (traduction, variante) garde le `group` de son origine.
   - `tracks.json` : `{"think_off": [ids], "think_on": [ids]}`, `think_on` ⊂ `think_off`, tirage stratifié par usage **par groupes entiers**, graine dans `sets/<set>.yaml`.
-  - Les questions de rédaction, non privées, sont versionnées en entier dans `scripts/quality_bench/questions/writing/`.
+  - Les questions de rédaction, non privées, sont versionnées en entier dans `scripts/quality_bench/questions/writing/`. Le YAML de jeu choisit le fichier de la source par la clé facultative `file` (`set-v1` : `writing-fr.yaml` ; `set-v2` : `writing-fr-v2.yaml`) : un jeu garde les questions qu'il a figées.
+  - **Critères vérifiés par le code (2026-10-17) :** un critère de rédaction est `{id, question}` et, s'il demande de compter (mots, phrases, paragraphes, lignes, éléments de liste), porte en plus un `check` structuré (forme dans `questions/checks.py`, règles de comptage dans `questions/SOURCES.md`). `check` fait partie de `criteria`, donc de `target_hash`. Le juge ne reçoit pas ces critères (AD-16) ; le correcteur les vérifie (AD-10). Les critères ambigus restent au juge.
 
 ### AD-6 — Exports versionnés en liste blanche
 
@@ -172,6 +175,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 - **Prevents:** une question privée, une cible devinable ou une réponse brute qui fuit dans le dépôt public.
 - **Rule:** seuls ces schémas fermés s'écrivent sous `benchmarks/quality/`, par `report/` et `set_builder` ; tout champ hors liste est une erreur.
   - `qb.set_index/1` : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` **pour les seules questions publiques**.
+  - `qb.set_manifest/1` (amendement validé par Anaël, 2026-10-17) : un fichier `benchmarks/quality/sets/<set>/manifest.json` par jeu, écrit par `build-set` avec l'index. Champs : `set, set_hash` (empreinte du jeu, AD-4), `seed, counts` (`think_off`, `think_on`), `generators` (versions `name@n` des générateurs), `inputs` (par fichier d'entrée **public** : `source, kind` parmi `candidates` | `raw` | `house`, `path, sha256`), `index_sha256`, `commit` (dépôt à la construction) et `dirty` (fichiers suivis de `scripts/quality_bench` modifiés à ce moment). Rien de privé : ni fichier privé ni son empreinte, ni texte de question, ni cible. Il rend vérifiables la provenance du jeu et ses entrées, que le seul journal `sets/log-build-set.log` (hors dépôt) ne conservait pas.
   - `qb.score/1` : `question_hash, model, digest, track, seed, status, score, success, metrics`. `metrics` ne contient que des flottants finis. Fichiers découpés par modèle : `benchmarks/quality/<c>/scores/<model>.jsonl`.
   - Manifestes, agrégats et rapports ne contiennent ni texte de question ni sortie de modèle.
   - Un test de `tests/quality_bench/` parcourt tout `benchmarks/quality/` et vérifie les clés de chaque ligne.
@@ -328,11 +332,11 @@ grading:
 | extraction | schéma valide et toutes les valeurs attendues | = `success` | F1 par champ |
 | rag | correspondance exacte normalisée | = `success` | F1 |
 | abstention | abstention correcte | = `success` | — |
-| writing | `null` | moyenne des verdicts vrais sur **tous** les `criteria` | — |
+| writing | `null` | moyenne des verdicts vrais sur **tous** les `criteria` : verdicts du code (`grading/counting.py`) pour les critères à `check`, du juge retenu pour les autres | — |
 
   - `truncated`, `non_compliant` (JSON hors schéma, appel d'outil invalide, `call_cap_reached`) : `score = 0`, `success = false` (rédaction : `null`). Ce sont des échecs du modèle, comptés à part.
   - `error`, `context_exceeded` : `score = success = null`. Les statistiques retirent la question des comparaisons qui impliquent ce modèle et publient le compte.
-  - Rédaction : un critère sans verdict donne `awaiting_judgment`, un verdict en erreur donne `error`.
+  - Rédaction : un critère **jugé** sans verdict donne `awaiting_judgment`, un verdict en erreur donne `error` ; une question dont tous les critères sont vérifiés par le code n'attend aucun juge. Un `check` mal formé donne `error`. `judge_criteria@2` (2026-10-17) remplace `@1`, qui ne connaissait que le juge. Un jugement d'un critère à `check` est refusé par `grade`.
   - La sortie JSON est validée contre le schéma côté client (`jsonschema`), jamais supposée conforme parce que `format` a été envoyé. `inline_thinking` = texte de réflexion trouvé dans `content`.
   - `grading/registry.py` fixe `langdetect.DetectorFactory.seed = 0` avant tout chargement. Le code emprunté ne télécharge rien à l'import. Corriger deux fois le même fichier donne des octets identiques (test).
 
@@ -407,7 +411,7 @@ grading:
 - **Prevents:** un jugement qui re-juge après reprise, paie deux fois un lot cloud, juge des réponses inutiles ou dépend d'un serveur précis.
 - **Rule:**
   - **Interface :** `Judge.judge(items) -> list[Verdict]`, avec une implémentation par entrée de `judges.yaml` : `winnow`, `mimo`, `haiku`, `decider` en repli. Lancement : `judge --campaign <c> --judge <id>`, un dossier `judgment-<id>/` par identifiant.
-  - **Lignes jugées :** seulement celles où `usage = writing` et `status = ok`, une par critère. Ligne `qb.judgment/1` :
+  - **Lignes jugées :** seulement celles où `usage = writing` et `status = ok`, une par critère **sans `check`** (un critère vérifié par le code n'est jamais soumis au juge, AD-5). `calibrate` et `calibrate-sample` les ignorent aussi. Ligne `qb.judgment/1` :
 
 ```json
 {

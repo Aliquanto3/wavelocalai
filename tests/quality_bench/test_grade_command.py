@@ -232,13 +232,13 @@ def test_grade_writes_one_sorted_line_per_generation(campaign, _reset_logging):
         # Rédaction jugée seulement : une sortie non ok n'est jamais jugée, une ligne en attente
         # (verdicts incomplets) non plus.
         judged = (
-            record["grader"] == "judge_criteria@1"
+            record["grader"] == "judge_criteria@2"
             and generation_status[record["key"]] == "ok"
             and record["status"] != "awaiting_judgment"
         )
         assert record["judgment_manifest"] == (campaign["judgment_hash"] if judged else None)
     truncated_writing = [
-        r for r in records if r["grader"] == "judge_criteria@1" and r["status"] == "truncated"
+        r for r in records if r["grader"] == "judge_criteria@2" and r["status"] == "truncated"
     ]
     assert truncated_writing and truncated_writing[0]["judgment_manifest"] is None
     assert {r["grader"].split("@")[0] for r in records} == {
@@ -370,7 +370,7 @@ def test_without_judgment_folder_writing_awaits(campaign, _reset_logging):
     paths.judgment_dir(CAMPAIGN, JUDGE_ID).rmdir()
     assert _run() == 0
     records = read_jsonl(paths.grading_path(CAMPAIGN))
-    writing = [r for r in records if r["grader"] == "judge_criteria@1"]
+    writing = [r for r in records if r["grader"] == "judge_criteria@2"]
     ok_writing = [r for r in writing if r["status"] != "truncated"]
     assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
     assert all(r["judgment_manifest"] is None for r in records)
@@ -515,7 +515,7 @@ def test_without_designated_judge_writing_awaits(campaign, _reset_logging):
     (campaign["config_dir"] / f"{CAMPAIGN}.yaml").write_text(yaml_text, encoding="utf-8")
     assert _run() == 0
     records = read_jsonl(paths.grading_path(CAMPAIGN))
-    writing = [r for r in records if r["grader"] == "judge_criteria@1"]
+    writing = [r for r in records if r["grader"] == "judge_criteria@2"]
     ok_writing = [r for r in writing if r["status"] != "truncated"]
     assert ok_writing and all(r["status"] == "awaiting_judgment" for r in ok_writing)
     assert all(r["judgment_manifest"] is None for r in records)

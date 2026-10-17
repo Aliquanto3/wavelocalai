@@ -29,7 +29,8 @@ NETWORK_LIBRARIES = (
     "requests",
     "aiohttp",
 )
-ALLOWED_QUESTIONS = {"questions/__init__.py", "questions/schema.py"}
+# questions/checks.py : forme pure des critères vérifiés par le code, importée par schema.py.
+ALLOWED_QUESTIONS = {"questions/__init__.py", "questions/schema.py", "questions/checks.py"}
 
 
 def _stats_files():

@@ -31,6 +31,7 @@ _CAMPAIGN = rf"(?!(?:sets|references|calibration)/){_ID}"
 # document (.json) ; ``None`` : texte sans schéma (.md, .svg).
 ALLOWED = {
     re.compile(rf"sets/{_ID}/index\.jsonl"): "qb.set_index/1",
+    re.compile(rf"sets/{_ID}/manifest\.json"): "qb.set_manifest/1",
     re.compile(rf"{_CAMPAIGN}/scores/[A-Za-z0-9._-]+\.jsonl"): "qb.score/1",
     re.compile(rf"{_CAMPAIGN}/summary\.json"): "qb.report/1",
     re.compile(rf"{_CAMPAIGN}/manifest\.json"): "qb.manifest/1",
@@ -133,6 +134,59 @@ def test_file_outside_the_whitelist_fails(tmp_path, synthetic_rows):
     assert export_problems(tmp_path) == [
         "sets/set-test/questions.jsonl : fichier hors liste blanche"
     ]
+
+
+def _manifest(**overrides):
+    row = {
+        "schema": "qb.set_manifest/1",
+        "set": "set-test",
+        "set_hash": "a" * 64,
+        "seed": 1,
+        "counts": {"think_off": 2, "think_on": 1},
+        "generators": ["oneruler_fr@1"],
+        "inputs": [
+            {"source": "bbeh-mini", "kind": "candidates", "path": "sources/x", "sha256": "b" * 64}
+        ],
+        "index_sha256": "c" * 64,
+        "commit": "d" * 40,
+        "dirty": False,
+    }
+    return {**row, **overrides}
+
+
+def _write_manifest(root: Path, row, name="set-test") -> Path:
+    path = root / "sets" / name / "manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(canonical_bytes(row))
+    return path
+
+
+def test_set_manifest_follows_the_whitelist(tmp_path):
+    _write_manifest(tmp_path, _manifest())
+    assert export_problems(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"private_files": {"var-math-fr": "e" * 64}},  # champ hors liste blanche
+        {"questions": []},
+        {"commit": "pas-un-sha"},
+        {"inputs": [{"source": "x", "kind": "private", "path": "p", "sha256": "b" * 64}]},
+        {"inputs": [{"source": "x", "kind": "raw", "path": "p", "sha256": "b" * 64, "text": "…"}]},
+        {"counts": {"think_off": 2}},
+    ],
+)
+def test_set_manifest_with_extra_or_invalid_field_fails(tmp_path, override):
+    _write_manifest(tmp_path, _manifest(**override))
+    assert export_problems(tmp_path)
+
+
+def test_manifest_outside_a_set_folder_is_not_the_set_manifest(tmp_path):
+    path = tmp_path / "references" / "manifest.json"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(canonical_bytes(_manifest()))
+    assert export_problems(tmp_path) == ["references/manifest.json : fichier hors liste blanche"]
 
 
 # -- Exports d'une campagne (story 6) -------------------------------------------------------

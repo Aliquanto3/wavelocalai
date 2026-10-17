@@ -1,0 +1,1358 @@
+# Questions de rédaction du banc de qualité difficile (writing-fr), versionnées en entier :
+# non privées, le juge cloud doit les lire. Contenu inventé, sous licence MIT du dépôt.
+# Critères fermés (oui/non), vérifiables sur la seule réponse ; un groupe par question.
+# Version 2 (jeu set-v2) : les critères qui demandent de compter portent un `check` vérifié par
+# le code (grading/counting.py, forme dans questions/checks.py) et ne vont plus au juge ; les
+# questions et les critères sont les mêmes que dans writing-fr.yaml (jeu set-v1, inchangé).
+schema: qb.house/1
+source: writing-fr
+questions:
+  - number: 1
+    messages:
+      - role: user
+        content: |-
+          Rédigez un courriel de réclamation adressé au service client de la société fictive « Meubles Tilleul ». Situation : vous avez commandé le 3 février une table en chêne (commande n° MT-48213, 649 euros) livrée le 21 février avec un pied fendu. Vous avez envoyé des photos le 22 février et n'avez reçu aucune réponse depuis.
+
+          Contraintes :
+          - Commencez par une ligne « Objet : » qui mentionne le numéro de commande.
+          - Le corps du courriel comporte exactement trois paragraphes : rappel des faits, demande précise (remplacement du pied sous quinze jours, ou à défaut remboursement intégral), conséquence si rien n'est fait (saisine du médiateur de la consommation).
+          - Vouvoiement de bout en bout, ton ferme mais courtois, aucune menace autre que la saisine du médiateur.
+          - Terminez par la formule « Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées. » suivie de la signature « Claire Fontanel ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse commence-t-elle par une ligne « Objet : » contenant le numéro MT-48213 ?"}
+      - {id: c2, question: "Le corps du courriel comporte-t-il exactement trois paragraphes entre la formule d'appel et la formule de politesse ?", check: {count: paragraphs, scope: body, op: "==", n: 3}}
+      - {id: c3, question: "Le courriel mentionne-t-il à la fois le remplacement sous quinze jours et, à défaut, le remboursement intégral ?"}
+      - {id: c4, question: "Le courriel mentionne-t-il la saisine du médiateur de la consommation comme conséquence possible ?"}
+      - {id: c5, question: "Le courriel se termine-t-il par la formule « Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées. » suivie de la signature Claire Fontanel ?"}
+  - number: 2
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Hugo Ravenel, responsable des achats de la PME fictive « Atelier Corvette » (mécanique de précision). Le fournisseur « Aciers du Vallon » n'a pas répondu à votre demande de devis envoyée le 9 septembre pour 400 barres d'inox 316L. Rédigez un courriel de relance.
+
+          Contraintes :
+          - Ligne d'objet commençant par « Relance : ».
+          - Moins de 120 mots pour le corps du courriel (objet et signature non compris).
+          - Rappelez la date de la première demande et la quantité exacte.
+          - Fixez une date limite de réponse : le vendredi 26 septembre.
+          - N'utilisez ni le mot « urgent » ni le mot « rapidement ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La ligne d'objet commence-t-elle par « Relance : » ?"}
+      - {id: c2, question: "Le corps du courriel, hors objet et signature, fait-il moins de 120 mots ?", check: {count: words, scope: body, op: "<", n: 120}}
+      - {id: c3, question: "Le courriel mentionne-t-il la date du 9 septembre et la quantité de 400 barres d'inox 316L ?"}
+      - {id: c4, question: "Le courriel fixe-t-il une date limite au vendredi 26 septembre ?"}
+      - {id: c5, question: "Le courriel évite-t-il les mots « urgent » et « rapidement » ?"}
+  - number: 3
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Nadia Berthelot, directrice de l'association fictive « Les Jardins de Lamotte », qui organise un festival de jardins partagés. Un photographe amateur, M. Julien Peyrac, a proposé bénévolement de couvrir l'événement, mais l'association a déjà signé avec un photographe professionnel. Rédigez un courriel de refus poli.
+
+          Contraintes :
+          - Remerciez explicitement M. Peyrac pour sa proposition dès la première phrase.
+          - Donnez la raison réelle du refus (contrat déjà signé) sans nommer le photographe professionnel.
+          - Proposez-lui une alternative concrète : participer au concours photo ouvert au public le 14 juin.
+          - Le courriel tient en 4 à 6 phrases au total, formule d'appel et formule de politesse non comprises.
+          - Pas de formule du type « nous ne manquerons pas de revenir vers vous ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La première phrase du corps du courriel remercie-t-elle M. Peyrac pour sa proposition ?"}
+      - {id: c2, question: "Le courriel indique-t-il qu'un contrat a déjà été signé avec un photographe professionnel, sans donner le nom de ce photographe ?"}
+      - {id: c3, question: "Le courriel propose-t-il de participer au concours photo du 14 juin ?"}
+      - {id: c4, question: "Le corps du courriel compte-t-il entre 4 et 6 phrases, hors formule d'appel et formule de politesse ?", check: {count: sentences, scope: body, op: between, min: 4, max: 6}}
+      - {id: c5, question: "Le courriel évite-t-il la formule « nous ne manquerons pas de revenir vers vous » ou une variante proche ?"}
+      - {id: c6, question: "Le courriel reste-t-il entièrement au vouvoiement ?"}
+  - number: 4
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Théo Marchetti, artisan plombier à son compte. Vous devez déposer votre déclaration de TVA trimestrielle avant le 15 octobre, mais vous avez été hospitalisé du 28 septembre au 8 octobre (opération du genou). Rédigez un courriel au service des impôts des entreprises (SIE) fictif de Belcourt pour demander un délai.
+
+          Contraintes :
+          - Objet clair contenant les mots « demande de délai ».
+          - Indiquez votre numéro SIRET fictif : 812 345 678 00019.
+          - Demandez un report précis au 31 octobre.
+          - Mentionnez que vous pouvez fournir un bulletin d'hospitalisation, sans le joindre.
+          - Structure : formule d'appel, trois paragraphes courts, formule de politesse.
+          - Aucun détail médical au-delà de « hospitalisation » et des dates.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'objet du courriel contient-il les mots « demande de délai » ?"}
+      - {id: c2, question: "Le courriel mentionne-t-il le numéro SIRET 812 345 678 00019 ?"}
+      - {id: c3, question: "Le courriel demande-t-il un report au 31 octobre ?"}
+      - {id: c4, question: "Le courriel mentionne-t-il les dates d'hospitalisation du 28 septembre au 8 octobre ?"}
+      - {id: c5, question: "Le courriel évite-t-il de nommer l'opération du genou ou tout autre détail médical ?"}
+  - number: 5
+    messages:
+      - role: user
+        content: |-
+          Vous êtes la direction des ressources humaines de l'entreprise fictive « Logivert », 140 salariés. Rédigez un courriel interne à l'ensemble du personnel pour annoncer le déménagement des bureaux.
+
+          Informations à reprendre exactement :
+          - Nouvelle adresse : 12 rue des Ateliers, 69007 Lyon.
+          - Date du déménagement : vendredi 7 novembre ; les bureaux actuels ferment à 12 h ce jour-là.
+          - Premier jour dans les nouveaux locaux : lundi 10 novembre.
+          - Chaque salarié doit vider son poste et étiqueter ses cartons avant le jeudi 6 novembre à 17 h.
+          - Contact : Sophie Lemaire, poste 214.
+
+          Contraintes :
+          - Une ligne d'objet.
+          - Un court paragraphe d'introduction, puis une liste à puces reprenant les informations pratiques, puis une phrase de conclusion.
+          - Ton chaleureux mais professionnel ; tutoiement interdit.
+          - Moins de 180 mots au total.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse comporte-t-elle une ligne d'objet ?"}
+      - {id: c2, question: "Les informations pratiques sont-elles présentées sous forme de liste à puces ?"}
+      - {id: c3, question: "Le courriel reprend-il l'adresse exacte 12 rue des Ateliers, 69007 Lyon ?"}
+      - {id: c4, question: "Le courriel mentionne-t-il la date limite du jeudi 6 novembre à 17 h pour vider les postes ?"}
+      - {id: c5, question: "Le courriel indique-t-il le contact Sophie Lemaire au poste 214 ?"}
+      - {id: c6, question: "Le courriel fait-il moins de 180 mots au total ?", check: {count: words, op: "<", n: 180}}
+  - number: 6
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Mme Odile Saint-Amand, habitante de la commune fictive de Vauxbrune. Depuis trois semaines, le lampadaire situé devant le 18 avenue des Peupliers reste éteint la nuit, ce qui rend dangereux le passage piéton voisin, emprunté par les élèves de l'école Jules-Ferry. Rédigez un courriel au service voirie de la mairie.
+
+          Contraintes :
+          - Ligne d'objet précise (lieu et problème).
+          - Situez précisément le lampadaire et expliquez le risque pour les élèves.
+          - Demandez une intervention et une réponse indiquant un délai prévisionnel.
+          - Le courriel doit faire entre 100 et 160 mots, objet compris.
+          - Formule de politesse finale adressée à « Madame, Monsieur ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'objet du courriel mentionne-t-il à la fois le lieu et le problème d'éclairage ?"}
+      - {id: c2, question: "Le courriel mentionne-t-il l'adresse 18 avenue des Peupliers ?"}
+      - {id: c3, question: "Le courriel évoque-t-il le risque pour les élèves de l'école Jules-Ferry ?"}
+      - {id: c4, question: "Le courriel demande-t-il un délai prévisionnel d'intervention ?"}
+  - number: 7
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Karim Doucet, chef de projet informatique chez l'éditeur fictif « Numéria ». La mise en production de la nouvelle version du logiciel de paie, prévue le 3 mars, est reportée au 17 mars à cause d'une anomalie de calcul des heures supplémentaires détectée en recette. Rédigez un courriel au client, Mme Hélène Garnier, DRH de la société fictive « Transports Bellac ».
+
+          Contraintes :
+          - Annoncez le report dès la première phrase du corps.
+          - Expliquez la cause en une ou deux phrases, sans jargon technique (pas de mots comme « bug », « recette », « patch », « déploiement »).
+          - Indiquez que la version actuelle continue de fonctionner normalement d'ici là.
+          - Proposez un point téléphonique de 30 minutes la semaine du 6 mars.
+          - Pas d'excuses répétées : une seule phrase d'excuse au maximum.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La première phrase du corps du courriel annonce-t-elle le report de la mise en production ?"}
+      - {id: c2, question: "Le courriel mentionne-t-il la nouvelle date du 17 mars ?"}
+      - {id: c3, question: "Le courriel évite-t-il les mots « bug », « recette », « patch » et « déploiement » ?"}
+      - {id: c4, question: "Le courriel indique-t-il que la version actuelle continue de fonctionner d'ici là ?"}
+      - {id: c5, question: "Le courriel propose-t-il un point téléphonique de 30 minutes la semaine du 6 mars ?"}
+      - {id: c6, question: "Le courriel contient-il au plus une phrase d'excuse ?"}
+  - number: 8
+    messages:
+      - role: user
+        content: |-
+          Vous êtes M. Bastien Leroux, parent d'élève. Votre fille Inès, en classe de CM1 de Mme Duval à l'école fictive des Tilleuls, sera absente du lundi 12 au mercredi 14 mai pour assister aux obsèques de sa grand-mère dans une autre région. Rédigez un courriel à l'enseignante.
+
+          Contraintes :
+          - Courriel bref : 5 phrases au maximum dans le corps.
+          - Précisez les dates exactes de l'absence et le motif (familial, sans détail superflu).
+          - Demandez comment Inès peut rattraper le travail manqué.
+          - Formule d'appel : « Madame Duval, ».
+          - Formule finale : « Bien cordialement, » suivie de votre nom.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le corps du courriel compte-t-il 5 phrases au maximum ?", check: {count: sentences, scope: body, op: "<=", n: 5}}
+      - {id: c2, question: "Le courriel mentionne-t-il l'absence du lundi 12 au mercredi 14 mai ?"}
+      - {id: c3, question: "Le courriel demande-t-il comment rattraper le travail manqué ?"}
+      - {id: c4, question: "Le courriel commence-t-il par « Madame Duval, » ?"}
+      - {id: c5, question: "Le courriel se termine-t-il par « Bien cordialement, » suivi du nom Bastien Leroux ?"}
+  - number: 9
+    messages:
+      - role: user
+        content: |-
+          Vous êtes Léa Castagné, responsable de l'office de tourisme fictif de Port-Salvaz. Un groupe de 25 randonneurs, l'association fictive « Pas à Pas 38 », a réservé une visite guidée des falaises le samedi 20 septembre. À cause d'une alerte orange vents violents, la visite doit être annulée. Rédigez un courriel au président de l'association, M. Gérard Vial.
+
+          Contraintes :
+          - Annoncez l'annulation et la raison (alerte orange vents violents) dans le premier paragraphe.
+          - Proposez deux dates de remplacement : samedi 4 octobre ou samedi 11 octobre.
+          - Précisez que l'acompte de 150 euros sera soit reporté, soit remboursé, au choix du groupe.
+          - Demandez une réponse avant le 25 septembre.
+          - Structure : objet, trois paragraphes, formule de politesse.
+          - Aucun mot anglais.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le premier paragraphe annonce-t-il l'annulation en citant l'alerte orange vents violents ?"}
+      - {id: c2, question: "Le courriel propose-t-il les deux dates du samedi 4 octobre et du samedi 11 octobre ?"}
+      - {id: c3, question: "Le courriel précise-t-il que l'acompte de 150 euros peut être reporté ou remboursé ?"}
+      - {id: c4, question: "Le courriel demande-t-il une réponse avant le 25 septembre ?"}
+      - {id: c5, question: "La réponse évite-t-elle tout mot anglais ?"}
+  - number: 10
+    messages:
+      - role: user
+        content: |-
+          Vous êtes le Dr Samuel Aubertin, médecin coordonnateur de l'EHPAD fictif « Les Glycines ». Rédigez un courriel aux familles des résidents pour annoncer la campagne de vaccination antigrippale.
+
+          Informations : vaccination les mardi 14 et mercredi 15 octobre ; recueil du consentement nécessaire pour les résidents sous tutelle, via le formulaire joint, à renvoyer avant le 7 octobre ; questions à poser à l'infirmière coordinatrice, Mme Agathe Royer, au 04 00 00 12 34 (numéro fictif).
+
+          Contraintes :
+          - Ligne d'objet.
+          - Rassurez sans exagérer : n'écrivez pas que le vaccin est « sans risque » ni « efficace à 100 % ».
+          - Une liste à puces de trois éléments au maximum pour les informations pratiques.
+          - Le texte fait moins de 200 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse comporte-t-elle une ligne d'objet ?"}
+      - {id: c2, question: "Le courriel mentionne-t-il les dates du mardi 14 et du mercredi 15 octobre ?"}
+      - {id: c3, question: "Le courriel mentionne-t-il la date limite du 7 octobre pour le formulaire de consentement ?"}
+      - {id: c4, question: "Le courriel évite-t-il les expressions « sans risque » et « efficace à 100 % » ?"}
+      - {id: c5, question: "La liste à puces comporte-t-elle trois éléments au maximum ?", check: {count: items, marker: bullet, op: between, min: 1, max: 3}}
+      - {id: c6, question: "Le texte fait-il moins de 200 mots ?", check: {count: words, op: "<", n: 200}}
+  - number: 11
+    messages:
+      - role: user
+        content: |-
+          Lisez le compte rendu suivant, puis rédigez-en une synthèse de 60 à 90 mots, en un seul paragraphe, destinée aux élus qui n'ont pas assisté à la réunion. Ne reprenez aucune phrase mot pour mot et ne donnez aucun avis personnel.
+
+          Texte :
+          « La commission transports de la communauté de communes fictive du Val d'Aubière s'est réunie le 4 avril pour examiner le bilan de la navette à la demande lancée il y a un an. Le service, qui fonctionne sur réservation téléphonique la veille avant 18 h, a transporté 8 400 voyageurs sur l'année, soit 30 % de plus que l'objectif initial. Les principaux usagers sont des personnes âgées de plus de 70 ans, qui représentent près de la moitié des trajets, et des jeunes de moins de 18 ans se rendant au lycée de Montbrac. Le coût net pour la collectivité s'élève à 112 000 euros, contre 95 000 euros prévus, en raison de la hausse du prix du carburant. Les usagers interrogés se disent satisfaits à 87 %, mais regrettent l'impossibilité de réserver le jour même. Le prestataire a proposé une application de réservation qui permettrait de réserver jusqu'à deux heures avant le départ, pour un coût de mise en place de 18 000 euros. La commission recommande de prolonger le service pour deux ans et de lancer une étude sur l'application avant toute décision. Le vote aura lieu au conseil communautaire du 22 mai. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La synthèse fait-elle entre 60 et 90 mots ?", check: {count: words, op: between, min: 60, max: 90}}
+      - {id: c2, question: "La synthèse tient-elle en un seul paragraphe ?", check: {count: paragraphs, op: "==", n: 1}}
+      - {id: c3, question: "La synthèse mentionne-t-elle le dépassement du coût (112 000 euros au lieu de 95 000 euros) ?"}
+      - {id: c4, question: "La synthèse mentionne-t-elle la recommandation de prolonger le service pour deux ans ?"}
+      - {id: c5, question: "La synthèse mentionne-t-elle le vote prévu au conseil communautaire du 22 mai ?"}
+      - {id: c6, question: "La synthèse s'abstient-elle de tout avis personnel ou jugement de valeur sur le service ?"}
+  - number: 12
+    messages:
+      - role: user
+        content: |-
+          Résumez le texte suivant en exactement trois puces, chacune d'une seule phrase de moins de 25 mots. La première puce donne le constat, la deuxième la cause, la troisième la mesure décidée.
+
+          Texte :
+          « Depuis le début de l'année, l'usine fictive Cartonnages Merlet, à Saint-Ondras, constate une hausse inhabituelle des arrêts de la ligne d'impression numéro 2 : quarante-trois arrêts en six mois, contre douze sur la même période l'an dernier. Chaque arrêt dure en moyenne quarante minutes et entraîne la mise au rebut de plusieurs centaines de feuilles. L'équipe de maintenance a d'abord soupçonné l'usure des rouleaux encreurs, qui ont été remplacés en mars sans effet notable. Une analyse plus poussée, menée avec le fabricant de la machine, a montré que la plupart des arrêts survenaient l'après-midi, lorsque la température de l'atelier dépassait 29 degrés. À cette température, l'encre utilisée depuis le changement de fournisseur en janvier devient trop fluide et déclenche les capteurs de sécurité. La direction a donc décidé de revenir à l'ancienne encre dès le mois prochain, en attendant l'installation d'un système de climatisation de l'atelier, prévue pour l'été suivant. Le coût de ces arrêts est estimé à 27 000 euros sur le semestre. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le résumé comporte-t-il exactement trois puces ?", check: {count: items, marker: bullet, op: "==", n: 3}}
+      - {id: c2, question: "Chaque puce est-elle composée d'une seule phrase de moins de 25 mots ?", check: [{count: sentences, per: item, marker: bullet, op: "==", n: 1}, {count: words, per: item, marker: bullet, op: "<", n: 25}]}
+      - {id: c3, question: "La deuxième puce identifie-t-elle comme cause l'encre devenue trop fluide au-delà d'environ 29 degrés ?"}
+      - {id: c4, question: "La troisième puce mentionne-t-elle le retour à l'ancienne encre ?"}
+  - number: 13
+    messages:
+      - role: user
+        content: |-
+          Voici un article de la lettre d'information interne d'un hôpital fictif. Rédigez une synthèse de 3 phrases au maximum, à destination des patients, affichable dans la salle d'attente. Évitez les sigles : s'il est impossible d'en éviter un, développez-le.
+
+          Texte :
+          « À compter du 1er décembre, le centre hospitalier fictif de Ravières modifie l'organisation de ses consultations externes de cardiologie. Jusqu'ici, les patients étaient reçus sans rendez-vous le mardi matin, ce qui générait des attentes pouvant dépasser trois heures. Désormais, toutes les consultations se feront sur rendez-vous, pris par téléphone au secrétariat ou en ligne via le portail patient. Un créneau quotidien de 8 h 30 à 9 h 30 reste réservé aux urgences relatives, sur orientation du médecin traitant. Par ailleurs, les ECG de contrôle pourront être réalisés directement par les infirmières de l'HDJ, sans passer par la consultation, ce qui devrait libérer environ quinze créneaux de médecin par semaine. Le service rappelle que toute douleur thoracique aiguë relève des urgences et non de la consultation. Les patients déjà suivis recevront un courrier les informant de leur prochain rendez-vous. Cette réorganisation a été préparée avec l'association fictive des usagers Cœur Vaillant, consultée à trois reprises. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La synthèse compte-t-elle 3 phrases au maximum ?", check: {count: sentences, op: "<=", n: 3}}
+      - {id: c2, question: "La synthèse indique-t-elle que les consultations se feront désormais sur rendez-vous ?"}
+      - {id: c3, question: "La synthèse mentionne-t-elle la date du 1er décembre ?"}
+      - {id: c4, question: "La synthèse évite-t-elle les sigles non développés comme ECG ou HDJ ?"}
+      - {id: c5, question: "La synthèse s'adresse-t-elle aux patients plutôt qu'au personnel hospitalier ?"}
+  - number: 14
+    messages:
+      - role: user
+        content: |-
+          Lisez le texte suivant et rédigez une synthèse structurée avec exactement deux intertitres : « Ce qui change » et « Ce qui ne change pas ». Sous chaque intertitre, 2 à 4 puces. Total : moins de 120 mots. N'ajoutez aucune information absente du texte.
+
+          Texte :
+          « Le conseil d'administration de la mutuelle fictive Solimut Avenir a adopté de nouvelles conditions pour le contrat Santé Famille, applicables au 1er janvier. La cotisation mensuelle augmente de 4,2 %, une hausse inférieure à la moyenne du secteur selon la mutuelle. Le remboursement des lunettes est porté de 150 à 200 euros tous les deux ans pour les adultes. Les séances d'ostéopathie, auparavant limitées à trois par an, passent à cinq. En revanche, le forfait hospitalier reste intégralement pris en charge, comme les années précédentes, et le tiers payant continue de s'appliquer dans toutes les pharmacies. Le délai de carence de trois mois pour les nouveaux adhérents est maintenu. Les adhérents n'ont aucune démarche à effectuer : les nouvelles garanties s'appliqueront automatiquement. Ceux qui souhaitent résilier leur contrat peuvent le faire à tout moment après un an d'adhésion, sans frais. Un conseiller est joignable du lundi au vendredi pour toute question. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La synthèse comporte-t-elle exactement les deux intertitres « Ce qui change » et « Ce qui ne change pas » ?"}
+      - {id: c2, question: "Chaque intertitre est-il suivi de 2 à 4 puces ?"}
+      - {id: c3, question: "La synthèse fait-elle moins de 120 mots ?", check: {count: words, op: "<", n: 120}}
+      - {id: c4, question: "La hausse de cotisation de 4,2 % figure-t-elle sous l'intertitre « Ce qui change » ?"}
+      - {id: c5, question: "Le maintien du délai de carence de trois mois ou de la prise en charge du forfait hospitalier figure-t-il sous « Ce qui ne change pas » ?"}
+      - {id: c6, question: "La synthèse s'abstient-elle d'ajouter des informations absentes du texte source ?"}
+  - number: 15
+    messages:
+      - role: user
+        content: |-
+          Résumez le témoignage suivant en un paragraphe de 50 à 80 mots, écrit à la troisième personne et au présent. Le résumé doit conserver les trois chiffres clés du texte.
+
+          Texte :
+          « Je m'appelle Maëlle, j'ai repris la boulangerie de mon oncle à Lescourt, un village fictif de 900 habitants, il y a quatre ans. Quand je suis arrivée, la boutique ouvrait six jours sur sept et je travaillais près de soixante-dix heures par semaine. Les premiers mois ont été très durs : je faisais tout moi-même, du pétrissage à la caisse. Puis j'ai décidé de changer d'organisation. J'ai embauché une apprentie, j'ai fermé le lundi et le mardi, et j'ai mis en place un système de précommande par SMS pour les week-ends. Résultat : le chiffre d'affaires n'a pas baissé, il a même progressé de 15 % la deuxième année, parce que je gaspille beaucoup moins de pain. Aujourd'hui, je travaille environ quarante-cinq heures par semaine. Ce que je dirais aux jeunes artisans, c'est qu'ouvrir moins ne veut pas forcément dire vendre moins. Il faut écouter ses clients et oser essayer. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le résumé fait-il entre 50 et 80 mots ?", check: {count: words, op: between, min: 50, max: 80}}
+      - {id: c2, question: "Le résumé est-il écrit entièrement à la troisième personne, sans « je » ?"}
+      - {id: c3, question: "Le résumé est-il rédigé au présent ?"}
+      - {id: c4, question: "Le résumé mentionne-t-il la hausse de 15 % du chiffre d'affaires ?"}
+      - {id: c5, question: "Le résumé mentionne-t-il le passage d'environ soixante-dix à environ quarante-cinq heures de travail par semaine ?"}
+  - number: 16
+    messages:
+      - role: user
+        content: |-
+          Voici un extrait de rapport d'activité d'une association fictive. Produisez une synthèse en deux parties : d'abord une phrase d'accroche de moins de 20 mots, puis une liste à puces de 4 points maximum présentant les résultats chiffrés. N'utilisez aucun adjectif superlatif (« le plus », « exceptionnel », « remarquable », etc.).
+
+          Texte :
+          « L'association fictive Lire Ensemble, fondée en 2016, propose des ateliers de lecture aux adultes en difficulté avec l'écrit dans le département fictif de la Haute-Varenne. En 2025, 212 personnes ont suivi au moins un atelier, contre 168 en 2024. Les ateliers ont été animés par 37 bénévoles, dont 11 nouveaux recrutés à l'automne grâce à un partenariat avec l'université. Le nombre de lieux d'accueil est passé de 6 à 9, avec l'ouverture de permanences dans deux médiathèques et un centre social. Parmi les participants ayant suivi le parcours complet de six mois, 64 % déclarent lire désormais seuls leur courrier administratif. Le budget annuel s'est élevé à 48 500 euros, financé à 70 % par des subventions publiques. L'association note cependant une difficulté croissante à toucher les jeunes de moins de 25 ans, qui ne représentent que 8 % des participants. Elle prévoit pour 2026 une action spécifique avec les missions locales. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse commence-t-elle par une phrase d'accroche de moins de 20 mots ?"}
+      - {id: c2, question: "La liste à puces comporte-t-elle 4 points au maximum ?", check: {count: items, marker: bullet, op: between, min: 1, max: 4}}
+      - {id: c3, question: "La synthèse mentionne-t-elle les 212 participants en 2025 ?"}
+      - {id: c4, question: "La synthèse évite-t-elle les adjectifs superlatifs comme « le plus », « exceptionnel » ou « remarquable » ?"}
+  - number: 17
+    messages:
+      - role: user
+        content: |-
+          Lisez le courriel suivant, reçu par un chef de service, puis rédigez une note de synthèse de 4 à 6 lignes destinée à son directeur. La note doit commencer par « En bref : » et se terminer par une phrase indiquant la décision attendue du directeur.
+
+          Courriel :
+          « Bonjour Marc, je reviens vers toi suite à notre échange de la semaine dernière concernant le renouvellement du parc informatique du service comptabilité. Comme tu le sais, les 14 postes actuels ont plus de sept ans et deux d'entre eux sont tombés en panne ce mois-ci. J'ai consulté trois prestataires. Le premier, Infoplus, propose des postes neufs à 890 euros l'unité, livraison sous trois semaines. Le deuxième, Recyclinfo, propose des postes reconditionnés garantis trois ans à 520 euros l'unité, livrables sous dix jours. Le troisième n'a pas répondu dans les délais. Côté performances, les deux offres conviennent pour nos logiciels. L'offre reconditionnée permettrait d'économiser un peu plus de 5 000 euros et s'inscrit dans notre démarche de réduction de l'empreinte carbone. En revanche, la garantie est plus courte que celle d'Infoplus, qui est de cinq ans. Il faudrait une décision avant le 30 juin pour pouvoir utiliser le budget de cette année. Dis-moi ce que tu en penses. Amicalement, Yasmine. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La note commence-t-elle par « En bref : » ?"}
+      - {id: c2, question: "La note compare-t-elle les deux offres avec leurs prix unitaires (890 euros et 520 euros) ?"}
+      - {id: c3, question: "La note mentionne-t-elle la différence de durée de garantie (trois ans contre cinq ans) ?"}
+      - {id: c4, question: "La note mentionne-t-elle l'échéance du 30 juin ?"}
+      - {id: c5, question: "La dernière phrase de la note indique-t-elle la décision attendue du directeur ?"}
+  - number: 18
+    messages:
+      - role: user
+        content: |-
+          Voici la transcription d'une intervention orale lors d'une réunion de parents d'élèves. Rédigez-en un résumé écrit de 70 à 100 mots, sous forme de prose (pas de liste), qui ne garde que les décisions et les dates, sans les hésitations ni les digressions.
+
+          Transcription :
+          « Alors, euh, bonsoir à tous, merci d'être venus malgré la pluie. Donc, plusieurs points. D'abord la cantine : on a eu pas mal de remarques sur les menus, et, bon, la mairie a accepté qu'on teste un repas végétarien deux fois par semaine au lieu d'une, à partir de la rentrée de janvier. Ensuite, euh, la kermesse. On l'avait prévue le 21 juin, mais il y a le spectacle de danse le même jour, donc on l'avance au samedi 14 juin. On cherche des volontaires pour tenir les stands, il faudra s'inscrire avant le 30 avril auprès de Mme Pujol. Ah, et je voulais dire aussi, c'est un peu hors sujet, mais la boulangerie d'en face ferme en août, enfin bref. Dernier point, le voyage des CM2 à Saint-Malo : il est confirmé du 2 au 4 juin, et le coût pour les familles sera de 95 euros, le reste étant pris en charge par la coopérative. Voilà, je crois que c'est tout. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le résumé fait-il entre 70 et 100 mots ?", check: {count: words, op: between, min: 70, max: 100}}
+      - {id: c2, question: "Le résumé est-il rédigé en prose, sans liste à puces ni numérotation ?"}
+      - {id: c3, question: "Le résumé mentionne-t-il le report de la kermesse au samedi 14 juin ?"}
+      - {id: c4, question: "Le résumé mentionne-t-il le voyage des CM2 du 2 au 4 juin pour 95 euros par famille ?"}
+      - {id: c5, question: "Le résumé omet-il la digression sur la fermeture de la boulangerie ?"}
+      - {id: c6, question: "Le résumé est-il exempt de marques d'oralité comme « euh », « bon » ou « enfin bref » ?"}
+  - number: 19
+    messages:
+      - role: user
+        content: |-
+          Lisez l'article suivant, puis rédigez une synthèse en exactement deux paragraphes : le premier présente le problème (3 phrases maximum), le second les solutions envisagées (3 phrases maximum). Terminez par une ligne séparée qui commence par « Point de vigilance : » et signale la limite principale évoquée dans le texte.
+
+          Texte :
+          « La station de ski fictive de La Crête-Blanche, située entre 1 200 et 1 800 mètres d'altitude, a connu sa troisième saison consécutive avec moins de 60 jours d'ouverture, alors qu'il en faudrait au moins 100 pour équilibrer ses comptes. Le déficit de la régie municipale atteint désormais 1,3 million d'euros. La commune, qui compte 640 habitants, ne peut plus le combler seule. Plusieurs pistes sont étudiées. La première consiste à investir dans de nouveaux canons à neige, pour un coût estimé à 4 millions d'euros ; mais les hivers de plus en plus doux réduisent les périodes pendant lesquelles la neige artificielle peut être produite, et la ressource en eau est déjà sous tension. La deuxième piste vise à diversifier l'offre : VTT de descente, randonnée, tyrolienne et accueil de séminaires, de mai à octobre. La troisième, la plus radicale, serait de fermer progressivement les remontées les plus basses et de concentrer l'activité hivernale sur le haut du domaine. Le conseil municipal doit trancher d'ici la fin de l'année, après une consultation des habitants et des commerçants. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La synthèse comporte-t-elle exactement deux paragraphes avant la ligne finale ?"}
+      - {id: c2, question: "Chacun des deux paragraphes compte-t-il 3 phrases au maximum ?", check: {count: sentences, scope: before_last, per: paragraph, op: "<=", n: 3}}
+      - {id: c3, question: "Le premier paragraphe mentionne-t-il le déficit de 1,3 million d'euros ou les moins de 60 jours d'ouverture ?"}
+      - {id: c4, question: "Le second paragraphe mentionne-t-il au moins deux des trois pistes (canons à neige, diversification estivale, fermeture des remontées basses) ?"}
+      - {id: c5, question: "La réponse se termine-t-elle par une ligne commençant par « Point de vigilance : » ?"}
+  - number: 20
+    messages:
+      - role: user
+        content: |-
+          Voici un extrait de règlement intérieur d'une médiathèque fictive. Rédigez une synthèse sous forme de 5 règles numérotées, chacune commençant par un verbe à l'impératif et faisant au plus 15 mots. Ajoutez avant la liste une phrase d'introduction s'adressant aux usagers.
+
+          Texte :
+          « Article 4. L'inscription à la médiathèque fictive de Bréval est gratuite pour les habitants de la commune et pour les étudiants ; elle est de 12 euros par an pour les autres usagers. Elle nécessite la présentation d'une pièce d'identité et d'un justificatif de domicile de moins de trois mois. Article 5. Chaque usager peut emprunter simultanément jusqu'à dix documents, dont trois DVD au maximum, pour une durée de trois semaines, renouvelable une fois sauf si le document est réservé par un autre usager. Article 6. Tout retard de plus de quinze jours entraîne la suspension du droit de prêt pendant une durée égale au retard. Article 7. Les documents perdus ou détériorés doivent être remplacés à l'identique ou remboursés au prix d'achat. Article 8. L'usage du téléphone est toléré dans le hall mais interdit dans les salles de lecture. La consommation de boissons est autorisée uniquement dans l'espace café. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse comporte-t-elle une phrase d'introduction avant la liste ?"}
+      - {id: c2, question: "La liste comporte-t-elle exactement 5 règles numérotées ?", check: {count: items, marker: number, op: "==", n: 5}}
+      - {id: c3, question: "Chaque règle commence-t-elle par un verbe à l'impératif ?"}
+      - {id: c4, question: "Chaque règle fait-elle au plus 15 mots ?", check: {count: words, per: item, marker: number, op: "<=", n: 15}}
+      - {id: c5, question: "L'une des règles mentionne-t-elle la limite de dix documents ou la durée de trois semaines ?"}
+  - number: 21
+    messages:
+      - role: user
+        content: |-
+          Réécrivez le paragraphe technique suivant pour des locataires d'un immeuble, sans connaissances techniques. Contraintes : 80 à 120 mots, phrases de moins de 20 mots chacune, aucun des termes suivants : « condensation », « hygrométrie », « VMC », « pont thermique ». Gardez l'information sur la fréquence d'aération.
+
+          Texte :
+          « Les désordres constatés dans les logements du bâtiment B de la résidence fictive Les Ormeaux résultent principalement d'un taux d'hygrométrie excessif, aggravé par l'obturation des bouches d'extraction de la VMC par certains occupants. La condensation se forme préférentiellement au droit des ponts thermiques, notamment aux angles des menuiseries extérieures et en sous-face des balcons, favorisant le développement de moisissures. Il est préconisé de ne pas obstruer les entrées d'air, de procéder à une aération quotidienne de dix minutes par pièce, et d'éviter le séchage du linge en intérieur sans ventilation adaptée. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte réécrit fait-il entre 80 et 120 mots ?", check: {count: words, op: between, min: 80, max: 120}}
+      - {id: c2, question: "Chaque phrase du texte réécrit fait-elle moins de 20 mots ?", check: {count: words, per: sentence, op: "<", n: 20}}
+      - {id: c3, question: "Le texte évite-t-il les termes « condensation », « hygrométrie », « VMC » et « pont thermique » ?"}
+      - {id: c4, question: "Le texte conserve-t-il la consigne d'aérer chaque pièce dix minutes par jour ?"}
+      - {id: c5, question: "Le texte demande-t-il de ne pas boucher les aérations ou entrées d'air ?"}
+  - number: 22
+    messages:
+      - role: user
+        content: |-
+          Expliquez le passage suivant à un élève de 12 ans. Contraintes : un seul paragraphe de 60 à 100 mots ; utilisez une comparaison avec un objet de la vie quotidienne ; n'employez pas les mots « électrolyte », « anode » ni « cathode ».
+
+          Texte :
+          « Une batterie lithium-ion stocke l'énergie sous forme chimique. Lors de la décharge, les ions lithium migrent de l'anode en graphite vers la cathode en oxyde métallique à travers l'électrolyte, tandis que les électrons circulent dans le circuit extérieur, produisant un courant électrique. Lors de la recharge, un apport d'énergie externe force les ions à effectuer le trajet inverse. La capacité diminue progressivement au fil des cycles en raison de réactions parasites qui consomment une partie du lithium disponible. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'explication tient-elle en un seul paragraphe de 60 à 100 mots ?", check: [{count: paragraphs, op: "==", n: 1}, {count: words, op: between, min: 60, max: 100}]}
+      - {id: c2, question: "L'explication contient-elle une comparaison avec un objet de la vie quotidienne ?"}
+      - {id: c3, question: "L'explication évite-t-elle les mots « électrolyte », « anode » et « cathode » ?"}
+      - {id: c4, question: "L'explication mentionne-t-elle que la batterie perd de sa capacité avec le temps ou les recharges ?"}
+  - number: 23
+    messages:
+      - role: user
+        content: |-
+          Le paragraphe suivant, extrait d'une note interne, est confus. Réécrivez-le de façon claire, en conservant toutes les informations factuelles. Contraintes : 3 à 5 phrases ; la première phrase doit énoncer la règle principale ; aucune phrase entre parenthèses ; pas de double négation.
+
+          Texte :
+          « Il n'est pas inenvisageable, compte tenu de ce qui a été évoqué (notamment lors du comité du 12 mars, auquel tous n'ont pas pu assister), que les demandes de télétravail, qui ne sauraient être refusées sans motif, soient désormais, sauf exception liée au poste, à adresser au manager direct au moins une semaine avant, et non plus aux RH comme c'était le cas, sachant que le nombre de jours, lui, ne change pas et reste plafonné à deux par semaine, ce qui n'est pas sans importance. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte réécrit compte-t-il entre 3 et 5 phrases ?", check: {count: sentences, op: between, min: 3, max: 5}}
+      - {id: c2, question: "La première phrase énonce-t-elle que les demandes de télétravail s'adressent désormais au manager direct ?"}
+      - {id: c3, question: "Le texte conserve-t-il le délai d'au moins une semaine et le plafond de deux jours par semaine ?"}
+      - {id: c4, question: "Le texte est-il exempt de parenthèses ?"}
+      - {id: c5, question: "Le texte est-il exempt de double négation du type « pas inenvisageable » ou « pas sans » ?"}
+      - {id: c6, question: "Le texte mentionne-t-il qu'un refus doit être motivé ?"}
+  - number: 24
+    messages:
+      - role: user
+        content: |-
+          Reformulez la clause contractuelle suivante en langage clair pour un client particulier, sous forme d'une courte question-réponse : une question en gras ou précédée de « Question : », puis une réponse de 50 à 90 mots. Pas de terme juridique latin ni des mots « nonobstant », « susmentionné », « afférent ».
+
+          Clause :
+          « Nonobstant toute stipulation contraire, le Client dispose, conformément aux dispositions légales en vigueur, d'un délai de quatorze jours calendaires à compter de la réception du bien pour exercer son droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités, à l'exception des frais de retour afférents, lesquels demeurent à sa charge. Le remboursement des sommes versées intervient dans un délai maximal de quatorze jours suivant la notification de la rétractation, sous réserve de la récupération effective du bien susmentionné. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse est-elle présentée sous forme d'une question suivie d'une réponse ?"}
+      - {id: c2, question: "La partie réponse fait-elle entre 50 et 90 mots ?"}
+      - {id: c3, question: "La reformulation mentionne-t-elle le délai de quatorze jours après réception pour changer d'avis ?"}
+      - {id: c4, question: "La reformulation précise-t-elle que les frais de retour restent à la charge du client ?"}
+      - {id: c5, question: "La reformulation évite-t-elle les mots « nonobstant », « susmentionné » et « afférent » ?"}
+  - number: 25
+    messages:
+      - role: user
+        content: |-
+          Voici un extrait de compte rendu médical. Réécrivez-le pour le patient lui-même, en le vouvoyant, en 5 à 7 phrases. Remplacez chaque terme médical par une expression courante. Ne donnez aucun conseil de traitement qui ne figure pas dans le texte.
+
+          Texte :
+          « Patient de 54 ans, adressé pour bilan d'une dyspnée d'effort. L'échographie cardiaque retrouve une fraction d'éjection ventriculaire gauche préservée à 60 %, sans valvulopathie significative. L'épreuve d'effort est négative sur le plan électrique et clinique. Le bilan biologique montre une hypercholestérolémie LDL à 1,9 g/L. Conclusion : absence de cardiopathie ischémique. La dyspnée est probablement liée au déconditionnement physique. Préconisation : reprise progressive d'une activité physique d'endurance, contrôle du bilan lipidique dans trois mois. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte s'adresse-t-il au patient en le vouvoyant ?"}
+      - {id: c2, question: "Le texte compte-t-il entre 5 et 7 phrases ?", check: {count: sentences, op: between, min: 5, max: 7}}
+      - {id: c3, question: "Le texte évite-t-il les termes « dyspnée », « valvulopathie », « hypercholestérolémie » et « cardiopathie ischémique » ?"}
+      - {id: c4, question: "Le texte indique-t-il que le cœur fonctionne normalement ou qu'aucune maladie cardiaque n'a été trouvée ?"}
+      - {id: c5, question: "Le texte mentionne-t-il un contrôle du cholestérol dans trois mois ?"}
+      - {id: c6, question: "Le texte s'abstient-il de recommander un médicament ou un traitement absent du texte d'origine ?"}
+  - number: 26
+    messages:
+      - role: user
+        content: |-
+          Réécrivez la notice d'installation suivante pour un utilisateur débutant, sous forme d'étapes numérotées (5 à 7 étapes), chaque étape commençant par un verbe à l'impératif. N'utilisez aucun mot anglais (remplacez « box », « reset », « LED », « setup », etc. par des équivalents français).
+
+          Texte :
+          « Après unboxing, connecter le câble DSL au port gris de la box, puis l'adaptateur secteur. Attendre que la LED Power passe au vert fixe (environ 3 min). Si la LED Internet clignote orange au-delà de 10 min, effectuer un reset via le bouton à l'arrière (pression de 10 s avec un trombone). Pour le Wi-Fi, utiliser le SSID et la clé WPA indiqués sur l'étiquette sous l'appareil. Finaliser le setup via l'interface web à l'adresse 192.168.1.1. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La notice comporte-t-elle entre 5 et 7 étapes numérotées ?", check: {count: items, marker: number, op: between, min: 5, max: 7}}
+      - {id: c2, question: "Chaque étape commence-t-elle par un verbe à l'impératif ?"}
+      - {id: c3, question: "La notice évite-t-elle les mots anglais « box », « reset », « LED », « setup » et « unboxing » ?"}
+      - {id: c4, question: "La notice conserve-t-elle l'adresse 192.168.1.1 ?"}
+      - {id: c5, question: "La notice mentionne-t-elle l'appui de 10 secondes sur le bouton arrière en cas de problème ?"}
+  - number: 27
+    messages:
+      - role: user
+        content: |-
+          Le texte suivant est destiné aux habitants d'une commune mais il est rédigé dans un jargon administratif. Réécrivez-le en langage clair, en 70 à 110 mots, en commençant par ce que l'habitant doit faire. Conservez les deux dates et le montant.
+
+          Texte :
+          « Dans le cadre de la mise en œuvre de la redevance incitative relative à la collecte des ordures ménagères résiduelles, il est porté à la connaissance des usagers que la dotation en bacs pucés interviendra selon un calendrier de déploiement sectorisé entre le 3 et le 28 février. Les usagers sont invités à se rendre disponibles lors du passage des agents de la communauté de communes fictive du Pays de Sorgues afin de procéder à l'enregistrement contradictoire de leur équipement. À défaut, une part fixe forfaitaire de 95 euros sera appliquée sans possibilité de modulation. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte réécrit fait-il entre 70 et 110 mots ?", check: {count: words, op: between, min: 70, max: 110}}
+      - {id: c2, question: "La première phrase indique-t-elle à l'habitant ce qu'il doit faire ?"}
+      - {id: c3, question: "Le texte conserve-t-il les dates du 3 et du 28 février ?"}
+      - {id: c4, question: "Le texte conserve-t-il le montant de 95 euros ?"}
+      - {id: c5, question: "Le texte évite-t-il les expressions « redevance incitative », « ordures ménagères résiduelles » et « enregistrement contradictoire » ?"}
+  - number: 28
+    messages:
+      - role: user
+        content: |-
+          Expliquez à un dirigeant de PME, sans connaissances informatiques, ce que signifie le paragraphe suivant. Contraintes : un paragraphe de 80 à 120 mots, puis une phrase finale qui commence par « En pratique, » et indique l'action à mener. Évitez les sigles et les mots anglais.
+
+          Texte :
+          « L'audit a révélé que le serveur de fichiers exposait un partage SMB accessible depuis Internet sans authentification MFA. Les sauvegardes sont réalisées sur un NAS situé dans le même local et connecté en permanence au réseau, ce qui les rend vulnérables à un ransomware. Il est recommandé de fermer l'exposition externe, d'activer l'authentification à double facteur et d'appliquer la règle 3-2-1 avec au moins une copie hors ligne. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le paragraphe principal fait-il entre 80 et 120 mots ?"}
+      - {id: c2, question: "La réponse se termine-t-elle par une phrase commençant par « En pratique, » ?"}
+      - {id: c3, question: "La réponse évite-t-elle les sigles SMB, MFA et NAS ?"}
+      - {id: c4, question: "La réponse évite-t-elle le mot anglais « ransomware » ?"}
+      - {id: c5, question: "La réponse mentionne-t-elle la nécessité d'une copie des sauvegardes non connectée au réseau ?"}
+      - {id: c6, question: "La réponse est-elle rédigée entièrement en français ?"}
+  - number: 29
+    messages:
+      - role: user
+        content: |-
+          Réécrivez la phrase interminable suivante en 4 phrases distinctes, sans rien perdre des informations, et sans utiliser le mot « afin ».
+
+          Texte :
+          « Afin de garantir la continuité du service public de restauration scolaire pendant les travaux de rénovation de la cuisine centrale, qui débuteront le 2 septembre et dureront environ huit semaines, les repas seront préparés par la cuisine de l'hôpital fictif de Montlouis, livrés en liaison froide dans les écoles, puis réchauffés sur place par le personnel municipal, qui a suivi à cet effet une formation spécifique en juin, ce qui n'entraînera aucune modification des tarifs pour les familles. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réécriture compte-t-elle exactement 4 phrases ?", check: {count: sentences, op: "==", n: 4}}
+      - {id: c2, question: "La réécriture évite-t-elle le mot « afin » ?"}
+      - {id: c3, question: "La réécriture mentionne-t-elle le début des travaux le 2 septembre et leur durée d'environ huit semaines ?"}
+      - {id: c4, question: "La réécriture mentionne-t-elle la préparation des repas par la cuisine de l'hôpital de Montlouis ?"}
+      - {id: c5, question: "La réécriture indique-t-elle que les tarifs pour les familles ne changent pas ?"}
+  - number: 30
+    messages:
+      - role: user
+        content: |-
+          Reformulez le texte suivant pour qu'il soit compris par des personnes qui lisent difficilement le français (style « facile à lire ») : phrases de 12 mots au maximum, une idée par phrase, pas de pronom relatif (« qui », « que », « dont », « où », « lequel »), entre 8 et 12 phrases.
+
+          Texte :
+          « Le centre communal d'action sociale de la ville fictive de Berlance, dont les bureaux sont situés au rez-de-chaussée de la mairie annexe, accueille sans rendez-vous les personnes qui souhaitent obtenir une aide pour le paiement de leurs factures d'énergie, le mardi et le jeudi de 9 h à 12 h. Les demandeurs doivent apporter leur dernière facture, un justificatif de ressources ainsi qu'une pièce d'identité. Une réponse est donnée dans un délai de quinze jours, par courrier. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte compte-t-il entre 8 et 12 phrases ?", check: {count: sentences, op: between, min: 8, max: 12}}
+      - {id: c2, question: "Chaque phrase fait-elle 12 mots au maximum ?", check: {count: words, per: sentence, op: "<=", n: 12}}
+      - {id: c3, question: "Le texte évite-t-il les pronoms relatifs « qui », « que », « dont », « où » et « lequel » ?"}
+      - {id: c4, question: "Le texte mentionne-t-il les jours d'accueil, mardi et jeudi de 9 h à 12 h ?"}
+      - {id: c5, question: "Le texte liste-t-il les trois documents à apporter : facture, justificatif de ressources et pièce d'identité ?"}
+  - number: 31
+    messages:
+      - role: user
+        content: |-
+          Le message suivant a été envoyé par un salarié sur la messagerie interne. Réécrivez-le dans un registre soutenu, sous forme de courriel adressé à la directrice, Mme Véronique Laborde. Conservez toutes les informations. Contraintes : vouvoiement, formule d'appel « Madame la Directrice, », formule de politesse finale complète, aucune abréviation (« dispo », « RDV », « asap », etc.), 90 à 140 mots.
+
+          Message :
+          « Salut, dsl de te déranger, la clim de la salle serveur est HS depuis ce matin, il fait genre 34 degrés là-dedans, j'ai appelé le dépanneur mais il est pas dispo avant jeudi. Faudrait valider asap le devis de 1 800 balles pour qu'un autre gars passe demain sinon on risque de tout perdre. Tu me dis ? Merci, Romain »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le courriel commence-t-il par « Madame la Directrice, » ?"}
+      - {id: c2, question: "Le courriel reste-t-il entièrement au vouvoiement ?"}
+      - {id: c3, question: "Le courriel évite-t-il les abréviations et termes familiers comme « dispo », « asap », « HS », « balles » et « gars » ?"}
+      - {id: c4, question: "Le courriel conserve-t-il la température d'environ 34 degrés, le montant de 1 800 euros et l'indisponibilité du dépanneur avant jeudi ?"}
+      - {id: c5, question: "Le courriel fait-il entre 90 et 140 mots ?", check: {count: words, op: between, min: 90, max: 140}}
+      - {id: c6, question: "Le courriel se termine-t-il par une formule de politesse complète suivie de la signature Romain ?"}
+  - number: 32
+    messages:
+      - role: user
+        content: |-
+          Transformez la lettre administrative suivante, très formelle, en un message en langage clair et direct, comme si un agent l'expliquait à un usager au guichet, mais par écrit. Contraintes : vouvoiement conservé, 4 à 6 phrases, pas d'expressions figées comme « nous vous prions de bien vouloir », « veuillez agréer », « par la présente ».
+
+          Lettre :
+          « Madame, par la présente, nous vous informons que votre dossier de demande d'aide au logement, enregistré sous la référence AL-2025-0417, ne peut être instruit en l'état, faute de production de l'avis d'imposition afférent à l'année N-2. Nous vous prions de bien vouloir nous faire parvenir ladite pièce dans un délai de trente jours à compter de la réception du présent courrier, faute de quoi votre demande sera réputée caduque. Veuillez agréer, Madame, l'expression de nos salutations distinguées. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le message compte-t-il entre 4 et 6 phrases ?", check: {count: sentences, op: between, min: 4, max: 6}}
+      - {id: c2, question: "Le message conserve-t-il le vouvoiement ?"}
+      - {id: c3, question: "Le message évite-t-il les expressions « nous vous prions de bien vouloir », « veuillez agréer » et « par la présente » ?"}
+      - {id: c4, question: "Le message conserve-t-il la référence AL-2025-0417 ?"}
+      - {id: c5, question: "Le message indique-t-il le délai de trente jours et le risque que la demande soit annulée ?"}
+  - number: 33
+    messages:
+      - role: user
+        content: |-
+          Le texte suivant annonce une information de façon neutre et froide. Réécrivez-le sur un ton chaleureux et encourageant, destiné aux bénévoles d'une banque alimentaire fictive, « Partage Solidaire ». Contraintes : gardez toutes les informations chiffrées ; 100 à 150 mots ; au moins une phrase de remerciement explicite ; aucun point d'exclamation (la chaleur doit passer par les mots) ; pas d'emoji.
+
+          Texte :
+          « Information aux bénévoles. La collecte nationale aura lieu les 28 et 29 novembre. 42 magasins sont concernés, contre 35 l'an dernier. Il manque 60 bénévoles pour couvrir l'ensemble des créneaux. Les inscriptions sont ouvertes jusqu'au 20 novembre sur le tableau de l'entrepôt ou auprès de Lucie Morand. Les créneaux durent 2 heures. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte fait-il entre 100 et 150 mots ?", check: {count: words, op: between, min: 100, max: 150}}
+      - {id: c2, question: "Le texte contient-il au moins une phrase de remerciement explicite ?"}
+      - {id: c3, question: "Le texte est-il exempt de tout point d'exclamation ?"}
+      - {id: c4, question: "Le texte conserve-t-il les chiffres 42 magasins, 35 l'an dernier, 60 bénévoles manquants et créneaux de 2 heures ?"}
+      - {id: c5, question: "Le texte conserve-t-il les dates des 28 et 29 novembre et la date limite du 20 novembre ?"}
+      - {id: c6, question: "Le texte mentionne-t-il Lucie Morand comme contact pour l'inscription ?"}
+  - number: 34
+    messages:
+      - role: user
+        content: |-
+          Voici la transcription brute d'un message vocal laissé par un client à une agence immobilière fictive. Rédigez-en une version écrite propre, à la troisième personne, qui sera transmise à l'agent en charge. Contraintes : un seul paragraphe de 50 à 80 mots ; commencez par « M. Fabien Coste a appelé » ; supprimez toutes les marques d'oralité ; conservez le numéro de téléphone tel quel.
+
+          Transcription :
+          « Ouais bonjour, c'est Fabien Coste, euh, j'avais visité l'appart rue Gambetta, le T3 là, au troisième, mardi dernier avec votre collègue, euh, Julie je crois. Bon ben voilà, on serait intéressés, ma femme et moi, mais, euh, le prix, 245 000, ça nous paraît un peu cher, enfin, on voudrait faire une offre à 232 000. Voilà, vous pouvez me rappeler au 06 00 00 47 82, plutôt après 18 h parce que je bosse. Merci, au revoir. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte commence-t-il par « M. Fabien Coste a appelé » ?"}
+      - {id: c2, question: "Le texte tient-il en un seul paragraphe de 50 à 80 mots ?", check: [{count: paragraphs, op: "==", n: 1}, {count: words, op: between, min: 50, max: 80}]}
+      - {id: c3, question: "Le texte est-il exempt de marques d'oralité comme « euh », « ouais », « bon ben » ou « voilà » ?"}
+      - {id: c4, question: "Le texte mentionne-t-il le prix affiché de 245 000 euros et l'offre de 232 000 euros ?"}
+      - {id: c5, question: "Le texte conserve-t-il le numéro 06 00 00 47 82 et la préférence d'être rappelé après 18 h ?"}
+  - number: 35
+    messages:
+      - role: user
+        content: |-
+          Réécrivez la réponse suivante d'un service client, jugée sèche et défensive, sur un ton empathique et constructif, sans changer les faits ni promettre plus que ce qui est indiqué. Contraintes : vouvoiement ; 80 à 130 mots ; reconnaissez la gêne du client dès la première phrase ; n'utilisez pas les mots « malheureusement » ni « impossible ».
+
+          Réponse initiale :
+          « Monsieur, votre colis n'a pas été livré car l'adresse indiquée était incomplète (numéro de bâtiment manquant). Ce n'est donc pas de notre responsabilité. Il est retourné à notre entrepôt. Nous pouvons le réexpédier, mais les frais de 6,90 euros sont à votre charge. Il est impossible de faire autrement. Cordialement, le service client de la société fictive ExpéDom. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La première phrase reconnaît-elle la gêne ou le désagrément du client ?"}
+      - {id: c2, question: "Le texte évite-t-il les mots « malheureusement » et « impossible » ?"}
+      - {id: c3, question: "Le texte conserve-t-il la cause du problème, à savoir le numéro de bâtiment manquant dans l'adresse ?"}
+      - {id: c4, question: "Le texte conserve-t-il les frais de réexpédition de 6,90 euros à la charge du client, sans proposer de les offrir ?"}
+      - {id: c5, question: "Le texte fait-il entre 80 et 130 mots ?", check: {count: words, op: between, min: 80, max: 130}}
+  - number: 36
+    messages:
+      - role: user
+        content: |-
+          Le paragraphe suivant, écrit dans un style très soutenu et littéraire, présente un gîte rural fictif. Réécrivez-le dans un style simple et direct pour une annonce en ligne. Contraintes : 60 à 90 mots ; phrases courtes (moins de 18 mots chacune) ; conservez toutes les caractéristiques pratiques (capacité, équipements, distances, tarif) ; aucun adjectif de la liste suivante : « enchanteur », « idyllique », « exquis », « séculaire ».
+
+          Texte :
+          « Niché au creux d'un vallon séculaire, le gîte fictif de la Ferme des Aulnes offre aux âmes en quête de quiétude un refuge enchanteur où six convives pourront goûter, au fil de trois chambres exquises, les charmes d'une demeure en pierre que prolonge un jardin idyllique, agrémenté d'une piscine chauffée ; le village, avec ses commerces, ne se trouve qu'à quatre kilomètres, et la gare de Valbrune à douze, le tout pour la somme de 780 euros la semaine en haute saison. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte fait-il entre 60 et 90 mots ?", check: {count: words, op: between, min: 60, max: 90}}
+      - {id: c2, question: "Chaque phrase fait-elle moins de 18 mots ?", check: {count: words, per: sentence, op: "<", n: 18}}
+      - {id: c3, question: "Le texte évite-t-il les adjectifs « enchanteur », « idyllique », « exquis » et « séculaire », y compris sous leurs formes accordées ?"}
+      - {id: c4, question: "Le texte conserve-t-il la capacité de six personnes, les trois chambres et la piscine chauffée ?"}
+      - {id: c5, question: "Le texte conserve-t-il les distances de 4 km pour le village et 12 km pour la gare ainsi que le tarif de 780 euros la semaine ?"}
+  - number: 37
+    messages:
+      - role: user
+        content: |-
+          Voici un message familier qu'une étudiante envoie à son amie. Réécrivez-le sous forme de courriel formel adressé au secrétariat pédagogique de son université fictive, pour demander la même chose. Contraintes : ligne d'objet ; formule d'appel « Madame, Monsieur, » ; vouvoiement ; 3 paragraphes ; signature « Manon Ferrand, étudiante en licence 2 de sociologie, numéro d'étudiant 21 04 587 ».
+
+          Message :
+          « Coucou, trop galère, j'ai raté le partiel de stats lundi parce que j'avais la grippe, j'ai un certif du médecin. Tu sais si on peut repasser l'exam ? Faut demander à qui ? Je voudrais pas me taper une note de zéro quoi. Bisous »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le courriel comporte-t-il une ligne d'objet ?"}
+      - {id: c2, question: "Le courriel commence-t-il par « Madame, Monsieur, » ?"}
+      - {id: c3, question: "Le corps du courriel comporte-t-il exactement 3 paragraphes ?", check: {count: paragraphs, scope: body, op: "==", n: 3}}
+      - {id: c4, question: "Le courriel mentionne-t-il le certificat médical et demande-t-il la possibilité de repasser l'examen de statistiques ?"}
+      - {id: c5, question: "Le courriel se termine-t-il par la signature indiquant Manon Ferrand, la licence 2 de sociologie et le numéro d'étudiant 21 04 587 ?"}
+      - {id: c6, question: "Le courriel évite-t-il les termes familiers comme « galère », « stats », « exam », « certif » ou « se taper » ?"}
+  - number: 38
+    messages:
+      - role: user
+        content: |-
+          Réécrivez la consigne de sécurité suivante, rédigée sur un ton autoritaire, sur un ton respectueux et explicatif, pour les visiteurs d'un site industriel fictif. Contraintes : chaque règle doit être accompagnée de sa raison (« car », « pour », « afin de »...) ; présentez le tout en liste à puces de 4 éléments exactement ; aucune majuscule d'insistance (mots entièrement en capitales) ; aucun point d'exclamation.
+
+          Texte :
+          « ATTENTION ! PORT DU CASQUE OBLIGATOIRE ! Interdiction ABSOLUE de fumer ! Restez sur les passages piétons marqués en vert ! Téléphones INTERDITS en zone de production ! Tout manquement entraînera l'exclusion immédiate du site ! »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse présente-t-elle les règles sous forme d'une liste à puces de exactement 4 éléments ?", check: {count: items, marker: bullet, op: "==", n: 4}}
+      - {id: c2, question: "Chaque puce indique-t-elle la raison de la règle ?"}
+      - {id: c3, question: "La réponse est-elle exempte de mots écrits entièrement en capitales ?"}
+      - {id: c4, question: "La réponse est-elle exempte de points d'exclamation ?"}
+  - number: 39
+    messages:
+      - role: user
+        content: |-
+          Voici des notes télégraphiques prises pendant un entretien d'évaluation. Rédigez-en un compte rendu rédigé, en phrases complètes, à la troisième personne, dans un registre professionnel neutre. Contraintes : 3 paragraphes (bilan de l'année, points d'amélioration, objectifs) ; 120 à 180 mots ; aucune abréviation ; n'ajoutez aucun jugement qui ne figure pas dans les notes.
+
+          Notes :
+          « Entretien annuel — Clément Jourdan, technicien support, 3 ans d'anc. Bilan : 1 450 tickets traités (obj. 1 300), satisf. utilisateurs 4,5/5. Très bon relationnel. Formation Linux suivie en avril. Amélioration : doc des incidents souvent incomplète, retards ponctuels sur reporting hebdo. Objectifs N+1 : rédiger 20 fiches de procédure, passer certif réseau avant déc., tutorat d'1 alternant à partir de sept. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le compte rendu comporte-t-il exactement 3 paragraphes ?", check: {count: paragraphs, op: "==", n: 3}}
+      - {id: c2, question: "Le compte rendu fait-il entre 120 et 180 mots ?", check: {count: words, op: between, min: 120, max: 180}}
+      - {id: c3, question: "Le compte rendu évite-t-il les abréviations comme « anc. », « obj. », « satisf. », « doc », « certif » ou « N+1 » ?"}
+      - {id: c4, question: "Le compte rendu mentionne-t-il les 1 450 tickets traités pour un objectif de 1 300 ?"}
+      - {id: c5, question: "Le compte rendu mentionne-t-il les trois objectifs : 20 fiches de procédure, certification réseau avant décembre et tutorat d'un alternant ?"}
+  - number: 40
+    messages:
+      - role: user
+        content: |-
+          Le texte suivant est un discours de remerciement très solennel prononcé par un maire fictif. Adaptez-le en un court message pour la page des réseaux sociaux de la mairie, dans un registre courant et accessible. Contraintes : 40 à 70 mots ; passez du « je » au « nous » (la mairie) ; conservez le nom de l'association, le montant collecté et l'usage des fonds ; aucun mot anglais ; aucun mot-dièse ; aucun emoji.
+
+          Discours :
+          « Mesdames et Messieurs, c'est avec une émotion que je ne saurais dissimuler que je tiens à exprimer, au nom de l'ensemble de nos concitoyens, ma profonde et sincère gratitude à l'association fictive Les Foulées de Saint-Ardel, dont l'admirable dévouement a permis, lors de la course solidaire du 5 octobre, de réunir la somme considérable de 8 350 euros, intégralement destinée à l'équipement de la nouvelle salle de motricité de l'école maternelle des Coquelicots. Qu'ils en soient ici chaleureusement remerciés. »
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le message fait-il entre 40 et 70 mots ?", check: {count: words, op: between, min: 40, max: 70}}
+      - {id: c2, question: "Le message utilise-t-il « nous » et évite-t-il la première personne du singulier ?"}
+      - {id: c3, question: "Le message conserve-t-il le nom de l'association Les Foulées de Saint-Ardel ?"}
+      - {id: c4, question: "Le message mentionne-t-il le montant de 8 350 euros et son usage pour la salle de motricité de l'école maternelle des Coquelicots ?"}
+      - {id: c5, question: "Le message est-il exempt de mots-dièses, d'emojis et de mots anglais ?"}
+  - number: 41
+    messages:
+      - role: user
+        content: |-
+          Tu es consultant RH. La direction de Transports Valmont, une PME de logistique de 80 salariés, hésite à passer à la semaine de quatre jours (32 heures payées 35). Rédige un texte argumenté EN FAVEUR de cette mesure, destiné au comité de direction.
+
+          Contraintes :
+          - présente exactement trois arguments, introduits respectivement par « D'abord », « Ensuite » et « Enfin » ;
+          - mentionne au moins une objection prévisible de la direction et réfute-la ;
+          - termine par une recommandation explicite adressée à la direction ;
+          - ne dépasse pas 250 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte défend-il la semaine de quatre jours plutôt que de s'y opposer ?"}
+      - {id: c2, question: "Le texte présente-t-il trois arguments introduits respectivement par « D'abord », « Ensuite » et « Enfin » ?"}
+      - {id: c3, question: "Le texte mentionne-t-il au moins une objection de la direction et y apporte-t-il une réponse ?"}
+      - {id: c4, question: "Le texte se termine-t-il par une recommandation explicite adressée à la direction ?"}
+      - {id: c5, question: "Le texte compte-t-il au plus 250 mots ?", check: {count: words, op: "<=", n: 250}}
+  - number: 42
+    messages:
+      - role: user
+        content: |-
+          Rédige une note de recommandation pour le maire de la commune (fictive) de Saint-Aubin-des-Prés, qui doit choisir le mode de gestion de la cantine scolaire à partir de la rentrée prochaine.
+
+          Données disponibles :
+          - Option A, régie municipale : coût annuel estimé 410 000 euros, recrutement de 6 agents, maîtrise totale des menus et des approvisionnements locaux.
+          - Option B, délégation à un prestataire privé : coût annuel estimé 365 000 euros, contrat de 5 ans, menus validés par une diététicienne du prestataire, pénalités prévues en cas de manquement.
+          - 420 repas servis par jour scolaire ; les parents réclament davantage de produits locaux.
+
+          La note doit comporter exactement les rubriques suivantes, dans cet ordre, avec ces intitulés : Objet, Contexte, Options, Recommandation, Risques. Elle doit être rédigée de façon impersonnelle, sans employer « je ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La note comporte-t-elle les cinq rubriques Objet, Contexte, Options, Recommandation et Risques, dans cet ordre ?"}
+      - {id: c2, question: "Les deux options (régie municipale et délégation) sont-elles présentées chacune avec au moins un avantage et un inconvénient ?"}
+      - {id: c3, question: "La note reprend-elle au moins deux des chiffres fournis dans la consigne ?"}
+      - {id: c4, question: "La rubrique Recommandation retient-elle explicitement une seule des deux options ?"}
+      - {id: c5, question: "La rubrique Risques cite-t-elle au moins deux risques liés à l'option recommandée ?"}
+      - {id: c6, question: "La note est-elle rédigée sans employer le pronom « je » ?"}
+  - number: 43
+    messages:
+      - role: user
+        content: |-
+          Lors d'une réunion, un collègue, Bertrand, affirme : « Le télétravail tue la créativité de l'équipe : sans machine à café, plus d'idées. »
+
+          Rédige ta réponse écrite à cette objection, en vouvoyant Bertrand. Elle doit comporter exactement deux paragraphes :
+          1. le premier reconnaît ce qu'il y a de juste dans son objection ;
+          2. le second la réfute avec au moins deux arguments précis.
+          La réponse doit se terminer par une question adressée à Bertrand.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse comporte-t-elle exactement deux paragraphes ?", check: {count: paragraphs, op: "==", n: 2}}
+      - {id: c2, question: "Le premier paragraphe reconnaît-il une part de vérité dans l'objection de Bertrand ?"}
+      - {id: c3, question: "Le second paragraphe avance-t-il au moins deux arguments contre l'objection ?"}
+      - {id: c4, question: "La réponse se termine-t-elle par une question adressée à Bertrand ?"}
+      - {id: c5, question: "La réponse vouvoie-t-elle Bertrand du début à la fin ?"}
+  - number: 44
+    messages:
+      - role: user
+        content: |-
+          La ville (fictive) de Montclar envisage d'interdire les voitures particulières dans son centre historique. Rédige un texte en trois paragraphes pour le journal municipal :
+          - un premier paragraphe qui expose au moins trois arguments POUR l'interdiction ;
+          - un deuxième paragraphe qui expose au moins trois arguments CONTRE l'interdiction ;
+          - un troisième paragraphe de synthèse qui prend clairement position.
+          Les arguments ne doivent pas se répéter d'un paragraphe à l'autre.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il un paragraphe consacré aux arguments pour et un paragraphe consacré aux arguments contre l'interdiction ?"}
+      - {id: c2, question: "Chacun de ces deux paragraphes présente-t-il au moins trois arguments distincts ?"}
+      - {id: c3, question: "Le texte se termine-t-il par un paragraphe de synthèse qui prend clairement position pour ou contre ?"}
+      - {id: c4, question: "Le texte mentionne-t-il la ville de Montclar ?"}
+  - number: 45
+    messages:
+      - role: user
+        content: |-
+          L'association (fictive) Les Jardins du Lez veut empêcher la transformation d'une friche de 2 000 m² en parking et la conserver en jardin partagé. Rédige le plaidoyer que sa présidente lira devant le conseil municipal.
+
+          Contraintes :
+          - commence par l'apostrophe « Mesdames et Messieurs les conseillers » ;
+          - présente un bénéfice social, un bénéfice environnemental et un bénéfice économique du jardin partagé ;
+          - formule une demande précise : une subvention de 8 000 euros pour l'aménagement ;
+          - termine par une phrase d'appel au vote ;
+          - le texte doit faire entre 200 et 300 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le plaidoyer commence-t-il par l'apostrophe « Mesdames et Messieurs les conseillers » ?"}
+      - {id: c2, question: "Le texte présente-t-il au moins un bénéfice social, un bénéfice environnemental et un bénéfice économique ?"}
+      - {id: c3, question: "Le texte formule-t-il la demande d'une subvention de 8 000 euros ?"}
+      - {id: c4, question: "Le texte nomme-t-il l'association « Les Jardins du Lez » ?"}
+      - {id: c5, question: "Le texte s'oppose-t-il explicitement au projet de parking ?"}
+      - {id: c6, question: "La longueur du texte est-elle comprise entre 200 et 300 mots ?", check: {count: words, op: between, min: 200, max: 300}}
+  - number: 46
+    messages:
+      - role: user
+        content: |-
+          Défends la thèse suivante, même si elle te paraît discutable : « Les réunions d'équipe devraient se tenir debout. »
+
+          Rédige un seul paragraphe argumenté qui avance au moins trois arguments distincts, chacun illustré par un exemple concret tiré de la vie d'une entreprise. N'utilise aucune question rhétorique : le texte ne doit contenir aucun point d'interrogation.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte défend-il la thèse selon laquelle les réunions devraient se tenir debout ?"}
+      - {id: c2, question: "Le texte avance-t-il au moins trois arguments distincts ?"}
+      - {id: c3, question: "Chaque argument est-il illustré par un exemple concret ?"}
+      - {id: c4, question: "Le texte est-il dépourvu de tout point d'interrogation ?"}
+      - {id: c5, question: "Le texte tient-il en un seul paragraphe ?", check: {count: paragraphs, op: "==", n: 1}}
+  - number: 47
+    messages:
+      - role: user
+        content: |-
+          L'agence de communication (fictive) Pixel & Plume, 25 salariés, doit choisir un logiciel de gestion de projet. Ses exigences : un budget maximal de 200 euros par mois pour toute l'équipe, des données hébergées en Europe, une application mobile.
+
+          Offres comparées (prix par utilisateur et par mois) :
+          - Tasko : 5 euros, hébergé en Allemagne, pas d'application mobile.
+          - Planora : 9 euros, hébergé aux États-Unis, application mobile.
+          - Kanbix : 7 euros, hébergé en France, application mobile, interface disponible uniquement en anglais.
+
+          Rédige une note de recommandation de moins de 200 mots qui calcule le coût mensuel de chaque offre pour 25 utilisateurs, recommande une seule offre et signale le principal point de vigilance de l'offre retenue.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La note calcule-t-elle le coût mensuel de chacune des trois offres pour 25 utilisateurs ?"}
+      - {id: c2, question: "Les coûts indiqués sont-ils exacts (125 euros pour Tasko, 225 euros pour Planora, 175 euros pour Kanbix) ?"}
+      - {id: c3, question: "La note recommande-t-elle Kanbix ?"}
+      - {id: c4, question: "La note écarte-t-elle Planora en invoquant le dépassement du budget ou l'hébergement hors d'Europe ?"}
+      - {id: c5, question: "La note signale-t-elle l'interface uniquement en anglais comme point de vigilance de l'offre retenue ?"}
+      - {id: c6, question: "La note compte-t-elle moins de 200 mots ?", check: {count: words, op: "<", n: 200}}
+  - number: 48
+    messages:
+      - role: user
+        content: |-
+          Un collectif de parents demande l'interdiction totale de l'IA générative au collège. Rédige un texte argumenté qui s'oppose à cette interdiction, adressé explicitement aux parents d'élèves.
+
+          Le texte comporte exactement trois paragraphes :
+          1. l'énoncé de la thèse ;
+          2. les arguments qui la soutiennent ;
+          3. une proposition d'encadrement sous la forme de trois règles concrètes.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte s'oppose-t-il à l'interdiction totale de l'IA générative au collège ?"}
+      - {id: c2, question: "Le texte comporte-t-il exactement trois paragraphes ?", check: {count: paragraphs, op: "==", n: 3}}
+      - {id: c3, question: "Le dernier paragraphe propose-t-il trois règles concrètes d'encadrement ?"}
+      - {id: c4, question: "Le texte s'adresse-t-il explicitement aux parents d'élèves ?"}
+  - number: 49
+    messages:
+      - role: user
+        content: |-
+          Voici l'argumentaire d'un vendeur de purificateurs d'air :
+
+          « Notre purificateur AirZen élimine 99 % des virus. Tous nos clients sont satisfaits, puisque nous n'avons reçu aucune réclamation. D'ailleurs, le docteur Morel, qui l'utilise chez lui, le recommande. Si vous ne l'achetez pas, vous mettez la santé de vos enfants en danger. »
+
+          Rédige une analyse critique de cet argumentaire qui identifie quatre failles de raisonnement, une par paragraphe, en nommant chaque fois le procédé utilisé. Termine par une phrase de conseil adressée à un consommateur.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'analyse relève-t-elle que le chiffre de 99 % n'est ni sourcé ni précisé dans ses conditions de mesure ?"}
+      - {id: c2, question: "L'analyse relève-t-elle que l'absence de réclamation ne prouve pas la satisfaction des clients ?"}
+      - {id: c3, question: "L'analyse signale-t-elle le recours à l'autorité du docteur Morel comme un argument faible ?"}
+      - {id: c4, question: "L'analyse relève-t-elle l'appel à la peur ou le faux dilemme de la dernière phrase ?"}
+      - {id: c5, question: "Chaque faille est-elle traitée dans un paragraphe distinct ?"}
+      - {id: c6, question: "L'analyse se termine-t-elle par un conseil adressé à un consommateur ?"}
+  - number: 50
+    messages:
+      - role: user
+        content: |-
+          Rédige un court essai sur le sujet : « Faut-il rendre obligatoire un service civique d'un an pour tous les jeunes de 18 à 25 ans ? »
+
+          Contraintes :
+          - l'introduction formule la problématique sous forme de question ;
+          - le développement présente d'abord les arguments en faveur de l'obligation, puis les arguments contre ;
+          - la conclusion prend position de manière explicite et se termine par une question d'ouverture ;
+          - l'ensemble compte moins de 400 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'introduction formule-t-elle la problématique sous forme de question ?"}
+      - {id: c2, question: "Le développement présente-t-il les arguments en faveur de l'obligation avant les arguments contre ?"}
+      - {id: c3, question: "La conclusion prend-elle position de manière explicite ?"}
+      - {id: c4, question: "Le texte se termine-t-il par une question d'ouverture ?"}
+      - {id: c5, question: "L'essai compte-t-il moins de 400 mots ?", check: {count: words, op: "<", n: 400}}
+  - number: 51
+    messages:
+      - role: user
+        content: |-
+          Explique le cycle de l'eau à un enfant de 8 ans en exactement cinq phrases. Les mots « évaporation », « nuage » et « pluie » doivent tous apparaître. Les cinq phrases doivent commencer par cinq mots différents. Écris en prose continue, sans titre ni liste.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il exactement cinq phrases ?", check: {count: sentences, op: "==", n: 5}}
+      - {id: c2, question: "Les mots « évaporation », « nuage » et « pluie » apparaissent-ils tous dans le texte ?"}
+      - {id: c3, question: "Les cinq phrases commencent-elles toutes par des mots différents ?"}
+      - {id: c4, question: "Le texte est-il rédigé en prose continue, sans titre ni liste ?"}
+  - number: 52
+    messages:
+      - role: user
+        content: |-
+          Écris un acrostiche sur le mot RECYCLER : huit lignes, dont les initiales lues de haut en bas forment le mot RECYCLER. Chaque ligne compte au moins quatre mots et parle du recyclage ou de la protection de l'environnement. Ne donne que l'acrostiche, sans titre ni commentaire.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il exactement huit lignes ?", check: {count: lines, op: "==", n: 8}}
+      - {id: c2, question: "Les initiales des lignes, lues de haut en bas, forment-elles le mot RECYCLER ?"}
+      - {id: c3, question: "Chaque ligne parle-t-elle du recyclage ou de la protection de l'environnement ?"}
+      - {id: c4, question: "La réponse se limite-t-elle à l'acrostiche, sans titre ni commentaire ?"}
+      - {id: c5, question: "Chaque ligne compte-t-elle au moins quatre mots ?", check: {count: words, per: line, op: ">=", n: 4}}
+  - number: 53
+    messages:
+      - role: user
+        content: |-
+          L'association (fictive) Rayon Vert veut ouvrir un atelier participatif de réparation de vélos et lancer une campagne de financement participatif. Rédige, sous un titre, une liste numérotée d'exactement sept étapes pour préparer cette campagne. Chaque étape commence par un verbe à l'infinitif et tient en une seule phrase. Le nom Rayon Vert doit apparaître au moins une fois.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La réponse comporte-t-elle un titre ?"}
+      - {id: c2, question: "La liste comporte-t-elle exactement sept étapes numérotées de 1 à 7 ?", check: {count: items, marker: number, sequential: true, op: "==", n: 7}}
+      - {id: c3, question: "Chaque étape commence-t-elle par un verbe à l'infinitif ?"}
+      - {id: c4, question: "Chaque étape tient-elle en une seule phrase ?", check: {count: sentences, per: item, marker: number, op: "==", n: 1}}
+      - {id: c5, question: "Le nom « Rayon Vert » apparaît-il au moins une fois ?"}
+  - number: 54
+    messages:
+      - role: user
+        content: |-
+          Rédige le texte de présentation du Musée des Horloges de Besançay (musée fictif) pour un dépliant touristique. Le texte doit compter moins de 60 mots et donner les informations suivantes : ouvert de 10 h à 18 h, fermé le lundi, entrée à 6 euros, gratuite pour les moins de 12 ans.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte compte-t-il moins de 60 mots ?", check: {count: words, op: "<", n: 60}}
+      - {id: c2, question: "Le texte indique-t-il les horaires d'ouverture de 10 h à 18 h ?"}
+      - {id: c3, question: "Le texte précise-t-il que le musée est fermé le lundi ?"}
+      - {id: c4, question: "Le texte mentionne-t-il le tarif de 6 euros et la gratuité pour les moins de 12 ans ?"}
+  - number: 55
+    messages:
+      - role: user
+        content: |-
+          Rédige un texte sur la bibliothèque municipale d'une petite ville, en exactement quatre paragraphes. Le premier paragraphe commence par « Hier », le deuxième par « Aujourd'hui », le troisième par « Demain » et le quatrième par « Toujours ». Chaque paragraphe compte entre deux et quatre phrases. Le paragraphe qui commence par « Demain » est écrit au futur.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il exactement quatre paragraphes ?", check: {count: paragraphs, op: "==", n: 4}}
+      - {id: c2, question: "Les paragraphes commencent-ils respectivement par « Hier », « Aujourd'hui », « Demain » et « Toujours » ?"}
+      - {id: c3, question: "Le texte porte-t-il sur une bibliothèque municipale ?"}
+      - {id: c4, question: "Chaque paragraphe compte-t-il entre deux et quatre phrases ?", check: {count: sentences, per: paragraph, op: between, min: 2, max: 4}}
+      - {id: c5, question: "Le paragraphe commençant par « Demain » est-il écrit au futur ?"}
+  - number: 56
+    messages:
+      - role: user
+        content: |-
+          Rédige un article de blog intitulé « Bien choisir son premier vélo électrique ». Structure imposée :
+          - un titre principal ;
+          - exactement trois sous-titres, dont l'un porte sur la batterie et l'autonomie ;
+          - un seul paragraphe sous chaque sous-titre ;
+          - aucune liste à puces ;
+          - une dernière phrase mise en gras.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'article comporte-t-il un titre principal ?"}
+      - {id: c2, question: "L'article comporte-t-il exactement trois sous-titres ?"}
+      - {id: c3, question: "Chaque sous-titre est-il suivi d'un seul paragraphe ?"}
+      - {id: c4, question: "L'un des sous-titres porte-t-il sur la batterie et l'autonomie ?"}
+      - {id: c5, question: "L'article se termine-t-il par une phrase mise en gras ?"}
+      - {id: c6, question: "L'article est-il dépourvu de liste à puces ?"}
+  - number: 57
+    messages:
+      - role: user
+        content: |-
+          Présente CoRoute, le nouveau service de covoiturage réservé aux salariés d'une zone d'activités, en exactement trois phrases :
+          - la première compte moins de dix mots ;
+          - la deuxième contient au moins un nombre ;
+          - la troisième est une question adressée au lecteur.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il exactement trois phrases ?", check: {count: sentences, op: "==", n: 3}}
+      - {id: c2, question: "La première phrase compte-t-elle moins de dix mots ?", check: {count: words, of: {sentence: 1}, op: "<", n: 10}}
+      - {id: c3, question: "La deuxième phrase contient-elle au moins un nombre ?"}
+      - {id: c4, question: "La troisième phrase est-elle une question ?"}
+      - {id: c5, question: "Le service « CoRoute » est-il nommé ?"}
+  - number: 58
+    messages:
+      - role: user
+        content: |-
+          Rédige la présentation d'une randonnée dans le massif des Aiguilles Grises (lieu fictif) pour un site de tourisme. Contraintes :
+          - exactement deux paragraphes ;
+          - le premier paragraphe compte exactement trois phrases, le second exactement deux phrases ;
+          - le mot « sentier » apparaît au moins une fois ;
+          - le mot « très » n'apparaît jamais.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte comporte-t-il exactement deux paragraphes ?", check: {count: paragraphs, op: "==", n: 2}}
+      - {id: c2, question: "Le premier paragraphe compte-t-il exactement trois phrases ?", check: {count: sentences, of: {paragraph: 1}, op: "==", n: 3}}
+      - {id: c3, question: "Le second paragraphe compte-t-il exactement deux phrases ?", check: {count: sentences, of: {paragraph: 2}, op: "==", n: 2}}
+      - {id: c4, question: "Le mot « très » est-il absent du texte ?"}
+      - {id: c5, question: "Le mot « sentier » apparaît-il au moins une fois ?"}
+      - {id: c6, question: "Le massif des Aiguilles Grises est-il nommé ?"}
+  - number: 59
+    messages:
+      - role: user
+        content: |-
+          Donne exactement six conseils pour réduire la consommation d'énergie d'un bureau de vingt personnes. Présente-les sous forme de liste à puces, chaque conseil au format « Action : justification ». Chaque justification contient au moins un chiffre ou un pourcentage (une estimation suffit). N'écris ni introduction ni conclusion : uniquement la liste.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La liste comporte-t-elle exactement six conseils ?", check: {count: items, marker: bullet, op: "==", n: 6}}
+      - {id: c2, question: "Chaque conseil suit-il le format « Action : justification », avec deux-points ?"}
+      - {id: c3, question: "Chaque justification contient-elle au moins un chiffre ou un pourcentage ?"}
+      - {id: c4, question: "Tous les conseils portent-ils sur la consommation d'énergie d'un bureau ?"}
+      - {id: c5, question: "La réponse est-elle dépourvue d'introduction et de conclusion en dehors de la liste ?"}
+  - number: 60
+    messages:
+      - role: user
+        content: |-
+          Rédige la recette d'une soupe de potiron pour quatre personnes, avec exactement ces trois sections, dans cet ordre et avec ces intitulés :
+          - Ingrédients : une liste à puces d'exactement six ingrédients, chacun avec sa quantité ;
+          - Préparation : une liste numérotée d'exactement cinq étapes ;
+          - Astuce : une seule phrase.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La recette comporte-t-elle les sections Ingrédients, Préparation et Astuce, dans cet ordre ?"}
+      - {id: c2, question: "La section Ingrédients présente-t-elle exactement six ingrédients sous forme de liste à puces ?"}
+      - {id: c3, question: "Chaque ingrédient est-il accompagné d'une quantité ?"}
+      - {id: c4, question: "La section Préparation comporte-t-elle exactement cinq étapes numérotées ?"}
+      - {id: c5, question: "La section Astuce tient-elle en une seule phrase ?"}
+      - {id: c6, question: "Le potiron figure-t-il parmi les ingrédients ?"}
+  - number: 61
+    messages:
+      - role: user
+        content: |-
+          À partir des notes brutes ci-dessous, rédige le compte rendu de la réunion, en phrases complètes, avec les sections : Participants, Points abordés, Décisions, Actions (qui, quoi, pour quand), Prochaine réunion.
+
+          Notes :
+          réu équipe projet appli Fidelis - 14/10
+          présents : Karim B., Léa M., Sophie T., Hugo R. / excusé : Paul D.
+          - retard API paiement, le prestataire promet une livraison le 28/10
+          - Léa : tests utilisateurs ok sur 12 personnes, 3 bugs bloquants sur l'inscription
+          - décision : mise en prod décalée du 4/11 au 18/11
+          - Hugo prévient le client avant vendredi
+          - Sophie corrige les bugs d'inscription d'ici le 21/10
+          - budget : 3 jours supplémentaires validés par Karim
+          - prochaine réu le 23/10 à 10h
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le compte rendu liste-t-il les présents et mentionne-t-il Paul D. comme excusé ?"}
+      - {id: c2, question: "Le compte rendu mentionne-t-il la décision de décaler la mise en production du 4 au 18 novembre ?"}
+      - {id: c3, question: "Chaque action indique-t-elle un responsable et une échéance ?"}
+      - {id: c4, question: "Les actions de Hugo (prévenir le client avant vendredi) et de Sophie (corriger les bugs d'inscription d'ici le 21/10) figurent-elles toutes les deux ?"}
+      - {id: c5, question: "Le compte rendu indique-t-il la date et l'heure de la prochaine réunion (23/10 à 10 h) ?"}
+      - {id: c6, question: "Le compte rendu est-il rédigé en phrases complètes plutôt qu'en style télégraphique ?"}
+  - number: 62
+    messages:
+      - role: user
+        content: |-
+          Rédige la fiche de poste d'un technicien ou d'une technicienne de maintenance photovoltaïque pour l'entreprise (fictive) Solaréa Énergies. L'intitulé du poste doit être rédigé au masculin et au féminin.
+
+          Rubriques imposées : Intitulé, Missions (exactement cinq missions), Profil recherché, Conditions, Candidature.
+          Informations à reprendre : CDI, salaire de 2 400 euros brut mensuel, permis B exigé, candidature par courriel à recrutement@solarea-energies.example.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La fiche comporte-t-elle les rubriques Intitulé, Missions, Profil recherché, Conditions et Candidature ?"}
+      - {id: c2, question: "La rubrique Missions énumère-t-elle exactement cinq missions ?"}
+      - {id: c3, question: "La fiche mentionne-t-elle le CDI et le salaire de 2 400 euros brut mensuel ?"}
+      - {id: c4, question: "La fiche indique-t-elle que le permis B est exigé ?"}
+      - {id: c5, question: "La fiche reprend-elle l'adresse recrutement@solarea-energies.example pour candidater ?"}
+      - {id: c6, question: "L'intitulé du poste est-il rédigé au masculin et au féminin ?"}
+  - number: 63
+    messages:
+      - role: user
+        content: |-
+          Rédige la notice d'utilisation de la cafetière filtre Brio 3000 (produit fictif) à partir des caractéristiques suivantes :
+          - réservoir d'eau amovible de 1,2 litre ;
+          - interrupteur marche/arrêt situé à l'arrière ;
+          - un voyant rouge s'allume quand un détartrage est nécessaire ;
+          - détartrage recommandé tous les deux mois avec du vinaigre blanc ;
+          - ne jamais plonger l'appareil dans l'eau.
+
+          La notice comporte quatre sections : Mise en service, Utilisation quotidienne, Entretien, Consignes de sécurité. Les sections Mise en service et Utilisation quotidienne sont présentées sous forme d'étapes numérotées.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La notice comporte-t-elle les quatre sections demandées ?"}
+      - {id: c2, question: "Les sections Mise en service et Utilisation quotidienne sont-elles présentées sous forme d'étapes numérotées ?"}
+      - {id: c3, question: "La notice indique-t-elle de détartrer tous les deux mois avec du vinaigre blanc ?"}
+      - {id: c4, question: "La notice explique-t-elle la signification du voyant rouge ?"}
+      - {id: c5, question: "Les consignes de sécurité interdisent-elles de plonger l'appareil dans l'eau ?"}
+  - number: 64
+    messages:
+      - role: user
+        content: |-
+          Rédige un communiqué de presse annonçant l'ouverture de la ressourcerie (fictive) La Seconde Main à Villiers-sur-Orne, le 15 novembre 2026. Informations : 400 m² de surface de vente, six emplois en insertion créés, collecte d'objets du mardi au samedi.
+
+          Structure imposée : un titre, un chapeau, le corps du texte avec une citation entre guillemets de la présidente de l'association, Nadia Ferrand, puis une rubrique « À propos » suivie d'un contact presse. Le communiqué est écrit à la troisième personne.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le communiqué comporte-t-il un titre et un chapeau ?"}
+      - {id: c2, question: "Le communiqué indique-t-il la date d'ouverture du 15 novembre 2026 ?"}
+      - {id: c3, question: "Le communiqué mentionne-t-il la surface de 400 m² et la création de six emplois en insertion ?"}
+      - {id: c4, question: "Le communiqué contient-il une citation entre guillemets attribuée à Nadia Ferrand ?"}
+      - {id: c5, question: "Le communiqué se termine-t-il par une rubrique « À propos » suivie d'un contact presse ?"}
+      - {id: c6, question: "Le communiqué est-il écrit à la troisième personne ?"}
+  - number: 65
+    messages:
+      - role: user
+        content: |-
+          Rédige une petite annonce de location de 80 mots au maximum, à partir de ces informations : appartement T2 de 45 m², au 3e étage sans ascenseur, loyer de 720 euros charges comprises, disponible le 1er décembre, à cinq minutes à pied du tramway, animaux non acceptés. L'annonce doit être honnête : elle ne doit omettre aucun inconvénient.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'annonce compte-t-elle au plus 80 mots ?", check: {count: words, op: "<=", n: 80}}
+      - {id: c2, question: "L'annonce indique-t-elle le loyer de 720 euros charges comprises ?"}
+      - {id: c3, question: "L'annonce mentionne-t-elle l'absence d'ascenseur ?"}
+      - {id: c4, question: "L'annonce précise-t-elle la disponibilité au 1er décembre ?"}
+      - {id: c5, question: "L'annonce indique-t-elle que les animaux ne sont pas acceptés ?"}
+  - number: 66
+    messages:
+      - role: user
+        content: |-
+          Rédige la FAQ du Club Aquatique des Tilleuls (club fictif) à partir des seules informations suivantes :
+          - cotisation annuelle de 180 euros, payable en trois fois ;
+          - certificat médical de moins d'un an obligatoire à l'inscription ;
+          - bonnet de bain obligatoire dans le bassin ;
+          - un cours d'essai gratuit est proposé avant l'inscription ;
+          - les vestiaires ouvrent 30 minutes avant le début des cours.
+
+          Contraintes : exactement six questions, formulées comme un adhérent les poserait ; chaque réponse tient en deux phrases au maximum ; n'invente aucune information chiffrée qui ne figure pas ci-dessus.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La FAQ comporte-t-elle exactement six questions ?"}
+      - {id: c2, question: "Chaque question est-elle formulée du point de vue d'un adhérent et se termine-t-elle par un point d'interrogation ?"}
+      - {id: c3, question: "Chaque réponse tient-elle en deux phrases au maximum ?"}
+      - {id: c4, question: "La FAQ mentionne-t-elle la cotisation de 180 euros payable en trois fois ?"}
+      - {id: c5, question: "La FAQ mentionne-t-elle le cours d'essai gratuit ?"}
+      - {id: c6, question: "La FAQ s'abstient-elle de donner des informations chiffrées absentes de la consigne ?"}
+  - number: 67
+    messages:
+      - role: user
+        content: |-
+          Rédige le message d'accueil publié sur la messagerie interne de l'équipe Pilotage pour Inès Carvalho, nouvelle data analyst, qui arrive le lundi 3 novembre. Son référent sera Thomas Girard.
+
+          Programme de son premier jour : 9 h accueil par les RH, 11 h remise du matériel, 14 h réunion d'équipe.
+
+          Contraintes : tutoie Inès ; présente le programme sous forme de liste avec les horaires ; moins de 150 mots ; termine par une invitation à déjeuner avec l'équipe.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le message tutoie-t-il Inès ?"}
+      - {id: c2, question: "Le programme est-il présenté sous forme de liste reprenant les trois horaires (9 h, 11 h, 14 h) ?"}
+      - {id: c3, question: "Le message présente-t-il Thomas Girard comme référent d'Inès ?"}
+      - {id: c4, question: "Le message compte-t-il moins de 150 mots ?", check: {count: words, op: "<", n: 150}}
+      - {id: c5, question: "Le message se termine-t-il par une invitation à déjeuner ?"}
+  - number: 68
+    messages:
+      - role: user
+        content: |-
+          À partir des notes d'astreinte ci-dessous, rédige un rapport d'incident avec les sections : Résumé, Chronologie, Cause, Impact, Actions correctives.
+
+          Notes :
+          mardi 7/10 - site e-commerce Boutique Ardent
+          8h12 alertes de lenteur
+          8h25 site inaccessible
+          8h40 Mehdi (astreinte) trouve le disque plein sur le serveur de base de données : journaux jamais purgés
+          9h05 purge des journaux + redémarrage
+          9h20 site rétabli
+          environ 350 commandes perdues (estimation)
+          à faire : rotation automatique des journaux (Mehdi, 14/10) ; alerte quand le disque dépasse 80 % (Claire, 10/10)
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le rapport comporte-t-il les cinq sections Résumé, Chronologie, Cause, Impact et Actions correctives ?"}
+      - {id: c2, question: "La chronologie reprend-elle les horaires dans l'ordre, de 8 h 12 à 9 h 20 ?"}
+      - {id: c3, question: "La cause indiquée est-elle le disque plein du serveur de base de données, dû aux journaux non purgés ?"}
+      - {id: c4, question: "L'impact mentionne-t-il environ 350 commandes perdues ?"}
+      - {id: c5, question: "Chaque action corrective indique-t-elle un responsable et une date ?"}
+  - number: 69
+    messages:
+      - role: user
+        content: |-
+          Rédige une note de service destinée à tous les salariés du site. Informations : le parking du personnel sera fermé pour travaux du 3 au 14 novembre ; un parking relais est disponible rue des Acacias ; une navette le relie au site toutes les 15 minutes, de 7 h 30 à 9 h 30 et de 16 h 30 à 19 h ; questions aux services généraux, poste 4412.
+
+          Contraintes : la première ligne est « Objet : » suivi de l'objet ; la note compte au plus 120 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La note commence-t-elle par une ligne « Objet : » ?"}
+      - {id: c2, question: "La note indique-t-elle la période de fermeture du 3 au 14 novembre ?"}
+      - {id: c3, question: "La note présente-t-elle la navette avec sa fréquence de 15 minutes et ses deux plages horaires ?"}
+      - {id: c4, question: "La note indique-t-elle le contact des services généraux au poste 4412 ?"}
+      - {id: c5, question: "La note compte-t-elle au plus 120 mots ?", check: {count: words, op: "<=", n: 120}}
+  - number: 70
+    messages:
+      - role: user
+        content: |-
+          Rédige l'affiche des consignes d'évacuation en cas d'incendie pour une salle de formation. Contraintes : un titre, puis exactement cinq consignes formulées à l'impératif, chacune de moins de quinze mots. Les consignes doivent indiquer le point de rassemblement, le parking B, et interdire l'usage des ascenseurs.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "L'affiche comporte-t-elle un titre ?"}
+      - {id: c2, question: "L'affiche comporte-t-elle exactement cinq consignes ?"}
+      - {id: c3, question: "Chaque consigne est-elle formulée à l'impératif ?"}
+      - {id: c4, question: "Chaque consigne compte-t-elle moins de quinze mots ?"}
+      - {id: c5, question: "Le parking B est-il indiqué comme point de rassemblement ?"}
+      - {id: c6, question: "Les consignes interdisent-elles l'usage des ascenseurs ?"}
+  - number: 71
+    messages:
+      - role: user
+        content: |-
+          Écris un court récit à la première personne, au passé simple, dont la narratrice est Maëlle, gardienne de phare sur une île imaginaire. Les mots « boussole », « orage » et « confiture » doivent apparaître dans le texte. Le récit compte moins de 300 mots.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le récit est-il écrit à la première personne ?"}
+      - {id: c2, question: "La narratrice est-elle une gardienne de phare prénommée Maëlle ?"}
+      - {id: c3, question: "Les mots « boussole », « orage » et « confiture » apparaissent-ils tous dans le texte ?"}
+      - {id: c4, question: "Le récit est-il principalement écrit au passé simple ?"}
+      - {id: c5, question: "Le récit compte-t-il moins de 300 mots ?", check: {count: words, op: "<", n: 300}}
+  - number: 72
+    messages:
+      - role: user
+        content: |-
+          Écris un dialogue entre une cliente et un horloger à qui elle apporte une vieille montre arrêtée. Contraintes :
+          - exactement huit répliques, qui alternent strictement entre la cliente (qui parle en premier) et l'horloger ;
+          - chaque réplique commence par un tiret de dialogue ;
+          - aucune phrase de narration en dehors des répliques ;
+          - l'horloger ne prononce jamais le mot « non » ;
+          - la dernière réplique révèle que la montre appartenait à la grand-mère de la cliente.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le dialogue comporte-t-il exactement huit répliques ?", check: {count: items, marker: dash, op: "==", n: 8}}
+      - {id: c2, question: "Les répliques alternent-elles strictement entre la cliente et l'horloger, la cliente parlant en premier ?"}
+      - {id: c3, question: "Chaque réplique commence-t-elle par un tiret de dialogue ?"}
+      - {id: c4, question: "Le texte est-il dépourvu de toute phrase de narration en dehors des répliques ?"}
+      - {id: c5, question: "La dernière réplique révèle-t-elle que la montre appartenait à la grand-mère de la cliente ?"}
+      - {id: c6, question: "Le mot « non » est-il absent des répliques de l'horloger ?"}
+  - number: 73
+    messages:
+      - role: user
+        content: |-
+          Décris un marché couvert au petit matin, avant l'arrivée des clients, en exactement cinq paragraphes consacrés successivement à la vue, à l'ouïe, à l'odorat, au toucher et au goût. Écris au présent, et ne nomme aucun personnage par un prénom.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La description comporte-t-elle exactement cinq paragraphes ?", check: {count: paragraphs, op: "==", n: 5}}
+      - {id: c2, question: "Les paragraphes sont-ils consacrés successivement à la vue, à l'ouïe, à l'odorat, au toucher et au goût ?"}
+      - {id: c3, question: "Le texte est-il écrit au présent ?"}
+      - {id: c4, question: "Le texte décrit-il un marché couvert au petit matin ?"}
+      - {id: c5, question: "Le texte évite-t-il de nommer un personnage par un prénom ?"}
+  - number: 74
+    messages:
+      - role: user
+        content: |-
+          Raconte la journée d'un parapluie oublié dans un train, du point de vue du parapluie lui-même, à la première personne et au présent. Le parapluie passe successivement par au moins trois lieux différents. Le récit contient au moins une parole humaine rapportée entre guillemets et se termine par les retrouvailles du parapluie avec son propriétaire.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le récit est-il raconté par le parapluie lui-même, à la première personne ?"}
+      - {id: c2, question: "Le récit est-il écrit au présent ?"}
+      - {id: c3, question: "Le parapluie passe-t-il successivement par au moins trois lieux différents ?"}
+      - {id: c4, question: "Le récit contient-il au moins une parole humaine rapportée entre guillemets ?"}
+      - {id: c5, question: "Le récit se termine-t-il par les retrouvailles du parapluie avec son propriétaire ?"}
+  - number: 75
+    messages:
+      - role: user
+        content: |-
+          Écris une micro-nouvelle de science-fiction à la première personne, en exactement six phrases. La dernière phrase révèle que le narrateur est un robot. Le mot « robot » ne doit apparaître que dans la dernière phrase.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte compte-t-il exactement six phrases ?", check: {count: sentences, op: "==", n: 6}}
+      - {id: c2, question: "La dernière phrase révèle-t-elle que le narrateur est un robot ?"}
+      - {id: c3, question: "Le mot « robot » est-il absent des cinq premières phrases ?"}
+      - {id: c4, question: "Le texte est-il écrit à la première personne ?"}
+  - number: 76
+    messages:
+      - role: user
+        content: |-
+          Écris la lettre qu'Anselme Dufrêne, explorateur imaginaire, adresse en 1872 à sa sœur depuis une forêt tropicale inventée. La lettre comporte en en-tête un lieu et une date en 1872, une formule d'appel, le récit de trois découvertes distinctes, et se termine par la signature d'Anselme Dufrêne. Aucune technologie postérieure au XIXe siècle ne doit être mentionnée.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "La lettre comporte-t-elle en en-tête un lieu et une date en 1872 ?"}
+      - {id: c2, question: "La lettre s'adresse-t-elle à la sœur de l'explorateur ?"}
+      - {id: c3, question: "La lettre décrit-elle trois découvertes distinctes ?"}
+      - {id: c4, question: "La lettre se termine-t-elle par la signature d'Anselme Dufrêne ?"}
+      - {id: c5, question: "La lettre est-elle exempte de toute mention d'une technologie postérieure au XIXe siècle ?"}
+      - {id: c6, question: "La lettre est-elle écrite à la première personne ?"}
+  - number: 77
+    messages:
+      - role: user
+        content: |-
+          Écris un conte pour enfants dont les personnages principaux sont un hérisson et une corneille, et qui se déroule dans un verger. Le conte commence par « Il était une fois » et se termine par une morale tenant en une seule phrase, introduite par « Morale : ».
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le conte commence-t-il par « Il était une fois » ?"}
+      - {id: c2, question: "Les personnages principaux sont-ils un hérisson et une corneille ?"}
+      - {id: c3, question: "L'histoire se déroule-t-elle dans un verger ?"}
+      - {id: c4, question: "Le conte se termine-t-il par une morale introduite par « Morale : » ?"}
+      - {id: c5, question: "La morale tient-elle en une seule phrase ?"}
+  - number: 78
+    messages:
+      - role: user
+        content: |-
+          Écris un court texte à la deuxième personne du singulier (« tu ») et au futur, qui décrit le premier jour d'un élève dans un nouveau collège. Le texte comporte trois paragraphes consacrés respectivement au matin, au midi et au soir. Les mots « cartable », « cantine » et « sourire » doivent tous apparaître.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le texte est-il écrit à la deuxième personne du singulier ?"}
+      - {id: c2, question: "Le texte est-il écrit au futur ?"}
+      - {id: c3, question: "Le texte comporte-t-il trois paragraphes consacrés respectivement au matin, au midi et au soir ?"}
+      - {id: c4, question: "Les mots « cartable », « cantine » et « sourire » apparaissent-ils tous ?"}
+      - {id: c5, question: "Le texte raconte-t-il le premier jour d'un élève dans un nouveau collège ?"}
+  - number: 79
+    messages:
+      - role: user
+        content: |-
+          Écris une scène de théâtre entre deux frères, Victor et Armand, qui se disputent l'héritage du piano de leur mère, dans une gare de nuit, en attendant le dernier train. Contraintes :
+          - le nom de chaque personnage est écrit en majuscules avant chacune de ses répliques ;
+          - la scène compte entre 10 et 14 répliques ;
+          - au moins deux didascalies entre parenthèses ;
+          - la scène se termine par le départ de l'un des deux frères.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le nom de chaque personnage est-il écrit en majuscules avant chacune de ses répliques ?"}
+      - {id: c2, question: "La scène se déroule-t-elle dans une gare, la nuit ?"}
+      - {id: c3, question: "Le conflit porte-t-il sur l'héritage du piano de leur mère ?"}
+      - {id: c4, question: "La scène contient-elle au moins deux didascalies entre parenthèses ?"}
+      - {id: c5, question: "La scène compte-t-elle entre 10 et 14 répliques ?"}
+      - {id: c6, question: "La scène se termine-t-elle par le départ de l'un des deux frères ?"}
+  - number: 80
+    messages:
+      - role: user
+        content: |-
+          Écris une courte nouvelle policière à la troisième personne et au passé. L'enquêtrice est l'inspectrice Joly. Le récit présente exactement trois suspects, chacun nommé. Le coupable n'est révélé que dans le dernier paragraphe, et cette révélation s'appuie sur un indice déjà mentionné plus tôt dans le récit.
+    grader_params: {}
+    target: null
+    criteria:
+      - {id: c1, question: "Le récit est-il écrit à la troisième personne ?"}
+      - {id: c2, question: "L'enquêtrice est-elle l'inspectrice Joly ?"}
+      - {id: c3, question: "Le récit présente-t-il exactement trois suspects nommés ?"}
+      - {id: c4, question: "Le coupable n'est-il révélé que dans le dernier paragraphe ?"}
+      - {id: c5, question: "La révélation s'appuie-t-elle sur un indice mentionné plus tôt dans le récit ?"}

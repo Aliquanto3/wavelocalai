@@ -42,11 +42,11 @@ def _outcome(record):
     return record["status"], record["score"], record["success"]
 
 
-def test_registry_has_the_twelve_graders_at_version_one():
+def test_registry_has_the_twelve_graders_at_their_versions():
     assert set(GRADERS) == set(GRADER_NAMES)
     assert len(GRADERS) == 12
     assert all(
-        registered.version == f"{name}@{2 if name == 'json_schema' else 1}"
+        registered.version == f"{name}@{2 if name in ('json_schema', 'judge_criteria') else 1}"
         for name, registered in GRADERS.items()
     )
 

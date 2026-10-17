@@ -166,6 +166,7 @@ def _load_judgments(
         raise GradeError(f"judgment-{judge} : manifeste d'un autre juge")
     manifest_hash = blocking_hash(manifest)
     by_key: dict[str, dict[str, dict[str, Any]]] = {}
+    ignored = 0
     for line_no, line in enumerate(_read_lines(lines_path, f"judgment-{judge}"), start=1):
         where = f"judgment-{judge}/judgment.jsonl ligne {line_no}"
         _validated(line, "qb.judgment/1", where)
@@ -181,12 +182,21 @@ def _load_judgments(
         question = questions[generation["question_id"]]
         if question["grader"]["name"] != WRITING_GRADER:
             raise GradeError(f"{where} : jugement d'une question hors rédaction")
-        if line["criterion"] not in {item["id"] for item in question["criteria"]}:
+        known = {item["id"]: item for item in question["criteria"]}
+        if line["criterion"] not in known:
             raise GradeError(f"{where} : critère inconnu de la question {question['id']}")
+        if "check" in known[line["criterion"]]:
+            # Verdict périmé (juge lancé avant que le critère passe au code) : le code tranche.
+            ignored += 1
+            continue
         criteria = by_key.setdefault(line["generation_key"], {})
         if line["criterion"] in criteria:
             raise GradeError(f"{where} : clé en double {line['key']}")
         criteria[line["criterion"]] = {"verdict": line["verdict"], "error": line["error"]}
+    if ignored:
+        logger.warning(
+            "judgment-%s : %d verdicts ignorés sur des critères vérifiés par le code", judge, ignored
+        )
     return Judgments(manifest_hash, by_key)
 
 
