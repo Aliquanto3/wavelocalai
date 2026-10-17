@@ -216,6 +216,7 @@ NETWORK_FREE = (
     "questions/build.py",
     "questions/pinned.py",
     "questions/house.py",
+    "questions/multi_turn.py",
     "questions/set_builder.py",
     "questions/review.py",
     "questions/generators/__init__.py",
@@ -244,7 +245,7 @@ def test_story3_modules_never_reach_importers(name):
 
 def test_only_the_bfcl_importer_of_questions_reaches_envs():
     """Spine, sens des dépendances : ``questions/`` n'importe ``envs/`` que par
-    ``importers/bfcl.py`` (rejeu de la cible pour l'estimation du contexte, AD-5)."""
+    ``multi_turn.py`` (rejeu de la cible pour l'estimation du contexte, AD-5)."""
     importers = {
         _rel(path)
         for path in _package_modules()
@@ -254,7 +255,7 @@ def test_only_the_bfcl_importer_of_questions_reaches_envs():
             for module in _relative_imports(path)
         )
     }
-    assert importers <= {"questions/importers/bfcl.py"}, importers
+    assert importers <= {"questions/multi_turn.py"}, importers
 
 
 def test_var_math_never_calls_eval_or_exec():

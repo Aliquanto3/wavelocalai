@@ -66,7 +66,7 @@ flowchart TD
   judge --> ollama & questions & common
   report --> stats & questions & common
   questions --> common
-  questions -.->|"importers/bfcl.py seul (AD-5)"| envs
+  questions -.->|"multi_turn.py seul (AD-5)"| envs
   ollama --> common
   envs --> common
   stats["stats (aucun import du paquet)"]
@@ -162,7 +162,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
   - Les champs sans objet valent `null` : `generator` et `generator_seed` hors questions générées, `turns` hors multi-tours, `env` hors outils exécutés, `criteria` hors rédaction.
   - `unit` = unité de score : `id` par défaut. Pour VAR-MATH, toutes les variantes d'un problème partagent une `unit`, réussie seulement si toutes ses questions le sont (agrégation dans `stats/`, AD-17). Une `unit` ne franchit jamais un `group`.
   - `num_ctx` fait partie des `num_ctx_tiers` de la configuration, et `num_ctx ≥ est_prompt_tokens × 1,25 + plafond maximal de num_predict` (contrôle de `set_builder`).
-  - **Multi-tours :** le runner renvoie tout l'historique à chaque appel, donc `est_prompt_tokens` d'une conversation compte, en plus de `messages`, `turns`, `tools` et `format`, **tous les messages accumulés jusqu'au dernier tour** : appels d'outils, résultats d'outils et réponses de chaque tour. L'importeur les estime en rejouant la cible dans l'environnement simulé (AD-11) et ajoute une réponse de 100 tokens par tour ; l'historique n'est pas écrit dans la question. Seul `questions/importers/bfcl.py` importe `envs/`, en lecture seule, pour ce rejeu. Les réponses d'un modèle qui s'écarte de la cible, et sa réflexion renvoyée dans l'historique, restent couvertes par la marge de 1,25 et par `context_exceeded` (AD-7), que le pilote mesure.
+  - **Multi-tours :** le runner renvoie tout l'historique à chaque appel, donc `est_prompt_tokens` d'une conversation compte, en plus de `messages`, `turns`, `tools` et `format`, **tous les messages accumulés jusqu'au dernier tour** : appels d'outils, résultats d'outils et réponses de chaque tour. L'importeur les estime en rejouant la cible dans l'environnement simulé (AD-11) et ajoute une réponse de 100 tokens par tour ; l'historique n'est pas écrit dans la question. Seul `questions/multi_turn.py` importe `envs/`, en lecture seule, pour ce rejeu. La règle est versionnée par le jeu (option `multi_turn_history` du YAML de jeu, vraie depuis set-v2) : `build-set` réestime les candidats, et set-v1 reste reconstructible à l'identique. Les réponses d'un modèle qui s'écarte de la cible, et sa réflexion renvoyée dans l'historique, restent couvertes par la marge de 1,25 et par `context_exceeded` (AD-7), que le pilote mesure.
   - `grader.name` n'a pas de version : la version vit dans le registre et dans `grading.jsonl` (AD-10).
   - Liste fermée des `source` (slugs) dans `questions/schema.py`, chacune avec un seul producteur, plus une liste des sources refusées (exclusions de `pistes-et-questions.md`). Une question dérivée (traduction, variante) garde le `group` de son origine.
   - `tracks.json` : `{"think_off": [ids], "think_on": [ids]}`, `think_on` ⊂ `think_off`, tirage stratifié par usage **par groupes entiers**, graine dans `sets/<set>.yaml`.

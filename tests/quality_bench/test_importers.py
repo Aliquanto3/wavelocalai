@@ -6,8 +6,8 @@ import json
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-
 from scripts.quality_bench.common.canonical import canonical_bytes
+from scripts.quality_bench.questions import multi_turn
 from scripts.quality_bench.questions.importers import (
     base,
     bbeh,
@@ -260,7 +260,7 @@ def test_gold_history_replays_the_target_turn_by_turn():
     from .grading_factories import FILE_SYSTEM_STATE
 
     env = {"name": "bfcl_multi_turn", "initial_state": FILE_SYSTEM_STATE}
-    history = bfcl.gold_history(env, [["ls()", "cd(folder='docs')"], ["cat(file_name='a.txt')"]])
+    history = multi_turn.gold_history(env, [["ls()", "cd(folder='docs')"], ["cat(file_name='a.txt')"]])
     # Par tour : appels, un résultat par appel, puis la réponse de fin de tour.
     assert [message["role"] for message in history] == [
         "assistant", "tool", "tool", "assistant", "assistant", "tool", "assistant",
@@ -271,14 +271,14 @@ def test_gold_history_replays_the_target_turn_by_turn():
     assert "docs" in _tool_messages(history)[0]["content"]
     assert "beta" in _tool_messages(history)[2]["content"]  # cat voit le répertoire courant
     reply = history[3]["content"]
-    assert len(reply) == bfcl.REPLY_ALLOWANCE_TOKENS * base.CHARS_PER_TOKEN
+    assert len(reply) == multi_turn.REPLY_ALLOWANCE_TOKENS * base.CHARS_PER_TOKEN
 
 
 def test_gold_history_tolerates_an_unreadable_target_call():
     from .grading_factories import FILE_SYSTEM_STATE
 
     env = {"name": "bfcl_multi_turn", "initial_state": FILE_SYSTEM_STATE}
-    history = bfcl.gold_history(env, [["pas un appel valide ("]])
+    history = multi_turn.gold_history(env, [["pas un appel valide ("]])
     assert [message["role"] for message in history] == ["assistant", "tool", "assistant"]
     assert _tool_messages(history)[0]["content"] == ""
 
@@ -329,6 +329,30 @@ def test_bfcl_multi_turn_counts_the_accumulated_history(tmp_path):
     assert question["est_prompt_tokens"] > one_turn["est_prompt_tokens"] + 6 * 100
     assert question["turns"] and len(question["turns"]) == 6
     assert "history" not in question  # estimation seulement : rien n'est ajouté à la question
+    # Règle versionnée par le jeu : sans l'option, le prompt seul (set-v1) ; avec, l'historique.
+    from scripts.quality_bench.questions.schema import question_hash
+
+    v1 = multi_turn.reestimate_multi(question, with_history=False)
+    v2 = multi_turn.reestimate_multi(v1, with_history=True)
+    prompt = {key: question[key] for key in ("messages", "turns", "tools", "format")}
+    assert v1["est_prompt_tokens"] == base.estimate_prompt_tokens(prompt)
+    assert v2 == question  # aller-retour : rien d'autre ne change
+    assert v1["question_hash"] == question_hash(v1) != question["question_hash"]
+
+
+def test_multi_turn_history_is_an_option_of_the_set_yaml(tmp_path):
+    from scripts.quality_bench.common.config import ConfigError, load_set
+    from scripts.quality_bench.common.paths import PACKAGE_DIR
+    from scripts.quality_bench.questions.schema import REFUSED_SOURCES, SOURCES
+
+    sets = PACKAGE_DIR / "sets"
+    assert load_set(sets / "set-v1.yaml", SOURCES, REFUSED_SOURCES).multi_turn_history is False
+    assert load_set(sets / "set-v2.yaml", SOURCES, REFUSED_SOURCES).multi_turn_history is True
+    text = (sets / "set-v1.yaml").read_text(encoding="utf-8")
+    bad = tmp_path / "set-v1.yaml"
+    bad.write_text(text.replace("seed: 20261011", "seed: 20261011\nmulti_turn_history: oui"), encoding="utf-8")
+    with pytest.raises(ConfigError, match="multi_turn_history"):
+        load_set(bad, SOURCES, REFUSED_SOURCES)
 
 
 def test_conversion_is_deterministic(tmp_path):

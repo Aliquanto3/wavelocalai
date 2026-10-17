@@ -494,6 +494,10 @@ def load_pilot_settings(path: str | os.PathLike[str]) -> PilotSettings:
 # --- Jeu de questions : scripts/quality_bench/sets/<set>.yaml ------------------------------
 
 _SET_KEYS = {"set", "seed", "sources", "think_on"}
+# Clés facultatives du YAML de jeu. ``multi_turn_history`` (AD-5, 2026-10-17) : le palier
+# ``num_ctx`` des conversations multi-tours compte l'historique des tours ; absent ou faux, il
+# ne compte que le prompt (règle de set-v1, qui reste ainsi reconstructible à l'identique).
+_SET_OPTIONAL_KEYS = {"multi_turn_history"}
 _SET_SOURCE_KEYS = {
     "source",
     "count",
@@ -544,6 +548,7 @@ class SetConfig:
     sources: tuple[SetSource, ...]
     think_off: dict[str, int]
     think_on: dict[str, int]
+    multi_turn_history: bool = False
 
 
 def _set_source(
@@ -623,7 +628,7 @@ def load_set(
     """
     path = Path(path)
     raw = _require_mapping(read_yaml(path), str(path))
-    _reject_unknown(raw, _SET_KEYS, str(path))
+    _reject_unknown(raw, _SET_KEYS | _SET_OPTIONAL_KEYS, str(path))
     for key in sorted(_SET_KEYS):
         if key not in raw:
             raise ConfigError(f"{path} : clé « {key} » obligatoire")
@@ -657,7 +662,10 @@ def load_set(
     for usage in raw_think_on:
         if usage not in think_off and _int(raw_think_on[usage], f"think_on.{usage}", 0) != 0:
             raise ConfigError(f"think_on.{usage} : aucun effectif think_off pour cet usage")
-    return SetConfig(path, set_id, seed, resolved, think_off, think_on)
+    multi_turn_history = raw.get("multi_turn_history", False)
+    if not isinstance(multi_turn_history, bool):
+        raise ConfigError("multi_turn_history : booléen attendu")
+    return SetConfig(path, set_id, seed, resolved, think_off, think_on, multi_turn_history)
 
 
 # --- Juges : scripts/quality_bench/judges.yaml (AD-8, AD-16) -------------------------------

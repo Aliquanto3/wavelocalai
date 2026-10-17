@@ -10,7 +10,7 @@ contrôle de palier sur chaque question du jeu.
 **Multi-tours (AD-5) :** le runner renvoie au modèle tout l'historique à chaque appel (messages,
 appels d'outils, résultats d'outils et réponses des tours précédents). L'estimation du prompt
 d'une conversation compte donc cet historique : l'appelant passe ``history``, les messages que
-produirait un modèle qui suit la cible (``importers/bfcl.py``), jusqu'au dernier tour.
+produirait un modèle qui suit la cible (``multi_turn.py``), jusqu'au dernier tour.
 """
 
 from __future__ import annotations

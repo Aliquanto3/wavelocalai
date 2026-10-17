@@ -14,12 +14,10 @@ de fonction : types Gorilla convertis (``dict`` → ``object``, ``float`` → ``
 des noms remplacés par ``_``. Les déclarations d'origine restent dans ``grader.params`` pour le
 correcteur AST (``ast_checker``).
 
-**Contexte des conversations ``bfcl-multi`` (AD-5) :** le runner renvoie tout l'historique à
-chaque appel. ``gold_history`` rejoue la cible dans l'environnement simulé (``envs/``, seule
-dépendance de ``questions/`` vers ``envs/``) et rend les messages qu'accumulerait un modèle qui
-la suit : par tour, un message ``assistant`` portant les appels, un message ``tool`` par
-résultat, puis une réponse de ``REPLY_ALLOWANCE_TOKENS`` tokens. Ils entrent dans
-``est_prompt_tokens``, donc dans le palier ``num_ctx``.
+**Contexte des conversations ``bfcl-multi`` (AD-5) :** les candidats comptent l'historique
+des tours rejoué sur la cible (``questions/multi_turn.gold_history``). La règle est versionnée
+par le jeu : ``set_builder`` réestime chaque candidat (``multi_turn.reestimate_multi``) selon
+l'option ``multi_turn_history`` du YAML de jeu.
 """
 
 from __future__ import annotations
@@ -30,9 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from ...common.jsonl import read_complete_jsonl
-from ...envs.base import CallExpressionError, parse_call
-from ...envs.registry import make_env
-from .base import CHARS_PER_TOKEN, Importer, build_questions
+from ..multi_turn import gold_history
+from .base import Importer, build_questions
 from .remote import RemoteFile
 
 _REPO = "ShishirPatil/gorilla"
@@ -196,6 +193,7 @@ LIVE = ("BFCL_v4_live_simple.json", "BFCL_v4_live_multiple.json")
 PARALLEL = ("BFCL_v4_live_parallel.json", "BFCL_v4_live_parallel_multiple.json")
 IRRELEVANCE = ("BFCL_v4_live_irrelevance.json",)
 MULTI = "BFCL_v4_multi_turn_base.json"
+MULTI_SOURCE = "bfcl-multi"
 
 
 def convert_live(local: Mapping[str, Path]) -> list[dict[str, Any]]:
@@ -219,39 +217,7 @@ def convert_multi(local: Mapping[str, Path]) -> list[dict[str, Any]]:
         for cls, doc in CLASS_DOCS.items()
     }
     answers = _answers(local, MULTI)
-    return build_questions("bfcl-multi", _multi_items(local, docs, answers))
-
-
-# Réponse textuelle d'un modèle à la fin d'un tour (une ou deux phrases), comptée par tour.
-REPLY_ALLOWANCE_TOKENS = 100
-
-
-def gold_history(env: Mapping[str, Any], target: list[list[str]]) -> list[dict[str, Any]]:
-    """Messages accumulés par un modèle qui suit la cible, tous tours compris (voir le module).
-
-    Une cible dont un appel n'est pas analysable (``CallExpressionError``) donne un résultat
-    vide : le correcteur la traitera en erreur du banc, l'estimation n'en dépend pas.
-    """
-    simulated = make_env(env)
-    reply = {"role": "assistant", "content": "x" * (REPLY_ALLOWANCE_TOKENS * CHARS_PER_TOKEN)}
-    history: list[dict[str, Any]] = []
-    for expressions in target:
-        calls: list[dict[str, Any]] = []
-        results: list[dict[str, Any]] = []
-        for expression in expressions:
-            try:
-                name, args, kwargs = parse_call(expression)
-                content = simulated.invoke(name, args, kwargs)
-            except CallExpressionError:
-                name, args, kwargs, content = "unknown", (), {}, ""
-            arguments = {**kwargs, **{f"arg{index}": value for index, value in enumerate(args)}}
-            calls.append({"function": {"name": name, "arguments": arguments}})
-            results.append({"role": "tool", "content": content, "tool_name": name})
-        if calls:
-            history.append({"role": "assistant", "content": "", "tool_calls": calls})
-            history.extend(results)
-        history.append(dict(reply))
-    return history
+    return build_questions(MULTI_SOURCE, _multi_items(local, docs, answers))
 
 
 def _multi_items(

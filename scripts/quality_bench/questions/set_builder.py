@@ -49,10 +49,11 @@ from ..common.locks import FileLock, LockBusyError
 from ..common.logs import setup_logging
 from ..common.manifest import code_commit, code_dirty
 from ..common.schemas import USAGES, validate
-from .build import required_num_ctx
+from .build import PromptTooLongError, required_num_ctx
 from .generators import oneruler_fr, var_math
 from .generators.var_math import GeneratorError
 from .house import PRODUCER as HOUSE_PRODUCER
+from .multi_turn import reestimate_multi
 from .house import house_path, load_house
 from .pinned import SourceIntegrityError, verify_local_files
 from .schema import REFUSED_SOURCES, SOURCES, QuestionError, set_hash, validate_question
@@ -63,6 +64,8 @@ SET_INDEX_SCHEMA = "qb.set_index/1"
 SET_MANIFEST_SCHEMA = "qb.set_manifest/1"
 # Code dont la modification fausse la provenance d'un jeu (champ ``dirty`` du manifeste).
 _CODE_PATHSPEC = "scripts/quality_bench"
+# Source multi-tours réestimée selon ``multi_turn_history`` (``multi_turn.reestimate_multi``).
+MULTI_TURN_SOURCE = "bfcl-multi"
 _INDEX_FIELDS = ("id", "usage", "group", "unit", "source", "license", "private", "question_hash")
 _PUBLIC_INDEX_FIELDS = ("prompt_hash", "target_hash")
 # Réglages permis par générateur (generator_params du YAML de jeu).
@@ -384,6 +387,14 @@ def load_candidates(config: SetConfig) -> tuple[dict[str, list[dict[str, Any]]],
                     f"`python -m scripts.quality_bench fetch --source {entry.source}`"
                 )
             candidates[entry.source] = read_jsonl(path)
+            if entry.source == MULTI_TURN_SOURCE:
+                try:
+                    candidates[entry.source] = [
+                        reestimate_multi(question, config.multi_turn_history)
+                        for question in candidates[entry.source]
+                    ]
+                except PromptTooLongError as error:
+                    raise SetBuildError(f"{entry.source} : {error}") from None
         logger.info("%s : %d candidats", entry.source, len(candidates[entry.source]))
         if entry.exclude:
             logger.info(

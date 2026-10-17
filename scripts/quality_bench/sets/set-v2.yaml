@@ -10,6 +10,8 @@
 # (tools-fr, traductions de bfcl-live, vient donc avant bfcl-live).
 set: set-v2
 seed: 20261011
+# Palier num_ctx de bfcl-multi avec l'historique des tours (AD-5) ; absent de set-v1.
+multi_turn_history: true
 sources:
   # reasoning : 130
   - {source: var-math-fr, count: 60, generator_seed: 1, generator_params: {variants: 3}}
