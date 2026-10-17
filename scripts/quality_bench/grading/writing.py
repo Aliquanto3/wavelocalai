@@ -12,8 +12,9 @@ dossier ``judgment-<grading.judge>/``, ou ``None`` sans juge désigné ou sans d
 - sinon ``score`` = part des critères vrais (code et juge) sur **tous** les ``criteria``,
   ``success = null``.
 
-``judge_criteria@1`` (jeu ``set-v1``) ne connaissait que le juge : la version change avec le
-code de vérification.
+``judge_criteria@1`` ne connaissait que le juge : la version change avec le code de
+vérification. Un jeu sans ``check`` (``set-v1``, ``writing-fr.yaml``) est désormais corrigé par
+``judge_criteria@2`` avec des scores identiques à ``@1`` : seule l'étiquette ``grader`` diffère.
 """
 
 from __future__ import annotations
