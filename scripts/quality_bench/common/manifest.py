@@ -18,6 +18,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+from . import gpu
 from .canonical import canonical_bytes, pretty_bytes, sha256_bytes, sha256_hex, utc_now
 from .paths import PACKAGE_DIR, REPO_ROOT
 from .schemas import validate
@@ -30,6 +31,43 @@ _MISSING = object()
 # Variables OLLAMA_* dont la valeur n'est jamais consignée (le manifeste peut être partagé).
 _SECRET_WORDS = ("KEY", "TOKEN", "SECRET", "PASSWORD")
 _MASKED = "<masqué>"
+# Export public : seules ces variables de comportement d'Ollama gardent leur valeur (noms de
+# ``envconfig`` d'Ollama, d'après sa documentation ; INTEL_GPU, MULTIUSER_CACHE, NEW_ENGINE et
+# NEW_ESTIMATES n'existent plus dans les versions récentes, gardés pour les anciennes). Les
+# autres (``OLLAMA_MODELS``, ``OLLAMA_HOST``, ``OLLAMA_ORIGINS``... : chemins, hôtes) sortent
+# avec leur seul nom.
+PUBLIC_OLLAMA_ENV = frozenset(
+    {
+        "OLLAMA_CONTEXT_LENGTH",
+        "OLLAMA_FLASH_ATTENTION",
+        "OLLAMA_GPU_OVERHEAD",
+        "OLLAMA_IGPU_ENABLE",
+        "OLLAMA_INTEL_GPU",
+        "OLLAMA_KEEP_ALIVE",
+        "OLLAMA_KV_CACHE_TYPE",
+        "OLLAMA_LLM_LIBRARY",
+        "OLLAMA_LOAD_TIMEOUT",
+        "OLLAMA_MAX_LOADED_MODELS",
+        "OLLAMA_MAX_QUEUE",
+        "OLLAMA_MULTIUSER_CACHE",
+        "OLLAMA_NEW_ENGINE",
+        "OLLAMA_NEW_ESTIMATES",
+        "OLLAMA_NUM_PARALLEL",
+        "OLLAMA_SCHED_SPREAD",
+        "OLLAMA_VULKAN",
+    }
+)
+_NOT_PUBLISHED = "<non publié>"
+
+
+def public_ollama_env(env: Mapping[str, Any]) -> dict[str, Any]:
+    """Copie exportable de ``informative.ollama_env`` : valeur gardée pour la liste blanche
+    ``PUBLIC_OLLAMA_ENV``, remplacée par ``<non publié>`` pour tout autre nom (le nom seul
+    indique qu'un réglage existait, sans publier chemin ni hôte)."""
+    return {
+        name: value if name.upper() in PUBLIC_OLLAMA_ENV and value != _MASKED else _NOT_PUBLISHED
+        for name, value in sorted(env.items())
+    }
 
 
 class ManifestMismatchError(RuntimeError):
@@ -110,9 +148,7 @@ def collect_informative(
         "python": platform.python_version(),
         "packages": dict(sorted(packages.items())),
         "code_commit": _run(["git", "rev-parse", "HEAD"]),
-        "nvidia_driver": _run(
-            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"]
-        ),
+        "nvidia_driver": gpu.driver_version(),
         "ollama_env": {
             name: _MASKED if any(word in name.upper() for word in _SECRET_WORDS) else value
             for name, value in sorted(os.environ.items())

@@ -19,6 +19,8 @@
   essai compté en ``OllamaUnavailableError`` (5xx ou coupure, service vivant) ; une ligne
   ``qb.warmup/1`` dans ``warmups.jsonl``. Échec de la chauffe, service vivant : journalisé, sans
   ligne, la génération continue.
+- **Avant chaque modèle** : ``before_model(tag)`` (contrôle du GPU, AD-13) juste avant sa
+  première clé absente ; une exception y arrête la boucle sans ligne pour ce modèle.
 - **Arrêt** : ``stop.should_stop()`` lu avant chaque clé (question, seed) ; le modèle en cours
   est déchargé (``keep_alive: 0``) en fin de modèle et à toute sortie, au mieux.
 
@@ -168,6 +170,7 @@ class Runner:
         stop: StopSignal,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        before_model: Callable[[str], None] | None = None,
     ) -> None:
         self.client = client
         self.campaign = campaign
@@ -181,6 +184,7 @@ class Runner:
         self.stop = stop
         self.sleep = sleep
         self.clock = clock
+        self.before_model = before_model
         self.loaded: tuple[str, int] | None = None
         self.consecutive_errors = 0
         self.statuses: Counter[str] = Counter()
@@ -195,6 +199,7 @@ class Runner:
         try:
             for model in self.models:
                 tag = model["tag"]
+                checked = self.before_model is None
                 try:
                     for track in TRACKS:
                         if track not in model["tracks"]:
@@ -210,6 +215,9 @@ class Runner:
                                     continue
                                 if self.stop.should_stop():
                                     return False
+                                if not checked:
+                                    self.before_model(tag)  # type: ignore[misc]
+                                    checked = True
                                 self._process(model, track, question, epoch, seed, key)
                 finally:
                     if tag in self.requested:

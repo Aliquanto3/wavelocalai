@@ -211,6 +211,47 @@ def test_conformity_error_follows_declared_draft_and_standard_integers():
     assert conformity_error(meta, {"type": "string"}) is None  # métaschéma embarqué
 
 
+def test_conformity_error_checks_format_keywords():
+    from scripts.quality_bench.common.schemas import conformity_error
+
+    def fmt(name):
+        return {"type": "object", "properties": {"v": {"type": "string", "format": name}}}
+
+    assert conformity_error(fmt("email"), {"v": "a@b.fr"}) is None
+    assert conformity_error(fmt("email"), {"v": "pas un courriel"}) == "v (format)"
+    assert conformity_error(fmt("ipv4"), {"v": "10.0.0.1"}) is None
+    assert conformity_error(fmt("ipv4"), {"v": "10.0.0.256"}) == "v (format)"
+    assert conformity_error(fmt("ipv6"), {"v": "::1"}) is None
+    assert conformity_error(fmt("ipv6"), {"v": "zz"}) == "v (format)"
+    assert conformity_error(fmt("uuid"), {"v": "123e4567-e89b-12d3-a456-426614174000"}) is None
+    assert conformity_error(fmt("uuid"), {"v": "123"}) == "v (format)"
+    assert conformity_error(fmt("date"), {"v": "2026-02-30"}) == "v (format)"
+    # Les formats hors liste restent des annotations.
+    assert conformity_error(fmt("uri"), {"v": "n'importe quoi"}) is None
+    assert conformity_error(fmt("date-time"), {"v": "hier"}) is None
+
+
+def test_format_redefinitions_follow_jsonschemabench():
+    from scripts.quality_bench.common.schemas import (
+        _FORMAT_CHECKER,
+        FORMAT_CHECKED,
+        conformity_error,
+    )
+
+    def fmt(name):
+        return {"type": "object", "properties": {"v": {"format": name}}}
+
+    assert set(_FORMAT_CHECKER.checkers) == set(FORMAT_CHECKED)
+    # Amont : UUID(instance) et IPv6Address(instance) seuls, plus permissifs que jsonschema.
+    assert conformity_error(fmt("uuid"), {"v": "{123e4567-e89b-12d3-a456-426614174000}"}) is None
+    assert conformity_error(fmt("uuid"), {"v": "123e4567e89b12d3a456426614174000"}) is None
+    assert conformity_error(fmt("ipv6"), {"v": "fe80::1%eth0"}) is None
+    assert conformity_error(fmt("ipv4"), {"v": "1.2.3"}) == "v (format)"
+    # `format` ne contraint que les chaînes.
+    assert conformity_error(fmt("uuid"), {"v": 5}) is None
+    assert conformity_error(fmt("ipv4"), {"v": None}) is None
+
+
 def test_conformity_error_never_retrieves_remote_references(monkeypatch):
     import urllib.request
 

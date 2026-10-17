@@ -25,6 +25,7 @@ from typing import Any
 
 from ..common import paths
 from ..common.canonical import canonical_bytes, pretty_bytes, sha256_hex
+from ..common.manifest import public_ollama_env
 from ..common.schemas import validate
 from .inputs import CampaignInputs, ReportError
 
@@ -45,14 +46,25 @@ def _checked(record: Mapping[str, Any], expected: str) -> Mapping[str, Any]:
 
 def exported_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
     """Copie du manifeste de génération publiée : une sélection ``{ids: [...]}`` (des
-    ``question_id``) y devient ``{ids_count, ids_sha256}`` (empreinte des ids triés) ; le
-    manifeste lu n'est pas modifié."""
+    ``question_id``) y devient ``{ids_count, ids_sha256}`` (empreinte des ids triés) ;
+    ``informative.ollama_env`` réduit à la liste blanche (``public_ollama_env``) et
+    ``checklist.gpu_check.processes`` à un nombre ; le manifeste lu n'est pas modifié."""
     exported = copy.deepcopy(dict(manifest))
     resolved = exported["blocking"]["generation"]["resolved"]
     selection = resolved.get("selection") if isinstance(resolved, dict) else None
     if isinstance(selection, dict) and "ids" in selection:
         ids = sorted(selection["ids"])
         resolved["selection"] = {"ids_count": len(ids), "ids_sha256": sha256_hex(ids)}
+    informative = exported.get("informative")
+    if isinstance(informative, dict) and isinstance(informative.get("ollama_env"), dict):
+        informative["ollama_env"] = public_ollama_env(informative["ollama_env"])
+    checklist = informative.get("checklist") if isinstance(informative, dict) else None
+    if isinstance(checklist, dict) and isinstance(checklist.get("gpu_check"), dict):
+        # Noms des processus GPU (d'autres projets, parfois) : seul leur nombre est publié.
+        gpu_check = dict(checklist["gpu_check"])
+        if isinstance(gpu_check.get("processes"), list):
+            gpu_check["processes"] = len(gpu_check["processes"])
+        checklist["gpu_check"] = gpu_check
     return exported
 
 

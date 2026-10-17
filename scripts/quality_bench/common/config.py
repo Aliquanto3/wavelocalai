@@ -30,6 +30,7 @@ from typing import Any, Protocol
 import yaml
 
 from .canonical import sha256_hex
+from .gpu import DEFAULT_MAX_IDLE_USED_MIB, DEFAULT_RELEASE_WAIT_S, GpuCheckSettings
 from .paths import REPO_ROOT, check_id
 from .schemas import TRACKS, USAGES
 
@@ -64,6 +65,7 @@ class CampaignConfig:
     generation: dict[str, Any]
     generation_hash: str
     grading: dict[str, Any]
+    gpu_check: GpuCheckSettings = GpuCheckSettings()
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -339,11 +341,35 @@ def _resolve_grading(raw: Any) -> dict[str, Any]:
     return {"judge": judge}
 
 
+def _resolve_gpu_check(raw: Any) -> GpuCheckSettings:
+    """``gpu_check: {enabled: true, max_idle_used_mib: 1024, release_wait_s: 30}`` : hors
+    ``generation`` donc hors ``generation_hash`` (c'est un contrôle d'exploitation, pas un
+    réglage de mesure)."""
+    if raw is None:
+        return GpuCheckSettings()
+    value = _require_mapping(raw, "gpu_check")
+    _reject_unknown(value, {"enabled", "max_idle_used_mib", "release_wait_s"}, "gpu_check")
+    enabled = value.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise ConfigError("gpu_check.enabled : booléen attendu")
+    return GpuCheckSettings(
+        enabled=enabled,
+        max_idle_used_mib=_int(
+            value.get("max_idle_used_mib", DEFAULT_MAX_IDLE_USED_MIB),
+            "gpu_check.max_idle_used_mib",
+            0,
+        ),
+        release_wait_s=_int(
+            value.get("release_wait_s", DEFAULT_RELEASE_WAIT_S), "gpu_check.release_wait_s", 0
+        ),
+    )
+
+
 def load_campaign(path: str | os.PathLike[str]) -> CampaignConfig:
     """Lit et résout le YAML de campagne ``path`` (identifiant = nom du fichier sans suffixe)."""
     path = Path(path)
     raw = _require_mapping(read_yaml(path), str(path))
-    _reject_unknown(raw, {"set", "generation", "grading"}, str(path))
+    _reject_unknown(raw, {"set", "generation", "grading", "gpu_check"}, str(path))
     if "set" not in raw:
         raise ConfigError(f"{path} : clé « set » obligatoire")
     if "generation" not in raw:
@@ -357,6 +383,7 @@ def load_campaign(path: str | os.PathLike[str]) -> CampaignConfig:
         generation=generation,
         generation_hash=sha256_hex(generation),
         grading=_resolve_grading(raw.get("grading")),
+        gpu_check=_resolve_gpu_check(raw.get("gpu_check")),
     )
 
 

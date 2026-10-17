@@ -70,6 +70,19 @@ def _isolated_data_root(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def fake_smi(monkeypatch):
+    """Jamais de ``nvidia-smi`` réel dans les tests (un autre projet peut occuper le GPU) :
+    GPU libre par défaut ; un test le remplace avec ``monkeypatch.setattr(gpu, "RUN", ...)``."""
+    from scripts.quality_bench.common import gpu
+
+    from .gpu_fakes import FakeSmi
+
+    smi = FakeSmi()
+    monkeypatch.setattr(gpu, "RUN", smi)
+    return smi
+
+
+@pytest.fixture(autouse=True)
 def _skip_integration_unless_enabled(request):
     """Le marqueur ``integration`` (Ollama réel) est sauté sauf ``QUALITY_BENCH_INTEGRATION=1``."""
     if request.node.get_closest_marker("integration") and os.environ.get(INTEGRATION_ENV) != "1":
