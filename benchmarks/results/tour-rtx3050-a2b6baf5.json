@@ -2922,6 +2922,76 @@
         "benchmark_commit": "6cae7b682f5b05d52d6d89885ec2f67875164b71",
         "note": "Mesuré après le reste du fichier (Ollama 0.34.3, b36cb8c). 6cae7b6 n'ajoute que le relevé de puissance GPU, non disponible sur la RTX 3050 : scores comparables."
       }
+    },
+    "LFM 2.5 8B-A1B (MoE)": {
+      "date": "2026-10-17",
+      "max_validated_ctx": 16384,
+      "ram_usage_at_max_ctx_gb": 0,
+      "model_memory_at_max_ctx_gb": 5.046,
+      "gpu_vram_usage_gb": 5.155,
+      "gpu_offload_pct": 100,
+      "avg_tokens_per_second": 145.25,
+      "prefill_tokens_per_second": 3599.5,
+      "prefill_prompt_tokens": 4648,
+      "avg_ttft_ms": 68,
+      "ttft_full_prompt_ms": 1311,
+      "load_time_ms": 3996,
+      "ux_rating": "⚡ Instantané",
+      "efficiency_grade": "🟢 Excellent",
+      "detected_license": "Autre (Voir détails)",
+      "total_co2_emissions_kg": 3.272447482069701e-05,
+      "avg_co2_per_1k_tokens": 5e-06,
+      "tool_capability": {
+        "function_detection": true,
+        "parameter_extraction": true,
+        "success_rate": 1.0
+      },
+      "json_capability": {
+        "valid_json_rate": 1.0,
+        "schema_compliance_rate": 1.0
+      },
+      "needle_in_haystack": {
+        "ctx_4k": true,
+        "ctx_8k": true,
+        "ctx_16k": true
+      },
+      "runs": {
+        "tokens_per_second": {
+          "n": 1,
+          "mean": 145.13,
+          "ctx": 16384
+        },
+        "reasoning": {
+          "n": 1,
+          "mean": 1.0
+        },
+        "instruction_following": {
+          "n": 1,
+          "mean": 1.0
+        },
+        "gpu_clock_mhz": {
+          "n": 1,
+          "mean": 2002.0
+        },
+        "gpu_power_plateau_w": {}
+      },
+      "quality_scores": {
+        "reasoning_avg": 1.0,
+        "instruction_following_avg": 1.0,
+        "abstention_avg": 1.0,
+        "reasoning_by_category": {
+          "logic": 1.0,
+          "arithmetic": 1.0,
+          "pattern": 1.0,
+          "trap": 1.0
+        },
+        "response_variance_avg": 0.0
+      },
+      "measured_with": {
+        "ollama_version": "0.40.3",
+        "benchmark_commit": "6cae7b682f5b05d52d6d89885ec2f67875164b71",
+        "note": "Mesuré après le reste du fichier (Ollama 0.34.3, b36cb8c). 6cae7b6 n'ajoute que le relevé de puissance GPU, non disponible sur la RTX 3050 : scores comparables."
+      }
     }
   },
   "models_vendor": {
