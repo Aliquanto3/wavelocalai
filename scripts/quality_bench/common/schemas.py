@@ -295,30 +295,57 @@ SET_MANIFEST_V1: dict[str, Any] = _closed(
 
 # Ligne de correction (AD-10) : seul porteur de score et de success (AD-3). Règles croisées :
 # erreurs du banc et attente du juge sans score ; échecs du modèle à 0 ; rédaction
-# (judge_criteria) sans success ; ailleurs, score = success.
-_UNSCORED = ["context_exceeded", "error", "awaiting_judgment"]
+# (judge_criteria) sans success ; ailleurs, score = success. ``context_exceeded`` suit sa cause
+# ``context_limit`` (requise dans ce seul statut, interdite sinon) : ``model`` est un échec du
+# modèle (score 0, comme une troncature), ``bench`` une erreur du banc (sans score).
+_UNSCORED = ["error", "awaiting_judgment"]
 _MODEL_FAILURES = ["truncated", "non_compliant"]
+_CONTEXT_EXCEEDED = {"status": {"const": "context_exceeded"}}
+_CONTEXT_MODEL = {
+    "properties": {**_CONTEXT_EXCEEDED, "context_limit": {"const": "model"}},
+    "required": ["context_limit"],
+}
+_CONTEXT_BENCH = {
+    "properties": {**_CONTEXT_EXCEEDED, "context_limit": {"const": "bench"}},
+    "required": ["context_limit"],
+}
+_GRADING_PROPERTIES: dict[str, Any] = {
+    "schema": {"const": "qb.grading/1"},
+    "key": _NON_EMPTY,
+    "generation_manifest": _HASH,
+    "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
+    "grader": {"type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$"},
+    "status": {"enum": list(GRADING_STATUSES)},
+    "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "success": {"type": ["boolean", "null"]},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+    "context_limit": {"enum": list(CONTEXT_LIMITS)},
+}
 GRADING_V1: dict[str, Any] = {
     **_closed(
-        {
-            "schema": {"const": "qb.grading/1"},
-            "key": _NON_EMPTY,
-            "generation_manifest": _HASH,
-            "judgment_manifest": {"oneOf": [_HASH, {"type": "null"}]},
-            "grader": {"type": "string", "pattern": "^[a-z][a-z0-9_]*@[1-9][0-9]*$"},
-            "status": {"enum": list(GRADING_STATUSES)},
-            "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-            "success": {"type": ["boolean", "null"]},
-            "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
-        }
+        _GRADING_PROPERTIES,
+        required=[name for name in _GRADING_PROPERTIES if name != "context_limit"],
     ),
     "allOf": [
+        {
+            "if": {"properties": _CONTEXT_EXCEEDED},
+            "then": {"required": ["context_limit"]},
+            "else": {"not": {"required": ["context_limit"]}},
+        },
         {
             "if": {"properties": {"status": {"enum": _UNSCORED}}},
             "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
         },
         {
+            "if": _CONTEXT_BENCH,
+            "then": {"properties": {"score": {"type": "null"}, "success": {"type": "null"}}},
+        },
+        {
             "if": {"properties": {"status": {"enum": _MODEL_FAILURES}}},
+            "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
+        },
+        {
+            "if": _CONTEXT_MODEL,
             "then": {"properties": {"score": {"const": 0}, "success": {"enum": [False, None]}}},
         },
         {
@@ -329,7 +356,12 @@ GRADING_V1: dict[str, Any] = {
             "if": {"properties": {"grader": {"pattern": "^judge_criteria@"}}},
             "then": {"properties": {"success": {"type": "null"}}},
             "else": {
-                "if": {"properties": {"status": {"enum": ["ok", *_MODEL_FAILURES]}}},
+                "if": {
+                    "anyOf": [
+                        {"properties": {"status": {"enum": ["ok", *_MODEL_FAILURES]}}},
+                        _CONTEXT_MODEL,
+                    ]
+                },
                 "then": {"properties": {"success": {"type": "boolean"}}},
             },
         },

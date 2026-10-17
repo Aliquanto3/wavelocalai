@@ -1,4 +1,4 @@
-"""Rédaction : ``judge_criteria@2`` (verdicts du code et du juge retenu, AD-10, AD-16).
+"""Rédaction : ``judge_criteria@3`` (verdicts du code et du juge retenu, AD-10, AD-16).
 
 Un critère qui porte un ``check`` (comptage, ``questions/checks.py``) est vérifié par le code sur
 la réponse finale (``grading/counting.py``) : le juge ne le voit pas. Les autres critères sont
@@ -14,7 +14,8 @@ dossier ``judgment-<grading.judge>/``, ou ``None`` sans juge désigné ou sans d
 
 ``judge_criteria@1`` ne connaissait que le juge : la version change avec le code de
 vérification. Un jeu sans ``check`` (``set-v1``, ``writing-fr.yaml``) est désormais corrigé par
-``judge_criteria@2`` avec des scores identiques à ``@1`` : seule l'étiquette ``grader`` diffère.
+``judge_criteria@2`` avec des scores identiques à ``@1`` : seule l'étiquette ``grader`` diffère ;
+``@3`` (2026-10-17) : une génération en ``context_exceeded`` à ``context_limit = model`` vaut 0.
 """
 
 from __future__ import annotations

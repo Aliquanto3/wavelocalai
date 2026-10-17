@@ -213,9 +213,13 @@ def generation_for(
     call_cap_reached: bool = False,
     manifest: str = HASH_A,
     seed: int = 0,
+    context_limit: str | None = None,
 ) -> dict[str, Any]:
-    """Ligne ``qb.generation/1`` valide pour ``question``."""
+    """Ligne ``qb.generation/1`` valide pour ``question`` (``context_limit`` : cause d'une ligne
+    ``context_exceeded``, ``bench`` par défaut)."""
+    extra = {"context_limit": context_limit or "bench"} if status == "context_exceeded" else {}
     return generation_record(
+        **extra,
         key=f"{campaign}|{MODEL}|think_off|{question['id']}|{seed}",
         manifest=manifest,
         campaign=campaign,

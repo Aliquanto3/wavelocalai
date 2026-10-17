@@ -373,7 +373,7 @@ def test_grade_combines_code_and_judge_verdicts(server, tmp_path, monkeypatch):
     for key in campaign["writing_keys"]:
         # c1 (code : 4 mots, vrai) + c2 vrai, c3 faux, c4 vrai (juge) : 3 sur 4.
         assert (after[key]["status"], after[key]["score"]) == ("ok", 0.75)
-        assert after[key]["grader"] == "judge_criteria@2"
+        assert after[key]["grader"] == "judge_criteria@3"
 
 
 def test_grade_ignores_a_stale_judgment_of_a_criterion_checked_by_code(

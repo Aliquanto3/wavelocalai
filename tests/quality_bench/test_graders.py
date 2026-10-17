@@ -46,7 +46,7 @@ def test_registry_has_the_twelve_graders_at_their_versions():
     assert set(GRADERS) == set(GRADER_NAMES)
     assert len(GRADERS) == 12
     assert all(
-        registered.version == f"{name}@{2 if name in ('json_schema', 'judge_criteria') else 1}"
+        registered.version == f"{name}@{3 if name in ('json_schema', 'judge_criteria') else 2}"
         for name, registered in GRADERS.items()
     )
 
@@ -446,7 +446,6 @@ def test_judge_criteria_verdict_in_error(q):
     "status, expected",
     [
         ("truncated", ("truncated", 0.0, False)),
-        ("context_exceeded", ("context_exceeded", None, None)),
         ("error", ("error", None, None)),
     ],
 )
@@ -454,6 +453,44 @@ def test_generation_status_comes_first(q, status, expected):
     record = _grade(q["var_math"], answer_output("La réponse est : 1234"), status=status)
     assert _outcome(record) == expected
     assert record["metrics"] == {}
+    assert "context_limit" not in record
+
+
+@pytest.mark.parametrize(
+    "limit, expected",
+    [
+        ("model", ("context_exceeded", 0.0, False)),  # échec du modèle, compté
+        ("bench", ("context_exceeded", None, None)),  # unité nulle, écartée
+    ],
+)
+def test_context_exceeded_follows_its_cause(q, limit, expected):
+    output = answer_output("La réponse est : 1234")  # même une sortie correcte n'y change rien
+    record = _grade(q["var_math"], output, status="context_exceeded", context_limit=limit)
+    assert _outcome(record) == expected
+    assert record["context_limit"] == limit
+    assert record["metrics"] == {}
+
+
+def test_context_exceeded_by_model_on_writing_has_no_success(q):
+    record = _grade(
+        q["writing"], answer_output("Texte."), status="context_exceeded", context_limit="model"
+    )
+    assert _outcome(record) == ("context_exceeded", 0.0, None)
+    assert _grade(
+        q["writing"], answer_output("Texte."), status="context_exceeded", context_limit="bench"
+    )["score"] is None
+
+
+def test_context_exceeded_precedes_call_cap(q):
+    output = run_conversation(q["bfcl_multi"], GOOD_STEPS)
+    record = _grade(
+        q["bfcl_multi"],
+        output,
+        status="context_exceeded",
+        context_limit="model",
+        call_cap_reached=True,
+    )
+    assert _outcome(record) == ("context_exceeded", 0.0, False)
 
 
 def test_truncated_writing_has_no_success(q):

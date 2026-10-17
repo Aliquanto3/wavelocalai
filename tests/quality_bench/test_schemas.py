@@ -154,7 +154,27 @@ def _judgment(**overrides):
         {"status": "truncated", "score": 0, "success": False, "metrics": {}},
         {"status": "non_compliant", "score": 0.0, "success": False},
         {"status": "error", "score": None, "success": None, "metrics": {}},
-        {"status": "context_exceeded", "score": None, "success": None, "metrics": {}},
+        {
+            "status": "context_exceeded",
+            "context_limit": "bench",
+            "score": None,
+            "success": None,
+            "metrics": {},
+        },
+        {
+            "status": "context_exceeded",
+            "context_limit": "model",
+            "score": 0,
+            "success": False,
+            "metrics": {},
+        },
+        {
+            "grader": "judge_criteria@1",
+            "status": "context_exceeded",
+            "context_limit": "model",
+            "score": 0,
+            "success": None,
+        },
         {"grader": "judge_criteria@1", "score": 0.75, "success": None, "judgment_manifest": HASH_B},
         {"grader": "judge_criteria@1", "status": "truncated", "score": 0.0, "success": None},
         {
@@ -178,6 +198,15 @@ def test_grading_lines_validate(overrides):
         {"success": None},  # hors rédaction, une ligne notée a un succès
         {"status": "truncated"},  # échec du modèle : score 0
         {"status": "error"},  # erreur du banc : ni score ni succès
+        {"status": "context_exceeded", "score": None, "success": None},  # cause absente
+        {"status": "context_exceeded", "context_limit": "bench"},  # banc : sans score
+        {"status": "context_exceeded", "context_limit": "bench", "score": 0, "success": False},
+        {"status": "context_exceeded", "context_limit": "model", "score": None, "success": None},
+        {"status": "context_exceeded", "context_limit": "model", "score": 1.0, "success": True},
+        {"status": "context_exceeded", "context_limit": "model", "score": 0, "success": None},
+        {"status": "context_exceeded", "context_limit": "banc", "score": None, "success": None},
+        {"status": "truncated", "context_limit": "model", "score": 0, "success": False},
+        {"context_limit": "model"},  # interdit hors context_exceeded
         {"status": "awaiting_judgment", "score": None, "success": False},
         {"status": "ok", "score": None, "success": None},
         {"grader": "judge_criteria@1", "score": 1.0, "success": True},
