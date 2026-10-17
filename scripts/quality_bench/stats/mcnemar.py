@@ -74,10 +74,30 @@ def paired_difference(
 
 
 def z_test(diff: float, se: float) -> float:
-    """p bilatérale du test z de ``diff / se`` ; ET nulle : ``1`` si la différence est nulle,
-    ``0`` sinon ; ``nan`` si indéfinie."""
+    """p bilatérale du test z de ``diff / se`` ; ``nan`` si indéfinie, y compris quand l'ET
+    est nulle avec une différence non nulle (le z n'a alors aucun sens : voir ``paired_test``) ;
+    ET nulle et différence nulle : ``1``."""
     if not (math.isfinite(diff) and math.isfinite(se)):
         return math.nan
     if se == 0.0:
-        return 1.0 if diff == 0.0 else 0.0
+        return 1.0 if diff == 0.0 else math.nan
     return float(2.0 * norm.sf(abs(diff / se)))
+
+
+def sign_test_exact(differences: Sequence[float]) -> float:
+    """p bilatérale du test exact des signes sur les différences par unité : on écarte les
+    différences nulles, puis ``binomtest(positives, non nulles, 0,5)`` ; ``1`` s'il n'en reste
+    aucune."""
+    positives = sum(1 for d in differences if d > 0)
+    negatives = sum(1 for d in differences if d < 0)
+    return mcnemar_exact(positives, negatives)
+
+
+def paired_test(diff: float, se: float, differences: Sequence[float]) -> tuple[float, str]:
+    """(p, méthode) du test sur la différence appariée : test z (``"z"``) ; quand l'ET groupée
+    est nulle avec une différence non nulle, le z donnerait p = 0 quel que soit l'effectif :
+    repli sur le test exact des signes sur les unités (``"sign"``). ET ou différence
+    indéfinie : ``(nan, "z")``."""
+    if math.isfinite(diff) and math.isfinite(se) and se == 0.0 and diff != 0.0:
+        return sign_test_exact(differences), "sign"
+    return z_test(diff, se), "z"

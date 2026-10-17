@@ -395,6 +395,7 @@ _MAYBE_TAG = {"type": ["string", "null"], "minLength": 1}
 _DATE = {"type": "string", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
 CONTINUOUS_METRICS = ("instructions_followed", "f1")
 REPORT_METHODS = ("mcnemar", "paired_z")
+P_METHODS = ("mcnemar", "z", "sign")
 SPEARMAN_CONCLUSIONS = ("inconclusive", "investigate", "concordant", "not_significant")
 AA_STATUSES = ("measured", "estimated")
 AA_VARIANTS = ("reasoning", "non_reasoning")
@@ -447,6 +448,7 @@ _REPORT_COMPARISON = _closed(
         "b": _MAYBE_COUNT,
         "c": _MAYBE_COUNT,
         "p": _MAYBE_NUMBER,
+        "p_method": {"enum": list(P_METHODS)},
         "p_holm": _MAYBE_NUMBER,
         "reject": {"type": "boolean"},
     }

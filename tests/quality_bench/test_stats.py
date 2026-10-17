@@ -23,6 +23,8 @@ from scripts.quality_bench.stats.mcnemar import (
     discordant_counts,
     mcnemar_exact,
     paired_difference,
+    paired_test,
+    sign_test_exact,
     z_test,
 )
 from scripts.quality_bench.stats.multiple import benjamini_hochberg, bonferroni_wins, holm
@@ -148,8 +150,41 @@ def test_correlation_of_a_constant_model_is_undefined():
 def test_z_test():
     assert z_test(0.1, 0.05) == pytest.approx(0.0455003, abs=1e-6)
     assert z_test(0.0, 0.0) == 1.0
-    assert z_test(0.2, 0.0) == 0.0
+    # ET nulle et différence non nulle : z indéfini (le repli est paired_test), pas p = 0.
+    assert math.isnan(z_test(0.2, 0.0))
     assert math.isnan(z_test(math.nan, 0.1))
+
+
+def test_sign_test_exact_by_hand():
+    # 2 positives, 0 négative : 2 · (1/2)² = 0,5. Les zéros sont écartés.
+    assert sign_test_exact([1, 0, 1, 0]) == pytest.approx(0.5)
+    # 8 positives sur 8 : 2 · (1/2)⁸ = 2/256.
+    assert sign_test_exact([1] * 8) == pytest.approx(2 / 256)
+    # 7 positives, 1 négative : 2 · (1 + 8)/256 = 18/256.
+    assert sign_test_exact([1] * 7 + [-1]) == pytest.approx(18 / 256)
+    # 3 contre 3 : p = 1 ; aucune différence : p = 1.
+    assert sign_test_exact([1, 1, 1, -1, -1, -1]) == pytest.approx(1.0)
+    assert sign_test_exact([0, 0]) == 1.0
+
+
+def test_paired_test_falls_back_to_the_sign_test_when_the_pooled_se_is_zero():
+    # Reproduction : d = (1, 0, 1, 0), un résidu de groupe nul par groupe, donc ET groupée
+    # nulle ; le z donnait p = 0 à n = 4.
+    paired = paired_difference([1, 0, 1, 0], [0, 0, 0, 0], ["g1", "g1", "g2", "g2"], Z95)
+    assert paired.diff == 0.5 and paired.se == 0.0
+    p, method = paired_test(paired.diff, paired.se, [1, 0, 1, 0])
+    assert method == "sign" and p == pytest.approx(0.5)
+    # 4 positives sur 4 non nulles : p = 2 · (1/2)⁴ = 0,125.
+    p, method = paired_test(0.5, 0.0, [1, 0, 1, 0, 1, 0, 1, 0])
+    assert method == "sign" and p == pytest.approx(0.125)
+
+
+def test_paired_test_keeps_the_z_test_otherwise():
+    p, method = paired_test(0.1, 0.05, [1, 0, 0])
+    assert method == "z" and p == pytest.approx(0.0455003, abs=1e-6)
+    assert paired_test(0.0, 0.0, [0, 0]) == (1.0, "z")
+    p, method = paired_test(math.nan, math.nan, [1])
+    assert method == "z" and math.isnan(p)
 
 
 # -- Comparaisons multiples -----------------------------------------------------------------

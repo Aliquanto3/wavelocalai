@@ -172,7 +172,15 @@ def _comparisons_table(scope: Mapping[str, Any]) -> list[str]:
             "oui" if c["reject"] else "non",
         ]
         rows.append(row)
-    return _table(headers, rows)
+    lines = _table(headers, rows)
+    if any(c["p_method"] == "sign" for c in scope["comparisons"]):
+        lines += [
+            "",
+            "Pour les comparaisons dont l'erreur-type groupée est nulle avec une différence non "
+            "nulle, le test z est indéfini : `p` vient alors du test exact des signes sur les "
+            "différences par unité non nulles (binomiale, p = 0,5).",
+        ]
+    return lines
 
 
 def _matrix_lines(scope: Mapping[str, Any]) -> list[str]:

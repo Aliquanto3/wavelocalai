@@ -14,6 +14,7 @@ Toutes les analyses partent de `grading.jsonl` (scores) et de `generation.jsonl`
 - **Holm** sur les k−1 comparaisons au meneur (19 tests pour 20 modèles). Passer `method='holm'` à `multipletests`, dont la valeur par défaut est Holm-Šidák.
 - **BH (FDR)** réservé à la matrice exploratoire « qui bat qui ».
 - **Bootstrap apparié** pour les métriques non binaires (F1 d'extraction, note du juge).
+- **Test z sur la différence appariée** (erreur-type groupée) pour les périmètres non binaires. Quand l'ET groupée est nulle avec une différence non nulle, le z donnerait p = 0 quel que soit l'effectif : repli sur le **test exact des signes** bilatéral sur les unités (différences par unité non nulles, binomiale p = 0,5), signalé par `p_method: "sign"` dans le rapport (`"z"` ou `"mcnemar"` sinon) et par une note sous le tableau des comparaisons.
 - Friedman/Nemenyi est exclu pour une analyse par question : son N compte des jeux de données.
 
 ## Classement
