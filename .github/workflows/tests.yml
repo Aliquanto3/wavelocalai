@@ -111,3 +111,43 @@ jobs:
         name: security-reports
         path: |
           bandit-report.json
+
+  quality-bench:
+    name: Banc de qualité (tests/quality_bench, Windows, Python 3.14)
+    runs-on: windows-latest
+    env:
+      # Racine des données du banc (le défaut du dépôt, ignoré par git) ; les tests de
+      # correction lisent NLTK dessous. Le contexte runner n'existe pas dans env de job.
+      QUALITY_BENCH_DATA: ${{ github.workspace }}\data\quality_bench
+
+    steps:
+    - uses: actions/checkout@v7
+
+    # 3.14 : version de .venv-quality, déclarée dans scripts/quality_bench/requirements.txt.
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.14'
+        cache: pip
+        cache-dependency-path: scripts/quality_bench/requirements.txt
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/quality_bench/requirements.txt
+
+    # Les empreintes sha256 des archives NLTK sont épinglées dans nltk_data.py : la clé change
+    # avec elles.
+    - name: Cache NLTK data
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}\data\quality_bench\nltk_data
+        key: nltk-data-${{ runner.os }}-${{ hashFiles('scripts/quality_bench/questions/importers/nltk_data.py') }}
+
+    # Seule étape réseau du job : ne retélécharge pas un paquet déjà présent avec la bonne
+    # empreinte.
+    - name: Fetch NLTK data
+      run: python -m scripts.quality_bench fetch-nltk
+
+    - name: Run quality bench tests
+      run: python -m pytest tests/quality_bench -q
