@@ -7,7 +7,7 @@ paradigm: 'pipes-and-filters : phases découplées par fichiers en ajout seul, n
 scope: 'Banc de qualité difficile pour les SLM locaux de wavelocalai v1 : jeu de questions, génération Ollama, correction, jugement, statistiques et rapports'
 status: final
 created: '2026-10-10'
-updated: '2026-10-11'
+updated: '2026-10-17'
 binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8]
 sources:
   - ../../../specs/spec-benchmark-qualite-difficile/SPEC.md
@@ -92,7 +92,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 | Fichier | Propriétaire | Mode |
 | --- | --- | --- |
 | `sources/<slug>/…` (candidats) | l'importeur ou le générateur `<slug>`, un seul par slug | réécrit |
-| `sets/<set>/questions.jsonl`, `tracks.json` ; `benchmarks/quality/sets/<set>/index.jsonl` | `questions/set_builder.py` | écrit une fois ; refus si le dossier existe |
+| `sets/<set>/questions.jsonl`, `tracks.json` ; `benchmarks/quality/sets/<set>/index.jsonl`, `manifest.json` | `questions/set_builder.py` | écrit une fois ; refus si le dossier existe |
 | `campaigns/<c>/manifest.json`, `generation.jsonl`, `warmups.jsonl` | `generation/` | ajout seul + `fsync` |
 | `campaigns/<c>/judgment-<judge>/manifest.json`, `judgment.jsonl`, `batches.jsonl` | `judge/` | ajout seul + `fsync` |
 | `campaigns/<c>/grading.jsonl` | `grading/` | réécrit en entier (temporaire + `os.replace`) |
@@ -174,6 +174,7 @@ Une flèche est une permission d'import ; toute autre est interdite. `generation
 - **Prevents:** une question privée, une cible devinable ou une réponse brute qui fuit dans le dépôt public.
 - **Rule:** seuls ces schémas fermés s'écrivent sous `benchmarks/quality/`, par `report/` et `set_builder` ; tout champ hors liste est une erreur.
   - `qb.set_index/1` : `id, usage, group, unit, source, license, private, question_hash`, plus `prompt_hash, target_hash` **pour les seules questions publiques**.
+  - `qb.set_manifest/1` (amendement validé par Anaël, 2026-10-17) : un fichier `benchmarks/quality/sets/<set>/manifest.json` par jeu, écrit par `build-set` avec l'index. Champs : `set, set_hash` (empreinte du jeu, AD-4), `seed, counts` (`think_off`, `think_on`), `generators` (versions `name@n` des générateurs), `inputs` (par fichier d'entrée **public** : `source, kind` parmi `candidates` | `raw` | `house`, `path, sha256`), `index_sha256`, `commit` (dépôt à la construction) et `dirty` (fichiers suivis de `scripts/quality_bench` modifiés à ce moment). Rien de privé : ni fichier privé ni son empreinte, ni texte de question, ni cible. Il rend vérifiables la provenance du jeu et ses entrées, que le seul journal `sets/log-build-set.log` (hors dépôt) ne conservait pas.
   - `qb.score/1` : `question_hash, model, digest, track, seed, status, score, success, metrics`. `metrics` ne contient que des flottants finis. Fichiers découpés par modèle : `benchmarks/quality/<c>/scores/<model>.jsonl`.
   - Manifestes, agrégats et rapports ne contiennent ni texte de question ni sortie de modèle.
   - Un test de `tests/quality_bench/` parcourt tout `benchmarks/quality/` et vérifie les clés de chaque ligne.

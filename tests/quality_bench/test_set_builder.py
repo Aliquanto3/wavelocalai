@@ -401,6 +401,62 @@ def test_cli_build_set_writes_three_files(small_set, _reset_logging):
     assert not leftovers
 
 
+def test_build_set_writes_a_public_whitelisted_manifest(small_set, _reset_logging):
+    import json
+
+    from scripts.quality_bench.__main__ import main
+    from scripts.quality_bench.common.schemas import validate
+
+    assert main(["build-set", "--set", "small"]) == 0
+    questions = read_jsonl(paths.set_questions_path("small"))
+    tracks = json.loads(paths.set_tracks_path("small").read_text(encoding="utf-8"))
+    manifest = json.loads(paths.set_manifest_path("small").read_text(encoding="utf-8"))
+    assert validate(manifest) == "qb.set_manifest/1"
+    assert manifest["set"] == "small" and manifest["seed"] == 7
+    assert manifest["set_hash"] == set_hash(questions, tracks)
+    assert manifest["counts"] == {"think_off": 13, "think_on": 5}
+    assert manifest["generators"] == ["var_math_fr@1"]
+    assert manifest["index_sha256"] == sha256_bytes(paths.set_index_path("small").read_bytes())
+    assert manifest["commit"] is None or len(manifest["commit"]) == 40
+    by_kind = {(item["source"], item["kind"]): item for item in manifest["inputs"]}
+    assert set(by_kind) == {("bbeh-mini", "candidates"), ("writing-fr", "house")}
+    candidates_file = paths.candidates_path("bbeh-mini")
+    assert by_kind[("bbeh-mini", "candidates")]["sha256"] == sha256_bytes(
+        candidates_file.read_bytes()
+    )
+    house = by_kind[("writing-fr", "house")]
+    assert house["path"] == "scripts/quality_bench/questions/writing/writing-fr.yaml"
+    # Rien de privé : ni la source, ni l'empreinte de son fichier, ni un texte de question.
+    private_digest = sha256_bytes(paths.private_source_path("var-math-fr").read_bytes())
+    text = paths.set_manifest_path("small").read_text(encoding="utf-8")
+    assert private_digest not in text and "var-math-fr" not in text and "Synthétique" not in text
+    assert "manifest.json : sha256" in paths.sets_log_path("build-set").read_text(encoding="utf-8")
+
+
+def test_manifest_hash_of_a_house_file_ignores_line_endings(tmp_path):
+    lf, crlf = tmp_path / "lf.yaml", tmp_path / "crlf.yaml"
+    lf.write_bytes(b"a: 1\nb: 2\n")
+    crlf.write_bytes(b"a: 1\r\nb: 2\r\n")
+    assert set_builder._line_normalized_sha256(lf) == set_builder._line_normalized_sha256(crlf)
+
+
+def test_oneruler_raw_files_are_listed_once_in_the_manifest(tmp_path):
+    path = tmp_path / "rag.yaml"
+    path.write_text(
+        "set: rag\nseed: 1\nsources:\n"
+        "  - {source: oneruler-fr-niah, count: 1, generator_seed: 1}\n"
+        "  - {source: oneruler-fr-cwe, count: 1, generator_seed: 2}\n"
+        "  - {source: oneruler-fr-none, count: 1, generator_seed: 3}\n"
+        "think_on: {}\n",
+        encoding="utf-8",
+    )
+    inputs = set_builder.public_inputs(load_set(path, SOURCES, REFUSED_SOURCES))
+    assert sorted((item["path"], item["sha256"]) for item in inputs) == sorted(
+        (remote.path, remote.sha256) for remote in oneruler_fr.RAW_FILES
+    )
+    assert {(item["source"], item["kind"]) for item in inputs} == {("oneruler-fr", "raw")}
+
+
 def test_build_set_is_byte_identical_across_roots(small_set, tmp_path, monkeypatch):
     digests = []
     for name in ("a", "b"):
@@ -421,7 +477,9 @@ def test_build_set_is_byte_identical_across_roots(small_set, tmp_path, monkeypat
             )
             _write_var_math(paths.private_source_path("var-math-fr"))
         set_builder.build_set("small")
-        digests.append([sha256_bytes(p.read_bytes()) for p in _outputs()])
+        digests.append(
+            [sha256_bytes(p.read_bytes()) for p in (*_outputs(), paths.set_manifest_path("small"))]
+        )
     assert digests[0] == digests[1]
 
 
