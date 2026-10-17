@@ -252,6 +252,85 @@ def test_bfcl_multi_turn(tmp_path):
     assert params["underscore_to_dot"] is True and params["excluded_function"] == ["cp"]
 
 
+def _tool_messages(history):
+    return [message for message in history if message["role"] == "tool"]
+
+
+def test_gold_history_replays_the_target_turn_by_turn():
+    from .grading_factories import FILE_SYSTEM_STATE
+
+    env = {"name": "bfcl_multi_turn", "initial_state": FILE_SYSTEM_STATE}
+    history = bfcl.gold_history(env, [["ls()", "cd(folder='docs')"], ["cat(file_name='a.txt')"]])
+    # Par tour : appels, un résultat par appel, puis la réponse de fin de tour.
+    assert [message["role"] for message in history] == [
+        "assistant", "tool", "tool", "assistant", "assistant", "tool", "assistant",
+    ]  # fmt: skip
+    first = history[0]["tool_calls"]
+    assert [call["function"]["name"] for call in first] == ["ls", "cd"]
+    assert first[1]["function"]["arguments"] == {"folder": "docs"}
+    assert "docs" in _tool_messages(history)[0]["content"]
+    assert "beta" in _tool_messages(history)[2]["content"]  # cat voit le répertoire courant
+    reply = history[3]["content"]
+    assert len(reply) == bfcl.REPLY_ALLOWANCE_TOKENS * base.CHARS_PER_TOKEN
+
+
+def test_gold_history_tolerates_an_unreadable_target_call():
+    from .grading_factories import FILE_SYSTEM_STATE
+
+    env = {"name": "bfcl_multi_turn", "initial_state": FILE_SYSTEM_STATE}
+    history = bfcl.gold_history(env, [["pas un appel valide ("]])
+    assert [message["role"] for message in history] == ["assistant", "tool", "assistant"]
+    assert _tool_messages(history)[0]["content"] == ""
+
+
+def test_multi_turn_history_raises_the_estimate_and_the_tier():
+    prompt = {"messages": [{"role": "user", "content": "T1"}], "turns": None, "tools": None}
+    without = base.estimate_prompt_tokens(prompt)
+    history = [{"role": "tool", "content": "r" * 6000, "tool_name": "ls"}] * 2
+    with_history = base.estimate_prompt_tokens(prompt, history)
+    assert with_history >= without + 2 * 6000 // base.CHARS_PER_TOKEN
+    # 3000 tokens de contexte seul : palier 8192 pour 2048 tokens de plafond ; avec l'historique
+    # (+ 4000 tokens), l'AD-5 exige 8192 puis 16384.
+    assert base.choose_num_ctx(without + 2000, "tools") == 8192
+    assert base.choose_num_ctx(with_history + 2000, "tools") == 16384
+
+
+def test_bfcl_multi_turn_counts_the_accumulated_history(tmp_path):
+    from .grading_factories import FILE_SYSTEM_STATE
+
+    docs = {
+        doc: [
+            {"name": f"{doc}_f", "description": "d", "parameters": {"type": "dict"}, "response": {}}
+        ]
+        for doc in bfcl.CLASS_DOCS.values()
+    }
+    names_rows = {f"multi_turn_func_doc/{doc}.json": rows for doc, rows in docs.items()}
+    turns = [[{"role": "user", "content": f"T{n}"}] for n in range(1, 8)]
+    row = {
+        "id": "multi_turn_base_0",
+        "question": turns,
+        "initial_config": FILE_SYSTEM_STATE["initial_config"],
+        "path": [],
+        "involved_classes": FILE_SYSTEM_STATE["involved_classes"],
+        "excluded_function": [],
+    }
+    names_rows[bfcl.MULTI] = [row]
+    names_rows[f"possible_answer/{bfcl.MULTI}"] = [
+        {"id": "multi_turn_base_0", "ground_truth": [["cat(file_name='a.txt')"]] * 7}
+    ]
+    question = bfcl.convert_multi(_bfcl_local(tmp_path, names_rows))[0]
+    short = dict(row, question=turns[:1])
+    names_rows[bfcl.MULTI] = [short]
+    names_rows[f"possible_answer/{bfcl.MULTI}"] = [
+        {"id": "multi_turn_base_0", "ground_truth": [["cat(file_name='a.txt')"]]}
+    ]
+    one_turn = bfcl.convert_multi(_bfcl_local(tmp_path / "short", names_rows))[0]
+    # Sept tours : sept fois la réponse et les messages d'appel, pas seulement les tours.
+    assert question["est_prompt_tokens"] > one_turn["est_prompt_tokens"] + 6 * 100
+    assert question["turns"] and len(question["turns"]) == 6
+    assert "history" not in question  # estimation seulement : rien n'est ajouté à la question
+
+
 def test_conversion_is_deterministic(tmp_path):
     path = _write_json(tmp_path / "data.json", {"examples": [{"input": "Q", "target": "1"}]})
     first = canonical_bytes(bbeh.convert({bbeh.DATA.path: path}))

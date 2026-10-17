@@ -242,6 +242,21 @@ def test_story3_modules_never_reach_importers(name):
         assert root not in ("huggingface_hub", "datasets", "urllib", "httpx2", "stanza")
 
 
+def test_only_the_bfcl_importer_of_questions_reaches_envs():
+    """Spine, sens des dépendances : ``questions/`` n'importe ``envs/`` que par
+    ``importers/bfcl.py`` (rejeu de la cible pour l'estimation du contexte, AD-5)."""
+    importers = {
+        _rel(path)
+        for path in _package_modules()
+        if _rel(path).startswith("questions/")
+        and any(
+            module == "envs" or module.startswith("envs.") or module.split(".")[-1] == "envs"
+            for module in _relative_imports(path)
+        )
+    }
+    assert importers <= {"questions/importers/bfcl.py"}, importers
+
+
 def test_var_math_never_calls_eval_or_exec():
     tree = ast.parse((PACKAGE / "questions/generators/var_math.py").read_text(encoding="utf-8"))
     calls = {

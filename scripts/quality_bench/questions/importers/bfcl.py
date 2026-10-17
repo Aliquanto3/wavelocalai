@@ -13,6 +13,13 @@ Les fonctions passent au format d'outil d'Ollama comme le fait BFCL pour les mod
 de fonction : types Gorilla convertis (``dict`` → ``object``, ``float`` → ``number``…), points
 des noms remplacés par ``_``. Les déclarations d'origine restent dans ``grader.params`` pour le
 correcteur AST (``ast_checker``).
+
+**Contexte des conversations ``bfcl-multi`` (AD-5) :** le runner renvoie tout l'historique à
+chaque appel. ``gold_history`` rejoue la cible dans l'environnement simulé (``envs/``, seule
+dépendance de ``questions/`` vers ``envs/``) et rend les messages qu'accumulerait un modèle qui
+la suit : par tour, un message ``assistant`` portant les appels, un message ``tool`` par
+résultat, puis une réponse de ``REPLY_ALLOWANCE_TOKENS`` tokens. Ils entrent dans
+``est_prompt_tokens``, donc dans le palier ``num_ctx``.
 """
 
 from __future__ import annotations
@@ -23,7 +30,9 @@ from pathlib import Path
 from typing import Any
 
 from ...common.jsonl import read_complete_jsonl
-from .base import Importer, build_questions
+from ...envs.base import CallExpressionError, parse_call
+from ...envs.registry import make_env
+from .base import CHARS_PER_TOKEN, Importer, build_questions
 from .remote import RemoteFile
 
 _REPO = "ShishirPatil/gorilla"
@@ -213,6 +222,38 @@ def convert_multi(local: Mapping[str, Path]) -> list[dict[str, Any]]:
     return build_questions("bfcl-multi", _multi_items(local, docs, answers))
 
 
+# Réponse textuelle d'un modèle à la fin d'un tour (une ou deux phrases), comptée par tour.
+REPLY_ALLOWANCE_TOKENS = 100
+
+
+def gold_history(env: Mapping[str, Any], target: list[list[str]]) -> list[dict[str, Any]]:
+    """Messages accumulés par un modèle qui suit la cible, tous tours compris (voir le module).
+
+    Une cible dont un appel n'est pas analysable (``CallExpressionError``) donne un résultat
+    vide : le correcteur la traitera en erreur du banc, l'estimation n'en dépend pas.
+    """
+    simulated = make_env(env)
+    reply = {"role": "assistant", "content": "x" * (REPLY_ALLOWANCE_TOKENS * CHARS_PER_TOKEN)}
+    history: list[dict[str, Any]] = []
+    for expressions in target:
+        calls: list[dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
+        for expression in expressions:
+            try:
+                name, args, kwargs = parse_call(expression)
+                content = simulated.invoke(name, args, kwargs)
+            except CallExpressionError:
+                name, args, kwargs, content = "unknown", (), {}, ""
+            arguments = {**kwargs, **{f"arg{index}": value for index, value in enumerate(args)}}
+            calls.append({"function": {"name": name, "arguments": arguments}})
+            results.append({"role": "tool", "content": content, "tool_name": name})
+        if calls:
+            history.append({"role": "assistant", "content": "", "tool_calls": calls})
+            history.extend(results)
+        history.append(dict(reply))
+    return history
+
+
 def _multi_items(
     local: Mapping[str, Path], docs: Mapping[str, list[dict[str, Any]]], answers: Mapping[str, Any]
 ) -> Iterator[dict[str, Any]]:
@@ -229,19 +270,22 @@ def _multi_items(
             for function in functions
         ]
         turns = row["question"]
+        env = {
+            "name": "bfcl_multi_turn",
+            "initial_state": {
+                "involved_classes": row["involved_classes"],
+                "initial_config": row["initial_config"],
+            },
+        }
+        target = answers[row["id"]]
         yield {
             "number": number,
             "group": f"bfcl-multi/{number:04d}",
             "messages": turns[0],
             "turns": turns[1:] or None,
             "tools": to_ollama_tools(declarations),
-            "env": {
-                "name": "bfcl_multi_turn",
-                "initial_state": {
-                    "involved_classes": row["involved_classes"],
-                    "initial_config": row["initial_config"],
-                },
-            },
+            "env": env,
+            "history": gold_history(env, target),
             "grader_params": {
                 "bfcl_id": row["id"],
                 "category": "multi_turn_base",
@@ -249,7 +293,7 @@ def _multi_items(
                 "functions": functions,
                 "underscore_to_dot": True,
             },
-            "target": answers[row["id"]],
+            "target": target,
         }
 
 
