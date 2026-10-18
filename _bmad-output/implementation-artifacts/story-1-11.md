@@ -18,7 +18,7 @@ deferred:
     location: pyproject.toml
     severity: medium
   - summary: >-
-      « Aucun modèle local disponible » se lit sur l'état d'Ollama (arrêté = aucun modèle local), pas sur la liste des modèles installés : `GET /api/models` (registre, story 1.5) n'est pas dans la branche de base. Ollama démarré sans aucun modèle installé n'est donc pas encore dit sur l'Accueil ; la carte Système donne les modèles chargés en mémoire.
+      « Aucun modèle local disponible » se lit sur l'état d'Ollama (arrêté = aucun modèle local), pas sur la liste des modèles installés : `GET /api/models` (registre, story 1.5) n'était pas dans la branche de base ; il y est depuis la fusion de `feat/v2-selecteur`, mais l'ajouter demande une lecture de plus dans `core/system.js` (rafraîchie quand Ollama change d'état) : à faire avec la story qui consomme la liste sur l'Accueil. Ollama démarré sans aucun modèle installé n'est donc pas encore dit sur l'Accueil ; la carte Système donne les modèles chargés en mémoire.
     evidence: |-
       `renderSystem` (`screens/home.js`) ; la branche part de `feat/v2-barre-haute`, sans `routes_models`.
     location: src/wavelocalai/web/static/screens/home.js
@@ -67,4 +67,10 @@ Voir l'en-tête `deferred` : publication `2.0.0a1` (après 1.10 et 1.11), « Auc
 
 ## Revue
 
-À faire : second avis (Haiku), puis passe de revue (Opus).
+Passe unique (Opus) après fusion de `feat/v2-selecteur` (1.10 et 1.9 revues) ; conflit de `core/system.js` résolu en gardant les deux côtés (relecture de santé, chien de garde, lecture carbone protégée ; pause, `recheckOllama()`, `systemSeen`).
+
+- medium, second avis 1 — corrigé. La relecture de `/api/health` (revue 1.9) testait `connection.status === "open"`, qui garde sa valeur pendant la pause : relances onglet masqué. `close()` annule la relance et la reprise exige un flux ouvert (`stream`). Le chien de garde du flux, lui, vit dans `sse.js` et s'arrête avec la lecture (`finally`) : rien à faire. Preuve : `test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them` (échoue sans le correctif).
+- low, second avis 2 — rejeté. Onglet masqué, personne ne voit « en direct » ; au retour, la réouverture du flux redémarre l'échantillonnage, dont la sonde est bornée à 1 s (AD-15) : l'état périmé dure au plus un échantillon. Remettre `systemSeen` à faux ferait clignoter un squelette à chaque changement d'onglet.
+- low, second avis 3 — corrigé. Le focus sur « Réessayer » passe à la carte Système quand Ollama revient, au lieu de tomber sur `body`. Preuve : assertion ajoutée à `test_retry_button_shows_the_wait_then_the_new_state`.
+- low, second avis 4 — reporté (en-tête `deferred`). `GET /api/models` est désormais dans la base, mais l'alimenter demande une lecture de plus dans `core/system.js`, hors critères de la story.
+- low, second avis 5 — rejeté. Ollama muet : la sonde de `/api/health` et celle du flux sont bornées à 1 s (`probe_timeout_s`, `le=1.0`), `/api/ps` n'est appelé qu'Ollama joignable ; le premier état arrive donc en 1 à 2 s, sous le budget de 5 s.

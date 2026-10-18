@@ -173,6 +173,7 @@ def test_retry_button_shows_the_wait_then_the_new_state(backend, fake_ollama, pa
     wait_ready(page)
     wait_card(page, "system", "Indisponible")
     button = card(page, "system").get_by_role("button", name="Réessayer")
+    button.focus()
 
     fake_ollama.start()
     # Le clic et la lecture dans la même tâche : l'état d'attente est posé de façon synchrone.
@@ -186,6 +187,8 @@ def test_retry_button_shows_the_wait_then_the_new_state(backend, fake_ollama, pa
     assert waiting == ["Vérification en cours…", "true"]
     wait_card(page, "system", "Disponible", timeout_s=6)
     assert button.is_hidden()
+    # Revue 1.11 : le focus ne tombe pas sur `body` quand le bouton disparaît.
+    assert page.evaluate("document.activeElement.dataset.card") == "system"
 
 
 # --- Squelette et connexion perdue ------------------------------------------------------------
@@ -259,6 +262,32 @@ def test_a_hidden_tab_pauses_the_cards_and_the_return_resumes_them(home_with_oll
     # La somme du CO2 relue à la reconnexion : la réponse jouée pendant la pause est comptée.
     wait_card(page, "mode", f"1,8{NBSP}mg")
     assert page.locator("#co2-value").inner_text() == f"1,8{NBSP}mg"
+
+
+def test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them(
+    page_tolerating_failed_requests, server
+):
+    # Revue 1.11 : `connection.status` reste `open` pendant la pause ; la relecture de
+    # `/api/health` (identité inconnue, revue 1.9) ne doit pas tourner onglet masqué. Les
+    # événements de Playwright ne sont relevés que pendant ses appels : `wait_for_timeout`.
+    page = page_tolerating_failed_requests
+    health = []
+    page.on("request", lambda request: health.append(1) if "/api/health" in request.url else None)
+    page.route("**/api/health", lambda route, request: route.abort())
+    page.goto(f"{server.base_url}/")
+    wait_card(page, "system", "Indisponible")
+    page.wait_for_timeout(4500)
+    assert len(health) >= 2  # la relecture tourne tant que le flux est ouvert
+
+    set_tab_hidden(page, True)
+    page.wait_for_timeout(500)  # une lecture déjà partie peut finir
+    before = len(health)
+    page.wait_for_timeout(5000)  # plus de deux délais de reprise (2 s)
+    assert len(health) == before
+
+    set_tab_hidden(page, False)
+    page.wait_for_timeout(3000)
+    assert len(health) > before
 
 
 # --- Modules ----------------------------------------------------------------------------------

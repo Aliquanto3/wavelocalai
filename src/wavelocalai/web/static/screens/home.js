@@ -100,6 +100,12 @@ function renderSystem(card, state) {
   setAttr(card.root, "data-state", key);
   setAttr(card.metric, "value", key === "loading" ? "" : t(`home.system.${key}`));
 
+  // « Réessayer » qui disparaît avec le focus (Ollama revenu) : le focus passe à la carte, qui
+  // annonce le nouvel état, au lieu de tomber sur `body`.
+  if (key !== "down" && document.activeElement === card.retry) {
+    card.root.tabIndex = -1;
+    card.root.focus();
+  }
   card.up.hidden = key !== "up";
   card.down.hidden = key !== "down";
   card.lost.hidden = key !== "unknown";
