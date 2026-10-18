@@ -565,3 +565,23 @@ async def test_parent_cancelled_while_a_leaf_is_being_created_cancels_the_leaf(
     with pytest.raises(asyncio.CancelledError):
         await task
     assert await hub.finish_leaf(leaf.run_id, LeafResult(status="ok")) is False
+
+
+async def test_a_cancelled_leaf_gets_its_late_measure_but_nothing_else_is_overwritten(hub, store):
+    gone = Co2(mg=None, method="unmeasurable", reason="annulée")
+    late = Co2(mg=2.5, method="codecarbon")
+    cancelled = await produce_chat(hub, finish=False)
+    hub.declare_leaf(cancelled.run_id, gone)
+    assert not await hub.amend_cancelled_leaf(cancelled.run_id, late, 0.01)  # encore active
+    await hub.cancel(cancelled.run_id)
+    assert await hub.amend_cancelled_leaf(cancelled.run_id, late, 0.01)
+    row = _run(store, cancelled.run_id)
+    assert (row["status"], row["co2_method"], row["co2_mg"], row["energy_wh"]) == (
+        "cancelled", "codecarbon", 2.5, 0.01,
+    )  # fmt: skip
+    assert not await hub.amend_cancelled_leaf(cancelled.run_id, Co2(mg=9.0, method="codecarbon"))
+    assert _run(store, cancelled.run_id)["co2_mg"] == 2.5  # une valeur déjà écrite reste
+
+    done = await produce_chat(hub)  # terminée : sa mesure n'est jamais remplacée
+    assert not await hub.amend_cancelled_leaf(done.run_id, late, 0.01)
+    assert _run(store, done.run_id)["co2_mg"] == 1.5
