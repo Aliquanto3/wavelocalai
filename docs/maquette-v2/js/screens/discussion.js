@@ -120,7 +120,7 @@ export async function mount(host, ctx) {
   const notices = element("div", "docs-chat-notices");
   const error = document.createElement("wl-error");
   error.setAttribute("alert", "");
-  const panel = createSourcePanel({ prefix: "docs.sources" });
+  const panel = createSourcePanel();
   panel.root.classList.add("docs-chat-sources");
 
   const input = element("textarea", "docs-input");
@@ -680,7 +680,7 @@ export const scenarios = [
       await fresh(ctx, { base: "atelier" });
       await untilDone(await ask(ctx));
       view.panel.open(1);
-      await waitUntil(() => view.panel.root.querySelector(".docs-source-mark"));
+      await waitUntil(() => view.panel.root.querySelector(".wl-source-mark"));
     },
   },
   {
@@ -717,7 +717,7 @@ export const scenarios = [
       await fresh(ctx, { base: "atelier" });
       await untilDone(await ask(ctx));
       view.focusMarker(1);
-      await waitUntil(() => view.panel.root.querySelector(".docs-source.is-linked"));
+      await waitUntil(() => view.panel.root.querySelector(".wl-source.is-linked"));
     },
   },
   {

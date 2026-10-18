@@ -15,6 +15,7 @@
 // Les événements d'une mission sont fabriqués ici à partir de la composition de l'équipe, puis joués
 // par le simulateur comme script construit à l'exécution (`sim.play({kind, events})`).
 
+import { createStepTrace } from "../components/step-trace.js";
 import { co2Display } from "../core/co2.js";
 import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
@@ -28,9 +29,9 @@ import { setOllamaDown } from "../sim/systeme.js";
 import {
   closeApprovalDialog,
   createAgentStatus,
-  createStepTrace,
   decideInDialog,
   loadAgentTexts,
+  openOutput,
   pause,
   prepareEvents,
   waitUntil,
@@ -57,23 +58,10 @@ function fillDeep(value, topic) {
   return value;
 }
 
-// La trace d'étapes est stylée par la feuille de l'écran Agent seul : on l'ajoute si le routeur ne l'a pas fait.
-function ensureSharedCss() {
-  if (document.head.querySelector('link[data-screen="agent-seul"]')) return Promise.resolve();
-  return new Promise((resolve) => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = new URL("../../css/screens/agent-seul.css", import.meta.url).href;
-    link.dataset.screen = "agent-seul";
-    link.onload = link.onerror = () => resolve();
-    document.head.append(link);
-  });
-}
-
 const DEMO_RUN_ID = "run-equipe-demo"; // mission fictive de l'historique, rouvrable par son adresse
 
 export async function mount(host, ctx) {
-  await Promise.all([loadAgentTexts(), ensureSharedCss()]);
+  await loadAgentTexts();
   const uid = `crew-${++counter}`;
   const data = await ctx.data("equipe-agents.json");
   const toolsData = await ctx.data("agent-seul.json");
@@ -161,7 +149,7 @@ export async function mount(host, ctx) {
   const followTitle = element("h2", "crew-title", t("crew.follow.title"));
   followTitle.id = `${uid}-follow`;
   const status = createAgentStatus({ stoppable: true, onStop: () => requestStop() });
-  const approvalNote = element("p", "help crew-approval-note", t("agent.approval.expiry", { minutes: toolsData.approval_expiry_min }));
+  const approvalNote = element("p", "help crew-approval-note", t("states.email.expiry", { minutes: toolsData.approval_expiry_min }));
   approvalNote.hidden = true;
   const agentList = element("ul", "crew-agents");
   const logPre = element("pre", "crew-log-text");
@@ -391,7 +379,7 @@ export async function mount(host, ctx) {
       const body = element("div", "crew-agent-body");
       body.id = bodyId;
       body.hidden = true;
-      const trace = createStepTrace({ label: t("crew.agent.trace_label", { agent: agent.role }), toolLabel });
+      const trace = createStepTrace({ label: t("crew.agent.trace_label", { agent: agent.role }), toolLabel, openFile: openOutput });
       const empty = element("p", "help", t("crew.agent.no_step"));
       body.append(empty, trace.root);
       button.addEventListener("click", () => toggleRow(row));
@@ -693,8 +681,8 @@ export async function mount(host, ctx) {
   };
 
   function stepName(step) {
-    if (step.kind === "think") return t("agent.step.think");
-    if (step.kind === "answer") return t("agent.step.answer");
+    if (step.kind === "think") return t("components.step_trace.think");
+    if (step.kind === "answer") return t("components.step_trace.answer");
     return toolLabel(step.tool);
   }
 

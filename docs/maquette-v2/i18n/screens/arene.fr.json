@@ -113,7 +113,6 @@
       "not_plotted": "Non placés sur la matrice : {names}.",
       "empty": "La matrice apparaît dès qu'un modèle est noté.",
       "caption": "Résultats de la comparaison, une ligne par modèle",
-      "sort_by": "Trier par {column}",
       "col_model": "Modèle",
       "col_origin": "Origine",
       "col_score": "Note",

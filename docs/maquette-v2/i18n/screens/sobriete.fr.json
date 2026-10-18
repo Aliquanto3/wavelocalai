@@ -80,9 +80,6 @@
       "col_local": "Local",
       "col_cloud": "Cloud (estimé)",
       "col_unmeasurable": "Non mesurables",
-      "sort_by": "Trier par {column}",
-      "sorted_asc": "trié par ordre croissant",
-      "sorted_desc": "trié par ordre décroissant",
       "not_measured": "non mesuré",
       "no_cloud": "aucun appel",
       "current_note": "La session en cours n'apparaît qu'une fois close."

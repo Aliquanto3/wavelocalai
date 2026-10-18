@@ -59,7 +59,6 @@
     "caption": "Résultats du banc par usage et par modèle",
     "unknown_score": "non classé",
     "announce_table": "Affichage en tableau.",
-    "announce_cards": "Affichage en cartes.",
-    "sort_by": "Trier par {column}"
+    "announce_cards": "Affichage en cartes."
   }
 }

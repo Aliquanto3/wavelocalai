@@ -38,7 +38,6 @@
     "col_embedding": "Modèle de représentation",
     "col_status": "Statut",
     "col_actions": "Actions",
-    "sort_by": "Trier par {column}",
     "sorted": "Trié par {column}, ordre {order}.",
     "asc": "croissant",
     "desc": "décroissant",

@@ -787,3 +787,330 @@ a.btn-primary {
   width: 2.75rem;
   height: 2.75rem;
 }
+
+/* Trace d'étapes d'un agent (js/components/step-trace.js) */
+.step-trace {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* L'étape en cours : contour épais et libellé « en cours » (jamais la couleur seule). */
+.step[data-state="running"] {
+  border: 2px solid var(--color-primary);
+}
+
+.step[data-state="waiting"] {
+  border: 2px dashed var(--color-chart-4);
+}
+
+.step[data-state="error"],
+.step[data-state="failed"] {
+  border-inline-start: 6px solid var(--color-risk);
+}
+
+.step[data-state="cancelled"],
+.step[data-state="interrupted"] {
+  border-style: dashed;
+}
+
+.step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-ink);
+  text-align: start;
+  cursor: pointer;
+}
+
+.step-head:hover {
+  background: var(--color-surface-alt);
+}
+
+.step-n {
+  flex: none;
+  min-width: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.step-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  color: var(--color-primary);
+}
+
+.step[data-state="error"] .step-icon,
+.step[data-state="failed"] .step-icon {
+  color: var(--color-risk);
+}
+
+.step[data-state="waiting"] .step-icon {
+  color: var(--color-chart-4);
+}
+
+.step-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.step-agent,
+.step-outcome {
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.step-outcome {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.step-state {
+  flex: 0 1 auto;
+  max-width: 9rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  color: var(--color-ink-secondary);
+}
+
+.step[data-state="running"] .step-state,
+.step[data-state="waiting"] .step-state {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.step-head > .icon:last-child {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  transition: transform 0.15s;
+}
+
+.step-head[aria-expanded="true"] > .icon:last-child {
+  transform: rotate(180deg);
+}
+
+.step-body {
+  padding: 0 0.75rem 0.75rem 2.5rem;
+}
+
+.step-field {
+  margin: 0.5rem 0 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.step-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.step-code {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.step-file {
+  margin-top: 0.5rem;
+}
+
+/* Aide en bouton et panneau de sources (js/components/help-toggle.js, source-panel.js) */
+.wl-help {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.wl-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-help-button:hover {
+  background: var(--color-line);
+}
+
+.wl-help-button .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.wl-help-text {
+  flex-basis: 100%;
+  max-width: 28rem;
+  margin: 0;
+}
+
+/* Panneau de sources */
+.wl-sources {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-sources-summary {
+  padding: 0.75rem 1rem;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wl-sources-empty {
+  margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+.wl-sources-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 1rem 1rem;
+  list-style: none;
+}
+
+.wl-source {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 4px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-source.is-linked {
+  border-color: var(--color-primary);
+  background: var(--color-surface-alt);
+}
+
+.wl-source-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.wl-source-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-source-page {
+  margin-inline-start: -0.5rem;
+  color: var(--color-ink-secondary);
+}
+
+.wl-source-relevance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.wl-source-rel {
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.wl-source-relevance .help {
+  margin: 0;
+}
+
+.wl-source-quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  margin: 0 0 0.5rem;
+  padding-inline-start: 0.75rem;
+  overflow: hidden;
+  border-inline-start: 3px solid var(--color-gray-graphic);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.wl-source-quote.is-open {
+  display: block;
+  overflow: visible;
+}
+
+/* Passage surligné : fond et soulignement, pas la couleur seule. */
+.wl-source-mark {
+  padding: 0 0.125rem;
+  border-bottom: 2px solid var(--color-primary);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.wl-source-gone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.wl-source-gone .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-chart-4);
+}
+
+.wl-source-open {
+  min-height: 2.5rem;
+}
