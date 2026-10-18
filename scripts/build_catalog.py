@@ -8,6 +8,7 @@ fichier, qui prédit si un modèle tiendra en VRAM.
 """
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -148,6 +149,14 @@ PENDING = {
     },
 }
 
+# Tag MoE « <total>b-a<actifs>b » (qwen3.6:35b-a3b, lfm2.5:24b-a2b, lfm2.5:8b-a1b…).
+MOE_TAG = re.compile(r"\d+(?:\.\d+)?b-a\d+(?:\.\d+)?b", re.IGNORECASE)
+
+
+def is_moe(tag: str, name: str) -> bool:
+    """Vrai Mixture-of-Experts : paramètres actifs dans le tag, ou « moe » dans le nom."""
+    return bool(MOE_TAG.search(tag)) or "moe" in name.lower()
+
 
 def main() -> None:
     db = json.loads(LOCAL_DB.read_text(encoding="utf-8"))
@@ -157,8 +166,8 @@ def main() -> None:
         entry = {k: info[k] for k in KEEP if k in info}
         stats = info.get("benchmark_stats") or {}
         measured = stats.get("model_memory_at_max_ctx_gb")
-        is_moe = "a3b" in info["ollama_tag"].lower() or "moe" in name.lower()
-        if is_moe:
+        moe = is_moe(info["ollama_tag"], name)
+        if moe:
             # Pour un MoE, l'empreinte VRAM ne dimensionne rien : les experts
             # vivent en RAM. On s'en tient à la taille totale.
             measured = None
@@ -172,7 +181,7 @@ def main() -> None:
         # fraction des poids est active. À ne pas confondre avec les Per-Layer
         # Embeddings de Gemma 4, qui réduisent aussi les "paramètres actifs"
         # mais restent un modèle dense.
-        entry["moe"] = is_moe
+        entry["moe"] = moe
         catalog["models"][name] = entry
 
     catalog["models"].update(PENDING)
