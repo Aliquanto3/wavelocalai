@@ -14,10 +14,21 @@
 // unique dans le store, deux lecteurs s'écarteraient les événements) ; il passe chaque enveloppe à
 // `feed(envelope)`, et `abandon()` dit que le flux est perdu. Aucun flux n'est ouvert ici.
 // La touche Échap n'agit que si le composant est à l'écran (un écran gardé en mémoire est masqué).
+//
+// Étapes nommées tirées du flux (piloté ou non) : `retrieval_step` → « Recherche des extraits… »
+// (selon `data.step`), `step` → « Réflexion… » ou « Appel de l'outil … », `approval_required` →
+// « En attente de votre validation », `lane_status: judging`, `judge_score`, `eval_metric` →
+// « Notation des réponses… ». L'écran peut nommer l'étape lui-même : `setStage(stage, {tool, step,
+// agent, label})` (`agent` préfixe « Rédacteur : … », `label` remplace le texte de l'étape).
+// Pilotage complet sans enveloppe (agents) : `begin(ts)`, `markStopping()`, `finish(status)`,
+// `reset()` ; `stage` rend l'étape courante. Attribut `no-stop` : ni bouton Arrêter ni Échap ;
+// propriété `onStop` : fonction appelée par Arrêter et Échap à la place de l'annulation du run.
+// Le chronomètre suit la vitesse du simulateur (réglage « vitesse » de la maquette).
 
 import { element } from "../core/dom.js";
 import { formatDuration } from "../core/format.js";
 import { t } from "../core/i18n.js";
+import { store } from "../core/store.js";
 import { sim } from "../sim/sim.js";
 import "./wl-error.js";
 
@@ -25,13 +36,21 @@ const STAGE_TEXT = {
   starting: "components.run_status.starting",
   loading: "components.run_status.loading",
   generating: "components.run_status.generating",
+  thinking: "components.run_status.thinking",
+  tool: "components.run_status.tool",
+  waiting: "components.run_status.waiting",
+  retrieving: "components.run_status.retrieving",
+  judging: "components.run_status.judging",
   stopping: "components.run_status.stopping",
   ok: "components.run_status.ok",
   cancelled: "components.run_status.cancelled",
   error: "components.run_status.error",
   interrupted: "components.run_status.interrupted",
 };
+const FINAL = new Set(["ok", "cancelled", "error", "interrupted"]);
+const RETRIEVAL_STEPS = new Set(["search", "hypothetical", "verify", "rerank"]);
 const TICK_MS = 250;
+const speedOf = () => store.get().maquette.speed || 1;
 
 export class WlRunStatus extends HTMLElement {
   static observedAttributes = ["run-id"];
@@ -39,6 +58,7 @@ export class WlRunStatus extends HTMLElement {
   #runId = null;
   #stream = null;
   #stage = "starting";
+  #vars = {};
   #final = null; // { status, error } une fois le run terminé
   #startMs = null;
   #endMs = null;
@@ -46,7 +66,7 @@ export class WlRunStatus extends HTMLElement {
   #cancelling = false;
   #dom = null;
   #onKeydown = (event) => {
-    if (event.key === "Escape" && !event.defaultPrevented && this.running && !this.closest("[hidden]")) {
+    if (event.key === "Escape" && !event.defaultPrevented && this.running && !this.noStop && !this.closest("[hidden]")) {
       event.preventDefault();
       this.cancel();
     }
@@ -102,7 +122,7 @@ export class WlRunStatus extends HTMLElement {
     const hint = element("span", "help wl-run-hint", t("components.run_status.stop_hint"));
     const error = document.createElement("wl-error");
     error.setAttribute("alert", "");
-    this.className = "wl-run-status";
+    this.classList.add("wl-run-status");
     const line = element("div", "wl-run-line");
     line.append(stage, timer, stop, hint);
     this.replaceChildren(line, error);
@@ -111,6 +131,7 @@ export class WlRunStatus extends HTMLElement {
 
   #reset() {
     this.#stage = "starting";
+    this.#vars = {};
     this.#final = null;
     this.#startMs = null;
     this.#endMs = null;
@@ -128,6 +149,11 @@ export class WlRunStatus extends HTMLElement {
   // Les événements qui font avancer l'étape, que le flux soit ouvert ici ou par l'écran (`feed`).
   #handlers = {
     run_started: (_data, envelope) => {
+      if (this.#runId === null || this.#final) {
+        // Pilotage sans `runId` (agents), ou nouveau run dans le même composant.
+        this.#runId = envelope.run_id ?? "pilote";
+        this.#reset();
+      }
       const started = Date.parse(envelope.ts);
       this.#startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
       this.#timer ??= setInterval(() => this.#renderTimer(), TICK_MS);
@@ -136,8 +162,66 @@ export class WlRunStatus extends HTMLElement {
     model_loading: () => this.#setStage("loading"),
     model_loaded: () => this.#setStage("generating"),
     token: () => this.#setStage("generating"),
+    retrieval_step: (data) => this.#setStage("retrieving", { step: data?.step }),
+    step: (data) => {
+      if (data?.duration_s !== null && data?.duration_s !== undefined) return; // fin d'étape
+      if (data?.kind === "think") this.#setStage("thinking");
+      else if (data?.kind === "tool_call") this.#setStage("tool", { tool: data.tool ?? "" });
+      else if (data?.kind === "answer") this.#setStage("generating");
+    },
+    approval_required: () => this.#setStage("waiting"),
+    approval_resolved: () => this.#setStage("thinking"),
+    lane_status: (data) => {
+      if (data?.status === "judging") this.#setStage("judging");
+    },
+    judge_score: () => this.#setStage("judging"),
+    eval_metric: () => this.#setStage("judging"),
     run_ended: (data, envelope) => this.#end(data ?? {}, envelope),
   };
+
+  get noStop() {
+    return this.hasAttribute("no-stop");
+  }
+
+  // Étape courante (`starting`, `thinking`, `ok`…).
+  get stage() {
+    return this.#stage;
+  }
+
+  // L'écran nomme l'étape (voir l'en-tête) ; sans effet avant le début ou après la fin du run.
+  setStage(stage, vars = {}) {
+    if (this.#runId === null) return;
+    this.#setStage(Object.hasOwn(STAGE_TEXT, stage) ? stage : "generating", vars);
+  }
+
+  // Pilotage sans enveloppe : début du run (horodatage ISO), arrêt demandé, fin, remise à zéro.
+  begin(ts = new Date().toISOString()) {
+    this.#build();
+    this.#teardown();
+    this.#runId = null;
+    this.#handlers.run_started({}, { ts });
+  }
+
+  markStopping() {
+    if (!this.running || this.#cancelling) return;
+    if (document.activeElement === this.#dom.stop) this.#dom.stage.focus();
+    this.#cancelling = true;
+    this.#stage = "stopping";
+    this.#vars = {};
+    this.#render();
+  }
+
+  finish(status, error = null) {
+    if (this.#runId === null || this.#final) return;
+    this.#end({ status, error }, { ts: new Date().toISOString() });
+  }
+
+  reset() {
+    this.#teardown();
+    this.#runId = null;
+    this.#reset();
+    if (this.#dom) this.#render();
+  }
 
   get driven() {
     return this.hasAttribute("driven");
@@ -179,9 +263,11 @@ export class WlRunStatus extends HTMLElement {
     this.#stream = sim.attach(this.#runId, this.#handlers);
   }
 
-  #setStage(stage) {
-    if (this.#final || this.#cancelling || this.#stage === stage) return;
+  #setStage(stage, vars = {}) {
+    if (this.#final || this.#cancelling) return;
+    if (this.#stage === stage && JSON.stringify(this.#vars) === JSON.stringify(vars)) return;
     this.#stage = stage;
+    this.#vars = vars;
     this.#render();
   }
 
@@ -191,9 +277,10 @@ export class WlRunStatus extends HTMLElement {
     this.#startMs ??= this.#endMs;
     clearInterval(this.#timer);
     this.#timer = null;
-    const status = Object.hasOwn(STAGE_TEXT, data.status) ? data.status : "error";
+    const status = FINAL.has(data.status) ? data.status : "error";
     this.#final = { status, error: data.error ?? null };
     this.#stage = status;
+    this.#vars = {};
     const hadFocus = [this.#dom.stop, this.#dom.stage].includes(document.activeElement);
     this.#render();
     if (hadFocus) this.#dom.stage.focus(); // le bouton disparaît : le focus ne se perd pas
@@ -205,6 +292,10 @@ export class WlRunStatus extends HTMLElement {
   // Arrêter : demande l'annulation ; l'état final arrive par le flux (`run_ended`).
   async cancel() {
     if (!this.running || this.#cancelling) return;
+    if (typeof this.onStop === "function") {
+      this.onStop(); // l'écran arrête le run et appelle markStopping()
+      return;
+    }
     const runId = this.#runId;
     this.#cancelling = true;
     this.#stage = "stopping";
@@ -225,10 +316,22 @@ export class WlRunStatus extends HTMLElement {
     }
   }
 
+  // Secondes simulées : temps réel multiplié par la vitesse du simulateur.
   #elapsedSeconds() {
     if (this.#startMs === null) return 0;
     const end = this.#endMs ?? Date.now();
-    return Math.max(0, Math.floor((end - this.#startMs) / 1000));
+    return Math.max(0, Math.floor(((end - this.#startMs) / 1000) * speedOf()));
+  }
+
+  #stageText() {
+    const vars = this.#vars;
+    let text = vars.label;
+    if (!text && this.#stage === "retrieving" && RETRIEVAL_STEPS.has(vars.step)) {
+      text = t(`components.run_status.retrieval.${vars.step}`);
+    }
+    text ||= t(STAGE_TEXT[this.#stage], vars);
+    if (vars.agent && !FINAL.has(this.#stage)) text = t("components.run_status.with_agent", { agent: vars.agent, text });
+    return text;
   }
 
   #renderTimer() {
@@ -238,13 +341,13 @@ export class WlRunStatus extends HTMLElement {
   #render() {
     const { stage, stop, hint, error } = this.#dom;
     this.hidden = this.#runId === null;
-    stage.textContent = t(STAGE_TEXT[this.#stage]);
+    stage.textContent = this.#stageText();
     this.dataset.stage = this.#stage;
     this.#renderTimer();
     const running = this.running;
-    stop.hidden = !running;
+    stop.hidden = !running || this.noStop;
     stop.disabled = this.#cancelling;
-    hint.hidden = !running;
+    hint.hidden = !running || this.noStop;
     const failure = this.#final?.error;
     if (failure && !error.error) error.error = failure;
     error.hidden = !error.error;

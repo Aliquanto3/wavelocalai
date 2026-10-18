@@ -53,12 +53,6 @@
       "open_file": "Ouvrir le fichier",
       "open_file_named": "Ouvrir le fichier {name}",
       "nothing_yet": "Rien à afficher pour l'instant : l'étape est en cours."
-    },
-    "status": {
-      "thinking": "Réflexion…",
-      "tool": "Appel de l'outil {tool}…",
-      "waiting": "En attente de votre validation",
-      "with_agent": "{agent} : {text}"
     }
   }
 }

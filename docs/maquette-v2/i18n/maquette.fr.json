@@ -46,6 +46,18 @@
       "starting": "Démarrage…",
       "loading": "Chargement du modèle en mémoire…",
       "generating": "Génération…",
+      "thinking": "Réflexion…",
+      "tool": "Appel de l'outil {tool}…",
+      "waiting": "En attente de votre validation",
+      "retrieving": "Recherche des extraits…",
+      "retrieval": {
+        "search": "Recherche des extraits…",
+        "hypothetical": "Rédaction d'une réponse hypothétique…",
+        "verify": "Vérification de la pertinence…",
+        "rerank": "Reclassement…"
+      },
+      "judging": "Notation des réponses…",
+      "with_agent": "{agent} : {text}",
       "stopping": "Arrêt en cours…",
       "ok": "Terminé",
       "cancelled": "Arrêté",

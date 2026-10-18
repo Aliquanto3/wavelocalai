@@ -555,8 +555,6 @@ export async function mount(host, ctx) {
     } else if (id === "use_local" || id === "choose_other") {
       picker.value = "qwen3.5:2b";
       formError.error = null;
-      updateSwitches();
-      updateLaunch();
     } else if (id === "retry" || id === "join") {
       formError.error = null;
       submit();
@@ -678,8 +676,6 @@ export async function mount(host, ctx) {
     async setModel(tag) {
       await waitUntil(() => picker.knows(tag), 5000);
       picker.value = tag;
-      updateSwitches();
-      updateLaunch();
     },
     chooseScenario(id) {
       select.value = id;

@@ -15,8 +15,8 @@
 // - Un résultat terminé est conservé (store `ragEvals`) et rouvrable par son adresse.
 //
 // Contournements locaux (composants communs manquants) : `wl-data-table` et `wl-chart-svg` n'existent
-// pas encore (le tableau et le SVG sont construits ici), `wl-run-status` ne connaît pas les étapes de
-// l'évaluation (on réécrit son libellé), `wl-source-panel` est dans documents-commun.js.
+// pas encore (le tableau et le SVG sont construits ici), les étapes de l'évaluation sont
+// nommées par `wl-run-status.setStage`, `wl-source-panel` est dans documents-commun.js.
 
 import { element, icon } from "../core/dom.js";
 import { formatCo2, formatDate, formatInteger, formatNumber, formatRate, formatTime } from "../core/format.js";
@@ -433,12 +433,6 @@ export async function mount(host, ctx) {
   }
   panel.root.addEventListener("toggle", renderSteps);
 
-  // wl-run-status ne connaît pas ces étapes : on réécrit le libellé de son étape.
-  function setStage(text) {
-    const node = status.querySelector(".wl-run-stage");
-    if (node && node.textContent !== text) node.textContent = text;
-  }
-
   // --- Résultats : tableau -----------------------------------------------------------------
   function pendingText(lane, metric) {
     if (ev.status === "cancelled") return { reason: t("evaluation.not_scored_stopped") };
@@ -793,7 +787,7 @@ export async function mount(host, ctx) {
     run_started: (payload, envelope) => {
       ev.search = "doing";
       forward(payload, envelope);
-      setStage(t("evaluation.stage_search"));
+      status.setStage("retrieving", { label: t("evaluation.stage_search") });
       render();
     },
     lane_status: (payload) => {
@@ -804,7 +798,7 @@ export async function mount(host, ctx) {
       else if (["timeout", "failed", "cancelled"].includes(payload.status)) lane.answer = payload.status;
       else if (payload.status === "judging") {
         lane.judge = "running";
-        setStage(t("evaluation.stage_judge"));
+        status.setStage("judging");
       } else if (payload.status === "done") lane.judge = "done";
       render();
     },
@@ -812,7 +806,7 @@ export async function mount(host, ctx) {
       ev.extracts = payload.sources;
       ev.search = "done";
       panel.setSources(payload.sources);
-      setStage(t("evaluation.stage_answers"));
+      status.setStage("generating", { label: t("evaluation.stage_answers") });
       render();
     },
     metrics: (payload) => {
@@ -1199,7 +1193,6 @@ export const scenarios = [
     async run(ctx) {
       await filled(ctx);
       view.modelsPicker.values = [];
-      await view.refresh();
     },
   },
   {
@@ -1209,7 +1202,6 @@ export const scenarios = [
     async run(ctx) {
       await filled(ctx);
       view.judgePicker.value = "gemma4:1b";
-      await view.refresh();
     },
   },
   {
@@ -1220,7 +1212,6 @@ export const scenarios = [
       await filled(ctx, { setup: () => ctx.store.set({ allowCloud: true }) });
       await waitUntil(() => view.modelsPicker.knows("gpt-5-mini") && view.modelsPicker.knows("claude-haiku-4-5"));
       view.modelsPicker.values = ["qwen3.5:2b", "gpt-5-mini", "claude-haiku-4-5"];
-      await view.refresh();
       await untilDone(await view.start());
     },
   },

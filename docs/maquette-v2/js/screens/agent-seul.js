@@ -114,125 +114,29 @@ export function openOutput(name) {
 }
 
 // --- Ligne d'état d'un run d'agent --------------------------------------------------------------------
-// Même rendu que `wl-run-status` (classes `wl-run-*`), avec les étapes propres aux agents que le
-// composant commun ne connaît pas : « Réflexion… », « Appel de l'outil … », « En attente de votre
-// validation ». Chronomètre local (seul chiffre calculé ici, AD-20).
-
-const STAGE_KEYS = {
-  starting: "components.run_status.starting",
-  loading: "components.run_status.loading",
-  generating: "components.run_status.generating",
-  stopping: "components.run_status.stopping",
-  ok: "components.run_status.ok",
-  cancelled: "components.run_status.cancelled",
-  error: "components.run_status.error",
-  interrupted: "components.run_status.interrupted",
-  thinking: "agent.status.thinking",
-  tool: "agent.status.tool",
-  waiting: "agent.status.waiting",
-};
-const FINAL = new Set(["ok", "cancelled", "error", "interrupted"]);
+// `wl-run-status` piloté (« Réflexion… », « Appel de l'outil … », « En attente de votre validation »,
+// préfixe d'agent pour l'équipe) derrière la petite interface qu'utilisent les deux écrans d'agents.
 
 export function createAgentStatus({ stoppable = false, onStop = () => {} } = {}) {
-  const stage = element("p", "wl-run-stage");
-  stage.setAttribute("role", "status");
-  stage.tabIndex = -1;
-  const timer = element("span", "wl-run-timer");
-  timer.setAttribute("role", "timer");
-  timer.setAttribute("aria-label", t("components.run_status.elapsed"));
-  const line = element("div", "wl-run-line");
-  line.append(stage, timer);
-  let stop = null;
-  let hint = null;
-  if (stoppable) {
-    stop = element("button", "btn wl-run-stop", t("components.run_status.stop"));
-    stop.type = "button";
-    stop.setAttribute("aria-keyshortcuts", "Escape");
-    stop.addEventListener("click", () => onStop());
-    hint = element("span", "help wl-run-hint", t("components.run_status.stop_hint"));
-    line.append(stop, hint);
-  }
-  const root = element("div", "wl-run-status agent-status");
-  root.append(line);
+  const root = document.createElement("wl-run-status");
+  root.setAttribute("driven", "");
+  if (stoppable) root.onStop = onStop;
+  else root.setAttribute("no-stop", "");
   root.hidden = true;
-
-  const state = { stage: "starting", vars: {}, startMs: null, endMs: null, interval: null, running: false, stopping: false };
-
-  const elapsed = () => (state.startMs === null ? 0 : Math.max(0, Math.floor(((state.endMs ?? Date.now()) - state.startMs) / 1000)));
-  const renderTimer = () => {
-    timer.textContent = formatDuration(elapsed());
-  };
-  function render() {
-    let text = t(STAGE_KEYS[state.stage] ?? STAGE_KEYS.starting, state.vars);
-    if (state.vars.agent && !FINAL.has(state.stage)) text = t("agent.status.with_agent", { agent: state.vars.agent, text });
-    stage.textContent = text;
-    root.dataset.stage = state.stage;
-    renderTimer();
-    if (stop) {
-      stop.hidden = !state.running;
-      stop.disabled = state.stopping;
-      hint.hidden = !state.running;
-    }
-  }
   return {
     root,
     get running() {
-      return state.running;
+      return root.running;
     },
     get stage() {
-      return state.stage;
+      return root.stage;
     },
-    start(ts) {
-      clearInterval(state.interval);
-      const started = Date.parse(ts);
-      state.startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
-      state.endMs = null;
-      state.running = true;
-      state.stopping = false;
-      state.stage = "starting";
-      state.vars = {};
-      state.interval = setInterval(renderTimer, 250);
-      root.hidden = false;
-      render();
-    },
-    set(next, vars = {}) {
-      if (!state.running || state.stopping) return;
-      state.stage = next;
-      state.vars = vars;
-      render();
-    },
-    stopping() {
-      if (!state.running || state.stopping) return;
-      if (stop && document.activeElement === stop) stage.focus();
-      state.stopping = true;
-      state.stage = "stopping";
-      state.vars = {};
-      render();
-    },
-    end(finalStatus) {
-      const hadFocus = stop && document.activeElement === stop;
-      clearInterval(state.interval);
-      state.interval = null;
-      state.endMs = Date.now();
-      state.running = false;
-      state.stopping = false;
-      state.stage = FINAL.has(finalStatus) ? finalStatus : "error";
-      state.vars = {};
-      root.hidden = false;
-      render();
-      if (hadFocus) stage.focus();
-    },
-    reset() {
-      clearInterval(state.interval);
-      state.interval = null;
-      state.running = false;
-      state.startMs = null;
-      state.endMs = null;
-      root.hidden = true;
-    },
-    dispose() {
-      clearInterval(state.interval);
-    },
+    start: (ts) => root.begin(ts),
+    set: (next, vars = {}) => root.setStage(next, vars),
+    stopping: () => root.markStopping(),
+    end: (finalStatus) => root.finish(finalStatus),
+    reset: () => root.reset(),
+    dispose() {},
   };
 }
 
@@ -649,7 +553,7 @@ export async function mount(host, ctx) {
     trace.waitOnLast();
     status.set("waiting");
     approvalNote.hidden = false;
-    ctx.announce(t("agent.status.waiting"));
+    ctx.announce(t("components.run_status.waiting"));
     approvalOpen = true;
     let approved = false;
     try {
@@ -1023,7 +927,6 @@ async function fresh(ctx, setup = () => {}) {
 async function choose(tag) {
   await waitUntil(() => view.picker.knows(tag), 5000);
   view.picker.value = tag;
-  view.refresh(); // une valeur posée par le code n'émet pas wl-model-change
 }
 
 async function ask(ctx, { model, prompt, ...options } = {}) {

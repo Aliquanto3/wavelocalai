@@ -1472,7 +1472,6 @@ export async function mount(host, ctx) {
       const locals = (await Promise.all(["gemma4:1b", "qwen3.5:2b", "lfm2.5:1.2b"].map(findModel))).filter(Boolean);
       picker.values = locals.map((m) => m.tag);
       configError.error = null;
-      updateLaunch();
     } else if (id === "retry") {
       configError.error = null;
       submit();
@@ -1627,13 +1626,10 @@ export async function mount(host, ctx) {
     async setModels(tags) {
       await waitUntil(() => tags.every((tag) => picker.knows(tag)), 5000);
       picker.values = tags;
-      updateLaunch();
     },
     async setJudge(tag) {
       await waitUntil(() => judgePicker.knows(tag), 5000);
       judgePicker.value = tag;
-      updateJudge();
-      updateLaunch();
     },
     setQuestion(text) {
       question.value = text;

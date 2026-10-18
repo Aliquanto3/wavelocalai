@@ -15,9 +15,8 @@
 // - Commande refusée avant le run (comme un 4xx) : `run_busy` rejoint le run actif ; `ram_guard`,
 //   `ollama_down`, `cloud_not_allowed` affichent l'erreur et gardent la question dans le champ.
 //
-// Contournements locaux (composants communs manquants) : `wl-run-status` ne connaît pas
-// `retrieval_step` (on réécrit le libellé de son étape), `wl-chat-thread` n'a pas de pied « Recherche /
-// Génération » (on l'ajoute après `end()`), `wl-source-panel` est dans documents-commun.js.
+// Contournement local : `wl-chat-thread` n'a pas de pied « Recherche / Génération » (on l'ajoute après
+// `end()`). Les étapes de recherche (`retrieval_step`) sont nommées par `wl-run-status`.
 
 import { errorEnvelope } from "../core/errors.js";
 import { element } from "../core/dom.js";
@@ -239,12 +238,6 @@ export async function mount(host, ctx) {
     if (model?.origin === "cloud") cloudNote.append(ctx.states.notice(t("discussion.cloud_warning", { name: model.name }), { tone: "warning" }));
   }
 
-  // wl-run-status ne connaît pas `retrieval_step` : on réécrit le libellé de son étape.
-  function setStage(text) {
-    const node = status.querySelector(".wl-run-stage");
-    if (node && node.textContent !== text) node.textContent = text;
-  }
-
   function ensureAnswer(tag) {
     if (!answer) {
       const name = current?.name ?? tag ?? "";
@@ -365,13 +358,13 @@ export async function mount(host, ctx) {
       ensureAnswer(Array.isArray(payload?.models) ? payload.models[0] : null);
       forward(payload, envelope);
     },
-    retrieval_step: (payload) => setStage(t(`discussion.step_${payload.step}`)),
+    retrieval_step: (payload, envelope) => forward(payload, envelope),
     sources: (payload) => {
       ensureAnswer(null);
       current.sources = payload.sources;
       displayed = current;
       panel.setSources(payload.sources);
-      setStage(t("components.run_status.generating"));
+      status.setStage("generating");
     },
     model_loading: (payload, envelope) => {
       firstLoad.hidden = false;

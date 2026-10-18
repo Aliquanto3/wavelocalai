@@ -556,7 +556,7 @@ export async function mount(host, ctx) {
     if (open) {
       if (step.kind === "think") {
         status.set("thinking", { agent: role });
-        setRowState(row, "running", t("agent.status.thinking"));
+        setRowState(row, "running", t("components.run_status.thinking"));
       } else if (step.kind === "tool_call") {
         const label = toolLabel(step.tool);
         status.set("tool", { tool: label, agent: role });
@@ -582,7 +582,7 @@ export async function mount(host, ctx) {
     if (active) setRowState(active, "approval");
     status.set("waiting", { agent: active?.agent.role });
     approvalNote.hidden = false;
-    ctx.announce(t("agent.status.waiting"));
+    ctx.announce(t("components.run_status.waiting"));
     approvalOpen = true;
     let approved = false;
     try {
@@ -678,7 +678,7 @@ export async function mount(host, ctx) {
       log(envelope, data.results[payload.decision]);
       if (run && !run.ended) status.set("thinking", { agent: mission ? [...mission.rows.values()].find((row) => row.state === "approval")?.agent.role : undefined });
       const waiting = mission && [...mission.rows.values()].find((row) => row.state === "approval");
-      if (waiting) setRowState(waiting, "running", t("agent.status.thinking"));
+      if (waiting) setRowState(waiting, "running", t("components.run_status.thinking"));
     },
     metrics: (payload, envelope) => {
       if (mission) mission.metrics = payload;

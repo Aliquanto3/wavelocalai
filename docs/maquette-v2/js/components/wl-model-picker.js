@@ -17,7 +17,8 @@
 //   et propose le défaut local.
 //
 // Attributs : `purpose` (défaut `chat`), `multi`, `label`. Propriétés : `values` (liste choisie),
-// `value` (premier choix, ou ""). Événement : `wl-model-change` (`detail.values`). Sans Shadow DOM.
+// `value` (premier choix, ou ""). Événement : `wl-model-change` (`detail.values`), émis aussi quand
+// le code change `value(s)` (seulement si la liste change). Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
 import { formatGb, formatNumber, formatRate } from "../core/format.js";
@@ -104,9 +105,12 @@ export class WlModelPicker extends HTMLElement {
     for (const tag of Array.isArray(list) ? list : [list]) {
       if (typeof tag === "string" && tag && !next.includes(tag)) next.push(tag);
     }
-    this.#values = this.multi ? next : next.slice(0, 1);
+    const values = this.multi ? next : next.slice(0, 1);
+    const changed = values.length !== this.#values.length || values.some((tag, i) => tag !== this.#values[i]);
+    this.#values = values;
     this.#preselected = true;
     if (this.#dom) this.#renderAll();
+    if (changed) this.#emit(); // une valeur posée par le code prévient l'écran comme un choix
   }
 
   get value() {
