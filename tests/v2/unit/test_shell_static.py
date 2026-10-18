@@ -377,7 +377,7 @@ def test_no_script_reads_or_writes_the_cloud_switch_in_storage():
     touche `localStorage` (thème et projection)."""
     for path in STATIC.rglob("*.js"):
         text = path.read_text(encoding="utf-8")
-        if re.search(r"(?:localStorage|sessionStorage|indexedDB)s*[.[]", text):
+        if re.search(r"\b(?:localStorage|sessionStorage|indexedDB)\s*[.[]", text):
             assert path.name == "theme.js", f"{path.name} touche le stockage du navigateur"
     assert "allowCloud" in (STATIC / "core/store.js").read_text(encoding="utf-8")
 

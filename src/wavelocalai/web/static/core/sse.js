@@ -14,6 +14,9 @@ import { forgetRun, lastSeq, markSeq } from "./store.js";
 
 export const SYSTEM_URL = "/api/system/stream";
 const BACKOFF_MS = [500, 1000, 2000, 4000, 8000];
+// Le flux système publie toutes les 2 s : 10 s sans un octet veut dire un serveur figé ou une
+// connexion morte sans fermeture. La lecture est alors abandonnée et compte comme un échec.
+const SYSTEM_IDLE_MS = 10000;
 
 // Découpe un flux de texte en trames (`id`, `data`). Les lignes finissent par \n, \r\n ou \r ;
 // une ligne coupée entre deux morceaux est gardée pour le suivant ; un commentaire (`:`) est ignoré.
@@ -85,6 +88,7 @@ export function connectStream({
   failuresBeforeLost = 3,
   maxAttempts = Infinity,
   backoffMs = BACKOFF_MS,
+  idleMs = null,
 }) {
   let closed = false;
   let failures = 0;
@@ -112,7 +116,10 @@ export function connectStream({
       markSeq(runId, envelope.seq);
     }
     try {
-      handlers[envelope.type]?.(envelope.data, envelope);
+      // Propriété propre seulement : un type `constructor` ou `toString` reste un type inconnu.
+      if (Object.prototype.hasOwnProperty.call(handlers, envelope.type)) {
+        handlers[envelope.type](envelope.data, envelope);
+      }
     } catch (error) {
       console.error(`Flux : le traitement de « ${envelope.type} » a échoué`, error);
     }
@@ -120,32 +127,48 @@ export function connectStream({
   }
 
   async function readOnce() {
-    controller = new AbortController();
-    const response = await fetch(target(), {
-      headers: { Accept: "text/event-stream" },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    if (runId !== null && response.status === 204) return finish("closed");
-    if (!response.ok || !response.body) {
-      if (runId !== null && response.status >= 400 && response.status < 500) {
-        return finish("failed"); // run inconnu ou requête refusée : inutile de réessayer
+    const current = new AbortController();
+    controller = current;
+    // Chien de garde (flux système) : ni réponse ni octet pendant `idleMs`, la lecture est
+    // abandonnée, ce qui compte comme un échec (serveur figé, connexion morte sans fermeture).
+    let idle = null;
+    const arm = () => {
+      if (idleMs === null) return;
+      clearTimeout(idle);
+      idle = setTimeout(() => current.abort(), idleMs);
+    };
+    try {
+      arm();
+      const response = await fetch(target(), {
+        headers: { Accept: "text/event-stream" },
+        cache: "no-store",
+        signal: current.signal,
+      });
+      if (runId !== null && response.status === 204) return finish("closed");
+      if (!response.ok || !response.body) {
+        if (runId !== null && response.status >= 400 && response.status < 500) {
+          return finish("failed"); // run inconnu ou requête refusée : inutile de réessayer
+        }
+        throw new Error(`Flux indisponible (${response.status}).`);
       }
-      throw new Error(`Flux indisponible (${response.status}).`);
-    }
-    failures = 0;
-    status("open");
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const parser = new SseParser();
-    while (!closed) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      for (const frame of parser.feed(decoder.decode(value, { stream: true }))) {
-        const envelope = parseEnvelope(frame);
-        if (envelope) dispatch(envelope);
-        if (closed) return;
+      failures = 0;
+      status("open");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const parser = new SseParser();
+      arm();
+      while (!closed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        arm();
+        for (const frame of parser.feed(decoder.decode(value, { stream: true }))) {
+          const envelope = parseEnvelope(frame);
+          if (envelope) dispatch(envelope);
+          if (closed) return;
+        }
       }
+    } finally {
+      clearTimeout(idle);
     }
   }
 
@@ -191,7 +214,7 @@ export function connectStream({
 }
 
 export function connectSystem(handlers, onStatus) {
-  return connectStream({ url: SYSTEM_URL, handlers, onStatus });
+  return connectStream({ url: SYSTEM_URL, handlers, onStatus, idleMs: SYSTEM_IDLE_MS });
 }
 
 export function connectRun(runId, handlers, onStatus, options = {}) {

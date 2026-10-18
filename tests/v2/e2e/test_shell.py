@@ -76,6 +76,20 @@ def shell_timings(page, url: str) -> dict:
 def test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped(page, server):
     # Un premier chargement chauffe le serveur et le navigateur (imports, polices système) ; la
     # mesure est la médiane de cinq chargements suivants, que la charge de la machine fausse moins.
+    # Chaque appel `fetch` vers `/api/` note si le repère `shell-ready` était déjà posé.
+    page.add_init_script(
+        """(() => {
+            const original = window.fetch.bind(window);
+            window.__apiCalls = [];
+            window.fetch = (input, init) => {
+                const url = String(input instanceof Request ? input.url : input);
+                if (url.includes('/api/')) window.__apiCalls.push({
+                    url, ready: performance.getEntriesByName('shell-ready').length > 0,
+                });
+                return original(input, init);
+            };
+        })()"""
+    )
     shell_timings(page, f"{server.base_url}/")
     runs = [shell_timings(page, f"{server.base_url}/") for _ in range(5)]
     fcp = sorted(run["fcp"] for run in runs)[2]
@@ -84,13 +98,11 @@ def test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped(p
     assert len(module_links(page).all()) == len(MODULES)
     # Rien de `/api/` n'est demandé avant que la coquille soit rendue : la barre haute branche son
     # flux après le repère `shell-ready` (story 1.9), elle ne l'attend pas.
-    api_starts = page.evaluate(
-        """() => performance.getEntriesByType('resource')
-            .filter((entry) => entry.name.includes('/api/'))
-            .map((entry) => entry.startTime)"""
+    wait_for(
+        page, "() => window.__apiCalls.some((call) => call.url.endsWith('/api/system/stream'))"
     )
-    page_ready = page.evaluate("() => performance.getEntriesByName('shell-ready')[0].startTime")
-    assert all(start >= page_ready for start in api_starts), (api_starts, page_ready)
+    calls = page.evaluate("() => window.__apiCalls")
+    assert [call for call in calls if not call["ready"]] == [], calls
 
 
 def test_every_request_stays_on_127_0_0_1(shell, server, traffic):
