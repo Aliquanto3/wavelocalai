@@ -52,6 +52,7 @@ function setupModuleMenu(nav, toggle, list) {
   // Échap ferme le menu où que soit le focus dans la barre haute (le bouton est hors du `nav`).
   nav.closest("header").addEventListener("keydown", (event) => {
     if (event.key === "Escape" && nav.dataset.open === "true" && !wide.matches) {
+      event.preventDefault(); // Échap a fermé le menu : il n'arrête pas un run suivi
       setOpen(false);
       toggle.focus();
     }

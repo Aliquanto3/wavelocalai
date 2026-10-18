@@ -31,6 +31,7 @@ export function bindDisclosure({ button, panel, scope, onToggle = () => {} }) {
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !panel.hidden) {
+      event.preventDefault(); // Échap a fermé le panneau : il n'arrête pas un run suivi
       setOpen(false);
       button.focus();
     }
