@@ -93,6 +93,7 @@ dev = [
     "pytest-cov",
     "pytest-mock",
     "toml",  # importé par tests/app et tests/e2e (lecture de .streamlit/config.toml)
+    "jsonschema",  # scripts/sync_slm_results.py (validation des résultats slm-quality-bench)
     # Parcours navigateur (tests/e2e) ; le navigateur s'installe à part :
     # uv run python -m playwright install chromium
     "playwright>=1.63.0",

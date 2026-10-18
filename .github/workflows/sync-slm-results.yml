@@ -1,0 +1,105 @@
+# Synchronise les résultats de benchmark publiés par slm-quality-bench.
+#
+# Une fois par jour (et à la demande : `gh workflow run sync-slm-results.yml`),
+# le workflow lance scripts/sync_slm_results.py. Si la dernière release de
+# Aliquanto3/slm-quality-bench apporte un fichier de résultats nouveau et valide,
+# il ouvre une PR vers master (branche bench/synchro-slm-<version>). Aucune
+# fusion automatique : un humain relit et fusionne.
+#
+# Réglages GitHub à faire une fois, dans les réglages du dépôt :
+#   - Settings > Actions > General > Workflow permissions : cocher
+#     « Allow GitHub Actions to create and approve pull requests ». Sans cela,
+#     `gh pr create` échoue avec le GITHUB_TOKEN.
+#   - Une PR ouverte avec GITHUB_TOKEN ne déclenche pas la CI (règle de GitHub
+#     contre les boucles). Relancer la CI à la main (push d'un commit vide sur la
+#     branche, ou « Re-run »), ou remplacer GITHUB_TOKEN par un PAT ou un jeton
+#     de GitHub App dans l'étape « Ouvrir la PR ».
+#   - Les workflows planifiés se désactivent après 60 jours sans activité dans
+#     le dépôt : les réactiver depuis l'onglet Actions si besoin.
+
+name: Synchro résultats slm-quality-bench
+
+on:
+  schedule:
+    # 03h37 UTC : heure creuse, décalée de l'heure pile (forte charge de GitHub).
+    - cron: "37 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-slm-results
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Synchroniser les résultats
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: master
+
+      # actions/setup-python v7.0.0
+      - name: Installer Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Installer jsonschema
+        run: python -m pip install jsonschema
+
+      - name: Synchroniser
+        id: sync
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/sync_slm_results.py
+
+      - name: Ouvrir la PR
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.sync.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="bench/synchro-slm-${VERSION}"
+
+          open_prs="$(gh pr list --head "$branch" --base master --state open --json number --jq 'length')"
+          if [ "$open_prs" != "0" ]; then
+            echo "Une PR est déjà ouverte pour ${VERSION} (${branch}) : rien à faire."
+            exit 0
+          fi
+
+          sha="$(jq -r .asset_sha256 benchmarks/slm-quality/SOURCE.json)"
+          release_url="$(jq -r .release_url benchmarks/slm-quality/SOURCE.json)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add benchmarks/slm-quality
+          git commit -m "Bench: résultats slm-quality-bench ${VERSION}"
+          # Branche réservée à l'automatisation : on l'écrase si elle traîne d'une PR fermée.
+          git push --force origin "$branch"
+
+          cat > pr-body.md <<EOF
+          Synchronisation automatique des résultats de benchmark publiés par slm-quality-bench.
+
+          - Version : \`${VERSION}\`
+          - Release : ${release_url}
+          - sha256 de \`slm-quality-results.json\` : \`${sha}\`
+
+          Le fichier a été validé contre le JSON Schema publié au tag de la release.
+          Il est écrit par \`scripts/sync_slm_results.py\` dans \`benchmarks/slm-quality/\` : ne pas l'éditer à la main.
+
+          Pas de fusion automatique. La CI n'est pas lancée par une PR ouverte avec \`GITHUB_TOKEN\` : la relancer à la main avant de fusionner.
+          EOF
+
+          gh pr create \
+            --base master \
+            --head "$branch" \
+            --title "Bench: résultats slm-quality-bench ${VERSION}" \
+            --body-file pr-body.md
