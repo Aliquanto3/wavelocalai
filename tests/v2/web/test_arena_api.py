@@ -126,7 +126,7 @@ async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path, _stub_
             assert child["status"] == "ok"
             assert child["metrics"]["origin"] == ("cloud" if tag == "fake/c" else "local")
             co2 = child["metrics"]["co2"]
-            if tag == "fake/c":  # cloud : ecologits pas encore branché
+            if tag == "fake/c":  # cloud : fournisseur inconnu d'ecologits, non mesurable
                 assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
             else:  # chaque lane locale a son propre tracker (AD-10, AD-11)
                 assert co2["method"] == "codecarbon" and co2["allocation"] == "direct"
@@ -167,6 +167,15 @@ async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path, _stub_
     for e in events:
         if e["type"] in ("token", "metrics", "lane_status"):
             assert e["data"]["lane"]
+
+
+async def test_a_cloud_lane_is_estimated_by_ecologits_like_the_chat(tmp_path):
+    a, c = local("fake:a", say("A")), cloud("openai/gpt-6-luna", say("La ", "lumière"))
+    async with arena_app(tmp_path, a, c) as (app, client):
+        run_id = (await _post(client, "fake:a", "openai/gpt-6-luna")).json()["run_id"]
+        kids = children(await _ended(client, run_id))
+        co2 = kids["openai/gpt-6-luna"]["metrics"]["co2"]
+        assert co2["method"] == "ecologits" and co2["estimated"] is True and co2["mg"] > 0
 
 
 async def test_locals_run_in_sequence_under_the_slot_and_the_cloud_runs_at_once(tmp_path):
