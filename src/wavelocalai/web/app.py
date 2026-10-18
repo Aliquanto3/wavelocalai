@@ -18,7 +18,7 @@ from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.models.fake import fake_models
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.runs.hub import RunHub
-from wavelocalai.runs.system_bus import SystemFeed
+from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.telemetry import disable_telemetry
@@ -102,8 +102,16 @@ def create_app(
         timeout_s=settings.ollama.probe_timeout_s,
         cache_s=settings.ollama.probe_cache_s,
     )
+    # Le flux publie l'état d'Ollama toutes les 2 s : sa sonde garde l'état moins longtemps que
+    # l'intervalle, pour qu'un Ollama relancé apparaisse en moins de 3 s (story 1.9). Les routes de
+    # lecture gardent le cache de 5 s (AD-15). Une sonde injectée (tests) sert aux deux.
+    stream_probe = probe or OllamaProbe(
+        settings.ollama.host,
+        timeout_s=settings.ollama.probe_timeout_s,
+        cache_s=min(settings.ollama.probe_cache_s, SAMPLE_INTERVAL_S / 2),
+    )
     app.state.system_sampler = SystemSampler(
-        app.state.probe, settings.ollama.host, lambda: app.state.hub
+        stream_probe, settings.ollama.host, lambda: app.state.hub
     )
     app.state.system_feed = SystemFeed(app.state.system_sampler.sample)  # port SystemBus (AD-6)
     app.add_middleware(
