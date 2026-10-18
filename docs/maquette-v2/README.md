@@ -20,7 +20,7 @@ Dans la maquette :
 - Le bouton « Scénarios (maquette) », en bas à droite, force un état d'écran, un état global (Ollama arrêté, cloud, connexion perdue, serveur redémarré, garde-fou mémoire, premier chargement lent, aucun modèle local, onglet masqué, thème, projection, vitesse) ou joue un parcours de bout en bout.
 - Le catalogue des états communs est à `#/maquette/etats`.
 
-Version en ligne (artifact privé) : LIEN_ARTIFACT
+Version en ligne (artifact privé) : https://claude.ai/artifact/WTgFyyF3bMJGFE6jx4DEYH
 
 ## 3. Structure
 
