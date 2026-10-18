@@ -104,7 +104,7 @@ def test_the_drift_test_fails_when_a_token_is_missing():
 
 
 def test_css_outside_tokens_has_no_hard_coded_color():
-    for name in ("base.css", "components.css"):
+    for name in ("base.css", "components.css", "screens.css"):
         css = (STATIC / name).read_text(encoding="utf-8")
         assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css), f"{name} : couleur en dur"
         assert not re.search(r"\b(rgb|hsl)a?\(", css), f"{name} : couleur en dur"
@@ -392,3 +392,24 @@ def test_the_front_computes_no_measure_and_names_no_host():
         ), path.name
         if path.name != "format.js":
             assert "1_000_000" not in text and "per_mg" not in text, path.name
+
+
+# --- Accueil (story 1.11) ---------------------------------------------------------------------
+
+
+def test_the_home_screen_reads_the_store_only_and_every_home_text_is_used():
+    """L'Accueil n'appelle pas l'API (AD-6 : les cartes lisent le store rempli par le flux), ne
+    calcule rien, et le catalogue ne garde aucun texte `home.*` qu'il n'affiche pas."""
+    text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
+    assert "fetch(" not in text and "api." not in text and "EventSource" not in text
+    named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
+    prefixes = {key.split("${")[0] for key in named if "${" in key}
+    literal = {key for key in named if "${" not in key}
+    orphans = [
+        key
+        for key in flat_keys(catalog()["home"], "home")
+        if key not in literal and not any(key.startswith(prefix) for prefix in prefixes)
+    ]
+    assert orphans == [], f"textes de l'Accueil jamais utilisés : {orphans}"
+    assert "visibilitychange" in text
+    assert "visibilitychange" in (STATIC / "core/system.js").read_text(encoding="utf-8")

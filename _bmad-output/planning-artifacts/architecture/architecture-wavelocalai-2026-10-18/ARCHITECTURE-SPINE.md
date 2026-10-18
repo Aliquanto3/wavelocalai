@@ -75,7 +75,7 @@ Une flèche = « peut importer ». `web/` peut importer tous les paquets ; aucun
 
 - **Binds:** pyproject, tags, releases, correctifs v1
 - **Prevents:** un `pyproject` qui annonce 1.3.x alors que `master` contient la v2, ou deux numérotations qui divergent.
-- **Rule:** dès le premier lot, `version = "2.0.0.dev0"` (sans tag) ; puis une préversion à la fin de chaque étape du MVP, `2.0.0a1` à la fin de l'étape 1 (`version = "2.0.0aN"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.N`, release GitHub avec notes). Un correctif v1 fusionné ensuite part avec la préversion suivante. Une branche `maintenance/1.3` n'est créée depuis `v1.3.0` que si une 1.3.x doit vraiment sortir.
+- **Rule:** dès le premier lot, `version = "2.0.0.dev0"` (sans tag) ; puis une préversion à la fin de chaque étape, de `2.0.0a1` (étape 1) à `2.0.0a7` (étape 7), et `2.0.0` à la bascule (étape 8) ; ainsi `2.0.0a1` à la fin de l'étape 1 (`version = "2.0.0aN"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.N`, release GitHub avec notes). Un correctif v1 fusionné ensuite part avec la préversion suivante. Une branche `maintenance/1.3` n'est créée depuis `v1.3.0` que si une 1.3.x doit vraiment sortir.
 
 ### AD-4 — Sens des dépendances et frontière web
 
@@ -181,7 +181,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 
 - **Binds:** `config.py`, `store/`, `models/registry.py`, routes de lecture
 - **Prevents:** un réglage d'UI écrit dans un fichier versionné, deux sources pour un même réglage, une route de lecture bloquée par Ollama arrêté.
-- **Rule:** `Settings` (pydantic) se charge une fois au démarrage depuis `wavelocalai.toml` (`tomllib`) puis `.env` (secrets), et ne change plus ; aucun `os.getenv` hors de `config.py`. Ce que l'UI modifie (stratégie RAG, découpe, reranker, défauts choisis) vit dans la table `preferences`, qui prime sur `Settings` pour ces seules clés. L'app n'écrit jamais `wavelocalai.toml`. La sonde Ollama a un délai d'1 s au plus et son état reste en cache 5 s ; `/api/models` se sert du cache (dernière liste d'Ollama, `model_facts`, catalogue `config/models_catalog.json` en lecture seule) rafraîchi en tâche de fond. Dans `/api/models`, le débit mesuré sur ce poste est la médiane du `tps` des feuilles `ok` en `ollama_eval` de la table `runs` pour ce tag (absent sans run) ; la précision vient de `qb.results/1` à partir de l'étape 5 (`null` avant) ; la méthode CO₂ disponible vaut `codecarbon` en local, `ecologits` pour un fournisseur direct ou un modèle Groq présent dans la table de correspondance, `unmeasurable` sinon. Un test de budget paramétré parcourt toutes les routes `GET` de l'app sans paramètre de chemin, hors flux SSE, et vérifie < 300 ms Ollama injoignable : une route ajoutée y entre d'elle-même.
+- **Rule:** `Settings` (pydantic) se charge une fois au démarrage depuis `wavelocalai.toml` (`tomllib`) puis `.env` (secrets), et ne change plus ; aucun `os.getenv` hors de `config.py`. Ce que l'UI modifie (stratégie RAG, découpe, reranker, défauts choisis) vit dans la table `preferences`, qui prime sur `Settings` pour ces seules clés. L'app n'écrit jamais `wavelocalai.toml`. La sonde Ollama a un délai d'1 s au plus ; son état reste en cache 5 s pour les routes de lecture et 1 s pour la sonde du flux système (2 s), qui dit ainsi « Ollama ne répond pas » en moins de 3 s ; `/api/models` se sert du cache (dernière liste d'Ollama, `model_facts`, catalogue `config/models_catalog.json` en lecture seule) rafraîchi en tâche de fond. Dans `/api/models`, le débit mesuré sur ce poste est la médiane du `tps` des feuilles `ok` en `ollama_eval` de la table `runs` pour ce tag (absent sans run) ; la précision vient de `qb.results/1` à partir de l'étape 5 (`null` avant) ; la méthode CO₂ disponible vaut `codecarbon` en local, `ecologits` pour un fournisseur direct ou un modèle Groq présent dans la table de correspondance, `unmeasurable` sinon. Un test de budget paramétré parcourt toutes les routes `GET` de l'app sans paramètre de chemin, hors flux SSE, et vérifie < 300 ms Ollama injoignable : une route ajoutée y entre d'elle-même.
 
 ### AD-16 — Base documentaire
 
@@ -251,7 +251,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 | Python | >=3.11,<3.13 (vérifié avec 3.11.17) |
 | FastAPI (SSE natif `fastapi.sse`) | 0.143.5 |
 | uvicorn | 0.54.0 |
-| pydantic | 2.14.1 |
+| pydantic | 2.12.x (`>=2.9.0`, sous 2.13) jusqu'à la bascule : crewai de la v1 exige `pydantic<2.13` ; relevé à la version vérifiée lors de la bascule |
 | ollama (client Python) | 0.6.3 |
 | sqlite-vec | 0.1.9 |
 | ecologits | 0.11.3 (épinglé `>=0.11.3,<0.12`) |
@@ -349,4 +349,5 @@ flowchart LR
 - **Borne haute de Python** : à la bascule (AD-1).
 - **Résidu vectoriel dans le blob vec0** après suppression par `rowid` : à vérifier par le test d'octets de la story RAG ; « Vider » n'est pas concerné (AD-13).
 - **Moteur llama-server** : hors plan jusqu'à la fin de l'étape 8 (spec).
-- **Passage bmad-ux** : pas avant l'étape 1 ; `03-ux-front.md` §3 est à promouvoir en compagnon de la spec (via `bmad-spec`), prioritaire sur `EXPERIENCE.md` pour l'IA, avec `DESIGN.md` comme source des jetons ; mise à jour `bmad-ux` avant l'étape 5 (écran Modèles) ou si la recette de l'étape 1 révèle un manque.
+- **Passage bmad-ux** : `03-ux-front.md` §3 est compagnon de la spec, prioritaire sur `EXPERIENCE.md` pour l'IA, avec `DESIGN.md` comme source des jetons ; mise à jour `bmad-ux` avant l'étape 5 (écran Modèles) ou si une recette révèle un manque.
+- **Règles des défauts par usage** (`agent`, `rag` compris) : au contrat (`contrat-api.md`, Défauts), seuils calés sur `qb.results/1` à l'étape 5.

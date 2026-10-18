@@ -80,6 +80,11 @@ export function formatGb(gb) {
   return isMeasure(gb) ? withUnit(formatNumber(gb), "Go") : formatUnknown();
 }
 
+// Pourcentage entier (charge du processeur) : « 12 % ». Un inconnu n'est jamais 0 %.
+export function formatPercent(percent) {
+  return isMeasure(percent) ? withUnit(formatInteger(Math.round(percent)), "%") : formatUnknown();
+}
+
 export function formatRate(tokensPerSecond) {
   return isMeasure(tokensPerSecond)
     ? withUnit(formatNumber(tokensPerSecond), "tokens/s")

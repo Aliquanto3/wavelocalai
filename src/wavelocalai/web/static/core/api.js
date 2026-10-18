@@ -47,4 +47,12 @@ export const api = {
   health: () => request("/api/health"),
   carbonSession: () => request("/api/carbon/session"),
   systemIdentity: () => request("/api/system/identity"),
+  // Liste unique des modèles (AD-15) : sans `allowCloud`, aucun modèle cloud (AD-9).
+  models: (allowCloud) => request(`/api/models?allow_cloud=${allowCloud ? "true" : "false"}`),
+  modelDefaults: (purpose, allowCloud) =>
+    request(
+      `/api/models/defaults?purpose=${encodeURIComponent(purpose)}&allow_cloud=${allowCloud ? "true" : "false"}`,
+    ),
+  cancelRun: (runId) =>
+    request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };
