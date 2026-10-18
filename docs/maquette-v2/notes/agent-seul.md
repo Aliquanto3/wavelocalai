@@ -19,14 +19,10 @@ Scénarios : `vide` (« Bonjour ! L'agent est prêt. », actions rapides, neuf o
 - Une action rapide « Préparer un email » nécessite l'outil coché : l'écran le dit, sans le cocher.
 - La maquette ne simule pas le choix d'outils par le modèle : le script suit l'intention de la tâche (analyse, poste, devis, email), pas les cases cochées (sauf l'email).
 
-## Composants communs manquants ou limités (contournés localement)
+## Composants communs (intégration)
 
-- `wl-step-trace` et `wl-team-graph` n'existent pas : trace et schéma sont codés dans les écrans (`createStepTrace` exporté par `agent-seul.js`, réutilisé par Équipe).
-- `wl-run-status` ne connaît ni « Réflexion… », ni « Appel de l'outil … », ni « En attente de votre validation » : `createAgentStatus` reprend ses classes.
-- `wl-confirm-dialog` n'a pas de méthode de fermeture : l'écran déclenche l'événement `cancel` du `<dialog>`. `confirmEmail` ne porte pas la mention des 10 min.
-- Le simulateur ne sait pas attendre une décision : le run reste ouvert après `approval_required`, puis un lecteur local (`driveRun`, via `run.emit`) joue la suite (`flux/agent-seul-email-suite.json`).
-- Le sprite d'icônes n'a pas d'icône par type d'étape : cinq tracés SVG locaux, décoratifs.
-- Un `@import` CSS relatif casse axe-core (il le résout depuis la page) : à éviter dans les feuilles d'écran.
+- Résolus à l'intégration : trace d'étapes (`js/components/step-trace.js`), ligne d'état (`wl-run-status` piloté : « Réflexion… », « Appel de l'outil … », « En attente de votre validation »), fermeture du dialogue (`wl-confirm-dialog.close()`), mention des 10 min dans `confirmEmail`, pause de décision du simulateur (`{pause: true}` puis `run.resume`), icônes d'étapes dans le sprite.
+- Reste : pas de `wl-team-graph` (schéma propre à l'écran Équipe d'agents).
 
 ## (c) Questions pour Anaël
 

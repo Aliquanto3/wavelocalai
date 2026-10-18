@@ -12,13 +12,13 @@ Fiche (la liste reste visible ; ces scénarios naviguent vers `#/modeles/<tag>`)
 
 ## (b) Écarts
 
-- Codes d'erreur absents de `donnees/erreurs.json` : `pull_failed` (story 5.3, trois variantes : nom inexistant, Ollama arrêté, serveur redémarré) et `model_in_use` (409 à la suppression). Les enveloppes sont dans `donnees/modeles.json`, même forme que le catalogue ; à ajouter au catalogue commun.
+- `pull_failed` (story 5.3, trois variantes par `detail.cause` : `not_found`, `ollama_down`, `interrupted`) et `model_in_use` (409 à la suppression) sont au catalogue commun depuis l'intégration ; `errors.py` ne les a pas encore.
 - Le catalogue installable montre aussi les modèles supprimés du poste (ils redeviennent installables) ; `config/models_catalog.json` n'est pas explicite sur ce point.
 - « Changer » ouvre `wl-model-picker` : le composant ne filtre pas sur l'éligibilité d'un usage (agent : outils vérifiés et 3 B actifs ; documents : 3 B actifs) ni ne propose les modèles de représentation. L'éligibilité est contrôlée à « Enregistrer », avec un message ; EXPERIENCE.md parle d'un sélecteur « filtré sur les modèles éligibles ».
-- Les installations, suppressions et déchargements sont gardés par l'écran seulement : le sélecteur de modèles, l'Accueil et le flux système simulé ne les voient pas (`donnees/commun/modeles.json` et `js/sim/systeme.js` sont partagés).
+- Installations, suppressions et déchargements passent par le store (`js/sim/modeles.js`) : le sélecteur, les défauts, l'Accueil et le flux système simulé les voient. L'éligibilité d'un modèle installé (`fits`) est figée à l'installation.
 - Le tri initial de « Sur ce poste » (chargés d'abord, puis nom) et du catalogue (ceux qui tiennent, puis mémoire croissante) est celui d'EXPERIENCE.md ; aucun en-tête n'est marqué trié tant qu'on ne trie pas.
 - Les boutons désactivés sont `aria-disabled` (focalisables) avec leur raison en légende visible, jamais en infobulle seule.
-- Parcours Flow 3 : EXPERIENCE.md installe `qwen3.6:7b`, déjà « installé » dans les modèles simulés communs ; la maquette installe `granite4.1:8b`.
+- Parcours Flow 3 : EXPERIENCE.md installe `qwen3.6:7b`, déjà « installé » dans les modèles simulés communs ; la maquette installe `granite4.1:8b` (le texte de `donnees/parcours.json` le dit).
 - Pas de bouton « Fiche du modèle » dans `wl-model-picker` (hypothèse d'EXPERIENCE.md) : composant partagé, non modifié.
 
 ## (c) Questions pour Anaël

@@ -18,9 +18,9 @@ Scénarios : `equipe-prete` (parcours), `sans-agent` (« Ajoutez au moins un age
 - Un agent ajouté par « Configurer » joue un scénario générique (une réflexion) ; la maquette ne dérive pas ses étapes de ses outils.
 - La ligne d'un agent s'ouvre seule quand il démarre et se referme quand il a fini (confort de démo, non prévu).
 
-## Composants communs manquants ou limités
+## Composants communs (intégration)
 
-Voir notes/agent-seul.md : `wl-team-graph` (schéma SVG codé ici), `wl-step-trace` (importé de `agent-seul.js`), ligne d'état d'agent, fermeture de `wl-confirm-dialog`, pause de décision du simulateur. Ici, les événements sont fabriqués à l'exécution par l'écran et publiés dans un run du simulateur (`flux/equipe-agents-mission.json` est un squelette vide) parce que la composition de l'équipe change. La feuille `agent-seul.css` est ajoutée par l'écran (le routeur ne charge que celle de la route).
+Trace d'étapes, ligne d'état, fermeture du dialogue et pause de décision : composants communs (voir notes/agent-seul.md). Les événements d'une mission sont construits à l'exécution (la composition de l'équipe change) et joués par le simulateur comme script `{kind, events}`. La feuille `agent-seul.css` n'est plus ajoutée. Le schéma SVG de l'équipe reste propre à l'écran (seul utilisateur). Une mission se rouvre par son adresse `#/agents/equipe/<run_id>` (`mission-rouverte`, `mission-introuvable` avec `run_not_found`) ; la maquette ne réécrit pas l'adresse à la fin d'une mission (l'Arène le fait).
 
 ## (c) Questions pour Anaël
 

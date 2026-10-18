@@ -20,7 +20,7 @@ Flux : `donnees/flux/banc-essai-reponse.json` (`run_started`, `model_loading`, `
 - Comment le front sait qu'un modèle ne peut pas imposer un format (`no_structured_output`) n'est fixé par aucun contrat : donnée simulée, hypothèse d'EXPERIENCE.md.
 - Boutons « Relancer le test » et « Modifier le test » ajoutés (non demandés par UX-DR29), par cohérence avec l'Arène.
 - Les consignes système des scénarios ne sont pas montrées ; seule l'« Entrée » l'est.
-- Essai introuvable : pas de code `run_not_found` dans `erreurs.json`, état vide à la place.
+- Essai introuvable : enveloppe `run_not_found` du catalogue (ajoutée à l'intégration).
 
 ## (c) Questions pour Anaël
 

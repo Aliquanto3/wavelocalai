@@ -1,6 +1,6 @@
 # Base documentaire (`#/documents/base`)
 
-Fichiers : `js/screens/base-documentaire.js`, `css/screens/base-documentaire.css`, `i18n/screens/base-documentaire.fr.json`, `donnees/base-documentaire.json`, `donnees/flux/base-documentaire-ingestion.json` (stub : la liste d'événements d'un lot est construite par l'écran et passée par `vars.events`, le nombre de fichiers étant libre). Parties communes : voir notes/discussion.md. La maquette ne lit jamais un fichier choisi : seuls son nom et sa taille servent.
+Fichiers : `js/screens/base-documentaire.js`, `css/screens/base-documentaire.css`, `i18n/screens/base-documentaire.fr.json`, `donnees/base-documentaire.json`, script construit à l'exécution (`sim.play({kind: "ingest", events})`, le nombre de fichiers étant libre). Parties communes : voir notes/discussion.md. La maquette ne lit jamais un fichier choisi : seuls son nom et sa taille servent.
 
 ## (a) États couverts (scénarios)
 
@@ -14,10 +14,8 @@ Fichiers : `js/screens/base-documentaire.js`, `css/screens/base-documentaire.css
 - Suppression d'un document sans confirmation (EXPERIENCE : confirmation seulement pour « Vider » et l'email), message de résultat au même verbe.
 - Boutons Supprimer et Vider désactivés pendant un import, avec la raison, au lieu d'un 409 affiché (le contrat prévoit le 409).
 - Pas de code d'erreur au catalogue pour : changer d'embedding avec une base non vide (message d'avertissement local), `expected_count` périmé (non maquetté), 409 d'un document à run actif. Le message d'action de `ram_guard` parle de « question » : réécrit localement pour l'import.
-- Le tri est fait avec des boutons d'en-tête et `aria-sort` (pas de `wl-data-table` commun) ; sous 768 px la colonne « Modèle de représentation » est masquée et le tableau défile dans son conteneur.
+- Le tableau est le composant commun `dataTable` ; sous 768 px la colonne « Modèle de représentation » est masquée et le tableau défile dans son conteneur.
 - Réglages (`details` replié) : représentation, taille des extraits, nombre d'extraits, stratégie par défaut, reclassement indisponible avec lien vers Modèles. La stratégie et le nombre d'extraits sont repris par la Discussion.
-- Icônes manquantes dans `icons.svg` (fichier partagé non modifié) : upload, delete, folder ; les boutons sont textuels.
-- Bug du simulateur commun (coupure de connexion pendant la fin d'un run) : voir notes/discussion.md.
 
 ## (c) Questions pour Anaël
 

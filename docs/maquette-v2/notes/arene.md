@@ -20,12 +20,14 @@ Flux : `donnees/flux/arene-comparaison.json` (événements `run_started`, `lane_
 - « le plus petit des trois » (maquette 03) n'est dans aucune story : étiquette dérivée des paramètres actifs, masquée si un paramètre est inconnu (modèles cloud sans taille).
 - `lane_status` porte un champ `error` pour `failed` et `timeout` : absent du tableau d'événements de `contrat-api.md`.
 - Délai dépassé : la colonne affiche la phrase de la story 3.2 (« Délai dépassé pour ce modèle. Les autres continuent. »), pas le message du code `timeout` (« … en 2 min »).
-- Comparaison introuvable : aucun code `run_not_found` dans `erreurs.json` ; la maquette utilise un état vide. À ajouter au catalogue si le serveur répond par une erreur.
 - L'adresse devient `#/arene/comparer/<run_id>` à la fin du run par `history.replaceState` (sans remonter l'écran) ; un instantané en mémoire rend la réouverture possible pendant la visite.
 - Le verdict local/cloud est lu dans l'instantané du run (story 3.5) ; la maquette le calcule dans `serverVerdict`, marqué « côté serveur ».
 - Comparaison effacée : seules les mesures de CO₂ restent (AD-13) ; classement et notes ne sont pas reconstruits, puisque `judge_score` vit dans `run_events`.
 - « un seul juge » accompagne les notes dans tous les cas, pas seulement sous 4B (la story 3.3 est ambiguë).
 - Les réponses simulées sont par modèle, pas par scénario prédéfini : choisir « Traduction » change la question, pas les réponses.
+
+- Comparaison introuvable : enveloppe `run_not_found` du catalogue (ajoutée à l'intégration).
+- Le bandeau « Comparaison en cours · 2 sur 3 » reste propre à l'écran (compteur de modèles, ligne de résultat rouvert, durée lue dans l'instantané) : `wl-run-status` ne porte pas ces libellés.
 
 ## (c) Questions pour Anaël
 

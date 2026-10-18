@@ -15,6 +15,8 @@ Hors scénario mais présents : cartes « Carte d'identité technique » et « C
 - L'équivalence parlante de la maquette 03 §3.5 (« environ 3,7 m en voiture ») est absente, comme dans les stories (question ouverte 3 d'EXPERIENCE.md).
 - « Ollama » : la valeur est le nombre de modèles chargés, les noms et tailles sont dans l'aide (EXPERIENCE.md) ; la version d'Ollama s'affiche en légende, ajout de la maquette.
 
+- Intégration : segments « Période » et « Affichage » et tableau de l'historique repris des composants communs (radiogroup avec icône `check`, tri `aria-sort`) ; « Voir le tableau » est un bouton comme dans l'Arène et l'Évaluation.
+
 ## (c) Questions pour Anaël
 
 1. Session en cours dans l'historique : (A) absente jusqu'à sa clôture (actuel) ; (B) dernière barre marquée « en cours » ; (C) ligne distincte au-dessus du graphique. Recommandation : A, car le total est déjà au-dessus.

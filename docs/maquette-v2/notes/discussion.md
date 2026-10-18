@@ -12,13 +12,11 @@ Fichiers : `js/screens/discussion.js`, `css/screens/discussion.css`, `i18n/scree
 - `retrieval_step` : la maquette le publie au début de chaque étape (`step`: `search`, `hypothetical`, `verify`, `rerank`), la durée de recherche arrivant dans `metrics.search_s`. Le contrat dit `{strategy, étape, durée}` sans préciser le moment.
 - Événement `citations` : forme `{citations: [{marker, n}]}` choisie. Un marqueur absent de `citations` reste du texte brut (le contrat dit « seules les citations vérifiées sont affichées » sans dire ce que devient le marqueur écrit par le modèle).
 - « Recherche 0,06 s · Génération 5,8 s » (UX-DR23) : deux `wl-metric` ajoutés au pied après `end()`, `wl-chat-thread` n'ayant pas ce pied.
-- Le libellé d'étape de `wl-run-status` est réécrit localement (le composant ne connaît ni `retrieval_step` ni « Recherche des extraits… »).
 - Avertissement cloud (« les extraits de vos documents lui sont envoyés ») absent d'epics.md et d'EXPERIENCE.md : ajouté au nom de la souveraineté visible (AD-9).
 - Pas de « Télécharger » dans le pied (présent dans la maquette 03 §3.5) : aucune route d'export RAG au contrat.
 - Bouton « Afficher les sources » par réponse dès la deuxième réponse (un seul panneau, plusieurs réponses) : non prévu par les stories.
 - Le panneau est un `details` (ouvert dès 1 024 px, replié en deçà) ; la personne peut le replier en large.
 - Le défaut `rag` du sélecteur est Qwen 3.6 7B (données communes), pas « le plus rapide qui tient » d'EXPERIENCE (Flow 2, étape 4).
-- Bug du simulateur commun : `SimRun.finish` se désabonne de la connexion avant la livraison des derniers événements ; un run qui se termine pendant une coupure reste bloqué (voir `connexion-perdue`, run assez long pour finir après la coupure).
 
 ## (c) Questions pour Anaël
 

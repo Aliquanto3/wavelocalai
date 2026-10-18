@@ -13,7 +13,7 @@
 - Routes : les onze d'UX-DR4, plus `#/arene/references` (FR47, onglet « Références ») et les sous-routes `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`, `#/modeles/<tag>` d'EXPERIENCE.md. Dans le front définitif, tous les modules sont disponibles : aucun lien « Pas encore disponible ».
 - Codes d'erreur : UX-DR16 dit `interrupted`, `errors.py` dit `generation_interrupted` ; le message de `timeout` d'`errors.py` ne cite pas le délai, 03 §3.8 le cite (« 2 min ») : la maquette le cite. Les boutons d'action sont dans `donnees/erreurs.json` (champ `buttons`) ; AD-18 les fait déduire du code par l'écran.
 - `cloud_not_allowed` : texte de 03 §3.8, plus court que celui d'`errors.py`.
-- Icônes : seul le sprite livré (19 symboles) est utilisé ; DESIGN.md cite `leaderboard` pour l'Arène, le sprite a `swords`.
+- Icônes : sprite de 37 symboles (19 Material Symbols Rounded d'origine, 18 tracés Material Icons ajoutés à l'intégration, à remplacer : voir icons.LICENSE.txt) ; DESIGN.md cite `leaderboard` pour l'Arène, le sprite a `swords`.
 - Le panneau Scénarios, fixé en bas à droite, peut recouvrir du contenu quand il est ouvert (outil de maquette, replié par défaut).
 
 ## (c) Questions pour Anaël

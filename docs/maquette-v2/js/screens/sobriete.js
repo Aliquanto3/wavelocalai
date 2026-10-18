@@ -469,7 +469,7 @@ export async function mount(host, ctx) {
       region.setAttribute("role", "region");
       region.setAttribute("aria-label", t("sobriete.history.chart_region"));
       region.append(buildChart(sessions));
-      const toTable = element("button", "link-button", t("sobriete.history.see_table"));
+      const toTable = element("button", "btn", t("sobriete.history.see_table"));
       toTable.type = "button";
       toTable.addEventListener("click", () => {
         viewId = "table";
@@ -483,7 +483,7 @@ export async function mount(host, ctx) {
       sort = { key, dir: sort.key === key && sort.dir === "desc" ? "asc" : "desc" };
       renderHistory();
     });
-    const toChart = element("button", "link-button", t("sobriete.history.see_chart"));
+    const toChart = element("button", "btn", t("sobriete.history.see_chart"));
     toChart.type = "button";
     toChart.addEventListener("click", () => {
       viewId = "chart";
