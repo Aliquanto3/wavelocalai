@@ -42,6 +42,8 @@ export const INITIAL_MAQUETTE = {
   noLocalModel: false, // aucun modèle de conversation installé
   livePaused: false, // onglet masqué simulé : les cartes en direct cessent de se mettre à jour
   speed: 1, // vitesse du simulateur (2 = deux fois plus vite)
+  // Changements faits depuis l'écran Modèles (js/sim/modeles.js) : installés, supprimés, déchargés.
+  localModels: { added: [], deleted: [], unloaded: [] },
 };
 
 export const store = createStore({

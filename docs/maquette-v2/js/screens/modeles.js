@@ -19,7 +19,7 @@ import { errorEnvelope } from "../core/errors.js";
 import { formatGb, formatInteger, formatNumber, formatPercent, formatRate } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
-import { listModels, modelDefaults } from "../sim/modeles.js";
+import { deleteModel, installModel, listModels, localModelsState, modelDefaults, unloadModels } from "../sim/modeles.js";
 import { sim } from "../sim/sim.js";
 
 const GB = 1e9;
@@ -33,9 +33,6 @@ let hooked = false;
 
 function freshState() {
   return {
-    deleted: new Set(), // tags supprimés du poste
-    added: [], // modèles installés pendant la visite
-    unloadedTags: new Set(),
     defaults: {}, // usage -> { tags, chosen: true }
     noAgent: false,
     rerankerInstalled: false,
@@ -212,28 +209,30 @@ export async function mount(host, ctx) {
   const freeGb = () => {
     const base = store.get().maquette.ramGuard ? data.free_gb_ram_guard : data.free_gb;
     let free = base;
-    for (const tag of state.unloadedTags) free += modelIndex.get(tag)?.size_gb ?? 0;
+    for (const tag of localModelsState().unloaded) free += modelIndex.get(tag)?.size_gb ?? 0;
     return free;
   };
 
   const loadedTags = () => {
     const models = store.get().system.modelsLoaded;
     if (!ollamaUp || !Array.isArray(models)) return null;
-    return models.map((model) => model.tag).filter((tag) => !state.unloadedTags.has(tag));
+    const { unloaded } = localModelsState();
+    return models.map((model) => model.tag).filter((tag) => !unloaded.has(tag));
   };
 
   async function refresh() {
     const [local, all] = await Promise.all([listModels(false), listModels(true)]);
     ollamaUp = local.ollama_up;
     const none = store.get().maquette.noLocalModel;
-    installed = none ? [] : [...local.models.filter((model) => !state.deleted.has(model.tag)), ...state.added];
+    const { added, deleted } = localModelsState(); // installés et supprimés : état partagé (js/sim/modeles.js)
+    installed = none ? [] : local.models;
     const installedTags = new Set(installed.map((model) => model.tag));
     modelIndex = new Map();
     for (const model of all.models) modelIndex.set(model.tag, model);
     for (const entry of data.catalog) if (!modelIndex.has(entry.tag)) modelIndex.set(entry.tag, entry);
-    for (const model of state.added) modelIndex.set(model.tag, model);
+    for (const model of added) modelIndex.set(model.tag, model);
     // Le catalogue : les modèles du catalogue non installés, et ceux que l'on a supprimés du poste.
-    const returned = [...state.deleted]
+    const returned = [...deleted]
       .map((tag) => modelIndex.get(tag))
       .filter((model) => model && model.origin === "local" && model.kind === "chat");
     catalog = [...data.catalog, ...returned].filter((entry) => !installedTags.has(entry.tag));
@@ -967,7 +966,7 @@ export async function mount(host, ctx) {
     const loaded = loadedTags() ?? [];
     const idle = loaded.filter((tag) => !inUse(tag));
     if (!idle.length) return;
-    for (const tag of idle) state.unloadedTags.add(tag);
+    unloadModels(idle);
     setMaquette({ ramGuard: false });
     state.result = { tone: "success", text: plural("modeles.actions.unloaded", idle.length, { count: formatInteger(idle.length) }) };
     ctx.announce(state.result.text);
@@ -995,8 +994,7 @@ export async function mount(host, ctx) {
       host.querySelector('[data-fid="unload"]')?.focus();
       return;
     }
-    state.added = state.added.filter((m) => m.tag !== model.tag);
-    state.deleted.add(model.tag);
+    deleteModel(model.tag);
     delete state.defaults[PURPOSES.find((purpose) => state.defaults[purpose]?.tags.includes(model.tag))];
     say("success", t("modeles.installed.deleted", { name: model.name, size: formatGb(model.size_gb) }));
     await schedule();
@@ -1110,9 +1108,8 @@ export async function mount(host, ctx) {
         say("success", t("modeles.reranker.done"));
       } else {
         const model = resolveModel(pull.tag);
-        if (model && !state.added.some((m) => m.tag === pull.tag)) {
-          state.deleted.delete(pull.tag);
-          state.added.push({ ...model, origin: "local", kind: "chat", provider: "ollama", available: true, fits: model.needed_gb <= freeGb(), throughput_tps: null });
+        if (model && !localModelsState().added.some((m) => m.tag === pull.tag)) {
+          installModel({ ...model, origin: "local", kind: "chat", provider: "ollama", available: true, fits: model.needed_gb <= freeGb(), throughput_tps: null });
         }
         say("success", t("modeles.pull.done", { name: pull.name }));
       }
@@ -1449,7 +1446,7 @@ export const scenarios = [
   {
     id: "decharger-rien",
     label: "Aucun modèle chargé : « Décharger » désactivé avec sa raison",
-    run: (ctx) => fresh(ctx, () => view.state.unloadedTags.add("qwen3.5:2b")),
+    run: (ctx) => fresh(ctx, () => unloadModels(["qwen3.5:2b"])),
   },
   {
     id: "modele-utilise",

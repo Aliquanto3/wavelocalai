@@ -31,7 +31,11 @@ function systemState() {
   return {
     cpuPercent: between(busy ? config.cpu_percent.busy : config.cpu_percent.idle),
     memory: { used_gb: Math.round(used * 10) / 10, total_gb: memory.total_gb },
-    modelsLoaded: down ? null : state.maquette.noLocalModel ? [] : config.models_loaded,
+    modelsLoaded: down
+      ? null
+      : state.maquette.noLocalModel
+        ? []
+        : config.models_loaded.filter((model) => !state.maquette.localModels.unloaded.includes(model.tag)),
   };
 }
 

@@ -74,7 +74,9 @@ export class WlModelPicker extends HTMLElement {
     this.#build();
     this.#renderAll();
     this.#unsubscribe = store.select(
-      (state) => `${state.allowCloud}|${state.maquette.ollamaDown}|${state.maquette.noLocalModel}`,
+      (state) =>
+        `${state.allowCloud}|${state.maquette.ollamaDown}|${state.maquette.noLocalModel}|` +
+        `${state.maquette.localModels.added.map((model) => model.tag)}|${state.maquette.localModels.deleted}`,
       () => this.reload(),
     );
   }

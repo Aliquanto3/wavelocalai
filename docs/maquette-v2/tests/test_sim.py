@@ -79,3 +79,26 @@ def test_precheck_does_not_oppose_ram_guard_to_a_pull(page, base_url):
         [SIM, STORE],
     )
     assert codes == {"pull": None, "chat": "ram_guard"}
+
+
+def test_models_changed_on_the_models_screen_are_shared(page, base_url):
+    open_route(page, base_url, "/")
+    result = page.evaluate(
+        """async () => {
+            const m = await import("./js/sim/modeles.js");
+            const tags = async () => (await m.listModels(false)).models.map((model) => model.tag);
+            m.installModel({ tag: "granite4.1:8b", name: "Granite 4.1 8B", origin: "local", kind: "chat", available: true });
+            const afterInstall = await tags();
+            m.deleteModel("qwen3.5:2b");
+            const afterDelete = await tags();
+            const found = await m.findModel("granite4.1:8b");
+            await window.__maquette.reset();
+            const afterReset = await tags();
+            return { afterInstall, afterDelete, found: found?.name, afterReset };
+        }"""
+    )
+    assert "granite4.1:8b" in result["afterInstall"]
+    assert "qwen3.5:2b" not in result["afterDelete"]
+    assert result["found"] == "Granite 4.1 8B"
+    assert "granite4.1:8b" not in result["afterReset"]
+    assert "qwen3.5:2b" in result["afterReset"]
