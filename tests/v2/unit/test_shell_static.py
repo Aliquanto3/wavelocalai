@@ -244,6 +244,7 @@ ROUTES = [
     "/arene/chat",
     "/arene/comparer",
     "/arene/banc",
+    "/arene/references",
     "/documents",
     "/documents/base",
     "/documents/evaluation",
@@ -252,6 +253,14 @@ ROUTES = [
     "/sobriete",
     "/modeles",
 ]
+# Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
+MOCKUP_ROUTES = {
+    "/arene/references": None,
+    "/arene/banc": "run_id",
+    "/documents/evaluation": "run_id",
+    "/agents/equipe": "run_id",
+    "/modeles": "tag",
+}
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
 
@@ -281,6 +290,22 @@ def test_only_the_home_and_chat_screens_are_available_in_this_story():
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
 
 
+def test_the_mockup_routes_are_planned_with_their_path_parameter():
+    """D-8 : `#/arene/references`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`,
+    `#/agents/equipe/<run_id>` et `#/modeles/<tag>` existent, `planned`, sans écran ni `load`."""
+    text = registry_text()
+    for path, param in MOCKUP_ROUTES.items():
+        declaration = re.search(
+            r"\{\s*id:\s*\"[\w-]+\",\s*path:\s*\"" + re.escape(path) + r"\",(.*?)\}",
+            text,
+            re.DOTALL,
+        )
+        assert declaration, path
+        body = declaration.group(1)
+        assert 'status: "planned"' in body and "load" not in body, path
+        assert (f'param: "{param}"' in body) == (param is not None), path
+
+
 # --- Icônes (UX-DR3) --------------------------------------------------------------------------
 
 
@@ -298,6 +323,63 @@ def test_every_icon_the_html_names_exists_in_the_sprite():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     used = set(re.findall(r"icons\.svg#(i-[\w-]+)", html))
     assert used and used <= sprite_ids()
+
+
+ROUNDED_VIEWBOX = "0 -960 960 960"  # Material Symbols : grille de 960 unités, origine en haut
+
+
+def used_icons() -> set[str]:
+    """Les symboles que le front nomme : HTML (`icons.svg#i-…`), `icon("…")`, `setIcon(…, "…")`,
+    `icon: "…"` du registre et de `wl-badge`."""
+    used: set[str] = set()
+    for path in text_files(suffixes={".js", ".html"}):
+        text = path.read_text(encoding="utf-8")
+        used |= {f"i-{name}" for name in re.findall(r"""icon\(\s*["']([\w-]+)["']""", text)}
+        used |= {
+            f"i-{name}" for name in re.findall(r"""setIcon\([^,()]+,\s*["']([\w-]+)["']""", text)
+        }
+        used |= {f"i-{name}" for name in re.findall(r"""icon:\s*["']([\w-]+)["']""", text)}
+        used |= set(re.findall(r"icons\.svg#(i-[\w-]+)", text))
+    return used
+
+
+def symbol_viewboxes(sprite: str) -> dict[str, str]:
+    return dict(re.findall(r'<symbol id="(i-[\w-]+)" viewBox="([^"]+)"', sprite))
+
+
+def icon_problems(sprite: str, used: set[str]) -> list[str]:
+    """Écarts entre le sprite et le front (D-2) : symbole absent, tracé qui n'est pas Rounded."""
+    boxes = symbol_viewboxes(sprite)
+    problems = [f"{name} utilisé mais absent du sprite" for name in sorted(used - set(boxes))]
+    problems += [
+        f"{name} : viewBox {box}, pas un Material Symbols Rounded ({ROUNDED_VIEWBOX})"
+        for name, box in sorted(boxes.items())
+        if box != ROUNDED_VIEWBOX
+    ]
+    return problems
+
+
+def test_every_icon_the_front_uses_is_in_the_sprite_and_the_sprite_is_rounded_only():
+    """D-2 : chaque symbole utilisé existe, et le sprite n'a que des Material Symbols Rounded
+    (aucun tracé Material Icons Filled, `viewBox` de 24 unités, comme ceux de la maquette)."""
+    used = used_icons()
+    assert {"i-check", "i-home", "i-swords", "i-info", "i-palette"} <= used  # le relevé voit tout
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    assert icon_problems(sprite, used) == []
+
+
+def test_the_icon_check_sees_a_filled_symbol_and_a_missing_one():
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    filled = '<symbol id="i-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></symbol>'
+    problems = icon_problems(sprite + filled, used_icons() | {"i-stop", "i-hourglass"})
+    assert any("i-stop : viewBox 0 0 24 24" in line for line in problems)
+    assert "i-hourglass utilisé mais absent du sprite" in problems
+
+
+def test_icons_license_names_the_provenance():
+    license_text = (STATIC / "icons.LICENSE.txt").read_text(encoding="utf-8")
+    assert "Material Symbols" in license_text and "Rounded" in license_text
+    assert "Google LLC" in license_text and "Apache License" in license_text
 
 
 def test_sprite_is_monochrome_and_inherits_the_text_color():
@@ -416,3 +498,48 @@ def test_the_home_screen_reads_the_store_only_and_every_home_text_is_used():
     assert orphans == [], f"textes de l'Accueil jamais utilisés : {orphans}"
     assert "visibilitychange" in text
     assert "visibilitychange" in (STATIC / "core/system.js").read_text(encoding="utf-8")
+
+
+# --- Interrupteurs en bascule et thème (story 1.12) -------------------------------------------
+
+
+def test_every_checkbox_of_the_shell_is_a_wl_switch_with_the_check_in_its_thumb():
+    """D-6 : « Autoriser le cloud » et « Mode projection » sont des `role="switch"` au même rendu
+    `wl-switch` (`label.switch` > `.switch-box` > case + icône `check`), jamais une case nue."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert len(re.findall(r'type="checkbox"', html)) == len(re.findall(r'role="switch"', html)) == 2
+    boxes = re.findall(
+        r'<label class="switch">\s*<span class="switch-box">\s*<input type="checkbox" role="switch"'
+        r"[^>]*>\s*<svg class=\"icon switch-check\"[^>]*><use href=\"/static/icons\.svg#i-check\"/>"
+        r"</svg>\s*</span>",
+        html,
+    )
+    assert len(boxes) == 2
+
+
+def test_the_switch_css_follows_the_wl_switch_tokens_of_design_md():
+    css = (STATIC / "components.css").read_text(encoding="utf-8")
+
+    def rule(selector: str) -> str:
+        found = re.search(re.escape(selector) + r"\s*\{(.*?)\}", css, re.DOTALL)
+        assert found, selector
+        return found.group(1)
+
+    track = rule(".switch input")
+    assert "var(--color-ink-secondary)" in track and "var(--color-surface-alt)" in track
+    assert "var(--radius-full)" in track
+    assert "var(--color-primary-fill)" in rule(".switch input:checked")
+    assert "var(--color-surface)" in rule(".switch input::before")
+    assert "var(--color-line)" in rule('.switch input[aria-disabled="true"]')
+
+
+def test_the_theme_module_offers_light_dark_and_system_with_light_as_the_default():
+    text = (STATIC / "core/theme.js").read_text(encoding="utf-8")
+    assert 'THEMES = ["light", "dark", "system"]' in text
+    assert "prefers-color-scheme: dark" in text and '"change"' in text
+    assert 'return THEMES.includes(stored) ? stored : "light"' in text
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert re.findall(r'name="theme" value="(\w+)"', html) == ["light", "dark", "system"]
+    # Aucun troisième jeu de jetons : `tokens.css` n'a que `:root` et `data-theme="dark"`.
+    tokens = (STATIC / "tokens.css").read_text(encoding="utf-8")
+    assert 'data-theme="system"' not in tokens and "prefers-color-scheme" not in tokens

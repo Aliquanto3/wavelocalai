@@ -2,6 +2,12 @@ Material Symbols (sous-ensemble en sprite dans icons.svg)
 Copyright Google LLC, https://github.com/google/material-design-icons
 Licence Apache 2.0, texte ci-dessous.
 
+Provenance (décision D-2, 2026-10-18) : tous les symboles du sprite sont des Material Symbols
+Rounded, poids 400, contour (viewBox 0 -960 960 960). Aucun tracé Material Icons (Filled,
+viewBox 0 0 24 24) n'y entre : les 18 tracés Filled que la maquette (docs/maquette-v2/) a ajoutés
+à son propre sprite n'ont pas été repris. Un symbole de plus s'ajoute depuis le jeu Rounded
+officiel, jamais redessiné à la main ; tests/v2/unit/test_shell_static.py vérifie le viewBox.
+
 
                                  Apache License
                            Version 2.0, January 2004

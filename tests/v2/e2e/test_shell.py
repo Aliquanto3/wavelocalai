@@ -163,13 +163,35 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
     assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 2
 
 
-@pytest.mark.parametrize("route", ["#/arene/comparer", "#/sobriete", "#/n-importe-quoi", "#main"])
+# Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.
+MOCKUP_ROUTES = [
+    "#/arene/references",
+    "#/arene/banc/run-1",
+    "#/documents/evaluation/run-1",
+    "#/agents/equipe/run-1",
+    "#/modeles/qwen2.5%3A1.5b",
+]
+
+
+@pytest.mark.parametrize(
+    "route",
+    ["#/arene/comparer", "#/sobriete", "#/n-importe-quoi", "#main", *MOCKUP_ROUTES],
+)
 def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")
     wait_ready(page)
     assert page.evaluate("location.hash") == "#/"
     assert page.title() == "Accueil · WaveLocalAI"
     assert page.get_by_role("heading", level=1).inner_text() == "Accueil"
+
+
+def test_a_planned_mockup_route_has_no_active_link_anywhere(shell):
+    """D-8 : ni l'Accueil ni la barre haute n'ont de lien actif vers une route de la maquette ;
+    les onglets de l'Arène (écrans à venir) sont des liens désactivés, sans `href`."""
+    for prefix in ("#/arene/references", "#/arene/banc", "#/documents/evaluation"):
+        assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
+    for prefix in ("#/agents/equipe", "#/modeles"):
+        assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
 
 
 def test_each_route_sets_title_focuses_the_h1_announces_and_is_fast(shell):
@@ -305,6 +327,168 @@ def test_projection_mode_scales_type_hides_the_footer_and_is_remembered(shell):
     assert shell.get_attribute("html", "data-projection") == "true"
 
 
+def set_system_scheme(page, scheme: str) -> None:
+    page.emulate_media(color_scheme=scheme)
+
+
+def choose_theme(page, label: str) -> None:
+    open_display_menu(page)
+    page.get_by_label(label).check()
+    page.keyboard.press("Escape")
+
+
+def test_the_system_theme_follows_prefers_color_scheme_live_and_is_remembered(shell):
+    shell.evaluate("window.__same_page = true")
+    open_display_menu(shell)
+    values = [radio.get_attribute("value") for radio in shell.locator('input[name="theme"]').all()]
+    assert values == ["light", "dark", "system"]
+    shell.keyboard.press("Escape")
+
+    set_system_scheme(shell, "dark")
+    choose_theme(shell, "Système")
+    assert shell.get_attribute("html", "data-theme") == "dark"
+    assert shell.get_attribute("html", "data-theme-choice") == "system"
+    assert shell.evaluate("localStorage.getItem('wl.theme')") == "system"
+    assert shell.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(10, 10, 20)"
+
+    # Le réglage du système change pendant que la page est ouverte : le thème suit, sans recharger.
+    set_system_scheme(shell, "light")
+    wait_for(shell, "() => document.documentElement.dataset.theme === 'light'")
+    assert shell.evaluate("getComputedStyle(document.body).backgroundColor") == "rgb(255, 255, 255)"
+    set_system_scheme(shell, "dark")
+    wait_for(shell, "() => document.documentElement.dataset.theme === 'dark'")
+    assert shell.evaluate("window.__same_page") is True
+
+    shell.reload()
+    wait_ready(shell)
+    assert shell.get_attribute("html", "data-theme") == "dark"
+    assert shell.get_attribute("html", "data-theme-choice") == "system"
+    open_display_menu(shell)
+    assert shell.get_by_label("Système").is_checked()
+
+
+def test_an_explicit_choice_ignores_the_system_and_light_stays_the_default(page, server):
+    set_system_scheme(page, "dark")  # un système sombre ne change pas le défaut : Clair
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    assert page.get_attribute("html", "data-theme") == "light"
+    assert page.get_attribute("html", "data-theme-choice") == "light"
+    open_display_menu(page)
+    assert page.get_by_label("Clair").is_checked()
+    page.keyboard.press("Escape")
+
+    choose_theme(page, "Clair")
+    set_system_scheme(page, "light")
+    set_system_scheme(page, "dark")
+    assert page.get_attribute("html", "data-theme") == "light"  # Clair choisi : système sans effet
+
+    choose_theme(page, "Système")
+    assert page.get_attribute("html", "data-theme") == "dark"
+    choose_theme(page, "Sombre")
+    set_system_scheme(page, "light")
+    assert page.get_attribute("html", "data-theme") == "dark"
+
+
+def test_the_system_theme_still_applies_when_storage_is_blocked(page, server):
+    page.add_init_script(
+        "Object.defineProperty(window, 'localStorage', { get() { throw new Error('bloqué'); } })"
+    )
+    set_system_scheme(page, "dark")
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    choose_theme(page, "Système")
+    assert page.get_attribute("html", "data-theme") == "dark"
+    set_system_scheme(page, "light")
+    wait_for(page, "() => document.documentElement.dataset.theme === 'light'")
+
+
+SWITCH_LOOK = """(selector) => {
+    const input = document.querySelector(selector);
+    const label = input.closest('label');
+    const track = getComputedStyle(input);
+    return {
+        role: input.getAttribute('role'),
+        type: input.type,
+        structure: label.className + '>' + input.parentElement.className + '>'
+            + [...input.parentElement.children].map((el) => el.tagName.toLowerCase()).join('+'),
+        width: track.width,
+        height: track.height,
+        radius: track.borderTopLeftRadius,
+        borderStyle: track.borderTopStyle,
+        border: track.borderTopColor,
+        background: track.backgroundColor,
+        thumb: getComputedStyle(input, '::before').backgroundColor,
+        check: getComputedStyle(input.parentElement.querySelector('.switch-check')).opacity,
+        label: label.innerText.trim(),
+    };
+}"""
+CLOUD = "#cloud-switch"
+PROJECTION = 'input[name="projection"]'
+
+
+def switch_look(page, selector: str) -> dict:
+    """Rendu de la piste, du curseur et de l'icône d'un interrupteur."""
+    return page.evaluate(SWITCH_LOOK, selector)
+
+
+def test_projection_and_cloud_are_switches_with_the_same_wl_switch_rendering(shell):
+    open_display_menu(shell)
+    cloud, projection = switch_look(shell, CLOUD), switch_look(shell, PROJECTION)
+    for look in (cloud, projection):
+        assert (look["role"], look["type"]) == ("switch", "checkbox")
+        assert look["structure"] == "switch>switch-box>input+svg"
+    shared = ["width", "height", "radius", "borderStyle", "border", "background", "thumb", "check"]
+    assert {k: cloud[k] for k in shared} == {k: projection[k] for k in shared}
+    assert (cloud["label"], projection["label"]) == ("Autoriser le cloud", "Mode projection")
+    # Éteint : piste surface-alt bordée ink-secondary, curseur surface, icône cachée.
+    assert cloud["background"] == "rgb(246, 245, 250)" and cloud["border"] == "rgb(74, 74, 94)"
+    assert cloud["thumb"] == "rgb(255, 255, 255)" and cloud["check"] == "0"
+    assert cloud["radius"] != "0px" and cloud["width"] == "44px" and cloud["height"] == "24px"
+
+
+@pytest.mark.parametrize(
+    ("theme", "fill"), [("light", "rgb(69, 29, 199)"), ("dark", "rgb(106, 77, 230)")]
+)
+def test_switch_state_reads_in_the_shape_not_only_in_the_color(shell, theme, fill):
+    if theme == "dark":
+        choose_theme(shell, "Sombre")
+    open_display_menu(shell)
+    shell.get_by_label("Mode projection").check()
+    shell.locator(CLOUD).check()  # un clic hors du menu Affichage le referme
+    open_display_menu(shell)
+    for selector in (CLOUD, PROJECTION):
+        # La piste change de couleur en 0,15 s (transition) : on lit l'état final.
+        wait_for(
+            shell,
+            f"() => getComputedStyle(document.querySelector('{selector}')).backgroundColor"
+            f" === '{fill}'",
+        )
+        on = switch_look(shell, selector)
+        assert on["background"] == fill and on["check"] == "1", selector
+    # La forme change aussi : l'icône `check` est dans le curseur, passé de gauche à droite.
+    offsets = shell.evaluate(
+        """() => ['#cloud-switch', 'input[name="projection"]'].map((selector) => {
+            const input = document.querySelector(selector);
+            return input.parentElement.querySelector('.switch-check').getBoundingClientRect().left
+                - input.getBoundingClientRect().left;
+        })"""
+    )
+    assert all(offset > 15 for offset in offsets), offsets
+    shell.locator(CLOUD).uncheck()
+    assert switch_look(shell, CLOUD)["check"] == "0"
+
+
+def test_projection_switch_works_from_the_keyboard(shell):
+    open_display_menu(shell)
+    projection = shell.get_by_role("switch", name="Mode projection")
+    projection.focus()
+    shell.keyboard.press("Space")
+    assert projection.is_checked() and shell.get_attribute("html", "data-projection") == "true"
+    shell.keyboard.press("Space")
+    assert not projection.is_checked()
+    assert shell.get_attribute("html", "data-projection") == "false"
+
+
 def test_display_menu_closes_with_escape_and_returns_the_focus(shell):
     open_display_menu(shell)
     shell.keyboard.press("Escape")
@@ -363,3 +547,37 @@ def test_axe_finds_no_violation_in_projection_mode(shell):
     open_display_menu(shell)
     shell.get_by_label("Mode projection").check()
     assert_no_axe_violations(shell, "mode projection")
+    shell.keyboard.press("Escape")
+    assert_no_axe_violations(shell, "mode projection, menu fermé")
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_axe_finds_no_violation_in_projection_mode_with_every_theme(shell, theme):
+    if theme == "dark":
+        choose_theme(shell, "Sombre")
+    open_display_menu(shell)
+    shell.get_by_label("Mode projection").check()
+    shell.locator(CLOUD).check()
+    assert_no_axe_violations(shell, f"mode projection, interrupteurs activés, thème {theme}")
+    shell.set_viewport_size({"width": 320, "height": 800})
+    assert_no_axe_violations(shell, f"mode projection à 320 px, thème {theme}")
+    assert_no_horizontal_scroll(shell)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_axe_finds_no_violation_on_the_shell_and_the_home_in_system_theme(shell, scheme):
+    set_system_scheme(shell, scheme)
+    choose_theme(shell, "Système")
+    assert shell.get_attribute("html", "data-theme") == scheme
+    assert shell.get_by_role("heading", level=1).inner_text() == "Accueil"
+    assert_no_axe_violations(shell, f"coquille et Accueil, Système {scheme}")
+    open_display_menu(shell)
+    assert_no_axe_violations(shell, f"menu Affichage ouvert, Système {scheme}")
+    shell.set_viewport_size({"width": 320, "height": 800})
+    assert_no_axe_violations(shell, f"menu Affichage à 320 px, Système {scheme}")
+    assert_no_horizontal_scroll(shell)
+    # Le système change : le thème suit, et la page reste sans violation.
+    other = "dark" if scheme == "light" else "light"
+    set_system_scheme(shell, other)
+    wait_for(shell, f"() => document.documentElement.dataset.theme === '{other}'")
+    assert_no_axe_violations(shell, f"après le changement du système vers {other}")

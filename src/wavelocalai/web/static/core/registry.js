@@ -1,7 +1,9 @@
 // Registre des écrans (UX-DR4, décision de structure du 2026-10-18) : chaque écran est
 // `available` (il a un module `load`) ou `planned` (visible, désactivé, avec sa raison). Une story
 // qui livre un écran passe son `status` à "available" et lui donne son `load`.
-// `param` : nom du paramètre de chemin (`#/arene/comparer/<run_id>`).
+// `param` : nom du paramètre de chemin (`#/arene/comparer/<run_id>`, `#/modeles/<tag>`). Les routes
+// de la maquette (D-8) y sont déclarées `planned` : la story qui livre un écran n'a plus qu'à le
+// passer à `available` et à lui donner son `load`.
 
 export const MODULES = [
   {
@@ -27,7 +29,8 @@ export const MODULES = [
         load: () => import("../screens/chat.js"),
       },
       { id: "arena-compare", path: "/arene/comparer", param: "run_id", status: "planned" },
-      { id: "arena-bench", path: "/arene/banc", status: "planned" },
+      { id: "arena-bench", path: "/arene/banc", param: "run_id", status: "planned" },
+      { id: "arena-references", path: "/arene/references", status: "planned" },
     ],
   },
   {
@@ -36,7 +39,12 @@ export const MODULES = [
     screens: [
       { id: "documents-chat", path: "/documents", status: "planned" },
       { id: "documents-base", path: "/documents/base", status: "planned" },
-      { id: "documents-evaluation", path: "/documents/evaluation", status: "planned" },
+      {
+        id: "documents-evaluation",
+        path: "/documents/evaluation",
+        param: "run_id",
+        status: "planned",
+      },
     ],
   },
   {
@@ -44,7 +52,7 @@ export const MODULES = [
     icon: "smart-toy",
     screens: [
       { id: "agents-solo", path: "/agents/seul", status: "planned" },
-      { id: "agents-crew", path: "/agents/equipe", status: "planned" },
+      { id: "agents-crew", path: "/agents/equipe", param: "run_id", status: "planned" },
     ],
   },
   {
@@ -55,7 +63,7 @@ export const MODULES = [
   {
     id: "models",
     icon: "deployed-code",
-    screens: [{ id: "models", path: "/modeles", status: "planned" }],
+    screens: [{ id: "models", path: "/modeles", param: "tag", status: "planned" }],
   },
 ];
 

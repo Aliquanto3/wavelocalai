@@ -13,6 +13,7 @@
       "theme": "Thème",
       "light": "Clair",
       "dark": "Sombre",
+      "system": "Système",
       "projection": "Mode projection",
       "projection_help": "Texte agrandi pour la salle ; le pied de page est masqué."
     },
@@ -31,6 +32,7 @@
     "arena-chat": "Chat libre",
     "arena-compare": "Arène",
     "arena-bench": "Banc d'essai",
+    "arena-references": "Références",
     "documents-chat": "Discussion",
     "documents-base": "Base documentaire",
     "documents-evaluation": "Évaluation de la qualité",
@@ -83,6 +85,13 @@
       "total": "sur {total}"
     },
     "modules_title": "Modules",
+    "modules_long": {
+      "arena": "Arène des modèles",
+      "documents": "Assistant documentaire",
+      "agents": "Agents autonomes",
+      "sobriety": "Sobriété et matériel",
+      "models": "Installation et choix par usage"
+    },
     "modules": {
       "arena": "Comparer plusieurs petits modèles sur une question : qualité, vitesse et CO₂.",
       "documents": "Interroger ses documents et voir les sources.",

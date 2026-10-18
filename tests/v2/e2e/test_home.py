@@ -15,6 +15,7 @@ import pytest
 from .test_shell import (
     assert_no_axe_violations,
     assert_no_horizontal_scroll,
+    open_display_menu,
     wait_for,
     wait_ready,
 )
@@ -305,21 +306,24 @@ def test_planned_modules_have_no_card_on_the_home(home):
     )
 
 
-def mount_second_home(page) -> None:
-    """Rend l'écran Arène disponible dans le registre, puis monte un second Accueil : ses liens de
-    modules. Le premier est masqué pour que les identifiants restent uniques."""
+def mount_second_home(page, every_module: bool = False) -> None:
+    """Rend l'écran Arène disponible dans le registre (ou le premier écran de chaque module, avec
+    `every_module`), puis monte un second Accueil : ses liens de modules. Le premier est masqué
+    pour que les identifiants restent uniques."""
     page.evaluate(
-        """async () => {
+        """async (everyModule) => {
             const registry = await import('/static/core/registry.js');
-            const arena = registry.MODULES.find((module) => module.id === 'arena');
-            arena.screens[0].status = 'available';
+            const modules = registry.MODULES.filter((module) =>
+                everyModule ? module.id !== 'home' : module.id === 'arena');
+            for (const module of modules) module.screens[0].status = 'available';
             document.querySelector('[data-screen="home"]').hidden = true;
             const home = await import('/static/screens/home.js');
             const host = document.createElement('section');
             host.id = 'second-home';
             document.getElementById('main').append(host);
             home.mount(host, {});
-        }"""
+        }""",
+        every_module,
     )
 
 
@@ -336,6 +340,42 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     assert home.get_by_text("Assistant documentaire").count() == 0
 
 
+# Nom court du menu, nom long (EXPERIENCE.md, D-10), lien (premier écran du module).
+MODULE_LINKS = [
+    ("Arène", "Arène des modèles", "#/arene/chat"),
+    ("Documents", "Assistant documentaire", "#/documents"),
+    ("Agents", "Agents autonomes", "#/agents/seul"),
+    ("Sobriété", "Sobriété et matériel", "#/sobriete"),
+    ("Modèles", "Installation et choix par usage", "#/modeles"),
+]
+
+
+def test_an_available_module_gets_a_link_with_short_name_long_name_and_summary(home):
+    """D-10 : le nom court du menu en titre, le nom long en sous-titre, puis la phrase de résumé ;
+    le `h1` reste « Accueil » (D-9)."""
+    mount_second_home(home, every_module=True)
+    links = home.locator("#second-home .home-module-link")
+    assert links.count() == len(MODULE_LINKS)
+    for index, (short, long, href) in enumerate(MODULE_LINKS):
+        link = links.nth(index)
+        assert link.get_attribute("href") == href
+        assert link.locator(".home-module-name").inner_text() == short
+        assert link.locator(".home-module-long").inner_text() == long
+        summary = link.locator(".home-module-summary").inner_text()
+        assert summary and summary != long
+        # Ordre de lecture : titre, sous-titre, résumé.
+        assert link.inner_text().splitlines() == [short, long, summary]
+        # Le nom court est celui du menu de la barre haute.
+        assert home.locator(f'#module-list a[data-module] span:text-is("{short}")').count() == 1
+
+
+def test_the_home_keeps_a_single_h1_accueil(home):
+    mount_second_home(home, every_module=True)
+    headings = home.locator("#second-home h1")
+    assert headings.count() == 1 and headings.inner_text() == "Accueil"
+    assert home.locator("h1:visible").count() == 1
+
+
 # --- Accessibilité, mise en page et trafic ----------------------------------------------------
 
 
@@ -346,8 +386,8 @@ def test_axe_finds_no_violation_on_the_home_in_every_state(home, theme):
     home.get_by_role("switch", name="Autoriser le cloud").check()
     wait_card(home, "mode", "Cloud")
     assert_no_axe_violations(home, f"Accueil, cloud autorisé, thème {theme}")
-    mount_second_home(home)
-    assert_no_axe_violations(home, f"Accueil avec un lien de module, thème {theme}")
+    mount_second_home(home, every_module=True)
+    assert_no_axe_violations(home, f"Accueil avec tous les liens de module, thème {theme}")
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
@@ -386,3 +426,26 @@ def test_the_home_never_leaves_127_0_0_1(home, server, traffic):
     assert traffic.urls
     assert all(url.startswith(server.base_url) for url in traffic.urls), traffic.urls
     assert not traffic.blocked
+
+
+@pytest.mark.parametrize("width", [320, 768, 1440])
+def test_the_home_with_every_module_link_has_no_horizontal_scroll(home, width):
+    mount_second_home(home, every_module=True)
+    home.set_viewport_size({"width": width, "height": 900})
+    assert_no_horizontal_scroll(home)
+    for link in home.locator("#second-home .home-module-link").all():
+        box = link.bounding_box()
+        assert box is not None and box["x"] >= 0 and box["x"] + box["width"] <= width
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_axe_finds_no_violation_on_the_home_in_system_theme_with_every_module(home, scheme):
+    home.emulate_media(color_scheme=scheme)
+    open_display_menu(home)
+    home.get_by_label("Système").check()
+    home.keyboard.press("Escape")
+    assert home.get_attribute("html", "data-theme") == scheme
+    mount_second_home(home, every_module=True)
+    assert_no_axe_violations(home, f"Accueil, tous les modules, Système {scheme}")
+    home.set_viewport_size({"width": 320, "height": 900})
+    assert_no_axe_violations(home, f"Accueil, tous les modules, 320 px, Système {scheme}")
