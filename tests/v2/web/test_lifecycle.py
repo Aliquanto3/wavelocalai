@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from wavelocalai.__main__ import main
 from wavelocalai.store.db import db_path
 from wavelocalai.store.logs import close_logging
+from wavelocalai.store.migrate import discover
 from wavelocalai.web.app import create_app
 
 from ..conftest import TEST_PORT, closed_port, make_settings
@@ -31,7 +32,7 @@ def test_startup_migrates_the_database_and_opens_an_app_session(tmp_path):
     with TestClient(create_app(settings), base_url=BASE) as client:
         assert client.get("/api/health").status_code == 200
         assert path.is_file()
-        assert _rows(path, "PRAGMA user_version") == [(1,)]
+        assert _rows(path, "PRAGMA user_version") == [(len(discover()),)]
         assert _rows(path, "SELECT reason FROM app_sessions") == [("startup",)]
 
 

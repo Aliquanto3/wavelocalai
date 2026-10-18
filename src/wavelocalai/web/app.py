@@ -14,13 +14,17 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.models.facts_store import SqliteFactsStore
 from wavelocalai.models.fake import fake_models
 from wavelocalai.models.ollama_probe import OllamaProbe
+from wavelocalai.models.registry import ModelRegistry
+from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health, routes_runs, routes_test
+from wavelocalai.web import routes_health, routes_models, routes_runs, routes_test
 from wavelocalai.web.security import LocalOnlyMiddleware
 
 logger = logging.getLogger("wavelocalai.web")
@@ -58,9 +62,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     hub = RunHub(store)
     await hub.start()
     app.state.hub = hub
+    await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     try:
         yield
     finally:
+        await app.state.registry.stop()
         await hub.stop()
         await app.state.probe.aclose()
         if owned is not None:
@@ -68,12 +74,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(
-    settings: Settings, probe: OllamaProbe | None = None, store: Store | None = None
+    settings: Settings,
+    probe: OllamaProbe | None = None,
+    store: Store | None = None,
+    registry: ModelRegistry | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
     `store` : base déjà ouverte par le lanceur (qui la ferme) ; sinon l'app ouvre la sienne au
-    démarrage de son cycle de vie.
+    démarrage de son cycle de vie. `registry` : registre des modèles, branché sur la base du store
+    (faits d'Ollama et débit mesuré) par défaut.
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -90,6 +100,12 @@ def create_app(
     app.state.hub = None  # créé au démarrage du cycle de vie
     app.state.models = fake_models(settings)  # le `fake` seulement si `Settings.testing` (AD-8)
     app.state.tasks = set()  # tâches de runs en cours (références fortes)
+    app.state.registry = registry or ModelRegistry(
+        settings,
+        facts=SqliteFactsStore(lambda: app.state.store),
+        run_stats=SqliteRunStats(lambda: app.state.store),
+        advisor=MemoryAdvisor(),
+    )
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,
@@ -133,4 +149,5 @@ def create_app(
     app.include_router(routes_runs.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
+    app.include_router(routes_models.router)
     return app

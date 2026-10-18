@@ -78,6 +78,34 @@ _SPECS = (
         "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
         ("run_id",),
     ),
+    ErrorSpec(
+        "cloud_not_allowed",
+        403,
+        "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
+        "Autorisez le mode cloud pour cette demande, ou choisissez un modèle local.",
+        ("tag",),
+    ),
+    ErrorSpec(
+        "model_not_chat",
+        422,
+        "Ce modèle ne sert pas à générer du texte.",
+        "Choisissez un modèle de conversation dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_embedding",
+        422,
+        "Ce modèle ne sert pas à calculer des embeddings.",
+        "Choisissez un modèle d'embedding local dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_found",
+        404,
+        "Ce modèle n'est pas dans la liste des modèles disponibles.",
+        "Rechargez la liste des modèles, ou installez ce modèle dans Ollama.",
+        ("tag",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 
