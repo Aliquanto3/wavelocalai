@@ -13,6 +13,8 @@
 // unique dans le store, deux lecteurs s'écarteraient les événements) ; il passe chaque enveloppe à
 // `feed(envelope)`, et `abandon()` dit que le flux est perdu. Aucun flux n'est ouvert ici.
 // La touche Échap n'agit que si le composant est à l'écran (un écran gardé en mémoire est masqué).
+// En mode piloté, l'écran annonce lui-même la fin du run : l'état final s'affiche sans être annoncé
+// (une seule annonce polie à la fin, UX-DR10). Les changements d'étape restent annoncés.
 
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
@@ -222,7 +224,10 @@ export class WlRunStatus extends HTMLElement {
   #render() {
     const { stage, stop, hint, error } = this.#dom;
     this.hidden = this.#runId === null;
-    stage.textContent = t(STAGE_TEXT[this.#stage]);
+    // L'étape est une région `status` : une réécriture du même texte serait annoncée de nouveau.
+    stage.setAttribute("aria-live", this.driven && this.#final ? "off" : "polite");
+    const text = t(STAGE_TEXT[this.#stage]);
+    if (stage.textContent !== text) stage.textContent = text;
     this.dataset.stage = this.#stage;
     this.#renderTimer();
     const running = this.running;

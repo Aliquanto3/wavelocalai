@@ -333,6 +333,21 @@ def test_the_markdown_subset(chat):
     assert quote == "<blockquote><p>cité<br>encore</p></blockquote><hr>"
 
 
+def test_a_pathological_link_pattern_renders_in_linear_time(chat):
+    # « [a](b » répété : sans borne sur le libellé et l'adresse, le rendu était quadratique
+    # (environ 260 ms pour 50 Ko, à chaque rendu de 150 ms pendant le flux).
+    elapsed = chat.evaluate(
+        """async () => {
+        const { renderMarkdown } = await import('/static/core/markdown.js');
+        const source = '[a](b'.repeat(10000);
+        const started = performance.now();
+        renderMarkdown(source);
+        return performance.now() - started;
+    }"""
+    )
+    assert elapsed < 60, elapsed
+
+
 # --- Arrêt en moins d'une seconde -------------------------------------------------------------
 
 
@@ -366,6 +381,59 @@ def test_the_escape_key_stops_the_generation_in_under_a_second(chat, server):
     assert answer_text(chat) == "Début"
 
 
+# Ce qu'un lecteur d'écran annoncerait : chaque texte écrit dans une région vivante (`aria-live`,
+# `role=status|log|alert`) dont la politesse effective, au moment de l'écriture, n'est pas `off`.
+RECORD_ANNOUNCEMENTS = """() => {
+  window.__said = [];
+  const politeness = (node) => {
+    for (let n = node; n && n.nodeType === 1; n = n.parentElement) {
+      const live = n.getAttribute('aria-live');
+      if (live) return live;
+      const role = n.getAttribute('role');
+      if (role === 'status' || role === 'log') return 'polite';
+      if (role === 'alert') return 'assertive';
+    }
+    return 'off';
+  };
+  new MutationObserver((records) => {
+    for (const record of records) {
+      const node = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      if (!node || politeness(node) === 'off') continue;
+      const text = node.textContent.trim();
+      if (text && window.__said.at(-1) !== text) window.__said.push(text);
+    }
+  }).observe(document.querySelector('section[data-screen=arena-chat]'),
+             { childList: true, characterData: true, subtree: true });
+}"""
+
+
+def test_only_the_stage_change_and_one_end_announcement_are_spoken(chat, server):
+    scripted(
+        chat,
+        server,
+        [
+            {"load": "loaded"},
+            {"text": "Bonjour "},
+            {"sleep_s": 0.4},
+            {"text": "le monde"},
+            {"done": DONE},
+        ],
+    )
+    chat.evaluate(RECORD_ANNOUNCEMENTS)
+    ask(chat, "Dis bonjour")
+    chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
+    wait_for(
+        chat,
+        "() => document.querySelector('wl-chat-thread [role=status]').textContent !== ''",
+    )
+    said = chat.evaluate("window.__said")
+    # Aucun token annoncé, et la fin une seule fois (pas « Terminé » en plus de la phrase du fil).
+    assert not any("Bonjour" in text for text in said), said
+    assert "Terminé" not in said, said
+    assert said[-1] == "Réponse de Factice 1B terminée, 12 tokens.", said
+    assert sum("terminée" in text for text in said) == 1, said
+
+
 # --- Reprise au retour ------------------------------------------------------------------------
 
 WORDS = ["un ", "deux ", "trois ", "quatre ", "cinq ", "six"]
@@ -393,6 +461,40 @@ def test_the_stream_resumes_by_after_without_loss_or_duplicate_after_a_visit_to_
     streams = [url for url in traffic.urls if f"/api/runs/{run_id}/events" in url]
     assert len(streams) == 2 and "?after=" not in streams[0] and "?after=" in streams[1]
     assert chat.locator(".wl-msg-assistant").count() == 1  # une seule réponse, pas de doublon
+
+
+def test_a_scrolled_up_position_is_kept_after_a_visit_to_home(chat, server):
+    lines = [{"text": f"ligne {n}\n\n"} for n in range(60)]
+    scripted(chat, server, [*lines, {"sleep_s": 30}])
+    ask(chat, "Beaucoup de lignes")
+    chat.locator(".wl-md").filter(has_text="ligne 59").wait_for()
+    log = chat.get_by_role("log")
+    log.evaluate("node => { node.scrollTop = 200; }")  # la personne remonte
+    chat.get_by_role("button", name="Aller à la fin").wait_for(state="visible")
+    chat.evaluate("location.hash = '#/'")
+    chat.locator("section[data-screen=arena-chat]").wait_for(state="hidden")
+    chat.evaluate("location.hash = '#/arene/chat'")
+    chat.locator("section[data-screen=arena-chat]").wait_for(state="visible")
+    # Masqué, `scrollTop` vaut 0 : la position rendue est celle vue avant de partir.
+    wait_for(chat, "() => Math.abs(document.querySelector('[role=log]').scrollTop - 200) < 5")
+    assert chat.get_by_role("button", name="Aller à la fin").is_visible()
+
+
+def test_enter_pressed_again_while_the_command_is_pending_sends_nothing_more(chat, server):
+    commands: list[dict] = []
+    scripted(chat, server, [{"text": "Réponse"}, {"done": DONE}], commands)
+    held: list = []  # la commande reste en attente tant que le test ne la relâche pas
+    chat.route(re.compile(r"/api/chat/runs$"), lambda route: held.append(route))
+    field(chat).fill("Première")
+    field(chat).press("Enter")
+    wait_for(chat, "() => document.querySelector('.chat-send').disabled")
+    field(chat).press("Enter")  # pendant la requête : ignoré
+    assert chat.get_by_role("button", name="Effacer la conversation").is_disabled()
+    assert len(held) == 1
+    held[0].fallback()
+    chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
+    assert len(commands) == 1
+    assert chat.locator(".wl-msg-user").count() == 1
 
 
 def test_a_busy_chat_is_joined_instead_of_showing_an_error(chat_lenient, server):

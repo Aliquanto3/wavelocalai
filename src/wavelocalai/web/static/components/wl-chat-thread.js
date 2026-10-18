@@ -229,6 +229,7 @@ export class WlChatThread extends HTMLElement {
   #dom = null;
   #following = true;
   #saved = null;
+  #top = 0; // dernière position vue à l'écran : masqué (`display: none`), `scrollTop` vaut 0
   #answers = new Set();
 
   connectedCallback() {
@@ -290,6 +291,7 @@ export class WlChatThread extends HTMLElement {
     this.#dom.log.replaceChildren();
     this.#dom.live.textContent = "";
     this.#following = true;
+    this.#top = 0;
     this.#dom.toEnd.hidden = true;
   }
 
@@ -301,8 +303,9 @@ export class WlChatThread extends HTMLElement {
   }
 
   // L'écran sort de la vue (masqué, gardé en mémoire) : le défilement est mémorisé, puis rendu.
+  // L'appel arrive après le masquage : la position vient du dernier défilement vu, pas du DOM.
   suspend() {
-    this.#saved = { following: this.#following, top: this.#dom.log.scrollTop };
+    this.#saved = { following: this.#following, top: this.#top };
   }
 
   resume() {
@@ -334,6 +337,7 @@ export class WlChatThread extends HTMLElement {
   #onScroll() {
     if (this.closest("[hidden]")) return; // écran masqué : la position n'est pas celle de la personne
     const { log, toEnd } = this.#dom;
+    this.#top = log.scrollTop;
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight <= BOTTOM_PX;
     this.#following = atBottom;
     toEnd.hidden = atBottom;

@@ -64,3 +64,14 @@ deferred:
 - `src/wavelocalai/web/static/screens/chat.js`, `components/wl-chat-thread.js`, `core/markdown.js`, `core/drafts.js`, `core/screen-tabs.js`, `chat.css`
 - Ajouts : `core/sse.js` (`close({keepSeq})`), `core/api.js` (`startChat`), `components/wl-run-status.js` (mode piloté), `components/wl-model-picker.js` (`selected`), `core/registry.js`, `i18n/fr.json`, `index.html`
 - Tests : `tests/v2/e2e/test_chat.py`, `tests/v2/unit/test_chat_static.py`, `tests/v2/unit/test_shell_static.py`
+
+## Revue
+
+Revue Opus, une passe, sur 67042f2 (avec la liste du second avis Haiku).
+
+- medium, second avis 1 : corrigé. La fin était annoncée deux fois (« Terminé » par l'étape `role="status"` de `wl-run-status`, puis la phrase du fil) et l'étape réécrivait le même texte à chaque rendu (« Démarrage… » deux fois). En mode piloté, l'état final passe en `aria-live="off"` (l'écran annonce la fin), et l'étape n'est réécrite que si son texte change. Le changement d'étape (« Génération… ») reste annoncé : c'est le contrat de `wl-run-status` (UX-DR8, EXPERIENCE.md, trace des agents), pas le contenu du flux. Preuve : `test_only_the_stage_change_and_one_end_announcement_are_spoken` (compte les écritures dans les régions vivantes : « Génération… » puis une seule phrase de fin).
+- medium, second avis 2 : corrigé. Confirmé dans Edge : `suspend()` lisait `scrollTop` après le masquage (0), la personne remontée revenait en haut. La position vue est mémorisée à chaque défilement visible. Preuve : `test_a_scrolled_up_position_is_kept_after_a_visit_to_home`.
+- low, second avis 3 : corrigé. Pendant `startChat`, Entrée relançait un POST et Effacer restait actif ; un drapeau `pending` bloque les deux, et un texte tapé pendant la requête n'est plus effacé. Preuve : `test_enter_pressed_again_while_the_command_is_pending_sends_nothing_more`.
+- low, second avis 4 : corrigé. Mesuré dans Edge : « [a](b » répété (50 Ko) prenait 260 ms par rendu (« [a » seul : 17 ms, pas quadratique en pratique). Libellé borné à 500 caractères, adresse à 2 048 sans parenthèse : 0,2 ms. Preuve : `test_a_pathological_link_pattern_renders_in_linear_time`.
+- low, second avis 5 : corrigé. Un run lancé pendant que l'écran est masqué n'ouvre plus de flux ; il s'ouvre au retour (AD-6).
+- low, second avis 6 : rejeté. La pause de 1,8 s du test de reprise est l'absence elle-même (la génération doit avancer sans lecteur) et les durées de moins d'une seconde sont le critère mesuré ; les attentes de fin passent par `wait_for`.

@@ -104,12 +104,13 @@ export function mount(host) {
   let stream = null;
   let answer = null;
   let wasHidden = host.hidden;
+  let pending = false; // commande envoyée, réponse du serveur attendue
 
   const running = () => runId !== null;
 
   function render() {
-    clear.disabled = running();
-    send.disabled = running();
+    clear.disabled = running() || pending;
+    send.disabled = running() || pending;
     empty.hidden = !thread.empty;
   }
 
@@ -162,13 +163,13 @@ export function mount(host) {
   function follow(id) {
     runId = id;
     status.runId = id;
-    openStream(id);
+    if (!host.hidden) openStream(id); // masqué : le flux s'ouvrira au retour (AD-6)
     render();
   }
 
   // --- Actions ---------------------------------------------------------------------------
   async function submit() {
-    if (running()) return;
+    if (running() || pending) return;
     const message = input.value;
     if (!message.trim()) {
       input.focus();
@@ -181,7 +182,8 @@ export function mount(host) {
       error.error = { code: "no_model", message: t("chat.no_model"), action: t("chat.no_model_action") };
       return;
     }
-    send.disabled = true; // pas de second envoi pendant la requête
+    pending = true; // pas de second envoi (bouton ni Entrée) ni d'effacement pendant la requête
+    render();
     try {
       const started = await api.startChat({
         conversation_id: conversationId,
@@ -192,8 +194,11 @@ export function mount(host) {
       });
       conversationId = started.conversation_id ?? conversationId;
       thread.addUserMessage(message);
-      input.value = "";
-      saveDraft(DRAFT, "");
+      if (input.value === message) {
+        // Un texte tapé pendant la requête reste dans le champ.
+        input.value = "";
+        saveDraft(DRAFT, "");
+      }
       const chosen = picker.selected;
       answer = thread.beginAnswer({ name: chosen?.name ?? model, origin: chosen?.origin });
       follow(started.run_id);
@@ -206,13 +211,15 @@ export function mount(host) {
         follow(busy.detail.run_id);
       } else {
         error.error = envelopeOf(failure);
-        render();
       }
+    } finally {
+      pending = false;
+      render();
     }
   }
 
   function clearConversation() {
-    if (running()) return;
+    if (running() || pending) return;
     thread.clear();
     status.runId = null;
     conversationId = null;

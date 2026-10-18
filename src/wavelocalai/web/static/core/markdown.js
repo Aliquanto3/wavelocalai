@@ -14,8 +14,9 @@ const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
 const RULE = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/;
 const QUOTE = /^ {0,3}>\s?(.*)$/;
 const ITEM = /^( *)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+// Libellé et adresse de lien bornés : sans borne, « [a](b » répété coûte un temps quadratique.
 const INLINE =
-  /(?<ticks>`+)(?<code>[\s\S]*?[^`])\k<ticks>(?!`)|\[(?<label>[^\]\n]+)\]\((?<href>[^)\s]+)\)|\*\*(?<strong>[^*\n]+?)\*\*|(?<![\w])__(?<strong2>[^_\n]+?)__(?![\w])|\*(?<em>[^*\s](?:[^*\n]*[^*\s])?)\*|(?<![\w])_(?<em2>[^_\s](?:[^_\n]*[^_\s])?)_(?![\w])/g;
+  /(?<ticks>`+)(?<code>[\s\S]*?[^`])\k<ticks>(?!`)|\[(?<label>[^\]\n]{1,500})\]\((?<href>[^()\s]{1,2048})\)|\*\*(?<strong>[^*\n]+?)\*\*|(?<![\w])__(?<strong2>[^_\n]+?)__(?![\w])|\*(?<em>[^*\s](?:[^*\n]*[^*\s])?)\*|(?<![\w])_(?<em2>[^_\s](?:[^_\n]*[^_\s])?)_(?![\w])/g;
 
 // L'adresse d'un lien, si on peut la suivre sans risque ; sinon null.
 export function safeHref(href) {
