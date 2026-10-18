@@ -24,7 +24,8 @@ function makeAnnouncer(region) {
 }
 
 async function boot() {
-  if (location.protocol === "file:") return; // message d'index.html
+  // En file:// : message d'index.html, sauf dans la page autonome (construire_autonome.py).
+  if (location.protocol === "file:" && !window.__wlAutonome) return;
   await Promise.all([loadTexts(), loadErrors()]);
   const { modules, routes } = await loadData("routes.json");
   applyTexts();

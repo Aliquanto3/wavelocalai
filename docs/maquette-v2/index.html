@@ -28,7 +28,7 @@
       }
       root.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
       root.setAttribute("data-projection", projection ? "true" : "false");
-      if (location.protocol === "file:") root.setAttribute("data-file", "true");
+      if (location.protocol === "file:" && !window.__wlAutonome) root.setAttribute("data-file", "true");
     })();
   </script>
   <script type="module" src="js/main.js"></script>
@@ -148,18 +148,15 @@
   <div class="sr-only" id="status-announcer" role="status" aria-live="polite"></div>
 
   <script>
-    // Ouverte en file://, la page ne peut pas charger ses modules (le navigateur les bloque) : on le
-    // dit, avec la marche à suivre, au lieu d'une page blanche.
-    if (location.protocol === "file:") {
+    // Ouverte en file://, la page ne peut pas charger ses modules (le navigateur les bloque) : on
+    // renvoie vers la page autonome, au lieu d'une page blanche.
+    if (location.protocol === "file:" && !window.__wlAutonome) {
       var main = document.getElementById("main");
       main.innerHTML =
-        '<h1>Ouvrez la maquette avec son petit serveur local</h1>' +
-        '<p class="lead">Le navigateur bloque les modules JavaScript et la lecture des données quand la page est ouverte comme un fichier (adresse en <code>file://</code>). La maquette doit être servie par un serveur local, qui ne sort pas de votre poste.</p>' +
-        '<ol class="file-steps">' +
-        '<li>Sous Windows : fermez cet onglet et double-cliquez sur <strong>ouvrir.cmd</strong>, dans le dossier <code>docs/maquette-v2</code>. Le navigateur s’ouvre sur la maquette.</li>' +
-        '<li>Sinon : ouvrez un terminal dans ce dossier, lancez <code>python serveur.py</code> (ou <code>python -m http.server 8000</code>), puis ouvrez <code>http://127.0.0.1:8000/</code>.</li>' +
-        '</ol>' +
-        '<p class="help">Python 3 suffit ; rien n’est téléchargé.</p>';
+        '<h1>Ouvrez la page autonome de la maquette</h1>' +
+        '<p class="lead">Le navigateur bloque les modules JavaScript et la lecture des données quand cette page est ouverte comme un fichier (adresse en <code>file://</code>). La même maquette existe en un seul fichier, ouvrable au double-clic.</p>' +
+        '<p><a class="btn btn-primary" href="maquette-autonome.html">Ouvrir maquette-autonome.html</a></p>' +
+        '<p class="help">Autre possibilité : double-cliquez sur <strong>ouvrir.cmd</strong>, ou lancez <code>python serveur.py</code> dans ce dossier, puis ouvrez l’adresse affichée. Rien n’est téléchargé.</p>';
     }
   </script>
 </body>
