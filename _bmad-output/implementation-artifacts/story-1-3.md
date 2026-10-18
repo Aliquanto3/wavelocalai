@@ -89,3 +89,17 @@ Chaque génération est un run enregistré, numéroté par le hub seul, terminé
 ## Reports
 
 Voir l'en-tête `deferred` : réhydratation des sources, `409 run_busy`, flux SSE (1.4), effacement et sqlite-vec, `awaiting_approval`, échec de clôture, encodage de `test_real_launch`.
+
+## Revue
+
+Revue Opus en une passe, sur la liste du second avis (Haiku) ; diff `68de3ef..d86d06a`.
+
+- HIGH, second avis n° 1 : corrigé. `stop()` annulait le flusher pendant l'écriture d'un lot ; le lot partait quand même, `flushed` n'avançait pas, `_close` réécrivait les mêmes `seq` (UNIQUE), le run restait `running` sans `run_ended` ni message assistant. `flush` attend maintenant le sort réel du lot sous le verrou (`asyncio.shield`) avant de rendre l'annulation. Test : `test_stop_during_a_batch_still_closes_the_run_once` (échoue sans le correctif).
+- MEDIUM, second avis n° 2 : corrigé. Une feuille n'était rattachée au parent qu'après son écriture : un parent annulé pendant celle-ci la laissait `running`, hors de `stop()`. La feuille est rattachée avant l'écriture (retirée si l'écriture échoue) ; `attach_task` sur un run déjà clos annule la tâche au lieu de lever `KeyError`. Test : `test_parent_cancelled_while_a_leaf_is_being_created_cancels_the_leaf` (échoue sans le correctif).
+- LOW, second avis n° 3 : corrigé. `stop()` ne touche plus un run dont la clôture est déjà en cours (annuler sa tâche perdait la transaction de clôture).
+- LOW, second avis n° 4 : rejeté. Une racine sans enfant close par `finish_leaf` est le choix documenté du « run simple » ; restreindre par `kind` attend les services qui créent ces racines (arène, RAG).
+- LOW, second avis n° 5 : rejeté. L'heuristique de `check_params` est celle du critère 5 (clés, longueur, texte de la question) ; les services ne passent que des paramètres typés.
+- LOW, second avis n° 6 : corrigé. Le lanceur traite aussi `sqlite3.Error` et `OSError` à l'ouverture de la base (base corrompue, droits) : message clair, socket fermé, code 1.
+- LOW, second avis n° 7 : rejeté. `bak-N` n'est réécrit que si la base est encore à N, donc par une copie équivalente (une migration échouée ne change rien).
+- LOW, revue : reporté. Un run racine créé pendant `stop()` (écriture en vol) n'est pas vu par l'arrêt et finira `interrupted` au démarrage suivant, comme un arrêt brutal. Acceptable au MVP.
+- Schéma `0001_hub.sql` relu contre AD-5, AD-7, AD-10, AD-12, AD-13 : aucun défaut (l'effacement d'AD-13 supprime `messages` et `run_events` avant de garder `runs`, compatible avec `messages.run_id` sans action).

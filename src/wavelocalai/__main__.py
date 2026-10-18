@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sqlite3
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -79,7 +80,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 1
             try:
                 store = Store.open(db_path(data_dir))  # migre la base, ou refuse de démarrer
-            except MigrationError as exc:
+            except (MigrationError, sqlite3.Error, OSError) as exc:
                 sock.close()
                 print(f"wavelocalai-v2 : {exc}", file=sys.stderr)
                 logger.error("%s", exc)

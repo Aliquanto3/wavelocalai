@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -474,3 +475,66 @@ async def test_new_app_session_groups_later_runs(hub, store):
 async def test_hub_must_be_started_before_creating_a_run(store):
     with pytest.raises(RuntimeError, match="pas démarré"):
         await RunHub(store).create_run("chat")
+
+
+# --- courses entre écrivain et annulation (revue de la story 1.3) ------------------------------
+
+
+def _gate(monkeypatch, name, when=lambda *a, **k: True):
+    """Bloque la première écriture `repo.<name>` qui vérifie `when`, dans le fil de l'écrivain,
+    jusqu'à `release.set()`."""
+    real = getattr(repo, name)
+    entered, release = threading.Event(), threading.Event()
+
+    def gated(*args, **kwargs):
+        if not entered.is_set() and when(*args, **kwargs):
+            entered.set()
+            release.wait(5)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(repo, name, gated)
+    return entered, release
+
+
+async def test_stop_during_a_batch_still_closes_the_run_once(store, monkeypatch):
+    hub = RunHub(store, batch_interval_s=0.01)
+    await hub.start()
+    handle = await produce_chat(hub, tokens=["a", "b"], finish=False)
+    entered, release = _gate(monkeypatch, "insert_events")
+    assert await asyncio.to_thread(entered.wait, 5)  # le flusher écrit son lot
+    stopping = asyncio.create_task(hub.stop())  # annule le flusher pendant l'écriture
+    await asyncio.sleep(0.05)
+    release.set()
+    await stopping
+    row = _run(store, handle.run_id)
+    assert row["status"] == "cancelled"
+    seqs = [seq for seq, _, _ in _events(store, handle.run_id)]
+    assert seqs == list(range(1, len(seqs) + 1))
+    assert _events(store, handle.run_id)[-1][1] == "run_ended"
+    assert _messages(store, handle.conversation_id)[-1]["content"] == "ab"
+
+
+async def test_parent_cancelled_while_a_leaf_is_being_created_cancels_the_leaf(
+    hub, store, monkeypatch
+):
+    parent = await hub.create_run("arena", models=["a:1b"], params={})
+    entered, release = _gate(
+        monkeypatch, "insert_run", when=lambda *a, **k: k.get("kind") == "generation"
+    )
+    creating = asyncio.create_task(
+        hub.create_run("generation", models=["a:1b"], parent_run_id=parent.run_id)
+    )
+    assert await asyncio.to_thread(entered.wait, 5)
+    cancelling = asyncio.create_task(hub.cancel(parent.run_id))
+    await asyncio.sleep(0.05)
+    release.set()
+    leaf = await creating
+    assert await cancelling is True
+    assert _run(store, leaf.run_id)["status"] == "cancelled"
+    assert _run(store, parent.run_id)["status"] == "cancelled"
+    # Le service attache sa tâche après coup : elle est annulée, sans KeyError.
+    task = asyncio.create_task(asyncio.sleep(10))
+    hub.attach_task(leaf.run_id, task)
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert await hub.finish_leaf(leaf.run_id, LeafResult(status="ok")) is False
