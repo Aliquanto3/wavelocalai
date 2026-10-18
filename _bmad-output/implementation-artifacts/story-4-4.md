@@ -102,7 +102,7 @@ Positions : indices de `str` Python dans `text`, `end` exclu (`text[start:end]` 
 
 ## Vérification
 
-`pytest tests/v2` : 859 passés (dont 47 ajoutés : 22 de règles, 25 web ; les 172 tests E2E et d'intégration sont exclus par `pytest.ini`). Intégration réelle (`-m integration`, Ollama `http://127.0.0.1:11434`, `qwen2.5:1.5b` et `nomic-embed-text:latest` déjà installés, rien de téléchargé) : `test_rag_question_ollama.py` et `test_rag_ollama.py` (4.1, après l'extraction de la feuille d'embedding) verts. Contrôle rapide propre. Sans sqlite-vec (CI macOS) : `test_the_whole_path_works_with_the_numpy_fallback_index` force `NumpyIndex`.
+`pytest tests/v2` : 859 passés (dont 46 ajoutés : 22 de règles, 24 web ; les 172 tests E2E et d'intégration sont exclus par `pytest.ini`). Intégration réelle (`-m integration`, Ollama `http://127.0.0.1:11434`, `qwen2.5:1.5b` et `nomic-embed-text:latest` déjà installés, rien de téléchargé) : `test_rag_question_ollama.py` et `test_rag_ollama.py` (4.1, après l'extraction de la feuille d'embedding) verts. Contrôle rapide propre. Sans sqlite-vec (CI macOS) : `test_the_whole_path_works_with_the_numpy_fallback_index` force `NumpyIndex`.
 
 ## Journal
 
