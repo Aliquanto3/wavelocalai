@@ -71,3 +71,15 @@ Le chat de la story 2.1 accepte un modèle cloud quand `allow_cloud` est vrai : 
 - `src/wavelocalai/web/app.py` : `create_app(cloud_http=...)`
 - `wavelocalai.toml` : identifiants de modèles cloud revérifiés
 - Tests : `tests/v2/fake_cloud.py`, `unit/test_cloud_adapters.py`, `web/test_chat_cloud_api.py`, `unit/test_errors.py`, `unit/test_registry.py`
+
+## Revue
+
+Revue Opus du 2026-10-18 (une passe), avec la liste du second avis (Haiku).
+
+- medium, second avis 1 — corrigé : une erreur annoncée dans le flux SSE d'OpenAI ou de Groq (`openai.APIError` sans statut HTTP) n'était pas traduite et finissait en `internal`. `translate_error` la range en `cloud_error` (`_SDK_ERROR_NAMES`). Prouvé avant/après par `test_an_error_event_inside_the_stream_is_cloud_error` (4 fournisseurs ; Anthropic et Mistral donnaient déjà `cloud_error`).
+- medium, second avis 2 — rejeté (pas de fuite), test ajouté : le journal passe par `MaskingFormatter`, que `__main__` règle avec `Settings.secret_values()` (trace d'exception comprise), et `_error_envelope` masque `technical` avec les mêmes valeurs (`chat.py`). Une clé Mistral sans préfixe est donc masquée. Preuve : `test_unexpected_error_log_and_envelope_mask_a_raw_mistral_key`.
+- low, second avis 3 — corrigé : `constraints.txt` donnait `mistralai==2.10.1` contre `3.2.0` dans `uv.lock` (écart antérieur à la story, venu de 73311f6). Recompilé avec `uv pip compile … --upgrade-package mistralai==3.2.0` : seule cette version change. `openai==2.54.0` concordait déjà.
+- low, second avis 4 — corrigé : `CLOUD_JUDGE_PREFERENCE` (v2) nomme `gpt-6-sol` à la place de `gpt-4o` et `gpt-6-luna` (palier économique) à la place de `gpt-4-turbo`. `src/core/` n'est pas touché.
+- low, second avis 5 — reporté : l'omission de `temperature` pour `gpt-5*`/`gpt-6*`/`o*` est documentée dans le module et dans les reports. À vérifier par un appel réel avec une clé OpenAI (le modèle accepte-t-il `temperature`).
+- low, second avis 6 — rejeté : la relance unique après coupure est exigée par le critère 3 (`generation_interrupted`, reprise de la v1) ; le coût d'un second appel est accepté par la spec.
+- low, revue — reporté : les erreurs dans le flux et le comportement réel des 4 API (corps, en-têtes, `stream_options`, `max_completion_tokens` chez Groq) ne sont prouvés que sous faux transport. À vérifier par un appel réel par fournisseur, avec une clé.

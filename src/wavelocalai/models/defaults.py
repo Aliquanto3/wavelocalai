@@ -65,12 +65,12 @@ PREFERENCE_KEY = "default_model.{purpose}"
 CLOUD_JUDGE_PREFERENCE = (
     "claude-opus-5-5",
     "claude-fable-5-1",
-    "gpt-4o",  # hors gpt-4o-mini (CLOUD_JUDGE_DEMOTED)
+    "gpt-6-sol",  # identifiants de `[cloud.models]` vérifiés le 2026-10-18 (story 2.4)
     "openai/gpt-oss-120b",  # Groq
     "mistral-large",
     "claude-sonnet-5-5",
     "claude-haiku-5-5",
-    "gpt-4-turbo",
+    "gpt-6-luna",  # palier économique d'OpenAI
     "mistral-medium",
     "llama-3.3-70b-versatile",  # Groq
 )

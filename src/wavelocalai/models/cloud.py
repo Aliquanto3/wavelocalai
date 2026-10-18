@@ -67,6 +67,8 @@ _TRANSPORT_NAMES = {
     "ConnectionError",
 }
 _CUT_NAMES = {"ReadError", "RemoteProtocolError", "ProtocolError", "ReadTimeout", "NoResponseError"}
+# Erreurs d'API des SDK (`openai.APIError`, `anthropic.APIError`, `mistralai` : `SDKError`).
+_SDK_ERROR_NAMES = {"APIError", "SDKError"}
 
 
 def provider_of(tag: str) -> str:
@@ -155,6 +157,10 @@ def translate_error(
         return _error("cloud_unreachable", technical, provider)
     if status is not None:  # réponse d'erreur dans un flux : code HTTP d'un statut 2xx
         return _error("cloud_error", technical, provider, http_status=status)
+    if names & _SDK_ERROR_NAMES:
+        # Erreur annoncée dans le flux SSE (OpenAI, Groq : `openai.APIError` sans statut HTTP).
+        logger.warning("%s a signalé une erreur dans le flux.", detail["provider_name"])
+        return _error("cloud_error", technical, provider)
     return exc
 
 

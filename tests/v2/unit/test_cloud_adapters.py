@@ -24,6 +24,7 @@ from ..fake_cloud import (
     anthropic_stream,
     chat_stream,
     mistral_stream,
+    sse,
     stream_for,
 )
 
@@ -225,3 +226,46 @@ async def test_no_key_in_logs_when_the_provider_echoes_it(provider, tag, _, capl
         await collect(build(provider, tag, fake))
     assert key not in caplog.text
     assert key not in str(fake.requests[0].url)
+
+
+STREAM_ERRORS = {
+    "openai": sse((None, {"error": {"message": "overloaded", "type": "server_error"}})),
+    "groq": sse((None, {"error": {"message": "overloaded", "type": "server_error"}})),
+    "anthropic": sse(
+        ("error", {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}})
+    ),
+    "mistral": sse((None, {"object": "error", "message": "boom", "type": "internal"})),
+}
+
+
+@pytest.mark.parametrize(("provider", "tag", "_"), MODELS)
+async def test_an_error_event_inside_the_stream_is_cloud_error(provider, tag, _):
+    # Revue 2.4 : OpenAI et Groq lèvent `openai.APIError` sans statut HTTP, qui finissait en
+    # `internal`.
+    fake = FakeCloud(provider, [Plan(STREAM_ERRORS[provider])])
+    with pytest.raises(ProviderError) as exc:
+        await collect(build(provider, tag, fake))
+    assert exc.value.code == "cloud_error"
+    assert exc.value.detail["provider_name"] == NAMES[provider]
+
+
+def test_unexpected_error_log_and_envelope_mask_a_raw_mistral_key(tmp_path):
+    # Revue 2.4 : une clé sans préfixe reconnaissable (Mistral) citée par une exception non
+    # traduite est masquée dans le journal (trace comprise) et dans l'enveloppe `internal`.
+    from wavelocalai.inference.streaming import _error_envelope
+    from wavelocalai.store.logs import close_logging, setup_logging
+
+    key = FAKE_KEYS["mistral"]
+    log_file = setup_logging(tmp_path, console=False, secrets=(key,))
+    try:
+        try:
+            raise RuntimeError(f"headers={{'Authorization': '{key}'}}")
+        except RuntimeError as exc:
+            envelope = _error_envelope(exc, [key])
+    finally:
+        close_logging()
+    text = log_file.read_text(encoding="utf-8")
+    assert "RuntimeError" in text
+    assert key not in text
+    assert envelope["code"] == "internal"
+    assert key not in str(envelope)
