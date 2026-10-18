@@ -5,6 +5,7 @@ Provider Ollama pour les modèles locaux.
 
 import logging
 import math
+import time
 from collections.abc import AsyncGenerator
 from typing import Any
 from urllib.parse import urlsplit
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 # bloquer l'affichage quand Ollama est arrêté.
 STATUS_TIMEOUT_S = 2.0
 
+# Durée pendant laquelle un Ollama injoignable n'est pas réinterrogé, en secondes : sous
+# Windows, une connexion refusée sur localhost coûte environ 4 s (IPv6 puis IPv4), payées à
+# chaque appel (liste des modèles, santé) et à chaque rafraîchissement de page.
+DOWN_RETRY_S = 10.0
+
 # Hôtes Ollama situés sur cette machine.
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
@@ -44,6 +50,14 @@ class OllamaProvider(ILLMProvider):
             base_url: URL du serveur Ollama
         """
         self._base_url = base_url
+        # Instant (monotonic) avant lequel un Ollama constaté injoignable n'est pas réinterrogé.
+        self._down_until = 0.0
+
+    def _recently_down(self) -> bool:
+        return time.monotonic() < self._down_until
+
+    def _mark_down(self) -> None:
+        self._down_until = time.monotonic() + DOWN_RETRY_S
 
     def _create_async_client(self):
         """
@@ -64,7 +78,9 @@ class OllamaProvider(ILLMProvider):
 
     def list_models(self) -> list[dict[str, Any]]:
         """Liste les modèles installés localement via Ollama."""
-        models = []
+        models: list[dict[str, Any]] = []
+        if self._recently_down():
+            return models
         try:
             ollama_resp = self._create_client().list()
             raw_models = (
@@ -83,8 +99,10 @@ class OllamaProvider(ILLMProvider):
                 if "model" not in model_dict and "name" in model_dict:
                     model_dict["model"] = model_dict["name"]
                 models.append(model_dict)
+            self._down_until = 0.0
 
         except Exception as e:
+            self._mark_down()
             logger.error(f"Erreur Ollama list: {e}")
 
         return models
@@ -205,10 +223,14 @@ class OllamaProvider(ILLMProvider):
         Un seul appel local, borné par `timeout` : ne bloque pas l'interface si le service
         est arrêté. Ne lève jamais d'exception.
         """
+        if self._recently_down():
+            return False
         try:
             self._create_client(timeout).list()
+            self._down_until = 0.0
             return True
         except Exception as e:
+            self._mark_down()
             logger.debug(f"Ollama injoignable ({self._base_url}) : {e}")
             return False
 
