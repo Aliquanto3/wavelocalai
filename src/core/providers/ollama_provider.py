@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpx
 import ollama
 from langchain_ollama import ChatOllama
 
@@ -35,6 +36,12 @@ DOWN_RETRY_S = 10.0
 
 # Hôtes Ollama situés sur cette machine.
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# Erreurs d'un Ollama injoignable (connexion refusée, hôte muet), seules mémorisées : un
+# délai de lecture (Ollama occupé à charger un modèle) ou une autre erreur ne masque pas
+# les modèles locaux pendant DOWN_RETRY_S. Le client Ollama traduit httpx.ConnectError
+# en ConnectionError.
+UNREACHABLE_ERRORS = (ConnectionError, httpx.ConnectError, httpx.ConnectTimeout)
 
 
 class OllamaProvider(ILLMProvider):
@@ -102,7 +109,8 @@ class OllamaProvider(ILLMProvider):
             self._down_until = 0.0
 
         except Exception as e:
-            self._mark_down()
+            if isinstance(e, UNREACHABLE_ERRORS):
+                self._mark_down()
             logger.error(f"Erreur Ollama list: {e}")
 
         return models
@@ -230,7 +238,8 @@ class OllamaProvider(ILLMProvider):
             self._down_until = 0.0
             return True
         except Exception as e:
-            self._mark_down()
+            if isinstance(e, UNREACHABLE_ERRORS):
+                self._mark_down()
             logger.debug(f"Ollama injoignable ({self._base_url}) : {e}")
             return False
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests : modèles d'embedding exclus des sélecteurs, `is_api_model` sur les fournisseurs
 cloud à préfixe, Ollama injoignable (pas de réinterrogation immédiate).
 Usage: python -m pytest tests/unit/test_modeles_embedding_ollama_absent.py -v
@@ -104,7 +104,7 @@ def test_ollama_requeried_after_delay_and_recovers():
         mock_ollama.Client.return_value = client
         assert provider.health_check() is False
 
-        provider._down_until = 0.0  # délai écoulé
+        provider._down_until = 0.0  # délai écoulé (horloge : test suivant)
         client.list.side_effect = None
         client.list.return_value = {"models": [{"model": "qwen2.5:1.5b"}]}
 
@@ -125,3 +125,43 @@ def test_list_all_models_keeps_cloud_when_ollama_down():
         models = factory.list_all_models(include_cloud=True)
 
     assert [m["model"] for m in models] == ["claude-sonnet-5-5"]
+
+
+def test_ollama_down_expires_with_clock():
+    provider = OllamaProvider()
+    with (
+        patch.object(ollama_provider, "ollama") as mock_ollama,
+        patch.object(ollama_provider.time, "monotonic", return_value=100.0) as clock,
+    ):
+        client = mock_ollama.Client.return_value
+        client.list.side_effect = ConnectionError("refused")
+        assert provider.health_check() is False
+        calls = client.list.call_count
+
+        clock.return_value = 100.0 + ollama_provider.DOWN_RETRY_S - 0.1
+        assert provider.health_check() is False
+        assert client.list.call_count == calls
+
+        clock.return_value = 100.0 + ollama_provider.DOWN_RETRY_S
+        client.list.side_effect = None
+        client.list.return_value = {"models": []}
+        assert provider.health_check() is True
+
+
+@pytest.mark.parametrize(
+    "error", [ollama_provider.httpx.ReadTimeout("busy"), ValueError("réponse illisible")]
+)
+def test_ollama_busy_or_other_error_not_memorized(error):
+    """Un délai de lecture (Ollama occupé) ou une autre erreur ne masque pas les modèles
+    locaux au rafraîchissement suivant."""
+    provider = OllamaProvider()
+    with patch.object(ollama_provider, "ollama") as mock_ollama:
+        client = mock_ollama.Client.return_value
+        client.list.side_effect = error
+        assert provider.health_check() is False
+        assert provider.list_models() == []
+
+        client.list.side_effect = None
+        client.list.return_value = {"models": [{"model": "qwen2.5:1.5b"}]}
+        assert [m["model"] for m in provider.list_models()] == ["qwen2.5:1.5b"]
+
