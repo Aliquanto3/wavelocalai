@@ -1,1 +1,378 @@
-/* Écran modeles : styles propres à l'écran (jetons de tokens.css seulement). */
+/* Modèles : barre d'actions, tableaux, installation, fiche du modèle.
+   Jetons de tokens.css seulement ; le sens est toujours porté par un texte. */
+
+.mod-notices:empty {
+  display: none;
+}
+
+.mod-notices .wl-notice {
+  max-width: 60rem;
+}
+
+/* Liste à gauche, fiche à droite dès 1 100 px ; en deçà, la fiche passe avant la liste. */
+.mod-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.mod-main,
+.mod-fiche {
+  min-width: 0;
+}
+
+@media (min-width: 70rem) {
+  .mod-layout[data-fiche="true"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+    align-items: start;
+  }
+
+  .mod-layout[data-fiche="true"] .mod-fiche {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .mod-layout[data-fiche="true"] .mod-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+.mod-section {
+  margin: 1.5rem 0;
+}
+
+.mod-section h2 {
+  margin-bottom: 0.75rem;
+}
+
+/* Barre d'actions */
+.mod-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  max-width: 60rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.mod-actions > * {
+  min-width: 0;
+}
+
+.mod-action .help,
+.mod-install .help {
+  margin-top: 0.25rem;
+}
+
+.mod-action .help[hidden],
+.mod-install .help[hidden] {
+  display: none;
+}
+
+.mod-install-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+}
+
+.mod-install-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mod-install-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.mod-free {
+  margin: 0;
+}
+
+/* Tableaux */
+.mod-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.mod-table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+}
+
+.mod-table th,
+.mod-table td {
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.mod-table th {
+  background: var(--color-surface-alt);
+}
+
+.mod-table .is-numeric {
+  text-align: end;
+}
+
+.mod-table tr.is-current td {
+  background: var(--color-surface-alt);
+}
+
+.mod-table tr.mod-extra td {
+  padding-top: 0;
+}
+
+.mod-table tr.mod-extra .wl-error {
+  margin: 0.5rem 0 0;
+}
+
+.mod-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: start;
+}
+
+.mod-sort .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  opacity: 0.45;
+}
+
+.mod-sort[data-dir] .icon {
+  opacity: 1;
+}
+
+.mod-sort[data-dir="asc"] .icon {
+  transform: rotate(180deg);
+}
+
+.mod-name-box {
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.mod-name {
+  font-weight: 700;
+}
+
+.mod-tag {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.mod-cell-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.mod-cell-actions .help {
+  margin: 0;
+}
+
+.mod-default-model,
+.mod-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.mod-default-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mod-editor {
+  min-width: 14rem;
+}
+
+.mod-editor wl-model-picker {
+  width: 100%;
+}
+
+.mod-edit-message {
+  margin: 0;
+}
+
+.mod-reason {
+  display: block;
+  max-width: 28rem;
+}
+
+.mod-empty {
+  max-width: 45rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* Progression d'une installation */
+.mod-progress {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 12rem;
+}
+
+.mod-progress-label {
+  margin: 0;
+}
+
+.mod-progress-bar {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--color-primary-fill);
+}
+
+.mod-progress .btn {
+  justify-self: start;
+}
+
+/* Reranker */
+.mod-card {
+  max-width: 45rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.mod-reranker-state {
+  margin: 0 0 0.25rem;
+}
+
+.mod-card .btn {
+  margin-top: 0.5rem;
+}
+
+/* Fiche du modèle */
+.mod-fiche:not([hidden]) {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.mod-fiche-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.mod-fiche-head h2 {
+  margin: 0;
+}
+
+.mod-fiche > .mod-tag {
+  margin: 0.25rem 0 0.75rem;
+}
+
+.mod-fiche > .btn {
+  margin: 1rem 0;
+}
+
+.mod-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.mod-dl dt {
+  color: var(--color-ink-secondary);
+}
+
+.mod-dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mod-details {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.mod-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.mod-details > p:first-of-type {
+  margin-top: 0.75rem;
+}
+
+.mod-why {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.mod-why li + li {
+  margin-top: 0.5rem;
+}
+
+.mod-strong {
+  font-weight: 700;
+}
+
+.mod-details .mod-scroll {
+  margin: 0.75rem 0 0.5rem;
+}
+
+.mod-details .mod-table {
+  min-width: 0;
+  font-size: var(--text-caption);
+}
+
+.mod-details .mod-table th,
+.mod-details .mod-table td {
+  padding: 0.375rem 0.5rem;
+}
+
+.mod-fiche .wl-notice {
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 40rem) {
+  .mod-dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mod-dl dd {
+    margin-bottom: 0.5rem;
+  }
+}

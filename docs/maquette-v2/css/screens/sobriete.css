@@ -1,1 +1,371 @@
-/* Écran sobriete : styles propres à l'écran (jetons de tokens.css seulement). */
+/* Sobriété et matériel : cartes de santé, empreinte carbone, historique, repliés.
+   Jetons de tokens.css seulement ; aucune couleur selon un seuil de CO₂. */
+
+.sob-section {
+  margin: 1.5rem 0;
+}
+
+.sob-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.sob-section-head h2 {
+  margin-bottom: 0.5rem;
+}
+
+.sob-carbon-actions {
+  max-width: 24rem;
+}
+
+.sob-carbon-actions .help {
+  margin-top: 0.25rem;
+}
+
+.sob-carbon-actions .help:empty {
+  display: none;
+}
+
+/* Cartes de santé du système */
+.sob-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+
+.sob-section > .help {
+  margin-bottom: 0.75rem;
+}
+
+.sob-card {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.sob-card:focus-visible {
+  outline: 3px solid var(--color-primary);
+}
+
+.sob-card .wl-metric-value {
+  overflow-wrap: anywhere;
+}
+
+.sob-card[data-card="ollama"] .wl-metric-value,
+.sob-card[data-card="accelerator"] .wl-metric-value {
+  font-size: 1.75rem;
+}
+
+.sob-card[aria-busy="true"] .wl-metric-value {
+  display: none;
+}
+
+.sob-card-detail {
+  margin-top: 0.25rem;
+}
+
+.sob-line {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.sob-line:empty {
+  display: none;
+}
+
+.sob-hint {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.sob-warn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.sob-warn .icon {
+  color: var(--color-chart-4);
+}
+
+.sob-card .btn {
+  margin-top: 0.75rem;
+}
+
+.sob-card .btn[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.sob-skeleton {
+  display: block;
+  height: 2.5rem;
+  margin-top: 0.25rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  animation: sob-pulse 1.4s ease-in-out infinite;
+}
+
+.sob-skeleton[hidden] {
+  display: none;
+}
+
+@keyframes sob-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Empreinte carbone */
+.sob-carbon {
+  max-width: 60rem;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.sob-carbon > .wl-empty,
+.sob-carbon > .wl-notice {
+  margin-bottom: 0;
+}
+
+.sob-carbon .wl-metric-value {
+  overflow-wrap: anywhere;
+}
+
+.sob-carbon[aria-busy="true"] .wl-metric-value {
+  display: none;
+}
+
+.sob-notices {
+  margin-top: 0.75rem;
+}
+
+.sob-notices:empty {
+  display: none;
+}
+
+.sob-notices .wl-notice {
+  margin-bottom: 0;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button[hidden] {
+  display: none;
+}
+
+/* Historique */
+.sob-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.sob-segment {
+  display: inline-flex;
+  max-width: 100%;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.sob-segment-button {
+  min-height: 2.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 0;
+  border-inline-end: 1px solid var(--color-gray-graphic);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.sob-segment-button:last-child {
+  border-inline-end: 0;
+}
+
+.sob-segment-button:hover {
+  background: var(--color-surface-alt);
+}
+
+.sob-segment-button[aria-pressed="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 700;
+}
+
+.sob-history-body {
+  min-width: 0;
+}
+
+.sob-empty {
+  max-width: 45rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.sob-chart-title {
+  margin-bottom: 0.5rem;
+}
+
+.sob-scroll {
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.sob-chart {
+  display: block;
+  max-width: none;
+}
+
+.sob-chart .sob-bar {
+  fill: var(--color-chart-1);
+}
+
+.sob-chart .sob-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.sob-chart .sob-gap {
+  stroke: var(--color-gray-graphic);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.sob-chart text {
+  fill: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: 12px;
+}
+
+.sob-chart .sob-value {
+  fill: var(--color-ink);
+  font-weight: 700;
+}
+
+.sob-chart .sob-axis-title {
+  font-size: 12px;
+}
+
+/* Tableau triable */
+.sob-table {
+  width: 100%;
+  min-width: 40rem;
+  border-collapse: collapse;
+}
+
+.sob-table th,
+.sob-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.sob-table th {
+  background: var(--color-surface-alt);
+}
+
+.sob-table .is-numeric {
+  text-align: end;
+}
+
+.sob-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sob-sort .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  opacity: 0.45;
+}
+
+.sob-sort[data-dir] .icon {
+  opacity: 1;
+}
+
+.sob-sort[data-dir="asc"] .icon {
+  transform: rotate(180deg);
+}
+
+/* Repliés */
+.sob-details {
+  max-width: 60rem;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.sob-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sob-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+}
+
+.sob-dl dt {
+  color: var(--color-ink-secondary);
+}
+
+.sob-dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sob-method-list {
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+
+.sob-method-list li + li {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .sob-dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sob-dl dd {
+    margin-bottom: 0.5rem;
+  }
+}

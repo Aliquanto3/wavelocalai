@@ -1,0 +1,157 @@
+{
+  "id": "modeles-pull",
+  "kind": "pull",
+  "label": "Installation d'un modèle ou du reranker : préparation, téléchargement chiffré, vérification, installé",
+  "_doc": "vars : tag, reranker (nom ou null), total_bytes, b1 à b10 (octets reçus aux dixièmes). Événement pull_progress {tag, reranker, received_bytes, total_bytes, phase: preparing | downloading | verifying}.",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "pull",
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}"
+      }
+    },
+    {
+      "wait": 300,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": 0,
+        "total_bytes": "{{total_bytes}}",
+        "phase": "preparing"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b1}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b2}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b3}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b4}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b5}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b6}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b7}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b8}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b9}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b10}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 700,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{total_bytes}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "verifying"
+      }
+    },
+    {
+      "wait": 500,
+      "type": "run_ended",
+      "data": {
+        "status": "ok",
+        "error": null
+      }
+    }
+  ]
+}

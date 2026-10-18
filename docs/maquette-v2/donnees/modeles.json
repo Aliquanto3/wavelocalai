@@ -1,0 +1,622 @@
+{
+  "_doc": "Écran Modèles (GET /api/models, catalogue installable, défauts, fiche, qb.results/1). Contenus fictifs. `catalog` : modèles installables (config/models_catalog.json) avec la mémoire nécessaire ; `fits` est recalculé par le serveur simulé à partir de la mémoire libre (free_gb). `facts` : caractéristiques et phrases de « Pourquoi ce débit ? » fournies par l'API (le front n'explique rien lui-même). `references` : « Sur d'autres postes » (AD-22), null = inconnu. `errors` : codes absents de donnees/erreurs.json (pull_failed, model_in_use), même forme.",
+  "free_gb": 5.9,
+  "free_gb_ram_guard": 2.8,
+  "loaded_size_gb": 2.7,
+  "missing_gb": {
+    "qwen3.6:35b-a3b": 7.8
+  },
+  "usages": {
+    "chat": "Conversation",
+    "embedding": "Représentation",
+    "rerank": "Reclassement"
+  },
+  "purposes": {
+    "chat": "Conversation",
+    "arena": "Arène",
+    "judge": "Juge",
+    "agent": "Agent",
+    "rag": "Documents"
+  },
+  "purpose_none_reasons": {
+    "chat": "Aucun modèle de conversation n'est installé : installez-en un depuis le catalogue ci-dessous.",
+    "arena": "Aucun modèle de conversation n'est installé : installez-en deux au moins pour comparer.",
+    "judge": "Aucun modèle local ne peut juger : installez un modèle de conversation qui tient en mémoire.",
+    "agent": "Aucun modèle local aux outils vérifiés d'au moins 3 milliards de paramètres actifs ne tient en mémoire sur ce poste. Installez-en un depuis le catalogue ou libérez de la mémoire.",
+    "rag": "Aucun modèle local d'au moins 3 milliards de paramètres actifs ne tient en mémoire : le défaut de la conversation est repris."
+  },
+  "catalog": [
+    {
+      "tag": "gemma4:4b",
+      "name": "Gemma 4 4B",
+      "editor": "Google",
+      "kind": "chat",
+      "params_total_b": 4,
+      "params_active_b": 4,
+      "size_gb": 3.3,
+      "needed_gb": 4.2,
+      "tools_verified": false,
+      "reasoning": false
+    },
+    {
+      "tag": "phi5:3.8b",
+      "name": "Phi 5 mini 3.8B",
+      "editor": "Microsoft",
+      "kind": "chat",
+      "params_total_b": 3.8,
+      "params_active_b": 3.8,
+      "size_gb": 2.4,
+      "needed_gb": 3.5,
+      "tools_verified": true,
+      "reasoning": true
+    },
+    {
+      "tag": "granite4.1:8b",
+      "name": "Granite 4.1 8B",
+      "editor": "IBM",
+      "kind": "chat",
+      "params_total_b": 8,
+      "params_active_b": 8,
+      "size_gb": 4.9,
+      "needed_gb": 5.6,
+      "tools_verified": true,
+      "reasoning": false
+    },
+    {
+      "tag": "llama4.2:3b",
+      "name": "Llama 4.2 3B",
+      "editor": "Meta",
+      "kind": "chat",
+      "params_total_b": 3.2,
+      "params_active_b": 3.2,
+      "size_gb": 2,
+      "needed_gb": 3.1,
+      "tools_verified": true,
+      "reasoning": false
+    },
+    {
+      "tag": "smollm4:1.7b",
+      "name": "SmolLM 4 1.7B",
+      "editor": "Hugging Face",
+      "kind": "chat",
+      "params_total_b": 1.7,
+      "params_active_b": 1.7,
+      "size_gb": 1.1,
+      "needed_gb": 2.2,
+      "tools_verified": false,
+      "reasoning": false
+    },
+    {
+      "tag": "ministral3:3b",
+      "name": "Ministral 3 3B",
+      "editor": "Mistral AI",
+      "kind": "chat",
+      "params_total_b": 3,
+      "params_active_b": 3,
+      "size_gb": 2.1,
+      "needed_gb": 3,
+      "tools_verified": true,
+      "reasoning": false
+    },
+    {
+      "tag": "qwen3.6:14b",
+      "name": "Qwen 3.6 14B",
+      "editor": "Alibaba",
+      "kind": "chat",
+      "params_total_b": 14.8,
+      "params_active_b": 14.8,
+      "size_gb": 9,
+      "needed_gb": 10.6,
+      "tools_verified": true,
+      "reasoning": true
+    },
+    {
+      "tag": "mistral-small3.3:24b",
+      "name": "Mistral Small 3.3 24B",
+      "editor": "Mistral AI",
+      "kind": "chat",
+      "params_total_b": 24,
+      "params_active_b": 24,
+      "size_gb": 14.3,
+      "needed_gb": 17.8,
+      "tools_verified": true,
+      "reasoning": false
+    }
+  ],
+  "registry_extra": [
+    "llama3.2:1b",
+    "qwen3.6:3b",
+    "gemma4:12b"
+  ],
+  "reranker": {
+    "name": "bge-reranker-v2-m3",
+    "size_gb": 0.6,
+    "not_installed_reason": "Le modèle de reclassement n'est pas encore sur ce poste : la recherche documentaire garde l'ordre d'origine des extraits.",
+    "extra_missing_reason": "Installez l'option de reclassement : `uv sync --extra rerank`"
+  },
+  "facts": {
+    "qwen3.5:2b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "Apache 2.0",
+      "why": [
+        "Le modèle active 2 milliards de paramètres à chaque token : c'est la quantité de poids lue en mémoire pour produire un token, et elle borne le débit.",
+        "Quantification Q4_K_M : environ 2,7 Go de poids à lire pour chaque token produit.",
+        "La carte graphique de 6 Go garde tout le modèle en mémoire vidéo, dont la bande passante est bien supérieure à celle de la mémoire vive : aucun transfert vers le processeur n'est nécessaire.",
+        "Sur ce poste, ces trois facteurs donnent le débit mesuré de 41 tokens/s."
+      ]
+    },
+    "gemma4:1b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "Gemma",
+      "why": [
+        "Le modèle active 1 milliards de paramètres à chaque token : c'est la quantité de poids lue en mémoire pour produire un token, et elle borne le débit.",
+        "Quantification Q4_K_M : environ 1,1 Go de poids à lire pour chaque token produit.",
+        "La carte graphique de 6 Go garde tout le modèle en mémoire vidéo, dont la bande passante est bien supérieure à celle de la mémoire vive : aucun transfert vers le processeur n'est nécessaire.",
+        "Sur ce poste, ces trois facteurs donnent le débit mesuré de 63 tokens/s."
+      ]
+    },
+    "lfm2.5:1.2b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "LFM Open",
+      "why": [
+        "Le modèle active 1.2 milliards de paramètres à chaque token : c'est la quantité de poids lue en mémoire pour produire un token, et elle borne le débit.",
+        "Quantification Q4_K_M : environ 1,3 Go de poids à lire pour chaque token produit.",
+        "La carte graphique de 6 Go garde tout le modèle en mémoire vidéo, dont la bande passante est bien supérieure à celle de la mémoire vive : aucun transfert vers le processeur n'est nécessaire.",
+        "Sur ce poste, ces trois facteurs donnent le débit mesuré de 58 tokens/s."
+      ]
+    },
+    "lfm2.5:8b-a1b": {
+      "arch": "moe",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "LFM Open",
+      "why": [
+        "Modèle à mélange d'experts : 8,3 milliards de paramètres au total, mais seulement 1,5 milliard actifs à chaque token. Le débit dépend des paramètres actifs, pas du total.",
+        "Quantification Q4_K_M : environ 5,4 Go de poids au total, dont une petite partie lue à chaque token.",
+        "Les poids tiennent presque en entier dans la mémoire vidéo de 6 Go ; le reste passe par la mémoire vive.",
+        "Sur ce poste, ces facteurs donnent le débit mesuré de 37 tokens/s, proche d'un modèle dense de 2 milliards de paramètres."
+      ]
+    },
+    "qwen3.6:7b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 131072,
+      "license": "Apache 2.0",
+      "why": [
+        "Le modèle active 7.6 milliards de paramètres à chaque token : c'est la quantité de poids lue en mémoire pour produire un token, et elle borne le débit.",
+        "Quantification Q4_K_M : environ 4,7 Go de poids à lire pour chaque token produit.",
+        "Le modèle dépasse la mémoire vidéo de 6 Go : une partie des couches reste en mémoire vive, plus lente, ce qui limite le débit.",
+        "Sur ce poste, ces trois facteurs donnent le débit mesuré de 18 tokens/s."
+      ]
+    },
+    "qwen3.6:35b-a3b": {
+      "arch": "moe",
+      "quant": "Q4_K_M",
+      "context": 131072,
+      "license": "Apache 2.0",
+      "why": []
+    },
+    "bge-m3:latest": {
+      "arch": "dense",
+      "quant": "F16",
+      "context": 8192,
+      "license": "MIT",
+      "why": []
+    },
+    "gemma4:4b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "Gemma",
+      "why": []
+    },
+    "phi5:3.8b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 131072,
+      "license": "MIT",
+      "why": []
+    },
+    "granite4.1:8b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": null,
+      "license": null,
+      "why": []
+    },
+    "llama4.2:3b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 131072,
+      "license": "Llama",
+      "why": []
+    },
+    "smollm4:1.7b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 8192,
+      "license": "Apache 2.0",
+      "why": []
+    },
+    "ministral3:3b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "Apache 2.0",
+      "why": []
+    },
+    "qwen3.6:14b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 131072,
+      "license": "Apache 2.0",
+      "why": []
+    },
+    "mistral-small3.3:24b": {
+      "arch": "dense",
+      "quant": "Q4_K_M",
+      "context": 32768,
+      "license": "Apache 2.0",
+      "why": []
+    }
+  },
+  "references": {
+    "source": "slm-quality-bench, publication 1.4.0 du 2 oct. 2026 (qb.results/1)",
+    "published": "2026-10-02",
+    "machines": [
+      {
+        "id": "pc-pro",
+        "name": "PC pro, 16 Go, sans GPU"
+      },
+      {
+        "id": "portable",
+        "name": "Portable, 16 Go, GPU 6 Go"
+      },
+      {
+        "id": "station",
+        "name": "Station, 32 Go, GPU 12 Go"
+      }
+    ],
+    "results": {
+      "qwen3.5:2b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 14,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 41,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 96,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "gemma4:1b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 24,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.12
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 63,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.2
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 142,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.15
+            }
+          }
+        ]
+      },
+      "lfm2.5:1.2b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 22,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 58,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 130,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "lfm2.5:8b-a1b": {
+        "digest_match": false,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 16,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 37,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 88,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "qwen3.6:7b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 5,
+            "fits_fraction": 0.6,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 18,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 61,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "qwen3.6:35b-a3b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": null,
+            "fits_fraction": 0,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": null,
+            "fits_fraction": 0,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 27,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.9
+            }
+          }
+        ]
+      },
+      "gemma4:4b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 9,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 29,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 80,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "phi5:3.8b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 10,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": 31,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 84,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      },
+      "qwen3.6:14b": {
+        "digest_match": true,
+        "rows": [
+          {
+            "machine": "pc-pro",
+            "tps": 2,
+            "fits_fraction": 0,
+            "energy": {
+              "status": "not_measured"
+            }
+          },
+          {
+            "machine": "portable",
+            "tps": null,
+            "fits_fraction": 0.4,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.42
+            }
+          },
+          {
+            "machine": "station",
+            "tps": 38,
+            "fits_fraction": 1,
+            "energy": {
+              "status": "measured",
+              "wh_per_1k_tokens": 0.31
+            }
+          }
+        ]
+      }
+    }
+  },
+  "errors": {
+    "pull_unknown": {
+      "code": "pull_failed",
+      "message": "Le modèle {tag} n'a pas pu être installé : ce nom n'existe pas dans le registre d'Ollama.",
+      "action": "Vérifiez l'orthographe du nom (par exemple `qwen3.6:7b`), puis réessayez. La liste des modèles est inchangée.",
+      "detail": {
+        "technical": "POST http://127.0.0.1:11434/api/pull : HTTP 404, pull model manifest: file does not exist"
+      },
+      "buttons": [
+        {
+          "id": "retry",
+          "label": "Réessayer"
+        }
+      ]
+    },
+    "pull_ollama_stopped": {
+      "code": "pull_failed",
+      "message": "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
+      "action": "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le téléchargement déjà fait est repris. La liste des modèles est inchangée.",
+      "detail": {
+        "technical": "ConnectError : connexion perdue avec http://127.0.0.1:11434/api/pull (flux interrompu à 41 %)"
+      },
+      "buttons": [
+        {
+          "id": "retry",
+          "label": "Réessayer"
+        }
+      ]
+    },
+    "pull_interrupted": {
+      "code": "pull_failed",
+      "message": "L'installation de {tag} a été interrompue par le redémarrage du serveur.",
+      "action": "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. La liste des modèles est inchangée.",
+      "detail": {
+        "technical": "run interrompu : app_session fermée avant run_ended"
+      },
+      "buttons": [
+        {
+          "id": "retry",
+          "label": "Réessayer"
+        }
+      ]
+    },
+    "model_in_use": {
+      "code": "model_in_use",
+      "message": "{name} est utilisé par une réponse en cours : il n'a pas été supprimé.",
+      "action": "Attendez la fin de la réponse (ou arrêtez-la), puis supprimez le modèle.",
+      "detail": {
+        "technical": "DELETE /api/models/{tag} : 409, run actif sur ce modèle"
+      },
+      "buttons": []
+    }
+  }
+}
