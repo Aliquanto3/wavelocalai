@@ -47,7 +47,49 @@
     "load_failed": "Cet écran n'a pas pu être chargé. Rechargez la page ; si le problème persiste, signalez-le."
   },
   "home": {
-    "lead": "Comparez des petits modèles de langage qui tournent sur ce poste, mesurez leur vitesse et leur empreinte carbone, et gardez vos données chez vous."
+    "lead": "Le démonstrateur d'IA générative souveraine, frugale et sécurisée.",
+    "status_title": "État du poste",
+    "loading": "Chargement…",
+    "live": "en direct",
+    "system": {
+      "label": "Système",
+      "up": "Disponible",
+      "down": "Indisponible",
+      "unknown": "Inconnu",
+      "lost": "Connexion au serveur perdue.",
+      "version": "Ollama {version}",
+      "version_unknown": "Ollama, version inconnue",
+      "loaded_none": "Aucun modèle chargé en mémoire",
+      "loaded_one": "1 modèle chargé en mémoire",
+      "loaded_many": "{count} modèles chargés en mémoire",
+      "down_action": "Démarrez Ollama, puis cliquez sur Réessayer.",
+      "down_hint": "Ouvrez l'application Ollama, ou lancez la commande ollama serve.",
+      "no_local_model": "Aucun modèle local disponible",
+      "retry": "Réessayer",
+      "retrying": "Vérification en cours…"
+    },
+    "mode": {
+      "label": "Mode",
+      "local_detail": "Les données restent sur ce poste.",
+      "cloud_detail": "Le cloud est autorisé : les données envoyées aux modèles cloud quittent ce poste.",
+      "co2": "CO₂ de la session : {value}",
+      "co2_none": "CO₂ de la session : aucune réponse mesurée"
+    },
+    "cpu": {
+      "label": "Processeur"
+    },
+    "memory": {
+      "label": "Mémoire",
+      "total": "sur {total}"
+    },
+    "modules_title": "Modules",
+    "modules": {
+      "arena": "Comparer plusieurs petits modèles sur une question : qualité, vitesse et CO₂.",
+      "documents": "Interroger ses documents et voir les sources.",
+      "agents": "Confier une tâche outillée à un agent ou à une équipe.",
+      "sobriety": "Montrer la machine, sa charge et les émissions mesurées.",
+      "models": "Voir les modèles installés, leur taille et leur origine."
+    }
   },
   "format": {
     "unknown": "inconnu",
@@ -75,7 +117,89 @@
     },
     "error": {
       "details": "Détails techniques"
+    },
+    "picker": {
+      "label": "Modèle",
+      "label_multi": "Modèles",
+      "chosen": "Modèles choisis",
+      "group_local": "Sur cette machine",
+      "group_cloud": "Cloud",
+      "default": "Par défaut",
+      "default_help": "Proposé par défaut : {name}. {reason}",
+      "loading": "Chargement des modèles…",
+      "ollama_down": "Ollama ne répond pas : les modèles de ce poste sont indisponibles.",
+      "fits": "Tient en mémoire",
+      "no_fit": "Ne tient pas en mémoire",
+      "no_fit_need": "Ne tient pas en mémoire ({needed} requis)",
+      "memory_unknown": "Besoin en mémoire inconnu",
+      "throughput": "{rate} mesurés",
+      "tools": "Outils vérifiés",
+      "reasoning": "Raisonnement",
+      "moe": "MoE {active}B actifs",
+      "unavailable_local": "Indisponible : Ollama ne répond pas",
+      "unavailable_cloud": "Indisponible : clé absente",
+      "empty": "Aucun modèle ne correspond à « {query} ».",
+      "none": "Aucun modèle de conversation n'est disponible.",
+      "results_one": "1 modèle proposé",
+      "results_many": "{count} modèles proposés",
+      "remove": "Retirer {name}",
+      "cloud_removed_one": "{names} est retiré de la sélection : le cloud n'est plus autorisé.",
+      "cloud_removed_many": "{names} sont retirés de la sélection : le cloud n'est plus autorisé.",
+      "use_default": "Utiliser {name}",
+      "load_failed": "La liste des modèles n'a pas pu être chargée."
+    },
+    "run_status": {
+      "starting": "Démarrage…",
+      "loading": "Chargement du modèle en mémoire…",
+      "generating": "Génération…",
+      "stopping": "Arrêt en cours…",
+      "ok": "Terminé",
+      "cancelled": "Arrêté",
+      "error": "Échec",
+      "interrupted": "Interrompu",
+      "elapsed": "Temps écoulé",
+      "stop": "Arrêter",
+      "stop_hint": "ou touche Échap",
+      "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
+    },
+    "thread": {
+      "label": "Conversation",
+      "you": "Vous",
+      "thought": "Raisonnement",
+      "to_end": "Aller à la fin",
+      "stopped": "Arrêté",
+      "failed": "Échec",
+      "interrupted": "Interrompu",
+      "retried": "Génération relancée : {reason}",
+      "done": "Réponse de {model} terminée, {tokens} tokens.",
+      "done_plain": "Réponse de {model} terminée.",
+      "stopped_announce": "Réponse de {model} arrêtée.",
+      "failed_announce": "Réponse de {model} en échec.",
+      "interrupted_announce": "Réponse de {model} interrompue.",
+      "rate": "Débit",
+      "rate_help": "Tokens générés divisés par le temps de génération mesuré par Ollama, chargement du modèle exclu. Avant la fin de la réponse, le débit est une estimation du navigateur.",
+      "tokens": "Tokens",
+      "duration": "Durée",
+      "load": "Chargement",
+      "total": "Durée totale"
     }
+  },
+  "tabs": {
+    "label": "Écrans du module {module}"
+  },
+  "chat": {
+    "lead": "Posez une question à un modèle de ce poste et lisez sa réponse au fil de sa rédaction.",
+    "creativity": "Créativité",
+    "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "message": "Écrivez votre message",
+    "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
+    "send": "Envoyer",
+    "clear": "Effacer la conversation",
+    "empty": "Posez une question pour commencer. La réponse s'affiche au fil de sa rédaction.",
+    "no_model": "Aucun modèle n'est choisi.",
+    "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
+    "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
+    "start_failed": "La demande n'a pas pu être envoyée."
   },
   "topbar": {
     "ollama": {
@@ -115,7 +239,7 @@
     },
     "connection": {
       "region": "État de la connexion",
-    "lost": "Connexion au serveur perdue, nouvelle tentative…",
+      "lost": "Connexion au serveur perdue, nouvelle tentative…",
       "restored": "Connexion au serveur rétablie."
     },
     "restarted": {

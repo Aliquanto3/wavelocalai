@@ -1,14 +1,17 @@
 ---
 name: WaveLocalAI
-description: Démonstrateur Wavestone d'IA générative locale et sobre, en Streamlit 1.x natif ; charte Wavestone appliquée par .streamlit/config.toml, sans framework CSS.
+description: Démonstrateur Wavestone d'IA générative locale et sobre, en Streamlit 1.x natif ; charte Wavestone appliquée par .streamlit/config.toml, sans framework CSS. La v2 (src/wavelocalai/) reprend ces jetons dans static/tokens.css, comparés par un test de dérive.
 status: final
-updated: 2026-09-27
+updated: 2026-10-18
 sources:
   - docs/audits/frontend-2026-09/SYNTHESE.md
   - docs/audits/frontend-2026-09/poste-rtx3060/UX.md
+  - docs/audits/refonte-2026-10/03-ux-front.md
+  - _bmad-output/planning-artifacts/reports-v2-inventaire.md
 colors:
   # Thème clair (par défaut) -> [theme.light]
   primary: '#451DC7'            # primaryColor ; blanc dessus 9,32:1
+  primary-fill: '#451DC7'       # v2 : aplat violet sous texte blanc ; blanc dessus 9,32:1
   on-primary: '#FFFFFF'
   surface: '#FFFFFF'            # backgroundColor
   surface-alt: '#F6F5FA'        # secondaryBackgroundColor (--ws-cream)
@@ -24,7 +27,8 @@ colors:
   chart-3: '#2F7FD8'
   chart-4: '#C98A00'
   # Thème sombre -> [theme.dark]
-  primary-dark: '#7E65E9'       # compromis : blanc dessus 4,26:1, texte 4,62:1 sur surface-dark, 4,24:1 sur une pastille choisie
+  primary-dark: '#7E65E9'       # texte violet, bordure, contour : 4,62:1 sur surface-dark ; v1 : aussi fond des boutons (blanc 4,26:1)
+  primary-fill-dark: '#6A4DE6'  # v2 : aplat sous texte blanc (décision Q1) ; blanc dessus 5,50:1, 3,58:1 sur surface-dark
   on-primary-dark: '#FFFFFF'
   surface-dark: '#0A0A14'
   surface-alt-dark: '#16162A'   # secondaryBackgroundColor
@@ -128,6 +132,37 @@ components:
   logo:
     streamlit: 'st.logo avec wordmark texte « WaveLocalAI »'
     foreground: '{colors.ink}'
+  # v2 (web components de src/wavelocalai/web/static/) : écarts au rendu ci-dessus
+  wl-button-primary:
+    web: '<button class="button-primary">'
+    background: '{colors.primary-fill}'
+    background-dark: '{colors.primary-fill-dark}'
+    foreground: '{colors.on-primary}'
+    radius: '{rounded.DEFAULT}'
+  wl-pill-selected:
+    web: 'pastille ou segment choisi (outils, fenêtre d''historique, Graphique / Tableau)'
+    background: '{colors.primary-fill}'
+    background-dark: '{colors.primary-fill-dark}'
+    foreground: '{colors.on-primary}'
+    radius: '{rounded.full}'
+  wl-side-panel:
+    web: 'panneau latéral (fiche modèle, verdicts, trace d''agent, sources)'
+    background: '{colors.surface}'
+    border: '{colors.line}'
+    radius: '{rounded.DEFAULT}'
+  wl-step-trace:
+    web: '<ol> d''étapes dépliables'
+    current-outline: '{colors.primary}'
+    meta: '{typography.caption}'
+  wl-team-graph:
+    web: 'SVG fait main'
+    node-border: '{colors.ink-secondary}'
+    active-outline: '{colors.primary}'
+    edge: '{colors.gray-graphic}'
+  wl-progress-bytes:
+    web: '<progress> + texte chiffré'
+    bar: '{colors.primary}'
+    track: '{colors.line}'
 ---
 
 ## Brand & Style
@@ -153,7 +188,8 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 
 | Token (clair / sombre) | Clair | Sombre | Clé `config.toml` | Usage | Interdit |
 |---|---|---|---|---|---|
-| `primary` / `primary-dark` | `#451DC7` | `#7E65E9` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 4,26:1 (compromis sombre, voir la note sous le tableau) | Décoration, fonds, titres colorés |
+| `primary` / `primary-dark` | `#451DC7` | `#7E65E9` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 4,26:1 (compromis sombre de la v1, voir la note sous le tableau). En v2 : texte violet, bordure, contour d'élément actif, interrupteur coché | Décoration, fonds, titres colorés ; en v2, fond sous texte blanc |
+| `primary-fill` / `primary-fill-dark` | `#451DC7` | `#6A4DE6` | — (v2 seulement) | v2 : tout aplat violet qui porte du texte blanc (`button-primary`, pastille ou segment choisi, compteur violet). Blanc dessus 9,32:1 / 5,50:1 ; aplat sombre contre `surface-dark` 3,58:1, contre `surface-alt-dark` 3,23:1 | Texte violet sur fond (prendre `primary`) ; grand aplat décoratif |
 | `surface` / `surface-dark` | `#FFFFFF` | `#0A0A14` | `backgroundColor` | Fond de page | — |
 | `surface-alt` / `surface-alt-dark` | `#F6F5FA` | `#16162A` | `secondaryBackgroundColor` | Barre latérale, champs, blocs de code | Violet en fond |
 | `ink` / `ink-dark` | `#0A0A14` | `#F6F5FA` | `textColor` | Tout le texte | — |
@@ -166,6 +202,8 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 | `chart-1…4` / `chart-1…4-dark` | `#6A4DE6` `#0E9F5E` `#2F7FD8` `#C98A00` | `#7A5FEA` `#12A564` `#3B86DB` `#B07800` | `chartCategoricalColors` | Séries catégorielles, validées par le script du skill `dataviz` | Couleur Plotly par défaut |
 
 **Note `primary-dark` (décision du 27/09, story 14 de `spec-fiabilisation-frontend`).** En sombre, Streamlit emploie `primaryColor` comme fond du texte blanc des boutons principaux et comme couleur de texte (valeur des curseurs, pastilles et segments choisis, dont le fond mêle 10 % de la primaire au fond). Aucune valeur unique ne donne 4,5:1 partout : blanc dessus exige une luminance ≤ 0,183, texte sur `surface-dark` ≥ 0,190. Critère retenu : rendre le plus faible de ces contrastes aussi haut que possible. `#7E65E9` donne (calculé) blanc dessus 4,26:1, curseur sur `surface-dark` 4,62:1, curseur sur `surface-alt-dark` (barre latérale) 4,17:1, pastille choisie 4,25:1 (4,24:1 mesuré par axe). Écartés : `#6A4DE6` (texte 3,34:1), `#7A5FEA` (pastille 4,04:1), `#8468EC` (blanc dessus 4,06:1), `#886DED` (blanc dessus 3,85:1). Écarts connus, par type de composant : texte blanc des boutons principaux, pastilles et segments choisis, curseurs de la barre latérale. Le wordmark garde `#6A4DE6` (image unique, grand texte).
+
+**Note `primary-fill` (décision Q1 du 18/10, `reports-v2-inventaire.md`, report A19).** La v2 n'est pas liée à la clé unique `primaryColor` : elle sépare le violet qui se lit (texte, bordure, contour, `primary`) du violet qui porte du texte blanc (`primary-fill`). En clair, les deux valent `#451DC7`. En sombre, `#6A4DE6` (déjà `chart-1` clair et couleur du wordmark) donne blanc dessus 5,50:1 et reste distinct du fond (3,58:1 sur `surface-dark`, 3,23:1 sur `surface-alt-dark`, au-dessus du 3:1 des composants). Écartés : `#7A5FEA` (blanc 4,51:1, sans marge), `#7459E6` (4,87:1, marge étroite), `#6548DF` (aplat à 3,00:1 sur `surface-alt-dark`). Les écarts de la v1 listés ci-dessus disparaissent en v2 ; axe-core le vérifie sur le premier bouton plein en sombre (story 2.2) puis sur chaque écran.
 
 - **Légendes.** `{colors.ink-secondary}` et `{colors.ink-secondary-dark}` ne s'appliquent que si la version figée expose une clé de thème native. Sinon, la couleur native reste, son contraste est mesuré et signalé au rapport de nuit ; aucun CSS.
 - **Badges.** `badge-local` vert et `badge-cloud` orange utilisent les couleurs natives de `st.badge` (`[ASSUMPTION]`), dont le contraste est vérifié à l'axe-core au matin. Orange = attention, les données sortent de la machine ; jamais de rouge.
@@ -221,12 +259,27 @@ Un seul rayon, `{rounded.DEFAULT}` (12 px, `--radius-sm` de la charte), porté p
 | `chart` | `st.plotly_chart` et natifs | Palette du thème actif ; unité dans le titre d'axe. |
 | `logo` | `st.logo` | Wordmark texte « WaveLocalAI » en `{colors.ink}` pour la nuit ; l'ajout du SVG Wavestone se décide au matin. |
 
+### Composants de la v2
+
+Rendu propre à la v2 (HTML et CSS servis par `web/`), là où il s'écarte du tableau Streamlit. Comportement : `EXPERIENCE.md`, « Écrans v2 des Epics 5 à 7 ».
+
+| Composant | Spécification visuelle |
+|---|---|
+| `wl-button-primary` | Fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}` ; désactivé : fond `{colors.surface-alt}`, bordure `{colors.line}`, texte `{colors.ink-secondary}`, jamais par la seule opacité. |
+| `wl-pill-selected` | Pastille ou segment choisi : fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}`, icône `check` à gauche ; non choisi : bordure `{colors.line}`, texte `{colors.ink}`. Indisponible : texte `{colors.ink-secondary}`, icône `block`, bordure en pointillés `{colors.line}`. |
+| `wl-side-panel` | À droite dès 1 024 px (largeur 1/3, 360 px au moins), bordure gauche `{colors.line}`, en-tête `h2` + bouton « Fermer » ; en deçà, sous le contenu, replié. |
+| `wl-step-trace` | Une ligne par étape : numéro, icône Material par type (`psychology` réflexion, `build` appel d'outil, `output` résultat, `chat` réponse, `pending_actions` attente de validation), libellé, durée en `{typography.caption}` alignée à droite. Étape en cours : contour 2 px `{colors.primary}` et libellé « en cours ». Erreur d'outil : icône `error` et texte, sans fond rouge. |
+| `wl-team-graph` | Nœuds en rectangles `{rounded.DEFAULT}` bordés `{colors.ink-secondary}`, nom du rôle dedans ; flèches `{colors.gray-graphic}` vers le nœud « Rapport ». Agent actif : contour 3 px `{colors.primary}` + libellé « en cours » sous le nœud ; terminé : icône `check_circle` ; arrêté : libellé « Arrêté ». |
+| `wl-progress-bytes` | Barre `{colors.primary}` sur piste `{colors.line}`, texte « Téléchargement 1,2 Go sur 4,7 Go · 26 % » à côté, jamais la barre seule. |
+| Verdict par affirmation | Liste : verdict en texte avec icône (`check_circle` « appuyée », `help` « non appuyée », `cancel` « contredite »), affirmation, puis extrait d'appui cité en `{typography.caption}`. Couleur d'icône `{colors.ink}` : le verdict se lit dans le mot. |
+
 ## Do's and Don'ts
 
 | À faire | À éviter |
 |---|---|
 | Couleurs, police et rayon dans `.streamlit/config.toml` | Hex en dur, `<style>`, `unsafe_allow_html` pour colorer |
 | `{colors.primary}` pour l'action principale | Rouge sur une action principale (« FIGHT ! ») |
+| v2 : `{colors.primary-fill-dark}` sous tout texte blanc en sombre | v2 : texte blanc sur `{colors.primary-dark}` (4,26:1) |
 | `{colors.risk}` pour le risque, nommé par un texte | CO₂ coloré vert/orange/rouge selon un seuil |
 | `{colors.accent-green}` en aplat sous de l'encre, ou en sombre | Vert de la charte en texte sur blanc |
 | Icônes `:material/…:`, distinctes par module | Emojis en icône, doublés (« 📂 📂 ») ou en titre |
