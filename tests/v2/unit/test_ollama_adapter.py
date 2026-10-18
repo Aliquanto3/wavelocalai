@@ -213,6 +213,25 @@ def test_tps_is_generation_only_and_ignores_prefill_and_load():
     assert result.total_s == 10.0 and result.load_s == 5.0
 
 
+def test_prefill_has_its_own_duration_and_rate_apart_from_d3():
+    chunk = final(eval_count=100, eval_s=2.0, prompt_eval_count=600, prompt_eval_s=3.0)
+    result = ollama_result(chunk, wall_s=10.5)
+    assert (result.prefill_s, result.prefill_tps) == (3.0, 200.0)  # 600 jetons en 3 s
+    assert result.tps == 50.0  # le prefill n'entre pas dans D3
+    cached = ollama_result(final(prompt_eval_s=None), wall_s=1.0)  # prompt déjà en cache
+    assert (cached.prefill_s, cached.prefill_tps) == (None, None)
+
+
+async def test_an_error_line_in_the_middle_of_the_stream_is_ollama_error():
+    server = FakeOllama(
+        loaded=["qwen2.5:1.5b"], plans=[Plan([part("Bon"), {"error": "GPU perdu"}, final()])]
+    )
+    with pytest.raises(ProviderError) as caught:
+        await _collect(_model(server))
+    assert caught.value.code == "ollama_error" and "GPU perdu" in str(caught.value.technical)
+    assert server.closed == 1
+
+
 def test_missing_eval_duration_falls_back_to_wallclock_and_says_so():
     result = ollama_result(final(eval_count=30, eval_s=None, total_s=None), wall_s=3.0)
     assert result.tps == 10.0 and result.tps_source == "wallclock"

@@ -143,7 +143,13 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
     assert home.get_attribute("href") == "#/" and home.get_attribute("aria-current") == "page"
     assert home.get_attribute("aria-disabled") is None
 
-    for index in range(1, len(MODULES)):
+    arena = links.nth(1)  # Arène : disponible depuis la story 2.2 (Chat libre)
+    assert (
+        arena.get_attribute("href") == "#/arene/chat"
+        and arena.get_attribute("aria-disabled") is None
+    )
+
+    for index in range(2, len(MODULES)):
         link = links.nth(index)
         assert link.evaluate("el => el.tagName") == "A"
         assert link.get_attribute("href") is None
@@ -154,10 +160,10 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
             "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
         )
         assert reason == PLANNED_REASON
-    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 1
+    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 2
 
 
-@pytest.mark.parametrize("route", ["#/arene/chat", "#/sobriete", "#/n-importe-quoi", "#main"])
+@pytest.mark.parametrize("route", ["#/arene/comparer", "#/sobriete", "#/n-importe-quoi", "#main"])
 def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")
     wait_ready(page)

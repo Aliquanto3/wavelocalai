@@ -46,6 +46,7 @@ export const store = createStore({
   ollama: { known: false, up: false, version: null, latencyMs: null },
   ollamaChecking: false,
   system: { cpuPercent: null, memory: null, modelsLoaded: null },
+  systemSeen: false, // vrai dès le premier état du flux : avant, les cartes montrent un squelette
   runsActive: [],
   carbon: null, // dernière somme de session (GET /api/carbon/session ou carbon_updated)
   runs: {}, // run_id -> { lastSeq } des runs dont un flux est ouvert
