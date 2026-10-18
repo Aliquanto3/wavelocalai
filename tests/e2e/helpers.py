@@ -52,8 +52,6 @@ OLLAMA_TRUNCATED_STREAM_BUG = (
 EMOJI_RE = re.compile(
     "[\U0001f000-\U0001faff\U00002600-\U000027bf\U00002b00-\U00002bff\ufe0f\u203c\u2049\u2139]"
 )
-# Seul emoji toléré dans un titre (accueil de l'agent, EXPERIENCE.md).
-ALLOWED_EMOJI_HEADINGS = {"👋 Bonjour !"}
 
 # Contrastes qui ne font pas échouer test_accessibility.py (couleurs natives de Streamlit,
 # texte de composants inactifs, écarts acceptés de DESIGN.md), listés en fin de session

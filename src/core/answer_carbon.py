@@ -10,6 +10,7 @@ servi par Ollama (`glm-4.6:cloud`) n'a jamais de CO₂ local. Les formules reste
 import math
 
 from src.core.green_monitor import CarbonCalculator
+from src.core.model_detector import is_mistral_cloud_tag
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 from src.core.utils import extract_params_billions
 
@@ -23,15 +24,15 @@ def answer_carbon_mg(
 
     - `is_cloud` vrai : formule cloud, avec la taille du catalogue (paramètres actifs, sinon
       totaux) ; `is_cloud` faux : formule locale ; `is_cloud` inconnu (None) : type du
-      catalogue.
+      catalogue, ou liste Mistral cloud intégrée (tags `-latest`, sans taille publiée).
     - La fiche est cherchée par le nom du catalogue déduit du tag, jamais par un libellé de
       sélecteur.
 
     Returns:
         Le CO₂ en mg (0.0 pour 0 token), ou None s'il est inconnu : tag absent, nombre de
         tokens absent, booléen, non fini ou négatif, catalogue illisible, ou modèle cloud de
-        taille inconnue (tag distant hors catalogue). Jamais 0 pour une valeur inconnue ; ne
-        lève jamais d'exception.
+        taille inconnue (tag distant hors catalogue, tags Mistral `-latest`). Jamais 0 pour
+        une valeur inconnue ; ne lève jamais d'exception.
     """
     if not model_tag or isinstance(output_tokens, bool):
         return None
@@ -46,7 +47,11 @@ def answer_carbon_mg(
         info = get_model_info(get_friendly_name_from_tag(model_tag)) or {}
     except Exception:
         return None  # Catalogue illisible : CO₂ inconnu, jamais d'exception.
-    cloud = is_cloud if is_cloud is not None else info.get("type") == "api"
+    cloud = (
+        is_cloud
+        if is_cloud is not None
+        else info.get("type") == "api" or is_mistral_cloud_tag(model_tag)
+    )
     if cloud:
         raw_params = info.get("params_act") or info.get("params_tot") or "0"
         active_params = extract_params_billions(raw_params)

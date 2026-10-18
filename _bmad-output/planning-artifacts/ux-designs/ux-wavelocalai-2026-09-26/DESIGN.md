@@ -137,7 +137,7 @@ WaveLocalAI est un démonstrateur Wavestone : il prouve, mesures à l'appui, qu'
 1. **Les chiffres sont les héros.** Débit, CO₂ et latence portent la plus grande taille de la page (`{typography.metric-value}`).
 2. **Une seule couleur d'action.** Violet `{colors.primary}` pour agir, vert pour « local, sobre, réussi », rouge `{colors.risk}` pour le risque seulement.
 3. **La souveraineté se voit.** Le badge Local/Cloud est l'**élément signature** : sobre, répété, porteur du propos. Le reste de l'interface s'efface.
-4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte ; seule exception, l'accueil « Bonjour ! » de l'agent.
+4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception.
 
 **Implémentation.** Streamlit 1.x, composants natifs uniquement : aucun framework CSS, aucun `<style>` injecté, aucun hex dans le code des pages. Les tokens passent par `.streamlit/config.toml` :
 

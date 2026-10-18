@@ -31,7 +31,6 @@ from src.app.states import (
     render_no_models,
 )
 from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
-
 from src.core.answer_carbon import answer_carbon_mg
 from src.core.inference_service import retry_interrupted
 from src.core.llm_provider import LLMProvider
@@ -310,6 +309,6 @@ def render_rag_chat_tab(
                     return
                 render_error(
                     "La réponse n'a pas pu être générée. "
-                    + generation_failure_advice(selected_tag),
+                    + generation_failure_advice(selected_tag, str(e)),
                     f"{type(e).__name__}: {e}",
                 )

@@ -8,7 +8,7 @@ from typing import Any
 
 from src.core.interfaces import ILLMProvider
 from src.core.model_defaults import is_remote_tag
-from src.core.model_detector import get_model_info, is_api_model
+from src.core.model_detector import get_model_info, is_api_model, is_mistral_cloud_tag
 from src.core.providers.groq_provider import is_groq_model
 from src.core.providers.mistral_provider import MistralProvider
 from src.core.providers.ollama_provider import OllamaProvider
@@ -46,6 +46,7 @@ def is_cloud_tag(model_tag: str | None) -> bool | None:
     - tag distant servi par Ollama (`:cloud`, `-cloud`) : cloud ;
     - modèle Groq (appartenance exacte à sa liste, `openai/gpt-oss-120b`) : cloud ;
     - modèle du catalogue : son type (`api` = cloud) ;
+    - modèle de la liste Mistral cloud intégrée (`mistral-small-latest`) : cloud ;
     - autre tag Ollama (`nom:variante`, par exemple `gpt-oss:20b`) : local ;
     - nom sans variante préfixé `gpt-`, `o1-` ou `claude-` (OpenAI, Anthropic) : cloud ;
     - sinon (vide, « N/A », inconnu du catalogue) : inconnue.
@@ -58,6 +59,8 @@ def is_cloud_tag(model_tag: str | None) -> bool | None:
     info = get_model_info(tag)
     if info is not None:
         return info.get("type") == "api"
+    if is_mistral_cloud_tag(tag):
+        return True
     if ":" in tag:
         return False
     if tag.lower().startswith(CLOUD_TAG_PREFIXES):
@@ -159,7 +162,7 @@ class LLMProviderFactory:
                 return self._providers["anthropic"]
             raise ValueError(f"Modèle Anthropic {model_tag} demandé mais provider non disponible")
 
-        # Mistral API (vérifier via models.json)
+        # Mistral API (liste intégrée ou models.json)
         if is_api_model(model_tag):
             if "mistral" in self._providers:
                 return self._providers["mistral"]

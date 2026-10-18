@@ -433,7 +433,7 @@ def render_agent_solo_tab(sorted_labels: list, display_to_tag: dict, menu: Model
 
         # EMPTY STATE AMÉLIORÉ
         if not st.session_state.agent_messages:
-            st.header("👋 Bonjour !", anchor=False, text_alignment="center")
+            st.header("Bonjour !", anchor=False, text_alignment="center")
             st.caption(
                 "L'agent est prêt. Choisissez une action rapide ou tapez votre demande.",
                 text_alignment="center",

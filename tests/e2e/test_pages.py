@@ -79,15 +79,14 @@ def test_home_is_local_and_available(page, app):
 
 @pytest.mark.parametrize(("path", "title"), PAGES, ids=PAGE_IDS)
 def test_page_structure(page, app, path, title):
-    """Un seul h1 (le nom du module), le même dans l'onglet ; aucun emoji dans les titres
-    (sauf l'accueil de l'agent), aucun libellé d'avant le lexique, aucune trace Python."""
+    """Un seul h1 (le nom du module), le même dans l'onglet ; aucun emoji dans les titres,
+    aucun libellé d'avant le lexique, aucune trace Python."""
     h.goto(page, app.base_url, path)
 
     assert h.headings(page, "h1") == [title]
     assert title in page.title()
     for heading in h.headings(page, "h1, h2, h3, h4"):
-        if heading not in h.ALLOWED_EMOJI_HEADINGS:
-            assert not h.EMOJI_RE.search(heading), f"emoji dans le titre « {heading} »"
+        assert not h.EMOJI_RE.search(heading), f"emoji dans le titre « {heading} »"
     text = h.flat(h.main(page).inner_text()) + " " + h.flat(h.sidebar(page).inner_text())
     for pattern in LEGACY_TEXTS:
         assert not pattern.search(text), f"texte proscrit ({pattern.pattern}) sur « {title} »"
