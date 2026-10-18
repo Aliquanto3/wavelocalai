@@ -6,7 +6,7 @@ Décisions §6 validées par Anaël le 2026-10-18, précisées par `ARCHITECTURE
 
 | Couche | Choix | Remplace |
 |---|---|---|
-| Python et projet | `requires-python = ">=3.11,<3.13"` pour tout le dépôt dès le premier lot, cible de lint `py311` pour `src/wavelocalai/` et `tests/v2/` seulement (AD-1). Un seul `pyproject.toml` et `uv.lock`, installation éditable, `dev-mode-dirs = [".", "src"]` ; la v2 n'importe jamais `src.*`, la v1 jamais `wavelocalai` ; lanceur `wavelocalai-v2`, port 8502 (AD-2). Version unique : `2.0.0.dev0` dès le premier lot, puis `2.0.0aN` à la fin de chaque étape du MVP (AD-3) | Python 3.10 |
+| Python et projet | `requires-python = ">=3.11,<3.13"` pour tout le dépôt dès le premier lot, cible de lint `py311` pour `src/wavelocalai/` et `tests/v2/` seulement (AD-1). Un seul `pyproject.toml` et `uv.lock`, installation éditable, `dev-mode-dirs = [".", "src"]` ; la v2 n'importe jamais `src.*`, la v1 jamais `wavelocalai` ; lanceur `wavelocalai-v2`, port 8502 (AD-2). Version unique : `2.0.0.dev0` dès le premier lot, puis `2.0.0aN` à la fin de chaque étape (`a1` à `a7` pour les étapes 1 à 7), `2.0.0` à la bascule (AD-3). pydantic reste en 2.12.x jusqu'à la bascule (crewai de la v1 exige `pydantic<2.13`), puis passe à la version vérifiée à ce moment | Python 3.10 |
 | Serveur | FastAPI + uvicorn, SSE natif `fastapi.sse.EventSourceResponse` (sans sse-starlette), écoute sur `127.0.0.1`, protection `Host`/`Origin`, télémétrie FastAPI coupée (AD-19) | Streamlit |
 | Front | Coquille HTML unique, modules JS natifs sans compilation ni Node, routeur par `hash`, écrans chargés par `import()` (`mount`/`unmount`), Custom Elements `wl-` sans Shadow DOM, un client SSE et un store (AD-20) ; détail dans `03-ux-front.md` §3 ; graphiques en SVG fait main (deux types) | Pages et onglets Streamlit |
 | Modèles | Ports `ChatModel` et `Embedder` (AD-8), 4 adaptateurs sur les SDK officiels : Ollama natif (`/api/chat`, seul à donner `eval_count`/`eval_duration`, `tps_source = "ollama_eval"`), OpenAI-compatible (OpenAI, Groq), Anthropic, Mistral ; adaptateurs `fake` (`ChatModel` et `Embedder` à vecteurs déterministes) en test seulement. Registre unique portant `origin` (`local`, `cloud`, `unknown`) et `kind` (`chat`, `embedding`, `reranker` ; règle de `is_embedding_model`, PR #30) ; `registry.resolve(tag, allow_cloud)` seul accès (AD-9) | LangChain, `llm_provider`, `model_detector` |
@@ -52,7 +52,7 @@ L'app lit seulement `benchmarks/slm-quality/slm-quality-results.json`, synchroni
 - Au plus un run racine actif par `kind`.
 - Travail CPU (pypdf, docx, reranker ONNX) dans un pool de threads.
 - Tâches longues (ingestion, évaluation, équipe, installation de modèle) = runs annulables avec progression SSE.
-- Sonde Ollama ≤ 1 s, état en cache 5 s ; un test de budget parcourt toutes les routes `GET` sans paramètre de chemin, hors SSE, et vérifie < 300 ms Ollama injoignable (AD-15).
+- Sonde Ollama ≤ 1 s ; état en cache 5 s pour les routes de lecture, 1 s pour la sonde du flux système (AD-15 amendé) ; un test de budget parcourt toutes les routes `GET` sans paramètre de chemin, hors SSE, et vérifie < 300 ms Ollama injoignable (AD-15).
 
 ## Réutilisation
 

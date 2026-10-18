@@ -1,10 +1,13 @@
 ---
 name: WaveLocalAI
 status: final
-updated: 2026-09-27
+updated: 2026-10-18
 sources:
   - docs/audits/frontend-2026-09/SYNTHESE.md
   - docs/audits/frontend-2026-09/poste-rtx3060/UX.md
+  - docs/audits/refonte-2026-10/03-ux-front.md
+  - _bmad-output/planning-artifacts/epics.md
+  - _bmad-output/planning-artifacts/reports-v2-inventaire.md
 ---
 
 # WaveLocalAI — Experience Spine
@@ -16,6 +19,7 @@ sources:
 - **Référence visuelle :** `DESIGN.md`, cité par chemin de token (par exemple `{colors.primary}`).
 - **Portée :** front de la v1 (thème, lexique, états, confirmations) ; ni nouvelle fonction d'agent, ni nouveau format d'import, ni refonte de l'architecture des pages.
 - **Validation :** implémentation autonome de nuit, validation visuelle au matin en clair et en sombre (D4). Tout `[ASSUMPTION]` s'applique tel quel la nuit et se valide au matin.
+- **v2 (`src/wavelocalai/`) :** web components servis par `web/`, coquille et barre haute de `03-ux-front.md` §3.3, composants de §3.4 (UX-DR1 à UX-DR25 d'`epics.md`). Lexique, voix, chiffres, souveraineté et états de ce document valent pour la v2 ; la section « Écrans v2 des Epics 5 à 7 » précise Sobriété, Modèles, Agents, Évaluation et Banc d'essai (UX-DR26 à UX-DR29). Les stories portent le contrat d'API ; ce document prime pour le comportement à l'écran.
 
 ## Information Architecture
 
@@ -178,6 +182,106 @@ Comportement ; le rendu vit dans `DESIGN.md` (Components).
 - **Repris du skill `dataviz` :** palettes validées par script, unités et légendes explicites.
 - **Rejeté :** l'allure « prototype Streamlit » (Source Sans, rouge `#FF4B4B`, emojis, barre « Deploy ») ; la grille de cartes identiques ; la numérotation « 01. / 02. » de modules qui ne sont pas une séquence ; le CSS injecté avec des couleurs en dur.
 
+## Écrans v2 des Epics 5 à 7
+
+Précise UX-DR26 à UX-DR29 à partir des maquettes de `03-ux-front.md` §3.5. Rendu des nouveaux composants : `DESIGN.md`, « Composants de la v2 ». Chaque écran passe axe-core sans violation, clair et sombre (UX-DR25).
+
+### Règles communes
+
+| Règle | Comportement |
+|---|---|
+| Panneau latéral (`wl-side-panel`) | Un seul ouvert à la fois. À l'ouverture, focus sur son `h2` ; « Fermer » et Échap le ferment et rendent le focus au déclencheur. À droite dès 1 024 px, sous le contenu et replié en deçà (UX-DR19). |
+| Mises à jour en direct | Valeurs remplacées sur place, sans animation ni `aria-live` (une annonce toutes les 2 s rendrait le lecteur d'écran inutilisable). Seules les fins d'action sont annoncées, en `polite`. |
+| Segments (« 7 jours · 30 jours · Tout », « Graphique · Tableau », « Matrice · Tableau », « Question · Jeu de questions ») | `radiogroup`, flèches pour changer, segment choisi en `wl-pill-selected`. Le choix tient pour la session de la page. |
+| Action longue | `wl-run-status` avec étape nommée, chronomètre et « Arrêter » (Échap si aucun panneau ni dialogue n'est ouvert). Quitter l'écran puis revenir reprend le flux par `?after=`. |
+| Résultat conservé | Un run terminé a son URL (`…/<run_id>`) et se reconstruit depuis la base sans relancer de modèle. |
+| Bouton désactivé | Toujours avec la raison en légende visible, jamais en infobulle seule. |
+
+### Sobriété et matériel (`#/sobriete`, UX-DR26)
+
+Ordre de l'écran, de haut en bas :
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| `h1` « Sobriété et matériel » | — | — |
+| `h2` « Santé du système » | Quatre `wl-metric` : « Processeur » (34 %), « Mémoire » (9,8 / 15,7 Go), « Accélérateur » (nom et mémoire GPU « 2,1 / 6 Go », ou « Aucun »), « Ollama » (« 2 modèles chargés », noms en aide) | Mis à jour par le flux système toutes les 2 s, en pause quand l'onglet est masqué ; au retour, les dernières valeurs restent affichées jusqu'au premier échantillon. Avec NVML, une ligne de texte sous l'accélérateur : « 62 °C » et, s'il y a lieu, « Bridage thermique en cours ». Ollama arrêté : « Ollama ne répond pas » et l'action « Réessayer » de la barre haute. |
+| `h2` « Empreinte carbone de cette session » | Total en `metric-value` ; ligne « Par module » (Chat libre, Arène, Discussion, Agents, Import de documents ; modules à 0 omis) ; ligne « Local 398 mg · Cloud 14 mg (estimé) · 3 réponses non mesurables » | Suit `carbon_updated` sans clic. « non mesurables » est un lien qui déplie « Comment ces chiffres sont calculés ». Une seule unité pour toute la section (UX-DR15). En-tête de section : `button-secondary` « Remettre le compteur à zéro », sans confirmation (la session close reste dans l'historique) ; annonce « Compteur remis à zéro. La session précédente est dans l'historique. » |
+| `h2` « Historique » | Segments « 7 jours » (par défaut), « 30 jours », « Tout » ; segments « Graphique » (par défaut) et « Tableau » | Graphique : barres « Émissions par session », une barre par session, début de session en abscisse, mg en ordonnée ; une session sans mesure garde sa place, marquée « non mesuré » sans barre. Tableau : début, fin, total, Local, Cloud, non mesurables, triable. Vide : « Aucune session mesurée pour l'instant. » sans graphique. |
+| `details` « Carte d'identité technique » | Fiche machine (processeur, mémoire, accélérateur, système), version d'Ollama, version de WaveLocalAI | Replié. |
+| `details` « Comment ces chiffres sont calculés » | CodeCarbon pour le local, ecologits pour le cloud (« estimé »), règle D3 du débit, ce qui rend une réponse non mesurable | Replié ; s'ouvre aussi par le lien « non mesurables ». |
+
+Aucune couleur selon un seuil de CO₂ ; la section ne porte pas de jugement (« bon », « élevé »).
+
+### Modèles (`#/modeles`, `#/modeles/<tag>`, UX-DR27)
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| `h1` « Modèles », barre d'actions | « Décharger les modèles inactifs » (`button-secondary`) ; champ « Installer un modèle par son nom » + « Installer » | Décharger : la colonne « Chargé » et la mémoire libre suivent le flux système ; annonce « 2 modèles déchargés. » |
+| `h2` « Sur ce poste » | `wl-data-table` : Nom (bouton qui ouvre la fiche), Origine (`wl-badge`), Usage (Conversation, Représentation, Reclassement), Paramètres (« 8 B · 1 B actifs »), Taille, Tient en mémoire, Chargé, Débit sur ce poste, Actions (« Supprimer ») | Tri initial : chargés d'abord, puis par nom. « Tient en mémoire » : « Oui », « Non : il manque 1,2 Go » ou « inconnu ». Débit absent : « non mesuré ». Supprimer : voir « Confirmation » ci-dessous. Aucun modèle : « Aucun modèle installé sur ce poste. Installez-en un depuis le catalogue ci-dessous. » |
+| `h2` « Modèles proposés par défaut » (décision Q2) | Une ligne par usage : Conversation, Arène, Juge, Agent, Documents ; Modèle (avec badge), Raison, actions | « Changer » remplace la cellule Modèle par `wl-model-picker` filtré sur les modèles éligibles à l'usage, puis « Enregistrer » ou « Annuler ». « Revenir au choix automatique » n'apparaît que si la raison est « Choisi par vous ». Un défaut cloud choisi s'affiche avec « inactif tant que le cloud n'est pas autorisé ». Sans modèle éligible : « Aucun », la raison donne les conditions. |
+| `h2` « Catalogue installable » | `wl-data-table` : Nom, Paramètres, Mémoire nécessaire, Tient en mémoire, « Installer » | `[ASSUMPTION]` Tri initial : ceux qui tiennent d'abord, puis par mémoire nécessaire croissante. Un modèle qui ne tient pas garde « Installer », et sa ligne dit « Ne tient pas : 6,1 Go nécessaires, 4,8 Go libres ». |
+| `h2` « Reclassement des extraits » | Une ligne : état (« Installé », « Non installé » avec la raison), « Installer le reranker » | Sans l'option `rerank` : bouton désactivé, légende « Installez l'option de reclassement : `uv sync --extra rerank` ». |
+| Panneau « Fiche du modèle » | Voir ci-dessous | Ouvert par un nom de modèle ou par `#/modeles/<tag>` ; la liste reste visible. |
+
+**Installation.** La cellule d'action de la ligne devient `wl-progress-bytes` + « Annuler » : « Préparation… », « Téléchargement 1,2 Go sur 4,7 Go · 26 % », « Vérification… », puis « Installé » et la ligne rejoint « Sur ce poste ». Pendant ce temps, les autres « Installer » sont désactivés avec « Une installation est en cours (qwen3.5:2b). » Seule la fin est annoncée (« qwen3.5:2b installé. » ou l'erreur). Échec ou annulation : `wl-error` dans la ligne (code `pull_failed`, message, action), liste inchangée.
+
+**Confirmation.** « Supprimer » ouvre `wl-confirm-dialog` : titre « Supprimer qwen3.5:2b ? », conséquence « qwen3.5:2b sera supprimé de ce poste (2,7 Go libérés). », focus sur « Annuler », bouton « Supprimer le modèle » ; issue annoncée « Modèle supprimé ». Un modèle utilisé par un run actif : bouton désactivé, légende « Utilisé par une réponse en cours ».
+
+**Fiche du modèle.** `h2` = nom complet, badge d'origine, puis :
+
+- liste de définitions « Caractéristiques » : architecture (« Dense » ou « MoE »), paramètres totaux et actifs, quantification, contexte, licence, outils vérifiés, raisonnement vérifié ; valeur absente « inconnu », jamais 0 ;
+- `details` « Pourquoi ce débit ? » : débit mesuré sur ce poste, puis l'explication par les paramètres actifs, la quantification, la bande passante mémoire et la VRAM, en phrases fournies par l'API ;
+- `details` « Sur d'autres postes » : tableau des trois postes de référence (poste, débit, tient en mémoire, énergie si mesurée), source et date de la publication du banc ; mention « autre version » si le digest diffère ; références indisponibles : la raison, sans tableau vide.
+
+`[ASSUMPTION]` Depuis `wl-model-picker`, un bouton « Fiche du modèle » à côté du champ (pas dans la liste d'options, où un contrôle interactif est interdit) ouvre la même fiche en panneau sur l'écran courant, sans changer d'URL.
+
+### Agents autonomes : Agent seul (`#/agents/seul`, UX-DR28)
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| `h1` « Agents autonomes », sous-navigation « Agent seul » · « Équipe d'agents » | — | Liens vers les deux routes, comme les sous-écrans de l'Arène. |
+| Réglages | `wl-model-picker` sur le défaut `agent` avec sa raison ; groupe « Outils de l'agent » : neuf pastilles à cocher | Toutes cochées sauf « Envoi d'email ». Une pastille indisponible n'est pas cochable (`aria-disabled`) et garde sa raison en légende (« Configuration SMTP absente : … »). Chaque pastille a sa description en aide. Sans défaut : la raison et « Choisissez un modèle avec outils vérifiés », lancement désactivé. |
+| Fil | `wl-chat-thread` ; accueil : `card` « Bonjour ! L'agent est prêt. » + `[ASSUMPTION]` les actions rapides de la v1 | Une action rapide remplit la saisie sans l'envoyer. |
+| Panneau « Étapes » | `wl-step-trace` + chronomètre | À droite dès 1 024 px ; en deçà, sous la réponse et **déplié** pendant un run (c'est le cœur de la démo). |
+| Saisie collante | « Décrivez la tâche à confier à l'agent », « Envoyer », « Arrêter » | Entrée envoie, Maj+Entrée va à la ligne (comme le Chat libre). |
+
+**Trace.** Chaque étape s'ajoute à la fin de la liste sans déplacer le focus ; on peut en déplier une pendant que les suivantes arrivent. Dépliée : « Arguments » (JSON mis en forme), « Résultat » (résumé, et « Ouvrir le fichier » quand l'outil a produit un fichier). L'étape en cours a le contour et le libellé « en cours ». `wl-run-status` annonce le changement d'étape (« Appel de l'outil Analyse de données… ») ; la liste elle-même n'est pas `aria-live`. Une erreur d'outil reste une étape « Résultat : erreur » avec son texte, et l'agent poursuit. Borne de tours atteinte : dernière étape « Arrêt : nombre d'étapes maximal atteint (12) ».
+
+**Validation d'email (D2).** L'étape passe à « En attente de votre validation » et `wl-confirm-dialog` s'ouvre : titre « Envoyer cet email ? », Destinataire, Objet, Corps (lecture seule, défilable), mention « Sans réponse dans 10 min, l'envoi est refusé. », focus sur « Annuler », bouton « Envoyer l'email ». Échap vaut « Annuler ». Issues annoncées et inscrites dans la trace : « Email envoyé. », « Envoi annulé : l'agent en est informé. », « Validation expirée : email non envoyé. »
+
+**Pied de réponse.** Badge, CO₂, « 4 étapes », durée, « Télécharger » (Markdown, route d'export). Garde-fou mémoire : l'état `ram_guard` d'`EXPERIENCE.md` (question gardée, besoin chiffré, deux issues).
+
+### Agents autonomes : Équipe d'agents (`#/agents/equipe`, UX-DR28)
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| Équipe | Liste « Équipe » (bibliothèque) ; « Configurer » ; si modifiée, badge « Modifiée » et « Revenir à l'équipe d'origine » | Revenir efface la modification sans confirmation, annonce « Équipe d'origine rétablie. » |
+| Sujet | Champ « Sujet de la mission » | Requis ; vide, « Lancer la mission » est désactivé avec « Saisissez un sujet ». |
+| Schéma | `wl-team-graph` : agents dans l'ordre, puis « Rapport » ; « Lancer la mission » | De gauche à droite dès 768 px, de haut en bas en deçà. `<desc>` lit l'ordre (« Chercheur, puis Analyste, puis Rédacteur, puis le rapport »). Non interactif. Sans agent : « Ajoutez au moins un agent ». |
+| Suivi | Une ligne dépliable par agent : « En attente », « En cours · Analyse de données… », « Terminé · 3 outils · 41 s », « Arrêté » ; `details` « Journal brut » replié ; « Arrêter » | Une ligne dépliée montre la `wl-step-trace` de l'agent. Le nœud du schéma suit la ligne en cours (contour et « en cours »). |
+| Rapport | Markdown rendu, pied : badge, CO₂, pic de mémoire, durée, « Télécharger » | Mission arrêtée : titre « Rapport partiel (mission arrêtée) ». Rouvrable par l'URL du run. |
+
+**Configurer.** Panneau latéral « Configurer l'équipe » : un `fieldset` par agent (Rôle, Objectif, Outils en pastilles, Modèle par `wl-model-picker`), « Retirer cet agent », « Ajouter un agent », puis « Enregistrer » et « Annuler ». « Enregistrer » passe par la validation serveur : chaque erreur s'affiche sous son champ (`aria-describedby`) et le focus va à la première. « Annuler » abandonne les changements non enregistrés.
+
+### Évaluation de la qualité (`#/documents/evaluation[/<run_id>]`, UX-DR29)
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| Réglages | Segments « Question » · « Jeu de questions » ; champ ou liste du jeu ; « Modèles évalués » (`wl-model-picker` multi) ; « Juge » (défaut `judge` et sa raison, « note peu fiable » sous ~4B actifs) ; phrase « Les mêmes extraits sont fournis à tous les modèles. » ; « Lancer l'évaluation » | Base vide : désactivé, « Importez des documents pour évaluer », lien vers Base documentaire. Aucun modèle : « Choisissez au moins un modèle ». |
+| `h2` « Étapes » | Liste ordonnée de trois étapes : « Recherche des extraits communs » (+ « Voir les extraits »), « Réponses » (état par modèle), « Notation : fidélité · pertinence · précision du contexte » | État en texte : « à venir », « en cours », « fait », « échec ». « Voir les extraits » ouvre `wl-source-panel`. |
+| `h2` « Résultats » | Segments « Tableau » (par défaut) · « Matrice » ; tableau : Modèle, Fidélité, Pertinence, Précision du contexte, Débit, CO₂ | Les cellules se remplissent au fil de `eval_metric`, en « en cours » avant leur score. Chaque score est un bouton « 86/100 » qui ouvre le panneau « Détail ». Matrice : `wl-chart-svg`, fidélité × débit, CO₂ en taille. |
+| Panneau « Détail » | Titre « Qwen 3.5 2B · Fidélité » ; « 7 affirmations : 6 appuyées, 1 non appuyée » ; liste des verdicts par affirmation avec l'extrait d'appui | Pertinence et précision : la raison du score en une phrase et les extraits jugés utiles. |
+
+« non évalué » remplace le score dans la cellule, avec la raison en aide (« Juge indisponible », « Sortie du juge invalide », « Réponse vide »), jamais 0. Chaque en-tête de métrique a sa définition en aide : Fidélité « Part des affirmations de la réponse appuyées par les extraits. » ; Pertinence « Proximité entre la question posée et celles que la réponse permet de retrouver. » ; Précision du contexte « Part des extraits fournis qui servent à répondre. » La mention « Méthode inspirée de Ragas » est en aide seulement. `[ASSUMPTION]` Jeu de questions : une ligne par modèle, score moyen des questions évaluées, « sur 8 questions (1 non évaluée) » sous le score, détail par question dans le panneau.
+
+### Banc d'essai (`#/arene/banc[/<run_id>]`, UX-DR29)
+
+| Zone | Contenu | Comportement |
+|---|---|---|
+| Scénario | Liste « Scénario » (scénarios de la v1, description d'une ligne) ; `details` « Format attendu » (champs, type, obligatoire, lus du schéma) ; « Entrée » préremplie par le scénario, modifiable | Changer de scénario remplace l'entrée seulement si elle n'a pas été modifiée ; sinon, « Remplacer par l'exemple du scénario » est proposé. |
+| Réglages | `wl-model-picker` ; interrupteurs « Format imposé » et « Réponse concise » ; « Lancer le test » | Aide de « Format imposé » : « Le schéma est transmis au modèle et contraint sa sortie. Désactivé, le format n'est demandé que dans la consigne. » Aide de « Réponse concise » : « Ajoute une consigne de réponse courte : moins de durée et de CO₂, parfois moins de détail. » `[ASSUMPTION]` Un modèle qui ne peut pas imposer de format rend l'interrupteur désactivé, avec la raison. |
+| Résultat | Réponse en flux ; à la fin, verdict de format, « Sortie mise en forme » (JSON indenté), rangée `wl-metric` Débit, CO₂, Durée | Verdict en clair : « Format respecté » (`check_circle`) ou « Format non respecté : le champ « date » manque » (`cancel`) ; sortie non JSON : « Format non respecté : la sortie n'est pas du JSON valide. » Délai dépassé : « Délai dépassé (120 s) ». |
+
 ## Key Flows
 
 ### Flow 1 — Démo d'avant-vente (Claire, consultante senior Wavestone, devant le DSI d'un client)
@@ -207,9 +311,26 @@ Karim anime ; chaque consultant manipule WaveLocalAI sur son poste (16 Go, sans 
 
 Échecs : le fichier ne s'indexe pas → `alert-error` avec la raison, compteur inchangé. Le garde-fou mémoire bloque → la question reste, l'alerte chiffre le besoin et la mémoire libre et propose un modèle plus petit. « Vider la base documentaire » cliqué par erreur → `confirm-dialog` annonce les 14 extraits ; « Annuler » ne supprime rien.
 
+### Flow 3 — v2 : préparer son poste puis montrer un agent (Claire, la veille et le matin d'un atelier client)
+
+La veille, au bureau, Claire prépare son portable (16 Go, RTX 3050) pour un atelier où elle montrera un agent qui analyse un fichier de ventes et prépare un email au client.
+
+1. Écran Modèles : le catalogue dit que `qwen3.6:7b` tient en mémoire. Elle clique « Installer » ; la ligne suit « Téléchargement 1,2 Go sur 4,7 Go · 26 % » pendant qu'elle lit la fiche d'un autre modèle.
+2. « qwen3.6:7b installé. » Dans « Modèles proposés par défaut », elle le choisit pour l'usage Agent : raison « Choisi par vous ».
+3. Le matin, écran Sobriété : « Remettre le compteur à zéro » ; l'historique garde la session de la veille.
+4. Agent seul : le modèle choisi est déjà là, « Envoi d'email » décoché ; elle le coche devant la salle et demande d'analyser `ventes.csv` puis d'envoyer la synthèse au client.
+5. Le panneau « Étapes » se remplit : Réflexion, Analyse de données, Graphique. Elle déplie l'étape d'analyse pendant que la suivante arrive.
+6. **Climax :** l'étape « Envoi d'email » passe à « En attente de votre validation » et le dialogue montre destinataire, objet et corps. Claire se tourne vers la salle : « Rien ne part sans moi. » Elle clique « Annuler » ; la trace inscrit « Envoi annulé : l'agent en est informé. » et l'agent conclut sans envoyer.
+7. Retour sur Sobriété : l'empreinte de la session montre la part de l'agent, en Local.
+
+Échecs : le modèle ne tient pas → la ligne du catalogue le dit avant l'installation. Le téléchargement échoue → `wl-error` dans la ligne, liste inchangée. Le garde-fou mémoire bloque l'agent → la tâche reste, « Décharger les modèles inactifs » est proposé.
+
 ## Open Questions
 
 Non bloquantes pour la nuit ; à trancher dans `bmad-spec`.
 
 1. **Mémoire affichée sous les réponses de la Discussion** (« 💾 0.0 GB », non investiguée) : la corriger ou la retirer ?
 2. **Garde-fou mémoire avec un modèle déjà chargé dans Ollama** : le chiffre « nécessaire » de l'état bloqué doit être vrai avant d'être affiché.
+3. **v2, Sobriété :** l'équivalence parlante de la maquette §3.5 (« environ 3,7 m en voiture ») n'est dans aucune story ; l'ajouter (avec sa source de facteur) ou la laisser hors de la 2.0.0 ?
+4. **v2, Évaluation :** la colonne « Global » de la maquette §3.5 n'est pas dans la story 7.3 ; une moyenne des trois métriques masquerait un modèle qui invente. Écartée sauf décision contraire.
+5. **v2, Évaluation et Banc d'essai :** une liste des runs précédents (comme l'historique de l'Arène) n'est pas demandée ; l'URL du run suffit-elle ?
