@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import uuid
@@ -17,11 +18,13 @@ from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.models.fake import fake_models
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.runs.hub import RunHub
+from wavelocalai.runs.system_bus import SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health, routes_runs, routes_test
+from wavelocalai.web import routes_health, routes_runs, routes_system, routes_test
 from wavelocalai.web.security import LocalOnlyMiddleware
+from wavelocalai.web.system_state import SystemSampler, cached_fiche
 
 logger = logging.getLogger("wavelocalai.web")
 
@@ -57,9 +60,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     hub = RunHub(store)
     await hub.start()
     app.state.hub = hub
+    # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
+    warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
     try:
         yield
     finally:
+        await app.state.system_feed.aclose()  # les flux système ouverts se terminent
+        warmup.cancel()
         await hub.stop()
         if owned is not None:
             owned.close()
@@ -94,6 +101,10 @@ def create_app(
         timeout_s=settings.ollama.probe_timeout_s,
         cache_s=settings.ollama.probe_cache_s,
     )
+    app.state.system_sampler = SystemSampler(
+        app.state.probe, settings.ollama.host, lambda: app.state.hub
+    )
+    app.state.system_feed = SystemFeed(app.state.system_sampler.sample)  # port SystemBus (AD-6)
     app.add_middleware(
         LocalOnlyMiddleware, port=settings.server.port, secrets=settings.secret_values()
     )
@@ -129,6 +140,7 @@ def create_app(
 
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
+    app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
     return app
