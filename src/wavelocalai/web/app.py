@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import uuid
@@ -22,12 +23,14 @@ from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.runs.hub import RunHub
+from wavelocalai.runs.system_bus import SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health, routes_models, routes_runs, routes_test
+from wavelocalai.web import routes_health, routes_models, routes_runs, routes_system, routes_test
 from wavelocalai.web.security import LocalOnlyMiddleware
+from wavelocalai.web.system_state import SystemSampler, cached_fiche
 
 logger = logging.getLogger("wavelocalai.web")
 
@@ -50,6 +53,17 @@ def _error_response(
     return JSONResponse(envelope, status_code=ERRORS[code].status)
 
 
+async def stop_streams(app: FastAPI) -> None:
+    """Début de l'arrêt, **avant** qu'uvicorn attende la fin des connexions : les flux système se
+    terminent et les runs actifs passent à `cancelled` (AD-23), ce qui clôt leurs flux d'événements.
+    Sans cela, un flux ouvert retient l'arrêt indéfiniment. Idempotent : le cycle de vie le refait.
+    """
+    await app.state.system_feed.aclose()
+    hub: RunHub | None = app.state.hub
+    if hub is not None:
+        await hub.stop()
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Démarrage : base migrée, hub démarré (runs orphelins `interrupted`, nouvelle `app_session`).
@@ -65,11 +79,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await hub.start()
     app.state.hub = hub
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
+    # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
+    warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
     try:
         yield
     finally:
+        warmup.cancel()
+        await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
         await app.state.registry.stop()
-        await hub.stop()
         await app.state.probe.aclose()
         if owned is not None:
             owned.close()
@@ -119,6 +136,10 @@ def create_app(
         timeout_s=settings.ollama.probe_timeout_s,
         cache_s=settings.ollama.probe_cache_s,
     )
+    app.state.system_sampler = SystemSampler(
+        app.state.probe, settings.ollama.host, lambda: app.state.hub
+    )
+    app.state.system_feed = SystemFeed(app.state.system_sampler.sample)  # port SystemBus (AD-6)
     app.add_middleware(
         LocalOnlyMiddleware, port=settings.server.port, secrets=settings.secret_values()
     )
@@ -154,6 +175,7 @@ def create_app(
 
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
+    app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
     app.include_router(routes_models.router)
