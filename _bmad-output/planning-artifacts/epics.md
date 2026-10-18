@@ -83,7 +83,7 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 - FR43 : Sobriété : métriques en direct sans clic arrêtées onglet masqué, historique carbone (sessions closes, D-37), bridage thermique (NVML), remise à zéro de session, équivalence parlante dans le panneau de méthode seulement (D-38) (CAP-10).
 - FR44 : Écran `#/modeles` : compatibilité mémoire avant installation (« Installer quand même » si le modèle ne tient pas, D-42), run `pull` chiffré, décharger, supprimer, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes » (CAP-10).
 - FR45 : Agent seul : étapes en direct dépliables, outils, email validé (D2), garde-fou mémoire ; Équipe séquentielle : schéma SVG, trace par agent, arrêt, rapport ; parité v1 (CAP-11).
-- FR46 : Évaluation : fidélité (verdict par affirmation) et pertinence au fil de l'eau, juge indisponible = « non évalué », résultat partiel d'une évaluation arrêtée conservé (D-28) ; Banc d'essai : validité du format, « format imposé », « réponse concise », consigne du scénario visible (D-18) (CAP-12).
+- FR46 : Évaluation : fidélité (verdict par affirmation) et pertinence au fil de l'eau, juge indisponible = « non évalué », résultat partiel d'une évaluation arrêtée conservé (D-28) ; Banc d'essai : validité du format, « format imposé », « réponse concise », consigne du scénario dans un bloc replié (D-18) (CAP-12).
 - FR47 : Références `#/arene/references` (quatrième onglet de l'Arène) et carte d'Accueil depuis `qb.results/1`, scores en pourcentage « Part de … » (D-5), « Comparer ces modèles » vers l'Arène (D-19) (CAP-13).
 - FR48 : Bascule : axe-core partout, RGAA 4.1, 200 % et 320 px, projection réelle, parité page par page, v1 archivée, 2.0.0 publiée (CAP-14).
 
@@ -632,7 +632,7 @@ So that la démo montre la vraie vitesse du poste, comparable au banc.
 
 **Given** Ollama qui coupe la génération avant la fin
 **When** l'adaptateur le détecte
-**Then** le service relance une fois (événement `retry` avec la raison, logique de `retry_interrupted` copiée) puis termine en `error` avec le code `interrupted`
+**Then** le service relance une fois (événement `retry` avec la raison, logique de `retry_interrupted` copiée) puis termine en `error` avec le code `generation_interrupted` (nom du code livré)
 **And** Ollama arrêté donne `ollama_down` ; un délai dépassé donne `timeout` avec le délai de `Settings` ; un test `integration` vérifie le flux réel sur `qwen2.5:1.5b`
 
 ### Story 2.2 : L'écran Chat libre affiche la réponse en flux et la reprend au retour
@@ -792,7 +792,7 @@ So that chaque modèle répond dans ses conditions prévues et que l'export rest
 **Given** `GET /api/models`
 **When** on l'appelle
 **Then** chaque modèle de conversation porte `default_temperature` (`float | null`) : la valeur des paramètres publiés par Ollama pour ce modèle (lus avec les faits du modèle, en cache `model_facts`) ou celle du catalogue, sinon `null` ; la route reste servie depuis le cache, sous le budget de 300 ms Ollama arrêté (test)
-**And** `contrat-api.md` (Modèles) le décrit déjà (correct course) ; aucun réglage n'est écrit dans `wavelocalai.toml`
+**And** `contrat-api.md` (Modèles) le décrit déjà (correct course) ; le fichier `wavelocalai.toml` est inchangé après le choix d'un modèle (test : empreinte avant et après)
 
 **Given** l'écran Chat libre
 **When** on choisit un modèle
@@ -803,9 +803,9 @@ So that chaque modèle répond dans ses conditions prévues et que l'export rest
 **Then** les deux boutons « Télécharger en JSON » et « Télécharger en Markdown » cèdent la place à un bouton « Exporter » qui ouvre un menu des deux formats (clavier : flèches, Entrée, Échap qui ferme et rend le focus au bouton) ; chaque entrée suit la route d'export du serveur, sans `blob:` (D-3) ; dès 768 px, les deux boutons restent
 **And** le menu est un composant ou un utilitaire partagé, que l'Arène (3.6) réutilise pour CSV et Markdown
 
-**Given** un run qui publie `model_loading`
+**Given** l'état « Premier chargement lent » d'UX-DR17 (déclenchement sur `model_loading` déjà couvert par les stories 2.1 et 2.2)
 **When** `wl-run-status` l'affiche
-**Then** il ajoute « Le premier appel charge le modèle en mémoire : de 8 à 26 secondes. » (état « Premier chargement lent » d'UX-DR17)
+**Then** seul le message « Le premier appel charge le modèle en mémoire : de 8 à 26 secondes. » est nouveau ici
 
 **Given** un `409 run_busy` rejoint
 **When** le run actif est suivi
@@ -979,7 +979,7 @@ So that je peux rejouer le Flow 1 de bout en bout et laisser une trace vérifiab
 **Given** une Arène terminée
 **When** on ouvre `#/arene/comparer/<run_id>` ou la liste `GET /api/arena/runs`
 **Then** l'écran se reconstruit depuis la base (colonnes, notes, classement, matrice, verdict) sans relancer de modèle ; « Relancer » et « Modifier la question » reprennent la configuration
-**And** un identifiant inconnu rend `404 run_not_found` (code ajouté à `errors.py`, `detail.run_id`) et l'écran affiche « Comparaison introuvable : ce résultat n'existe pas ou a été effacé. » avec un lien vers une nouvelle comparaison (correct course)
+**And** un identifiant inconnu rend `404 run_not_found` (code ajouté à `errors.py`, `detail.run_id`) et l'écran affiche « Résultat introuvable » avec un lien vers une nouvelle comparaison (correct course) ; l'affichage d'un résultat effacé reste à trancher (écart ouvert de `contrat-api.md`), seul l'identifiant inconnu rend `run_not_found`
 
 **Given** une Arène terminée
 **When** on appelle `GET /api/arena/runs/{id}.csv` ou `.md` (boutons « Exporter en CSV » et « Exporter en Markdown » ; sous 768 px, un seul « Exporter » qui ouvre le menu des formats livré par 2.7, D-3)
@@ -1121,7 +1121,7 @@ So that je peux vérifier la réponse pendant qu'elle s'écrit.
 **Given** l'événement `sources`
 **When** il est publié
 **Then** chaque source porte `{n, doc_id, document, page, chunk_id, text, rank, relevance_label, raw_score, passage}`, `relevance_label` parmi « très proche », « proche », « éloignée » selon une règle de normalisation testée, et l'extrait entier
-**And** `passage` vaut `{start, end}` (positions en caractères dans `text`) du passage que le serveur désigne pour le surlignage, selon une règle écrite dans la story et testée (par exemple la phrase de l'extrait la plus proche de la question), ou `null` (D-21, correct course)
+**And** `passage` vaut `{start, end}` (positions en caractères dans `text`) du passage que le serveur désigne pour le surlignage, selon une règle écrite dans la story et testée (par exemple la phrase de l'extrait la plus proche de la question), ou `null` (D-21, correct course) ; `null` signifie « pas de surlignage » : l'extrait s'affiche entier, sans passage mis en valeur (comme `contrat-api.md` et EXPERIENCE.md)
 **And** il est persisté **sans `text`** (les positions de `passage` sont persistées) ; au rejeu, le hub le réhydrate depuis `chunks`, avec `text: null` si le document a été supprimé (test)
 
 **Given** `GET /api/rag/chunks/{id}`
