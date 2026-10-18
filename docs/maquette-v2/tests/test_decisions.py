@@ -52,6 +52,12 @@ def test_6_interrupteurs_en_bascule(page, base_url):
     switches = page.locator("section.screen:not([hidden]) input.wl-switch-input[role=switch]")
     assert switches.count() == 2
     assert page.locator("input[name=projection].wl-switch-input[role=switch]").count() == 1
+    # Ce sont de vraies bascules : un clic sur l'étiquette change l'état.
+    for index in range(2):
+        box = switches.nth(index)
+        before = box.is_checked()
+        page.locator(f"label[for='{box.get_attribute('id')}']").click()
+        assert box.is_checked() is not before
 
 
 def test_12_creativite_fournie_avec_le_modele(page, base_url):
@@ -72,6 +78,21 @@ def test_15_quatre_colonnes_repliees_sur_4_lignes(page, base_url):
         )
         == 4
     )
+    # Réponse repliée sur 4 lignes tant qu'elle n'est pas dépliée.
+    wait_for(page, "() => !!document.querySelector('.ar-lane-text.is-clamped')")
+    clamp = page.evaluate(
+        """() => {
+          const el = document.querySelector('.ar-lane-text.is-clamped');
+          const style = getComputedStyle(el);
+          return [parseFloat(style.maxHeight), parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2];
+        }"""
+    )
+    assert clamp[0] <= clamp[1] * 4 + 1, clamp
+    before = page.locator(".ar-lane-text.is-clamped").count()
+    more = page.locator(".ar-more:visible").first
+    more.click()
+    assert more.get_attribute("aria-expanded") == "true"
+    assert page.locator(".ar-lane-text.is-clamped").count() == before - 1
 
 
 def test_18_consigne_repliee(page, base_url):
@@ -82,6 +103,11 @@ def test_18_consigne_repliee(page, base_url):
 
 
 def test_19_comparer_ces_modeles_preselectionne_l_arene(page, base_url):
+    import json
+
+    from conftest import ROOT
+
+    refs = json.loads((ROOT / "donnees" / "references.json").read_text(encoding="utf-8"))
     open_route(page, base_url, "/arene/references")
     scenario(page, "comparer-ces-modeles")
     wait_for(page, "() => location.hash === '#/arene/comparer'")
@@ -89,6 +115,16 @@ def test_19_comparer_ces_modeles_preselectionne_l_arene(page, base_url):
         page,
         "() => (document.querySelector('section.screen[data-screen=arene]:not([hidden]) wl-model-picker')?.values ?? []).length >= 2",
     )
+    values = page.evaluate(
+        "() => document.querySelector('section.screen[data-screen=arene]:not([hidden]) wl-model-picker').values"
+    )
+    usages = refs.get("usages", [])
+    expected = [
+        sorted(e["model"] for e in u["results"] if e.get("group") == "best"
+               and refs["models"][e["model"]].get("installed"))
+        for u in usages
+    ]
+    assert sorted(values) in expected, (values, expected)
 
 
 def test_21_22_passage_surligne_et_panneau_fixe(page, base_url):
@@ -129,6 +165,14 @@ def test_31_pied_reduit_de_l_agent(page, base_url):
         "(nodes) => nodes.map((node) => node.getAttribute('label'))"
     )
     assert len(labels) == 3, labels
+    assert labels[0] == "CO₂" and "Durée totale" in labels and "Étapes" in labels, labels
+    foot = page.locator("section.screen:not([hidden]) .wl-msg-foot").last
+    assert foot.locator("wl-metric").evaluate_all(
+        "(nodes) => nodes.every((n) => /[0-9]/.test(n.getAttribute('value') ?? n.textContent))"
+    )
+    message = page.locator("section.screen:not([hidden]) .wl-msg").last
+    assert message.locator("wl-badge").count() >= 1
+    assert page.locator("section.screen:not([hidden]) .wl-msg-foot wl-metric[label='Débit']").count() == 0
 
 
 def test_35_36_configurer_non_modal_cinq_agents(page, base_url):
@@ -142,12 +186,35 @@ def test_35_36_configurer_non_modal_cinq_agents(page, base_url):
 def test_38_equivalence_dans_la_methode(page, base_url):
     open_route(page, base_url, "/sobriete")
     scenario(page, "methode-equivalence")
-    assert "source" in page.locator(".sob-equivalence").inner_text()
+    assert page.evaluate("() => document.querySelector('#sob-method').open")
+    text = page.locator(".sob-equivalence").inner_text()
+    import json
+
+    from conftest import ROOT
+
+    factor = json.loads((ROOT / "donnees" / "sobriete.json").read_text(encoding="utf-8"))[
+        "equivalence"
+    ]
+    assert str(factor["g_per_km"]) in text, text
+    assert factor["source"] in text, text
 
 
 def test_39_historique_en_tableau_sous_640(page, base_url):
     page.set_viewport_size({"width": 600, "height": 900})
     open_route(page, base_url, "/sobriete")
+    wait_for(
+        page,
+        "() => !!document.querySelector('section.screen:not([hidden]) .sob-history-body table')",
+    )
+    assert not visible(page, ".sob-history-body svg.sob-chart")
+    # Le redimensionnement bascule la vue sans rechargement.
+    page.set_viewport_size({"width": 1000, "height": 900})
+    wait_for(
+        page,
+        "() => !!document.querySelector('section.screen:not([hidden]) .sob-history-body svg.sob-chart')"
+        " && !document.querySelector('section.screen:not([hidden]) .sob-history-body table')",
+    )
+    page.set_viewport_size({"width": 600, "height": 900})
     wait_for(
         page,
         "() => !!document.querySelector('section.screen:not([hidden]) .sob-history-body table')",

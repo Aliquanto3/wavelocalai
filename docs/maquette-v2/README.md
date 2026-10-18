@@ -22,7 +22,7 @@ Dans la maquette :
 - Le bouton « Scénarios (maquette) », en bas à droite, force un état d'écran, un état global (Ollama arrêté, cloud, connexion perdue, serveur redémarré, garde-fou mémoire, premier chargement lent, aucun modèle local, onglet masqué, thème, projection, vitesse) ou joue un parcours de bout en bout.
 - Le catalogue des états communs est à `#/maquette/etats`.
 
-Version en ligne (artifact privé) : https://claude.ai/artifact/WTgFyyF3bMJGFE6jx4DEYH
+Version en ligne (artifact privé, accès sur invitation) : https://claude.ai/artifact/WTgFyyF3bMJGFE6jx4DEYH
 
 ## 3. Structure
 
@@ -310,7 +310,7 @@ Les tests pilotent Edge ou Chromium (variable `WAVELOCALAI_E2E_CHROMIUM`, sinon 
 - la page autonome (`test_autonome.py`) : à jour par rapport aux sources, puis ouverte en `file://` (toutes les routes, Flow 2, axe) ;
 - aucune erreur ni avertissement de console, aucune requête hors de `127.0.0.1` (hors de la page autonome en `file://`).
 
-Dernier résultat (2026-10-18) : 167 tests passés, dont la page autonome et les décisions.
+Dernier résultat (2026-10-19) : 167 tests passés, dont la page autonome et les décisions.
 
 ## 8. Détail
 

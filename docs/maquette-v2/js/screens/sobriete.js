@@ -367,7 +367,8 @@ export async function mount(host, ctx) {
   let forced = null; // « loading » : squelettes forcés par un scénario
   let windowId = "w7";
   // Sous 640 px, l'historique s'ouvre en tableau (décision 39) ; le graphique reste à un clic.
-  let viewId = matchMedia("(max-width: 639.98px)").matches ? "table" : "chart";
+  const narrow = matchMedia("(max-width: 639.98px)");
+  let viewId = narrow.matches ? "table" : "chart";
   let sort = { key: "start", dir: "desc" };
 
   // Santé
@@ -560,6 +561,12 @@ export async function mount(host, ctx) {
   hiddenObserver.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   // --- Actions ---------------------------------------------------------------------------
+  // La vue par défaut suit la largeur de la fenêtre (rotation, redimensionnement).
+  const onNarrowChange = () => {
+    viewId = narrow.matches ? "table" : "chart";
+    renderHistory();
+  };
+  narrow.addEventListener("change", onNarrowChange);
   carbon.reset.addEventListener("click", () => {
     const c = store.get().carbon;
     if (!c || (c.measured_runs === 0 && c.unmeasurable_runs === 0)) return;
@@ -616,6 +623,7 @@ export async function mount(host, ctx) {
   return () => {
     view = null;
     document.removeEventListener("visibilitychange", sync);
+    narrow.removeEventListener("change", onNarrowChange);
     unwatchPause();
     hiddenObserver.disconnect();
     unsubscribe?.();
