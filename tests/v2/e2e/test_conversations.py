@@ -182,9 +182,14 @@ def test_the_conversation_is_continued_by_the_next_message(screen, server, conve
         ),
     )
     field(page).fill("Et une troisième ?")
-    field(page).press("Enter")
+    with page.expect_response(
+        lambda r: r.request.method == "POST" and r.url.endswith("/api/chat/runs")
+    ) as started:
+        field(page).press("Enter")
     page.locator(".wl-msg-user").nth(2).wait_for()
     assert sent and sent[0]["conversation_id"] == conversation
+    # Le run doit finir ici (CodeCarbon mesure la réponse locale) : le test suivant en lance un.
+    wait_run(server.base_url, started.value.json()["run_id"])
 
 
 def test_the_chosen_model_and_creativity_are_kept_with_the_conversation(page, server):
