@@ -48,6 +48,7 @@ Back : ingestion en run `ingest`, embeddings Ollama, sqlite-vec, reranker fastem
 ### Étape 5 : Sobriété et Modèles (CAP-6, CAP-10)
 
 - Métriques en direct sans clic, arrêtées onglet masqué ; historique ; CO₂ de session = somme des réponses mesurées, non-mesurables à part ; bridage thermique signalé (NVML).
+- Seuils des défauts `agent` et `rag` (règle provisoire de `contrat-api.md`) calés sur `qb.results/1`.
 - Écran `#/modeles` : compatibilité mémoire avant installation, progression chiffrée, décharger, supprimer ; fiche modèle (dense ou MoE, paramètres actifs, quantification, licence, outils et raisonnement vérifiés, via `/api/show`, catalogue, `qb.results/1`) ; « Pourquoi ce débit ? » ; « Sur d'autres postes » (trois postes de référence, dont le PC pro 16 Go sans GPU).
 
 ### CAP-13 : références (après l'étape 5)
