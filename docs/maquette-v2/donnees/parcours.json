@@ -29,7 +29,7 @@
       "label": "Flow 3 : préparer son poste puis montrer un agent",
       "source": "EXPERIENCE.md, Flow 3",
       "steps": [
-        { "route": "/modeles", "scenario": "installation-en-cours", "pause_ms": 2500, "note": "Installation d'un modèle avec progression chiffrée." },
+        { "route": "/modeles", "scenario": "installation-en-cours", "pause_ms": 2500, "note": "Installation de granite4.1:8b avec progression chiffrée (EXPERIENCE.md cite qwen3.6:7b, déjà installé dans les modèles simulés)." },
         { "route": "/sobriete", "scenario": "remise-a-zero", "pause_ms": 1500, "note": "Remise à zéro du compteur de session." },
         { "route": "/agents/seul", "scenario": "etapes-en-cours", "pause_ms": 2500, "note": "Le panneau « Étapes » se remplit." },
         { "route": "/agents/seul", "scenario": "validation-email", "pause_ms": 3000, "note": "« Rien ne part sans moi » : dialogue de validation de l'email." }
@@ -42,7 +42,8 @@
       "steps": [
         { "route": "/agents/equipe", "scenario": "equipe-prete", "pause_ms": 1500, "note": "Équipe choisie, schéma affiché." },
         { "route": "/agents/equipe", "scenario": "mission-en-cours", "pause_ms": 3000, "note": "L'agent actif est marqué sur le schéma." },
-        { "route": "/agents/equipe", "scenario": "rapport-final", "pause_ms": 3000, "note": "Rapport final et empreinte de la mission." }
+        { "route": "/agents/equipe", "scenario": "rapport-final", "pause_ms": 3000, "note": "Rapport final et empreinte de la mission." },
+        { "route": "/agents/equipe/run-equipe-demo", "scenario": "mission-rouverte", "pause_ms": 2500, "note": "Mission rouverte depuis son adresse : trace, rapport et mesures sans flux." }
       ]
     },
     {

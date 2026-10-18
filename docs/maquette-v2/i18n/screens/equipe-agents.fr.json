@@ -86,6 +86,10 @@
     "smaller": "Modèle plus petit choisi pour les agents locaux : {name}. Vous pouvez relancer la mission.",
     "unloaded": "Modèles inactifs déchargés : 2,7 Go libérés. Vous pouvez relancer la mission.",
     "reopened": "Mission rouverte depuis l'historique : trace, rapport et mesures tels qu'enregistrés.",
+    "missing": {
+      "what": "Mission",
+      "action": "Lancer une mission"
+    },
     "config": {
       "title": "Configurer l'équipe",
       "intro": "Chaque agent a un rôle, un objectif, des outils et un modèle. « Enregistrer » garde la modification sur ce poste ; l'équipe d'origine reste disponible.",

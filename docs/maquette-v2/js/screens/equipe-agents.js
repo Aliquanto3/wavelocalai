@@ -70,6 +70,8 @@ function ensureSharedCss() {
   });
 }
 
+const DEMO_RUN_ID = "run-equipe-demo"; // mission fictive de l'historique, rouvrable par son adresse
+
 export async function mount(host, ctx) {
   await Promise.all([loadAgentTexts(), ensureSharedCss()]);
   const uid = `crew-${++counter}`;
@@ -1135,7 +1137,7 @@ export async function mount(host, ctx) {
     const events = prepareEvents(buildMission({ agents, crewId: crew.id, topicText: topic.trim(), models, decision: "approved" }));
     let seq = 0;
     for (const event of events) {
-      const envelope = { seq: ++seq, run_id: "run-equipe-demo", type: event.type, ts: new Date().toISOString(), data: event.data ?? {} };
+      const envelope = { seq: ++seq, run_id: DEMO_RUN_ID, type: event.type, ts: new Date().toISOString(), data: event.data ?? {} };
       handlers[event.type]?.(envelope.data, envelope);
     }
     renderReport();
@@ -1203,6 +1205,16 @@ export async function mount(host, ctx) {
   };
 
   loadCrew("veille");
+  // `#/agents/equipe/<run_id>` : mission rouverte par son adresse (GET /api/runs/{id}) ; un identifiant
+  // inconnu rend l'enveloppe `run_not_found` du catalogue.
+  const reopenId = ctx.params?.run_id ?? null;
+  if (reopenId === DEMO_RUN_ID) await reopen();
+  else if (reopenId) {
+    error.error = errorEnvelope("run_not_found", {
+      detail: { run_id: reopenId },
+      vars: { what: t("crew.missing.what"), new_label: t("crew.missing.action"), new_href: "#/agents/equipe" },
+    });
+  }
   return () => {
     disposed = true;
     view = null;
@@ -1327,10 +1339,20 @@ export const scenarios = [
   },
   {
     id: "mission-rouverte",
-    label: "Mission rouverte depuis l'historique : trace, rapport et mesures sans flux",
+    label: "Mission rouverte par son adresse (#/agents/equipe/run-equipe-demo) : trace, rapport et mesures sans flux",
     async run(ctx) {
-      await fresh(ctx);
-      await view.reopen();
+      await ctx.reset();
+      await ctx.navigate(`/agents/equipe/${DEMO_RUN_ID}`);
+      await waitUntil(() => view !== null && view.reportLength > 0);
+    },
+  },
+  {
+    id: "mission-introuvable",
+    label: "Adresse d'une mission inconnue : « Mission introuvable »",
+    async run(ctx) {
+      await ctx.reset();
+      await ctx.navigate("/agents/equipe/run-equipe-inconnue");
+      await waitUntil(() => view !== null && view.host.querySelector('wl-error[data-code="run_not_found"]'));
     },
   },
   {
