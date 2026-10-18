@@ -307,7 +307,7 @@ export async function mount(host, ctx) {
   }
 
   function ensureAnswer() {
-    if (!answer) answer = thread.beginAnswer({ name: current.name, origin: current.origin });
+    if (!answer) answer = thread.beginAnswer({ name: current.name, origin: current.origin, compact: true });
     return answer;
   }
 
@@ -403,7 +403,11 @@ export async function mount(host, ctx) {
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
-    bubble.foot.append(metric, download);
+    // Pied réduit (décision 31) : badge (en tête de la réponse), CO₂, étapes, durée ; puis Télécharger.
+    const duration = bubble.foot.querySelector("wl-metric:last-of-type");
+    if (duration && duration !== bubble.foot.firstElementChild) bubble.foot.insertBefore(metric, duration);
+    else bubble.foot.append(metric);
+    bubble.foot.append(download);
   }
 
   // --- Flux ------------------------------------------------------------------------------------------

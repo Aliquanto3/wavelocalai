@@ -318,24 +318,42 @@ textarea.crew-field {
 }
 
 /* Panneau latéral « Configurer l'équipe » : dialogue modal collé à droite */
+/* « Configurer » : volet non modal (décision 35). En large, colonne de droite collante, le contenu de
+   l'écran se resserre à gauche et le schéma reste visible ; en deçà de 1 024 px, dans le flux, sous
+   le schéma. */
 .crew-drawer {
-  inset-block: 0;
-  inset-inline: auto 0;
-  width: min(34rem, 100vw);
-  max-width: 100vw;
-  height: 100%;
-  max-height: 100%;
-  margin: 0;
+  position: static;
+  width: auto;
+  max-width: 100%;
+  margin: 1rem 0;
   padding: 1.25rem;
-  overflow-y: auto;
   border: 1px solid var(--color-gray-graphic);
-  border-radius: var(--radius) 0 0 var(--radius);
+  border-radius: var(--radius);
   background: var(--color-surface);
   color: var(--color-ink);
 }
 
-.crew-drawer::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+@media (min-width: 1024px) {
+  .crew-has-drawer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) min(30rem, 40vw);
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+
+  .crew-has-drawer > * {
+    grid-column: 1;
+  }
+
+  .crew-has-drawer > .crew-drawer {
+    position: sticky;
+    inset-block-start: 1rem;
+    grid-column: 2;
+    grid-row: 1 / span 40;
+    max-height: calc(100vh - 2rem);
+    margin: 0;
+    overflow-y: auto;
+  }
 }
 
 .crew-drawer-title {

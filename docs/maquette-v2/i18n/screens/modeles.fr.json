@@ -49,7 +49,10 @@
       "ollama_down": "Ollama ne répond pas : suppression impossible",
       "deleted": "Modèle supprimé : {name} ({size} libérés).",
       "delete_title": "Supprimer {tag} ?",
+      "secondary_show": "Afficher les colonnes Usage et Origine",
+      "secondary_hide": "Replier les colonnes Usage et Origine",
       "delete_consequence": "{tag} sera supprimé de ce poste ({size} libérés).",
+      "delete_default": "C'est le modèle par défaut pour : {usages}. Ces usages reviendront à la règle automatique.",
       "delete_confirm": "Supprimer le modèle"
     },
     "defaults": {
@@ -90,6 +93,8 @@
       "fits_no": "Ne tient pas : {needed} nécessaires, {free} libres",
       "install": "Installer",
       "install_aria": "Installer {name}",
+      "install_anyway": "Installer quand même",
+      "install_anyway_aria": "Installer {name} quand même : il ne tient pas dans la mémoire libre",
       "busy": "Une installation est en cours ({tag}).",
       "ollama_down": "Ollama ne répond pas : démarrez-le pour installer.",
       "empty": "Tous les modèles du catalogue sont déjà installés.",

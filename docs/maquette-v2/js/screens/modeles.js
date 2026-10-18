@@ -413,13 +413,14 @@ export async function mount(host, ctx) {
       {
         key: "origin",
         label: t("modeles.installed.col_origin"),
+        className: "mod-col-secondary",
         cell: () => {
           const badge = document.createElement("wl-badge");
           badge.setAttribute("kind", "local");
           return badge;
         },
       },
-      { key: "usage", label: t("modeles.installed.col_usage"), sortValue: (m) => data.usages[m.kind] ?? "", cell: (m) => data.usages[m.kind] ?? t("modeles.fiche.unknown") },
+      { key: "usage", label: t("modeles.installed.col_usage"), className: "mod-col-secondary", sortValue: (m) => data.usages[m.kind] ?? "", cell: (m) => data.usages[m.kind] ?? t("modeles.fiche.unknown") },
       { key: "params", label: t("modeles.installed.col_params"), numeric: true, sortValue: (m) => m.params_total_b, cell: (m) => paramsText(m) },
       { key: "size", label: t("modeles.installed.col_size"), numeric: true, sortValue: (m) => m.size_gb, cell: (m) => formatGb(m.size_gb) },
       {
@@ -473,6 +474,19 @@ export async function mount(host, ctx) {
     ];
     const column = columns.find((candidate) => candidate.key === sortInstalled.key);
     const fallback = (a, b) => Number((loaded ?? []).includes(b.tag)) - Number((loaded ?? []).includes(a.tag)) || a.name.localeCompare(b.name, "fr-FR");
+    // Sous 1 024 px, Usage et Origine sont repliées (décision 43) ; un bouton les montre.
+    section.classList.add("mod-installed");
+    section.dataset.secondary = state.showSecondary ? "shown" : "folded";
+    const toggleSecondary = element("button", "btn mod-secondary-toggle", t(state.showSecondary ? "modeles.installed.secondary_hide" : "modeles.installed.secondary_show"));
+    toggleSecondary.type = "button";
+    toggleSecondary.dataset.fid = "secondary-toggle";
+    toggleSecondary.setAttribute("aria-pressed", String(Boolean(state.showSecondary)));
+    toggleSecondary.addEventListener("click", () => {
+      state.showSecondary = !state.showSecondary;
+      render();
+      host.querySelector('[data-fid="secondary-toggle"]')?.focus();
+    });
+    section.append(toggleSecondary);
     section.append(
       buildTable({
         caption: t("modeles.installed.caption"),
@@ -680,10 +694,12 @@ export async function mount(host, ctx) {
         label: t("modeles.catalog.col_actions"),
         cell: (m) => {
           if (pullTarget(state.pull, catalogTags) === `catalog:${m.tag}`) return pullProgress(`catalog:${m.tag}`);
-          const button = element("button", "btn", t("modeles.catalog.install"));
+          // Ne tient pas en mémoire libre : « Installer quand même » (décision 42).
+          const anyway = !fits(m);
+          const button = element("button", "btn", t(anyway ? "modeles.catalog.install_anyway" : "modeles.catalog.install"));
           button.type = "button";
           button.dataset.fid = `install:${m.tag}`;
-          button.setAttribute("aria-label", t("modeles.catalog.install_aria", { name: m.name }));
+          button.setAttribute("aria-label", t(anyway ? "modeles.catalog.install_anyway_aria" : "modeles.catalog.install_aria", { name: m.name }));
           const reason = installBlockedReason();
           button.setAttribute("aria-disabled", String(Boolean(reason)));
           if (reason) button.setAttribute("aria-describedby", "mod-catalog-why");
@@ -791,7 +807,8 @@ export async function mount(host, ctx) {
     if (!isInstalled) {
       const note = ctx.states.notice(t("modeles.fiche.not_installed"));
       parts.push(note);
-      const button = element("button", "btn btn-primary", t("modeles.fiche.install_here"));
+      const anyway = typeof model.needed_gb === "number" && model.needed_gb > freeGb();
+      const button = element("button", "btn btn-primary", t(anyway ? "modeles.catalog.install_anyway" : "modeles.fiche.install_here"));
       button.type = "button";
       button.dataset.fid = "fiche-install";
       const reason = installBlockedReason();
@@ -935,9 +952,14 @@ export async function mount(host, ctx) {
   async function deleteModel(model, button) {
     state.result = null;
     state.error = null;
+    // Modèle choisi comme défaut d'un usage : le dialogue le dit (décision 41).
+    const usages = PURPOSES.filter((purpose) => defaultFor(purpose).tags?.includes(model.tag)).map((purpose) => data.purposes[purpose]);
+    const consequence = t("modeles.installed.delete_consequence", { tag: model.tag, size: formatGb(model.size_gb) });
     const confirmed = await ctx.states.confirmAction({
       title: t("modeles.installed.delete_title", { tag: model.tag }),
-      consequence: t("modeles.installed.delete_consequence", { tag: model.tag, size: formatGb(model.size_gb) }),
+      consequence: usages.length
+        ? `${consequence} ${t("modeles.installed.delete_default", { usages: new Intl.ListFormat("fr-FR", { type: "conjunction" }).format(usages) })}`
+        : consequence,
       confirmLabel: t("modeles.installed.delete_confirm"),
     });
     if (!alive) return;
@@ -1418,7 +1440,7 @@ export const scenarios = [
   },
   {
     id: "supprimer-confirmation",
-    label: "Supprimer : dialogue chiffré, focus sur « Annuler »",
+    label: "Supprimer un modèle choisi par défaut : dialogue chiffré qui le dit, focus sur « Annuler »",
     async run(ctx) {
       await fresh(ctx);
       view.deleteModel("qwen3.5:2b");

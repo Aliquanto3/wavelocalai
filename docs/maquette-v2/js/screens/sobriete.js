@@ -366,7 +366,8 @@ export async function mount(host, ctx) {
 
   let forced = null; // « loading » : squelettes forcés par un scénario
   let windowId = "w7";
-  let viewId = "chart";
+  // Sous 640 px, l'historique s'ouvre en tableau (décision 39) ; le graphique reste à un clic.
+  let viewId = matchMedia("(max-width: 639.98px)").matches ? "table" : "chart";
   let sort = { key: "start", dir: "desc" };
 
   // Santé
@@ -436,6 +437,9 @@ export async function mount(host, ctx) {
   for (const key of ["local", "cloud", "throughput", "unmeasurable", "no_threshold"]) {
     methodList.append(element("li", "", t(`sobriete.method.${key}`)));
   }
+  // Équivalence parlante, seulement ici, avec la source du facteur (décision 38).
+  const equivalence = element("li", "sob-equivalence");
+  methodList.append(equivalence);
   method.append(methodList);
 
   host.replaceChildren(element("h1", "", ctx.route.title), element("p", "lead", t("sobriete.lead")), healthSection, carbonSection, historySection, identity, method);
@@ -511,9 +515,23 @@ export async function mount(host, ctx) {
     identityList.replaceChildren(...entries.flatMap(([term, value]) => [element("dt", "", term), element("dd", "", value)]));
   }
 
+  function renderEquivalence(state) {
+    const c = state.carbon ?? {};
+    const factor = data.equivalence;
+    const vars = { factor: formatNumber(factor.g_per_km), source: factor.source };
+    if (!(c.measured_runs > 0) || typeof c.total_mg !== "number") {
+      setText(equivalence, t("sobriete.method.equivalence_none", vars));
+      return;
+    }
+    const meters = c.total_mg / factor.g_per_km; // mg / (g/km) = m
+    const distance = meters >= 1000 ? `${formatNumber(Math.round(meters / 100) / 10)} km` : `${formatNumber(Math.round(meters * 10) / 10)} m`;
+    setText(equivalence, t("sobriete.method.equivalence", { ...vars, value: formatCo2(c.total_mg), distance }));
+  }
+
   function renderAll(state = store.get()) {
     renderHealth(health, data, state, forced);
     renderCarbon(carbon, data, state, forced);
+    renderEquivalence(state);
     renderIdentity(state);
     const paused = state.maquette.livePaused || document.hidden;
     const lost = state.connection.status === "lost";
@@ -733,6 +751,15 @@ export const scenarios = [
       await fresh(ctx);
       view.methodLink.click();
       await waitUntil(() => view.method.open);
+    },
+  },
+  {
+    id: "methode-equivalence",
+    label: "Panneau de méthode : équivalence en distance parcourue en voiture, avec la source du facteur",
+    async run(ctx) {
+      await fresh(ctx);
+      view.method.open = true;
+      await waitUntil(() => view.method.querySelector(".sob-equivalence")?.textContent !== "");
     },
   },
   {

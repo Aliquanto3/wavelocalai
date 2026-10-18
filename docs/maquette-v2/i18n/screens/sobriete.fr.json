@@ -102,7 +102,9 @@
       "cloud": "Réponses cloud : ecologits estime l'impact d'après la taille connue du modèle, le nombre de tokens produits et la durée de l'appel. Le chiffre est toujours marqué « estimé ».",
       "throughput": "Débit : calculé par Ollama à la fin de la réponse (tokens produits divisés par la durée de génération). Pendant la réponse, une valeur provisoire est affichée en italique.",
       "unmeasurable": "Non mesurable : un fournisseur qui ne publie pas la taille de son modèle (par exemple Anthropic) ne permet pas de calculer l'empreinte. La réponse est comptée à part, jamais comme 0.",
-      "no_threshold": "Aucune couleur ne dépend d'un seuil de CO₂ : l'écran ne porte pas de jugement."
+      "no_threshold": "Aucune couleur ne dépend d'un seuil de CO₂ : l'écran ne porte pas de jugement.",
+      "equivalence": "Pour se représenter l'ordre de grandeur : {value} correspondent à environ {distance} parcourus en voiture (facteur : {factor} g de CO₂ par km ; source : {source}).",
+      "equivalence_none": "Pour se représenter l'ordre de grandeur, le CO₂ de la session est converti en distance parcourue en voiture (facteur : {factor} g de CO₂ par km ; source : {source}). Aucune réponse mesurée pour l'instant."
     }
   }
 }

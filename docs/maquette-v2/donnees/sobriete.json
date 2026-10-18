@@ -1,6 +1,7 @@
 {
   "_doc": "Écran Sobriété et matériel (GET /api/system/identity, GET /api/carbon/history?window=). Contenus fictifs. `now` fixe la date de référence des fenêtres 7 j / 30 j (la maquette ne lit pas l'horloge). `history` : une ligne par app_session, total_mg nul = aucune réponse mesurée dans la session (non mesuré, jamais 0). Le CO₂ de la session en cours vient du store (donnees/commun/systeme.json).",
   "now": "2026-10-18T09:15:00+02:00",
+  "equivalence": { "g_per_km": 111, "source": "valeur fictive de la maquette, alignée sur l'exemple de 03 §3.5 (412 mg, environ 3,7 m) ; le front citera la référence retenue, par exemple la Base Empreinte de l'ADEME" },
   "gpu": {
     "name": "NVIDIA RTX 3050 6 Go",
     "vram_total_gb": 6,

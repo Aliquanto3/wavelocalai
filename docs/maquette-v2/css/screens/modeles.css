@@ -9,7 +9,7 @@
   max-width: 60rem;
 }
 
-/* Liste à gauche, fiche à droite dès 1 100 px ; en deçà, la fiche passe avant la liste. */
+/* Liste à gauche, fiche à droite dès 1 120 px (70rem, décision 40) ; en deçà, la fiche passe avant la liste. */
 .mod-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -325,5 +325,25 @@
 
   .mod-dl dd {
     margin-bottom: 0.5rem;
+  }
+}
+
+/* « Sur ce poste » : Usage et Origine repliées sous 1 024 px (décision 43). */
+.mod-secondary-toggle {
+  display: none;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 1023.98px) {
+  .mod-secondary-toggle {
+    display: inline-flex;
+  }
+
+  .mod-installed[data-secondary="folded"] .mod-col-secondary {
+    display: none;
+  }
+
+  .mod-installed[data-secondary="folded"] .mod-table {
+    min-width: 38rem;
   }
 }

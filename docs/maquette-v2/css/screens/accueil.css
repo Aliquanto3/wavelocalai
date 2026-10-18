@@ -162,6 +162,7 @@
 .home-module-link {
   display: grid;
   grid-template-columns: auto 1fr;
+  align-content: start;
   gap: 0.25rem 0.75rem;
   height: 100%;
   padding: 1rem;

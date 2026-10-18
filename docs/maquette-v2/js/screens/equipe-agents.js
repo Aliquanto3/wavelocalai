@@ -183,9 +183,10 @@ export async function mount(host, ctx) {
   globalError.setAttribute("role", "alert");
   globalError.hidden = true;
   const agentsHost = element("div", "crew-config-agents");
-  const addButton = element("button", "btn", t("crew.config.add"));
+  const addButton = element("button", "btn crew-add-agent", t("crew.config.add"));
   addButton.type = "button";
-  const addHelp = element("p", "help");
+  const addHelp = element("p", "help crew-add-help");
+  addHelp.id = `${uid}-add-help`;
   const saveButton = element("button", "btn btn-primary", t("crew.config.save"));
   saveButton.type = "submit";
   const cancelButton = element("button", "btn", t("crew.config.cancel"));
@@ -204,12 +205,12 @@ export async function mount(host, ctx) {
     guard,
     teamSection,
     missionSection,
+    drawer,
     notices,
     error,
     firstLoad,
     followSection,
     reportSection,
-    drawer,
   );
 
   // --- État de la mission ----------------------------------------------------------------------------
@@ -834,7 +835,7 @@ export async function mount(host, ctx) {
 
   function renderControls() {
     const busy = running();
-    const text = busy ? t("crew.reason.running") : !crew.agents.length ? t("crew.reason.no_agent") : !topic.trim() ? t("crew.reason.no_topic") : "";
+    const text = busy ? t("crew.reason.running") : drawer.open ? t("crew.reason.configuring") : !crew.agents.length ? t("crew.reason.no_agent") : !topic.trim() ? t("crew.reason.no_topic") : "";
     launch.disabled = Boolean(text);
     reason.textContent = text;
     reason.hidden = !text;
@@ -1039,7 +1040,9 @@ export async function mount(host, ctx) {
     addHelp.hidden = !full;
     globalError.hidden = !draft.errors.global;
     globalError.textContent = draft.errors.global ?? "";
+    // Au plus 5 agents (décision 36) : le bouton grisé dit pourquoi.
     if (draft.errors.global) addButton.setAttribute("aria-describedby", globalError.id);
+    else if (full) addButton.setAttribute("aria-describedby", addHelp.id);
     else addButton.removeAttribute("aria-describedby");
   }
 
@@ -1047,7 +1050,10 @@ export async function mount(host, ctx) {
     if (running() || drawer.open) return;
     draft = { agents: structuredClone(crew.agents), errors: {} };
     renderConfig();
-    drawer.showModal();
+    // Volet non modal (décision 35) : le schéma reste visible pendant l'édition.
+    drawer.show();
+    host.classList.add("crew-has-drawer");
+    renderControls();
     (agentsHost.querySelector(".crew-field") ?? addButton).focus();
   }
 
@@ -1099,6 +1105,15 @@ export async function mount(host, ctx) {
   });
   drawer.addEventListener("close", () => {
     draft = null;
+    host.classList.remove("crew-has-drawer");
+    renderControls();
+    if (drawer.contains(document.activeElement) || document.activeElement === document.body) configure.focus();
+  });
+  // Non modal : Échap ne ferme pas le volet de lui-même.
+  drawer.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !drawer.open) return;
+    event.preventDefault();
+    drawer.close();
   });
 
   // --- Écran masqué puis revu (reprise par `?after=<seq>`) -------------------------------------------
@@ -1274,6 +1289,22 @@ export const scenarios = [
       await fresh(ctx);
       view.openConfig();
       await waitUntil(() => view.drawerOpen);
+    },
+  },
+  {
+    id: "configurer-cinq-agents",
+    label: "« Configurer » : cinq agents au plus, « Ajouter » grisé avec la raison ; le schéma reste visible",
+    async run(ctx) {
+      await fresh(ctx);
+      view.openConfig();
+      await waitUntil(() => view.drawerOpen);
+      const add = view.host.querySelector(".crew-add-agent");
+      for (let i = 0; i < 6 && !add.disabled; i += 1) {
+        const before = view.host.querySelectorAll(".crew-config-agent").length;
+        add.click();
+        await waitUntil(() => view.host.querySelectorAll(".crew-config-agent").length > before);
+      }
+      await waitUntil(() => add.disabled && !view.host.querySelector(".crew-add-help").hidden);
     },
   },
   {

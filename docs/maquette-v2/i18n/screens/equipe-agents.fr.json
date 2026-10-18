@@ -18,6 +18,7 @@
       "launch": "Lancer la mission"
     },
     "reason": {
+      "configuring": "Enregistrez ou annulez la configuration de l'équipe avant de lancer la mission.",
       "running": "Une mission est en cours : Lancer la mission redevient disponible à la fin.",
       "no_agent": "Ajoutez au moins un agent",
       "no_topic": "Saisissez un sujet"
@@ -100,7 +101,7 @@
       "remove": "Retirer cet agent",
       "remove_named": "Retirer l'agent {name}",
       "add": "Ajouter un agent",
-      "max": "Une équipe compte {max} agents au plus.",
+      "max": "Une équipe compte {max} agents au plus : retirez un agent pour en ajouter un autre.",
       "save": "Enregistrer",
       "cancel": "Annuler",
       "errors": "L'équipe n'a pas été enregistrée : corrigez les champs signalés.",

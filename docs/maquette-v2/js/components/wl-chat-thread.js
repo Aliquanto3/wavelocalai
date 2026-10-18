@@ -3,7 +3,8 @@
 // le flux (`aria-live="off"`) ; une région à part annonce poliment la fin de chaque réponse.
 //
 //   thread.addUserMessage(texte)
-//   const answer = thread.beginAnswer({ name, origin })   // une réponse de modèle
+//   const answer = thread.beginAnswer({ name, origin, compact })   // une réponse de modèle
+//   (`compact` : pied réduit à CO₂ et durée totale, pour une tâche d'agent)
 //   answer.token(texte, canal)  answer.retry(raison)  answer.metrics(données)  answer.end({ status })
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
@@ -54,8 +55,9 @@ function setValue(node, value) {
 }
 
 class ChatAnswer {
-  constructor(thread, { name, origin }) {
+  constructor(thread, { name, origin, compact = false }) {
     this.thread = thread;
+    this.compact = compact; // pied réduit (agent, décision 31) : CO₂ et durée totale
     this.name = name;
     this.origin = origin;
     this.text = "";
@@ -206,6 +208,14 @@ class ChatAnswer {
     }
     this.badge.setAttribute("kind", badgeKind(result.origin ?? this.origin));
     const co2 = co2Display(result.co2);
+    if (this.compact) {
+      // Réponse d'agent : le débit agrégé de plusieurs appels dit peu (décision 31).
+      this.foot.replaceChildren(
+        metric(t("components.thread.co2"), co2.value, { help: co2.help }),
+        metric(t("components.thread.total"), formatDuration(result.total_s)),
+      );
+      return;
+    }
     const parts = [
       metric(t("components.thread.co2"), co2.value, { help: co2.help }),
       metric(t("components.thread.rate"), formatRate(result.tps), {
@@ -280,8 +290,8 @@ export class WlChatThread extends HTMLElement {
     this.scrollToEnd();
   }
 
-  beginAnswer({ name, origin }) {
-    const answer = new ChatAnswer(this, { name, origin });
+  beginAnswer({ name, origin, compact = false }) {
+    const answer = new ChatAnswer(this, { name, origin, compact });
     this.#answers.add(answer);
     this.#dom.log.append(answer.root);
     this.scrollToEnd();
