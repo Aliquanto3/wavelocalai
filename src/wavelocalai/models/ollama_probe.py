@@ -86,15 +86,21 @@ class OllamaProbe:
         self._state = state
         self._checked_at = self._clock()
 
+    def _make_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=self._host,
+            timeout=self._timeout_s,
+            transport=self._transport,
+            trust_env=False,  # pas de proxy système pour une adresse locale
+        )
+
     async def _probe(self) -> OllamaStatus:
         started = time.perf_counter()
         try:
-            async with httpx.AsyncClient(
-                base_url=self._host,
-                timeout=self._timeout_s,
-                transport=self._transport,
-                trust_env=False,  # pas de proxy système pour une adresse locale
-            ) as client:
+            # Construit hors de la boucle : le chargement des certificats est synchrone et
+            # bloquerait `status()` au-delà de `wait_s` (lent sous Windows).
+            client = await asyncio.to_thread(self._make_client)
+            async with client:
                 response = await asyncio.wait_for(client.get("/api/version"), self._timeout_s)
             response.raise_for_status()
             version = response.json().get("version")

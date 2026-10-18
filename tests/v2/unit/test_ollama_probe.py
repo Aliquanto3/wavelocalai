@@ -131,3 +131,19 @@ async def test_expired_cache_keeps_the_last_state_while_the_next_probe_runs():
     assert (await probe.status()).up is True  # état précédent, pas « arrêté »
     assert len(calls) == 2
     await probe.aclose()
+
+
+async def test_slow_client_construction_does_not_block_the_read(monkeypatch):
+    # Le chargement synchrone des certificats (lent sous Windows) ne doit pas retenir `status()`.
+    real_client = httpx.AsyncClient
+
+    def slow_client(*args, **kwargs):
+        time.sleep(0.4)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", slow_client)
+    probe = OllamaProbe(f"http://127.0.0.1:{closed_port()}")
+    started = time.perf_counter()
+    assert await probe.status() == DOWN
+    assert time.perf_counter() - started < 0.25
+    await probe.aclose()
