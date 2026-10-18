@@ -72,6 +72,20 @@ async def test_the_list_gives_every_status_newest_first_and_totals_count_ready_o
     assert body["documents"][-1]["source"] == "notes.txt"  # le plus ancien en dernier
 
 
+async def test_a_base_with_only_a_failed_document_lists_it_with_its_reason_and_counts_none(served):
+    _, client = served
+    started = await client.post("/api/rag/documents", files=_files(**{"vide.md": ""}))
+    await _ended(client, started.json()["run_id"])
+    for _ in range(2):  # la liste se relit à l'identique : le document n'est pas retiré
+        body = (await client.get("/api/rag/documents")).json()
+        assert body["totals"] == {"documents": 0, "chunks": 0}
+        [doc] = body["documents"]
+        assert (doc["source"], doc["status"], doc["chunks"]) == ("vide.md", "failed", 0)
+        assert doc["error"]["code"] == "ingest_failed"
+        assert doc["error"]["detail"]["reason"] == "le fichier est vide"
+        assert doc["error"]["message"]  # le front compose la phrase avec le message de l'enveloppe
+
+
 async def test_a_document_being_indexed_is_listed_as_indexing_and_not_counted(served):
     from wavelocalai.models.fake import Sleep
 

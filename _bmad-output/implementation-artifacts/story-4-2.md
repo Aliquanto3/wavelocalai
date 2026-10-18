@@ -13,19 +13,13 @@ context:
 warnings: []
 deferred:
   - summary: >-
-      « Annuler » est sur chaque ligne (UX-DR22) mais arrête l'import entier : un import est un seul run `ingest` (AD-5, AD-14). Les fichiers déjà prêts sont conservés, celui en cours est retiré, les suivants ne sont pas commencés ; leurs lignes passent à « Annulé ». Un arrêt fichier par fichier demanderait des runs séparés ou une commande d'annulation ciblée, à décider si la démo le réclame.
-    evidence: |-
-      `test_cancelling_stops_the_import_and_removes_the_document_in_progress`.
-    location: src/wavelocalai/web/static/screens/documents-base.js
-    severity: low
-  - summary: >-
       La progression d'envoi par fichier est une répartition : `XMLHttpRequest` ne rend que les octets du formulaire entier, répartis sur les fichiers dans l'ordre d'envoi (les en-têtes multipart gonflent un peu le total, la valeur est bornée à 100 %). Pas de reprise d'un envoi interrompu ni d'envoi par blocs.
     evidence: |-
       `core/api.js::uploadDocuments`, `spreadProgress`.
     location: src/wavelocalai/web/static/core/api.js
     severity: low
   - summary: >-
-      Un document `failed` reste dans la liste jusqu'à un nouvel import du même contenu (qui le remplace) ou jusqu'au vidage de la base : sa suppression individuelle est la story 4.3. La liste n'est pas paginée (base locale d'un poste).
+      Un document `failed` reste dans la liste jusqu'à un nouvel import du même contenu (qui le remplace) ou jusqu'au vidage de la base : sa suppression individuelle (bouton « Supprimer » de sa ligne) est la story 4.3. La liste n'est pas paginée (base locale d'un poste).
     evidence: |-
       `test_a_failed_document_keeps_its_reason_in_the_table_after_a_reload`.
     location: src/wavelocalai/rag/repo.py
@@ -88,3 +82,18 @@ L'écran `#/documents/base` (module Documents passé à `available`) montre une 
 - low · second avis · corrigé : un import fait seulement de doublons finissait sans annonce ; la phrase de fin dit « N fichier(s) déjà dans la base ».
 - low · second avis · reporté : les plafonds de taille sont vérifiés pendant la copie de staging, après que Starlette a déjà lu tout le multipart en fichiers temporaires. Un refus avant lecture demande une limite sur `Content-Length` (middleware ou serveur) ; l'écran refuse déjà avant l'envoi. À traiter avec le durcissement du serveur.
 - low · revue · rejeté (complexité) : chaque événement de fin de fichier relit la liste et reconstruit le tableau, soit O(fichiers × documents) par import ; les lectures sont coalescées (`refreshAgain`), 50 fichiers au plus par import, base locale : impact négligeable. Complexité : 1 constat, sans correctif.
+
+## Ajustements du correct course (2026-10-19)
+
+Maquette validée par Anaël ; critères ajoutés à la 4.1 et à la 4.2 (`sprint-change-proposal-2026-10-19.md` §7(a)).
+
+1. **Un seul « Annuler l'import »** (D-25) : le bouton « Annuler » de chaque ligne et son nom accessible par fichier sont retirés ; un bouton unique `.docs-imports-cancel` se place au-dessus des lignes, visible tant qu'un envoi ou un run tourne. La logique revue est inchangée (envoi abandonné ; corps parti : attendre le `run_id` puis arrêter le run ; sinon arrêter le run `ingest`), les documents prêts restent. Quand le lot finit, le bouton disparaît et le focus passe à « Choisir des fichiers ». Preuve : `test_the_single_cancel_button_sits_above_the_rows_and_only_shows_during_an_import`, `test_cancelling_keeps_the_documents_that_are_already_ready`, les trois tests d'annulation réalignés.
+2. **`GET /api/rag/documents` rend les `failed`** (D-26, 4.1) : déjà le cas (`LIST_SQL` sans filtre de statut, `TOTALS_SQL` sur `ready` seulement, `error` portant la raison) ; test serveur ajouté pour une base qui ne contient qu'un document en échec : totaux à 0, document listé avec sa raison, relu à l'identique. Preuve : `test_a_base_with_only_a_failed_document_lists_it_with_its_reason_and_counts_none`.
+3. **Tableau** (D-26) : un document `failed` figure déjà dans `wl-data-table` (statut « Échec », raison lisible dans la cellule, absent du compte « N documents prêts », retrouvé après rechargement) ; aucun bouton « Supprimer » ni inactif (4.3). Preuve : `test_a_failed_document_is_in_the_table_but_not_in_the_ready_count` (deux lectures, avant et après rechargement).
+4. **Charte** : axe-core clair et sombre inchangé ; largeur ramenée de 375 à 320 px, avec import en cours (bouton d'annulation compris) puis tableau avec un document en échec : aucun défilement horizontal, aucune violation.
+
+Découpage : `documents-base.js` dépassait 600 lignes ; `ImportRow`, `plural` et la composition du message d'échec passent dans `screens/documents-import-row.js` (le test de textes lit les deux fichiers, et le plafond de 600 lignes couvre les deux).
+
+Écarts §7(d) : n° 13 (Supprimer et Vider désactivés pendant un import, ou 409 affiché) non tranché, concerne la 4.3 ; ici, « Choisir des fichiers » et « Importer des documents » sont déjà désactivés pendant un import, avec la phrase d'attente, et le critère actuel est gardé tel quel.
+
+Vérification : voir le rapport de l'orchestrateur (`pytest tests/v2`, E2E de l'écran sur Edge).

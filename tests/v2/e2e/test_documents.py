@@ -137,7 +137,11 @@ def test_each_file_has_its_line_with_the_vectorisation_progress_then_a_summary(d
     assert line.locator(".docs-import-state").inner_text() == (
         "Envoi 100 % · Découpage · Vectorisation 0/5 extraits".replace(" %", f"{NBSP}%")
     )
-    assert line.get_by_role("button", name="Annuler l'import").is_visible()
+    assert page.get_by_role("button", name="Annuler l'import").is_visible()
+    assert (
+        page.get_by_role("button", name="Annuler l'import").count() == 1
+    )  # un seul, pas par ligne
+    assert line.get_by_role("button").count() == 0
     assert line.locator("progress").is_visible()
     assert page.get_by_role("heading", name="Fichiers de cet import").is_visible()
     # Le second fichier attend son tour, puis est lu à son tour.
@@ -232,12 +236,49 @@ def test_cancelling_stops_the_import_and_removes_the_document_in_progress(docs):
     script_embedder(server, page, {"sleep_s": 30})
     choose(page, txt("a.txt"), txt("b.txt", "Un autre."))
     row(page, "a.txt").locator(".docs-import-state").filter(has_text="Vectorisation 0/5").wait_for()
-    row(page, "a.txt").get_by_role("button", name="Annuler l'import").click()
+    page.get_by_role("button", name="Annuler l'import").click()
     wait_summary(page, "Import annulé. Les documents déjà indexés sont conservés.")
     for name in ("a.txt", "b.txt"):
         assert row(page, name).locator(".docs-import-state").inner_text() == "Annulé"
     page.locator(".docs-card").wait_for()  # rien n'a été gardé : la base est vide de nouveau
     assert page.get_by_role("button", name="Choisir des fichiers").is_enabled()
+
+
+def test_the_single_cancel_button_sits_above_the_rows_and_only_shows_during_an_import(docs):
+    page, server = docs
+    cancel = page.get_by_role("button", name="Annuler l'import")
+    assert page.locator(".docs-imports-cancel").is_hidden()  # rien à annuler au repos
+    script_embedder(server, page, {"sleep_s": 1.5})
+    choose(page, txt("a.txt"), txt("b.txt", "Un autre."))
+    row(page, "a.txt").locator(".docs-import-state").filter(has_text="Vectorisation 0/5").wait_for()
+    assert cancel.is_visible()
+    above = page.evaluate(
+        """() => {
+          const button = document.querySelector('.docs-imports-cancel').getBoundingClientRect();
+          const list = document.querySelector('.docs-imports').getBoundingClientRect();
+          return button.bottom <= list.top;
+        }"""
+    )
+    assert above
+    wait_summary(page, "6 extraits ajoutés depuis 2 documents.")
+    assert not cancel.is_visible()  # le lot est fini
+    assert page.evaluate("document.activeElement === document.body") is True
+
+
+def test_cancelling_keeps_the_documents_that_are_already_ready(docs):
+    page, server = docs
+    choose(page, txt("prete.txt"))
+    wait_summary(page, "5 extraits ajoutés depuis 1 document.")
+    script_embedder(server, page, {"sleep_s": 30})
+    choose(page, txt("lente.txt", LONG + " fin"))
+    row(page, "lente.txt").locator(".docs-import-state").filter(
+        has_text="Vectorisation 0/"
+    ).wait_for()
+    page.get_by_role("button", name="Annuler l'import").click()
+    wait_summary(page, "Import annulé. Les documents déjà indexés sont conservés.")
+    wait_for(page, "() => document.querySelectorAll('wl-data-table tbody tr').length === 1")
+    assert [r[0] for r in table_rows(page)] == ["prete.txt"]
+    assert page.locator(".docs-section .docs-count").inner_text() == "1 document prêt · 5 extraits"
 
 
 def test_cancelling_during_the_upload_sends_nothing_to_the_run(docs):
@@ -249,7 +290,7 @@ def test_cancelling_during_the_upload_sends_nothing_to_the_run(docs):
     choose(page, txt("a.txt"))
     line = row(page, "a.txt")
     line.locator(".docs-import-state").filter(has_text="Envoi").wait_for()
-    line.get_by_role("button", name="Annuler l'import").click()
+    page.get_by_role("button", name="Annuler l'import").click()
     wait_summary(page, "Import annulé.")
     assert line.locator(".docs-import-state").inner_text() == "Annulé"
     runs = json.loads(page.request.get(f"{server.base_url}/api/rag/documents").text())
@@ -287,7 +328,7 @@ def test_cancelling_once_the_files_are_sent_stops_the_run_the_server_started(doc
         page.wait_for_timeout(50)
     assert documents and documents[0]["status"] == "indexing"
     run_id = documents[0]["run_id"]
-    line.get_by_role("button", name="Annuler l'import de a.txt").click()
+    page.get_by_role("button", name="Annuler l'import").click()
     page.evaluate("window.__release()")
     wait_summary(page, "Import annulé. Les documents déjà indexés sont conservés.")
     for name in ("a.txt", "b.txt"):
@@ -423,6 +464,22 @@ def test_a_failed_document_keeps_its_reason_in_the_table_after_a_reload(docs):
     assert page.locator(".docs-import").count() == 0  # le suivi d'un import fini n'est pas rejoué
 
 
+def test_a_failed_document_is_in_the_table_but_not_in_the_ready_count(docs):
+    page, server = docs
+    choose(page, txt("bon.txt"), {"name": "vide.md", "mimeType": "text/markdown", "buffer": b""})
+    wait_summary(page, "5 extraits ajoutés depuis 1 document. 1 fichier n'a pas pu être indexé.")
+    for _ in range(2):  # puis après un rechargement
+        wait_for(page, "() => document.querySelectorAll('wl-data-table tbody tr').length === 2")
+        statuses = {r[0]: r[-1].replace("\n", " ") for r in table_rows(page)}
+        assert statuses == {"bon.txt": "Prêt", "vide.md": "Échec le fichier est vide"}
+        assert (
+            page.locator(".docs-section .docs-count").inner_text() == "1 document prêt · 5 extraits"
+        )
+        assert page.locator("wl-data-table button").filter(has_text="Supprimer").count() == 0
+        page.reload()
+        wait_ready(page)
+
+
 # --- Charte et accessibilité ---------------------------------------------------------------------
 
 
@@ -454,14 +511,23 @@ def test_axe_finds_nothing_on_the_empty_screen_the_import_and_the_table(docs, th
 
 
 def test_the_screen_fits_a_phone_width_without_horizontal_scroll(docs):
-    page, _ = docs
-    choose(page, txt("un-nom-de-fichier-vraiment-tres-long-pour-le-test-de-largeur.txt"))
-    wait_summary(page, "5 extraits ajoutés depuis 1 document.")
-    page.set_viewport_size({"width": 375, "height": 800})
-    overflow = page.evaluate(
-        "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
-    )
-    assert overflow <= 0
+    page, server = docs
+    page.set_viewport_size({"width": 320, "height": 800})
+
+    def overflow() -> int:
+        return page.evaluate(
+            "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        )
+
+    script_embedder(server, page, {"sleep_s": 1.5})
+    long_name = "un-nom-de-fichier-vraiment-tres-long-pour-le-test-de-largeur.txt"
+    choose(page, txt(long_name), {"name": "vide.md", "mimeType": "text/markdown", "buffer": b""})
+    page.get_by_role("button", name="Annuler l'import").wait_for()
+    assert overflow() <= 0  # import en cours, bouton d'annulation compris
+    assert Axe().run(page).violations_count == 0
+    wait_summary(page, "5 extraits ajoutés depuis 1 document. 1 fichier n'a pas pu être indexé.")
+    page.locator("wl-data-table .docs-status[data-status=failed]").wait_for()
+    assert overflow() <= 0  # tableau avec un document en échec
     assert Axe().run(page).violations_count == 0
 
 

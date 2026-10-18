@@ -124,9 +124,8 @@
   accent-color: var(--color-primary);
 }
 
-.docs-import-cancel {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+.docs-imports-cancel {
+  margin: 0 0 0.75rem;
 }
 
 .docs-import .wl-error {

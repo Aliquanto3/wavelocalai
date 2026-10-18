@@ -4,11 +4,13 @@
 // - La zone de dépôt est construite avant tout appel au serveur : elle est visible tout de suite.
 // - Un seul lecteur du flux d'un run : cet écran (`connectRun`). Les événements `ingest_progress`
 //   et `ingest_file_done` nourrissent une ligne par fichier, repérée par `file_index` (l'ordre
-//   d'envoi). Une ligne ne perd pas son nœud entre deux événements (le focus reste sur Annuler).
+//   d'envoi). Une ligne ne perd pas son nœud entre deux événements.
+// - Un seul « Annuler l'import », au-dessus des lignes (D-25) : il annule le lot, jamais un fichier.
 // - L'envoi passe par `XMLHttpRequest` (seul à donner la progression d'envoi) : les octets envoyés
 //   sont répartis sur les fichiers dans l'ordre du formulaire. Annuler pendant l'envoi l'abandonne ;
 //   le corps parti (le serveur crée peut-être déjà le run), Annuler attend le `run_id` et arrête le
-//   run ; ensuite, Annuler arrête le run `ingest` (les fichiers non commencés ne le sont pas).
+//   run ; ensuite, Annuler arrête le run `ingest` (les fichiers non commencés ne le sont pas, les
+//   documents déjà prêts restent).
 // - L'écran reste en mémoire quand on va ailleurs (le routeur le masque) : masqué, il ferme son
 //   flux en gardant le dernier `seq` ; de retour, il le rouvre par `?after=<seq>` (AD-6). Rechargée,
 //   la page retrouve l'import en cours par le `run_id` d'un document `indexing` et le rejoue.
@@ -23,110 +25,10 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import "../components/index.js";
+import { ImportRow, plural } from "./documents-import-row.js";
 
 const MB = 1024 * 1024;
-const FINAL = new Set(["ready", "duplicate", "failed", "cancelled", "interrupted"]);
 const STATUS_ORDER = { ready: 0, indexing: 1, failed: 2 };
-
-const plural = (base, n, vars = {}) =>
-  t(`${base}_${n < 2 ? "one" : "other"}`, { n: formatInteger(n), ...vars });
-
-function failureMessage(error) {
-  // « Le fichier n'a pas pu être indexé : <raison>. » (l'enveloppe fournit le message et la raison).
-  const base = String(error?.message ?? t("docs.failed_default")).replace(/[.\s]+$/, "");
-  const reason = error?.detail?.reason;
-  return reason ? t("docs.failed_with", { message: base, reason }) : `${base}.`;
-}
-
-function failureEnvelope(error) {
-  const technical = error?.detail?.technical;
-  const reason = error?.detail?.reason;
-  return {
-    code: error?.code ?? "ingest_failed",
-    message: failureMessage(error),
-    action: error?.action,
-    detail: technical && technical !== reason ? { technical } : null,
-  };
-}
-
-// Une ligne par fichier : nœuds créés une fois, mis à jour sur place.
-class ImportRow {
-  constructor(key, name, onCancel) {
-    this.key = key;
-    this.name = name;
-    this.state = "waiting";
-    this.listed = false; // le document de ce fichier figure dans la liste du serveur
-    this.uploaded = false; // l'envoi du navigateur est terminé (ligne née de cet écran)
-    this.percent = 0;
-    this.done = 0;
-    this.total = 0;
-    this.chunks = 0;
-    this.error = null;
-    this.el = element("li", "docs-import");
-    this.title = element("p", "docs-import-name", name);
-    this.line = element("p", "docs-import-state");
-    this.bar = element("progress", "docs-import-progress");
-    this.bar.max = 100;
-    this.bar.setAttribute("aria-label", t("docs.row_progress", { file: name }));
-    this.cancel = element("button", "btn docs-import-cancel", t("docs.cancel"));
-    this.cancel.type = "button";
-    this.cancel.setAttribute("aria-label", t("docs.cancel_import", { file: name }));
-    this.cancel.addEventListener("click", onCancel);
-    this.failure = document.createElement("wl-error");
-    this.el.append(this.title, this.line, this.cancel, this.bar, this.failure);
-    this.render();
-  }
-
-  get final() {
-    return FINAL.has(this.state);
-  }
-
-  trail() {
-    const parts = [];
-    if (this.uploaded) parts.push(t("docs.row_sent"));
-    if (this.state === "waiting") parts.push(t("docs.row_waiting"));
-    if (this.state === "extract") parts.push(t("docs.row_extract"));
-    if (this.state === "split" || this.state === "embed") parts.push(t("docs.row_split"));
-    if (this.state === "embed") {
-      parts.push(
-        t("docs.row_embed", { done: formatInteger(this.done), total: formatInteger(this.total) }),
-      );
-    }
-    return parts.join(" · ");
-  }
-
-  text() {
-    switch (this.state) {
-      case "uploading":
-        return t("docs.row_sending", { percent: formatInteger(Math.round(this.percent)) });
-      case "ready":
-        return plural("docs.row_done", this.chunks);
-      case "duplicate":
-        return t("docs.row_duplicate");
-      case "cancelled":
-        return t("docs.row_cancelled");
-      case "interrupted":
-        return t("docs.row_interrupted");
-      case "failed":
-        return "";
-      default:
-        return this.trail();
-    }
-  }
-
-  render() {
-    this.el.dataset.state = this.state;
-    this.line.textContent = this.text();
-    this.line.hidden = this.state === "failed";
-    this.failure.error = this.state === "failed" ? failureEnvelope(this.error) : null;
-    const active = !this.final;
-    this.bar.hidden = !active;
-    this.cancel.hidden = !active;
-    if (this.state === "uploading") this.bar.value = this.percent;
-    else if (this.state === "embed" && this.total > 0) this.bar.value = (100 * this.done) / this.total;
-    else this.bar.removeAttribute("value"); // progression indéterminée
-  }
-}
 
 export function mount(host) {
   // --- Structure -------------------------------------------------------------------------
@@ -162,10 +64,13 @@ export function mount(host) {
   summary.setAttribute("role", "status");
 
   const importsTitle = element("h2", "", t("docs.imports_title"));
+  const importCancel = element("button", "btn docs-imports-cancel", t("docs.cancel_import"));
+  importCancel.type = "button";
+  importCancel.hidden = true;
   const importList = element("ul", "docs-imports");
   const imports = element("section", "docs-section");
   imports.hidden = true;
-  imports.append(importsTitle, importList);
+  imports.append(importsTitle, importCancel, importList);
 
   const loading = element("p", "help", t("docs.loading"));
   loading.setAttribute("role", "status");
@@ -286,6 +191,7 @@ export function mount(host) {
     empty.hidden = data === null || documents.length > 0 || locked;
     tableSection.hidden = listFailed || documents.length === 0; // jamais une liste périmée
     imports.hidden = rows.size === 0;
+    importCancel.hidden = !locked;
     if (documents.length > 0) {
       table.rows = documents;
       count.textContent = [
@@ -326,7 +232,7 @@ export function mount(host) {
   }
 
   function addRow(key, name) {
-    const row = new ImportRow(key, name, cancel);
+    const row = new ImportRow(key, name);
     rows.set(key, row);
     importList.append(row.el);
     return row;
@@ -367,7 +273,10 @@ export function mount(host) {
     stream = null;
     runId = null;
     summary.textContent = sentence(status); // une seule annonce, à la fin
+    const hadFocus = document.activeElement === importCancel;
+    importCancel.disabled = false;
     render();
+    if (hadFocus) choose.focus(); // le bouton disparaît : le focus ne tombe pas sur la page
     refresh();
   }
 
@@ -476,7 +385,7 @@ export function mount(host) {
     } catch (failure) {
       uploading = null;
       cancelPending = false;
-      for (const row of rows.values()) row.cancel.disabled = false;
+      importCancel.disabled = false;
       if (failure?.name === "AbortError") {
         for (const row of rows.values()) {
           row.state = "cancelled";
@@ -513,10 +422,10 @@ export function mount(host) {
   }
 
   const stopRun = (id) =>
-    api.cancelRun(id).catch(() => rows.forEach((row) => (row.cancel.disabled = false)));
+    api.cancelRun(id).catch(() => (importCancel.disabled = false));
 
   function cancel() {
-    for (const row of rows.values()) row.cancel.disabled = true; // un seul arrêt à la fois
+    importCancel.disabled = true; // un seul arrêt à la fois
     if (uploading && sent) {
       cancelPending = true; // le serveur a le corps : abandonner la requête laisserait le run indexer
     } else if (uploading) {
@@ -526,6 +435,7 @@ export function mount(host) {
     }
   }
 
+  importCancel.addEventListener("click", cancel);
   choose.addEventListener("click", () => input.click());
   emptyAction.addEventListener("click", () => input.click());
   input.addEventListener("change", () => {
