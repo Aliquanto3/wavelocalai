@@ -260,9 +260,39 @@ def test_the_single_cancel_button_sits_above_the_rows_and_only_shows_during_an_i
         }"""
     )
     assert above
+    cancel.focus()  # le lot finit pendant que le focus est sur le bouton, qui disparaît
     wait_summary(page, "6 extraits ajoutés depuis 2 documents.")
     assert not cancel.is_visible()  # le lot est fini
-    assert page.evaluate("document.activeElement === document.body") is True
+    assert focused_name(page) == "Choisir des fichiers"
+
+
+def focused_name(page) -> str:
+    return page.evaluate("() => document.activeElement?.textContent?.trim() ?? ''")
+
+
+def test_cancelling_from_the_keyboard_moves_the_focus_to_choose_files(docs):
+    page, server = docs
+    script_embedder(server, page, {"sleep_s": 30})
+    choose(page, txt("a.txt"))
+    row(page, "a.txt").locator(".docs-import-state").filter(has_text="Vectorisation 0/5").wait_for()
+    page.get_by_role("button", name="Annuler l'import").focus()
+    page.keyboard.press("Enter")
+    wait_summary(page, "Import annulé. Les documents déjà indexés sont conservés.")
+    assert focused_name(page) == "Choisir des fichiers"
+
+
+def test_cancelling_the_upload_from_the_keyboard_moves_the_focus_to_choose_files(docs):
+    page, _ = docs
+    page.route(
+        re.compile(r"/api/rag/documents$"),
+        lambda route: None if route.request.method == "POST" else route.fallback(),
+    )  # l'envoi reste en attente
+    choose(page, txt("a.txt"))
+    row(page, "a.txt").locator(".docs-import-state").filter(has_text="Envoi").wait_for()
+    page.get_by_role("button", name="Annuler l'import").focus()
+    page.keyboard.press("Enter")
+    wait_summary(page, "Import annulé.")
+    assert focused_name(page) == "Choisir des fichiers"
 
 
 def test_cancelling_keeps_the_documents_that_are_already_ready(docs):
@@ -337,6 +367,52 @@ def test_cancelling_once_the_files_are_sent_stops_the_run_the_server_started(doc
     assert page.request.get(f"{server.base_url}/api/runs/{run_id}").json()["status"] == "cancelled"
 
 
+def test_a_lost_upload_response_after_cancel_still_stops_the_run_the_server_started(
+    backend, page_tolerating_failed_requests
+):
+    # Le corps est parti, Annuler est demandé, puis la réponse se perd (erreur réseau à la place du
+    # `load`) : l'écran retrouve le run par la liste et l'arrête, au lieu de le laisser indexer.
+    page = page_tolerating_failed_requests
+    server = backend.start()
+    page.goto(f"{server.base_url}/{URL}")
+    wait_ready(page)
+    page.locator(".docs-card").wait_for()
+    script_embedder(server, page, {"sleep_s": 30})
+    page.evaluate(
+        """() => {
+          window.__hold = new Promise((resolve) => { window.__release = resolve; });
+          const base = Object.getOwnPropertyDescriptor(XMLHttpRequestEventTarget.prototype, "onload");
+          Object.defineProperty(XMLHttpRequest.prototype, "onload", {
+            configurable: true,
+            get() { return base.get.call(this); },
+            set(handler) {
+              base.set.call(this, handler && ((event) => window.__hold.then(() => this.onerror(event))));
+            },
+          });
+        }"""
+    )
+    choose(page, txt("a.txt"))
+    row(page, "a.txt").locator(".docs-import-state").filter(has_text="Envoi 100").wait_for()
+    listed = f"{server.base_url}/api/rag/documents"
+    for _ in range(200):
+        documents = page.request.get(listed).json()["documents"]
+        if documents:
+            break
+        page.wait_for_timeout(50)
+    assert documents and documents[0]["status"] == "indexing"
+    run_id = documents[0]["run_id"]
+    page.get_by_role("button", name="Annuler l'import").click()
+    page.evaluate("window.__release()")
+    for _ in range(200):
+        status = page.request.get(f"{server.base_url}/api/runs/{run_id}").json()["status"]
+        if status != "running":
+            break
+        page.wait_for_timeout(50)
+    assert status == "cancelled"
+    wait_summary(page, "Import annulé.")
+    assert page.get_by_role("button", name="Choisir des fichiers").is_enabled()
+
+
 def test_leaving_the_screen_during_an_import_and_coming_back_resumes_the_progress(docs):
     page, server = docs
     script_embedder(server, page, {"sleep_s": 2.5})
@@ -362,6 +438,7 @@ def test_reloading_the_page_during_an_import_rejoins_it(docs):
     line = row(page, "a.txt")
     line.wait_for()
     assert page.get_by_role("button", name="Choisir des fichiers").is_disabled()
+    assert page.get_by_role("button", name="Annuler l'import").is_visible()
     wait_summary(page, "5 extraits ajoutés depuis 1 document.")
     assert page.get_by_role("button", name="Choisir des fichiers").is_enabled()
 

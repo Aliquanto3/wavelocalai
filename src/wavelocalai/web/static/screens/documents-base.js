@@ -113,6 +113,7 @@ export function mount(host) {
   let uploading = null; // AbortController de l'envoi en cours
   let sent = false; // le corps de l'envoi en cours est parti : l'abandonner n'arrêterait pas le run
   let cancelPending = false; // Annuler demandé après l'envoi du corps : le run sera arrêté
+  let cancelFocused = false; // Annuler activé avec le focus (désactivé, le bouton le perd)
   let tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
   let wasHidden = host.hidden;
   let listFailed = false; // la liste n'a pas pu être lue (le message d'erreur le dit)
@@ -190,8 +191,19 @@ export function mount(host) {
     loading.hidden = data !== null || listFailed;
     empty.hidden = data === null || documents.length > 0 || locked;
     tableSection.hidden = listFailed || documents.length === 0; // jamais une liste périmée
-    imports.hidden = rows.size === 0;
+    imports.hidden = rows.size === 0 && !locked; // le bouton d'annulation dès que le run est connu
+    // Le lot fini, le bouton disparaît : le focus qu'il avait (ou qu'il a perdu en se désactivant)
+    // passe à « Choisir des fichiers », pas à la page.
+    const active = document.activeElement;
+    const refocus =
+      !locked && !importCancel.hidden &&
+      (active === importCancel || (cancelFocused && (active === document.body || active === null)));
     importCancel.hidden = !locked;
+    if (!locked) {
+      importCancel.disabled = false;
+      cancelFocused = false;
+    }
+    if (refocus) choose.focus();
     if (documents.length > 0) {
       table.rows = documents;
       count.textContent = [
@@ -273,10 +285,7 @@ export function mount(host) {
     stream = null;
     runId = null;
     summary.textContent = sentence(status); // une seule annonce, à la fin
-    const hadFocus = document.activeElement === importCancel;
-    importCancel.disabled = false;
     render();
-    if (hadFocus) choose.focus(); // le bouton disparaît : le focus ne tombe pas sur la page
     refresh();
   }
 
@@ -332,6 +341,15 @@ export function mount(host) {
     });
   }
 
+  // Page rechargée pendant un import (ou réponse d'envoi perdue) : le `run_id` d'un document
+  // `indexing` retrouve le run.
+  function adoptActiveRun(loaded, stop) {
+    const active = loaded?.documents.find((doc) => doc.status === "indexing" && doc.run_id);
+    if (!active || busy()) return;
+    follow(active.run_id);
+    if (stop) cancel();
+  }
+
   function follow(id) {
     runId = id;
     if (!host.hidden) openStream(id); // masqué : le flux s'ouvrira au retour (AD-6)
@@ -384,6 +402,9 @@ export function mount(host) {
       if (cancelPending) stopRun(started.run_id); // Annuler demandé pendant que le run naissait
     } catch (failure) {
       uploading = null;
+      // Pas de réponse alors que le corps est parti (`status` 0) : le run existe peut-être.
+      const lost = sent && failure instanceof ApiError && failure.status === 0;
+      const stopAdopted = lost && cancelPending;
       cancelPending = false;
       importCancel.disabled = false;
       if (failure?.name === "AbortError") {
@@ -404,6 +425,9 @@ export function mount(host) {
           failure instanceof ApiError && failure.envelope
             ? failure.envelope
             : { code: "upload_failed", message: t("docs.upload_failed"), action: t("docs.upload_failed_action") };
+        // Réponse perdue après l'envoi du corps : le serveur a peut-être créé le run. On le retrouve
+        // comme au rechargement, et on l'arrête si Annuler avait été demandé.
+        if (lost) refresh().then((loaded) => adoptActiveRun(loaded, stopAdopted));
       }
       render();
     }
@@ -425,6 +449,7 @@ export function mount(host) {
     api.cancelRun(id).catch(() => (importCancel.disabled = false));
 
   function cancel() {
+    cancelFocused = document.activeElement === importCancel;
     importCancel.disabled = true; // un seul arrêt à la fois
     if (uploading && sent) {
       cancelPending = true; // le serveur a le corps : abandonner la requête laisserait le run indexer
@@ -490,11 +515,7 @@ export function mount(host) {
 
   // --- Premier affichage -----------------------------------------------------------------
   render();
-  refresh().then((loaded) => {
-    // Page rechargée pendant un import : le `run_id` d'un document `indexing` le retrouve.
-    const active = loaded?.documents.find((doc) => doc.status === "indexing" && doc.run_id);
-    if (active && !busy()) follow(active.run_id);
-  });
+  refresh().then((loaded) => adoptActiveRun(loaded, false));
 
   return () => {
     visibility.disconnect();

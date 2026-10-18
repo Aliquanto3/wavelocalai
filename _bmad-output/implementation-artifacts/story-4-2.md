@@ -97,3 +97,11 @@ Découpage : `documents-base.js` dépassait 600 lignes ; `ImportRow`, `plural` e
 Écarts §7(d) : n° 13 (Supprimer et Vider désactivés pendant un import, ou 409 affiché) non tranché, concerne la 4.3 ; ici, « Choisir des fichiers » et « Importer des documents » sont déjà désactivés pendant un import, avec la phrase d'attente, et le critère actuel est gardé tel quel.
 
 Vérification : voir le rapport de l'orchestrateur (`pytest tests/v2`, E2E de l'écran sur Edge).
+
+### Revue des ajustements (2026-10-19)
+
+- medium · second avis · corrigé : Annuler au clavier faisait tomber le focus sur la page (Chromium retire le focus d'un bouton désactivé, et le chemin d'abandon de l'envoi cachait le bouton sans le rendre). `render()` rend le focus à « Choisir des fichiers » quand le bouton disparaît, qu'il ait encore le focus ou l'ait perdu en se désactivant après activation. Preuve : `test_cancelling_from_the_keyboard_moves_the_focus_to_choose_files` et `test_cancelling_the_upload_from_the_keyboard_moves_the_focus_to_choose_files` (échouaient sur `214c206`).
+- medium · second avis · corrigé : l'E2E de fin de lot vérifiait `activeElement === body` sans focus préalable ; il met le focus sur le bouton puis attend le focus sur « Choisir des fichiers ».
+- medium · second avis · corrigé : Annuler demandé corps parti puis réponse perdue (erreur réseau, `status` 0) : le run serveur continuait sans suivi. L'écran relit la liste, rejoint le run du document `indexing` (comme au rechargement) et l'arrête si Annuler avait été demandé ; les réponses en erreur HTTP (pas de run créé, ou 409 déjà rejoint) ne sont pas concernées. Preuve : `test_a_lost_upload_response_after_cancel_still_stops_the_run_the_server_started` (échouait sur `214c206`).
+- low · second avis · corrigé : rechargement ou 409 pendant un import, le bouton restait caché jusqu'à la première ligne ; la section des imports s'affiche dès que le run est suivi. Preuve : assertion ajoutée à `test_reloading_the_page_during_an_import_rejoins_it`.
+- Complexité : 0 constat (aucune structure nouvelle parcourue à chaque événement).
