@@ -4,7 +4,9 @@
 Débit (D3) = `eval_count / eval_duration` : vitesse de génération pure, hors chargement du modèle
 et hors lecture du prompt (prefill, `prompt_eval_duration`), comme `scripts/benchmark_slm.py`. Le
 repli sur la durée murale (chargement et prefill compris) n'a lieu que si `eval_duration` manque
-ou vaut 0 ; il est alors marqué `tps_source = "wallclock"`. Jamais de division par zéro.
+ou vaut 0 ; il est alors marqué `tps_source = "wallclock"`. Jamais de division par zéro. Le prefill
+a ses propres champs (`prefill_s`, `prefill_tps = prompt_eval_count / prompt_eval_duration`), nuls
+si Ollama ne donne pas sa durée (prompt déjà en cache).
 """
 
 from __future__ import annotations
@@ -58,6 +60,8 @@ def ollama_result(
     raw_load = chunk_field(final_chunk, "load_duration")
     load_ns = _positive_ns(raw_load)
     total_ns = _positive_ns(chunk_field(final_chunk, "total_duration"))
+    prompt_eval_ns = _positive_ns(chunk_field(final_chunk, "prompt_eval_duration"))
+    prompt_count = chunk_field(final_chunk, "prompt_eval_count")
     wall = wall_s if wall_s and wall_s > 0 else 0.0
 
     if eval_ns:
@@ -77,4 +81,10 @@ def ollama_result(
         total_s=_seconds(total_ns) if total_ns else round(wall, 3),
         tps=tps,
         tps_source=source,  # type: ignore[arg-type]
+        prefill_s=_seconds(prompt_eval_ns) if prompt_eval_ns else None,
+        prefill_tps=(
+            round(prompt_count / (prompt_eval_ns / NS_PER_S), 2)
+            if prompt_eval_ns and prompt_count is not None
+            else None
+        ),
     )

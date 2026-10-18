@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wavelocalai"
-version = "2.0.0.dev0"
+version = "2.0.0a1"
 description = "Démonstrateur de petits modèles de langage locaux (Ollama) avec mesure carbone (CodeCarbon)."
 readme = "README.md"
 license = "MIT"

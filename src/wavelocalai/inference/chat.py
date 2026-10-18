@@ -4,6 +4,9 @@ Le service obtient le modèle par `registry.resolve(tag, allow_cloud)` seulement
 créer le run `chat` (conversation et message utilisateur compris), puis lance dans une tâche la
 lecture du flux (`stream_into_run`) : le hub est seul à numéroter, persister et fixer le statut.
 `runs.params` ne reçoit que la température et `allow_cloud`, jamais le texte saisi (AD-7).
+
+Une réponse locale est mesurée par le `LocalMeter` de `greenops/` dans la place du `LocalSlot`
+(AD-11) ; la feuille close, le service publie `carbon_updated` sur le `SystemBus` (AD-10).
 """
 
 from __future__ import annotations
@@ -16,9 +19,10 @@ from dataclasses import dataclass
 from wavelocalai.config import Settings
 from wavelocalai.errors import build_envelope
 from wavelocalai.greenops.cloud_estimate import estimate_cloud_co2
+from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
 from wavelocalai.models.cloud import model_of, provider_of
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ChatResult
@@ -47,6 +51,7 @@ class ChatService:
         factory: ModelFactory,
         slot: LocalSlot,
         settings: Settings,
+        meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
     ) -> None:
         self._hub = hub
@@ -54,7 +59,8 @@ class ChatService:
         self._factory = factory
         self._slot = slot
         self._settings = settings
-        self._bus = bus  # `carbon_updated` après chaque feuille (AD-10) ; absent hors du serveur
+        self._meter = meter  # sans compteur, le CO2 d'une réponse locale n'est pas mesuré
+        self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: ChatCommand) -> RunHandle:
@@ -71,6 +77,8 @@ class ChatService:
             user_message=command.message,
             conversation_id=command.conversation_id,
         )
+        # Annulé avant même la lecture du flux, le run garde un `co2` (AD-10).
+        self._hub.declare_leaf(handle.run_id, CANCELLED_CO2)
         task = asyncio.create_task(
             self._run(handle, model, command.temperature),
             name=f"wavelocalai-chat-{handle.run_id}",
@@ -92,6 +100,7 @@ class ChatService:
                 LeafResult(status="error", origin=model.ref.origin, error=error),
                 NOT_MEASURED,
             )
+            await self._announce_carbon()
             return
         await stream_into_run(
             self._hub,
@@ -103,8 +112,9 @@ class ChatService:
             slot=self._slot,
             timeout_s=self._settings.delays.lane_timeout_s,
             retry_interrupted=True,
+            meter=self._meter,
+            on_leaf_closed=self._announce_carbon,
         )
-        await self._announce_carbon()
 
     def _cloud_estimator(self, model: ChatModel) -> Callable[[ChatResult], Co2] | None:
         """Estimation ecologits d'une réponse cloud (AD-11) ; rien pour un modèle local."""
@@ -121,10 +131,14 @@ class ChatService:
         )
 
     async def _announce_carbon(self) -> None:
-        if self._bus is None:
+        """`carbon_updated` après chaque feuille, annulation comprise (le hub a déjà écrit le
+        `co2` de la feuille annulée, `unmeasurable`) : le panneau de la barre haute se met à jour.
+        """
+        session_id = self._hub.app_session_id
+        if self._bus is None or session_id is None:
             return
         try:
-            await announce_carbon_updated(self._bus, self._hub.store, self._hub.app_session_id)
+            await announce_carbon_updated(self._bus, self._hub.store, session_id)
         except Exception as exc:  # noqa: BLE001 - une annonce manquée ne change pas le run
             logger.warning("carbon_updated non publié : %r", exc)
 

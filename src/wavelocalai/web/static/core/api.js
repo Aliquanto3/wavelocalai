@@ -53,6 +53,8 @@ export const api = {
     request(
       `/api/models/defaults?purpose=${encodeURIComponent(purpose)}&allow_cloud=${allowCloud ? "true" : "false"}`,
     ),
+  // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
+  startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };
