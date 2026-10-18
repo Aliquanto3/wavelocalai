@@ -84,12 +84,14 @@ class DelaySettings(_Section):
 
 
 class RagSettings(_Section):
-    """Base documentaire : découpe, lots d'embedding et plafond d'un fichier (story 4.1)."""
+    """Base documentaire : découpe, lots d'embedding et plafonds d'un import (stories 4.1 et 4.2)."""
 
     chunk_size: int = Field(800, ge=100, le=8000)  # caractères par extrait
     chunk_overlap: int = Field(100, ge=0)
     embed_batch_size: int = Field(16, ge=1, le=256)  # extraits par lot, une feuille `embedding`
     max_file_mb: int = Field(50, ge=1)
+    max_files: int = Field(50, ge=1)  # fichiers par import
+    max_import_mb: int = Field(500, ge=1)  # taille totale d'un import
     embedding_model: str | None = None  # défaut de la base ; sinon le premier installé
 
     @model_validator(mode="after")

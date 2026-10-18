@@ -43,6 +43,48 @@ export async function request(path, { method = "GET", body, timeoutMs = 5000, si
   return response.status === 204 ? null : response.json();
 }
 
+// Envoie des fichiers à `POST /api/rag/documents` (multipart). `fetch` ne rend pas la progression de
+// l'envoi : `XMLHttpRequest` la donne (`onProgress(octets envoyés, octets au total)`). Rend
+// `{run_id}`. Annuler par `signal` rejette avec une `DOMException` `AbortError`.
+export function uploadDocuments(files, { signal, onProgress = () => {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    for (const file of files) form.append("files", file, file.name);
+    const abort = () => xhr.abort();
+    const finish = () => signal?.removeEventListener("abort", abort);
+    xhr.open("POST", "/api/rag/documents");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded, event.total);
+    };
+    xhr.onload = () => {
+      finish();
+      let body = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        // Corps absent ou illisible : le statut suffit.
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body) return resolve(body);
+      const envelope = asEnvelope(body);
+      reject(
+        new ApiError(envelope?.message ?? `Erreur ${xhr.status}.`, { status: xhr.status, envelope }),
+      );
+    };
+    xhr.onerror = () => {
+      finish();
+      reject(new ApiError("Le serveur ne répond pas."));
+    };
+    xhr.onabort = () => {
+      finish();
+      reject(new DOMException("Envoi annulé.", "AbortError"));
+    };
+    if (signal?.aborted) return xhr.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    xhr.send(form);
+  });
+}
+
 export const api = {
   health: () => request("/api/health"),
   carbonSession: () => request("/api/carbon/session"),
@@ -55,6 +97,8 @@ export const api = {
     ),
   // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
+  // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
+  documents: () => request("/api/rag/documents"),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

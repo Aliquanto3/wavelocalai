@@ -111,3 +111,11 @@ BASE_DIM_SQL = (
     " LIMIT 1"
 )
 INTERRUPTED_SQL = "SELECT id, source FROM documents WHERE status = 'indexing'"
+LIST_SQL = (
+    "SELECT id, source, status, chunk_count, page_count, size_bytes, embedding_model, created_at,"
+    " ready_at, run_id, error FROM documents ORDER BY created_at DESC, id"
+)  # tous les statuts : l'écran présente `indexing` et `failed` comme tels
+TOTALS_SQL = (
+    "SELECT COUNT(*) AS documents, COALESCE(SUM(chunk_count), 0) AS chunks FROM documents"
+    " WHERE status = 'ready'"
+)  # ce que la base peut interroger (story 4.4) : les documents `ready` seulement

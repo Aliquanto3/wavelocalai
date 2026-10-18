@@ -1,0 +1,152 @@
+/* Base documentaire (story 4.2) : zone de dépôt, fichiers de l'import, tableau des documents.
+   Couleurs et rayon viennent de tokens.css seulement. */
+
+.docs-drop {
+  margin: 0 0 1.5rem;
+  padding: 1.5rem 1rem;
+  border: 2px dashed var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.docs-drop[data-active="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-alt);
+}
+
+.docs-drop-line {
+  margin: 0;
+  line-height: 2.75rem;
+}
+
+.docs-drop-line .btn {
+  vertical-align: middle;
+}
+
+.docs-drop .help {
+  margin-top: 0.5rem;
+}
+
+.docs-file-input {
+  display: none;
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.docs-primary {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.docs-primary:hover {
+  background: var(--color-primary-fill);
+}
+
+.docs-primary:disabled,
+.docs-choose:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.docs-notice {
+  margin: 0 0 1rem;
+}
+
+.docs-card {
+  margin: 0 0 1.5rem;
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.docs-card h2 {
+  margin: 0 0 0.5rem;
+}
+
+.docs-card p {
+  margin: 0 0 1rem;
+}
+
+.docs-section h2 {
+  margin: 1.5rem 0 0.75rem;
+}
+
+.docs-imports {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-import[data-state="failed"] {
+  border-inline-start: 6px solid var(--color-risk);
+}
+
+.docs-import[data-state="ready"] {
+  border-inline-start: 6px solid var(--color-chart-2);
+}
+
+.docs-import-name {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.docs-import-state {
+  grid-column: 1;
+  margin: 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.docs-import-progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--color-primary);
+}
+
+.docs-import-cancel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.docs-import .wl-error {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0 0;
+}
+
+.docs-count {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.docs-status[data-status="failed"] {
+  color: var(--color-ink);
+}
+
+.docs-status-reason {
+  display: block;
+  margin-top: 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}

@@ -58,7 +58,8 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | `step` | `lane`, `step_id`, `agent`, `kind` (`think`, `tool_call`, `tool_result`, `answer`), outil, arguments, résumé, `artifact_url`, durée | agents |
 | `approval_required` | `approval_id`, `kind: email`, destinataire, objet, corps ; run en `awaiting_approval` ; réponse par `POST /api/runs/{id}/approvals/{approval_id}` | agent seul |
 | `approval_resolved` | `approval_id`, `decision` (`approved`, `rejected`, `expired`) ; sans réponse en 10 min = `expired` = refus ; annuler le run = refus ; un outil sensible ne s'exécute qu'après `approved` (AD-9) | agent seul |
-| `ingest_progress` | fichier, phase (`extract`, `split`, `embed`), `done`, `total` | Base documentaire |
+| `ingest_progress` | `file`, `file_index`, `file_count`, phase (`extract`, `split`, `embed`), `done`, `total` ; `extract` et `split` valent 0/1 puis 1/1, `embed` compte les extraits vectorisés | Base documentaire |
+| `ingest_file_done` | `file`, `file_index`, `file_count`, `document_id`, `status` (`ready`, `failed`, `duplicate`), `chunks`, `error` (enveloppe `ingest_failed` si `failed`) | Base documentaire |
 | `pull_progress` | tag ou reranker, octets reçus et totaux, phase | Modèles |
 | `run_ended` | `status` (`ok`, `error`, `cancelled`, `interrupted`), erreur au format unique | tous |
 
@@ -70,7 +71,7 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | Chat libre | modèles, défaut `chat`, `GET /api/conversations/{id}` | `POST /api/chat/runs {conversation_id?, model, message, temperature, allow_cloud}` ; `DELETE /api/conversations/{id}` ; export `GET /api/conversations/{id}.json` et `.md` |
 | Arène | modèles, défauts `arena` et `judge`, scénarios, `GET /api/arena/runs`, verdict par `GET /api/runs/{id}` à `run_ended` et à la réouverture | `POST /api/arena/runs {models, prompt, judge, criteria, allow_cloud}` ; export `GET /api/arena/runs/{id}.csv` et `.md` |
 | Références (`#/arene/references`) | références par usage lues depuis `qb.results/1` (AD-22) | — |
-| Base documentaire | `GET /api/rag/documents` (avec `status` : `indexing`, `ready`, `failed`), `GET /api/rag/settings` | `POST /api/rag/documents` (multipart, rend le `run_id` du run `ingest`) ; `DELETE /api/rag/documents/{id}` ; `DELETE /api/rag/base?expected_count=` ; `PUT /api/rag/settings` (changer d'embedding impose « Vider ») |
+| Base documentaire | `GET /api/rag/documents` rend `{documents: [{id, source, status (`indexing`, `ready`, `failed`), chunks, pages, size_bytes, embedding_model, created_at, ready_at, run_id, error}], totals: {documents, chunks} (documents `ready` seulement), limits: {max_file_mb, max_files, max_import_mb}}`, plus récent d'abord ; `GET /api/rag/settings` | `POST /api/rag/documents` (multipart, rend le `run_id` du run `ingest` ; `422 invalid_request` au-delà de `max_files` fichiers ou `max_import_mb` Mo) ; `DELETE /api/rag/documents/{id}` ; `DELETE /api/rag/base?expected_count=` ; `PUT /api/rag/settings` (changer d'embedding impose « Vider ») |
 | Discussion | résumé de la base, réglages, défaut `rag` | `POST /api/rag/runs {conversation_id?, question, model, strategy, allow_cloud}` ; `GET /api/rag/chunks/{id}` |
 | Modèles | installés, catalogue installable avec mémoire nécessaire et `fits`, état du reranker | `POST /api/models/pull {tag}` et récupération du reranker (runs `pull`, seuls téléchargements, AD-17) ; `DELETE /api/models/{tag}` ; `POST /api/models/unload` |
 | Sobriété | flux système, identité, `GET /api/carbon/history?window=`, méthode | `POST /api/carbon/session/reset` (ouvre une nouvelle `app_session`) |
