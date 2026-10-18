@@ -37,6 +37,7 @@ from wavelocalai.store.db import Store, utc_now_iso
 logger = logging.getLogger("wavelocalai.runs")
 
 BATCH_INTERVAL_S = 1.0  # AD-7 : un lot au plus chaque seconde
+TOKEN_WINDOW_S = 0.05  # AD-6 : les `token` sont groupés par tranches de 50 ms au plus
 
 # `runs.params` ne contient aucun texte saisi (AD-7) : clés qui en portent d'ordinaire, et taille
 # au-delà de laquelle une valeur texte est tenue pour du texte saisi.
@@ -115,6 +116,11 @@ class _Run:
         self.answer: list[str] = []
         self.thought: list[str] = []
         self.lock = asyncio.Lock()
+        # Abonnement (AD-6) : un flux ouvert attend `signal` ; chaque événement le déclenche et le
+        # remplace. Jetons en attente de groupage : (lane, channel) -> textes.
+        self.signal = asyncio.Event()
+        self.pending_tokens: dict[tuple[str, str], list[str]] = {}
+        self.token_timer: asyncio.TimerHandle | None = None
 
 
 class RunHub:
@@ -125,13 +131,16 @@ class RunHub:
         store: Store,
         *,
         batch_interval_s: float = BATCH_INTERVAL_S,
+        token_window_s: float = TOKEN_WINDOW_S,
         clock: Callable[[], str] = utc_now_iso,
     ) -> None:
         self.store = store
         self.batch_interval_s = batch_interval_s
+        self.token_window_s = token_window_s
         self._clock = clock
         self._runs: dict[str, _Run] = {}
         self._closed: set[str] = set()
+        self._reserved: dict[str, str] = {}  # kind -> run racine en cours de création
         self._flusher: asyncio.Task[None] | None = None
         self.app_session_id: str | None = None
 
@@ -197,6 +206,10 @@ class RunHub:
                 raise ValueError("Un run enfant est une feuille (generation, judge, embedding).")
         elif kind not in ROOT_KINDS:
             raise ValueError(f"Un run racine a un genre parmi {ROOT_KINDS}, pas {kind!r}.")
+        else:
+            busy = self.active_root(kind)  # AD-14 : un run racine actif par genre
+            if busy is not None:
+                raise AppError("run_busy", f"Un run {kind} est déjà actif.", run_id=busy)
         if (user_message is not None or conversation_id) and kind not in CONVERSATION_KINDS:
             raise ValueError(f"Un run {kind} n'ouvre pas de conversation.")
         if conversation_id and user_message is None:
@@ -247,12 +260,20 @@ class RunHub:
             if user_message is not None:  # après le run, que le message référence
                 repo.insert_message(conn, str(conv_id), run_id, "user", now, user_message)
 
-        await self.store.awrite(tx)
-        run = _Run(run_id, kind, parent_run_id, conv_id)
-        if started is not None:
-            run.events.append(started)
-            run.flushed = 1
-        self._runs[run_id] = run
+        if parent is None:
+            self._reserved[kind] = (
+                run_id  # réservé pendant l'écriture : pas de course entre deux POST
+            )
+        try:
+            await self.store.awrite(tx)
+            run = _Run(run_id, kind, parent_run_id, conv_id)
+            if started is not None:
+                run.events.append(started)
+                run.flushed = 1
+            self._runs[run_id] = run
+        finally:
+            if parent is None and self._reserved.get(kind) == run_id:
+                del self._reserved[kind]
         if parent is not None:
             parent.children.append(run_id)
         return RunHandle(run_id, conv_id)
@@ -279,15 +300,55 @@ class RunHub:
             raise ValueError("Seul un run racine publie un flux : le parent publie (AD-5).")
         if run.closing:
             return None
+        self._drain_tokens(run)  # l'ordre des événements est celui des appels
         return self._append(run, event_type, dict(data or {}))
+
+    def publish_token(self, run_id: str, lane: str, text: str, channel: str = "answer") -> None:
+        """Publie du texte généré : les morceaux d'une même `lane` et d'un même canal reçus dans
+        une tranche de `token_window_s` (50 ms) partent en un seul événement `token` (AD-6).
+        Ne rend pas de `seq` : l'événement naît à la fin de la tranche, ou avant le prochain
+        événement du run, ou à sa clôture."""
+        if not lane:
+            raise ValueError("Un token porte toujours sa lane (AD-6).")
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return
+            raise KeyError(f"Run inconnu : {run_id}")
+        if run.parent_id is not None:
+            raise ValueError("Seul un run racine publie un flux : le parent publie (AD-5).")
+        if run.closing or not text:
+            return
+        run.pending_tokens.setdefault((lane, channel), []).append(text)
+        if run.token_timer is None:
+            run.token_timer = asyncio.get_running_loop().call_later(
+                self.token_window_s, self._drain_tokens, run
+            )
+
+    def _drain_tokens(self, run: _Run) -> None:
+        """Transforme les jetons en attente en événements `token` (un par lane et canal)."""
+        if run.token_timer is not None:
+            run.token_timer.cancel()
+            run.token_timer = None
+        pending, run.pending_tokens = run.pending_tokens, {}
+        if run.closing:
+            return
+        for (lane, channel), texts in pending.items():
+            self._append(run, "token", {"lane": lane, "text": "".join(texts), "channel": channel})
 
     def _append(self, run: _Run, event_type: str, data: dict[str, Any]) -> int:
         event = _Event(len(run.events) + 1, event_type, self._clock(), data)
         run.events.append(event)
+        self._wake(run)
         if event_type == "token" and run.conversation_id is not None:
             text = str(data.get("text") or "")
             (run.thought if data.get("channel") == "thought" else run.answer).append(text)
         return event.seq
+
+    @staticmethod
+    def _wake(run: _Run) -> None:
+        woken, run.signal = run.signal, asyncio.Event()
+        woken.set()
 
     # --- fin d'un run --------------------------------------------------------------------------
 
@@ -376,6 +437,7 @@ class RunHub:
     ) -> bool:
         if run.closing:
             return False
+        self._drain_tokens(run)  # le texte reçu jusque-là entre dans le flux et le partiel
         run.closing = True  # plus aucun événement n'entre
         children = [self._runs[c] for c in run.children if c in self._runs]
         for child in children:
@@ -385,6 +447,7 @@ class RunHub:
         run.events.append(
             _Event(len(run.events) + 1, "run_ended", now, {"status": status, "error": error})
         )
+        self._wake(run)
         message = self._final_message(run, assistant)
         child_ids = [child.id for child in children]
         async with run.lock:  # attend un lot en cours : pas d'écriture en double
@@ -422,6 +485,10 @@ class RunHub:
 
     def _forget(self, run: _Run, status: str) -> None:
         run.status = status
+        if run.token_timer is not None:
+            run.token_timer.cancel()
+            run.token_timer = None
+        self._wake(run)  # un flux ouvert relit alors la base, qui a tout
         run.events = []
         run.flushed = 0
         self._runs.pop(run.id, None)
@@ -464,6 +531,19 @@ class RunHub:
             for r in self._runs.values()
             if r.parent_id is None and not r.closing
         ]
+
+    def active_root(self, kind: str) -> str | None:
+        """`run_id` du run racine actif (ou en création) de ce genre, sinon `None` (AD-14)."""
+        for run in self._runs.values():
+            if run.parent_id is None and run.kind == kind and not run.closing:
+                return run.id
+        return self._reserved.get(kind)
+
+    def watch(self, run_id: str) -> asyncio.Event | None:
+        """Événement qui se déclenche au prochain événement (ou à la clôture) d'un run racine
+        actif ; `None` si le run n'est plus actif. À prendre *avant* `events_after`."""
+        run = self._runs.get(run_id)
+        return None if run is None or run.parent_id is not None else run.signal
 
     async def events_after(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         """Enveloppes d'AD-6 de `seq > after` : mémoire du hub si le run est actif, base sinon.
