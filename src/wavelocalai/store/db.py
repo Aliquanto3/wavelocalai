@@ -24,7 +24,7 @@ DB_NAME = "wavelocalai.db"
 BUSY_TIMEOUT_MS = 5000
 T = TypeVar("T")
 
-_Job = tuple[Callable[[sqlite3.Connection], Any], "Future[Any]"]
+_Job = tuple[Callable[[sqlite3.Connection], Any], "Future[Any]", bool]
 
 
 def utc_now_iso() -> str:
@@ -40,6 +40,15 @@ def _pragmas(conn: sqlite3.Connection) -> None:
     conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA secure_delete=ON")
+
+
+def purge_free_space(conn: sqlite3.Connection) -> None:
+    """Fin d'un effacement (AD-13), hors transaction : `wal_checkpoint(TRUNCATE)`, `VACUUM`, puis de
+    nouveau `wal_checkpoint(TRUNCATE)`. Le premier reporte le journal dans le fichier, `VACUUM`
+    réécrit le fichier sans les pages libérées, le second vide le journal que `VACUUM` a rempli."""
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
+    conn.execute("VACUUM")
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
 
 
 class Store:
@@ -85,13 +94,15 @@ class Store:
         ready.set_result(None)
         try:
             while (job := self._jobs.get()) is not None:
-                func, future = job
+                func, future, purge = job
                 if not future.set_running_or_notify_cancel():
                     continue
                 try:
                     conn.execute("BEGIN IMMEDIATE")
                     result = func(conn)
                     conn.execute("COMMIT")
+                    if purge:
+                        purge_free_space(conn)
                 except BaseException as exc:  # noqa: BLE001 - rendu à l'appelant du futur
                     if conn.in_transaction:
                         conn.execute("ROLLBACK")
@@ -101,18 +112,22 @@ class Store:
         finally:
             conn.close()
 
-    def write(self, func: Callable[[sqlite3.Connection], T]) -> Future[T]:
+    def write(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> Future[T]:
         """Met `func(conn)` dans la file de l'écrivain, dans une transaction (`COMMIT` si elle
-        rend, `ROLLBACK` si elle lève). Rend un futur ; `func` tourne sur le fil de l'écrivain."""
+        rend, `ROLLBACK` si elle lève). Rend un futur ; `func` tourne sur le fil de l'écrivain.
+
+        `purge` : après le `COMMIT`, la même tâche vide l'espace libéré et le journal (voir
+        `purge_free_space`), pour qu'un texte effacé ne reste ni dans le `.db` ni dans le `-wal`
+        (AD-13). Rien d'autre ne s'intercale entre les deux temps."""
         future: Future[T] = Future()
         with self._lock:
             if self._closed:
                 raise RuntimeError("Le store est fermé.")
-            self._jobs.put((func, future))
+            self._jobs.put((func, future, purge))
         return future
 
-    async def awrite(self, func: Callable[[sqlite3.Connection], T]) -> T:
-        return await asyncio.wrap_future(self.write(func))
+    async def awrite(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> T:
+        return await asyncio.wrap_future(self.write(func, purge=purge))
 
     def close(self) -> None:
         """Termine les écritures en file, puis ferme l'écrivain."""

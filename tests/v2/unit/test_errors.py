@@ -80,3 +80,11 @@ def test_chat_codes_are_declared_and_none_reuses_a_status_name():
     assert envelope["detail"] == {"technical": "300 s", "timeout_s": 300.0}
     assert ERRORS["generation_interrupted"].detail_keys == ()
     assert ERRORS["ollama_error"].status == 502
+
+
+def test_conversation_busy_is_a_409_that_names_the_active_run():
+    spec = ERRORS["conversation_busy"]
+    assert spec.status == 409 and spec.detail_keys == ("run_id",)
+    envelope = build_envelope("conversation_busy", "run actif", run_id="abc")
+    assert envelope["detail"] == {"technical": "run actif", "run_id": "abc"}
+    assert envelope["message"] and envelope["action"]

@@ -219,3 +219,40 @@ def test_statement_splitter_keeps_triggers_and_comments_whole():
     )
     parts = list(statements(script))
     assert len(parts) == 3 and parts[1].startswith("CREATE TRIGGER") and parts[1].endswith("END;")
+
+
+def test_purge_is_checkpoint_vacuum_checkpoint_and_follows_the_commit_in_the_writer_queue(store):
+    # AD-13 : après la transaction de `DELETE`, `wal_checkpoint(TRUNCATE)`, `VACUUM`, puis de
+    # nouveau `wal_checkpoint(TRUNCATE)`, dans la même tâche de l'écrivain.
+    from wavelocalai.store.db import purge_free_space
+
+    assert store.write(lambda conn: conn.in_transaction, purge=True).result() is True
+    assert store.write(lambda conn: conn.in_transaction).result() is True  # transaction ouverte
+    assert store.read("PRAGMA journal_mode")[0][0] == "wal"
+
+    statements_run: list[str] = []
+
+    class Recorder:
+        def execute(self, sql):
+            statements_run.append(sql)
+            return self
+
+        def fetchall(self):
+            return []
+
+    purge_free_space(Recorder())  # type: ignore[arg-type]
+    assert statements_run == [
+        "PRAGMA wal_checkpoint(TRUNCATE)",
+        "VACUUM",
+        "PRAGMA wal_checkpoint(TRUNCATE)",
+    ]
+
+
+def test_a_failing_purge_job_still_rolls_back_the_transaction(store):
+    def failing(conn):
+        conn.execute("INSERT INTO app_sessions VALUES ('s', 'x', 'startup')")
+        raise ValueError("échec")
+
+    with pytest.raises(ValueError):
+        store.write(failing, purge=True).result()
+    assert store.read("SELECT count(*) AS n FROM app_sessions")[0]["n"] == 0
