@@ -75,6 +75,50 @@
     },
     "error": {
       "details": "Détails techniques"
+    },
+    "picker": {
+      "label": "Modèle",
+      "label_multi": "Modèles",
+      "chosen": "Modèles choisis",
+      "group_local": "Sur cette machine",
+      "group_cloud": "Cloud",
+      "default": "Par défaut",
+      "default_help": "Proposé par défaut : {name}. {reason}",
+      "loading": "Chargement des modèles…",
+      "ollama_down": "Ollama ne répond pas : les modèles de ce poste sont indisponibles.",
+      "fits": "Tient en mémoire",
+      "no_fit": "Ne tient pas en mémoire",
+      "no_fit_need": "Ne tient pas en mémoire ({needed} requis)",
+      "memory_unknown": "Besoin en mémoire inconnu",
+      "throughput": "{rate} mesurés",
+      "tools": "Outils vérifiés",
+      "reasoning": "Raisonnement",
+      "moe": "MoE {active}B actifs",
+      "unavailable_local": "Indisponible : Ollama ne répond pas",
+      "unavailable_cloud": "Indisponible : clé absente",
+      "empty": "Aucun modèle ne correspond à « {query} ».",
+      "none": "Aucun modèle de conversation n'est disponible.",
+      "results_one": "1 modèle proposé",
+      "results_many": "{count} modèles proposés",
+      "remove": "Retirer {name}",
+      "cloud_removed_one": "{names} est retiré de la sélection : le cloud n'est plus autorisé.",
+      "cloud_removed_many": "{names} sont retirés de la sélection : le cloud n'est plus autorisé.",
+      "use_default": "Utiliser {name}",
+      "load_failed": "La liste des modèles n'a pas pu être chargée."
+    },
+    "run_status": {
+      "starting": "Démarrage…",
+      "loading": "Chargement du modèle en mémoire…",
+      "generating": "Génération…",
+      "stopping": "Arrêt en cours…",
+      "ok": "Terminé",
+      "cancelled": "Arrêté",
+      "error": "Échec",
+      "interrupted": "Interrompu",
+      "elapsed": "Temps écoulé",
+      "stop": "Arrêter",
+      "stop_hint": "ou touche Échap",
+      "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
     }
   },
   "topbar": {
@@ -115,7 +159,7 @@
     },
     "connection": {
       "region": "État de la connexion",
-    "lost": "Connexion au serveur perdue, nouvelle tentative…",
+      "lost": "Connexion au serveur perdue, nouvelle tentative…",
       "restored": "Connexion au serveur rétablie."
     },
     "restarted": {
