@@ -9,7 +9,7 @@ qui publie une release par campagne. wavelocalai ne produit plus de résultats d
 - `SOURCE.json` : provenance (tag, URL de l'asset, sha256 de l'asset et du schéma, date de récupération).
 
 **Ne jamais éditer ces fichiers à la main.** Ils sont écrits par `scripts/sync_slm_results.py`, lancé
-chaque jour par le workflow `.github/workflows/sync-slm-results.yml`, qui ouvre une PR
+chaque lundi par le workflow `.github/workflows/sync-slm-results.yml`, qui ouvre une PR
 `bench/synchro-slm-<version>` quand une nouvelle version est publiée.
 Une PR ouverte est mise à jour si l'asset est republié sous le même tag ; une PR fermée sans
 fusion n'est pas reproposée tant que sa branche existe (la supprimer pour la reproposer). Le

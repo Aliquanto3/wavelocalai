@@ -1,6 +1,6 @@
 # Synchronise les résultats de benchmark publiés par slm-quality-bench.
 #
-# Une fois par jour (et à la demande : `gh workflow run sync-slm-results.yml`),
+# Une fois par semaine, le lundi (et à la demande : `gh workflow run sync-slm-results.yml`),
 # le workflow lance scripts/sync_slm_results.py. Si la dernière release de
 # Aliquanto3/slm-quality-bench apporte un fichier de résultats nouveau et valide,
 # il ouvre une PR vers master (branche bench/synchro-slm-<version>). Aucune
@@ -29,7 +29,7 @@ name: Synchro résultats slm-quality-bench
 on:
   schedule:
     # 03h37 UTC : heure creuse, décalée de l'heure pile (forte charge de GitHub).
-    - cron: "37 3 * * *"
+    - cron: "37 3 * * 1"
   workflow_dispatch:
 
 permissions: {}
