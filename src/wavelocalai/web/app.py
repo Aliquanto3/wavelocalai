@@ -27,6 +27,7 @@ from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import routes_health, routes_models, routes_runs, routes_test
+from wavelocalai.web.routes_static import mount_shell
 from wavelocalai.web.security import LocalOnlyMiddleware
 
 logger = logging.getLogger("wavelocalai.web")
@@ -157,4 +158,5 @@ def create_app(
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
     app.include_router(routes_models.router)
+    mount_shell(app)
     return app
