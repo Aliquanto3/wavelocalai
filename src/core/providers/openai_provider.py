@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -16,14 +17,20 @@ logger = logging.getLogger(__name__)
 # Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-# Import conditionnel pour le runtime
-try:
-    from openai import AsyncOpenAI as _AsyncOpenAI
+# SDK présent sans être importé : `import openai` coûte environ 0,5 s, payé seulement au
+# premier client (donc jamais sans clé d'API). `_AsyncOpenAI` reste remplaçable en test.
+OPENAI_AVAILABLE = importlib.util.find_spec("openai") is not None
+_AsyncOpenAI = None
 
-    OPENAI_AVAILABLE = True
-except ImportError:
-    _AsyncOpenAI = None
-    OPENAI_AVAILABLE = False
+
+def _async_client_class():
+    """Classe `AsyncOpenAI` du SDK, importée à la première demande."""
+    global _AsyncOpenAI
+    if _AsyncOpenAI is None:
+        from openai import AsyncOpenAI
+
+        _AsyncOpenAI = AsyncOpenAI
+    return _AsyncOpenAI
 
 
 class OpenAIProvider(ILLMProvider):
@@ -60,7 +67,7 @@ class OpenAIProvider(ILLMProvider):
                 raise ImportError("openai package not installed. Run: pip install openai")
             if not self._api_key:
                 raise ValueError("OpenAI API key not configured")
-            self._client = _AsyncOpenAI(api_key=self._api_key)
+            self._client = _async_client_class()(api_key=self._api_key)
         return self._client
 
     @property

@@ -37,14 +37,16 @@ from src.core.accelerator import KIND_APPLE, KIND_NVIDIA, detect_accelerator
 # --- IMPORT DYNAMIQUE ---
 try:
     from src.core.green_monitor import (
-        AUDIT_PROJECT,
-        GreenTracker,
+        SESSION_UNKNOWN_TEXT,
         HardwareMonitor,
+        SessionTracker,
         read_app_emissions,
+        shared_tracker_failure,
     )
 except ImportError:
-    AUDIT_PROJECT = None
-    GreenTracker = None
+    SESSION_UNKNOWN_TEXT = None
+    SessionTracker = None
+    shared_tracker_failure = None
     HardwareMonitor = None
     read_app_emissions = None
 
@@ -94,7 +96,8 @@ def get_co2_equivalencies(emissions_kg):
 
 
 def render_emissions_history(df_emissions):
-    """Historique des émissions : une barre par session sur la période choisie, dans l'unité
+    """Historique des émissions : une barre par lancement de l'application sur la période
+    choisie, dans l'unité
     CO₂ de la règle (mg le plus souvent) ; aucune liaison entre deux mesures, une période sans
     session reste vide. Valeurs exactes dans une vue tableau repliée."""
     window = st.segmented_control(
@@ -120,7 +123,7 @@ def render_emissions_history(df_emissions):
             offset=sessions["offset_ms"],
             # Une seule série : première couleur de la palette du thème.
             marker={"color": slot_color(0, palette_size())},
-            name="CO₂ par session",
+            name="CO₂ par lancement",
             hovertext=sessions["hover"],
             hoverinfo="text",
         )
@@ -128,7 +131,7 @@ def render_emissions_history(df_emissions):
     # Formats fr-FR sans locale Plotly (chargée depuis un CDN) : dates numériques, virgule
     # décimale, espace fine pour les milliers.
     fig.update_layout(
-        title="Émissions de CO₂ par session",
+        title="Émissions de CO₂ par lancement de l'application",
         height=300,
         margin={"l": 20, "r": 20, "t": 40, "b": 20},
         separators=PLOTLY_SEPARATORS,
@@ -162,8 +165,8 @@ def render_emissions_history(df_emissions):
 
 
 # --- INIT TRACKER ---
-if "tracker" not in st.session_state and GreenTracker:
-    st.session_state.tracker = GreenTracker(project_name=AUDIT_PROJECT)
+if "tracker" not in st.session_state and SessionTracker:
+    st.session_state.tracker = SessionTracker()
     st.session_state.tracker.start()
 
 # ==========================================
@@ -223,7 +226,11 @@ col_live, col_hist = st.columns([1, 2])
 with col_live, st.container(border=True):
     st.subheader("Session en cours")
 
-    if st.session_state.get("tracker") and st.session_state.tracker._is_running:
+    tracker_failure = shared_tracker_failure() if shared_tracker_failure else None
+    if tracker_failure:
+        # CodeCarbon n'a pas démarré (verrou d'une autre instance, erreur) : dit, jamais 0 g.
+        st.warning(tracker_failure)
+    elif st.session_state.get("tracker") and st.session_state.tracker._is_running:
         st.success("Suivi carbone actif")
         st.caption(
             "Mesure fondée sur la puissance du matériel et le mix électrique local.",
@@ -234,16 +241,18 @@ with col_live, st.container(border=True):
             em = st.session_state.tracker.stop()
             st.session_state.last_emissions = em
             st.rerun()
-    elif GreenTracker is None:
+    elif SessionTracker is None:
         st.warning(TRACKING_UNAVAILABLE)
     else:
         st.warning("Suivi carbone en pause")
         if "last_emissions" in st.session_state:
-            # GreenTracker.stop() renvoie des grammes ; les équivalences prennent des kg.
+            # SessionTracker.stop() renvoie des grammes ; les équivalences prennent des kg.
             em_g = st.session_state.last_emissions
             em_kg = grams_to_kg(em_g)
 
             st.metric("Total de la session", format_co2(em_g))
+            if em_g is None and SESSION_UNKNOWN_TEXT:
+                st.caption(SESSION_UNKNOWN_TEXT)
             # Valeur absente : pas d'équivalence (jamais « 0 km »).
             if em_kg is not None:
                 km, phones = get_co2_equivalencies(em_kg)
@@ -262,8 +271,14 @@ with col_live, st.container(border=True):
 
 with col_hist:
     st.subheader("Historique des émissions")
+    st.caption(
+        "Une barre par lancement de l'application, toutes sessions du navigateur comprises, "
+        "datée de son dernier enregistrement (arrêt du suivi, fin d'une mission d'équipe ou "
+        "fermeture de l'application). Après un arrêt brutal, la consommation depuis ce "
+        "dernier enregistrement n'est pas comptée."
+    )
     try:
-        # Sessions de l'app, lues dans le fichier écrit par le suivi (GreenTracker) ; jamais
+        # Lancements de l'app, lus dans le fichier écrit par le suivi (CodeCarbon) ; jamais
         # le fichier du benchmark.
         df_emissions = read_app_emissions() if read_app_emissions else None
 
@@ -272,7 +287,7 @@ with col_hist:
         elif not df_emissions.empty:
             render_emissions_history(df_emissions)
         else:
-            st.info("Aucune session mesurée pour l'instant.")
+            st.info("Aucun lancement de l'application mesuré pour l'instant.")
     except Exception as e:
         st.warning(f"Impossible de charger l'historique : {e}")
 

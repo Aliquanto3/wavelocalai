@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -16,14 +17,20 @@ logger = logging.getLogger(__name__)
 # Configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
-# Import conditionnel pour le runtime
-try:
-    from anthropic import AsyncAnthropic as _AsyncAnthropic
+# SDK présent sans être importé : `import anthropic` coûte environ 1 s, payé seulement au
+# premier client (donc jamais sans clé d'API). `_AsyncAnthropic` reste remplaçable en test.
+ANTHROPIC_AVAILABLE = importlib.util.find_spec("anthropic") is not None
+_AsyncAnthropic = None
 
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    _AsyncAnthropic = None
-    ANTHROPIC_AVAILABLE = False
+
+def _async_client_class():
+    """Classe `AsyncAnthropic` du SDK, importée à la première demande."""
+    global _AsyncAnthropic
+    if _AsyncAnthropic is None:
+        from anthropic import AsyncAnthropic
+
+        _AsyncAnthropic = AsyncAnthropic
+    return _AsyncAnthropic
 
 
 class AnthropicProvider(ILLMProvider):
@@ -56,7 +63,7 @@ class AnthropicProvider(ILLMProvider):
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
             if not self._api_key:
                 raise ValueError("Anthropic API key not configured")
-            self._client = _AsyncAnthropic(api_key=self._api_key)
+            self._client = _async_client_class()(api_key=self._api_key)
         return self._client
 
     @property

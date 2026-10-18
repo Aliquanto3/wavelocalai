@@ -38,7 +38,6 @@ dependencies = [
     # Gestion des boucles asynchrones (indispensable pour Streamlit + Agents)
     "nest_asyncio",
     # Gestion des timeouts pour les benchmarks
-    "timeout_decorator",
     "func-timeout",
     # --- Hardware & Green IT ---
     "codecarbon>=2.8.0",
@@ -61,12 +60,10 @@ dependencies = [
     "langchain-chroma>=0.1.0",
     "langchain-text-splitters>=0.0.1",
     "huggingface-hub>=0.23.0",
-    "einops",
+    "einops",  # requis par le code distant des modèles Jina (trust_remote_code)
     # torch est déclaré ici (tiré par sentence-transformers) pour que [tool.uv.sources] puisse
     # lui appliquer l'index CPU sous Linux : une source ne vaut que pour une dépendance directe.
     "torch",
-    # Parsing (Docling & Fallbacks)
-    "docling>=1.0.0",
     # Évaluation RAG
     "ragas>=0.1.0",
     "datasets>=2.19.0",

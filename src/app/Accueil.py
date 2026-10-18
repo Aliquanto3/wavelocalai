@@ -32,9 +32,9 @@ from src.app.ui import (  # noqa: E402  (après l'ajout de la racine)
 )
 
 try:
-    from src.core.green_monitor import SESSION_PROJECT, GreenTracker
+    from src.core.green_monitor import SessionTracker
 except ImportError:
-    GreenTracker = None
+    SessionTracker = None
 
 CLOUD_TOGGLE_LABEL = "Autoriser le cloud"
 CLOUD_TOGGLE_HELP = (
@@ -59,10 +59,12 @@ pages = [
 ]
 page = st.navigation(pages)
 
-# --- SUIVI CARBONE DE LA SESSION (singleton) ---
+# --- SUIVI CARBONE DE LA SESSION ---
 # Dans le routeur, exécuté à chaque page : un lien direct vers un module lance aussi le suivi.
-if "tracker" not in st.session_state and GreenTracker:
-    st.session_state.tracker = GreenTracker(project_name=SESSION_PROJECT)
+# Un seul tracker CodeCarbon par processus, démarré en fond sans bloquer le rendu ; la session
+# lit ses émissions par différence de compteurs (src/core/green_monitor.py).
+if "tracker" not in st.session_state and SessionTracker:
+    st.session_state.tracker = SessionTracker()
     st.session_state.tracker.start()
     st.session_state.tracking_active = True
 

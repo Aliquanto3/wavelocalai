@@ -25,7 +25,7 @@ from src.app.states import render_error, render_no_models
 from src.app.ui import ModelMenu, badge_markdown, is_cloud_model, render_badge
 from src.core.agent_tools import TOOLS_METADATA
 from src.core.crew_engine import CrewFactory
-from src.core.green_monitor import CREW_PROJECT, GreenTracker
+from src.core.green_monitor import SessionTracker
 from src.core.model_profiles import estimate_mission_ram_gb, get_ram_risk_level
 
 # ========================================
@@ -491,7 +491,7 @@ def render_agent_crew_tab(
 
         with redirect_stdout(output_capture):
             t_start = time.perf_counter()
-            tracker = GreenTracker(CREW_PROJECT)
+            tracker = SessionTracker()  # compteur du tracker unique du processus
             tracker.start()
 
             ram_start = psutil.virtual_memory().used
@@ -514,12 +514,13 @@ def render_agent_crew_tab(
                 result = crew.kickoff()
 
                 stop_evt.set()
-                emissions_g = tracker.stop()  # GreenTracker.stop() renvoie des grammes
+                emissions_g = tracker.stop()  # SessionTracker.stop() renvoie des grammes
                 t_end = time.perf_counter()
                 ram_gb_peak_delta = (peak_container["val"] - ram_start) / (1024**3)
 
                 # UPDATE BUDGET GAMIFICATION
-                if "carbon_budget" in st.session_state:
+                # Mesure inconnue (None, CodeCarbon indisponible) : budget inchangé.
+                if "carbon_budget" in st.session_state and emissions_g is not None:
                     impact_percent = emissions_g  # 1g = 1% arbitraire
                     st.session_state.carbon_budget -= impact_percent
 
