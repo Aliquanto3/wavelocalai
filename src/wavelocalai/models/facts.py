@@ -6,12 +6,12 @@ tests et d'ici au branchement sur le store SQLite (migration `0002_model_facts.s
 
 from __future__ import annotations
 
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from wavelocalai.models.classify import parse_params_b
+from wavelocalai.store.db import utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class ModelFacts:
     params_total_b: float | None
     expert_count: int | None
     expert_used_count: int | None
-    fetched_at: float
+    fetched_at: str  # ISO 8601 UTC avec `Z`
 
 
 class FactsStore(Protocol):
@@ -69,7 +69,7 @@ def facts_from_ollama(
     listed: Mapping[str, Any],
     show: Mapping[str, Any] | None,
     *,
-    now: float | None = None,
+    now: str | None = None,
 ) -> ModelFacts:
     """Faits d'un modèle de `/api/tags` (`listed`) et, si on l'a, de `/api/show` (`show`)."""
     tag = str(listed.get("model") or listed.get("name") or "")
@@ -101,5 +101,5 @@ def facts_from_ollama(
         params_total_b=total_b or parse_params_b(parameter_size),
         expert_count=_int(info.get(f"{arch}.expert_count")) if arch else None,
         expert_used_count=_int(info.get(f"{arch}.expert_used_count")) if arch else None,
-        fetched_at=time.time() if now is None else now,
+        fetched_at=utc_now_iso() if now is None else now,
     )

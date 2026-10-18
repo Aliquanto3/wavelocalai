@@ -73,3 +73,17 @@ deferred:
 ## Reports
 
 Voir l'en-tête `deferred` : ports et adaptateurs (2.1), listes cloud et table Groq (2.5), mémoire (VRAM, modèles chargés, contexte), échec Windows de `test_real_launch`.
+
+## Revue
+
+Revue Opus, une passe (2026-10-18).
+
+- medium, revue : `model_facts.fetched_at` en `REAL` (époque Unix) et `refreshed_at` de `GET /api/models` en flottant, contre la convention « ISO 8601 UTC avec `Z` en base et en API » de l'architecture ; la migration ne pourrait plus changer une fois fusionnée. Corrigé : `fetched_at TEXT` (`utc_now_iso()`), `refreshed_at` en chaîne ISO, instantané `schema_v2.sql` régénéré.
+- low, revue : `SqliteRunStats.medians()` (lecture de `runs` à chaque appel) tournait sur la boucle. Corrigé : `asyncio.to_thread` dans `list_models`.
+- low, revue : test de médiane sans nombre pair de valeurs. Corrigé : deux feuilles pour `moe:30b` (médiane 7,5).
+- medium, second avis 1 (MoE sans `/api/show`) : confirmé corrigé ; actifs `null` sans valeur au catalogue, catalogue prioritaire (`params_act`). Reste un cas sans indice MoE (famille `gptoss` hors catalogue, `/api/show` en échec) : actifs = total, faute de signal ; low, non corrigé.
+- medium, second avis 2 (cache et débit en mémoire) : confirmé corrigé. Écritures par `store.write` (écrivain unique), lectures courtes ; liste servie Ollama arrêté après redémarrage (test) ; médiane limitée aux feuilles `ok` en `ollama_eval`, `wallclock`, statuts autres et racines exclus (test, désormais pair et impair).
+- low, second avis 3 (numérotation, `len(discover())`) : rejeté comme défaut ; le garde-fou reste entier, `test_schema.py` applique les migrations jusqu'à chaque N et compare à `schema_vN.sql` (une `0001` modifiée casse `schema_v1`).
+- low, second avis 4 (identifiants cloud non vérifiés) : reporté à la story 2.4/2.5. L'affichage dit `available: true` pour « clé présente », sans prétendre à un appel ; à vérifier contre les listes des fournisseurs lors du premier appel réel.
+- low, revue : au démarrage à froid Ollama arrêté, `model_facts` rend aussi les modèles supprimés depuis (la table garde chaque tag). Reporté à la story qui livre `DELETE /api/models/{tag}` : y purger `model_facts` du tag.
+- low, revue : `resolve` (cloud ou `unknown` sans `allow_cloud` → 403, type → 422, inconnu → 404), lifespan unique (sonde, hub, registre ; arrêt inverse), tâche de fond annulée à l'arrêt, imports conformes à AD-4 (`models` → `store` seulement) : vérifiés, sans défaut.

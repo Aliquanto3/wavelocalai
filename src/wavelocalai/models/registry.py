@@ -39,6 +39,7 @@ from wavelocalai.models.facts import FactsStore, InMemoryFactsStore, ModelFacts,
 from wavelocalai.models.ollama_api import OllamaHttpSource, OllamaSource, OllamaUnavailableError
 from wavelocalai.models.port import Kind, ModelRef, Origin
 from wavelocalai.models.run_stats import InMemoryRunStats, RunStats
+from wavelocalai.store.db import utc_now_iso
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -93,7 +94,7 @@ class ModelInfo(BaseModel):
 class ModelList(BaseModel):
     models: list[ModelInfo]
     ollama_up: bool
-    refreshed_at: float | None  # dernier rafraîchissement réussi (époque Unix) ; `null` jamais
+    refreshed_at: str | None  # dernier rafraîchissement réussi (ISO 8601 UTC) ; `null` jamais
 
 
 @dataclass(frozen=True)
@@ -156,7 +157,7 @@ class ModelRegistry:
         self._local: dict[str, _Local] | None = None
         self._ollama_up = False
         self._attempted_at: float | None = None
-        self._refreshed_at: float | None = None
+        self._refreshed_at: str | None = None
         self._task: asyncio.Task[None] | None = None
 
     # -- rafraîchissement en tâche de fond ---------------------------------------------------
@@ -198,7 +199,7 @@ class ModelRegistry:
         self._local = {rec.facts.tag: rec for rec in records if rec is not None}
         self._ollama_up = True
         self._attempted_at = self._clock()
-        self._refreshed_at = time.time()
+        self._refreshed_at = utc_now_iso()
 
     def invalidate(self) -> None:
         """Force le prochain `list_models` à relire Ollama (après un `pull` ou une suppression)."""
@@ -248,7 +249,7 @@ class ModelRegistry:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(asyncio.shield(task), self._wait_s)
                 local = self._seed()
-        medians = self._run_stats.medians()
+        medians = await asyncio.to_thread(self._run_stats.medians)  # lecture de `runs` hors boucle
         infos = [self._local_info(rec, medians) for rec in local.values()]
         infos += self._cloud_infos()
         if not allow_cloud:

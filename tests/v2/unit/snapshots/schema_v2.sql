@@ -48,7 +48,7 @@ CREATE TABLE model_facts (
     params_total_b REAL,
     expert_count INTEGER,
     expert_used_count INTEGER,
-    fetched_at REAL NOT NULL, -- secondes depuis l'époque Unix
+    fetched_at TEXT NOT NULL, -- ISO 8601 UTC avec `Z` (convention des dates)
     PRIMARY KEY (tag, digest)
 ) WITHOUT ROWID;
 

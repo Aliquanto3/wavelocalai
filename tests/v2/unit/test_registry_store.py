@@ -53,9 +53,11 @@ def test_facts_roundtrip_and_digest_keying(tmp_path):
     store = Store.open(db_path(tmp_path))
     facts_store = SqliteFactsStore(lambda: store)
     old = facts_from_ollama(
-        {"model": "m", "digest": "d1", "size": 5}, {"capabilities": ["tools"]}, now=1.0
+        {"model": "m", "digest": "d1", "size": 5},
+        {"capabilities": ["tools"]},
+        now="2026-10-18T12:00:01.000Z",
     )
-    new = facts_from_ollama({"model": "m", "digest": "d2"}, None, now=2.0)
+    new = facts_from_ollama({"model": "m", "digest": "d2"}, None, now="2026-10-18T12:00:02.000Z")
     facts_store.put(old)
     facts_store.put(new)
     store.close()
@@ -91,9 +93,10 @@ async def test_throughput_is_the_median_of_ok_ollama_eval_leaves_in_runs(tmp_pat
         _insert_run(conn, "chat", kind="chat", tps=900.0)  # racine, pas une feuille
         _insert_run(conn, "zero", tps=None)
         _insert_run(conn, "other", model="moe:30b", tps=7.0)
+        _insert_run(conn, "other2", model="moe:30b", tps=8.0)  # nombre pair : moyenne des deux
 
     await store.awrite(fill)
-    assert SqliteRunStats(lambda: store).medians() == {"qwen3.5:2b": 20.0, "moe:30b": 7.0}
+    assert SqliteRunStats(lambda: store).medians() == {"qwen3.5:2b": 20.0, "moe:30b": 7.5}
     registry = ModelRegistry(
         make_settings(tmp_path), source=_fixture_source(), run_stats=SqliteRunStats(lambda: store)
     )
