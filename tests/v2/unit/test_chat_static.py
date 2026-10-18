@@ -32,9 +32,9 @@ def test_every_thread_and_chat_text_is_used_and_every_used_text_exists():
     assert used == set(CATALOG["components"]["thread"])
     screen = source("screens/chat.js")
     assert set(re.findall(r"""\bt\(\s*["']chat\.(\w+)["']""", screen)) == set(CATALOG["chat"])
-    assert set(re.findall(r"""\bt\(\s*["']tabs\.(\w+)["']""", source("core/screen-tabs.js"))) == set(
-        CATALOG["tabs"]
-    )
+    assert set(
+        re.findall(r"""\bt\(\s*["']tabs\.(\w+)["']""", source("core/screen-tabs.js"))
+    ) == set(CATALOG["tabs"])
 
 
 def test_the_model_text_never_reaches_the_dom_as_html():
@@ -71,7 +71,7 @@ def test_the_screen_reads_the_run_stream_once_and_resumes_by_after():
     assert screen.count("connectRun(") == 1 and "EventSource" not in screen
     assert "keepSeq: true" in screen  # masqué : le dernier `seq` reste, la reprise est `?after=`
     assert "allow_cloud: store.get().allowCloud" in screen  # AD-9, sur chaque commande
-    assert "temperature" in screen and "status.setAttribute(\"driven\", \"\")" in screen
+    assert "temperature" in screen and 'status.setAttribute("driven", "")' in screen
     run_status = source("components/wl-run-status.js")
     assert "feed(envelope)" in run_status and "abandon()" in run_status
 

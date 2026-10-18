@@ -14,12 +14,14 @@ sans exclusion) sont prouvés ici. Aucune requête ne sort de 127.0.0.1 (fixture
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
 import urllib.request
 
 import pytest
+from axe_playwright_python.sync_playwright import Axe
 
 from .test_shell import assert_no_axe_violations, wait_for, wait_ready
 
@@ -67,10 +69,8 @@ def cancel_leftover_runs():
     yield
     for base_url, run_id in STARTED:
         request = urllib.request.Request(f"{base_url}/api/runs/{run_id}/cancel", method="POST")
-        try:
+        with contextlib.suppress(OSError):  # déjà terminé
             urllib.request.urlopen(request, timeout=5).close()  # noqa: S310
-        except OSError:
-            pass  # déjà terminé
     STARTED.clear()
 
 
@@ -165,9 +165,9 @@ def answer_text(page):
 
 
 def run_status(page, run_id):
-    return json.loads(
-        page.request.get(f"{page.url.split('#')[0]}api/runs/{run_id}").text()
-    )["status"]
+    return json.loads(page.request.get(f"{page.url.split('#')[0]}api/runs/{run_id}").text())[
+        "status"
+    ]
 
 
 def last_run(server=None):
@@ -249,7 +249,8 @@ def test_tokens_are_shown_as_safe_markdown_and_the_footer_turns_final(chat, serv
     # Fin : pied définitif (débit serveur, chargement et durée totale à part) et annonce.
     chat.locator(".wl-msg-foot").filter(has_text="Durée totale").wait_for()
     foot = re.sub(r"\s+", " ", chat.locator(".wl-msg-foot").inner_text())
-    assert "Local" in foot and "Débit 38,4 tokens/s" in foot and "(provisoire)" not in foot
+    assert chat.locator(".wl-msg-assistant .wl-badge").inner_text() == "Local"
+    assert "Débit 38,4 tokens/s" in foot and "(provisoire)" not in foot
     assert "Tokens 12" in foot and "Chargement 0,42 s" in foot and "Durée totale 1,2 s" in foot
     chat.locator(".wl-msg-foot wl-metric", has_text="Débit").get_by_role("button").click()
     assert "chargement du modèle exclu" in chat.locator(".wl-metric-help").inner_text()
@@ -278,10 +279,13 @@ def test_the_footer_is_provisional_and_italic_until_the_metrics_arrive(chat, ser
     metric = chat.locator(".wl-msg-foot wl-metric", has_text="Débit")
     wait_for(
         chat,
-        "() => /Débit\\s+[\\d,\\u202f]+\\s+tokens\\/s\\s+\\(provisoire\\)/.test("
+        "() => /Débit\\s*[\\d,\\s]+tokens\\/s\\s*\\(provisoire\\)/.test("
         "document.querySelector('.wl-msg-foot')?.textContent ?? '')",
     )
-    assert metric.locator(".wl-metric-value").evaluate("n => getComputedStyle(n).fontStyle") == "italic"
+    assert (
+        metric.locator(".wl-metric-value").evaluate("n => getComputedStyle(n).fontStyle")
+        == "italic"
+    )
     assert "Durée" in chat.locator(".wl-msg-foot").inner_text()
     chat.locator(".wl-msg-foot").filter(has_text="Durée totale").wait_for()
     assert "(provisoire)" not in chat.locator(".wl-msg-foot").inner_text()
@@ -454,9 +458,11 @@ def test_the_real_route_continues_the_same_conversation(chat):
     commands: list[dict] = []
     chat.on(
         "request",
-        lambda request: commands.append(json.loads(request.post_data))
-        if request.url.endswith("/api/chat/runs")
-        else None,
+        lambda request: (
+            commands.append(json.loads(request.post_data))
+            if request.url.endswith("/api/chat/runs")
+            else None
+        ),
     )
     with chat.expect_response(re.compile(r"/api/chat/runs$")) as first:
         ask(chat, "Bonjour")
@@ -519,7 +525,10 @@ def test_scrolling_follows_only_from_the_bottom_and_offers_to_go_to_the_end(chat
     ask(chat, "Beaucoup de lignes")
     log = chat.get_by_role("log")
     button = chat.get_by_role("button", name="Aller à la fin")
-    wait_for(chat, "() => { const l = document.querySelector('[role=log]'); return l.scrollHeight > l.clientHeight + 200; }")
+    wait_for(
+        chat,
+        "() => { const l = document.querySelector('[role=log]'); return l.scrollHeight > l.clientHeight + 200; }",
+    )
     at_bottom = "() => { const l = document.querySelector('[role=log]'); return l.scrollHeight - l.scrollTop - l.clientHeight <= 24; }"
     wait_for(chat, at_bottom)  # en bas : le défilement suit
     assert button.is_hidden()
@@ -542,7 +551,9 @@ def test_axe_finds_no_violation_on_the_chat_screen(chat, server, theme):
         chat,
         server,
         [
-            {"text": "Réponse **en cours** avec `code` et un [lien](https://example.org).\n\n- a\n- b"},
+            {
+                "text": "Réponse **en cours** avec `code` et un [lien](https://example.org).\n\n- a\n- b"
+            },
             {"text": "Réflexion", "channel": "thought"},
             {"sleep_s": 2.5},
             {"done": DONE},
@@ -575,3 +586,41 @@ def test_every_request_stays_on_127_0_0_1(chat, server, traffic):
     ask(chat, "Bonjour")
     chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
     assert traffic.urls and all(url.startswith("http://127.0.0.1") for url in traffic.urls)
+
+
+# --- A19 : le bouton plein est sur `primary-fill` (décision Q1) ---------------------------------
+
+
+def contrast_violations(page):
+    results = Axe().run(page, options={"runOnly": {"type": "rule", "values": ["color-contrast"]}})
+    return results.violations_count, results.generate_report()
+
+
+@pytest.mark.parametrize(
+    ("theme", "fill"), [("light", "rgb(69, 29, 199)"), ("dark", "rgb(106, 77, 230)")]
+)
+def test_the_first_filled_button_uses_primary_fill_with_white_text_and_passes_color_contrast(
+    chat, theme, fill
+):
+    chat.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
+    send = chat.get_by_role("button", name="Envoyer")
+    style = send.evaluate(
+        "n => { const s = getComputedStyle(n); return [s.backgroundColor, s.color]; }"
+    )
+    assert style == [fill, "rgb(255, 255, 255)"]
+    count, report = contrast_violations(chat)  # sans exclusion
+    assert count == 0, report
+
+
+def test_a_disabled_filled_button_is_told_by_colors_not_by_opacity(chat, server):
+    scripted(chat, server, [{"text": "x"}, {"sleep_s": 30}])
+    chat.evaluate("document.documentElement.setAttribute('data-theme', 'dark')")
+    ask(chat, "Question")
+    send = chat.get_by_role("button", name="Envoyer")
+    wait_for(chat, "() => document.querySelector('.chat-send').disabled")
+    style = send.evaluate(
+        "n => { const s = getComputedStyle(n); return [s.backgroundColor, s.color, s.opacity]; }"
+    )
+    assert style == ["rgb(22, 22, 42)", "rgb(180, 180, 198)", "1"]
+    count, report = contrast_violations(chat)
+    assert count == 0, report
