@@ -13,7 +13,7 @@
 // à `metrics`, les mesures du serveur. Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
-import { formatDuration, formatInteger, formatRate } from "../core/format.js";
+import { formatCo2, formatDuration, formatInteger, formatRate } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { renderMarkdown, tailHost } from "../core/markdown.js";
 import "./wl-badge.js";
@@ -44,6 +44,19 @@ function metric(label, value, { help, provisional } = {}) {
   if (help) node.setAttribute("help", help);
   if (provisional) node.setAttribute("provisional", "");
   return node;
+}
+
+// CO2 de la réponse, tel que le serveur l'a mesuré (`metrics.co2`, AD-10) : la valeur est seulement
+// mise en forme (`formatCo2`, une seule unité, fr-FR), sans calcul ni couleur par seuil (AD-20).
+// `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide.
+function co2Metric(co2) {
+  const label = t("components.thread.co2");
+  if (typeof co2?.mg === "number" && Number.isFinite(co2.mg)) {
+    return metric(label, formatCo2(co2.mg), { help: t("components.thread.co2_help") });
+  }
+  return metric(label, t("components.thread.co2_unmeasurable"), {
+    help: co2?.reason || t("components.thread.co2_unmeasurable_help"),
+  });
 }
 
 // Un attribut n'est réécrit que s'il change : `wl-metric` se redessine à chaque écriture.
@@ -204,6 +217,7 @@ class ChatAnswer {
     }
     this.badge.setAttribute("kind", badgeKind(result.origin ?? this.origin));
     const parts = [
+      co2Metric(result.co2),
       metric(t("components.thread.rate"), formatRate(result.tps), {
         help: t("components.thread.rate_help"),
       }),
