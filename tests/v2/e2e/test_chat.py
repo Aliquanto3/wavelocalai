@@ -794,3 +794,20 @@ def test_a_disabled_filled_button_is_told_by_colors_not_by_opacity(chat, server)
     assert style == ["rgb(22, 22, 42)", "rgb(180, 180, 198)", "1"]
     count, report = contrast_violations(chat)
     assert count == 0, report
+
+
+def test_a_cloud_reply_shows_its_estimate_with_the_ecologits_caveat_in_help(chat, server):
+    estimated = {
+        "mg": 3.2,
+        "method": "ecologits",
+        "estimated": True,
+        "allocation": "direct",
+        "reason": "Estimation peu fiable pour ce modèle.",
+    }
+    scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=estimated)
+    ask(chat, "Dis bonjour")
+    metric = finished_foot(chat).locator("wl-metric", has_text="CO₂")
+    assert re.sub(r"\s+", " ", metric.inner_text()).startswith("CO₂ 3,2 mg (estimé)")
+    metric.get_by_role("button").click()
+    help_text = metric.locator(".wl-metric-help").inner_text()
+    assert "EcoLogits" in help_text and help_text.endswith(estimated["reason"])

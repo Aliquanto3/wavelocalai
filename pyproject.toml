@@ -78,6 +78,7 @@ dependencies = [
     # --- V2 (src/wavelocalai/) : serveur local, API et SSE natif (fastapi.sse) ---
     "fastapi==0.143.5",
     "uvicorn==0.54.0",
+    "ecologits>=0.11.3,<0.12",
     "sqlite-vec==0.1.9",
     "python-multipart>=0.0.32",
 ]

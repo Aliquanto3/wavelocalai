@@ -13,19 +13,22 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import build_envelope
+from wavelocalai.greenops.cloud_estimate import estimate_cloud_co2
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
+from wavelocalai.models.cloud import model_of, provider_of
 from wavelocalai.models.factory import ModelFactory
-from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest
+from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ChatResult
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.runs.hub import RunHub
-from wavelocalai.runs.models import LeafResult, RunHandle
+from wavelocalai.runs.models import Co2, LeafResult, RunHandle
 from wavelocalai.runs.system_bus import SystemBus
 
 logger = logging.getLogger("wavelocalai.inference")
@@ -105,6 +108,7 @@ class ChatService:
             model,
             request,
             secrets=secrets,
+            estimate_co2=self._cloud_estimator(model),
             slot=self._slot,
             timeout_s=self._settings.delays.lane_timeout_s,
             retry_interrupted=True,
@@ -112,13 +116,31 @@ class ChatService:
             on_leaf_closed=self._announce_carbon,
         )
 
+    def _cloud_estimator(self, model: ChatModel) -> Callable[[ChatResult], Co2] | None:
+        """Estimation ecologits d'une réponse cloud (AD-11) ; rien pour un modèle local."""
+        if model.ref.origin != "cloud":
+            return None
+        provider, name = provider_of(model.ref.tag), model_of(model.ref.tag)
+        groq_table = self._settings.cloud.groq_ecologits
+        return lambda result: estimate_cloud_co2(
+            provider,
+            name,
+            output_tokens=result.output_tokens,
+            latency_s=result.total_s,
+            groq_table=groq_table,
+        )
+
     async def _announce_carbon(self) -> None:
         """`carbon_updated` après chaque feuille, annulation comprise (le hub a déjà écrit le
         `co2` de la feuille annulée, `unmeasurable`) : le panneau de la barre haute se met à jour.
         """
         session_id = self._hub.app_session_id
-        if self._bus is not None and session_id is not None:
+        if self._bus is None or session_id is None:
+            return
+        try:
             await announce_carbon_updated(self._bus, self._hub.store, session_id)
+        except Exception as exc:  # noqa: BLE001 - une annonce manquée ne change pas le run
+            logger.warning("carbon_updated non publié : %r", exc)
 
     async def _request(self, handle: RunHandle, temperature: float) -> ChatRequest:
         """Toute la conversation, le message qui vient d'être écrit compris. Un message assistant

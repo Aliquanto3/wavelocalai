@@ -138,6 +138,7 @@ async def stream_into_run(
     *,
     secrets: Iterable[str] = (),
     co2: Co2 = NOT_MEASURED,
+    estimate_co2: Callable[[ChatResult], Co2] | None = None,
     slot: AbstractAsyncContextManager[object] | None = None,
     timeout_s: float | None = None,
     retry_interrupted: bool = False,
@@ -152,7 +153,9 @@ async def stream_into_run(
     story des agents.
 
     `slot` : sémaphore local, pris par appel. `timeout_s` : délai de lane de chaque appel (`timeout`
-    en cas de dépassement). `retry_interrupted` : une génération coupée (`generation_interrupted`)
+    en cas de dépassement). `estimate_co2` : calcule le `co2` d'une réponse cloud réussie à partir
+    de son `ChatResult` (ecologits), hors de la boucle d'événements ; il ne lève jamais.
+    `retry_interrupted` : une génération coupée (`generation_interrupted`)
     est relancée une fois, avec un événement `retry` qui efface le texte partiel ; copie adaptée de
     `retry_interrupted` de la v1 : toute autre erreur, délai compris, est relayée sans relance.
 
@@ -163,7 +166,17 @@ async def stream_into_run(
     """
     try:
         await _play(
-            hub, run_id, model, request, secrets, co2, slot, timeout_s, retry_interrupted, meter
+            hub,
+            run_id,
+            model,
+            request,
+            secrets,
+            co2,
+            estimate_co2,
+            slot,
+            timeout_s,
+            retry_interrupted,
+            meter,
         )
     finally:
         if on_leaf_closed is not None:
@@ -180,6 +193,7 @@ async def _play(
     request: ChatRequest,
     secrets: Iterable[str],
     co2: Co2,
+    estimate_co2: Callable[[ChatResult], Co2] | None,
     slot: AbstractAsyncContextManager[object] | None,
     timeout_s: float | None,
     retry_interrupted: bool,
@@ -229,6 +243,12 @@ async def _play(
     footprint = combine(footprints)
     if footprint is not None:
         co2 = footprint.co2()
+    elif estimate_co2 is not None:  # cloud : estimé après l'appel, sur les jetons et la durée réels
+        try:
+            co2 = await asyncio.to_thread(estimate_co2, result)
+        except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
+            logger.warning("Estimation du CO2 impossible : %r", exc)
+            co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
     hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2, footprint))
     leaf = LeafResult(
         origin=origin,

@@ -113,6 +113,16 @@ function unmeasurableText(count) {
   return t("topbar.co2.unmeasurable_many", { count: formatInteger(count) });
 }
 
+// Le cloud est toujours une estimation (ecologits) : « 0,9 mg (estimé) », ou « non mesurable » quand
+// aucune de ses réponses n'a de mesure. Jamais 0 pour un inconnu ; 0 seulement sans réponse cloud.
+function cloudText(cloud, group) {
+  const runs = cloud?.runs ?? 0;
+  const measured = runs - (cloud?.unmeasurable_runs ?? 0);
+  if (runs > 0 && measured <= 0) return t("topbar.co2.cloud_unmeasurable");
+  const value = group.format(cloud?.mg ?? 0);
+  return measured > 0 ? t("topbar.co2.cloud_estimated", { value }) : value;
+}
+
 function renderCarbon(carbon, parts) {
   if (!carbon) {
     parts.value.hidden = true;
@@ -128,7 +138,7 @@ function renderCarbon(carbon, parts) {
   parts.value.textContent = formatCo2(carbon.total_mg);
   parts.total.textContent = group.format(carbon.total_mg);
   parts.local.textContent = group.format(local);
-  parts.cloud.textContent = group.format(cloud);
+  parts.cloud.textContent = cloudText(carbon.by_origin?.cloud, group);
   parts.unmeasurable.textContent = unmeasurableText(carbon.unmeasurable_runs ?? 0);
 }
 

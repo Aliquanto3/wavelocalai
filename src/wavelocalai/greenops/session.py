@@ -47,7 +47,7 @@ def empty_summary(session: dict[str, Any] | None = None) -> dict[str, Any]:
         "total_mg": 0.0,
         "measured_runs": 0,
         "unmeasurable_runs": 0,
-        "by_origin": {origin: {"mg": 0.0, "runs": 0} for origin in ORIGINS},
+        "by_origin": {origin: {"mg": 0.0, "runs": 0, "unmeasurable_runs": 0} for origin in ORIGINS},
         "by_module": {},
     }
 
@@ -69,6 +69,7 @@ async def session_summary(store: Store, session_id: str) -> dict[str, Any]:
         origin = summary["by_origin"][row["bucket"]]
         origin["mg"] += mg
         origin["runs"] += row["runs"]
+        origin["unmeasurable_runs"] += row["unmeasurable"]
         module = summary["by_module"].setdefault(
             row["module"], {"mg": 0.0, "runs": 0, "unmeasurable_runs": 0}
         )

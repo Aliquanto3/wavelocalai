@@ -278,9 +278,24 @@ async def test_resolve_local_chat_and_rejects_other_kinds(tmp_path):
     with pytest.raises(AppError) as missing:
         registry.resolve("nope:1b")
     assert missing.value.code == "model_not_found"
-    with pytest.raises(AppError) as keyless:
+    with pytest.raises(AppError) as undeclared:
         registry.resolve("anthropic/claude-haiku-5-5", allow_cloud=True)
-    assert keyless.value.code == "model_not_found"
+    assert undeclared.value.code == "model_not_found"  # hors de `[cloud.models]`
+
+
+async def test_a_declared_cloud_model_without_key_resolves_but_is_never_listed(tmp_path):
+    registry = _cloud_registry(tmp_path)  # anthropic déclaré, clé absente
+    await registry.refresh()
+    with pytest.raises(AppError) as refused:
+        registry.resolve("anthropic/claude-haiku-5-5")
+    assert refused.value.code == "cloud_not_allowed"  # D1 d'abord, même sans clé
+    ref = registry.resolve("anthropic/claude-haiku-5-5", allow_cloud=True)
+    assert (ref.provider, ref.origin) == ("anthropic", "cloud")  # l'appel dira `cloud_key_missing`
+    shown = {m.tag for m in (await registry.list_models(allow_cloud=True)).models}
+    assert "anthropic/claude-haiku-5-5" not in shown
+    with pytest.raises(AppError) as unknown:
+        registry.resolve("anthropic/claude-inconnu", allow_cloud=True)
+    assert unknown.value.code == "model_not_found"
 
 
 async def test_resolve_embedder_is_local_embedding_only(tmp_path):

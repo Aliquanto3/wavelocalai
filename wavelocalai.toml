@@ -27,17 +27,25 @@ approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut re
 [cloud.models]
 # Modèles cloud proposés par fournisseur, une fois la clé présente dans `.env` ET `allow_cloud`
 # demandé (listes fixes : aucun fournisseur n'est appelé pour les lister). Identifiant exposé :
-# `fournisseur/modèle`.
-openai = ["gpt-4o", "gpt-4o-mini"]
+# `fournisseur/modèle`. Identifiants vérifiés dans la documentation officielle des fournisseurs
+# le 2026-10-18 (story 2.4) : OpenAI (`gpt-6-sol`, `gpt-6-luna` ; `gpt-4o` et `gpt-4o-mini` sont
+# dépréciés, arrêt le 2027-01-14), Groq (production), Anthropic (alias de l'aperçu des modèles),
+# Mistral (`mistral-large-latest` et `mistral-small-latest` figurent dans la référence de
+# l'API ; `mistral-medium-latest` n'y est pas confirmé, retiré).
+openai = ["gpt-6-sol", "gpt-6-luna"]
 groq = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 anthropic = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
-mistral = ["mistral-large-latest", "mistral-medium-latest"]
+mistral = ["mistral-large-latest", "mistral-small-latest"]
 
 [cloud.groq_ecologits]
 # Modèle Groq -> entrée `huggingface_hub` d'ecologits (AD-11). Sans entrée, le CO2 d'un modèle
-# Groq est « non mesurable ». Entrées à confirmer par le test de contrat ecologits (story 2.5).
+# Groq est « non mesurable » (raison affichée). Entrées confirmées le 2026-10-18 (story 2.5) contre
+# ecologits 0.11.3 par `tests/v2/unit/test_cloud_estimate.py` : chacune doit exister dans le
+# référentiel installé. `llama-3.3-70b-versatile` n'a pas d'entrée : ecologits ne connaît pas
+# Llama 3.3, et Llama 3.1 70B est un autre modèle (pas de correspondance inventée).
 "openai/gpt-oss-120b" = "openai/gpt-oss-120b"
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
+"llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 [rag]
 # Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec

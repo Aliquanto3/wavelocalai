@@ -135,6 +135,46 @@ _SPECS = (
         "Ouvrez les détails techniques ; vérifiez que le modèle est installé et que la mémoire "
         "suffit.",
     ),
+    ErrorSpec(
+        "cloud_key_missing",
+        400,
+        "La clé d'API de {provider_name} n'est pas configurée.",
+        "Ajoutez {key_var}=votre clé dans le fichier `.env` à la racine du projet, relancez le "
+        "serveur, ou choisissez un modèle local.",
+        ("provider", "provider_name", "key_var"),
+    ),
+    ErrorSpec(
+        "cloud_key_refused",
+        502,
+        "{provider_name} a refusé la clé d'API.",
+        "Vérifiez la valeur de {key_var} dans le fichier `.env` (clé valide, droits sur ce "
+        "modèle), relancez le serveur, ou repassez en Local.",
+        ("provider", "provider_name", "key_var", "http_status"),
+    ),
+    ErrorSpec(
+        "cloud_unreachable",
+        502,
+        "{provider_name} est injoignable depuis ce poste.",
+        "Vérifiez la connexion réseau, puis réessayez ; ou repassez en Local en désactivant le "
+        "mode cloud et en choisissant un modèle local.",
+        ("provider", "provider_name"),
+    ),
+    ErrorSpec(
+        "cloud_rate_limited",
+        429,
+        "{provider_name} limite le débit ou le quota de cette clé.",
+        "Patientez un peu avant de réessayer, vérifiez le quota de votre compte, ou repassez en "
+        "Local.",
+        ("provider", "provider_name", "http_status"),
+    ),
+    ErrorSpec(
+        "cloud_error",
+        502,
+        "{provider_name} a refusé ou interrompu la requête.",
+        "Ouvrez les détails techniques ; choisissez un autre modèle de ce fournisseur, réessayez "
+        "plus tard, ou repassez en Local.",
+        ("provider", "provider_name", "http_status"),
+    ),
     # --- base documentaire (story 4.1) ---
     ErrorSpec(
         "ingest_failed",
@@ -170,6 +210,22 @@ _NAMED_SECRET = re.compile(
     r"""(?ix)(?<![a-z0-9])(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
     r"""(?!\*\*\*)[^\s"',;}]+"""
 )
+
+
+class _Fill(dict[str, Any]):
+    """Valeurs de remplacement d'un texte de code d'erreur (`{provider_name}`) ; un manque donne
+    une formule neutre plutôt qu'une erreur."""
+
+    def __missing__(self, key: str) -> str:
+        return "le fournisseur" if key == "provider_name" else key
+
+
+def _fill(text: str, detail: dict[str, Any]) -> str:
+    """Remplace les `{clé}` de `message` et `action` par les clés machine du `detail` (nom du
+    fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi)."""
+    if "{" not in text:
+        return text
+    return text.format_map(_Fill(detail))
 
 
 def mask_secrets(text: str, extra_secrets: Iterable[str] = ()) -> str:
@@ -220,8 +276,8 @@ def build_envelope(
     body = {"technical": technical, **detail}
     return {
         "code": spec.code,
-        "message": spec.message,
-        "action": spec.action,
+        "message": _fill(spec.message, detail),
+        "action": _fill(spec.action, detail),
         "detail": _mask_value(body, tuple(secrets)),
     }
 

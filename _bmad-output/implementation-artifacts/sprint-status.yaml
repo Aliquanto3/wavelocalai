@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-18-2026 21:08
+last_updated: 10-18-2026 21:48
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -53,22 +53,22 @@ development_status:
   2-1-converser-en-flux-avec-un-modèle-ollama-serveur: done
   2-2-l-écran-chat-libre-affiche-la-réponse-en-flux-et-la-reprend: done
   2-3-chaque-réponse-locale-affiche-son-co₂-mesuré: done
-  2-4-converser-avec-un-modèle-cloud-openai-groq-anthropic-mistral: in-progress
-  2-5-une-réponse-cloud-affiche-une-estimation-ou-non-mesurable-ja: in-progress
+  2-4-converser-avec-un-modèle-cloud-openai-groq-anthropic-mistral: done
+  2-5-une-réponse-cloud-affiche-une-estimation-ou-non-mesurable-ja: done
   2-6-retrouver-exporter-et-effacer-une-conversation-préversion-2: in-progress
   epic-2-retrospective: optional
 
   epic-3: in-progress
   3-1-l-arène-exécute-plusieurs-modèles-sur-une-même-question-serv: in-progress
-  3-2-l-écran-arène-affiche-les-colonnes-en-flux: backlog
-  3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: backlog
+  3-2-l-écran-arène-affiche-les-colonnes-en-flux: in-progress
+  3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: in-progress
   3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: backlog
   3-5-le-verdict-local-cloud-est-chiffré: backlog
   3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: backlog
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-indexer-un-document-dans-la-base-locale-serveur: backlog
+  epic-4: in-progress
+  4-1-indexer-un-document-dans-la-base-locale-serveur: in-progress
   4-2-l-écran-base-documentaire-suit-chaque-fichier: backlog
   4-3-supprimer-un-document-vider-la-base-changer-de-réglages: backlog
   4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: backlog
