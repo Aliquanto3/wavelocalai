@@ -2,7 +2,7 @@
 
 **Workbench de démonstration d'IA locale et responsable**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red.svg)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-118%20passed-brightgreen.svg)](#)
@@ -31,7 +31,7 @@ WaveLocalAI est un **proof of concept** conçu pour :
 
 ### Prérequis
 
-- **uv** (installe Python lui-même ; 3.10 à 3.12 pris en charge)
+- **uv** (installe Python lui-même ; 3.11 et 3.12 pris en charge)
 - **Ollama** : [Télécharger ici](https://ollama.com/download)
 - *Optionnel :* Clé API Mistral pour comparaison Cloud
 

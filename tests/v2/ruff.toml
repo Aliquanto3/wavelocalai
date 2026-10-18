@@ -1,0 +1,3 @@
+# Configuration propre aux tests de la v2 (AD-1) : hérite des réglages globaux, cible py311.
+extend = "../../pyproject.toml"
+target-version = "py311"
