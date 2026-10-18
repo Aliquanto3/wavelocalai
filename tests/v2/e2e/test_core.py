@@ -246,6 +246,51 @@ def test_a_204_closes_the_run_stream_and_an_unknown_run_gives_up(core_lenient):
     assert core_lenient.evaluate(RUN_STREAM, "inconnu")["statuses"] == ["failed"]
 
 
+def test_an_inherited_property_is_an_unknown_type(core):
+    core.route(
+        "**/api/runs/r3/events**",
+        lambda route, request: sse_response(
+            route,
+            envelope(1, "r3", "inherited")
+            + envelope(2, "r3", "constructor")
+            + envelope(3, "r3", "run_ended", {"status": "done"}),
+        ),
+    )
+    result = core.evaluate(
+        """async () => {
+            const { connectRun } = await import('/static/core/sse.js');
+            const calls = [];
+            const handlers = Object.create({ inherited: () => calls.push('inherited') });
+            handlers.run_ended = () => calls.push('run_ended');
+            await new Promise((resolve) => connectRun('r3', handlers, ({ status }) => {
+                if (status === 'closed' || status === 'failed') resolve();
+            }));
+            return calls;
+        }"""
+    )
+    assert result == ["run_ended"]
+
+
+def test_a_silent_stream_counts_as_a_failure(core_lenient):
+    # Le serveur accepte la requête et se tait : sans chien de garde, la page attendrait sans fin.
+    core_lenient.route("**/api/silence", lambda route, request: None)
+    statuses = core_lenient.evaluate(
+        """async () => {
+            const { connectStream } = await import('/static/core/sse.js');
+            const statuses = [];
+            await new Promise((resolve) => connectStream({
+                url: '/api/silence', idleMs: 300, maxAttempts: 2, backoffMs: [50],
+                onStatus: ({ status }) => {
+                    statuses.push(status);
+                    if (status === 'failed') resolve();
+                },
+            }));
+            return statuses;
+        }"""
+    )
+    assert statuses == ["retrying", "failed"]
+
+
 def test_a_scripted_run_of_the_real_server_streams_to_run_ended(core, server):
     started = core.request.post(
         f"{server.base_url}/api/test/runs",

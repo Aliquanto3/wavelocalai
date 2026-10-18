@@ -18,9 +18,10 @@ from wavelocalai.store.db import Store
 CARBON_UPDATED = "carbon_updated"
 ORIGINS = ("local", "cloud")
 
-# Feuille = run sans enfant qui porte un `co2` (méthode renseignée : seul `finish_leaf` l'écrit).
-# L'origine manquante se déduit de la méthode : ecologits estime un modèle distant, codecarbon
-# mesure ce poste.
+# Feuille = run terminé sans enfant. Une feuille close sans `co2` (erreur, annulation, arrêt) n'a
+# pas de mesure : elle compte parmi les non-mesurables (AD-10), jamais comme 0 ni comme absente.
+# Un run encore actif n'est pas compté. L'origine manquante se déduit de la méthode : ecologits
+# estime un modèle distant, codecarbon mesure ce poste.
 _LEAVES_SQL = """
 SELECT COALESCE(parent.kind, r.kind) AS module,
        COALESCE(r.origin, CASE r.co2_method WHEN 'ecologits' THEN 'cloud' ELSE 'local' END)
@@ -31,7 +32,7 @@ SELECT COALESCE(parent.kind, r.kind) AS module,
 FROM runs r
 LEFT JOIN runs parent ON parent.id = r.parent_run_id
 WHERE r.app_session = ?
-  AND r.co2_method IS NOT NULL
+  AND r.ended_at IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM runs child WHERE child.parent_run_id = r.id)
 GROUP BY module, bucket
 """

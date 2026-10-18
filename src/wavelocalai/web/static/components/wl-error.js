@@ -6,6 +6,19 @@
 import { element } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 
+// Les textes du catalogue citent les commandes entre accents graves (`ollama serve`) : rendues
+// en `<code>`, jamais telles quelles.
+function richText(tag, className, text) {
+  const node = element(tag, className);
+  const parts = String(text ?? "").split("`");
+  parts.forEach((part, index) => {
+    if (!part) return;
+    const code = index % 2 === 1 && index < parts.length - 1;
+    node.append(code ? element("code", "", part) : document.createTextNode(part));
+  });
+  return node;
+}
+
 function detailText(detail) {
   if (detail === null || detail === undefined) return "";
   if (typeof detail === "string") return detail;
@@ -43,8 +56,8 @@ export class WlError extends HTMLElement {
     }
     this.hidden = false;
     this.dataset.code = error.code ?? "";
-    const parts = [element("p", "wl-error-message", error.message ?? "")];
-    if (error.action) parts.push(element("p", "wl-error-action", error.action));
+    const parts = [richText("p", "wl-error-message", error.message)];
+    if (error.action) parts.push(richText("p", "wl-error-action", error.action));
     const technical = detailText(error.detail);
     if (technical) {
       const details = element("details", "wl-error-details");

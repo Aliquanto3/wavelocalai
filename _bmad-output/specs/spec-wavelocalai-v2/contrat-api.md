@@ -37,7 +37,7 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | Exécutions | `GET /api/runs/{id}/events`, `POST /api/runs/{id}/cancel`, `GET /api/runs/{id}` (instantané, `verdict` pour un run `arena`) | trame d'AD-6 |
 | Erreurs | toutes les routes et `run_ended.data.error` | `{code, message, action, detail}` en français, codes fermés dans `errors.py` ; `detail` est un objet : `technical` (texte replié) et les clés machine déclarées avec le code (`run_busy` : `run_id` ; `ram_guard` : `needed_gb`, `free_gb`, `suggested_model`), valeurs texte masquées (AD-18) |
 | Budget de lecture | toutes les routes `GET` sans paramètre de chemin, hors SSE | < 300 ms Ollama injoignable, test paramétré qui inclut d'office toute nouvelle route (AD-15) |
-| CO₂ de session | `GET /api/carbon/session`, `carbon_updated` sur le flux système | somme des feuilles de l'`app_session` courante (nouvelle à chaque démarrage et remise à zéro), par module, Local et Cloud, nombre de non-mesurables |
+| CO₂ de session | `GET /api/carbon/session`, `carbon_updated` sur le flux système | somme des feuilles de l'`app_session` courante (nouvelle à chaque démarrage et remise à zéro), par module, Local et Cloud, nombre de non-mesurables ; le flux système n'ayant pas de rejeu, le client lit `GET /api/carbon/session` à chaque (re)connexion du flux, après l'ouverture, puis applique les `carbon_updated` |
 | Sécurité locale | toutes les routes | écoute `127.0.0.1:8502` ; `Host` hors `127.0.0.1:<port>`/`localhost:<port>` refusé ; écriture d'`Origin` étrangère refusée ; aucun CORS (AD-19) |
 
 ## Événements de run

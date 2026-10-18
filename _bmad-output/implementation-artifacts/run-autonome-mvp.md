@@ -12,26 +12,62 @@ Démarré le 2026-10-18. Orchestrateur : session principale (Opus 5.5). Contrat 
 ## État courant
 
 - Étape 0 : PR #38 fusionnée (merge commit 7de6a02).
-- Story en cours : 1.1, étape 4 (PR ouverte, attente CI), worktree `..\wavelocalai-wt\v2-1-1`, branche `feat/v2-squelette`.
+- 1.2 : étape 2 (second avis), worktree `v2-1-2`, branche `feat/v2-serveur`, dev 68de3ef.
+- 1.3 (`v2-1-3`, `feat/v2-hub`), 1.5 (`v2-1-5`, `feat/v2-registre`), 1.8 (`v2-1-8`, `feat/v2-coquille`) : étape 1 (dev-story), toutes parties de 68de3ef. Après fusion de 1.2, fusionner `master` dans chacune avant sa PR.
 - Worktrees : `C:\Users\Utilisateur\Documents\GitHub\wavelocalai-wt\<clé>` (hors du dépôt), chacun avec son `.venv` (`uv sync`). Spec de story : `_bmad-output/implementation-artifacts/story-<n>-<m>.md`.
+
+## Parallélisation (autorisée par Anaël le 2026-10-18)
+
+Vagues prévues selon les dépendances, fusion dans l'ordre du sprint (fusionner `master` dans les branches suivantes, re-verrouiller `uv.lock` en cas de conflit) :
+- après 1.2 : 1.3 (store, hub), 1.5 (registre), 1.8 (coquille front ; E2E sur Edge) ;
+- puis 1.4 (SSE, après 1.3) et 1.6 (défauts, après 1.5) ; 1.7 après 1.4 ; 1.9, 1.10, 1.11 après 1.7 et 1.8.
 
 ## Stories
 
 | Story | Branche | PR | Statut | Notes |
 |---|---|---|---|---|
-| 1.1 | feat/v2-squelette | (en cours) | PR | revue : 1 high corrigé (`models/` ignoré par `.gitignore`) ; reports : angles morts du test AST (`importlib`, `__import__`), starlette 1.7.0 dans `constraints.txt` contre 1.8.0 dans `uv.lock` |
+| 1.1 | feat/v2-squelette | #39 | fusionnée (428c7e6) | revue : 1 high corrigé (`models/` ignoré par `.gitignore`) ; reports : angles morts du test AST (`importlib`, `__import__`), starlette 1.7.0 dans `constraints.txt` contre 1.8.0 dans `uv.lock` |
+| 1.2 | feat/v2-serveur | #40 | fusionnée (4e33370) ; 1 correction CI (sonde Ollama : client httpx construit hors boucle) | revue : 2 medium corrigés (sonde Ollama lente annoncée arrêtée ; encodage cp1252 du test de lancement réel) ; reports : arrêt propre → `cancelled` (attend le hub), délais `lane_timeout_s`/`approval_expiry_s` provisoires, Origin des WebSocket, `Mount` hors test de budget |
+| 1.3 | feat/v2-hub | #41 | fusionnée (e9af784) ; revue : high course stop/flush et medium feuille pendant annulation corrigés | reports : réhydratation `sources` (attend `chunks`), `409 run_busy` (story des POST runs), SSE et routes de runs (1.4), effacement AD-13 |
+| 1.4 | feat/v2-flux-sse (depuis d86d06a) | #42 | fusionnée ; revue : `ModelRef` aligné sur 1.5, medium `_error_envelope` corrigé ; 227 tests v2 | 219 tests v2 ; a créé `models/port.py` + `fake.py` en doublon de `port.py` de 1.5 → réconcilier à la fusion ; hub : `publish_token`, `watch`, `active_root`, `run_busy` ajoutés ; reports : `token` non groupé ?, CO₂ des runs de test `unmeasurable` |
+| 1.7 | feat/v2-flux-systeme (depuis eb81d58) | — | revue faite (0c90516 : arrêt réel avec flux ouverts corrigé + test sous-processus ; feuille en erreur comptée non mesurable ; `contrat-api.md` précise que le client relit `GET /api/carbon/session` à chaque connexion) ; `feat/v2-defauts` fusionné (6eccc25, 374 tests v2, 1286 v1) ; PR #45 fusionnée | reports : `carbon_updated` publié par personne avant 2.3, reset de session avec Sobriété, version Ollama de la fiche `null` avant la 1re sonde, GPU hors flux 2 s |
+| 1.9 | feat/v2-barre-haute | — | revue faite (dc568bb : 3 medium corrigés, dont chien de garde du flux SSE et regex de test cassée ; écart AD-15 gardé, à arbitrer) ; `feat/v2-coquille` fusionné ; 424 tests v2, 74 E2E, 1286 v1 ; PR #47 fusionnée | reports : « Réessayer » ne force pas la sonde, pas de pause du flux sur `visibilitychange` (Accueil 1.11) ; sonde du flux système à cache 1 s |
+| 1.10 | feat/v2-selecteur (1.6 + 1.8 + 1.9 fusionnées, 9151f62) | #48 | PR, attente CI ; revue : 3 medium corrigés ; 428 tests v2, 101 E2E, 1286 v1 | reports : Échap des panneaux de la barre haute sans `preventDefault`, `wl-error` affiche des accents graves Markdown, composants pas encore montés dans un écran |
+| 1.11 | feat/v2-accueil (depuis 1.9 edb870e) | — | second avis fait (1 medium : conflit certain `core/system.js` avec 1.9 revue ; lows : « en direct » affiché pendant la pause, focus perdu sur Réessayer). Suite : fusionner `feat/v2-selecteur` revu (contient 1.9 revue) dans la branche, puis reviewer Opus avec ces constats | reports : « Ollama sans modèle » attend `GET /api/models` (désormais sur master) ; CO₂ en ligne de détail de la carte Mode ; conflits `core/*.js` probables avec 1.9 revue et 1.10 |
+| 2.2 | feat/v2-ecran-chat (2.1 dc1c4e1 + 1.10 fusionnées) | — | dev | |
+| 2.4 | feat/v2-chat-cloud (2.1 dc1c4e1 + 1.10 fusionnées) | — | dev | |
+| 2.1 | feat/v2-chat-ollama (depuis master 89e20e1) | — | revue Opus (dev dc1c4e1 ; second avis : medium prefill absent, medium run annulé sans `co2`) | integration non jouée : `qwen2.5:1.5b` absent (notifié) ; code `generation_interrupted` (AD-5) au lieu de `interrupted` d'epics.md ; CO₂ `unmeasurable` jusqu'à 2.3 ; `hub.py` efface le partiel sur `retry` ; `registry.extra_refs` |
+| 1.6 | feat/v2-defauts | #44 | fusionnée ; revue : 4 medium corrigés ; reprise : `feat/v2-registre` fusionné, `0003` en dates ISO, `SqlitePreferenceStore` branché ; 334 tests v2 | 216 tests v2, 3 integration verts une fois ; reports : `PreferenceStore` en mémoire à brancher sur le store (migration `0003_preferences.sql` présente), pas de route d'écriture de défaut (UI) |
+| 1.5 | feat/v2-registre | #43 | fusionnée ; revue : medium dates ISO corrigé ; `master` fusionné (`port.py` de 1.4) ; 278 tests v2, 1286 v1 ; reports : identifiants cloud à vérifier (2.4/2.5), modèles supprimés qui réapparaissent à froid | reports : `SqliteFactsStore` et médiane `tps` depuis `runs` à brancher sur le store de 1.3 ; migration `0002_model_facts.sql` à renuméroter après celle du hub ; « tient en mémoire » = RAM libre psutil seulement ; conflits attendus `web/app.py` (lifespan) et `errors.py` |
+| 1.8 | feat/v2-coquille | — | revue faite (39bfed1 : 1 medium corrigé, hash hors route au chargement) ; `feat/v2-flux-systeme` fusionné ; 413 tests v2, 25 E2E, 1286 v1 ; PR #46 fusionnée | 162 tests v2, 24 E2E sur Edge ; reports : pastilles barre haute (1.9), blanc sur primary-dark 4,26:1, CSP sans `blob:` (exports), pyyaml non déclaré |
 
 ## Décisions prises seul
 
 - `_bmad-output/party-mode/` non versionné (mémoire de session, pas un livrable).
 - Story 1.1 : pydantic reste en 2.12.x (contrainte `pydantic>=2.9.0`) au lieu de 2.14.1 (spine §Stack). Motif : crewai 1.15.28 de la v1 exige `pydantic<2.13` ; avec 2.14.1, uv rétrograde crewai à 1.6.1 et 17 tests v1 échouent. NFR14 et AD-2 (v1 intacte) priment. À ratifier par Anaël (mise à jour de la spine §Stack via `bmad-spec`, ou relèvement à la bascule).
+- Story 1.6 : les usages `agent` et `rag` n'ont pas de règle en v1 ni dans les critères ; règle provisoire posée sur le registre (seuil de 3 milliards de paramètres actifs, repli sur le défaut `chat` avec sa raison), à confirmer avec les mesures du banc.
+- `models/port.py` : `ModelRef` de la story 1.5 retenu (AD-9 : `origin` avec `unknown`, `kind` en `Literal`) ; la 1.4 s'y aligne à l'identique et y ajoute les types du port `ChatModel` d'AD-8.
+- Story 2.1 : débit de prefill exigé par le critère alors que `ChatResult` est figé par AD-8 → champ optionnel ajouté en fin de `ChatResult` (écart additif à AD-8, à ratifier). Code de coupure `generation_interrupted` (AD-5 interdit un code qui reprend un statut) au lieu de `interrupted` d'epics.md.
+- E2E : Chromium de Playwright absent, mais Edge installé fonctionne avec Playwright (vérifié, Edge 155). Le conftest E2E de la v2 accepte `WAVELOCALAI_E2E_CHROMIUM` (comme la v1) ; en local : `$env:WAVELOCALAI_E2E_CHROMIUM = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. Aucun téléchargement.
 - Ollama : utiliser `http://127.0.0.1:11434` (`localhost` échoue en IPv6 sur ce poste).
+
+- `tests/app/test_nothing_lost.py::test_agent_*` (v1) : échec intermittent vu une fois en revue de 1.10, vert en relance sur la branche ; 4 échecs dans le dépôt principal dont le `.venv` n'est plus synchronisé depuis la 1.1 (non modifié par le run). Pour Anaël : `uv sync` dans le dépôt principal remettra le `.venv` au verrou actuel (Python 3.11+, deps v2).
+
+## Décisions d'Anaël (2026-10-18, 18 h 30)
+
+- Ollama rendu au run vers 20 h (quelques minutes de retard possibles) pour l'Epic 2.
+- pydantic 2.12.x acté jusqu'à la bascule (spine §Stack à corriger via `bmad-spec`).
+- AD-15 amendé : cache 5 s pour les routes de lecture, 1 s pour la sonde du flux système (spine à corriger via `bmad-spec`).
+- Défauts `agent`/`rag` : règle provisoire gardée, seuils à caler sur slm-quality-bench à l'Epic 5.
+- Définition des Epics 5 à 8 et des reports : confiée à une autre session (branche `docs/`), qui ne touche ni `sprint-status.yaml` ni ce fichier.
 
 ## Points en attente pour Anaël
 
-- Chromium de Playwright absent (`.venv\Scripts\python -m playwright install chromium`) : nécessaire aux E2E dès la story 1.8. Notifié le 2026-10-18.
 
-- Ratifier l'écart pydantic 2.12.x (voir « Décisions prises seul », story 1.1).
+
+- Ollama : Anaël peut l'utiliser ailleurs pendant l'Epic 1 (accord du 2026-10-18). Avant la story 2.1, vérifier `http://127.0.0.1:11434/api/version` ; s'il est arrêté, notifier Anaël et avancer sur ce qui n'en dépend pas. Tests integration d'Epic 1 sautés si Ollama absent : les noter « à rejouer ».
+
+- Installer `qwen2.5:1.5b` (`ollama pull qwen2.5:1.5b`) pour les tests integration de l'Epic 2 (notifié vers 19 h 30).
 
 ## Préversions (tags et releases en attente d'Anaël)
 

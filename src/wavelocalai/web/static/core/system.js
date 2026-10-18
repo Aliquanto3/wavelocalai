@@ -12,6 +12,7 @@ import { connectSystem } from "./sse.js";
 import { store } from "./store.js";
 
 const CHECK_TIMEOUT_MS = 4000;
+const HEALTH_RETRY_MS = 2000;
 
 function applyOllama(ollama) {
   return {
@@ -52,9 +53,19 @@ async function readHealth() {
   return restarted;
 }
 
+// Chaque `carbon_updated` avance ce compteur : une lecture partie avant n'écrase pas sa somme.
+let carbonEvents = 0;
+
+function onCarbonUpdated(data) {
+  carbonEvents += 1;
+  store.set({ carbon: data });
+}
+
 async function readCarbon() {
+  const seen = carbonEvents;
   try {
-    store.set({ carbon: await api.carbonSession() });
+    const carbon = await api.carbonSession();
+    if (seen === carbonEvents) store.set({ carbon });
   } catch {
     // Le prochain `carbon_updated` ou la prochaine ouverture du flux le rétablira.
   }
@@ -71,11 +82,24 @@ export function startSystem() {
   let wasOpen = false;
   let stream = null;
 
+  // Sans identité connue, un redémarrage ne se voit pas : une lecture de santé en échec est
+  // reprise tant que le flux reste ouvert. Onglet masqué, le flux est fermé et la reprise s'arrête
+  // (`connection.status` garde sa dernière valeur pendant la pause : on teste aussi `stream`).
+  let healthTimer = null;
+  function readHealthWhileOpen() {
+    clearTimeout(healthTimer);
+    readHealth().catch(() => {
+      healthTimer = setTimeout(() => {
+        if (stream && store.get().connection.status === "open") readHealthWhileOpen();
+      }, HEALTH_RETRY_MS);
+    });
+  }
+
   function open() {
     stream = connectSystem(
       {
         system_state: onSystemState,
-        carbon_updated: (data) => store.set({ carbon: data }),
+        carbon_updated: onCarbonUpdated,
       },
       ({ status, failures }) => {
         store.set({ connection: { status, failures } });
@@ -83,13 +107,15 @@ export function startSystem() {
         // Première ouverture ou reconnexion : identité du serveur et somme du CO2 à jour.
         const reconnected = wasOpen;
         wasOpen = true;
-        readHealth().catch(() => {});
+        readHealthWhileOpen();
         if (reconnected) readCarbon();
       },
     );
   }
 
   function close() {
+    clearTimeout(healthTimer);
+    healthTimer = null;
     stream?.close();
     stream = null;
   }

@@ -72,4 +72,19 @@ Voir l'en-tête `deferred` : « Réessayer » sans sonde forcée, pause du flux 
 
 ## Revue
 
-À faire : second avis (Haiku), puis passe de revue (Opus).
+Second avis (Haiku) puis passe de revue (Opus), une passe. Écart à arbitrer par Anaël : AD-15 (cache de 5 s de la sonde Ollama), voir la ligne 4.
+
+- medium, Opus : `core/sse.js` attendait sans fin un serveur figé ou une connexion morte sans fermeture (aucun délai sur `fetch` ni sur la lecture) : la barre ne passait jamais à « Connexion perdue ». Corrigé : chien de garde de 10 s sur le flux système (réponse et octets), compté comme un échec ; option `idleMs` de `connectStream`, API inchangée. Preuve : `test_a_silent_stream_counts_as_a_failure`.
+- medium, Opus : `test_no_script_reads_or_writes_the_cloud_switch_in_storage` ne pouvait rien détecter : sa regex contenait deux caractères de contrôle (retour arrière) à la place de `\b` et `\s`, elle ne trouvait même pas `theme.js`. Corrigé (le test voit de nouveau `theme.js`, et lui seul).
+- medium (low pour Haiku), second avis 5 : le contrôle « aucune requête `/api/` avant `shell-ready` » de `test_shell.py` lisait les entrées `resource`, absentes tant qu'un flux n'est pas fini : il pouvait passer à vide. Corrigé : `fetch` instrumenté avant le chargement, chaque appel note si le repère était posé, et le test exige d'avoir vu l'appel au flux.
+- low (medium pour Haiku), second avis 1 : `import()` des composants sans garde dans `main.js`. Corrigé (`try`/`catch`, la coquille et le flux démarrent quand même). Sévérité baissée : un composant cassé est un défaut de code que les tests E2E voient.
+- low (medium pour Haiku), second avis 2 : une lecture de `/api/health` en échec à l'ouverture laissait `instance_id` inconnu, et le redémarrage suivant passait inaperçu. Corrigé : relecture toutes les 2 s tant que le flux reste ouvert. Reste un cas : le flux tombe avant toute lecture réussie (deux pannes de suite), accepté.
+- low, second avis 3 : `handlers[type]` appelait une propriété héritée. Corrigé (propriété propre seulement). Preuve : `test_an_inherited_property_is_an_unknown_type`.
+- low, second avis 4 : sonde du flux à 1 s au lieu des 5 s d'AD-15. Gardé, écart consigné : le critère de la story 1.9 (« en moins de 3 s après le changement ») est incompatible avec un cache de 5 s, car le pire délai serait de 5 s (cache) + 2 s (intervalle du flux) = 7 s. Avec 1 s, le pire est de 2 s + 1 s (délai de la sonde) = 3 s. Les routes de lecture (`/api/health`, `/api/models`) gardent la sonde à 5 s d'AD-15. À faire valider par Anaël : amender AD-15 (« 5 s pour les routes de lecture, au plus `SAMPLE_INTERVAL_S / 2` pour le flux système »).
+- low, second avis 6 : regex `s*`. Corrigé (voir la ligne medium ci-dessus, la cause réelle était plus grave). Test « aucune mesure » jugé étroit : rejeté, il vise les conversions de CO₂ hors de `format.js`, le reste relève de la revue.
+- low, second avis 7 : « une seule connexion » comptée sur toute la vie de la page. Rejeté : compter toutes les requêtes est plus strict que compter les connexions simultanées ; le test ne recharge pas la page.
+- low, second avis 8 : `by_origin?.local?.mg ?? 0`. Rejeté : `greenops/session.py` rend toujours `local` et `cloud` (0,0 sans feuille) ; un 0 n'y est jamais un inconnu.
+- low, second avis 9 : un `GET /api/carbon/session` parti avant un `carbon_updated` pouvait écraser la somme plus récente. Corrigé : une lecture n'est appliquée que si aucun `carbon_updated` n'est arrivé entre-temps.
+- low, second avis 10 : `allowCloud` transmis par aucune commande. Reporté aux stories 2.1 et 2.4 (aucune commande n'existe encore).
+- low, second avis 11 : `mg` non validé dans `routes_test.py`. Rejeté : route du mode test seulement, jamais montée en production.
+- low, second avis 12 : `readCarbon` lancé deux fois au premier passage. Rejeté : à la première ouverture `wasOpen` vaut faux, seule la lecture de `startSystem()` part.

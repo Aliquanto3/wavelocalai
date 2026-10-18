@@ -4,3 +4,5 @@
 export { WlBadge } from "./wl-badge.js";
 export { WlMetric } from "./wl-metric.js";
 export { WlError } from "./wl-error.js";
+export { WlModelPicker } from "./wl-model-picker.js";
+export { WlRunStatus } from "./wl-run-status.js";

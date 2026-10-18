@@ -80,3 +80,13 @@ L'écran d'accueil sait à tout instant si le poste est prêt : Ollama, processe
 ## Reports
 
 Voir l'en-tête `deferred` : publication de `carbon_updated` (2.3), remise à zéro et historique (Sobriété), version d'Ollama de la fiche, jauge GPU, file saturée d'un client lent.
+
+## Revue
+
+- HIGH, second avis 1, corrigé : uvicorn attend la fin des connexions avant `lifespan.shutdown`, donc un `/api/system/stream` ouvert, ou le flux `/api/runs/{id}/events` d'un run actif (1.4), bloquait l'arrêt sans fin (reproduit en serveur réel : « Waiting for connections to close » au-delà de 15 s). `web/server.py` : `_Server.shutdown` ferme l'écoute puis appelle `stop_streams` (flux système fermés, `hub.stop()` qui passe les runs actifs à `cancelled`) **avant** l'attente d'uvicorn ; filet `timeout_graceful_shutdown = 5 s`. Preuve : `tests/v2/web/test_real_shutdown.py` (vrai serveur, deux flux ouverts, Ctrl+Break ou SIGINT : sortie en moins de 4 s, « Application shutdown complete », run `cancelled`), qui échoue sans le correctif.
+- MEDIUM, second avis 2, corrigé : une feuille close sans `co2` (erreur, annulation, arrêt) sortait du total et du compte des non-mesurables. `greenops/session.py` compte toute feuille terminée (`ended_at` renseigné), une feuille sans `co2` étant non-mesurable ; `inference/streaming.py` passe aussi le `co2` sur le chemin d'erreur (AD-10 : `co2` partout). Le test qui entérinait l'oubli est réécrit, `test_fake_model.py` vérifie le `co2` de la feuille en erreur.
+- MEDIUM, second avis 3, corrigé par le contrat : le flux système n'a pas de rejeu (contrat), donc pas de rejeu du dernier `carbon_updated`. `contrat-api.md` précise que le client lit `GET /api/carbon/session` à chaque (re)connexion du flux, après l'ouverture, puis applique les `carbon_updated` (à suivre par la 1.9). API des routes et des événements inchangée.
+- low, second avis 4, reporté : le budget de `/api/system/identity` est mesuré sur cache chaud ; la capture NVML à froid est préchauffée au démarrage. À chronométrer sur la tour RTX 3050 (premier appel juste après le lancement).
+- low, second avis 5, rejeté : le générateur du flux est fermé par `EventSourceResponse` à la déconnexion, et l'abonnement se referme dans le `finally` du `with` (testé par `test_subscription_is_released_when_the_client_task_is_cancelled`).
+- low, second avis 6, rejeté : `test_real_launch.py` sous cp1252, déjà corrigé sur master.
+- low, revue, reporté (hors story) : sous Windows, Ctrl+Break fait relever SIGBREAK par uvicorn après l'arrêt, ce qui termine le processus sans passer par les `finally` du lanceur (`store.close`, `lock.release`). L'arrêt du hub est fait avant ; vérifier à la story du lanceur si la base WAL et le verrou doivent être libérés explicitement.

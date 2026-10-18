@@ -15,14 +15,20 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.models.defaults import ModelDefaults
+from wavelocalai.models.facts_store import SqliteFactsStore
 from wavelocalai.models.fake import fake_models
 from wavelocalai.models.ollama_probe import OllamaProbe
+from wavelocalai.models.registry import ModelRegistry
+from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
+from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health, routes_runs, routes_system, routes_test
+from wavelocalai.web import routes_health, routes_models, routes_runs, routes_system, routes_test
 from wavelocalai.web.routes_static import mount_shell
 from wavelocalai.web.security import LocalOnlyMiddleware
 from wavelocalai.web.system_state import SystemSampler, cached_fiche
@@ -48,6 +54,17 @@ def _error_response(
     return JSONResponse(envelope, status_code=ERRORS[code].status)
 
 
+async def stop_streams(app: FastAPI) -> None:
+    """Début de l'arrêt, **avant** qu'uvicorn attende la fin des connexions : les flux système se
+    terminent et les runs actifs passent à `cancelled` (AD-23), ce qui clôt leurs flux d'événements.
+    Sans cela, un flux ouvert retient l'arrêt indéfiniment. Idempotent : le cycle de vie le refait.
+    """
+    await app.state.system_feed.aclose()
+    hub: RunHub | None = app.state.hub
+    if hub is not None:
+        await hub.stop()
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Démarrage : base migrée, hub démarré (runs orphelins `interrupted`, nouvelle `app_session`).
@@ -58,28 +75,36 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if store is None:  # lancement sans `__main__` (tests) : l'app ouvre et ferme sa base
         owned = store = Store.open(db_path(ensure_data_dir(settings.data_dir)))
         app.state.store = store
+    app.state.probe.start()  # première sonde avant toute requête (AD-15)
     hub = RunHub(store)
     await hub.start()
     app.state.hub = hub
+    await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
     try:
         yield
     finally:
-        await app.state.system_feed.aclose()  # les flux système ouverts se terminent
         warmup.cancel()
-        await hub.stop()
+        await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
+        await app.state.registry.stop()
+        await app.state.probe.aclose()
         if owned is not None:
             owned.close()
 
 
 def create_app(
-    settings: Settings, probe: OllamaProbe | None = None, store: Store | None = None
+    settings: Settings,
+    probe: OllamaProbe | None = None,
+    store: Store | None = None,
+    registry: ModelRegistry | None = None,
+    preferences: PreferenceStore | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
     `store` : base déjà ouverte par le lanceur (qui la ferme) ; sinon l'app ouvre la sienne au
-    démarrage de son cycle de vie.
+    démarrage de son cycle de vie. `registry` : registre des modèles, branché sur la base du store
+    (faits d'Ollama et débit mesuré) par défaut.
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -96,6 +121,16 @@ def create_app(
     app.state.hub = None  # créé au démarrage du cycle de vie
     app.state.models = fake_models(settings)  # le `fake` seulement si `Settings.testing` (AD-8)
     app.state.tasks = set()  # tâches de runs en cours (références fortes)
+    app.state.registry = registry or ModelRegistry(
+        settings,
+        facts=SqliteFactsStore(lambda: app.state.store),
+        run_stats=SqliteRunStats(lambda: app.state.store),
+        advisor=MemoryAdvisor(),
+    )
+    # Préférences de l'UI (table `preferences`, 0003) : sur la base du store, comme `model_facts`.
+    app.state.defaults = ModelDefaults(
+        app.state.registry, preferences or SqlitePreferenceStore(lambda: app.state.store)
+    )
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,
@@ -152,5 +187,6 @@ def create_app(
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
-    mount_shell(app)  # en dernier : la coquille ne masque aucune route d'API
+    app.include_router(routes_models.router)
+    mount_shell(app)
     return app
