@@ -5,11 +5,10 @@ Tests des aides aux graphiques (src/app/charts.py, story 10) : couleur liée à 
 Usage: python -m pytest tests/unit/test_charts.py -v
 """
 
-from datetime import datetime, timedelta
-from pathlib import Path
-
 import importlib.util
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -17,7 +16,6 @@ import pytest
 import streamlit
 
 import src.app.charts as charts
-
 from src.app.charts import (
     BUBBLE_MAX_PX,
     BUBBLE_MIN_PX,
