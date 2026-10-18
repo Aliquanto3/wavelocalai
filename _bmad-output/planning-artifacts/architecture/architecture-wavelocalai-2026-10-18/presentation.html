@@ -1,0 +1,286 @@
+<title>Architecture wavelocalai v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Mise en page : colonne de lecture unique, bandeau d'en-tête violet Wavestone, sections en fiches de décision. */
+:root {
+  --primary: #451DC7;
+  --on-primary: #FFFFFF;
+  --bg: #FFFFFF;
+  --surface-alt: #F6F5FA;
+  --ink: #0A0A14;
+  --ink-2: #4A4A5E;
+  --line: #E6E6EC;
+  --ok: #0E7A49;
+  --ok-bg: #E7F6EE;
+  --warn: #8A5A00;
+  --warn-bg: #FBF1DC;
+  --code-bg: #F1EEFB;
+  --font-body: Aptos, "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #7E65E9; --on-primary: #FFFFFF; --bg: #0A0A14; --surface-alt: #16162A;
+    --ink: #F2F1F8; --ink-2: #B5B3C8; --line: #2A2A40; --ok: #5FD39A; --ok-bg: #12301F;
+    --warn: #F0C062; --warn-bg: #33270C; --code-bg: #1E1A38; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --primary: #7E65E9; --on-primary: #FFFFFF; --bg: #0A0A14; --surface-alt: #16162A;
+  --ink: #F2F1F8; --ink-2: #B5B3C8; --line: #2A2A40; --ok: #5FD39A; --ok-bg: #12301F;
+  --warn: #F0C062; --warn-bg: #33270C; --code-bg: #1E1A38; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.band { background: var(--primary); color: var(--on-primary); }
+.wrap { max-width: 960px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.band .wrap { padding-block: 40px 32px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; margin: 0 0 8px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 12px; text-wrap: balance; font-weight: 700; }
+.lede { max-width: 65ch; margin: 0; font-size: 17px; opacity: .95; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; font-size: 13px; opacity: .9; }
+main .wrap { padding-block: 24px 64px; display: grid; gap: 48px; }
+section { display: grid; gap: 16px; min-width: 0; }
+h2 { font-size: 24px; line-height: 1.25; margin: 0; text-wrap: balance; }
+h3 { font-size: 17px; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--ink-2); }
+code { font-family: var(--font-mono); font-size: .88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre.code { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; background: var(--code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0; }
+pre.code code { background: none; padding: 0; }
+.diagram { overflow-x: auto; background: var(--surface-alt); border-radius: 8px; padding: 16px; }
+.answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.answer { border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.answer .q { font-size: 13px; color: var(--ink-2); }
+.verdict { font-size: 19px; font-weight: 700; color: var(--primary); line-height: 1.3; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--surface-alt); font-weight: 600; font-size: 13px; }
+tr:last-child td { border-bottom: none; }
+td.id { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; color: var(--primary); font-weight: 500; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.two > * { min-width: 0; }
+ul.tight { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 68ch; }
+.callout { border-left: 4px solid var(--primary); background: var(--surface-alt); padding: 14px 18px; border-radius: 0 8px 8px 0; display: grid; gap: 8px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 13px; color: var(--primary); text-decoration: none; border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; }
+nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--primary); outline: none; }
+a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+</style>
+
+<header class="band">
+  <div class="wrap">
+    <p class="eyebrow">Architecture · spine finale · 18 octobre 2026</p>
+    <h1>wavelocalai v2</h1>
+    <p class="lede">Serveur FastAPI et front en modules JS natifs, construits dans le dépôt de la v1, autour d'un seul modèle d'exécution : le run. Cette page résume les 23 décisions qui empêchent les stories de diverger.</p>
+    <div class="meta"><span>Spec : SPEC-wavelocalai-v2 (CAP-1 à CAP-14)</span><span>Altitude : fonctionnalité → epics</span><span class="num">23 décisions · 4 relectures indépendantes</span></div>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+<nav class="toc" aria-label="Sommaire">
+  <a href="#questions">Questions tranchées</a>
+  <a href="#paradigme">Paradigme</a>
+  <a href="#coexistence">Coexistence v1</a>
+  <a href="#runs">Runs et SSE</a>
+  <a href="#port">Port ChatModel</a>
+  <a href="#donnees">Données</a>
+  <a href="#carbone">Carbone</a>
+  <a href="#ux">Passage UX</a>
+  <a href="#decisions">Les 23 décisions</a>
+</nav>
+
+<section id="questions">
+  <h2>Les trois questions ouvertes de la spec</h2>
+  <p class="muted">Chaque réponse a été vérifiée le 18 octobre 2026 sur python.org, PyPI, la documentation et par installation réelle avec uv.</p>
+  <div class="answers">
+    <article class="answer">
+      <span class="q">Q1 · Python minimal</span>
+      <span class="verdict">Python 3.11</span>
+      <p>3.10 est en fin de vie ce mois-ci. 3.11 apporte <code>tomllib</code> pour <code>wavelocalai.toml</code>, <code>TaskGroup</code> et <code>ExceptionGroup</code>. Le projet entier passe à <code>&gt;=3.11,&lt;3.13</code> ; la borne haute se relève à la bascule.</p>
+      <span><span class="pill ok">AD-1</span></span>
+    </article>
+    <article class="answer">
+      <span class="q">Q2 · Reranking</span>
+      <span class="verdict">fastembed, en option</span>
+      <p>Ollama n'a toujours pas d'API de reranking (demande ouverte depuis 2024). fastembed 0.9.0 dans l'extra <code>rerank</code>, modèle récupéré sur action explicite, chargé hors ligne. Sans lui, le RAG fonctionne et l'écran le dit.</p>
+      <span><span class="pill ok">AD-17</span></span>
+    </article>
+    <article class="answer">
+      <span class="q">Q3 · Couverture d'ecologits</span>
+      <span class="verdict">Anthropic et Mistral oui, Groq non</span>
+      <p>ecologits 0.11.3 connaît Claude 5.5 et les Mistral actuels. Groq n'est pas un fournisseur : ses modèles ouverts (gpt-oss) passent par une table de correspondance vers leur entrée Hugging Face. Sinon « non mesurable » avec raison.</p>
+      <span><span class="pill ok">AD-11</span></span>
+    </article>
+  </div>
+  <div class="callout">
+    <h3>Et le contrat du banc ?</h3>
+    <p><code>qb.results/1</code> est livré par slm-quality-bench (PR #8). La synchro existante (<code>scripts/sync_slm_results.py</code>) attendait déjà cet asset : l'app lit le fichier synchronisé, jamais le réseau, ignore les champs inconnus et n'affiche jamais un <code>null</code> comme 0 (AD-22). La question ouverte correspondante de la spec est close.</p>
+  </div>
+</section>
+
+<section id="paradigme">
+  <h2>Ports et adaptateurs autour d'un hub d'exécutions</h2>
+  <p>Les services métier ne parlent qu'à des ports. <code>web/</code> est le seul paquet qui connaît FastAPI ; Ollama, les SDK cloud, sqlite-vec, CodeCarbon et ecologits sont des adaptateurs. Un test AST vérifie ce sens de dépendance.</p>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  web["web/ : FastAPI, SSE, static/"] --> services
+  web --> runs
+  subgraph services [Services]
+    inference["inference/"]
+    rag["rag/"]
+    agents["agents/"]
+    evaluation["evaluation/"]
+  end
+  services --> runs["runs/ : hub d'exécutions"]
+  services --> models["models/ : ChatModel, Embedder, registre"]
+  services --> greenops["greenops/"]
+  services --> hardware["hardware/"]
+  runs --> store["store/ : SQLite, écrivain unique"]
+  rag --> store
+  greenops --> store
+</pre>
+  </div>
+</section>
+
+<section id="coexistence">
+  <h2>Coexistence avec la v1</h2>
+  <div class="two">
+    <ul class="tight">
+      <li>Un seul <code>pyproject.toml</code>, un seul <code>uv.lock</code>. La v2 vit dans <code>src/wavelocalai/</code> et s'importe sous le nom <code>wavelocalai</code> (installation éditable, testée).</li>
+      <li>Aucun import croisé : la v2 copie et adapte ce qu'elle reprend de <code>src/core/</code>, qui reste intact pour le banc.</li>
+      <li><code>uv run wavelocalai</code> reste la v1 (port 8501) ; <code>uv run wavelocalai-v2</code> lance la v2 (port 8502). Les noms s'échangent à la bascule.</li>
+    </ul>
+    <ul class="tight">
+      <li>Une seule version par dépôt : <code>2.0.0aN</code> dès la première préversion ; un correctif v1 part avec la suivante.</li>
+      <li>CI : un job v2 avec uv (<code>tests/v2</code>, Python 3.11 et 3.12, trois OS) ; le job v1 perd 3.10.</li>
+      <li>Premier lot : <code>AGENTS.md</code>, <code>requirements.txt</code>, <code>constraints.txt</code> et Codecov mis à jour.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="runs">
+  <h2>Un seul modèle d'exécution : le run</h2>
+  <p>Chat, Arène, RAG, agents, ingestion, installation de modèle : tout est un run. Le hub <code>runs/</code> attribue seul les numéros d'événement, écrit seul les messages et fixe seul le statut. Une commande rend <code>{run_id, conversation_id}</code>, le flux se lit à part et se reprend après navigation.</p>
+  <div class="two">
+    <pre class="code"><code>id: 42
+data: {"seq": 42, "run_id": "9f2c…",
+       "type": "token", "ts": "2026-10-18T14:03:07.512Z",
+       "data": {"lane": "qwen3.5:2b",
+                "text": " sobre", "channel": "answer"}}
+</code></pre>
+    <ul class="tight">
+      <li>Pas de champ <code>event:</code> : un seul gestionnaire, aiguillage par <code>type</code>.</li>
+      <li><code>seq</code> contigu depuis 1 ; <code>run_started</code> en premier, <code>run_ended</code> en dernier.</li>
+      <li>Reprise par <code>Last-Event-ID</code> ou <code>?after=</code> ; run terminé et déjà lu : réponse 204.</li>
+      <li>Tokens groupés par 50 ms ; au plus un run actif par type, sinon 409 avec le run à rejoindre.</li>
+      <li>Le front n'ouvre que les flux de l'écran affiché : jamais plus de quelques connexions.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="port">
+  <h2>Le port ChatModel</h2>
+  <p>Quatre adaptateurs (Ollama natif, OpenAI-compatible pour OpenAI et Groq, Anthropic, Mistral) et un faux modèle pour les tests. Un adaptateur ne mesure pas le CO₂, n'écrit pas en base et ne décide pas du cloud : le registre seul refuse un modèle cloud sans <code>allow_cloud</code>.</p>
+  <pre class="code"><code>class ChatModel(Protocol):
+    ref: ModelRef
+    def stream(self, request: ChatRequest) -&gt; AsyncIterator[ChatChunk]: ...
+
+ChatChunk = LoadState | TextDelta(text, channel) | ToolCall(id, name, arguments) | Done(ChatResult)
+ChatResult: tokens, ttft_s, load_s, eval_s, total_s, tps, tps_source = "ollama_eval" | "wallclock"</code></pre>
+  <p class="muted">Seul Ollama fournit <code>eval_count / eval_duration</code> : c'est le débit D3 affiché.</p>
+</section>
+
+<section id="donnees">
+  <h2>Données : une base SQLite, un seul écrivain</h2>
+  <div class="two">
+    <div class="diagram">
+<pre class="mermaid">
+erDiagram
+  app_sessions ||--o{ runs : regroupe
+  conversations ||--o{ messages : contient
+  runs ||--o{ runs : parent_de
+  runs ||--o{ run_events : publie
+  runs ||--o{ evaluations : note
+  documents ||--o{ chunks : decoupe
+  chunks ||--|| chunks_vec : indexe
+</pre>
+    </div>
+    <ul class="tight">
+      <li>Migrations SQL numérotées, avant seulement, version dans <code>PRAGMA user_version</code>, sauvegarde <code>.bak</code> avant chaque migration.</li>
+      <li>Pas de table <code>jobs</code> : une tâche longue est un run.</li>
+      <li>Métriques et CO₂ seulement sur les runs feuilles (un appel de modèle).</li>
+      <li>« Effacer » efface : messages et événements supprimés, puis checkpoint, <code>VACUUM</code>, checkpoint ; un test lit les octets du fichier et du journal WAL.</li>
+      <li>Réglages d'interface en base (<code>preferences</code>) ; <code>wavelocalai.toml</code> n'est jamais écrit par l'app.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="carbone">
+  <h2>Un CO₂ honnête sur sa méthode</h2>
+  <p>Un seul format partout, qui remplace les trois vocabulaires de la spec :</p>
+  <pre class="code"><code>"co2": {"mg": 41.7, "method": "codecarbon", "estimated": true,
+        "range_mg": null, "allocation": "direct", "reason": null}</code></pre>
+  <ul class="tight">
+    <li>Local : CodeCarbon hors ligne, un tracker par réponse, pays et PUE configurés, aucun appel réseau.</li>
+    <li>Cloud : fonction <code>llm_impacts</code> d'ecologits après l'appel, jamais l'instrumentation globale des SDK.</li>
+    <li>Inconnu : <code>"method": "unmeasurable"</code> avec sa raison, jamais 0.</li>
+    <li>Le total de session survit à l'effacement d'une conversation : la ligne du run reste, sans texte.</li>
+  </ul>
+</section>
+
+<section id="ux">
+  <h2>Faut-il passer par bmad-ux avant le front de l'étape 1 ?</h2>
+  <div class="callout">
+    <p><span class="pill warn">Non, pas tout de suite</span></p>
+    <p>L'audit <code>03-ux-front.md</code> §3 décrit déjà l'architecture front, l'IA à routes <code>#/</code>, les dix composants, le streaming, les états et l'accessibilité ; les jetons de couleur et de typographie de <code>DESIGN.md</code> restent valables. Il suffit de promouvoir ce §3 en compagnon de la spec (via <code>bmad-spec</code>). Une mise à jour <code>bmad-ux</code> vaut la peine avant l'étape 5 (écran Modèles), ou plus tôt si la recette de l'étape 1 révèle un manque.</p>
+  </div>
+</section>
+
+<section id="decisions">
+  <h2>Les 23 décisions</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Id</th><th scope="col">Décision</th><th scope="col">Évite</th></tr></thead>
+      <tbody>
+        <tr><td class="id">AD-1</td><td>Python 3.11 minimum, borne haute commune</td><td>du code 3.11 testé en 3.10</td></tr>
+        <tr><td class="id">AD-2</td><td>Coexistence dans un seul projet, sans import croisé</td><td>une v2 liée au <code>src/core</code> du banc</td></tr>
+        <tr><td class="id">AD-3</td><td>Une seule version par dépôt</td><td>deux numérotations divergentes</td></tr>
+        <tr><td class="id">AD-4</td><td>Sens des dépendances, web seul à connaître FastAPI</td><td>de la logique dans les routes</td></tr>
+        <tr><td class="id">AD-5</td><td>Le run et son cycle de vie, propriété du hub</td><td>deux propriétaires des messages ou du statut</td></tr>
+        <tr><td class="id">AD-6</td><td>Format SSE et reprise</td><td>doublons, trous, reconnexion sans fin</td></tr>
+        <tr><td class="id">AD-7</td><td>Persistance des événements par lots</td><td>une écriture par token</td></tr>
+        <tr><td class="id">AD-8</td><td>Ports ChatModel et Embedder</td><td>des adaptateurs qui mesurent ou stockent</td></tr>
+        <tr><td class="id">AD-9</td><td>Cloud et actions sensibles contrôlés en un point</td><td>un oubli de D1 ou de D2</td></tr>
+        <tr><td class="id">AD-10</td><td>Forme du CO₂ et session carbone</td><td>trois vocabulaires, un 0 pour un inconnu</td></tr>
+        <tr><td class="id">AD-11</td><td>CodeCarbon hors ligne, ecologits par fonction</td><td>des SDK instrumentés en douce</td></tr>
+        <tr><td class="id">AD-12</td><td>SQLite, écrivain unique, migrations</td><td><code>database is locked</code></td></tr>
+        <tr><td class="id">AD-13</td><td>« Effacer » efface réellement</td><td>du texte resté dans le fichier ou le WAL</td></tr>
+        <tr><td class="id">AD-14</td><td>Concurrence et file Ollama</td><td>une colonne lente qui arrête l'Arène</td></tr>
+        <tr><td class="id">AD-15</td><td>Configuration, préférences, budgets de lecture</td><td>une route bloquée par Ollama arrêté</td></tr>
+        <tr><td class="id">AD-16</td><td>Une base documentaire, un modèle d'embedding</td><td>des vecteurs mélangés</td></tr>
+        <tr><td class="id">AD-17</td><td>Aucun téléchargement implicite, reranker optionnel</td><td>un téléchargement en pleine démo</td></tr>
+        <tr><td class="id">AD-18</td><td>Codes d'erreur fermés, en français</td><td>une clé d'API dans un message</td></tr>
+        <tr><td class="id">AD-19</td><td>Sécurité de l'API locale (Host, Origin)</td><td>une page web qui pilote le serveur</td></tr>
+        <tr><td class="id">AD-20</td><td>Contrat du front (Custom Elements, store, SSE)</td><td>deux motifs d'écran</td></tr>
+        <tr><td class="id">AD-21</td><td>Imports lourds paresseux, télémétries coupées</td><td>un premier rendu lent</td></tr>
+        <tr><td class="id">AD-22</td><td>Lecture locale de <code>qb.results/1</code></td><td>un résultat attribué à d'autres poids</td></tr>
+        <tr><td class="id">AD-23</td><td>Exploitation : verrou, journaux, arrêt propre</td><td>deux serveurs sur une même base</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Document de référence : <code>_bmad-output/planning-artifacts/architecture/architecture-wavelocalai-2026-10-18/ARCHITECTURE-SPINE.md</code>, et son journal de décisions <code>.memlog.md</code>.</p>
+</section>
+
+</div>
+</main>
