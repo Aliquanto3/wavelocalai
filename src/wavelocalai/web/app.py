@@ -39,6 +39,7 @@ from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
     routes_chat,
+    routes_conversations,
     routes_health,
     routes_models,
     routes_rag,
@@ -259,6 +260,7 @@ def create_app(
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
     app.include_router(routes_chat.router)
+    app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`

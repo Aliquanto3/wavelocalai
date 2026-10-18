@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Iterable
 from typing import Any
 
+from wavelocalai.errors import AppError
 from wavelocalai.runs.models import AssistantMessage, Co2, LeafResult
 
 
@@ -89,6 +90,41 @@ def insert_run(
             dumps(params),
         ),
     )
+
+
+def erase_conversation(conn: sqlite3.Connection, conversation_id: str) -> None:
+    """Efface une conversation (AD-13) : `messages` et `run_events` de ses runs sont supprimés, ses
+    lignes `runs` restent sans texte avec `conversation_id` à `NULL` (registre carbone). Lève
+    `not_found` si elle n'existe pas, `conversation_busy` si l'un de ses runs est actif : le
+    contrôle se fait ici, dans la transaction de l'écrivain, donc après tout run en file.
+    (Les `evaluations` des runs s'effaceront ici aussi quand leur table existera.)"""
+    if conversation_kind(conn, conversation_id) is None:
+        raise AppError("not_found", "Conversation introuvable.")
+    active = conn.execute(
+        "SELECT id FROM runs WHERE conversation_id = ? AND parent_run_id IS NULL"
+        " AND status IN ('running', 'awaiting_approval') LIMIT 1",
+        (conversation_id,),
+    ).fetchone()
+    if active is not None:
+        raise AppError(
+            "conversation_busy", "Un run de la conversation est actif.", run_id=active[0]
+        )
+    conn.execute(
+        "DELETE FROM run_events WHERE run_id IN (SELECT id FROM runs WHERE conversation_id = ?)",
+        (conversation_id,),
+    )
+    conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
+    # `runs` gardés sans texte : l'enveloppe d'erreur garde son code, son message et son action
+    # (textes fixes d'`errors.py`), mais pas `detail.technical`, texte d'exception ou de fournisseur
+    # qui peut citer la question ou la réponse.
+    conn.execute(
+        "UPDATE runs SET conversation_id = NULL,"
+        " error = CASE WHEN error IS NULL THEN NULL"
+        " ELSE json_remove(error, '$.detail.technical') END"
+        " WHERE conversation_id = ?",
+        (conversation_id,),
+    )
+    conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
 
 
 def insert_events(

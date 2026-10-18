@@ -4,6 +4,8 @@
 //   thread.addUserMessage(texte)
 //   const answer = thread.beginAnswer({ name, origin })   // une réponse de modèle
 //   answer.token(texte, canal)  answer.retry(raison)  answer.metrics(données)  answer.end({ status })
+//   thread.restoreAnswer({ name, origin, text, thought, result, status })   // réponse déjà finie,
+//                                                                           // rouverte : rien n'est annoncé
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -72,8 +74,9 @@ function setValue(node, value) {
 }
 
 class ChatAnswer {
-  constructor(thread, { name, origin }) {
+  constructor(thread, { name, origin, restored = false }) {
     this.thread = thread;
+    this.restored = restored;
     this.name = name;
     this.origin = origin;
     this.text = "";
@@ -152,6 +155,26 @@ class ChatAnswer {
 
   end({ status = "ok" } = {}) {
     if (this.ended) return;
+    this.#settle(status);
+    this.thread._announce(this.#announcement(status));
+  }
+
+  // Réponse retrouvée dans une conversation rouverte (GET /api/conversations/{id}) : texte,
+  // raisonnement et mesures du serveur, comme à la fin du flux, mais sans annonce (la personne
+  // n'attend pas de réponse) et sans pied provisoire : sans mesure, le pied est retiré, car la
+  // durée vue par le navigateur n'existe plus.
+  restore({ text = "", thought = "", result = null, status = "ok" }) {
+    this.text = text;
+    if (thought) {
+      this.thoughtText = thought;
+      this.thoughtNode.data = thought;
+      this.thought.hidden = false;
+    }
+    this.result = result;
+    this.#settle(status);
+  }
+
+  #settle(status) {
     this.ended = true;
     clearInterval(this.ticker);
     clearTimeout(this.timer);
@@ -164,7 +187,6 @@ class ChatAnswer {
     }
     this.#finalFoot();
     this.thread._changed();
-    this.thread._announce(this.#announcement(status));
   }
 
   #announcement(status) {
@@ -219,7 +241,8 @@ class ChatAnswer {
   #finalFoot() {
     const result = this.result;
     if (!result) {
-      this.#refreshFoot();
+      if (this.restored) this.foot.remove();
+      else this.#refreshFoot();
       return;
     }
     this.badge.setAttribute("kind", badgeKind(result.origin ?? this.origin));
@@ -304,6 +327,14 @@ export class WlChatThread extends HTMLElement {
     this.#dom.log.append(answer.root);
     this.scrollToEnd();
     return answer;
+  }
+
+  restoreAnswer({ name, origin, ...content }) {
+    const answer = new ChatAnswer(this, { name, origin, restored: true });
+    this.#answers.add(answer);
+    this.#dom.log.append(answer.root);
+    answer.restore(content);
+    this.scrollToEnd();
   }
 
   clear() {

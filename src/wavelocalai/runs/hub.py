@@ -631,6 +631,14 @@ class RunHub:
         )
         return [StoredMessage(r["role"], r["content"]) for r in rows]
 
+    async def erase_conversation(self, conversation_id: str) -> None:
+        """Efface une conversation et le texte de ses runs (AD-13) ; `conversation_busy` si l'un
+        d'eux est actif. L'effacement et le vidage du fichier et du journal (`wal_checkpoint`,
+        `VACUUM`) passent dans la file de l'écrivain, l'un derrière l'autre."""
+        await self.store.awrite(
+            lambda conn: repo.erase_conversation(conn, conversation_id), purge=True
+        )
+
     def watch(self, run_id: str) -> asyncio.Event | None:
         """Événement qui se déclenche au prochain événement (ou à la clôture) d'un run racine
         actif ; `None` si le run n'est plus actif. À prendre *avant* `events_after`."""
