@@ -104,6 +104,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         ModelFactory(client, app.state.models, settings, app.state.cloud_http),
         app.state.local_slot,
         settings,
+        app.state.system_feed,
     )
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.

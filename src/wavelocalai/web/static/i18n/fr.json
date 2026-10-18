@@ -150,6 +150,8 @@
       "button": "CO₂ session",
       "title": "CO₂ de la session",
       "total": "Total",
+      "cloud_estimated": "{value} (estimé)",
+      "cloud_unmeasurable": "non mesurable",
       "unmeasurable": "Non mesurables",
       "unmeasurable_none": "Aucune réponse",
       "unmeasurable_one": "1 réponse",

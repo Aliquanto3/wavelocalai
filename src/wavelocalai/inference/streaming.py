@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import AbstractAsyncContextManager, nullcontext
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
@@ -102,6 +102,7 @@ async def stream_into_run(
     *,
     secrets: Iterable[str] = (),
     co2: Co2 = NOT_MEASURED,
+    estimate_co2: Callable[[ChatResult], Co2] | None = None,
     slot: AbstractAsyncContextManager[object] | None = None,
     timeout_s: float | None = None,
     retry_interrupted: bool = False,
@@ -114,9 +115,11 @@ async def stream_into_run(
     story des agents.
 
     `slot` : sémaphore local, pris par appel. `timeout_s` : délai de lane de chaque appel (`timeout`
-    en cas de dépassement). `retry_interrupted` : une génération coupée (`generation_interrupted`)
-    est relancée une fois, avec un événement `retry` qui efface le texte partiel ; copie adaptée de
-    `retry_interrupted` de la v1 : toute autre erreur, délai compris, est relayée sans relance.
+    en cas de dépassement). `estimate_co2` : calcule le `co2` d'une réponse réussie à partir de son
+    `ChatResult` (cloud, ecologits), hors de la boucle d'événements ; il ne lève jamais.
+    `retry_interrupted` : une génération coupée (`generation_interrupted`) est relancée une fois,
+    avec un événement `retry` qui efface le texte partiel ; copie adaptée de `retry_interrupted` de
+    la v1 : toute autre erreur, délai compris, est relayée sans relance.
     """
     lane = model.ref.tag
     origin = model.ref.origin
@@ -152,6 +155,12 @@ async def stream_into_run(
                 run_id, LeafResult(status="error", origin=origin, error=error), co2
             )
             return
+    if estimate_co2 is not None:  # cloud : estimé après l'appel, sur les jetons et la durée réels
+        try:
+            co2 = await asyncio.to_thread(estimate_co2, result)
+        except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
+            logger.warning("Estimation du CO2 impossible : %r", exc)
+            co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
     hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2))
     leaf = LeafResult(
         origin=origin,
