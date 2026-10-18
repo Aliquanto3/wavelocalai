@@ -294,9 +294,11 @@ def test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them(
 
 
 def test_planned_modules_have_no_card_on_the_home(home):
-    assert home.locator(".home-module-link").count() == 0
-    assert home.get_by_role("heading", name="Modules").count() == 0
-    assert home.locator('[data-screen="home"] a[href^="#/arene"]').count() == 0
+    # L'Arène est livrée (story 2.2) : seul son lien figure ; les modules à venir n'en ont aucun.
+    assert home.locator(".home-module-link").count() == 1
+    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/arene"]').count() == 1
+    assert home.locator('[data-screen="home"] a[href^="#/documents"]').count() == 0
+    assert home.locator('[data-screen="home"] a[href^="#/agents"]').count() == 0
     # La barre haute les montre désactivés, avec leur raison.
     assert (
         "Pas encore disponible dans cette préversion" in home.locator("#module-list").inner_text()

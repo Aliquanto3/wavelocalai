@@ -161,7 +161,45 @@
       "stop": "Arrêter",
       "stop_hint": "ou touche Échap",
       "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
+    },
+    "thread": {
+      "label": "Conversation",
+      "you": "Vous",
+      "thought": "Raisonnement",
+      "to_end": "Aller à la fin",
+      "stopped": "Arrêté",
+      "failed": "Échec",
+      "interrupted": "Interrompu",
+      "retried": "Génération relancée : {reason}",
+      "done": "Réponse de {model} terminée, {tokens} tokens.",
+      "done_plain": "Réponse de {model} terminée.",
+      "stopped_announce": "Réponse de {model} arrêtée.",
+      "failed_announce": "Réponse de {model} en échec.",
+      "interrupted_announce": "Réponse de {model} interrompue.",
+      "rate": "Débit",
+      "rate_help": "Tokens générés divisés par le temps de génération mesuré par Ollama, chargement du modèle exclu. Avant la fin de la réponse, le débit est une estimation du navigateur.",
+      "tokens": "Tokens",
+      "duration": "Durée",
+      "load": "Chargement",
+      "total": "Durée totale"
     }
+  },
+  "tabs": {
+    "label": "Écrans du module {module}"
+  },
+  "chat": {
+    "lead": "Posez une question à un modèle de ce poste et lisez sa réponse au fil de sa rédaction.",
+    "creativity": "Créativité",
+    "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "message": "Écrivez votre message",
+    "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
+    "send": "Envoyer",
+    "clear": "Effacer la conversation",
+    "empty": "Posez une question pour commencer. La réponse s'affiche au fil de sa rédaction.",
+    "no_model": "Aucun modèle n'est choisi.",
+    "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
+    "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
+    "start_failed": "La demande n'a pas pu être envoyée."
   },
   "topbar": {
     "ollama": {
