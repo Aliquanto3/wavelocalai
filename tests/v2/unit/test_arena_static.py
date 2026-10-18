@@ -107,3 +107,39 @@ def test_the_arena_css_is_linked_and_the_front_files_stay_under_the_size_budget(
     assert '<link rel="stylesheet" href="/static/arena.css">' in source("index.html")
     for name in [*NEW_SCRIPTS, "arena.css"]:
         assert len(source(name).splitlines()) <= 600, name
+
+
+def test_the_launch_legends_the_summary_and_the_no_local_alert_have_their_texts():
+    arena = CATALOG["arena"]
+    assert arena["need_models"] == "Choisissez au moins 2 modèles"
+    assert arena["too_many"] == "Choisissez 4 modèles au plus"
+    assert arena["need_question"] == "Saisissez une question"
+    assert {"title", "question", "models", "judge"} <= set(arena["summary"])
+    for key in ("no_local_reason", "no_local_cloud_off", "no_local_cloud_on"):
+        assert arena[key]
+    # Elle dit quoi faire : installer un modèle depuis Modèles, ou autoriser le cloud.
+    assert "écran Modèles" in arena["no_local_cloud_off"]
+    assert "Autoriser le cloud" in arena["no_local_cloud_off"].replace("00a0", " ")
+    assert "écran Modèles" in arena["no_local_cloud_on"]
+
+
+def test_the_four_lines_fold_and_the_summary_are_styled_from_tokens_only():
+    css = source("arena.css")
+    fold = re.search(
+        r"@media \(min-width: 1440px\) \{\s*\.arena-lanes\[data-count=\"4\"\](.*?)\n\}",
+        css,
+        re.DOTALL,
+    )
+    assert fold and "4lh" in fold.group(0)
+    assert "[data-focus]" in fold.group(0)  # le mode focus lève le repli
+    assert ".is-expanded" in fold.group(0)  # « Afficher toute la réponse » aussi
+    assert ".arena-summary" in css
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)  # aucune couleur en dur
+    assert ".wl-notice" in source("components.css")
+
+
+def test_the_screen_swaps_the_form_for_a_summary_while_a_run_is_followed():
+    screen = source("screens/arena.js")
+    assert "const showSummary = running();" in screen and "form.hidden = showSummary" in screen
+    assert "wl-models-loaded" in screen and "localReadyCount" in screen
+    assert "wl-models-loaded" in source("components/wl-model-picker.js")

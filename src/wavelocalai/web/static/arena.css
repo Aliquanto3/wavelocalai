@@ -250,3 +250,78 @@
   align-self: start;
   margin: 0 0.75rem 0.75rem;
 }
+
+/* Quatre modèles dès 1 440 px : quatre colonnes, réponse repliée sur 4 lignes (D-15). Le texte est
+   borné, pas le fil : les mesures de la colonne restent lisibles. « Afficher toute la réponse » et
+   le mode focus lèvent la limite. */
+@media (min-width: 1440px) {
+  .arena-lanes[data-count="4"]:not([data-focus]) .wl-arena-lane:not(.is-expanded) .wl-thread-log {
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .arena-lanes[data-count="4"]:not([data-focus]) .wl-arena-lane:not(.is-expanded) .wl-msg-text {
+    max-height: 4lh;
+    overflow: hidden;
+  }
+}
+
+/* Résumé de la comparaison lancée : remplace la configuration jusqu'à `run_ended` (D-16). */
+.arena-summary {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.arena-summary-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.arena-summary-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.arena-summary-row {
+  display: grid;
+  gap: 0.125rem;
+}
+
+@media (min-width: 768px) {
+  .arena-summary-row {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
+
+.arena-summary-row dt {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.arena-summary-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.arena-summary-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arena-summary-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}

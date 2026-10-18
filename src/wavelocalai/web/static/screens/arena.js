@@ -15,7 +15,7 @@
 //   `localStorage` seulement (`core/drafts.js`).
 
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, icon } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatClock } from "../core/format.js";
 import { t } from "../core/i18n.js";
@@ -80,6 +80,23 @@ export function mount(host, params = {}) {
   const form = element("form", "arena-form");
   form.append(questionLabel, question, scenarios, picker, execution, actions);
 
+  // Sans modèle local prêt (D-11) : `alert-info` qui dit quoi faire, au-dessus du formulaire.
+  const noLocal = element("p", "wl-notice wl-notice-info");
+  noLocal.setAttribute("role", "status");
+  const noLocalText = element("span", "");
+  noLocal.append(icon("info"), noLocalText);
+  noLocal.hidden = true;
+
+  // Pendant l'exécution, la configuration est remplacée par ce résumé (D-16), jusqu'à `run_ended`.
+  const summaryTitle = element("h2", "arena-summary-title", t("arena.summary.title"));
+  summaryTitle.tabIndex = -1; // reçoit le focus quand le formulaire se retire
+  const summaryList = element("dl", "arena-summary-list");
+  const summary = element("section", "arena-summary");
+  summary.setAttribute("aria-labelledby", `${uid}-summary-title`);
+  summaryTitle.id = `${uid}-summary-title`;
+  summary.hidden = true;
+  summary.append(summaryTitle, summaryList);
+
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
   notice.hidden = true;
@@ -116,7 +133,9 @@ export function mount(host, params = {}) {
     element("h1", "", t("screens.arena-compare")),
     screenTabs("arena", "arena-compare"),
     element("p", "lead", t("arena.lead")),
+    noLocal,
     form,
+    summary,
     notice,
     error,
     banner,
@@ -138,6 +157,7 @@ export function mount(host, params = {}) {
   let finalState = null; // ok | cancelled | error | interrupted une fois le run terminé
   let stopping = false;
   let wasHidden = host.hidden;
+  let askedText = ""; // la question du run suivi (événement `question`), pour le résumé
   const narrow = window.matchMedia(NARROW);
 
   const running = () => runId !== null;
@@ -153,13 +173,76 @@ export function mount(host, params = {}) {
     });
   }
 
+  // Aucun modèle local prêt : la liste est arrivée, Ollama répond, et rien de local n'est listé.
+  const noLocalReady = () => picker.localReadyCount === 0 && picker.ollamaUp;
+
+  // Ce qui empêche le lancement, dans l'ordre où on le dit (la première raison l'emporte). Un
+  // prérequis de plus (le juge, story 3.3) est une ligne de plus ici.
+  const launchChecks = [
+    () => (running() || pending ? t("arena.busy") : ""),
+    () =>
+      noLocalReady() && !store.get().allowCloud && picker.values.length < MIN_MODELS
+        ? t("arena.no_local_reason")
+        : "",
+    () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
+    () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
+    () => (question.value.trim() ? "" : t("arena.need_question")),
+  ];
+
   function launchReason() {
-    if (running() || pending) return t("arena.busy");
-    const n = picker.values.length;
-    if (n < MIN_MODELS) return t("arena.need_models");
-    if (n > MAX_MODELS) return t("arena.too_many");
-    if (!question.value.trim()) return t("arena.need_question");
+    for (const check of launchChecks) {
+      const why = check();
+      if (why) return why;
+    }
     return "";
+  }
+
+  // Les lignes du résumé affiché pendant l'exécution : [libellé, contenu]. La 3.3 y ajoute le juge.
+  const summaryRows = [
+    () => [t("arena.summary.question"), askedText],
+    () => {
+      const models = element("ul", "arena-summary-models");
+      for (const [tag, entry] of lanes) {
+        const item = element("li", "arena-summary-model");
+        const badge = document.createElement("wl-badge");
+        badge.setAttribute("kind", ["local", "cloud"].includes(entry.origin) ? entry.origin : "unknown");
+        item.append(element("span", "", entry.name), badge);
+        item.dataset.tag = tag;
+        models.append(item);
+      }
+      return [t("arena.summary.models"), models];
+    },
+  ];
+
+  function renderSummary() {
+    summaryList.replaceChildren(
+      ...summaryRows.map((row) => {
+        const [label, content] = row();
+        const item = element("div", "arena-summary-row");
+        item.append(element("dt", "", label), element("dd", ""));
+        item.lastElementChild.append(content);
+        return item;
+      }),
+    );
+  }
+
+  // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16).
+  function renderMode() {
+    const showSummary = running();
+    form.hidden = showSummary;
+    summary.hidden = !showSummary;
+    asked.hidden = showSummary || askedText === "";
+    if (showSummary) renderSummary();
+  }
+
+  function renderNoLocal() {
+    const missing = noLocalReady();
+    noLocal.hidden = !missing;
+    if (missing) {
+      noLocalText.textContent = store.get().allowCloud
+        ? t("arena.no_local_cloud_on")
+        : t("arena.no_local_cloud_off");
+    }
   }
 
   function render() {
@@ -167,6 +250,8 @@ export function mount(host, params = {}) {
     launch.disabled = why !== "";
     reason.textContent = why;
     reason.hidden = why === "";
+    renderNoLocal();
+    renderMode();
   }
 
   function elapsed() {
@@ -201,7 +286,14 @@ export function mount(host, params = {}) {
     lanesEl.hidden = true;
     delete lanesEl.dataset.focus;
     asked.hidden = true;
+    askedText = "";
     activeTab = null;
+  }
+
+  function setAsked(text) {
+    askedText = text;
+    asked.replaceChildren(element("strong", "", `${t("arena.asked")}\u00a0: `), text);
+    renderMode();
   }
 
   function tabLabel(tag) {
@@ -221,7 +313,7 @@ export function mount(host, params = {}) {
     tab.setAttribute("aria-controls", el.id);
     tab.addEventListener("click", () => selectTab(tag, true));
     tab.addEventListener("keydown", (event) => onTabKey(event, tag));
-    lanes.set(tag, { el, tab, name: fiche?.name ?? tag });
+    lanes.set(tag, { el, tab, name: fiche?.name ?? tag, origin: fiche?.origin ?? "unknown" });
     lanesEl.append(el);
     tabs.append(tab);
   }
@@ -331,11 +423,9 @@ export function mount(host, params = {}) {
       startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
       startTicker();
       renderBanner();
+      renderMode();
     },
-    question: (data) => {
-      asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), data?.text ?? "");
-      asked.hidden = false;
-    },
+    question: (data) => setAsked(data?.text ?? ""),
     lane_status: (data) => {
       const el = laneOf(data);
       if (!el) return;
@@ -404,9 +494,9 @@ export function mount(host, params = {}) {
       });
       buildLanes(models);
       lanesEl.hidden = false;
-      asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), question.value);
-      asked.hidden = false;
+      setAsked(question.value);
       follow(started.run_id);
+      summaryTitle.focus(); // le bouton de lancement vient de se retirer avec le formulaire
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;
@@ -464,6 +554,7 @@ export function mount(host, params = {}) {
     render();
   });
   picker.addEventListener("wl-model-change", render);
+  picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
   narrow.addEventListener("change", layout);
 
   // --- Écran masqué puis revu ------------------------------------------------------------

@@ -304,8 +304,17 @@
     "execution": "Les modèles locaux passent l'un après l'autre (mémoire) ; les modèles cloud en parallèle.",
     "launch": "Lancer la comparaison",
     "need_models": "Choisissez au moins 2 modèles",
-    "too_many": "Choisissez au plus 4 modèles",
+    "too_many": "Choisissez 4 modèles au plus",
     "need_question": "Saisissez une question",
+    "no_local_reason": "Aucun modèle local prêt, installez un modèle ou autorisez le cloud",
+    "no_local_cloud_off": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles, ou activez « Autoriser le cloud » dans la barre haute pour comparer des modèles cloud.",
+    "no_local_cloud_on": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles pour comparer des modèles locaux. Les modèles cloud autorisés restent utilisables.",
+    "summary": {
+      "title": "Comparaison",
+      "question": "Question",
+      "models": "Modèles comparés",
+      "judge": "Juge"
+    },
     "busy": "Une comparaison est en cours",
     "start_failed": "La comparaison n'a pas pu être lancée.",
     "joined": "Une comparaison est déjà en cours : vous la suivez.",

@@ -16,7 +16,10 @@
 //   et propose le défaut local.
 //
 // Attributs : `purpose` (défaut `chat`), `multi`, `label`. Propriétés : `values` (liste choisie),
-// `value` (premier choix, ou ""). Événement : `wl-model-change` (`detail.values`). Sans Shadow DOM.
+// `value` (premier choix, ou ""), `loaded` (la liste est arrivée), `ollamaUp`, `localReadyCount`
+// (modèles locaux listés et disponibles, `null` avant la première liste). Événements :
+// `wl-model-change` (`detail.values`), `wl-models-loaded` (après chaque rechargement de la liste).
+// Sans Shadow DOM.
 
 import { api, ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
@@ -116,6 +119,20 @@ export class WlModelPicker extends HTMLElement {
     this.values = tag ? [tag] : [];
   }
 
+  get loaded() {
+    return this.#loaded;
+  }
+
+  get ollamaUp() {
+    return this.#ollamaUp;
+  }
+
+  // Nombre de modèles locaux prêts (listés, Ollama répond), `null` avant la première liste.
+  get localReadyCount() {
+    if (!this.#loaded) return null;
+    return this.#models.filter((model) => model.origin !== "cloud" && model.available).length;
+  }
+
   // La fiche de l'API du premier modèle choisi (nom, origine…), ou null.
   get selected() {
     return this.#known.get(this.value) ?? null;
@@ -162,6 +179,7 @@ export class WlModelPicker extends HTMLElement {
     this.#dropCloudChoices(allowCloud);
     this.#preselect();
     this.#renderAll();
+    this.dispatchEvent(new CustomEvent("wl-models-loaded", { bubbles: true }));
   }
 
   #envelope(reason) {
