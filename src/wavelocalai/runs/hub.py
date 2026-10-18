@@ -1,0 +1,519 @@
+"""Le hub des runs : seul à créer, numéroter, persister, annuler et terminer un run (AD-5, AD-7).
+
+Tout se passe dans la boucle d'événements : `publish` est synchrone et ne touche que la mémoire ;
+les écritures SQLite passent par l'écrivain unique du store (`Store.awrite`). Un run racine garde
+tous ses événements en mémoire tant qu'il est actif ; une tâche de fond les écrit par lots d'au plus
+une seconde, et `run_ended`, le statut final et le message assistant partent dans une même
+transaction. Les runs enfants (un par appel de modèle) ne portent pas de flux : le parent publie
+seul, et métriques et CO2 ne vivent que sur les feuilles (`finish_leaf`).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import sqlite3
+import uuid
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
+
+from wavelocalai.errors import AppError
+from wavelocalai.runs import repo
+from wavelocalai.runs.models import (
+    CONVERSATION_KINDS,
+    FINAL_STATUSES,
+    LEAF_KINDS,
+    RESERVED_EVENTS,
+    ROOT_KINDS,
+    AssistantMessage,
+    Co2,
+    LeafResult,
+    RunHandle,
+)
+from wavelocalai.store.db import Store, utc_now_iso
+
+logger = logging.getLogger("wavelocalai.runs")
+
+BATCH_INTERVAL_S = 1.0  # AD-7 : un lot au plus chaque seconde
+
+# `runs.params` ne contient aucun texte saisi (AD-7) : clés qui en portent d'ordinaire, et taille
+# au-delà de laquelle une valeur texte est tenue pour du texte saisi.
+FORBIDDEN_PARAM_KEYS = frozenset(
+    {"prompt", "message", "question", "text", "content", "topic", "query", "input"}
+)
+MAX_PARAM_TEXT = 256
+
+
+def check_params(params: Mapping[str, Any], typed_text: str | None = None) -> None:
+    """Refuse des `params` qui porteraient du texte saisi (`ValueError`)."""
+
+    def visit(value: Any, path: str) -> None:
+        if isinstance(value, Mapping):
+            for key, item in value.items():
+                if str(key).lower() in FORBIDDEN_PARAM_KEYS:
+                    raise ValueError(f"params.{path}{key} : le texte saisi n'a pas sa place ici")
+                visit(item, f"{path}{key}.")
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item, path)
+        elif isinstance(value, str) and (
+            len(value) > MAX_PARAM_TEXT or (typed_text and typed_text in value)
+        ):
+            raise ValueError(f"params.{path[:-1]} : texte saisi probable (AD-7)")
+
+    visit(params, "")
+
+
+def strip_source_text(value: Any) -> Any:
+    """Retire `text` des sources avant écriture (AD-7) ; accepte un objet, une liste ou un objet
+    qui porte la liste (`sources`, `items`)."""
+    if isinstance(value, list):
+        return [strip_source_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: strip_source_text(item) for key, item in value.items() if key != "text"}
+    return value
+
+
+class _Event:
+    __slots__ = ("data", "data_json", "seq", "ts", "type")
+
+    def __init__(self, seq: int, etype: str, ts: str, data: dict[str, Any]) -> None:
+        self.seq = seq
+        self.type = etype
+        self.ts = ts
+        self.data = data  # complet, pour le flux en direct
+        stored = strip_source_text(data) if etype == "sources" else data
+        self.data_json = repo.dumps(stored)  # sérialisé tout de suite : une erreur remonte ici
+
+    def envelope(self, run_id: str) -> dict[str, Any]:
+        return {
+            "seq": self.seq,
+            "run_id": run_id,
+            "type": self.type,
+            "ts": self.ts,
+            "data": self.data,
+        }
+
+    def row(self) -> tuple[int, str, str, str]:
+        return (self.seq, self.type, self.ts, self.data_json)
+
+
+class _Run:
+    def __init__(self, run_id: str, kind: str, parent_id: str | None, conversation_id: str | None):
+        self.id = run_id
+        self.kind = kind
+        self.parent_id = parent_id
+        self.conversation_id = conversation_id
+        self.events: list[_Event] = []
+        self.flushed = 0  # nombre d'événements déjà écrits
+        self.children: list[str] = []
+        self.status = "running"
+        self.closing = False
+        self.task: asyncio.Task[Any] | None = None
+        self.answer: list[str] = []
+        self.thought: list[str] = []
+        self.lock = asyncio.Lock()
+
+
+class RunHub:
+    """Hub d'exécutions ; une instance par serveur."""
+
+    def __init__(
+        self,
+        store: Store,
+        *,
+        batch_interval_s: float = BATCH_INTERVAL_S,
+        clock: Callable[[], str] = utc_now_iso,
+    ) -> None:
+        self.store = store
+        self.batch_interval_s = batch_interval_s
+        self._clock = clock
+        self._runs: dict[str, _Run] = {}
+        self._closed: set[str] = set()
+        self._flusher: asyncio.Task[None] | None = None
+        self.app_session_id: str | None = None
+
+    # --- cycle de vie du serveur ---------------------------------------------------------------
+
+    async def start(self) -> list[str]:
+        """Au démarrage : les runs non terminés deviennent `interrupted` (avec un `run_ended`
+        synthétique), puis une nouvelle `app_session` s'ouvre. Rend les runs interrompus."""
+        now = self._clock()
+        interrupted = await self.store.awrite(lambda conn: repo.interrupt_orphans(conn, now))
+        if interrupted:
+            logger.warning("%d run(s) interrompu(s) par l'arrêt précédent", len(interrupted))
+        await self.new_app_session("startup")
+        self._flusher = asyncio.create_task(self._flush_loop(), name="wavelocalai-run-flusher")
+        return interrupted
+
+    async def stop(self) -> None:
+        """À l'arrêt propre : les runs actifs passent à `cancelled` (AD-23)."""
+        if self._flusher is not None:
+            self._flusher.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._flusher
+            self._flusher = None
+        for run in [r for r in self._runs.values() if r.parent_id is None]:
+            if run.closing:  # sa clôture est en cours : annuler sa tâche la perdrait
+                continue
+            self._cancel_tasks(run)
+            try:
+                await self._close(run, "cancelled")
+            except Exception:
+                logger.exception("Arrêt : le run %s n'a pas pu être clos", run.id)
+
+    async def new_app_session(self, reason: str = "reset") -> str:
+        """Ouvre une `app_session` (démarrage ou remise à zéro du CO2, AD-10)."""
+        session_id = uuid.uuid4().hex
+        now = self._clock()
+        await self.store.awrite(lambda conn: repo.insert_session(conn, session_id, now, reason))
+        self.app_session_id = session_id
+        return session_id
+
+    # --- création ------------------------------------------------------------------------------
+
+    async def create_run(
+        self,
+        kind: str,
+        *,
+        models: Sequence[str] = (),
+        params: Mapping[str, Any] | None = None,
+        parent_run_id: str | None = None,
+        user_message: str | None = None,
+        conversation_id: str | None = None,
+    ) -> RunHandle:
+        """Crée un run. Un run racine publie `run_started` (seq 1). Avec `user_message`, le hub
+        crée la conversation (ou reprend `conversation_id`) et écrit le message utilisateur, dans
+        la même transaction. Un run enfant (`parent_run_id`) est une feuille du parent actif."""
+        if self.app_session_id is None:
+            raise RuntimeError("Le hub n'est pas démarré.")
+        params = dict(params or {})
+        check_params(params, user_message)
+        parent = self._runs.get(parent_run_id) if parent_run_id else None
+        if parent_run_id is not None:
+            if parent is None or parent.closing or parent.parent_id is not None:
+                raise ValueError("Le parent d'une feuille doit être un run racine actif.")
+            if kind not in LEAF_KINDS or user_message is not None or conversation_id:
+                raise ValueError("Un run enfant est une feuille (generation, judge, embedding).")
+        elif kind not in ROOT_KINDS:
+            raise ValueError(f"Un run racine a un genre parmi {ROOT_KINDS}, pas {kind!r}.")
+        if (user_message is not None or conversation_id) and kind not in CONVERSATION_KINDS:
+            raise ValueError(f"Un run {kind} n'ouvre pas de conversation.")
+        if conversation_id and user_message is None:
+            raise ValueError("Reprendre une conversation exige un message utilisateur.")
+
+        run_id = uuid.uuid4().hex
+        new_conversation = user_message is not None and not conversation_id
+        conv_id = (uuid.uuid4().hex if new_conversation else conversation_id) or (
+            parent.conversation_id if parent else None
+        )
+        now = self._clock()
+        started = (
+            None
+            if parent
+            else _Event(
+                1,
+                "run_started",
+                now,
+                {"kind": kind, "models": list(models), "params": params},
+            )
+        )
+        session = self.app_session_id
+
+        def tx(conn: sqlite3.Connection) -> None:
+            if new_conversation:
+                repo.insert_conversation(conn, str(conv_id), kind, now)
+            elif conversation_id:
+                found = repo.conversation_kind(conn, conversation_id)
+                if found is None:
+                    raise AppError("not_found", "Conversation introuvable.")
+                if found != kind:
+                    raise AppError(
+                        "invalid_request", f"La conversation est de genre {found}, pas {kind}."
+                    )
+            repo.insert_run(
+                conn,
+                run_id=run_id,
+                kind=kind,
+                parent_run_id=parent_run_id,
+                app_session=session,
+                conversation_id=conv_id,
+                model=models[0] if len(models) == 1 else None,
+                started_at=now,
+                params=params,
+            )
+            if started is not None:
+                repo.insert_events(conn, run_id, [started.row()])
+            if user_message is not None:  # après le run, que le message référence
+                repo.insert_message(conn, str(conv_id), run_id, "user", now, user_message)
+
+        run = _Run(run_id, kind, parent_run_id, conv_id)
+        if parent is not None:
+            # Une feuille est rattachée à son parent avant son écriture : un parent clos pendant
+            # celle-ci l'annule (`cancel_rows` passe après l'insertion dans la file de l'écrivain).
+            self._runs[run_id] = run
+            parent.children.append(run_id)
+        try:
+            await self.store.awrite(tx)
+        except Exception:
+            if parent is not None:
+                self._runs.pop(run_id, None)
+                with contextlib.suppress(ValueError):
+                    parent.children.remove(run_id)
+            raise
+        if started is not None:
+            run.events.append(started)
+            run.flushed = 1
+            self._runs[run_id] = run
+        return RunHandle(run_id, conv_id)
+
+    # --- publication ---------------------------------------------------------------------------
+
+    def attach_task(self, run_id: str, task: asyncio.Task[Any]) -> None:
+        """Associe la tâche asyncio d'un run, que `cancel` interrompra (AD-8). Si le run a déjà
+        été clos (parent annulé pendant la création de la feuille), la tâche est annulée."""
+        run = self._runs.get(run_id)
+        if run is None and run_id in self._closed:
+            task.cancel()
+            return
+        if run is None:
+            raise KeyError(f"Run inconnu : {run_id}")
+        run.task = task
+
+    def publish(
+        self, run_id: str, event_type: str, data: Mapping[str, Any] | None = None
+    ) -> int | None:
+        """Publie un événement sur un run racine actif ; rend son `seq`. Rend `None` si le run est
+        déjà en cours de clôture (course avec une annulation : l'événement est écarté)."""
+        if event_type in RESERVED_EVENTS:
+            raise ValueError(f"{event_type} est publié par le hub seul")
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return None
+            raise KeyError(f"Run inconnu : {run_id}")
+        if run.parent_id is not None:
+            raise ValueError("Seul un run racine publie un flux : le parent publie (AD-5).")
+        if run.closing:
+            return None
+        return self._append(run, event_type, dict(data or {}))
+
+    def _append(self, run: _Run, event_type: str, data: dict[str, Any]) -> int:
+        event = _Event(len(run.events) + 1, event_type, self._clock(), data)
+        run.events.append(event)
+        if event_type == "token" and run.conversation_id is not None:
+            text = str(data.get("text") or "")
+            (run.thought if data.get("channel") == "thought" else run.answer).append(text)
+        return event.seq
+
+    # --- fin d'un run --------------------------------------------------------------------------
+
+    async def finish_leaf(self, run_id: str, result: LeafResult, co2: Co2 | None = None) -> bool:
+        """Termine une feuille : statut, métriques et `co2`. Une feuille qui est aussi un run
+        racine (sans enfants) est close avec son flux : dernier lot, `run_ended`, statut et message
+        assistant dans une transaction. Rend `False` si le run était déjà clos (annulation)."""
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return False
+            raise KeyError(f"Run inconnu : {run_id}")
+        if run.closing:
+            return False
+        if run.children:
+            raise ValueError("Un run composite ne porte ni métriques ni CO2 : finish_run (AD-5).")
+        if run.parent_id is None:
+            return await self._close(
+                run,
+                result.status,
+                error=result.error,
+                leaf=result,
+                co2=co2,
+                assistant=result.assistant,
+            )
+        run.closing = True
+        now = self._clock()
+        await self.store.awrite(
+            lambda conn: repo.finish_run_row(
+                conn, run_id, result.status, now, result.error, result, co2
+            )
+        )
+        self._forget(run, result.status)
+        return True
+
+    async def finish_run(
+        self,
+        run_id: str,
+        status: str = "ok",
+        *,
+        error: dict[str, Any] | None = None,
+        assistant: AssistantMessage | None = None,
+    ) -> bool:
+        """Termine un run racine, composite ou non, sans métriques (elles sont sur les feuilles).
+        Les enfants encore actifs passent à `cancelled`."""
+        if status not in FINAL_STATUSES:
+            raise ValueError(f"statut de fin inconnu : {status!r}")
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return False
+            raise KeyError(f"Run inconnu : {run_id}")
+        if run.parent_id is not None:
+            raise ValueError("finish_run termine un run racine ; une feuille : finish_leaf.")
+        return await self._close(run, status, error=error, assistant=assistant)
+
+    async def cancel(self, run_id: str) -> bool:
+        """Annule un run actif et ses enfants ; rend `False` s'il n'est pas actif."""
+        run = self._runs.get(run_id)
+        if run is None or run.closing:
+            return False
+        self._cancel_tasks(run)
+        if run.parent_id is None:
+            return await self._close(run, "cancelled")
+        run.closing = True
+        now = self._clock()
+        await self.store.awrite(lambda conn: repo.cancel_rows(conn, [run_id], now))
+        self._forget(run, "cancelled")
+        return True
+
+    def _cancel_tasks(self, run: _Run) -> None:
+        current = asyncio.current_task()
+        for item in [run, *(self._runs[c] for c in run.children if c in self._runs)]:
+            if item.task is not None and item.task is not current and not item.task.done():
+                item.task.cancel()
+
+    async def _close(
+        self,
+        run: _Run,
+        status: str,
+        *,
+        error: dict[str, Any] | None = None,
+        leaf: LeafResult | None = None,
+        co2: Co2 | None = None,
+        assistant: AssistantMessage | None = None,
+    ) -> bool:
+        if run.closing:
+            return False
+        run.closing = True  # plus aucun événement n'entre
+        children = [self._runs[c] for c in run.children if c in self._runs]
+        for child in children:
+            child.closing = True
+            self._cancel_tasks(child)
+        now = self._clock()
+        run.events.append(
+            _Event(len(run.events) + 1, "run_ended", now, {"status": status, "error": error})
+        )
+        message = self._final_message(run, assistant)
+        child_ids = [child.id for child in children]
+        async with run.lock:  # attend un lot en cours : pas d'écriture en double
+            batch = [event.row() for event in run.events[run.flushed :]]
+
+            def tx(conn: sqlite3.Connection) -> None:
+                repo.insert_events(conn, run.id, batch)
+                repo.finish_run_row(conn, run.id, status, now, error, leaf, co2)
+                repo.cancel_rows(conn, child_ids, now)
+                if message is not None and run.conversation_id is not None:
+                    repo.insert_message(
+                        conn, run.conversation_id, run.id, "assistant", now, message
+                    )
+
+            try:
+                await self.store.awrite(tx)
+            except Exception:
+                logger.exception("Le run %s n'a pas pu être clos en base", run.id)
+                raise
+        for child in children:
+            self._forget(child, "cancelled")
+        self._forget(run, status)
+        return True
+
+    @staticmethod
+    def _final_message(run: _Run, explicit: AssistantMessage | None) -> AssistantMessage | None:
+        """Message assistant écrit avec le statut final : celui du service, sinon le texte reçu
+        jusque-là (partiel compris) ; rien si le run n'ouvre pas de conversation."""
+        if run.conversation_id is None:
+            return None
+        message = explicit or AssistantMessage(
+            content="".join(run.answer), reasoning="".join(run.thought) or None
+        )
+        return None if message.is_empty() else message
+
+    def _forget(self, run: _Run, status: str) -> None:
+        run.status = status
+        run.events = []
+        run.flushed = 0
+        self._runs.pop(run.id, None)
+        self._closed.add(run.id)
+
+    # --- lots d'événements ---------------------------------------------------------------------
+
+    async def _flush_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self.batch_interval_s)
+            await self.flush()
+
+    async def flush(self) -> None:
+        """Écrit en base les événements publiés depuis le dernier lot (un lot par run actif)."""
+        for run in [r for r in self._runs.values() if r.parent_id is None]:
+            if run.closing or len(run.events) <= run.flushed:
+                continue
+            async with run.lock:
+                batch = run.events[run.flushed :]
+                if run.closing or not batch:
+                    continue
+                rows = [event.row() for event in batch]
+                future = asyncio.wrap_future(
+                    self.store.write(
+                        lambda conn, rows=rows, rid=run.id: repo.insert_events(conn, rid, rows)
+                    )
+                )
+                try:
+                    await asyncio.shield(future)
+                except asyncio.CancelledError:
+                    # `stop()` annule le flusher : le lot peut déjà être parti dans le fil de
+                    # l'écrivain. Son sort est attendu sous le verrou, sinon `_close` réécrirait
+                    # les mêmes `seq` (UNIQUE) et la clôture échouerait.
+                    while not future.done():
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await asyncio.wait([future])
+                    if not future.cancelled() and future.exception() is None:
+                        run.flushed += len(batch)
+                    raise
+                except Exception:
+                    logger.exception(
+                        "Lot d'événements du run %s non écrit, nouvel essai plus tard", run.id
+                    )
+                    continue
+                run.flushed += len(batch)
+
+    # --- lecture -------------------------------------------------------------------------------
+
+    def active_runs(self) -> list[dict[str, str]]:
+        """Runs racines actifs, pour `runs_active` du flux système."""
+        return [
+            {"run_id": r.id, "kind": r.kind, "status": r.status}
+            for r in self._runs.values()
+            if r.parent_id is None and not r.closing
+        ]
+
+    async def events_after(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+        """Enveloppes d'AD-6 de `seq > after` : mémoire du hub si le run est actif, base sinon.
+        (Le texte des sources n'est pas réhydraté ici : voir la story du RAG.)"""
+        run = self._runs.get(run_id)
+        if run is not None:
+            return [e.envelope(run_id) for e in run.events if e.seq > after]
+        rows = await self.store.aread(
+            "SELECT seq, type, ts, data FROM run_events WHERE run_id = ? AND seq > ? ORDER BY seq",
+            (run_id, after),
+        )
+        return [
+            {
+                "seq": r["seq"],
+                "run_id": run_id,
+                "type": r["type"],
+                "ts": r["ts"],
+                "data": json.loads(r["data"]),
+            }
+            for r in rows
+        ]

@@ -106,9 +106,9 @@ _MASK = "***"
 # Clés à préfixe connu : OpenAI/Anthropic (`sk-...`), Groq (`gsk_...`), Hugging Face (`hf_...`).
 _PREFIXED_KEY = re.compile(r"\b(?:sk-|gsk_|hf_)[A-Za-z0-9_\-]{8,}")
 _BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._\-]{8,}")
-# `api_key=...`, `"token": "..."`, `Authorization: ...`.
+# `api_key=...`, `MISTRAL_API_KEY=...`, `"token": "..."`, `Authorization: ...`.
 _NAMED_SECRET = re.compile(
-    r"""(?ix)\b(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
+    r"""(?ix)(?<![a-z0-9])(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
     r"""(?!\*\*\*)[^\s"',;}]+"""
 )
 

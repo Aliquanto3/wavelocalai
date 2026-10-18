@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,8 +15,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.models.facts_store import SqliteFactsStore
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
+from wavelocalai.models.run_stats import SqliteRunStats
+from wavelocalai.runs.hub import RunHub
+from wavelocalai.store.datadir import ensure_data_dir
+from wavelocalai.store.db import Store, db_path
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import routes_health, routes_models
 from wavelocalai.web.security import LocalOnlyMiddleware
@@ -42,25 +47,46 @@ def _error_response(
     return JSONResponse(envelope, status_code=ERRORS[code].status)
 
 
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Démarrage : base migrée, hub démarré (runs orphelins `interrupted`, nouvelle `app_session`).
+    Arrêt propre : les runs actifs passent à `cancelled` (AD-23)."""
+    settings: Settings = app.state.settings
+    owned: Store | None = None
+    store: Store | None = app.state.store
+    if store is None:  # lancement sans `__main__` (tests) : l'app ouvre et ferme sa base
+        owned = store = Store.open(db_path(ensure_data_dir(settings.data_dir)))
+        app.state.store = store
+    app.state.probe.start()  # première sonde avant toute requête (AD-15)
+    hub = RunHub(store)
+    await hub.start()
+    app.state.hub = hub
+    await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
+    try:
+        yield
+    finally:
+        await app.state.registry.stop()
+        await hub.stop()
+        await app.state.probe.aclose()
+        if owned is not None:
+            owned.close()
+
+
 def create_app(
     settings: Settings,
     probe: OllamaProbe | None = None,
+    store: Store | None = None,
     registry: ModelRegistry | None = None,
 ) -> FastAPI:
-    """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21)."""
+    """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
+
+    `store` : base déjà ouverte par le lanceur (qui la ferme) ; sinon l'app ouvre la sienne au
+    démarrage de son cycle de vie. `registry` : registre des modèles, branché sur la base du store
+    (faits d'Ollama et débit mesuré) par défaut.
+    """
     disable_telemetry(settings.env_file)
-    registry = registry or ModelRegistry(settings, advisor=MemoryAdvisor())
-
-    @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        await registry.start()  # premier rafraîchissement des modèles, sans l'attendre
-        try:
-            yield
-        finally:
-            await registry.stop()
-
     app = FastAPI(
-        lifespan=lifespan,
+        lifespan=_lifespan,
         title="wavelocalai v2",
         version=get_version(),
         docs_url=None,
@@ -69,7 +95,14 @@ def create_app(
         telemetry=FASTAPI_TELEMETRY,  # type: ignore[arg-type]
     )
     app.state.settings = settings
-    app.state.registry = registry
+    app.state.store = store
+    app.state.hub = None  # créé au démarrage du cycle de vie
+    app.state.registry = registry or ModelRegistry(
+        settings,
+        facts=SqliteFactsStore(lambda: app.state.store),
+        run_stats=SqliteRunStats(lambda: app.state.store),
+        advisor=MemoryAdvisor(),
+    )
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,

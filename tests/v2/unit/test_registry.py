@@ -294,3 +294,28 @@ async def test_resolve_embedder_is_local_embedding_only(tmp_path):
     with pytest.raises(AppError) as cloud:
         registry.resolve_embedder("openai/gpt-4o")
     assert cloud.value.code == "cloud_not_allowed"
+
+
+async def test_moe_without_show_never_gets_the_total_as_active_params(tmp_path):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "models_catalog.json").write_text(
+        '{"models": {"Gros MoE": {"ollama_tag": "moe:30b", "params_tot": "30B", "moe": true}}}',
+        encoding="utf-8",
+    )
+    source = _fixture_source()
+
+    async def no_show(tag: str):
+        raise OllamaUnavailableError("show indisponible")
+
+    source.show = no_show
+    registry = _registry(tmp_path, source)
+    await registry.refresh()
+    by_tag = {m.tag: m for m in (await registry.list_models()).models}
+    assert by_tag["moe:30b"].params_total_b == 30.0
+    assert by_tag["moe:30b"].params_active_b is None  # catalogue MoE sans params_act
+    # Sans catalogue ni show, la famille (`...moe`) suffit à ne pas inventer la valeur.
+    source.listed.append(_listed("lfm:24b", "d-lfm", 14.0, "lfm2moe", "24B"))
+    await registry.refresh()
+    by_tag = {m.tag: m for m in (await registry.list_models()).models}
+    assert by_tag["lfm:24b"].params_active_b is None
+    assert by_tag["qwen3.5:2b"].params_active_b == by_tag["qwen3.5:2b"].params_total_b

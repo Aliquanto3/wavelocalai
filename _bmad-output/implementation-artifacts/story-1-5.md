@@ -4,6 +4,7 @@ type: 'feature'
 created: '2026-10-18'
 status: 'review'
 baseline_commit: '68de3ef'
+merged: 'feat/v2-hub (story 1.3)'
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/planning-artifacts/epics.md'
@@ -11,12 +12,6 @@ context:
   - '{project-root}/_bmad-output/implementation-artifacts/story-1-2.md'
 warnings: []
 deferred:
-  - summary: >-
-      `model_facts` et le débit mesuré sont derrière des interfaces injectables (`FactsStore`, `RunStats`) avec une implémentation en mémoire : le store SQLite du hub (story 1.3) n'est pas fusionné. À brancher : `SqliteFactsStore` (écrivain unique du store) sur `0002_model_facts.sql`, et `RunStats` sur `SELECT tps FROM runs` (feuilles `ok`, `tps_source = 'ollama_eval'`, médiane par `tag`) ; sans cela la liste d'Ollama ne survit pas à un redémarrage (Ollama arrêté au démarrage = liste vide) et le débit reste vide.
-    evidence: |-
-      `create_app` construit `ModelRegistry(settings, advisor=MemoryAdvisor())` avec les implémentations en mémoire.
-    location: src/wavelocalai/web/app.py
-    severity: medium
   - summary: >-
       Ports `ChatModel` / `Embedder` et adaptateurs absents : `registry.resolve` rend une `ModelRef` (tag, fournisseur, origine, type). La story 2.1 y ajoute l'adaptateur Ollama et branche le client sur la référence ; `models/port.py` ne contient que `ModelRef`.
     evidence: |-
@@ -51,21 +46,21 @@ deferred:
 
 ## Critères d'acceptation et preuves
 
-1. Liste : chaque entrée porte `tag`, `name`, `provider`, `origin` (`local`, `cloud`, `unknown`), `kind` (`chat`, `embedding`, `reranker` ; `is_embedding_model` de la PR #30 recopiée dans `models/classify.py`, « rerank » dans le tag pour le reranker), `params_total_b` / `params_active_b` (MoE : valeur du catalogue, sinon `null`, jamais le total), `size_gb`, `needed_gb` et `fits` (`hardware/memory.py` : psutil, empreinte mesurée du catalogue, sinon taille × 1,25, tient si besoin × 1,10 ≤ disponible − 0,5 Go, règle de la v1 ; `null` si la taille est inconnue), `tools_verified`, `reasoning`. Preuve : `tests/v2/unit/test_registry.py::test_lists_local_models_...`, `test_model_helpers.py` (règle de mémoire aux bornes, `is_embedding_model`, paramètres), `tests/v2/integration/test_models_ollama.py` (vrai Ollama : 33 modèles, tailles, `fits`).
-2. Même entrée : `throughput_tps` (médiane du `tps` des feuilles `ok` en `ollama_eval`, `null` sans run, via `RunStats`), `accuracy` toujours `null`, `co2_method` (`codecarbon` en local ; `ecologits` pour openai, anthropic, mistral et un modèle Groq de `[cloud.groq_ecologits]` ; `unmeasurable` sinon), sans importer ecologits. Preuve : `test_throughput_is_the_median...`, `test_cloud_models_need_a_key_and_allow_cloud`, `test_run_stats_median_keeps_only_ok_ollama_eval_leaves`.
-3. Cache : `/api/show` est mis en cache par `(tag, digest)` (`FactsStore`, colonnes de `0002_model_facts.sql`, test que le DDL colle à `ModelFacts`) ; le catalogue `config/models_catalog.json` est lu en lecture seule (test d'octets identiques). Preuve : `test_show_is_cached_by_tag_and_digest`, `test_real_catalog_is_read_without_being_written`, `test_model_facts_migration_matches_the_dataclass`.
-4. Ollama arrêté : la réponse vient de la dernière liste connue (puis de `model_facts` au démarrage à froid), `ollama_up: false`, `available: false`, en moins de 300 ms ; le rafraîchissement se fait en tâche de fond (lancé au démarrage par le `lifespan`, relancé quand le cache de 5 s est périmé, seul le tout premier appel attend 0,1 s). Preuve : `web/test_models.py::test_ollama_down_answers_from_cache_under_300_ms`, `test_models_are_served_from_cache_...`, `test_list_never_waits_for_a_slow_ollama`, et le test de budget de 1.2 (`/api/models` y entre d'elle-même).
+1. Liste : chaque entrée porte `tag`, `name`, `provider`, `origin` (`local`, `cloud`, `unknown`), `kind` (`chat`, `embedding`, `reranker` ; `is_embedding_model` de la PR #30 recopiée dans `models/classify.py`, « rerank » dans le tag pour le reranker), `params_total_b` / `params_active_b` (MoE, repéré par les experts de `/api/show`, `moe` du catalogue ou une famille en `...moe` : valeur du catalogue, sinon `null`, jamais le total, y compris `/api/show` indisponible ; `test_moe_without_show_never_gets_the_total_as_active_params`), `size_gb`, `needed_gb` et `fits` (`hardware/memory.py` : psutil, empreinte mesurée du catalogue, sinon taille × 1,25, tient si besoin × 1,10 ≤ disponible − 0,5 Go, règle de la v1 ; `null` si la taille est inconnue), `tools_verified`, `reasoning`. Preuve : `tests/v2/unit/test_registry.py::test_lists_local_models_...`, `test_model_helpers.py` (règle de mémoire aux bornes, `is_embedding_model`, paramètres), `tests/v2/integration/test_models_ollama.py` (vrai Ollama : 33 modèles, tailles, `fits`).
+2. Même entrée : `throughput_tps` (médiane du `tps` des feuilles `ok` en `ollama_eval`, `null` sans run, via `SqliteRunStats` : feuilles `generation`/`judge`/`embedding` de `runs`, `status = 'ok'`, `tps_source = 'ollama_eval'`, par `model`), `accuracy` toujours `null`, `co2_method` (`codecarbon` en local ; `ecologits` pour openai, anthropic, mistral et un modèle Groq de `[cloud.groq_ecologits]` ; `unmeasurable` sinon), sans importer ecologits. Preuve : `test_registry_store.py::test_throughput_is_the_median_of_ok_ollama_eval_leaves_in_runs` (runs insérés), `test_cloud_models_need_a_key_and_allow_cloud`, `test_run_stats_median_keeps_only_ok_ollama_eval_leaves`.
+3. Cache : `/api/show` est mis en cache par `(tag, digest)` (`SqliteFactsStore` sur le store de 1.3 : écrivain unique, lectures courtes ; migration `0002_model_facts.sql` appliquée par `store/migrate.py` après `0001_hub.sql`, instantané `tests/v2/unit/snapshots/schema_v2.sql`) ; le catalogue `config/models_catalog.json` est lu en lecture seule (test d'octets identiques). Preuve : `test_show_is_cached_by_tag_and_digest`, `test_real_catalog_is_read_without_being_written`, `test_model_facts_migration_matches_the_dataclass`, `test_schema.py` (instantané v2), `test_registry_store.py::test_facts_roundtrip_and_digest_keying`.
+4. Ollama arrêté : la réponse vient de la dernière liste connue (puis de `model_facts` en base au démarrage à froid), `ollama_up: false`, `available: false`, en moins de 300 ms ; le rafraîchissement se fait en tâche de fond (lancé au démarrage par le `lifespan`, relancé quand le cache de 5 s est périmé, seul le tout premier appel attend 0,1 s). Preuve : `web/test_models.py::test_ollama_down_answers_from_cache_under_300_ms`, `test_models_are_served_from_cache_...`, `test_list_never_waits_for_a_slow_ollama`, `test_registry_store.py::test_model_facts_survive_a_restart_with_ollama_down` (remplir, fermer, rouvrir la même base, Ollama injoignable) et `test_create_app_serves_the_persisted_list_with_ollama_down`, et le test de budget de 1.2 (`/api/models` y entre d'elle-même).
 5. Cloud : sans `allow_cloud`, aucun modèle d'origine non locale n'est listé ; avec `allow_cloud=true`, les modèles des fournisseurs dont la clé est dans `Settings` apparaissent en `origin: "cloud"`, id `fournisseur/modèle`. Aucun SDK ni appel réseau cloud. Preuve : `web/test_models.py::test_models_route_lists_local_models_then_cloud_on_request`.
 6. `resolve(tag, allow_cloud)` : `origin != "local"` sans `allow_cloud` (absent ou faux) lève `cloud_not_allowed` (403) ; `kind != "chat"` lève `model_not_chat` (422) ; tag inconnu `model_not_found` (404). `resolve_embedder(tag)` : local et `embedding` seulement (`model_not_embedding`). Preuve : `web/test_models.py::test_resolve_through_a_command_refuses_cloud_without_allow_cloud` (commande factice, enveloppe d'erreur complète), `test_registry.py::test_resolve_*`.
 
 ## Fichiers
 
-- `src/wavelocalai/models/` : `registry.py`, `port.py`, `classify.py`, `catalog.py`, `facts.py`, `run_stats.py`, `ollama_api.py`
+- `src/wavelocalai/models/` : `registry.py`, `port.py`, `classify.py`, `catalog.py`, `facts.py`, `facts_store.py`, `run_stats.py`, `ollama_api.py`
 - `src/wavelocalai/hardware/memory.py`
-- `src/wavelocalai/web/routes_models.py`, `web/app.py` (registre, `lifespan`, route)
+- `src/wavelocalai/web/routes_models.py`, `web/app.py` (registre dans le `lifespan` du hub, route)
 - `src/wavelocalai/store/migrations/0002_model_facts.sql`
 - `src/wavelocalai/config.py` (`CloudSettings`), `errors.py` (quatre codes en fin de liste : `cloud_not_allowed`, `model_not_chat`, `model_not_embedding`, `model_not_found`), `wavelocalai.toml` (`[cloud.models]`, `[cloud.groq_ecologits]`)
-- `tests/v2/` : `unit/{test_model_helpers,test_registry}.py`, `web/test_models.py`, `integration/test_models_ollama.py`
+- `tests/v2/` : `unit/{test_model_helpers,test_registry,test_registry_store}.py`, `unit/snapshots/schema_v2.sql`, `web/test_models.py`, `integration/test_models_ollama.py`
 
 ## Choix notables
 
@@ -77,4 +72,4 @@ deferred:
 
 ## Reports
 
-Voir l'en-tête `deferred` : branchement au store (`model_facts`, `runs`), ports et adaptateurs (2.1), listes cloud et table Groq (2.5), mémoire (VRAM, modèles chargés, contexte), échec Windows de `test_real_launch`.
+Voir l'en-tête `deferred` : ports et adaptateurs (2.1), listes cloud et table Groq (2.5), mémoire (VRAM, modèles chargés, contexte), échec Windows de `test_real_launch`.

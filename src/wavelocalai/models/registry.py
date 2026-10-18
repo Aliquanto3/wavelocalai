@@ -113,6 +113,14 @@ def _classify(facts: ModelFacts) -> Kind:
     return "chat"
 
 
+def _is_moe(facts: ModelFacts, entry: CatalogEntry | None) -> bool:
+    """MoE d'après les experts de `/api/show`, le catalogue ou la famille (`lfm2moe`) : ce dernier
+    indice reste disponible quand `/api/show` ne l'est pas."""
+    return bool(
+        facts.expert_count or (entry and entry.moe) or "moe" in (facts.family or "").lower()
+    )
+
+
 def _origin(rec: _Local) -> Origin:
     if rec.remote:
         return "cloud"
@@ -240,14 +248,15 @@ class ModelRegistry:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(asyncio.shield(task), self._wait_s)
                 local = self._seed()
-        infos = [self._local_info(rec) for rec in local.values()]
+        medians = self._run_stats.medians()
+        infos = [self._local_info(rec, medians) for rec in local.values()]
         infos += self._cloud_infos()
         if not allow_cloud:
             infos = [info for info in infos if info.origin == "local"]
         infos.sort(key=lambda info: (info.origin != "local", info.name.lower(), info.tag))
         return ModelList(models=infos, ollama_up=self._ollama_up, refreshed_at=self._refreshed_at)
 
-    def _local_info(self, rec: _Local) -> ModelInfo:
+    def _local_info(self, rec: _Local, medians: dict[str, float]) -> ModelInfo:
         facts = rec.facts
         origin = _origin(rec)
         entry = self._catalog_entry(facts.tag)
@@ -262,7 +271,7 @@ class ModelRegistry:
         total = facts.params_total_b or (entry.params_total_b if entry else None)
         if entry is not None and entry.params_active_b is not None:
             active = entry.params_active_b
-        elif facts.expert_count:  # MoE sans valeur au catalogue : on ne l'invente pas
+        elif _is_moe(facts, entry):  # MoE sans valeur au catalogue : jamais le total
             active = None
         else:
             active = total
@@ -293,7 +302,7 @@ class ModelRegistry:
             tools_verified=caps_tools,
             reasoning=caps_thinking
             or is_dedicated_reasoning(facts.tag, entry.name if entry else None),
-            throughput_tps=self._run_stats.median_tps(facts.tag),
+            throughput_tps=medians.get(facts.tag),
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
         )
