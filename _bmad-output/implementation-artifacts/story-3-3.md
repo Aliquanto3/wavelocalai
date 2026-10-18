@@ -109,3 +109,14 @@ Revue Opus du 2026-10-18 (une passe, diff `8cefd9a..2c6f54f`). Aucun constat med
 - low, revue — un juge local différent des modèles comparés alterne avec eux sous la place Ollama (rechargements). Rejeté pour cette story : conforme à AD-14 (place prise appel par appel) ; optimisation possible en 3.4 (noter après toutes les lanes).
 
 Tests : `tests/v2` 644 réussis, `-m integration` 7 réussis (dont `test_judge_ollama.py`, vrai `qwen2.5:1.5b`).
+
+### Revue de la seconde passe (écran)
+
+Revue Opus du 2026-10-18 (une passe, diff `0dce811..2a8f225`). Complexité : 0 constat (région `aria-live` des notes bornée à 5 lignes, `setJudge` parcourt au plus 5 colonnes à l'événement `judge`, aucun parcours complet par jeton).
+
+- medium, second avis 1 — `wl-arena-lane.js` `interrupt()` : constat requalifié. `judging` ferme déjà la réponse (`#ended`), donc `interrupt()` ne faisait rien : un flux perdu pendant la notation laissait la colonne « Notation » sans note ni « Non évalué » (et non « comparaison interrompue » comme décrit). Corrigé : une colonne `judging` sans `judge_score` passe à « Interrompu » et dit « Non évalué : comparaison interrompue » ; notée, elle passe à « Terminé ». Test `test_a_column_in_notation_when_the_stream_is_lost_says_not_evaluated_interrupted` (échoue sans le correctif). Rattachement au run qui tourne encore côté serveur : reporté, c'est le comportement de l'écran 3.2 pour toute colonne (flux abandonné après plusieurs essais), repris par la reconnexion de la story 4.2.
+- low, second avis 2 — `judge_score` rejoués (rechargement, `run_busy` rejoint) annoncés d'un coup. Rejeté : au plus 5 lignes polies, et elles informent qui rejoint un run des notes déjà rendues.
+- low, second avis 3 — « Autoriser le cloud » coupé avant la fin du rechargement du sélecteur : juge cloud envoyé avec `allow_cloud=false`. Rejeté : fenêtre de quelques millisecondes, le serveur refuse et l'écran affiche l'erreur (AD-9 tenu côté serveur).
+- low, second avis 4 — `routes_test.py` : un `judge.tag` égal au tag d'une lane remplace son script. Rejeté : route de test seulement, aucun test ne le fait ; un juge qui se note lui-même reste possible en production.
+- low, second avis 5 — icône `warning` en `--color-chart-4` (≈ 2,9:1 sur fond clair). Rejeté : l'icône double un texte qui porte le sens (« note peu fiable »), WCAG 1.4.11 ne s'applique pas ; même jeton que les badges et alertes déjà validés par axe-core.
+- low, second avis 6 — fixture `cancel_leftover_runs` : `sleep(0,2 s)` sans attendre la fin du run. Corrigé : elle attend que `GET /api/runs/{id}` ne soit plus `running` (10 s au plus).

@@ -302,9 +302,12 @@ export class WlArenaLane extends HTMLElement {
     if (this.#dom) this.#renderHead(); // l'origine mesurée prime sur celle du sélecteur
   }
 
-  // Le flux est perdu sans statut final : la réponse partielle reste, dite « interrompue ».
+  // Le flux est perdu sans statut final : la réponse partielle reste, dite « interrompue ». Une
+  // colonne en notation (`judging`, réponse déjà close) ne reste pas « Notation » : notée, elle est
+  // terminée ; sans `judge_score`, elle est interrompue et dit « Non évalué » avec la raison.
   interrupt() {
-    if (!this.#ended) this.setStatus("interrupted");
+    if (this.#status === "judging") this.setStatus(this.#score ? "done" : "interrupted");
+    else if (!this.#ended) this.setStatus("interrupted");
   }
 
   get ended() {

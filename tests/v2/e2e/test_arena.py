@@ -81,8 +81,19 @@ def cancel_leftover_runs():
         request = urllib.request.Request(f"{base_url}/api/runs/{run_id}/cancel", method="POST")
         with contextlib.suppress(OSError):  # déjà terminé
             urllib.request.urlopen(request, timeout=5).close()  # noqa: S310
+    # L'annulation est asynchrone : on attend la fin de chaque run (sinon `409 run_busy` au suivant).
+    deadline = time.monotonic() + 10
+    for base_url, run_id in STARTED:
+        url = f"{base_url}/api/runs/{run_id}"
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=5) as response:  # noqa: S310
+                    if json.load(response).get("status") != "running":
+                        break
+            except OSError:
+                break
+            time.sleep(0.05)
     STARTED.clear()
-    time.sleep(0.2)
 
 
 def install_models(page, judge_tags=(JUDGE_DEFAULT,), cloud=()):
@@ -510,6 +521,42 @@ def test_a_column_shows_notation_then_its_score_its_reason_and_the_one_judge_lab
         "Alpha 1B : note 72 sur 100, peu fiable.",
         "Bravo 2B : note 72 sur 100, peu fiable.",
     ]
+
+
+def test_a_column_in_notation_when_the_stream_is_lost_says_not_evaluated_interrupted(arena):
+    # Flux perdu (`finish("interrupted")`) pendant la notation : la colonne ne reste pas « Notation »
+    # sans note ; une colonne déjà notée garde sa note et passe à « Terminé ».
+    result = arena.evaluate(
+        """() => {
+          const make = (tag) => {
+            const el = document.createElement('wl-arena-lane');
+            document.body.append(el);
+            el.setup({ tag, name: tag, origin: 'local' });
+            el.setStatus('generating');
+            el.setStatus('judging');
+            return el;
+          };
+          const lost = make('perdu');
+          const scored = make('note');
+          scored.setScore({ score: 64, reason: 'Correct.' });
+          lost.interrupt();
+          scored.interrupt();
+          const read = (el) => ({
+            status: el.querySelector('.wl-lane-status-text').textContent,
+            score: el.querySelector('.wl-lane-score').innerText,
+          });
+          const out = { lost: read(lost), scored: read(scored) };
+          lost.remove();
+          scored.remove();
+          return out;
+        }"""
+    )
+    assert result["lost"]["status"] == "Interrompu"
+    assert (
+        "Non évalué" in result["lost"]["score"]
+        and "Comparaison interrompue" in result["lost"]["score"]
+    )
+    assert "64" in result["scored"]["score"] and result["scored"]["status"] == "Terminé"
 
 
 def test_a_cloud_judge_wears_the_cloud_badge_is_not_unreliable_and_needs_the_cloud_switch(
