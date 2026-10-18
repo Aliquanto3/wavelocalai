@@ -1,0 +1,452 @@
+{
+  "id": "agent-seul-bornes",
+  "kind": "agent",
+  "label": "Agent seul : la borne de 12 étapes est atteinte, fin propre avec la raison",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "agent",
+        "models": [
+          "{{tag}}"
+        ],
+        "params": {
+          "mode": "solo",
+          "tools": "{{tools}}"
+        }
+      }
+    },
+    {
+      "wait": 150,
+      "when": "{{loading}}",
+      "type": "model_loading",
+      "data": {
+        "tag": "{{tag}}"
+      }
+    },
+    {
+      "wait": 3200,
+      "slow_wait": 14000,
+      "when": "{{loading}}",
+      "type": "model_loaded",
+      "data": {
+        "tag": "{{tag}}",
+        "duration_s": "{{load_s}}"
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Aucune fiche de contrat pour l'instant. Je reformule la recherche.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "contrat Hélianthe date de signature",
+          "limit": 5
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 600,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "contrat Hélianthe date de signature",
+          "limit": 5
+        },
+        "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
+        "artifact_url": null,
+        "duration_s": 0.6
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Aucune fiche de contrat pour l'instant. Je reformule la recherche.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s4",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe contrat cadre",
+          "limit": 5
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 600,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s4",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe contrat cadre",
+          "limit": 5
+        },
+        "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
+        "artifact_url": null,
+        "duration_s": 0.6
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s5",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s5",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Aucune fiche de contrat pour l'instant. Je reformule la recherche.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s6",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe convention 2024",
+          "limit": 5
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 600,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s6",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe convention 2024",
+          "limit": 5
+        },
+        "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
+        "artifact_url": null,
+        "duration_s": 0.6
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s7",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s7",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Aucune fiche de contrat pour l'instant. Je reformule la recherche.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s8",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe avenant",
+          "limit": 5
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 600,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s8",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe avenant",
+          "limit": 5
+        },
+        "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
+        "artifact_url": null,
+        "duration_s": 0.6
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s9",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s9",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Aucune fiche de contrat pour l'instant. Je reformule la recherche.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s10",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe bon de commande",
+          "limit": 5
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 600,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s10",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "recherche_interne",
+        "arguments": {
+          "query": "Hélianthe bon de commande",
+          "limit": 5
+        },
+        "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
+        "artifact_url": null,
+        "duration_s": 0.6
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s11",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 450,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s11",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Toujours rien. Il me reste peu d'étapes ; je prépare une réponse honnête.",
+        "artifact_url": null,
+        "duration_s": 0.5
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s12",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 150,
+      "tokens": {
+        "lane": "{{tag}}",
+        "channel": "answer",
+        "text": "{{answer}}",
+        "tps": "{{tps}}"
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s12",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": "Arrêt : nombre d'étapes maximal atteint (12)",
+        "artifact_url": null,
+        "duration_s": 2.8,
+        "limit_reached": true
+      }
+    },
+    {
+      "wait": 120,
+      "type": "metrics",
+      "data": "{{metrics}}"
+    },
+    {
+      "wait": 40,
+      "type": "run_ended",
+      "data": {
+        "status": "ok",
+        "error": null
+      }
+    }
+  ]
+}

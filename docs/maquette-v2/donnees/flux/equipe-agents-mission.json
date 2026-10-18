@@ -1,0 +1,6 @@
+{
+  "id": "equipe-agents-mission",
+  "kind": "agent",
+  "label": "Mission d'une équipe : squelette. Les événements (run_started, step par agent, token du rapport, metrics, run_ended) sont fabriqués par l'écran à partir de la composition de l'équipe et de `plays`, puis publiés dans ce run.",
+  "events": []
+}

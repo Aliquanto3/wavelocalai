@@ -1,0 +1,155 @@
+{
+  "id": "agent-seul-devis",
+  "kind": "agent",
+  "label": "Agent seul : calcule une marge avec la calculatrice (trois étapes)",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "agent",
+        "models": [
+          "{{tag}}"
+        ],
+        "params": {
+          "mode": "solo",
+          "tools": "{{tools}}"
+        }
+      }
+    },
+    {
+      "wait": 150,
+      "when": "{{loading}}",
+      "type": "model_loading",
+      "data": {
+        "tag": "{{tag}}"
+      }
+    },
+    {
+      "wait": 3200,
+      "slow_wait": 14000,
+      "when": "{{loading}}",
+      "type": "model_loaded",
+      "data": {
+        "tag": "{{tag}}",
+        "duration_s": "{{load_s}}"
+      }
+    },
+    {
+      "wait": 250,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 700,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Il faut la marge : (prix de vente - coût) divisé par le prix de vente.",
+        "artifact_url": null,
+        "duration_s": 0.7
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "calculatrice",
+        "arguments": {
+          "expression": "(18400 - 12650) / 18400 * 100"
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 500,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "calculatrice",
+        "arguments": {
+          "expression": "(18400 - 12650) / 18400 * 100"
+        },
+        "summary": "31,25",
+        "artifact_url": null,
+        "duration_s": 0.1
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 150,
+      "tokens": {
+        "lane": "{{tag}}",
+        "channel": "answer",
+        "text": "{{answer}}",
+        "tps": "{{tps}}"
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": "Réponse finale rédigée à partir des résultats des outils.",
+        "artifact_url": null,
+        "duration_s": 2.9
+      }
+    },
+    {
+      "wait": 120,
+      "type": "metrics",
+      "data": "{{metrics}}"
+    },
+    {
+      "wait": 40,
+      "type": "run_ended",
+      "data": {
+        "status": "ok",
+        "error": null
+      }
+    }
+  ]
+}

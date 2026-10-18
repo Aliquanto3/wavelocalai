@@ -1,0 +1,352 @@
+{
+  "_doc": "Données simulées de l'écran Équipe d'agents (GET /api/agents/crews : équipes de la bibliothèque, lecture seule ; `plays` : ce que fait chaque agent pendant la mission, repris par l'écran pour fabriquer les événements du run). Contenus 100 % fictifs.",
+  "max_agents": 5,
+  "generic_report": "## Rapport : {topic}\n\nL'équipe a terminé la mission. Ce rapport est un exemple fictif de la maquette : il ne repose sur aucune source réelle.\n\n- Premier point de l'équipe.\n- Deuxième point de l'équipe.",
+  "crews": [
+    {
+      "id": "veille",
+      "name": "Veille concurrentielle",
+      "description": "Trois agents l'un après l'autre : un chercheur rassemble les sources, un analyste en tire des constats, un rédacteur écrit le rapport.",
+      "default_topic": "IA souveraine en Europe",
+      "agents": [
+        {
+          "id": "chercheur",
+          "role": "Chercheur",
+          "goal": "Rassembler des sources fiables sur le sujet de la mission.",
+          "tools": [
+            "recherche_interne",
+            "heure"
+          ],
+          "model": "qwen3.6:7b",
+          "play": "chercheur"
+        },
+        {
+          "id": "analyste",
+          "role": "Analyste",
+          "goal": "Dégager trois constats chiffrés des sources rassemblées.",
+          "tools": [
+            "analyse_donnees",
+            "calculatrice",
+            "generation_graphique"
+          ],
+          "model": "qwen3.6:7b",
+          "play": "analyste"
+        },
+        {
+          "id": "redacteur",
+          "role": "Rédacteur",
+          "goal": "Rédiger un rapport de synthèse d'une page.",
+          "tools": [
+            "rapport_markdown",
+            "generation_document"
+          ],
+          "model": "qwen3.6:7b",
+          "play": "redacteur"
+        }
+      ],
+      "report": "## Veille : {topic}\n\n**Contexte.** Trois fiches internes de démonstration (F-102, F-117, F-131) décrivent le sujet. Elles sont fictives et servent à la maquette.\n\n**Trois constats**\n\n1. Les acteurs européens annoncent **quatre offres** hébergées localement en 2026, contre une seule en 2024.\n2. Le coût médian d'un déploiement sur site baisse de **18 %** sur deux ans.\n3. Les clients demandent d'abord la **maîtrise de leurs données**, avant le prix.\n\n**Limites.** Les sources sont peu nombreuses ; les chiffres sont à confirmer avant toute diffusion.\n\n**Suite proposée.** Rencontrer deux clients pour valider le constat 3."
+    },
+    {
+      "id": "courrier",
+      "name": "Compte rendu au client",
+      "description": "Un analyste lit les chiffres, un rédacteur prépare le compte rendu et l'email au client. L'envoi demande votre validation.",
+      "default_topic": "Ventes du trimestre pour la société Hélianthe",
+      "agents": [
+        {
+          "id": "analyste",
+          "role": "Analyste",
+          "goal": "Résumer les ventes du fichier ventes.csv en trois chiffres.",
+          "tools": [
+            "analyse_donnees",
+            "calculatrice"
+          ],
+          "model": "qwen3.6:7b",
+          "play": "analyste_courrier"
+        },
+        {
+          "id": "redacteur",
+          "role": "Rédacteur",
+          "goal": "Rédiger le compte rendu et l'email au client, à valider avant envoi.",
+          "tools": [
+            "rapport_markdown",
+            "envoi_email"
+          ],
+          "model": "qwen3.6:7b",
+          "play": "redacteur_courrier"
+        }
+      ],
+      "report": {
+        "approved": "## Compte rendu : {topic}\n\nLe compte rendu est prêt et l'email de synthèse a été **envoyé** à c.moreau@clientexemple.test après votre validation.\n\n- Chiffre d'affaires du trimestre : **144 900 €**.\n- Meilleur mois : novembre (51 200 €).\n- Progression sur le trimestre : +6 %.",
+        "rejected": "## Compte rendu : {topic}\n\nLe compte rendu est prêt, mais l'email **n'a pas été envoyé** : vous avez refusé l'envoi.\n\n- Chiffre d'affaires du trimestre : **144 900 €**.\n- Meilleur mois : novembre (51 200 €).\n- Progression sur le trimestre : +6 %.",
+        "expired": "## Compte rendu : {topic}\n\nLe compte rendu est prêt, mais l'email **n'a pas été envoyé** : la validation a expiré au bout de 10 minutes.\n\n- Chiffre d'affaires du trimestre : **144 900 €**.\n- Meilleur mois : novembre (51 200 €).\n- Progression sur le trimestre : +6 %."
+      }
+    },
+    {
+      "id": "vide",
+      "name": "Nouvelle équipe (vide)",
+      "description": "Aucun agent : ouvrez « Configurer » pour en ajouter.",
+      "default_topic": "",
+      "agents": [],
+      "report": ""
+    }
+  ],
+  "plays": {
+    "chercheur": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 700,
+          "summary": "Je cherche d'abord dans les fiches internes ce qui concerne « {topic} », puis je note les chiffres clés.",
+          "duration_s": 1.2
+        },
+        {
+          "kind": "tool",
+          "tool": "recherche_interne",
+          "wait": 1500,
+          "arguments": {
+            "query": "{topic}",
+            "limit": 5
+          },
+          "summary": "5 fiches trouvées, dont 3 pertinentes (F-102, F-117, F-131, fiches fictives).",
+          "duration_s": 3.1
+        },
+        {
+          "kind": "tool",
+          "tool": "heure",
+          "wait": 500,
+          "arguments": {},
+          "summary": "Date du poste notée pour dater la veille.",
+          "duration_s": 0.2
+        },
+        {
+          "kind": "tool",
+          "tool": "recherche_interne",
+          "wait": 1400,
+          "arguments": {
+            "query": "{topic} chiffres 2026",
+            "limit": 3
+          },
+          "summary": "2 fiches complémentaires avec des chiffres sur les offres hébergées.",
+          "duration_s": 2.7
+        }
+      ],
+      "handoff": "Trois sources retenues (F-102, F-117, F-131) avec leurs chiffres clés sur les offres hébergées et les coûts.",
+      "answer_s": 4
+    },
+    "analyste": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 700,
+          "summary": "Je regroupe les chiffres des trois fiches et je calcule l'évolution des coûts.",
+          "duration_s": 1.4
+        },
+        {
+          "kind": "tool",
+          "tool": "analyse_donnees",
+          "wait": 1800,
+          "arguments": {
+            "file": "sources_veille.csv",
+            "operation": "résumé"
+          },
+          "summary": "3 lignes, 5 colonnes (source, offres 2024, offres 2026, coût 2024, coût 2026).",
+          "duration_s": 2.4
+        },
+        {
+          "kind": "tool",
+          "tool": "calculatrice",
+          "wait": 500,
+          "arguments": {
+            "expression": "(1 - 0.82) * 100"
+          },
+          "summary": "18",
+          "duration_s": 0.1
+        },
+        {
+          "kind": "tool",
+          "tool": "generation_graphique",
+          "wait": 1500,
+          "arguments": {
+            "file": "sources_veille.csv",
+            "type": "barres",
+            "x": "source",
+            "y": "offres 2026"
+          },
+          "summary": "Graphique enregistré : offres_par_source.svg.",
+          "duration_s": 1.9,
+          "file": "offres_par_source.svg"
+        }
+      ],
+      "handoff": "Trois constats chiffrés : quatre offres locales en 2026, coût médian en baisse de 18 %, maîtrise des données en tête des attentes.",
+      "answer_s": 3.6
+    },
+    "redacteur": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 600,
+          "summary": "Je structure une page : contexte, trois constats, limites, suite proposée.",
+          "duration_s": 1
+        },
+        {
+          "kind": "tool",
+          "tool": "rapport_markdown",
+          "wait": 1600,
+          "arguments": {
+            "title": "Veille : {topic}",
+            "sections": [
+              "Contexte",
+              "Constats",
+              "Limites",
+              "Suite"
+            ]
+          },
+          "summary": "Plan du rapport assemblé en quatre sections.",
+          "duration_s": 2.2
+        }
+      ],
+      "handoff": "Rapport rédigé.",
+      "answer_s": 9.5
+    },
+    "analyste_courrier": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 600,
+          "summary": "Je lis ventes.csv et je calcule le total du dernier trimestre.",
+          "duration_s": 1
+        },
+        {
+          "kind": "tool",
+          "tool": "analyse_donnees",
+          "wait": 1700,
+          "arguments": {
+            "file": "ventes.csv",
+            "operation": "résumé",
+            "derniers_mois": 3
+          },
+          "summary": "3 mois retenus : octobre 44 800 €, novembre 51 200 €, décembre 48 900 €.",
+          "duration_s": 2
+        },
+        {
+          "kind": "tool",
+          "tool": "calculatrice",
+          "wait": 500,
+          "arguments": {
+            "expression": "44800 + 51200 + 48900"
+          },
+          "summary": "144900",
+          "duration_s": 0.1
+        }
+      ],
+      "handoff": "Chiffre d'affaires du trimestre : 144 900 € ; meilleur mois : novembre (51 200 €) ; progression de +6 %.",
+      "answer_s": 2.8
+    },
+    "redacteur_courrier": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 600,
+          "summary": "Je rédige le compte rendu, puis je prépare l'email au client.",
+          "duration_s": 1.1
+        },
+        {
+          "kind": "tool",
+          "tool": "rapport_markdown",
+          "wait": 1400,
+          "arguments": {
+            "title": "Compte rendu du trimestre"
+          },
+          "summary": "Compte rendu assemblé.",
+          "duration_s": 1.6
+        },
+        {
+          "kind": "tool",
+          "tool": "envoi_email",
+          "wait": 300,
+          "approval": true,
+          "arguments": {
+            "to": "c.moreau@clientexemple.test",
+            "subject": "Compte rendu des ventes du trimestre",
+            "body": "…"
+          },
+          "summary": "",
+          "duration_s": null
+        }
+      ],
+      "handoff": "Compte rendu rédigé.",
+      "answer_s": 5.5
+    },
+    "generique": {
+      "steps": [
+        {
+          "kind": "think",
+          "wait": 600,
+          "summary": "Je prends le résultat de l'agent précédent et je fais ma part.",
+          "duration_s": 1
+        }
+      ],
+      "handoff": "Résultat transmis à l'agent suivant.",
+      "answer_s": 2
+    }
+  },
+  "metrics": {
+    "local": {
+      "ttft_s": 0.9,
+      "load_s": 6.8,
+      "eval_tokens": 1480,
+      "eval_s": 82,
+      "tps": 18,
+      "tps_source": "ollama_eval",
+      "total_s": 132,
+      "origin": "local",
+      "peak_memory_gb": 5.6,
+      "co2": {
+        "mg": 48,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "cloud": {
+      "ttft_s": 0.7,
+      "load_s": null,
+      "eval_tokens": 1320,
+      "eval_s": 21,
+      "tps": 63,
+      "tps_source": "wallclock",
+      "total_s": 88,
+      "origin": "cloud",
+      "peak_memory_gb": 5.6,
+      "co2": {
+        "mg": 31,
+        "method": "ecologits",
+        "estimated": true,
+        "range_mg": {
+          "low": 19,
+          "high": 52
+        },
+        "allocation": "direct",
+        "reason": null
+      }
+    }
+  },
+  "email": {
+    "to": "c.moreau@clientexemple.test",
+    "subject": "Compte rendu des ventes du trimestre",
+    "body": "Bonjour,\n\nVoici le compte rendu des ventes du trimestre :\n\n- Chiffre d'affaires : 144 900 €.\n- Meilleur mois : novembre (51 200 €).\n- Progression : +6 %.\n\nCordialement,\nL'équipe Hélianthe"
+  },
+  "results": {
+    "approved": "Email envoyé.",
+    "rejected": "Envoi annulé : l'agent en est informé.",
+    "expired": "Validation expirée : email non envoyé."
+  },
+  "validation": {
+    "role_required": "Indiquez le rôle de l'agent.",
+    "goal_required": "Indiquez l'objectif de l'agent.",
+    "model_required": "Choisissez un modèle pour cet agent.",
+    "no_agent": "Ajoutez au moins un agent."
+  }
+}

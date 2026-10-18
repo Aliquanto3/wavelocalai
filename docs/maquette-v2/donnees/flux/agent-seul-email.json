@@ -1,0 +1,166 @@
+{
+  "id": "agent-seul-email",
+  "kind": "agent",
+  "label": "Agent seul : analyse, prépare l'email, attend la validation (le flux s'arrête sur approval_required)",
+  "_doc": "Le run reste en attente après approval_required : l'écran poste la décision, publie approval_resolved et joue agent-seul-email-suite. vars : tag, tools, loading, load_s, email_to, email_subject, email_body.",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "agent",
+        "models": [
+          "{{tag}}"
+        ],
+        "params": {
+          "mode": "solo",
+          "tools": "{{tools}}"
+        }
+      }
+    },
+    {
+      "wait": 150,
+      "when": "{{loading}}",
+      "type": "model_loading",
+      "data": {
+        "tag": "{{tag}}"
+      }
+    },
+    {
+      "wait": 3200,
+      "slow_wait": 14000,
+      "when": "{{loading}}",
+      "type": "model_loaded",
+      "data": {
+        "tag": "{{tag}}",
+        "duration_s": "{{load_s}}"
+      }
+    },
+    {
+      "wait": 250,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 900,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Je lis ventes.csv, puis je rédige un email de synthèse pour le client.",
+        "artifact_url": null,
+        "duration_s": 0.9
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes.csv",
+          "operation": "résumé"
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 2100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes.csv",
+          "operation": "résumé"
+        },
+        "summary": "12 lignes, 4 colonnes (mois, produit, quantité, chiffre_affaires). Total : 482 300 €. Mois le plus fort : novembre (51 200 €).",
+        "artifact_url": null,
+        "duration_s": 2.1
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 1100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Les chiffres suffisent. Je prépare l'email : l'envoi demande la validation de l'utilisateur.",
+        "artifact_url": null,
+        "duration_s": 1.1
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s4",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "envoi_email",
+        "arguments": {
+          "to": "{{email_to}}",
+          "subject": "{{email_subject}}",
+          "body": "{{email_body}}"
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 250,
+      "type": "approval_required",
+      "data": {
+        "approval_id": "apr-0001",
+        "kind": "email",
+        "to": "{{email_to}}",
+        "subject": "{{email_subject}}",
+        "body": "{{email_body}}"
+      }
+    }
+  ]
+}

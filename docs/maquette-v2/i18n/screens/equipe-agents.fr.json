@@ -1,3 +1,108 @@
 {
-  "equipe-agents": {}
+  "crew": {
+    "lead": "Confiez une mission à une équipe d'agents : ils travaillent l'un après l'autre, chacun avec ses outils, et la sortie de l'un devient l'entrée du suivant. Vous suivez chaque agent et gardez le rapport.",
+    "team": {
+      "title": "Équipe",
+      "label": "Équipe",
+      "load": "Charger cette équipe",
+      "configure": "Configurer",
+      "modified": "Modifiée",
+      "revert": "Revenir à l'équipe d'origine",
+      "busy": "Le choix et la configuration de l'équipe sont disponibles à la fin de la mission.",
+      "loaded": "Équipe chargée : {name}.",
+      "reverted": "Équipe d'origine rétablie."
+    },
+    "mission": {
+      "title": "Mission",
+      "topic": "Sujet de la mission",
+      "launch": "Lancer la mission"
+    },
+    "reason": {
+      "running": "Une mission est en cours : Lancer la mission redevient disponible à la fin.",
+      "no_agent": "Ajoutez au moins un agent",
+      "no_topic": "Saisissez un sujet"
+    },
+    "graph": {
+      "title": "Schéma de l'équipe",
+      "no_agent": "Ajoutez au moins un agent : « Configurer » ouvre la composition de l'équipe.",
+      "report": "Rapport",
+      "svg_title": "Schéma de l'équipe : {name}",
+      "svg_desc": "{order}.",
+      "then": ", puis ",
+      "then_report": ", puis le rapport",
+      "waiting": "en attente",
+      "running": "en cours",
+      "approval": "à valider",
+      "done": "terminé",
+      "cancelled": "arrêté",
+      "interrupted": "interrompu",
+      "failed": "échec",
+      "notrun": "non lancé",
+      "report_ready": "prêt",
+      "report_partial": "partiel",
+      "report_writing": "en rédaction"
+    },
+    "first_load": "Le premier appel charge le modèle en mémoire : de 8 à 26 secondes sur ce type de poste. Les suivants sont plus rapides.",
+    "follow": {
+      "title": "Suivi de la mission"
+    },
+    "agent": {
+      "waiting": "En attente",
+      "running": "En cours",
+      "running_with": "En cours · {label}",
+      "approval": "En attente de votre validation",
+      "done": "Terminé",
+      "no_tool": "sans outil",
+      "notrun": "Non lancé",
+      "writing": "Rédaction…",
+      "trace_label": "Étapes de l'agent {agent}",
+      "no_step": "Aucune étape pour l'instant."
+    },
+    "tools_count_one": "{count} outil",
+    "tools_count_many": "{count} outils",
+    "log": {
+      "title": "Journal brut",
+      "label": "Journal brut de la mission",
+      "started": "Mission lancée : {crew}, sujet « {topic} ».",
+      "loading": "Chargement du modèle {tag} en mémoire.",
+      "loaded": "Modèle {tag} chargé.",
+      "step_start": "{agent} : début de l'étape {step}.",
+      "step_end": "{agent} : fin de l'étape {step}.",
+      "writing": "Rédaction du rapport.",
+      "approval": "Validation demandée : email à {to}.",
+      "metrics": "Mesures de la mission reçues.",
+      "ended": "Mission terminée : {status}."
+    },
+    "report": {
+      "title": "Rapport",
+      "partial_cancelled": "Rapport partiel (mission arrêtée)",
+      "partial_interrupted": "Rapport partiel (mission interrompue)",
+      "partial_error": "Rapport partiel (mission en échec)",
+      "peak": "Pic de mémoire"
+    },
+    "busy_solo": "Une tâche d'agent seul est en cours : la mission reprendra à sa fin.",
+    "busy_solo_link": "Suivre l'agent seul",
+    "joined": "Une mission est déjà en cours, lancée depuis un autre onglet : vous la suivez.",
+    "smaller": "Modèle plus petit choisi pour les agents locaux : {name}. Vous pouvez relancer la mission.",
+    "unloaded": "Modèles inactifs déchargés : 2,7 Go libérés. Vous pouvez relancer la mission.",
+    "reopened": "Mission rouverte depuis l'historique : trace, rapport et mesures tels qu'enregistrés.",
+    "config": {
+      "title": "Configurer l'équipe",
+      "intro": "Chaque agent a un rôle, un objectif, des outils et un modèle. « Enregistrer » garde la modification sur ce poste ; l'équipe d'origine reste disponible.",
+      "agent_n": "Agent {n}",
+      "role": "Rôle",
+      "goal": "Objectif",
+      "tools": "Outils",
+      "remove": "Retirer cet agent",
+      "remove_named": "Retirer l'agent {name}",
+      "add": "Ajouter un agent",
+      "max": "Une équipe compte {max} agents au plus.",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "errors": "L'équipe n'a pas été enregistrée : corrigez les champs signalés.",
+      "saved": "Équipe enregistrée.",
+      "new_role": "Nouvel agent",
+      "new_goal": "À préciser : ce que cet agent doit produire pour le suivant."
+    }
+  }
 }
