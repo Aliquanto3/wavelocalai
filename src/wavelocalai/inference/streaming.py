@@ -30,6 +30,8 @@ logger = logging.getLogger("wavelocalai.inference")
 
 # Tant que `greenops/` n'existe pas (étape 4), une génération n'a pas de mesure de CO2.
 NOT_MEASURED = Co2(mg=None, method="unmeasurable", reason="mesure non branchée")
+# Feuille annulée (ou arrêtée) avant sa fin : son `co2` reste présent, sans valeur (AD-10).
+CANCELLED_CO2 = Co2(mg=None, method="unmeasurable", reason="réponse annulée avant la fin")
 
 
 def _metrics(lane: str, result: ChatResult, origin: str, co2: Co2) -> dict[str, object]:
@@ -42,6 +44,8 @@ def _metrics(lane: str, result: ChatResult, origin: str, co2: Co2) -> dict[str, 
         "tps": result.tps,
         "tps_source": result.tps_source,
         "total_s": result.total_s,
+        "prefill_s": result.prefill_s,  # ajout à `contrat-api.md` (story 2.1), à ratifier
+        "prefill_tps": result.prefill_tps,
         "co2": co2.as_dict(),
         "origin": origin,
     }
@@ -120,6 +124,7 @@ async def stream_into_run(
     """
     lane = model.ref.tag
     origin = model.ref.origin
+    hub.declare_leaf(run_id, CANCELLED_CO2)
     attempts = 2 if retry_interrupted else 1
     result = ChatResult()
     for attempt in range(1, attempts + 1):

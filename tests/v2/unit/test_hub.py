@@ -345,6 +345,33 @@ async def test_metrics_live_on_leaves_only(hub, store):
     assert root["status"] == "cancelled" and root["co2_method"] is None and root["tps"] is None
 
 
+async def test_a_declared_leaf_closed_without_co2_keeps_an_unmeasurable_co2(hub, store):
+    """AD-10 : une feuille annulée (enfant ou racine sans enfant) garde un `co2` avec sa raison ;
+    une feuille déjà terminée garde le sien, le parent composite n'en a toujours pas."""
+    gone = Co2(mg=None, method="unmeasurable", reason="annulée")
+    parent, (done, running) = await produce_arena(hub)
+    for handle in (done, running):
+        hub.declare_leaf(handle.run_id, gone)
+    await hub.finish_leaf(done.run_id, LeafResult(origin="local", tps=30.0), LOCAL_CO2)
+    await hub.cancel(parent.run_id)
+    kept, cancelled, root = (_run(store, h.run_id) for h in (done, running, parent))
+    assert (kept["co2_mg"], kept["co2_method"]) == (1.5, LOCAL_CO2.method)
+    assert (cancelled["co2_method"], cancelled["co2_reason"]) == ("unmeasurable", "annulée")
+    assert root["co2_method"] is None
+
+    parent, (alone, _) = await produce_arena(hub)
+    hub.declare_leaf(alone.run_id, gone)
+    await hub.cancel(alone.run_id)  # une feuille annulée seule
+    assert _run(store, alone.run_id)["co2_reason"] == "annulée"
+    await hub.cancel(parent.run_id)
+
+    chat = await hub.create_run("chat", models=["m"], user_message="Bonjour")
+    hub.declare_leaf(chat.run_id, gone)
+    await hub.cancel(chat.run_id)  # racine sans enfant : un chat annulé
+    row = _run(store, chat.run_id)
+    assert (row["status"], row["co2_method"], row["co2_mg"]) == ("cancelled", "unmeasurable", None)
+
+
 async def test_parent_finishes_ok_without_metrics_and_children_are_listed(hub, store):
     parent, leaves = await produce_arena(hub)
     for handle in leaves:

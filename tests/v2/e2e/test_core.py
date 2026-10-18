@@ -98,6 +98,9 @@ def test_numbers_use_the_french_locale_with_three_significant_digits(core):
         ("formatGb", 13.84),
         ("formatGb", None),
         ("formatRate", 38.2),
+        ("formatPercent", 12.4),
+        ("formatPercent", 0),
+        ("formatPercent", None),
     ) == [
         "0,66",
         "13,8",
@@ -107,6 +110,9 @@ def test_numbers_use_the_french_locale_with_three_significant_digits(core):
         f"13,8{NBSP}Go",
         "inconnu",
         f"38,2{NBSP}tokens/s",
+        f"12{NBSP}%",
+        f"0{NBSP}%",  # un 0 mesuré reste un 0 ; seul un inconnu devient « inconnu »
+        "inconnu",
     ]
 
 
