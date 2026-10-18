@@ -13,7 +13,7 @@ from wavelocalai.inference.arena import LANE_STATUSES
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
 CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
-NEW_SCRIPTS = ["screens/arena.js", "components/wl-arena-lane.js"]
+NEW_SCRIPTS = ["screens/arena.js", "screens/arena-judge.js", "components/wl-arena-lane.js"]
 
 
 def source(name: str) -> str:
@@ -43,9 +43,16 @@ def test_the_dynamic_text_families_match_the_catalog():
     assert {"running", "ok", "cancelled", "error", "interrupted", "stopping"} == set(
         CATALOG["arena"]["banner"]
     )
-    assert {"started", "ok", "cancelled", "error", "interrupted"} == set(
-        CATALOG["arena"]["announce"]
-    )
+    assert {
+        "started",
+        "ok",
+        "cancelled",
+        "error",
+        "interrupted",
+        "score",
+        "score_unreliable",
+        "not_evaluated",
+    } == set(CATALOG["arena"]["announce"])
 
 
 def test_every_lane_status_of_the_server_has_a_text_and_an_icon():
@@ -107,3 +114,45 @@ def test_the_arena_css_is_linked_and_the_front_files_stay_under_the_size_budget(
     assert '<link rel="stylesheet" href="/static/arena.css">' in source("index.html")
     for name in [*NEW_SCRIPTS, "arena.css"]:
         assert len(source(name).splitlines()) <= 600, name
+
+
+# --- Notation (story 3.3) -------------------------------------------------------------------------
+
+
+def test_the_criteria_bounds_and_default_texts_are_the_servers():
+    from wavelocalai.inference.arena import MAX_CRITERIA, MAX_CRITERION_CHARS
+    from wavelocalai.inference.judge_port import DEFAULT_CRITERIA
+
+    judge = source("screens/arena-judge.js")
+    assert f"MAX_CRITERIA = {MAX_CRITERIA};" in judge
+    assert f"MAX_CRITERION_CHARS = {MAX_CRITERION_CHARS};" in judge
+    keys = re.search(r"const DEFAULT_KEYS = \[(.*?)\];", judge, re.DOTALL)
+    assert keys
+    names = re.findall(r'"(\w+)"', keys.group(1))
+    assert [CATALOG["arena"]["judge"]["defaults"][k] for k in names] == list(DEFAULT_CRITERIA)
+    for text in (CATALOG["arena"]["judge"]["criteria_full"],):
+        assert text.startswith("Huit critères")  # `MAX_CRITERIA` : le texte dit huit
+
+
+def test_a_column_without_a_judge_score_says_why_for_each_final_status():
+    lane = CATALOG["components"]["lane"]
+    assert set(lane["not_evaluated_status"]) == {"timeout", "failed", "cancelled", "interrupted"}
+    assert lane["not_evaluated"] == "Non évalué"
+    assert all(lane["not_evaluated_status"].values())
+
+
+def test_the_unreliable_badge_is_a_text_with_an_icon_of_the_sprite():
+    badge = source("components/wl-badge.js")
+    assert re.search(r'unreliable: \{ icon: "warning", tone: "warning"', badge)
+    assert "i-warning" in (STATIC / "icons.svg").read_text(encoding="utf-8")
+    assert CATALOG["components"]["badge"]["unreliable"] == "note peu fiable"
+
+
+def test_the_screen_sends_judge_and_criteria_and_never_a_cloud_default_of_its_own():
+    screen = source("screens/arena.js")
+    assert "criteria: judging.criteria()" in screen and "command.judge = judge" in screen
+    assert "allow_cloud: store.get().allowCloud" in screen  # le cloud ne vient que du store (AD-9)
+    assert "judge_score:" in screen and "judge: (data)" in screen
+    judge = source("screens/arena-judge.js")
+    assert 'setAttribute("purpose", "judge")' in judge  # le défaut `judge` du serveur
+    assert "aria-live" in screen  # les notes sont annoncées poliment

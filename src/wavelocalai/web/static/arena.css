@@ -250,3 +250,164 @@
   align-self: start;
   margin: 0 0.75rem 0.75rem;
 }
+
+/* Notation (story 3.3) : panneau replié « Critères de notation », juge retenu, note par colonne. */
+.arena-judge-panel {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.arena-judge-summary {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.arena-judge-body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.arena-judge-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+.arena-criteria {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.arena-criteria legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.arena-criteria-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.arena-criterion {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.arena-criterion-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  resize: none;
+}
+
+.arena-criterion-remove {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  justify-content: center;
+}
+
+.arena-criteria-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arena-criteria-add:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Juge retenu, sous la question posée */
+.arena-judge-info {
+  margin: 0 0 0.75rem;
+}
+
+.arena-judge-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.arena-judge-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  font-weight: 600;
+}
+
+.arena-judge-alert .icon {
+  color: var(--color-chart-4);
+}
+
+/* Note d'une colonne : /100 et sa raison, ou « Non évalué » et sa raison (jamais 0) */
+.wl-lane-score {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.wl-lane-score p {
+  margin: 0;
+}
+
+.wl-score-label {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-score-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-score-value {
+  font-family: var(--font-metric-value);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wl-score-max {
+  color: var(--color-ink-secondary);
+  font-size: 1.125rem;
+}
+
+.wl-score-none {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.wl-score-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
+.wl-score-reason {
+  overflow-wrap: anywhere;
+}

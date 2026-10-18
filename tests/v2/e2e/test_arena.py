@@ -19,7 +19,12 @@ import urllib.request
 
 import pytest
 
-from .test_shell import assert_no_axe_violations, wait_for, wait_ready
+from .test_shell import (
+    assert_no_axe_violations,
+    assert_no_horizontal_scroll,
+    wait_for,
+    wait_ready,
+)
 
 NBSP = "\N{NO-BREAK SPACE}"
 BASE_MODEL = {
@@ -52,6 +57,9 @@ NAMES = {
 }
 MODELS = [{**BASE_MODEL, "tag": tag, "name": name} for tag, name in NAMES.items()]
 REASON = "Les plus rapides qui tiennent en mémoire sur ce poste."
+JUDGE_DEFAULT = "fake:d"
+JUDGE_REASON = "Le plus gros modèle local qui tient en mémoire."
+DEFAULT_CRITERIA = ["exactitude", "pertinence", "clarté"]
 DONE = {
     "input_tokens": 4,
     "output_tokens": 12,
@@ -77,25 +85,30 @@ def cancel_leftover_runs():
     time.sleep(0.2)
 
 
-def install_models(page):
+def install_models(page, judge_tags=(JUDGE_DEFAULT,), cloud=()):
+    """Simule la liste des modèles (`cloud` : seulement avec `allow_cloud=true`, comme le serveur)
+    et les défauts : `arena` et `judge` (`judge_tags` : vide quand aucun juge ne convient)."""
+
     def on_models(route):
+        listing = MODELS + (list(cloud) if "allow_cloud=true" in route.request.url else [])
         route.fulfill(
             status=200,
             content_type="application/json",
             body=json.dumps(
-                {"models": MODELS, "ollama_up": True, "refreshed_at": "2026-10-18T10:00:00Z"}
+                {"models": listing, "ollama_up": True, "refreshed_at": "2026-10-18T10:00:00Z"}
             ),
         )
 
     def on_defaults(route):
+        judge = "purpose=judge" in route.request.url
         route.fulfill(
             status=200,
             content_type="application/json",
             body=json.dumps(
                 {
-                    "purpose": "arena",
-                    "tags": ["fake:a", "fake:b"],
-                    "reason": REASON,
+                    "purpose": "judge" if judge else "arena",
+                    "tags": list(judge_tags) if judge else ["fake:a", "fake:b"],
+                    "reason": JUDGE_REASON if judge else REASON,
                     "source": "rule",
                 }
             ),
@@ -105,8 +118,16 @@ def install_models(page):
     page.route(re.compile(r"/api/models/defaults\?"), on_defaults)
 
 
-def scripted(page, server, scripts, commands=None):
-    """Les commandes d'Arène de la page lancent des lanes scriptées (route de test)."""
+def verdict(score: int, reason: str = "Réponse claire et exacte.") -> list[dict]:
+    """Le script d'un juge qui note `score` sur 100 (sortie structurée, texte JSON)."""
+    return [{"text": json.dumps({"score": score, "reason": reason})}, {"done": DONE}]
+
+
+def scripted(page, server, scripts, commands=None, judge=None):
+    """Les commandes d'Arène de la page lancent des lanes scriptées (route de test).
+
+    `judge` : `{"script": [...], "origin": "local" | "cloud"}`, le juge `fake` de la commande
+    (son tag est celui que la page envoie) ; sans lui, aucune notation n'est câblée."""
 
     def on_arena(route):
         body = json.loads(route.request.post_data)
@@ -116,15 +137,15 @@ def scripted(page, server, scripts, commands=None):
             {"tag": tag, "script": scripts.get(tag, [{"text": "ok"}, {"done": DONE}])}
             for tag in body["models"]
         ]
-        response = page.request.post(
-            f"{server.base_url}/api/test/arena",
-            data={
-                "prompt": body["prompt"],
-                "criteria": body.get("criteria", []),
-                "allow_cloud": body["allow_cloud"],
-                "lanes": lanes,
-            },
-        )
+        payload = {
+            "prompt": body["prompt"],
+            "criteria": body.get("criteria", []),
+            "allow_cloud": body["allow_cloud"],
+            "lanes": lanes,
+        }
+        if judge is not None and body.get("judge"):
+            payload["judge"] = {"tag": body["judge"], **judge}
+        response = page.request.post(f"{server.base_url}/api/test/arena", data=payload)
         if response.ok:
             STARTED.append((server.base_url, response.json()["run_id"]))
         route.fulfill(status=response.status, content_type="application/json", body=response.text())
@@ -148,6 +169,10 @@ def open_arena(page, server, path="#/arene/comparer"):
     page.goto(f"{server.base_url}/{path}")
     wait_ready(page)
     wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
+    wait_for(
+        page,
+        "() => document.querySelector('wl-model-picker[purpose=judge]')?.values.length === 1",
+    )
 
 
 @pytest.fixture
@@ -185,8 +210,9 @@ def wait_banner(page, text):
 
 def pick(page, name):
     """Coche un modèle dans la liste du sélecteur (mode multi)."""
-    page.get_by_role("combobox").click()
-    page.locator("[role=option]", has_text=name).click()
+    picker = page.locator("wl-model-picker[purpose=arena]")
+    picker.get_by_role("combobox").click()
+    picker.locator("[role=option]", has_text=name).click()
     page.keyboard.press("Escape")
 
 
@@ -259,6 +285,8 @@ def test_a_comparison_fills_one_column_per_model_with_status_and_final_measures(
         {
             "models": ["fake:a", "fake:b", "fake:c"],
             "prompt": arena.get_by_label("Question", exact=True).input_value(),
+            "criteria": DEFAULT_CRITERIA,
+            "judge": JUDGE_DEFAULT,  # le défaut `judge` du serveur, proposé par le sélecteur
             "allow_cloud": False,
         }
     ]
@@ -319,13 +347,332 @@ def test_local_lanes_wait_for_their_turn_and_the_banner_counts_finished_lanes(ar
     assert status_of(arena, "fake:a") == status_of(arena, "fake:b") == "Terminé"
 
 
-def test_a_notation_status_is_shown_as_a_status_only(arena, server):
-    scripted(arena, server, {"fake:a": [{"text": "A"}], "fake:b": [{"text": "B"}]})
+# --- Notation (story 3.3) : panneau de critères, juge, note et « non évalué » ----------------------------------
+
+
+def panel(page):
+    return page.locator("details.arena-judge-panel")
+
+
+def open_panel(page):
+    panel(page).get_by_text("Critères de notation", exact=True).click()
+    assert panel(page).get_attribute("open") is not None
+
+
+def criteria_inputs(page):
+    return panel(page).locator(".arena-criterion-input")
+
+
+def criteria_values(page):
+    return criteria_inputs(page).evaluate_all("(nodes) => nodes.map((n) => n.value)")
+
+
+def score_of(page, tag):
+    return lane(page, tag).locator(".wl-lane-score")
+
+
+def test_the_criteria_panel_is_folded_and_proposes_the_default_judge_and_criteria(arena):
+    box_ = panel(arena)
+    assert box_.get_attribute("open") is None  # replié
+    assert box_.locator("summary").inner_text() == "Critères de notation"
+    assert not box_.locator(".arena-judge-body").is_visible()
+    open_panel(arena)
+    judge = box_.locator("wl-model-picker[purpose=judge]")
+    assert judge.get_by_role("combobox", name="Juge", exact=True).input_value() == "Delta 4B"
+    current = box_.locator(".arena-judge-current")
+    assert (
+        " ".join(current.inner_text().replace(NBSP, " ").split()) == "Juge retenu : Delta 4B Local"
+    )
+    assert "Local" in current.locator("wl-badge").inner_text()
+    assert criteria_values(arena) == DEFAULT_CRITERIA
+    help_ = box_.get_by_text("Au plus 8 critères de 64 caractères.")
+    assert help_.is_visible() and "exactitude, pertinence, clarté." in help_.inner_text()
+    assert "moins de 4 milliards de paramètres actifs" in box_.inner_text()  # note peu fiable
+
+
+def test_criteria_are_edited_added_up_to_eight_removed_reset_and_sent_cleaned(arena, server):
+    commands: list[dict] = []
+    scripted(arena, server, {}, commands)
+    open_panel(arena)
+    inputs = criteria_inputs(arena)
+    assert inputs.first.get_attribute("maxlength") == "64"
+    assert inputs.nth(1).get_attribute("aria-label") == "Critère 2"
+    add = panel(arena).get_by_role("button", name="Ajouter un critère")
+    for _ in range(5):
+        add.click()
+    assert inputs.count() == 8 and add.is_disabled()
+    assert panel(arena).get_by_text(f"Huit critères au plus{NBSP}: retirez-en un").is_visible()
+    # Le focus suit le nouveau critère, qui se remplit au clavier ; Entrée ajoute, n'envoie pas.
+    arena.keyboard.type("concision")
+    assert criteria_values(arena)[-1] == "concision"
+    panel(arena).get_by_role("button", name="Retirer le critère 8").click()
+    assert inputs.count() == 7 and add.is_enabled()
+    inputs.nth(6).fill("")  # un critère vide n'est pas envoyé
+    inputs.nth(5).fill("  Clarté ")  # un doublon (casse et espaces ignorés) non plus
+    inputs.nth(4).fill("ton" * 30)
+    assert inputs.nth(4).input_value() == ("ton" * 30)[:64]
+    inputs.nth(3).fill("style")
+    inputs.nth(3).press("Enter")
+    assert inputs.count() == 8 and commands == []  # Entrée a ajouté un critère, rien n'est parti
+    assert arena.evaluate("document.activeElement.classList.contains('arena-criterion-input')")
     launch(arena)
     wait_banner(arena, "Comparaison terminée")
-    arena.evaluate("document.querySelector('wl-arena-lane').setStatus('judging')")
-    assert status_of(arena, "fake:a") == "Notation"
-    assert arena.get_by_text("/100").count() == 0  # ni note ni panneau de critères (story 3.3)
+    assert commands[0]["criteria"] == [
+        "exactitude",
+        "pertinence",
+        "clarté",
+        "style",
+        ("ton" * 30)[:64],
+    ]
+    # Rétablir les critères par défaut ; sans aucun critère, rien n'est envoyé (le serveur décide).
+    panel(arena).get_by_role("button", name="Rétablir les critères par défaut").click()
+    assert criteria_values(arena) == DEFAULT_CRITERIA
+    for _ in range(3):
+        panel(arena).get_by_role("button", name="Retirer le critère 1").click()
+    assert inputs.count() == 0
+    assert arena.evaluate("document.activeElement.textContent") == "Ajouter un critère"
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    assert commands[1]["criteria"] == []
+
+
+def test_the_panel_opens_and_works_from_the_keyboard(arena):
+    summary = panel(arena).locator("summary")
+    summary.focus()
+    arena.keyboard.press("Enter")
+    assert panel(arena).get_attribute("open") is not None
+    ring = summary.evaluate("(n) => getComputedStyle(n).outlineStyle")
+    assert ring != "none"  # focus visible
+    arena.keyboard.press("Tab")  # le sélecteur du juge
+    assert arena.evaluate("document.activeElement.getAttribute('role')") == "combobox"
+    for _ in range(5):  # le sélecteur puis, sans piège, le premier critère
+        arena.keyboard.press("Tab")
+        if arena.evaluate("document.activeElement.getAttribute('aria-label')") == "Critère 1":
+            break
+    assert arena.evaluate("document.activeElement.getAttribute('aria-label')") == "Critère 1"
+    arena.keyboard.press("Enter")  # ajoute un critère après celui-ci, sans envoyer
+    assert criteria_inputs(arena).count() == 4
+    assert arena.evaluate("document.activeElement.getAttribute('aria-label')") == "Critère 2"
+
+
+def test_a_column_shows_notation_then_its_score_its_reason_and_the_one_judge_label(arena, server):
+    commands: list[dict] = []
+    scripted(
+        arena,
+        server,
+        {
+            "fake:a": [{"text": "Alpha"}, {"done": DONE}],
+            "fake:b": [{"text": "Bravo"}, {"done": DONE}],
+        },
+        commands,
+        judge={"script": [{"sleep_s": 0.8}, *verdict(72)], "origin": "local"},
+    )
+    launch(arena)
+    wait_for(arena, "() => document.querySelectorAll('wl-arena-lane').length === 2")
+    wait_for(
+        arena,
+        "() => [...document.querySelectorAll('.wl-lane-status-text')].some((n) => n.textContent === 'Notation')",
+    )
+    assert score_of(arena, "fake:a").is_hidden()  # pas de note avant l'arrivée de `judge_score`
+    wait_banner(arena, "Comparaison terminée")
+    assert commands[0]["judge"] == JUDGE_DEFAULT
+    for tag in ("fake:a", "fake:b"):
+        score = score_of(arena, tag)
+        assert score.locator(".wl-score-line").inner_text() == "72/100"
+        assert score.locator(".wl-score-reason").inner_text() == "Réponse claire et exacte."
+        assert score.locator("wl-badge[kind=single-judge]").inner_text().strip() == "un seul juge"
+        # Un juge local de taille inconnue : note peu fiable, dite en texte, avec son icône.
+        weak = score.locator("wl-badge[kind=unreliable]")
+        assert weak.inner_text().strip() == "note peu fiable" and weak.locator("use").count() == 1
+        assert status_of(arena, tag) == "Terminé"
+        assert "0/100" not in score.inner_text().replace("72/100", "")
+    info = arena.locator(".arena-judge-info")
+    assert (
+        info.locator(".arena-judge-who")
+        .inner_text()
+        .replace(NBSP, " ")
+        .startswith("Juge : Delta 4B")
+    )
+    assert "Local" in info.locator(".arena-judge-who wl-badge[kind=local]").inner_text()
+    assert info.locator("wl-badge[kind=single-judge]").count() == 1
+    alert = info.locator(".arena-judge-alert")
+    assert alert.get_attribute("role") == "status"
+    assert "Note peu fiable" in alert.inner_text() and "moins de 4 milliards" in alert.inner_text()
+    used = info.locator(".help").inner_text().replace(NBSP, " ")
+    assert used == "Critères : exactitude, pertinence, clarté"
+    # Chaque note est annoncée poliment, l'une après l'autre.
+    wait_for(
+        arena,
+        "() => document.querySelectorAll('[aria-live=polite][aria-atomic=false] p').length === 2",
+    )
+    announced = arena.locator("[aria-live=polite][aria-atomic=false] p").all_inner_texts()
+    assert sorted(a.replace(NBSP, " ") for a in announced) == [  # l'ordre dépend de la place Ollama
+        "Alpha 1B : note 72 sur 100, peu fiable.",
+        "Bravo 2B : note 72 sur 100, peu fiable.",
+    ]
+
+
+def test_a_cloud_judge_wears_the_cloud_badge_is_not_unreliable_and_needs_the_cloud_switch(
+    arena, server
+):
+    commands: list[dict] = []
+    nuage = {**BASE_MODEL, "tag": "fake:nuage", "name": "Nuage 70B", "origin": "cloud"}
+    install_models(arena, cloud=[nuage])
+    open_panel(arena)
+    judge = panel(arena).locator("wl-model-picker[purpose=judge]")
+    judge.get_by_role("combobox").click()
+    assert judge.locator("[role=option]", has_text="Nuage 70B").count() == 0  # cloud coupé
+    arena.keyboard.press("Escape")
+    arena.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: true });
+        }"""
+    )
+    judge.get_by_role("combobox").click()
+    judge.locator("[role=option]", has_text="Nuage 70B").click()
+    current = panel(arena).locator(".arena-judge-current")
+    assert "Cloud" in current.locator("wl-badge").inner_text()
+    scripted(
+        arena, server, {}, commands, judge={"script": verdict(88, "Excellent."), "origin": "cloud"}
+    )
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    assert commands[0]["judge"] == "fake:nuage" and commands[0]["allow_cloud"] is True
+    info = arena.locator(".arena-judge-info")
+    assert "Cloud" in info.locator(".arena-judge-who wl-badge").first.inner_text()
+    assert info.locator(".arena-judge-alert").count() == 0  # un juge cloud n'est pas « peu fiable »
+    assert score_of(arena, "fake:a").locator(".wl-score-line").inner_text() == "88/100"
+    assert score_of(arena, "fake:a").locator("wl-badge[kind=unreliable]").count() == 0
+    assert score_of(arena, "fake:a").locator("wl-badge[kind=single-judge]").count() == 1
+
+
+def test_not_evaluated_is_said_with_its_reason_and_is_never_zero(arena, server):
+    pick(arena, "Charlie 3B")
+    pick(arena, "Delta 4B")
+    scripted(
+        arena,
+        server,
+        {
+            "fake:a": [{"done": DONE}],  # aucune réponse
+            "fake:b": [{"text": "Partiel"}, {"fail": "ollama_error", "technical": "boum"}],
+            "fake:c": [{"text": "Début"}, {"fail": "timeout"}],
+            "fake:d": [{"text": "Complet"}, {"done": DONE}],
+        },
+        judge={"script": verdict(64), "origin": "local"},
+    )
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    expected = {
+        "fake:a": "Réponse vide",
+        "fake:b": "Échec du modèle",
+        "fake:c": "Délai dépassé",
+    }
+    for tag, reason in expected.items():
+        score = score_of(arena, tag)
+        assert score.locator(".wl-score-none").inner_text() == "Non évalué", tag
+        assert score.locator(".wl-score-reason").inner_text() == reason, tag
+        assert "/100" not in score.inner_text() and "0" not in score.inner_text(), tag
+        assert score.locator("wl-badge").count() == 0, tag  # pas de « un seul juge » sans note
+    assert score_of(arena, "fake:d").locator(".wl-score-line").inner_text() == "64/100"
+    texts = arena.locator("[aria-live=polite][aria-atomic=false] p").all_inner_texts()
+    assert f"Alpha 1B{NBSP}: non évalué, réponse vide." in texts
+
+
+@pytest.mark.parametrize(
+    ("script", "reason"),
+    [
+        ([{"fail": "ollama_error", "technical": "boum"}], "Juge indisponible"),
+        ([{"text": "pas du JSON"}, {"done": DONE}], "Sortie du juge invalide"),
+    ],
+    ids=["juge en panne", "sortie invalide"],
+)
+def test_an_unavailable_or_invalid_judge_gives_not_evaluated_with_the_reason(
+    arena, server, script, reason
+):
+    scripted(arena, server, {}, judge={"script": script, "origin": "local"})
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    for tag in ("fake:a", "fake:b"):
+        score = score_of(arena, tag)
+        assert score.locator(".wl-score-none").inner_text() == "Non évalué"
+        assert score.locator(".wl-score-reason").inner_text() == reason
+        assert status_of(arena, tag) == "Terminé"  # la lane finit : seule la note manque
+
+
+def test_without_any_judge_the_screen_says_so_and_scores_are_not_evaluated(page, server):
+    commands: list[dict] = []
+    install_models(page, judge_tags=())
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
+    scripted(page, server, {}, commands)
+    launch(page)
+    wait_banner(page, "Comparaison terminée")
+    assert "judge" not in commands[0]  # le serveur décide : ici, aucun juge
+    info = page.locator(".arena-judge-info")
+    assert "Aucun juge n'est disponible" in info.inner_text()
+    assert "ne vaut jamais 0" in info.inner_text()
+    for tag in ("fake:a", "fake:b"):
+        assert score_of(page, tag).locator(".wl-score-none").inner_text() == "Non évalué"
+        assert score_of(page, tag).locator(".wl-score-reason").inner_text() == "Juge indisponible"
+
+
+def test_scores_survive_a_visit_elsewhere_without_loss_or_duplicate(arena, server):
+    slow = [step for word in ("un ", "deux ") for step in ({"text": word}, {"sleep_s": 0.7})]
+    scripted(
+        arena,
+        server,
+        {"fake:a": slow, "fake:b": [{"text": "bravo"}]},
+        judge={"script": verdict(55), "origin": "local"},
+    )
+    launch(arena)
+    lane(arena, "fake:a").locator(".wl-md").filter(has_text="un").wait_for()
+    arena.evaluate("location.hash = '#/'")
+    arena.locator("section[data-screen=arena-compare]").wait_for(state="hidden")
+    time.sleep(2.5)  # génération et notation continuent pendant l'absence
+    arena.evaluate("location.hash = '#/arene/comparer'")
+    wait_banner(arena, "Comparaison terminée")
+    assert arena.locator(".wl-score-value").all_inner_texts() == ["55", "55"]
+    assert arena.locator("[aria-live=polite][aria-atomic=false] p").count() == 2
+
+
+def test_the_arena_with_scores_fits_320_px_without_horizontal_scroll(arena, server):
+    arena.set_viewport_size({"width": 320, "height": 800})
+    scripted(arena, server, {}, judge={"script": verdict(41), "origin": "local"})
+    open_panel(arena)
+    assert_no_horizontal_scroll(arena)
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    arena.get_by_role("tablist").wait_for(state="visible")
+    assert score_of(arena, "fake:a").locator(".wl-score-line").inner_text() == "41/100"
+    assert_no_horizontal_scroll(arena)
+    assert_no_axe_violations(arena, "320 px, notes")
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_axe_finds_no_violation_with_the_criteria_panel_and_the_scores(arena, server, theme):
+    pick(arena, "Charlie 3B")
+    scripted(
+        arena,
+        server,
+        {
+            "fake:a": [{"done": DONE}],
+            "fake:b": [{"text": "Partiel"}, {"fail": "ollama_error", "technical": "boum"}],
+            "fake:c": [{"text": "Complet"}, {"done": DONE}],
+        },
+        judge={"script": verdict(72), "origin": "local"},
+    )
+    arena.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
+    open_panel(arena)
+    panel(arena).get_by_role("button", name="Ajouter un critère").click()
+    assert_no_axe_violations(arena, f"panneau ouvert, thème {theme}")
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    assert_no_axe_violations(arena, f"notes et non évalué, thème {theme}")
+    arena.set_viewport_size({"width": 600, "height": 900})
+    arena.get_by_role("tablist").wait_for(state="visible")
+    assert_no_axe_violations(arena, f"onglets avec notes, thème {theme}")
 
 
 def test_a_lane_in_timeout_and_a_lane_in_failure_do_not_stop_the_others(arena, server):

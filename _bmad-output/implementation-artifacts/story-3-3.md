@@ -1,5 +1,5 @@
 ---
-title: "Un juge note chaque réponse, et « non évalué » n'est jamais 0 (serveur)"
+title: "Un juge note chaque réponse, et « non évalué » n'est jamais 0 (serveur et écran)"
 type: 'feature'
 created: '2026-10-18'
 status: 'review'
@@ -13,11 +13,23 @@ context:
 warnings: []
 deferred:
   - summary: >-
-      Passe serveur seulement : le panneau « Critères de notation » (replié), l'affichage de la note, de l'avertissement « note peu fiable » et de l'étiquette « un seul juge », le badge Local ou Cloud du juge et son sélecteur sont à faire dans une seconde passe, après la fusion de l'écran Arène (story 3.2). Le serveur expose tout ce qu'il leur faut (événements `judge`, `judge_score`, `lane_status: judging`, paramètres `judge` et `criteria`).
+      Écran (seconde passe) : l'avertissement « note peu fiable » vient de l'événement `judge`, donc il n'apparaît qu'au lancement ; avant, le panneau ne donne qu'une aide statique (« moins de 4 milliards de paramètres actifs »), parce que le front ne calcule rien (la règle `is_weak_judge` reste au serveur). Les critères modifiés ne sont pas gardés d'une visite à l'autre (aucun brouillon, contrairement à la question) ; le classement qui lit ces notes est la story 3.4.
     evidence: |-
-      `contrat-api.md` (lignes `judge` et `judge_score` des « Événements de run », ligne Arène des écrans) ; `web/test_arena_judge_api.py`.
-    location: src/wavelocalai/web/static/screens/arena.js
-    severity: medium
+      `test_a_column_shows_notation_then_its_score_its_reason_and_the_one_judge_label`, `test_the_criteria_panel_is_folded_and_proposes_the_default_judge_and_criteria` (`tests/v2/e2e/test_arena.py`).
+    location: src/wavelocalai/web/static/screens/arena-judge.js
+    severity: low
+  - summary: >-
+      Écran : une colonne en `timeout`, `failed`, `cancelled` ou `interrupted` n'a pas de `judge_score` (contrat) ; l'écran lit son statut et affiche « Non évalué » avec « délai dépassé », « échec du modèle », « comparaison arrêtée » ou « comparaison interrompue ». Le même texte devra être repris par le classement (3.4).
+    evidence: |-
+      `test_not_evaluated_is_said_with_its_reason_and_is_never_zero`.
+    location: src/wavelocalai/web/static/components/wl-arena-lane.js
+    severity: low
+  - summary: >-
+      Ajout à la route de test `POST /api/test/arena` (`judge` : tag, origine, script) : elle câble le vrai service de notation avec un juge `fake`, pour les parcours E2E. Elle n'existe qu'avec `WAVELOCALAI_TESTING`.
+    evidence: |-
+      `src/wavelocalai/web/routes_test.py` ; `tests/v2/e2e/test_arena.py` (`scripted(..., judge=...)`).
+    location: src/wavelocalai/web/routes_test.py
+    severity: low
   - summary: >-
       Ajouts au contrat d'API, à valider avec la story 3.6 : l'événement `judge` (juge retenu, `unreliable`, `single_judge`, `default_criteria`), la clé `judge` de `judge_score`, le code d'erreur `invalid_output` (502, sortie structurée non conforme au schéma) et `LANE_STATUSES` qui compte `judging`. `judging` ne précède que les réponses réellement notées (pas de `judging` pour une réponse vide ni sans juge).
     evidence: |-
@@ -68,6 +80,17 @@ Chaque lane terminée de l'Arène est notée sur 100 par un modèle juge, avec s
 - `src/wavelocalai/inference/arena.py` : juge par défaut, événement `judge`, `_judge_lane`, enveloppe d'enregistrement de la réponse ; `inference/streaming.py` : `capture` (appel silencieux) ; `models/defaults.py` : `is_weak_judge`
 - `_bmad-output/specs/spec-wavelocalai-v2/contrat-api.md` : événements `judge` et `judge_score`, paramètres de lancement
 - Tests : `unit/test_structured_output.py`, `web/test_arena_judge_api.py`, `integration/test_judge_ollama.py` ; `web/test_arena_api.py` (feuilles `judge`) et `integration/test_arena_ollama.py` (juge nommé) réalignés
+
+## Seconde passe : l'écran
+
+Critères de la 3.3 que l'écran Arène (3.2) porte, prouvés par `tests/v2/e2e/test_arena.py` (Edge, clair et sombre, axe-core, 320 px) et `tests/v2/unit/test_arena_static.py`.
+
+- **Panneau « Critères de notation »** (`screens/arena-judge.js`, `details` replié) : critères par défaut exactitude, pertinence, clarté ; au plus 8 de 64 caractères (borne alignée sur `MAX_CRITERIA` et `MAX_CRITERION_CHARS` du serveur) ; ajout, retrait, « Rétablir les critères par défaut », Entrée ajoute sans envoyer ; vides et doublons non envoyés ; envoyés dans `criteria`. Preuve : `test_the_criteria_panel_is_folded_…`, `test_criteria_are_edited_added_up_to_eight_…`, `test_the_panel_opens_and_works_from_the_keyboard`.
+- **Juge** : `wl-model-picker` `purpose="judge"` (défaut `judge` du serveur, cloud absent de la liste sans « Autoriser le cloud »), badge Local ou Cloud sous le sélecteur, envoyé dans `judge` ; le résumé du juge retenu (événement `judge`) porte son badge, « un seul juge » et les critères appliqués. Preuve : `test_a_cloud_judge_wears_the_cloud_badge_…`, `test_a_column_shows_notation_then_its_score_…`.
+- **Note par colonne** : « 72/100 » et sa raison à l'arrivée de `judge_score` (`wl-arena-lane.setScore`), annoncée poliment (région `aria-live` qui accumule une ligne par note) ; « Non évalué » et sa raison, jamais 0 (réponse vide, juge indisponible, sortie invalide, et pour une colonne en délai, échec ou arrêt, le motif du statut). Preuve : `test_not_evaluated_is_said_…`, `test_an_unavailable_or_invalid_judge_…`, `test_without_any_judge_the_screen_says_so_…`, `test_scores_survive_a_visit_elsewhere_…`.
+- **Fiabilité** : « note peu fiable » (badge `unreliable` avec l'icône `warning`, et message du résumé) pour un juge faible ; « un seul juge » à côté de chaque note ; absents d'un « non évalué ». Un juge cloud n'est pas « peu fiable ».
+- **CO2 d'un juge cloud** : `evaluation/judge.py` passe `estimate_co2=cloud_estimator(...)` (couches respectées : `evaluation` importe `inference`) ; la feuille `judge` d'un juge cloud est estimée par ecologits, plus « non mesurable ». Preuve : `test_a_cloud_judge_leaf_is_estimated_by_ecologits_not_left_unmeasurable` (échoue sans le correctif).
+- Accessibilité et mise en page : focus visible (`summary`, boutons, champs), `aria-label` de chaque critère, aucune couleur en dur (jetons de `tokens.css`, aucun aplat violet sous texte blanc), 320 px sans défilement horizontal, axe-core sans violation (panneau ouvert, notes et « non évalué », onglets ; clair et sombre).
 
 ## Reports
 

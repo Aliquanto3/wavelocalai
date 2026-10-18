@@ -368,6 +368,10 @@
   --badge-tone: var(--color-chart-4);
 }
 
+.wl-badge-warning {
+  --badge-tone: var(--color-chart-4);
+}
+
 .wl-badge-label {
   padding-inline-start: 0.625rem;
 }

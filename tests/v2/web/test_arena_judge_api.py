@@ -263,6 +263,22 @@ async def test_a_cloud_judge_with_allow_cloud_runs_in_parallel_without_the_slot(
     assert scores(events)["fake:a"]["score"] == 77
 
 
+async def test_a_cloud_judge_leaf_is_estimated_by_ecologits_not_left_unmeasurable(tmp_path):
+    from ..fake_cloud import MODELS
+
+    tag = MODELS[0][1]  # un modèle que ecologits connaît
+    a, b = local("fake:a", say("A")), local("fake:b", say("B"))
+    remote = cloud(tag, verdict(80))
+    async with arena_app(tmp_path, a, b, remote) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge=tag)).json()["run_id"]
+        snapshot = await _ended(client, run_id)
+    kids = [c for c in snapshot["children"] if c["kind"] == "judge"]
+    assert len(kids) == 2
+    for kid in kids:
+        co2 = kid["metrics"]["co2"]
+        assert co2["method"] == "ecologits" and co2["estimated"] is True and co2["mg"] > 0
+
+
 async def test_cancelling_during_judging_cancels_the_lane_and_the_judge_leaf(tmp_path):
     a, b = local("fake:a", say("A")), local("fake:b", say("B"))
     judge = local("fake:j", [Sleep(30)])

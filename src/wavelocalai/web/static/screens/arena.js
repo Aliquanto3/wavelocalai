@@ -7,8 +7,11 @@
 // - L'écran reste en mémoire quand on va ailleurs (le routeur le masque) : masqué, il ferme son flux
 //   en gardant le dernier `seq` ; de retour, il rouvre par `?after=<seq>`, sans perte ni doublon.
 // - `409 run_busy` : le run actif est rejoint (rejoué depuis le début) s'il est une Arène.
-//   `#/arene/comparer/<run_id>` suit de même un run existant. La notation (statut `judging`) est
-//   seulement affichée en statut ; la note et les critères sont la story 3.3, le classement la 3.4.
+//   `#/arene/comparer/<run_id>` suit de même un run existant.
+// - Notation (story 3.3) : le panneau replié « Critères de notation » (`arena-judge.js`) envoie
+//   `judge` et `criteria` avec la commande ; l'événement `judge` dit le juge retenu et sa fiabilité,
+//   `judge_score` pose la note /100 (ou « Non évalué » et sa raison) dans la colonne et l'annonce
+//   poliment. Le classement est la story 3.4.
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
 //   horizontal et en-têtes collants, et un mode focus par colonne.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
@@ -22,6 +25,8 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
+import { judgeInfo, judgePanel } from "./arena-judge.js";
+import { reasonText } from "../components/wl-arena-lane.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
@@ -70,6 +75,7 @@ export function mount(host, params = {}) {
   picker.setAttribute("label", t("arena.models"));
   const execution = element("p", "help arena-execution", t("arena.execution"));
 
+  const judging = judgePanel(uid);
   const launch = element("button", "btn arena-launch", t("arena.launch"));
   launch.type = "submit";
   launch.setAttribute("aria-describedby", `${uid}-reason`);
@@ -78,7 +84,7 @@ export function mount(host, params = {}) {
   const actions = element("div", "chat-actions arena-actions");
   actions.append(launch, reason);
   const form = element("form", "arena-form");
-  form.append(questionLabel, question, scenarios, picker, execution, actions);
+  form.append(questionLabel, question, scenarios, picker, execution, judging.el, actions);
 
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
@@ -98,6 +104,7 @@ export function mount(host, params = {}) {
 
   const asked = element("p", "arena-asked");
   asked.hidden = true;
+  const info = judgeInfo();
   const tabs = element("div", "arena-tabs");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("arena.tabs"));
@@ -111,6 +118,11 @@ export function mount(host, params = {}) {
   live.setAttribute("role", "status");
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
+  // Les notes arrivent l'une après l'autre : chacune est ajoutée (annonce polie), aucune n'écrase l'autre.
+  const scoreLive = element("div", "sr-only");
+  scoreLive.setAttribute("role", "status");
+  scoreLive.setAttribute("aria-live", "polite");
+  scoreLive.setAttribute("aria-atomic", "false");
 
   host.replaceChildren(
     element("h1", "", t("screens.arena-compare")),
@@ -121,9 +133,11 @@ export function mount(host, params = {}) {
     error,
     banner,
     asked,
+    info.el,
     tabs,
     lanesEl,
     live,
+    scoreLive,
   );
 
   // --- État ------------------------------------------------------------------------------
@@ -138,6 +152,8 @@ export function mount(host, params = {}) {
   let finalState = null; // ok | cancelled | error | interrupted une fois le run terminé
   let stopping = false;
   let wasHidden = host.hidden;
+  let askedCriteria = []; // les critères de la question (vide : ceux du serveur)
+  let judgeFlags = { single_judge: false, unreliable: false }; // fiabilité des notes (`judge`)
   const narrow = window.matchMedia(NARROW);
 
   const running = () => runId !== null;
@@ -202,6 +218,10 @@ export function mount(host, params = {}) {
     delete lanesEl.dataset.focus;
     asked.hidden = true;
     activeTab = null;
+    askedCriteria = [];
+    judgeFlags = { single_judge: false, unreliable: false };
+    info.clear();
+    scoreLive.replaceChildren();
   }
 
   function tabLabel(tag) {
@@ -214,6 +234,7 @@ export function mount(host, params = {}) {
     const el = document.createElement("wl-arena-lane");
     el.id = `${uid}-lane-${index}`;
     el.setup({ tag, name: fiche?.name ?? tag, origin: fiche?.origin ?? "unknown" });
+    el.setJudge(judgeFlags);
     const tab = element("button", "arena-tab");
     tab.type = "button";
     tab.id = `${uid}-tab-${index}`;
@@ -335,6 +356,30 @@ export function mount(host, params = {}) {
     question: (data) => {
       asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), data?.text ?? "");
       asked.hidden = false;
+      askedCriteria = Array.isArray(data?.criteria) ? data.criteria : [];
+    },
+    judge: (data) => {
+      judgeFlags = { single_judge: data?.single_judge === true, unreliable: data?.unreliable === true };
+      for (const { el } of lanes.values()) el.setJudge(judgeFlags);
+      const name = data?.model
+        ? (judging.picker.modelFor(data.model)?.name ?? picker.modelFor(data.model)?.name ?? data.model)
+        : "";
+      info.show(data, { name, criteria: askedCriteria });
+    },
+    judge_score: (data) => {
+      const entry = lanes.get(data?.lane);
+      if (!entry) return;
+      entry.el.setScore(data);
+      const { score, reason } = entry.el.score;
+      const line =
+        score === null
+          ? t("arena.announce.not_evaluated", { name: entry.name, reason: reasonText(reason).toLocaleLowerCase("fr-FR") })
+          : t(judgeFlags.unreliable ? "arena.announce.score_unreliable" : "arena.announce.score", {
+              name: entry.name,
+              score,
+            });
+      scoreLive.append(element("p", "", line));
+      while (scoreLive.children.length > MAX_MODELS) scoreLive.firstElementChild.remove();
     },
     lane_status: (data) => {
       const el = laneOf(data);
@@ -397,11 +442,15 @@ export function mount(host, params = {}) {
     pending = true; // pas de second envoi (bouton ni Entrée) pendant la requête
     render();
     try {
-      const started = await api.startArena({
+      const command = {
         models,
         prompt: question.value,
+        criteria: judging.criteria(),
         allow_cloud: store.get().allowCloud,
-      });
+      };
+      const judge = judging.judge(); // absent : le défaut `judge` du serveur
+      if (judge) command.judge = judge;
+      const started = await api.startArena(command);
       buildLanes(models);
       lanesEl.hidden = false;
       asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), question.value);

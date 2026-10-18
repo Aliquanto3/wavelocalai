@@ -109,7 +109,8 @@
       "indicative": "indicatif",
       "single_judge": "un seul juge",
       "estimated": "estimé",
-      "unmeasurable": "non mesurable"
+      "unmeasurable": "non mesurable",
+      "unreliable": "note peu fiable"
     },
     "metric": {
       "help_for": "Aide sur {label}",
@@ -206,7 +207,15 @@
       "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
       "focus": "Mode focus",
       "expand": "Afficher toute la réponse",
-      "collapse": "Réduire la réponse"
+      "collapse": "Réduire la réponse",
+      "score_label": "Note du juge",
+      "not_evaluated": "Non évalué",
+      "not_evaluated_status": {
+        "timeout": "délai dépassé",
+        "failed": "échec du modèle",
+        "cancelled": "comparaison arrêtée",
+        "interrupted": "comparaison interrompue"
+      }
     }
   },
   "tabs": {
@@ -325,10 +334,36 @@
       "ok": "Comparaison terminée : {done} réponses sur {total}.",
       "cancelled": "Comparaison arrêtée.",
       "interrupted": "Comparaison interrompue.",
-      "error": "Comparaison en échec."
+      "error": "Comparaison en échec.",
+      "score": "{name} : note {score} sur 100.",
+      "score_unreliable": "{name} : note {score} sur 100, peu fiable.",
+      "not_evaluated": "{name} : non évalué, {reason}."
     },
     "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
     "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
-    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré."
+    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré.",
+    "judge": {
+      "panel": "Critères de notation",
+      "label": "Juge",
+      "help": "Le juge note chaque réponse sur 100. Le cloud n'est jamais le juge sans « Autoriser le cloud ».",
+      "weak_help": "Un juge de moins de 4 milliards de paramètres actifs donne une note peu fiable.",
+      "current": "Juge retenu : {name}",
+      "criteria_legend": "Critères envoyés au juge",
+      "criterion_label": "Critère {n}",
+      "criterion_remove": "Retirer le critère {n}",
+      "add": "Ajouter un critère",
+      "reset": "Rétablir les critères par défaut",
+      "criteria_help": "Au plus {max} critères de {chars} caractères. Sans critère, le juge applique : {defaults}.",
+      "criteria_full": "Huit critères au plus : retirez-en un pour en ajouter.",
+      "defaults": {
+        "accuracy": "exactitude",
+        "relevance": "pertinence",
+        "clarity": "clarté"
+      },
+      "info_judge": "Juge : {name}",
+      "info_criteria": "Critères : {list}",
+      "unreliable_alert": "Note peu fiable : le juge a moins de 4 milliards de paramètres actifs, ou sa taille est inconnue. Choisissez un juge plus gros pour un classement plus sûr.",
+      "none_alert": "Aucun juge n'est disponible : les réponses ne sont pas évaluées, et une réponse non évaluée ne vaut jamais 0."
+    }
   }
 }

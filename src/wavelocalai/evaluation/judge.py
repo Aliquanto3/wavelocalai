@@ -20,6 +20,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import ProviderError
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
+from wavelocalai.inference.chat import cloud_estimator
 from wavelocalai.inference.judge_port import (
     DEFAULT_CRITERIA,
     NOT_EVALUATED_EMPTY,
@@ -131,6 +132,7 @@ class Judge:
             build_request(question, criteria, answer),
             secrets=self._settings.secret_values(),
             co2=NOT_MEASURED,
+            estimate_co2=cloud_estimator(judge, self._settings),  # juge cloud : ecologits (AD-11)
             slot=self._slot,
             timeout_s=self._settings.delays.lane_timeout_s,
             publish_to=parent_run_id,
