@@ -24,17 +24,31 @@ function capitalize(text) {
   return text ? text[0].toLocaleUpperCase("fr-FR") + text.slice(1) : text;
 }
 
+// `passage` : `{start, end}` renvoyé par le serveur dans `sources` (décision 21), positions dans
+// `text` ; hors bornes ou absent, aucun surlignage.
+function passageRange(source) {
+  const text = source.text ?? "";
+  const { start, end } = source.passage ?? {};
+  return Number.isInteger(start) && Number.isInteger(end) && start >= 0 && start < end && end <= text.length ? [start, end] : null;
+}
+
+// Le passage qui fonde la réponse, ou l'extrait entier sans passage.
+export function passageText(source) {
+  const range = passageRange(source);
+  return range ? source.text.slice(...range) : (source.text ?? "");
+}
+
 function buildQuote(source, opened) {
   const quote = element("blockquote", "wl-source-quote");
   const text = source.text ?? "";
-  const passage = source.passage && text.includes(source.passage) ? source.passage : null;
-  if (!opened || !passage) {
+  const range = passageRange(source);
+  if (!opened || !range) {
     quote.append(document.createTextNode(text));
     return quote;
   }
-  const at = text.indexOf(passage);
-  const mark = element("mark", "wl-source-mark", passage);
-  quote.append(document.createTextNode(text.slice(0, at)), mark, document.createTextNode(text.slice(at + passage.length)));
+  const [start, end] = range;
+  const mark = element("mark", "wl-source-mark", text.slice(start, end));
+  quote.append(document.createTextNode(text.slice(0, start)), mark, document.createTextNode(text.slice(end)));
   return quote;
 }
 
@@ -138,11 +152,16 @@ export function createSourcePanel({ prefix = "components.sources", autoOpen = tr
     return item;
   }
 
+  // Toujours ouvert en large (décision 22) : le résumé ne replie plus le panneau dès 1 024 px.
   if (autoOpen) {
     const wide = matchMedia("(min-width: 1024px)");
     root.open = wide.matches;
+    root.classList.add("wl-sources-auto");
     wide.addEventListener("change", (event) => {
       root.open = event.matches;
+    });
+    summary.addEventListener("click", (event) => {
+      if (wide.matches) event.preventDefault();
     });
   }
   panel.setSources([]);

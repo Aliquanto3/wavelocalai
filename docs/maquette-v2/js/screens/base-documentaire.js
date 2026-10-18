@@ -110,11 +110,22 @@ function serverEffects(files) {
   return {
     ingest_progress(data) {
       const file = files.find((candidate) => candidate.name === data.file);
-      if (!file || data.error || data.skipped) return;
+      if (!file || data.skipped) return;
+      // Échec : le document reste dans le tableau, statut « Échec », sans extrait (décision 26).
+      if (data.error) {
+        updateBase((base) => {
+          const doc = base.documents.find((candidate) => candidate.id === ids.get(file.name));
+          if (doc) Object.assign(doc, { status: "failed", chunks: 0 });
+          else base.documents.push({ id: `doc-new-${++newDocuments}`, name: file.name, chunks: 0, pages: file.pages, added_at: new Date().toISOString(), status: "failed", embedding: base.settings.embedding });
+        });
+        return;
+      }
       if (!ids.has(file.name)) {
         const id = `doc-new-${++newDocuments}`;
         ids.set(file.name, id);
         updateBase((base) => {
+          // Un nouvel essai remplace la ligne en échec du même fichier.
+          base.documents = base.documents.filter((doc) => !(doc.status === "failed" && doc.name === file.name));
           base.documents.push({ id, name: file.name, chunks: 0, pages: file.pages, added_at: new Date().toISOString(), status: "indexing", embedding: base.settings.embedding });
         });
       }
@@ -177,7 +188,11 @@ export async function mount(host, ctx) {
   const imports = element("section", "docs-imports-section");
   imports.setAttribute("aria-labelledby", importsTitle.id);
   imports.hidden = true;
-  imports.append(importsTitle, embedLoading, importList);
+  // Un seul « Annuler l'import » au-dessus des lignes (décision 25) : le lot est un seul run.
+  const importCancel = withIcon(element("button", "btn docs-import-cancel", t("baseDoc.cancel_batch")), "cancel");
+  importCancel.type = "button";
+  importCancel.hidden = true;
+  imports.append(importsTitle, importCancel, embedLoading, importList);
 
   // --- Documents indexés -------------------------------------------------------------------
   const libraryTitle = element("h2", "docs-library-title");
@@ -331,11 +346,6 @@ export async function mount(host, ctx) {
     head.append(element("span", "docs-import-name", row.file.name), steps);
     const children = [head];
     if (!FINAL.has(row.state)) {
-      const cancel = element("button", "btn docs-import-cancel", t("baseDoc.cancel"));
-      cancel.type = "button";
-      cancel.setAttribute("aria-label", t("baseDoc.cancel_for", { name: row.file.name }));
-      cancel.addEventListener("click", () => cancelRow(row));
-      head.append(cancel);
       const bar = element("progress", "docs-progress");
       bar.setAttribute("aria-label", t("baseDoc.progress_for", { name: row.file.name }));
       if (row.state === "uploading") Object.assign(bar, { max: 100, value: row.percent });
@@ -352,11 +362,19 @@ export async function mount(host, ctx) {
       children.push(box);
     }
     node.replaceChildren(...children);
-    if (hadFocus) node.querySelector(".docs-import-cancel, .wl-error-buttons button")?.focus();
+    if (hadFocus) node.querySelector(".wl-error-buttons button")?.focus();
+    renderCancel();
+  }
+
+  function renderCancel() {
+    const active = Boolean(batch && !batch.done && batch.rows.some((candidate) => !FINAL.has(candidate.state)));
+    if (!active && importCancel.contains(document.activeElement)) (importList.querySelector(".wl-error-buttons button") ?? choose).focus();
+    importCancel.hidden = !active;
   }
 
   function renderRows() {
     imports.hidden = rows.length === 0;
+    renderCancel();
     importList.replaceChildren(...rows.map((row) => row.node ?? (renderRow(row), row.node)));
   }
 
@@ -416,6 +434,7 @@ export async function mount(host, ctx) {
     batch.attachment?.close();
     batch.done = true;
     render();
+    renderCancel();
   }
 
   function follow(simRun, files, { after = 0 } = {}) {
@@ -463,19 +482,21 @@ export async function mount(host, ctx) {
     follow(simRun, files);
   }
 
-  function cancelRow(row) {
-    if (row.state === "uploading" && !batch.run) {
-      setRow(row, { state: "cancelled", started: false });
-      if (batch.rows.every((candidate) => FINAL.has(candidate.state))) {
-        clearInterval(batch.timer);
-        batch.done = true;
-        render();
-      }
+  // « Annuler l'import » : avant le run, les envois s'arrêtent ; pendant, le run du lot s'arrête
+  // (les documents déjà prêts restent).
+  function cancelBatch() {
+    if (!batch || batch.done) return;
+    if (!batch.run) {
+      clearInterval(batch.timer);
+      for (const row of batch.rows) if (!FINAL.has(row.state)) setRow(row, { state: "cancelled", started: false });
+      batch.done = true;
+      render();
+      renderCancel();
       return;
     }
-    // Un seul run pour tout le lot : annuler une ligne arrête les fichiers qui restent.
-    batch?.run?.stop();
+    batch.run.stop();
   }
+  importCancel.addEventListener("click", cancelBatch);
 
   function retryRow(row) {
     rows.splice(rows.indexOf(row), 1);
@@ -634,9 +655,24 @@ export async function mount(host, ctx) {
     }
   }
 
-  async function deleteDocument(id) {
+  // Supprimer un document : confirmation comme « Vider » (décision 24), irréversible.
+  async function deleteDocument(id, { confirmed: already = false } = {}) {
     const doc = getBase().documents.find((candidate) => candidate.id === id);
     if (!doc || ingestActive()) return;
+    if (!already) {
+      confirming = true;
+      const confirmed = await ctx.states.confirmAction({
+        title: t("baseDoc.delete_title", { name: doc.name }),
+        consequence: t(doc.status === "failed" ? "baseDoc.delete_consequence_failed" : "baseDoc.delete_consequence", { chunks: chunksLabel(doc.chunks) }),
+        confirmLabel: t("baseDoc.delete"),
+      });
+      confirming = false;
+      if (!confirmed) {
+        say(t("baseDoc.delete_cancelled", { name: doc.name }), "info");
+        libraryBody.querySelector(`.docs-delete[data-id="${id}"]`)?.focus();
+        return;
+      }
+    }
     updateBase((base) => {
       base.documents = base.documents.filter((candidate) => candidate.id !== id);
     });
@@ -1057,11 +1093,23 @@ export const scenarios = [
     },
   },
   {
-    id: "suppression-document",
-    label: "Supprimer un document : message au même verbe, compteur à jour",
+    id: "suppression-confirmation",
+    label: "Supprimer un document : confirmation comme « Vider », extraits chiffrés",
     async run(ctx) {
       await fresh(ctx);
-      await view.deleteDocument("doc-06");
+      view.deleteDocument("doc-06");
+      await waitUntil(dialogOpen);
+    },
+  },
+  {
+    id: "suppression-document",
+    label: "Suppression confirmée : message au même verbe, compteur à jour",
+    async run(ctx) {
+      await fresh(ctx);
+      const pending = view.deleteDocument("doc-06");
+      await waitUntil(dialogOpen);
+      document.querySelector("wl-confirm-dialog .wl-dialog-actions .btn-primary").click();
+      await pending;
     },
   },
   {

@@ -1210,3 +1210,15 @@ input[type="checkbox"].wl-switch-input[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Panneau de sources toujours ouvert en large (décision 22) : le résumé n'est plus un bouton. */
+@media (min-width: 1024px) {
+  .wl-sources-auto > .wl-sources-summary {
+    cursor: default;
+    list-style: none;
+  }
+
+  .wl-sources-auto > .wl-sources-summary::-webkit-details-marker {
+    display: none;
+  }
+}

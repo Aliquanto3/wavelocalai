@@ -14,7 +14,7 @@ import { loadScreenTexts, plural } from "../core/i18n.js";
 import { store } from "../core/store.js";
 
 export { helpToggle } from "../components/help-toggle.js";
-export { createSourcePanel } from "../components/source-panel.js";
+export { createSourcePanel, passageText } from "../components/source-panel.js";
 
 // --- Préparation (feuille de style et textes communs, chargés une seule fois) ---------------------
 

@@ -31,6 +31,7 @@ import {
   baseCounts,
   createSourcePanel,
   ensureBase,
+  passageText,
   getBase,
   helpToggle,
   pause,
@@ -587,7 +588,7 @@ export async function mount(host, ctx) {
           source ? t("evaluation.support", { document: source.document, page: source.page }) : t("evaluation.no_support"),
         ),
       );
-      if (source) row.append(element("blockquote", "eval-claim-quote", source.passage ?? source.text));
+      if (source) row.append(element("blockquote", "eval-claim-quote", passageText(source)));
       list.append(row);
     }
     return list;
@@ -780,6 +781,7 @@ export async function mount(host, ctx) {
       judge: ev.judge,
       lanes: structuredClone(ev.lanes),
       extracts: structuredClone(ev.extracts),
+      partial: ev.status !== "ok",
     };
   }
 
@@ -789,13 +791,14 @@ export async function mount(host, ctx) {
     attachment = null;
     run = null;
     if (payload.error) error.error = payload.error;
-    if (ev.status === "ok") {
+    // Terminée, ou arrêtée avec un résultat partiel (décision 28) : conservée et rouvrable.
+    if (ev.status === "ok" || ev.status === "cancelled") {
       ev.finishedAt = new Date().toISOString();
       store.set((state) => ({ ragEvals: { ...(state.ragEvals ?? {}), [ev.id]: snapshot() } }));
-      ctx.announce(t("evaluation.done_announce"));
+      if (ev.status === "ok") ctx.announce(t("evaluation.done_announce"));
       const link = element("a", "", t("evaluation.reopen_link"));
       link.href = `#/documents/evaluation/${ev.id}`;
-      const note = ctx.states.notice(`${t("evaluation.saved")} `, { tone: "success" });
+      const note = ctx.states.notice(`${t(ev.status === "ok" ? "evaluation.saved" : "evaluation.saved_partial")} `, { tone: ev.status === "ok" ? "success" : "info" });
       note.append(link);
       notices.replaceChildren(note);
     }
@@ -966,7 +969,7 @@ export async function mount(host, ctx) {
     }
     Object.assign(ev, {
       id: saved.id,
-      status: "ok",
+      status: saved.partial ? "cancelled" : "ok",
       mode: saved.mode,
       question: saved.question ?? "",
       setId: saved.set_id ?? ev.setId,
@@ -977,7 +980,7 @@ export async function mount(host, ctx) {
       finishedAt: saved.finished_at,
     });
     panel.setSources(ev.extracts);
-    const title = element("h2", "", t("evaluation.reopened_title"));
+    const title = element("h2", "", t(saved.partial ? "evaluation.reopened_title_partial" : "evaluation.reopened_title"));
     const lines = element("ul", "eval-recap-list");
     const set = data.sets.find((candidate) => candidate.id === ev.setId);
     lines.append(
@@ -1348,6 +1351,21 @@ export const scenarios = [
       await setBasePreset("complet");
       await ctx.navigate("/documents/evaluation/run-eval-demo");
       await waitUntil(() => view !== null && view.ev.status === "ok");
+    },
+  },
+  {
+    id: "partiel-rouvert",
+    label: "Évaluation arrêtée : résultat partiel conservé, rouvert par son adresse, marqué « partiel »",
+    routes: ["evaluation"],
+    async run(ctx) {
+      await filled(ctx);
+      view.markLoaded();
+      const simRun = await view.start({ speed: 2 });
+      await waitUntil(() => view.ev.lanes.some((lane) => lane.scores.faithfulness));
+      await view.status.cancel();
+      await untilDone(simRun);
+      await ctx.navigate(`/documents/evaluation/${simRun.id}`);
+      await waitUntil(() => view !== null && view.ev.status === "cancelled" && !view.host.querySelector(".eval-recap")?.hidden);
     },
   },
   {
