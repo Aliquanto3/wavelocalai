@@ -1,0 +1,749 @@
+{
+  "roster_version": 10,
+  "size_classes": {
+    "~0.5B": {
+      "single_family_ladder": false,
+      "moe_sought": true,
+      "moe_entry": null,
+      "moe_absent_reason": "sought, none found: no MoE GGUF below 1B total parameters in the epic's candidate families (Granite, LFM2, Gemma 4, Ministral, Phi); the smallest MoE the search found is Granite 3.1 1B-A400M (1,334,628,352 total, ~2B) (GGUF spike which-candidate-ggufs-exist-per-size-class-and-does-the-pinned-build-load-them, read 2026-10-02)"
+    },
+    "~2B": {
+      "single_family_ladder": false,
+      "moe_sought": true,
+      "moe_entry": "granite-3.1-1b-a400m-instruct-q8",
+      "moe_absent_reason": null
+    },
+    "~4B": {
+      "single_family_ladder": false,
+      "moe_sought": true,
+      "moe_entry": "granite-3.1-3b-a800m-instruct-q4km",
+      "moe_absent_reason": null
+    },
+    "~8B-and-up": {
+      "single_family_ladder": false,
+      "moe_sought": true,
+      "moe_entry": "qwen3.6-35b-a3b-ud-iq4xs",
+      "moe_absent_reason": null
+    }
+  },
+  "entries": {
+    "qwen3.6-35b-a3b-ud-iq4xs": {
+      "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+      "revision": "main",
+      "file": "Qwen3.6-35B-A3B/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf",
+      "display_id": "Qwen3.6-35B-A3B",
+      "quant": "UD-IQ4_XS",
+      "sha256": "649d7508507b84638732c4f52c24c8b15843c6dca2f3ff793ae07c14a67ebbb3",
+      "size_class": "~8B-and-up",
+      "bytes_on_disk": 17730509792,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 15.23,
+            "source": "declared",
+            "read_from": "peak process_rss_bytes 15225831424 of the flagship's published gpu runtime rows on laptop-mobile-gpu (aidd_docs/results/runtime-reference.jsonl; aidd_docs/results/README.md side-by-side runtime table, 15226 MB)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak: the published vram_used_mib is NVML's device-wide used memory (4527 MiB for the 0.6B, whose weights are 0.64 GB), not this model's own need"
+          },
+          "disk_gb": {
+            "value": 17.74,
+            "source": "declared",
+            "read_from": "bytes_on_disk 17730509792 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 17.74,
+            "source": "declared",
+            "read_from": "lower bound, no cpu_only peak published: the larger of the gpu-mode RSS peak (15.23 GB) and the weights' bytes_on_disk 17730509792, since a cpu_only run holds every weight in host memory"
+          },
+          "disk_gb": {
+            "value": 17.74,
+            "source": "declared",
+            "read_from": "bytes_on_disk 17730509792 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "thinking_control": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "licence": {
+        "id": "Apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-02",
+        "source_url": "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/blob/main/README.md"
+      },
+      "language_claim": {
+        "languages": [],
+        "source_url": "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/blob/main/README.md",
+        "read_on": "2026-10-02"
+      },
+      "architecture": {
+        "kind": "moe",
+        "expert_count": 40,
+        "active_params_b": 3.1,
+        "total_params": 34660610688
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "none",
+        "sampler": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "qwen3-0.6b-q8": {
+      "repo": "Qwen/Qwen3-0.6B-GGUF",
+      "revision": "23749fefcc72300e3a2ad315e1317431b06b590a",
+      "file": "Qwen3-0.6B/Qwen3-0.6B-Q8_0.gguf",
+      "display_id": "Qwen3-0.6B",
+      "quant": "Q8_0",
+      "sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
+      "size_class": "~0.5B",
+      "bytes_on_disk": 639446688,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 1.08,
+            "source": "declared",
+            "read_from": "peak process_rss_bytes 1077411840 of the 0.6B gpu runtime row on laptop-mobile-gpu, 1077 MB (aidd_docs/tasks/2026_10/2026_10_02_gpu-cpu-never-share-a-fiche/evidence/runtime.jsonl)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak: the published vram_used_mib is NVML's device-wide used memory (4527 MiB for the 0.6B, whose weights are 0.64 GB), not this model's own need"
+          },
+          "disk_gb": {
+            "value": 0.64,
+            "source": "declared",
+            "read_from": "bytes_on_disk 639446688 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 4.77,
+            "source": "declared",
+            "read_from": "peak process_rss_bytes 4761899008 of the 0.6B's cpu_only runtime rows on laptop-mobile-gpu (aidd_docs/tasks/2026_10/2026_10_02_named-run-profiles/evidence/runtime.jsonl)"
+          },
+          "disk_gb": {
+            "value": 0.64,
+            "source": "declared",
+            "read_from": "bytes_on_disk 639446688 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "qwen",
+      "thinking_control": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "licence": {
+        "id": "Apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-02",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/23749fefcc72300e3a2ad315e1317431b06b590a/LICENSE"
+      },
+      "language_claim": {
+        "languages": [],
+        "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/blob/23749fefcc72300e3a2ad315e1317431b06b590a/README.md",
+        "read_on": "2026-10-02",
+        "statement": "Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation."
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 0.6,
+        "total_params": 596049920
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "qwen3-1.7b-q8": {
+      "repo": "Qwen/Qwen3-1.7B-GGUF",
+      "revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+      "file": "Qwen3-1.7B/Qwen3-1.7B-Q8_0.gguf",
+      "display_id": "Qwen3-1.7B",
+      "quant": "Q8_0",
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "size_class": "~2B",
+      "bytes_on_disk": 1834426016,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 2.28,
+            "source": "declared",
+            "read_from": "peak process_rss_bytes of the 1.7B's gpu runtime row on laptop-mobile-gpu (aidd_docs/results/README.md side-by-side runtime table, 2277 MB)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak: the published vram_used_mib is NVML's device-wide used memory (4527 MiB for the 0.6B, whose weights are 0.64 GB), not this model's own need"
+          },
+          "disk_gb": {
+            "value": 1.84,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1834426016 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 2.28,
+            "source": "declared",
+            "read_from": "lower bound, no cpu_only peak published: the larger of the gpu-mode RSS peak (2.28 GB) and the weights' bytes_on_disk 1834426016, since a cpu_only run holds every weight in host memory"
+          },
+          "disk_gb": {
+            "value": 1.84,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1834426016 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "qwen",
+      "thinking_control": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "licence": {
+        "id": "Apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-02",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/90862c4b9d2787eaed51d12237eafdfe7c5f6077/LICENSE"
+      },
+      "language_claim": {
+        "languages": [],
+        "source_url": "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/blob/90862c4b9d2787eaed51d12237eafdfe7c5f6077/README.md",
+        "read_on": "2026-10-02",
+        "statement": "Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation."
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 1.7,
+        "total_params": 1720574976
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "qwen3-4b-q4km": {
+      "repo": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "file": "Qwen3-4B/Qwen3-4B-Q4_K_M.gguf",
+      "display_id": "Qwen3-4B",
+      "quant": "Q4_K_M",
+      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "size_class": "~4B",
+      "bytes_on_disk": 2497280256,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 4.28,
+            "source": "declared",
+            "read_from": "peak process_rss_bytes of the 4B's gpu runtime row on laptop-mobile-gpu (aidd_docs/results/README.md side-by-side runtime table, 4275 MB)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak: the published vram_used_mib is NVML's device-wide used memory (4527 MiB for the 0.6B, whose weights are 0.64 GB), not this model's own need"
+          },
+          "disk_gb": {
+            "value": 2.5,
+            "source": "declared",
+            "read_from": "bytes_on_disk 2497280256 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 4.28,
+            "source": "declared",
+            "read_from": "lower bound, no cpu_only peak published: the larger of the gpu-mode RSS peak (4.28 GB) and the weights' bytes_on_disk 2497280256, since a cpu_only run holds every weight in host memory"
+          },
+          "disk_gb": {
+            "value": 2.5,
+            "source": "declared",
+            "read_from": "bytes_on_disk 2497280256 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "qwen",
+      "thinking_control": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "licence": {
+        "id": "Apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-02",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/blob/bc640142c66e1fdd12af0bd68f40445458f3869b/LICENSE"
+      },
+      "language_claim": {
+        "languages": [],
+        "source_url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/blob/bc640142c66e1fdd12af0bd68f40445458f3869b/README.md",
+        "read_on": "2026-10-02",
+        "statement": "Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation."
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 4.0,
+        "total_params": 4022468096
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "granite-4.0-h-350m-q8": {
+      "repo": "ibm-granite/granite-4.0-h-350m-GGUF",
+      "revision": "a864f823cce6e6048b5752e2816fe7a23987d790",
+      "file": "granite-4.0-h-350m/granite-4.0-h-350m-Q8_0.gguf",
+      "display_id": "Granite-4.0-H-350M",
+      "quant": "Q8_0",
+      "sha256": "c7d9873640dc303b6773dcc44e72e5bdf533e1c95ca8421e6191fbff5c94c942",
+      "size_class": "~0.5B",
+      "bytes_on_disk": 366195616,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 0.37,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 366195616 (no runtime peak of this model is published yet)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak, as for every roster entry"
+          },
+          "disk_gb": {
+            "value": 0.37,
+            "source": "declared",
+            "read_from": "bytes_on_disk 366195616 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 0.37,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 366195616 (no runtime peak of this model is published yet)"
+          },
+          "disk_gb": {
+            "value": 0.37,
+            "source": "declared",
+            "read_from": "bytes_on_disk 366195616 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "ibm",
+      "thinking_control": "none",
+      "licence": {
+        "id": "apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-04",
+        "source_url": "https://huggingface.co/ibm-granite/granite-4.0-h-350m-GGUF/blob/a864f823cce6e6048b5752e2816fe7a23987d790/README.md"
+      },
+      "language_claim": {
+        "languages": [
+          "en",
+          "fr",
+          "de"
+        ],
+        "source_url": "https://huggingface.co/ibm-granite/granite-4.0-h-350m/blob/3b17b717b8f2f5d305b0a92c1491e239aeda19c8/README.md",
+        "read_on": "2026-10-04",
+        "statement": "English, German, Spanish, French, Japanese, Portuguese, Arabic, Czech, Italian, Korean, Dutch, and Chinese."
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 0.34,
+        "total_params": 340332224
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "lfm2.5-1.2b-instruct-q8": {
+      "repo": "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+      "revision": "8ed288026e23958ad9dfa92d53ed773a8eee7125",
+      "file": "LFM2.5-1.2B-Instruct/LFM2.5-1.2B-Instruct-Q8_0.gguf",
+      "display_id": "LFM2.5-1.2B-Instruct",
+      "quant": "Q8_0",
+      "sha256": "f6b981dcb86917fa463f78a362320bd5e2dc45445df147287eedb85e5a30d26a",
+      "size_class": "~2B",
+      "bytes_on_disk": 1246253888,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 1.25,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 1246253888 (no runtime peak of this model is published yet)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak, as for every roster entry"
+          },
+          "disk_gb": {
+            "value": 1.25,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1246253888 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 1.25,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 1246253888 (no runtime peak of this model is published yet)"
+          },
+          "disk_gb": {
+            "value": 1.25,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1246253888 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "liquid",
+      "thinking_control": "none",
+      "licence": {
+        "id": "lfm1.0",
+        "client_commercial_use": false,
+        "read_on": "2026-10-04",
+        "source_url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/blob/8ed288026e23958ad9dfa92d53ed773a8eee7125/LICENSE"
+      },
+      "language_claim": {
+        "languages": [
+          "en",
+          "fr",
+          "de"
+        ],
+        "source_url": "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/blob/0f604ada3f766f9f257460c4c9f0b5d6f69d431b/README.md",
+        "read_on": "2026-10-04",
+        "statement": "English, Arabic, Chinese, French, German, Japanese, Korean, Spanish"
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 1.17,
+        "total_params": 1170340608
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "granite-3.1-1b-a400m-instruct-q8": {
+      "repo": "bartowski/granite-3.1-1b-a400m-instruct-GGUF",
+      "revision": "940d2e1f9f65330615c7c8e980e6c5ac73d3360c",
+      "file": "granite-3.1-1b-a400m-instruct/granite-3.1-1b-a400m-instruct-Q8_0.gguf",
+      "display_id": "Granite-3.1-1B-A400M-Instruct",
+      "quant": "Q8_0",
+      "sha256": "724302357c718bbfb4574e4c99b27d8814c8338b0873b062bf410111d1417650",
+      "size_class": "~2B",
+      "bytes_on_disk": 1422239776,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 1.42,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 1422239776 (no runtime peak of this model is published yet)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak, as for every roster entry"
+          },
+          "disk_gb": {
+            "value": 1.42,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1422239776 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 1.42,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 1422239776 (no runtime peak of this model is published yet)"
+          },
+          "disk_gb": {
+            "value": 1.42,
+            "source": "declared",
+            "read_from": "bytes_on_disk 1422239776 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "ibm",
+      "thinking_control": "none",
+      "licence": {
+        "id": "apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-04",
+        "source_url": "https://huggingface.co/bartowski/granite-3.1-1b-a400m-instruct-GGUF/blob/940d2e1f9f65330615c7c8e980e6c5ac73d3360c/README.md"
+      },
+      "language_claim": {
+        "languages": [
+          "en",
+          "fr",
+          "de"
+        ],
+        "source_url": "https://huggingface.co/ibm-granite/granite-3.1-1b-a400m-instruct/blob/0da7a48b0276d500ce5922fd2b33944091fc6c09/README.md",
+        "read_on": "2026-10-04",
+        "statement": "English, German, Spanish, French, Japanese, Portuguese, Arabic, Czech, Italian, Korean, Dutch, and Chinese."
+      },
+      "architecture": {
+        "kind": "moe",
+        "expert_count": 32,
+        "active_params_b": 0.4,
+        "total_params": 1334628352
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "granite-3.1-3b-a800m-instruct-q4km": {
+      "repo": "bartowski/granite-3.1-3b-a800m-instruct-GGUF",
+      "revision": "be9a36f042806cb586bc65556c527079782b78e0",
+      "file": "granite-3.1-3b-a800m-instruct/granite-3.1-3b-a800m-instruct-Q4_K_M.gguf",
+      "display_id": "Granite-3.1-3B-A800M-Instruct",
+      "quant": "Q4_K_M",
+      "sha256": "48e0edcd578fd4462f26127f04c651d0e650741110185297741089aea01a82b3",
+      "size_class": "~4B",
+      "bytes_on_disk": 2016888384,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 2.02,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 2016888384 (no runtime peak of this model is published yet)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak, as for every roster entry"
+          },
+          "disk_gb": {
+            "value": 2.02,
+            "source": "declared",
+            "read_from": "bytes_on_disk 2016888384 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 2.02,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 2016888384 (no runtime peak of this model is published yet)"
+          },
+          "disk_gb": {
+            "value": 2.02,
+            "source": "declared",
+            "read_from": "bytes_on_disk 2016888384 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "ibm",
+      "thinking_control": "none",
+      "licence": {
+        "id": "apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-04",
+        "source_url": "https://huggingface.co/bartowski/granite-3.1-3b-a800m-instruct-GGUF/blob/be9a36f042806cb586bc65556c527079782b78e0/README.md"
+      },
+      "language_claim": {
+        "languages": [
+          "en",
+          "fr",
+          "de"
+        ],
+        "source_url": "https://huggingface.co/ibm-granite/granite-3.1-3b-a800m-instruct/blob/a02780686e08a03fe0d2679a293b5c74a90efa89/README.md",
+        "read_on": "2026-10-04",
+        "statement": "English, German, Spanish, French, Japanese, Portuguese, Arabic, Czech, Italian, Korean, Dutch, and Chinese."
+      },
+      "architecture": {
+        "kind": "moe",
+        "expert_count": 40,
+        "active_params_b": 0.8,
+        "total_params": 3298793472
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    },
+    "gemma-4-12b-it-iq4xs": {
+      "repo": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "fc034cfff751157913579611efad8462ac1be606",
+      "file": "gemma-4-12b-it/gemma-4-12b-it-IQ4_XS.gguf",
+      "display_id": "Gemma-4-12B-it",
+      "quant": "IQ4_XS",
+      "sha256": "b0037d0e0de0290177045ca214b2a0fb1079d18bde57842b3ca32f5b0cd76774",
+      "size_class": "~8B-and-up",
+      "bytes_on_disk": 6375734080,
+      "requirements": {
+        "gpu": {
+          "ram_gb": {
+            "value": 6.38,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 6375734080 (no runtime peak of this model is published yet)"
+          },
+          "vram_gb": {
+            "value": null,
+            "source": "not_yet_declared",
+            "read_from": "awaits a per-process VRAM peak, as for every roster entry"
+          },
+          "disk_gb": {
+            "value": 6.38,
+            "source": "declared",
+            "read_from": "bytes_on_disk 6375734080 (the weights file), checked only when the weights are not yet on disk"
+          }
+        },
+        "cpu_only": {
+          "ram_gb": {
+            "value": 6.38,
+            "source": "declared",
+            "read_from": "lower bound: the weights' size, bytes_on_disk 6375734080 (no runtime peak of this model is published yet)"
+          },
+          "disk_gb": {
+            "value": 6.38,
+            "source": "declared",
+            "read_from": "bytes_on_disk 6375734080 (the weights file), checked only when the weights are not yet on disk"
+          }
+        }
+      },
+      "family": "google",
+      "thinking_control": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "licence": {
+        "id": "apache-2.0",
+        "client_commercial_use": true,
+        "read_on": "2026-10-04",
+        "source_url": "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/blob/fc034cfff751157913579611efad8462ac1be606/README.md"
+      },
+      "language_claim": {
+        "languages": [],
+        "source_url": "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/blob/fc034cfff751157913579611efad8462ac1be606/README.md",
+        "read_on": "2026-10-04",
+        "statement": "Out-of-the-box support for 35+ languages, pre-trained on 140+ languages."
+      },
+      "architecture": {
+        "kind": "dense",
+        "expert_count": 0,
+        "active_params_b": 11.91,
+        "total_params": 11907350576
+      },
+      "server_flags": {
+        "n_gpu_layers": 99,
+        "context_size": 32768,
+        "flash_attention": "on",
+        "jinja": true,
+        "parallel_slots": 1,
+        "load_mode": "auto",
+        "sampler": {
+          "temperature": 0.6,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0,
+          "presence_penalty": 1.5
+        }
+      }
+    }
+  }
+}

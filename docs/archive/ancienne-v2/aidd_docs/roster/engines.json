@@ -1,0 +1,88 @@
+{
+  "registry_version": 1,
+  "engines": {
+    "llama.cpp": {
+      "reference": true,
+      "build_probe": {
+        "method": "version_flag"
+      },
+      "endpoints": {
+        "chat": "/v1/chat/completions",
+        "health": "/health",
+        "prompt_rendering": "/apply-template",
+        "template_source": "/props"
+      },
+      "lifecycle": "spawned",
+      "host": "127.0.0.1",
+      "default_port": 8080,
+      "thinking_switch": {
+        "request_field": "chat_template_kwargs"
+      },
+      "config_normalisation": {
+        "model_path_flag": "-m",
+        "location_flags": [
+          "--host",
+          "--port"
+        ]
+      },
+      "configuration_defaults": {
+        "batch_size": {
+          "value": 2048,
+          "source": "declared",
+          "read_from": "llama-server --help, b10537: -b, --batch-size (default: 2048)"
+        },
+        "ubatch_size": {
+          "value": 512,
+          "source": "declared",
+          "read_from": "llama-server --help, b10537: -ub, --ubatch-size (default: 512)"
+        },
+        "cache_type_k": {
+          "value": "f16",
+          "source": "declared",
+          "read_from": "llama-server --help, b10537: -ctk, --cache-type-k (default: f16)"
+        },
+        "cache_type_v": {
+          "value": "f16",
+          "source": "declared",
+          "read_from": "llama-server --help, b10537: -ctv, --cache-type-v (default: f16)"
+        },
+        "sampler_chain": {
+          "value": [
+            "penalties",
+            "dry",
+            "top_n_sigma",
+            "top_k",
+            "typ_p",
+            "top_p",
+            "min_p",
+            "xtc",
+            "temperature"
+          ],
+          "source": "engine_reported",
+          "read_from": "GET /props default_generation_settings.params.samplers, b10537-bf0040e15"
+        },
+        "repeat_penalty": {
+          "value": 1.0,
+          "source": "engine_reported",
+          "read_from": "GET /props default_generation_settings.params.repeat_penalty, b10537-bf0040e15"
+        },
+        "dry_multiplier": {
+          "value": 0.0,
+          "source": "engine_reported",
+          "read_from": "GET /props default_generation_settings.params.dry_multiplier, b10537-bf0040e15"
+        },
+        "n_predict": {
+          "value": -1,
+          "source": "engine_reported",
+          "read_from": "GET /props default_generation_settings.params.n_predict, b10537-bf0040e15"
+        }
+      },
+      "constraint_mechanisms": {
+        "gbnf": {
+          "request_field": "grammar",
+          "read_from": "llama-server --help, b10537: --grammar GRAMMAR (BNF-like grammar to constrain generations); a per-request grammar on /v1/chat/completions checked live on b10537"
+        }
+      }
+    }
+  }
+}
