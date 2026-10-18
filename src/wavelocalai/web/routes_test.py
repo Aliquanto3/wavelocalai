@@ -9,18 +9,23 @@ d'étapes, chacune un objet à une clé principale :
 - `{"load": "loading" | "loaded", "duration_s": 0.1}` : l'état de chargement ;
 - `{"fail": "<code d'errors.py>", "technical": "…"}` : une `ProviderError` ;
 - `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un).
+
+`origin` (`local` ou `cloud`) et `co2` (champ `co2` d'AD-10) fixent la mesure de la feuille ; une fois
+le run terminé, la route publie `carbon_updated` comme le feront les services (AD-10).
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+import dataclasses
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from wavelocalai.errors import AppError, ProviderError
-from wavelocalai.inference.streaming import stream_into_run
+from wavelocalai.greenops.session import announce_carbon_updated
+from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
 from wavelocalai.models.fake import FakeChatModel, Sleep, Step
 from wavelocalai.models.port import (
     ChatMessage,
@@ -30,7 +35,7 @@ from wavelocalai.models.port import (
     LoadState,
     TextDelta,
 )
-from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, RunHandle
+from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, Co2, RunHandle
 
 router = APIRouter(prefix="/api/test")
 
@@ -43,6 +48,8 @@ class ScriptedRun(BaseModel):
     model: str = "fake:1b"
     message: str | None = None  # ouvre une conversation (genres chat, rag, agent)
     script: list[dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_SCRIPT))
+    origin: Literal["local", "cloud"] | None = None
+    co2: dict[str, Any] | None = None
 
 
 class Started(BaseModel):
@@ -81,16 +88,26 @@ async def start_scripted_run(body: ScriptedRun, request: Request) -> Started:
         raise AppError("invalid_request", f"kind doit être parmi {ROOT_KINDS}.")
     if body.message is not None and body.kind not in CONVERSATION_KINDS:
         raise AppError("invalid_request", f"Un run {body.kind} n'ouvre pas de conversation.")
-    scripted = FakeChatModel(parse_script(body.script), model.ref)
+    ref = model.ref if body.origin is None else dataclasses.replace(model.ref, origin=body.origin)
+    scripted = FakeChatModel(parse_script(body.script), ref)
+    try:
+        co2 = NOT_MEASURED if body.co2 is None else Co2(**body.co2)
+    except (ValueError, TypeError) as exc:
+        raise AppError("invalid_request", f"co2 : {exc}") from None
     hub = state.hub
     handle: RunHandle = await hub.create_run(
         body.kind, models=[body.model], params={"scripted": True}, user_message=body.message
     )
     chat = ChatRequest([ChatMessage("user", body.message or "")])
-    task = asyncio.create_task(
-        stream_into_run(hub, handle.run_id, scripted, chat, secrets=state.settings.secret_values()),
-        name=f"wavelocalai-test-run-{handle.run_id}",
-    )
+
+    async def play() -> None:
+        await stream_into_run(
+            hub, handle.run_id, scripted, chat, secrets=state.settings.secret_values(), co2=co2
+        )
+        if hub.app_session_id is not None:
+            await announce_carbon_updated(state.system_feed, state.store, hub.app_session_id)
+
+    task = asyncio.create_task(play(), name=f"wavelocalai-test-run-{handle.run_id}")
     hub.attach_task(handle.run_id, task)
     state.tasks.add(task)  # référence forte jusqu'à la fin
     task.add_done_callback(state.tasks.discard)
