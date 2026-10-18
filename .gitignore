@@ -71,6 +71,8 @@ logs/
 *.log
 emissions.csv
 models/
+# Paquet models de la v2 (code, pas des poids de modèles)
+!src/wavelocalai/models/
 *.gguf
 *.bin
 *.pt

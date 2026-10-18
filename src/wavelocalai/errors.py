@@ -1,0 +1,1 @@
+"""Module errors de la v2 (squelette)."""
