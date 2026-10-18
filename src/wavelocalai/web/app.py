@@ -53,6 +53,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if store is None:  # lancement sans `__main__` (tests) : l'app ouvre et ferme sa base
         owned = store = Store.open(db_path(ensure_data_dir(settings.data_dir)))
         app.state.store = store
+    app.state.probe.start()  # première sonde avant toute requête (AD-15)
     hub = RunHub(store)
     await hub.start()
     app.state.hub = hub
@@ -60,6 +61,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await hub.stop()
+        await app.state.probe.aclose()
         if owned is not None:
             owned.close()
 
