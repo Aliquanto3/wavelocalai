@@ -54,6 +54,17 @@ def _error_response(
     return JSONResponse(envelope, status_code=ERRORS[code].status)
 
 
+async def stop_streams(app: FastAPI) -> None:
+    """Début de l'arrêt, **avant** qu'uvicorn attende la fin des connexions : les flux système se
+    terminent et les runs actifs passent à `cancelled` (AD-23), ce qui clôt leurs flux d'événements.
+    Sans cela, un flux ouvert retient l'arrêt indéfiniment. Idempotent : le cycle de vie le refait.
+    """
+    await app.state.system_feed.aclose()
+    hub: RunHub | None = app.state.hub
+    if hub is not None:
+        await hub.stop()
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Démarrage : base migrée, hub démarré (runs orphelins `interrupted`, nouvelle `app_session`).
@@ -74,10 +85,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        await app.state.system_feed.aclose()  # les flux système ouverts se terminent
         warmup.cancel()
+        await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
         await app.state.registry.stop()
-        await hub.stop()
         await app.state.probe.aclose()
         if owned is not None:
             owned.close()
@@ -178,5 +188,5 @@ def create_app(
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
     app.include_router(routes_models.router)
-    mount_shell(app)  # en dernier : la coquille ne masque aucune route d'API
+    mount_shell(app)
     return app

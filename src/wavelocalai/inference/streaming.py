@@ -78,7 +78,8 @@ async def stream_into_run(
         raise  # `hub.cancel` a déjà fixé `cancelled` ; le `finally` ferme le flux
     except Exception as exc:
         error = _error_envelope(exc, secrets)
-        await hub.finish_leaf(run_id, LeafResult(status="error", origin=origin, error=error))
+        # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
+        await hub.finish_leaf(run_id, LeafResult(status="error", origin=origin, error=error), co2)
         return
     finally:
         aclose = getattr(stream, "aclose", None)

@@ -113,7 +113,10 @@ async def test_a_provider_error_ends_the_run_with_the_error_envelope(hub, store)
     assert last["data"]["status"] == "error"
     assert list(error) == ["code", "message", "action", "detail"] and error["code"] == "ollama_down"
     assert secret not in str(error) and "***" in error["detail"]["technical"]
-    assert _row(store, handle.run_id)["status"] == "error"
+    row = _row(store, handle.run_id)
+    assert row["status"] == "error"
+    # Le `co2` est présent partout (AD-10) : la feuille en erreur reste « non mesurée ».
+    assert row["co2_method"] == "unmeasurable" and row["co2_mg"] is None and row["co2_reason"]
     # le texte déjà reçu reste dans la conversation (partiel)
     assert store.read("SELECT content FROM messages WHERE role = 'assistant'")[0][0] == "débu"
     assert model.closed == 1

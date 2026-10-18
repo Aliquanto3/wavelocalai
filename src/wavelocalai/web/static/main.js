@@ -17,7 +17,11 @@ async function boot() {
     console.error(error);
   }
   applyTexts();
-  await import("./components/index.js"); // après les textes : les composants les lisent à l'affichage
+  try {
+    await import("./components/index.js"); // après les textes : les composants les lisent à l'affichage
+  } catch (error) {
+    console.error(error); // un composant en échec ne doit pas empêcher la coquille de s'afficher
+  }
   const setCurrent = initShell();
   let system = null;
   initTopbar(() => system);
