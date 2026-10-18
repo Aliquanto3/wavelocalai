@@ -8,7 +8,7 @@ import math
 import time
 from collections.abc import AsyncGenerator
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import ollama
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 STATUS_TIMEOUT_S = 2.0
 
 # Durée pendant laquelle un Ollama injoignable n'est pas réinterrogé, en secondes : sous
-# Windows, une connexion refusée sur localhost coûte environ 4 s (IPv6 puis IPv4), payées à
-# chaque appel (liste des modèles, santé) et à chaque rafraîchissement de page.
+# Windows, une connexion refusée coûte environ 2 s par adresse essayée, payées à chaque appel
+# (liste des modèles, santé) et à chaque rafraîchissement de page.
 DOWN_RETRY_S = 10.0
 
 # Hôtes Ollama situés sur cette machine.
@@ -42,6 +42,21 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 # les modèles locaux pendant DOWN_RETRY_S. Le client Ollama traduit httpx.ConnectError
 # en ConnectionError.
 UNREACHABLE_ERRORS = (ConnectionError, httpx.ConnectError, httpx.ConnectTimeout)
+
+
+def _ipv4_first(base_url: str) -> tuple[str, str | None]:
+    """URL à utiliser et repli IPv6 : `localhost` est visé en 127.0.0.1, adresse d'écoute
+    par défaut d'Ollama. Sous Windows, `localhost` essaie d'abord ::1 et paie environ 2 s de
+    connexion refusée à chaque appel quand Ollama n'écoute qu'en IPv4 ; le repli [::1] sert
+    un Ollama qui n'écouterait qu'en IPv6. Autre hôte : inchangé, sans repli."""
+    parts = urlsplit(base_url)
+    if not parts.scheme or (parts.hostname or "").lower() != "localhost" or parts.username:
+        return base_url, None
+    port = f":{parts.port}" if parts.port else ""
+    return (
+        urlunsplit(parts._replace(netloc=f"127.0.0.1{port}")),
+        urlunsplit(parts._replace(netloc=f"[::1]{port}")),
+    )
 
 
 class OllamaProvider(ILLMProvider):
@@ -56,7 +71,7 @@ class OllamaProvider(ILLMProvider):
         Args:
             base_url: URL du serveur Ollama
         """
-        self._base_url = base_url
+        self._base_url, self._ipv6_fallback = _ipv4_first(base_url)
         # Instant (monotonic) avant lequel un Ollama constaté injoignable n'est pas réinterrogé.
         self._down_until = 0.0
 
@@ -65,6 +80,23 @@ class OllamaProvider(ILLMProvider):
 
     def _mark_down(self) -> None:
         self._down_until = time.monotonic() + DOWN_RETRY_S
+
+    def _probe_list(self, timeout: float | None = None) -> Any:
+        """`list()` sur `base_url` ; si `localhost` a été réécrit en 127.0.0.1 et qu'il est
+        injoignable, un essai sur [::1], adopté pour tous les appels s'il répond."""
+        try:
+            return self._create_client(timeout).list()
+        except UNREACHABLE_ERRORS:
+            if self._ipv6_fallback is None:
+                raise
+            ipv4_url, self._base_url = self._base_url, self._ipv6_fallback
+            try:
+                resp = self._create_client(timeout).list()
+            except Exception:
+                self._base_url = ipv4_url
+                raise
+            self._ipv6_fallback = None
+            return resp
 
     def _create_async_client(self):
         """
@@ -89,7 +121,7 @@ class OllamaProvider(ILLMProvider):
         if self._recently_down():
             return models
         try:
-            ollama_resp = self._create_client().list()
+            ollama_resp = self._probe_list()
             raw_models = (
                 ollama_resp.models
                 if hasattr(ollama_resp, "models")
@@ -234,7 +266,7 @@ class OllamaProvider(ILLMProvider):
         if self._recently_down():
             return False
         try:
-            self._create_client(timeout).list()
+            self._probe_list(timeout)
             self._down_until = 0.0
             return True
         except Exception as e:

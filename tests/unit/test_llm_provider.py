@@ -207,7 +207,7 @@ class TestLLMProviderPullModel:
             LLMProvider.pull_model("qwen2.5:1.5b")
 
             # Même hôte que la génération (base_url), jamais le client par défaut.
-            mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
+            mock_ollama.Client.assert_called_once_with(host="http://127.0.0.1:11434")
             mock_ollama.Client.return_value.pull.assert_called_once_with(
                 "qwen2.5:1.5b", stream=True
             )

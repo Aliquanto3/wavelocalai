@@ -92,8 +92,8 @@ def test_ollama_down_is_not_requeried_immediately():
         assert provider.health_check() is False
         assert provider.list_models() == []
 
-        # Un seul appel réseau : les suivants sont court-circuités.
-        assert client.list.call_count == 1
+        # Une seule tentative (127.0.0.1 puis repli [::1]) : les suivantes sont court-circuitées.
+        assert client.list.call_count == 2
 
 
 def test_ollama_requeried_after_delay_and_recovers():
@@ -165,3 +165,45 @@ def test_ollama_busy_or_other_error_not_memorized(error):
         client.list.return_value = {"models": [{"model": "qwen2.5:1.5b"}]}
         assert [m["model"] for m in provider.list_models()] == ["qwen2.5:1.5b"]
 
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("http://localhost:11434", ("http://127.0.0.1:11434", "http://[::1]:11434")),
+        ("http://127.0.0.1:11999", ("http://127.0.0.1:11999", None)),
+        ("http://gpu-box:11434", ("http://gpu-box:11434", None)),
+        ("localhost:11434", ("localhost:11434", None)),
+    ],
+)
+def test_localhost_targets_ipv4_first(url, expected):
+    assert ollama_provider._ipv4_first(url) == expected
+
+
+def test_localhost_falls_back_to_ipv6_and_keeps_it():
+    """Ollama qui n'écoute qu'en IPv6 : 127.0.0.1 refusé, [::1] répond et est adopté."""
+    provider = OllamaProvider()
+    with patch.object(ollama_provider, "ollama") as mock_ollama:
+        ok = MagicMock()
+        ok.list.return_value = {"models": [{"model": "qwen2.5:1.5b"}]}
+        refused = MagicMock()
+        refused.list.side_effect = ConnectionError("refused")
+
+        def client(host, **_kw):
+            return ok if host.startswith("http://[::1]") else refused
+
+        mock_ollama.Client.side_effect = client
+        assert provider.health_check() is True
+        assert provider._base_url == "http://[::1]:11434"
+        assert [m["model"] for m in provider.list_models()] == ["qwen2.5:1.5b"]
+        assert refused.list.call_count == 1
+
+
+def test_localhost_both_refused_marks_down_and_keeps_ipv4():
+    provider = OllamaProvider()
+    with patch.object(ollama_provider, "ollama") as mock_ollama:
+        mock_ollama.Client.return_value.list.side_effect = ConnectionError("refused")
+        assert provider.health_check() is False
+        assert mock_ollama.Client.return_value.list.call_count == 2
+        assert provider._base_url == "http://127.0.0.1:11434"
+        assert provider.list_models() == []
+        assert mock_ollama.Client.return_value.list.call_count == 2
