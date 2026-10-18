@@ -130,21 +130,38 @@ def finish_run_row(
             energy_wh=result.energy_wh,
         )
     if co2 is not None:
-        low = None if co2.range_mg is None else co2.range_mg["low"]
-        high = None if co2.range_mg is None else co2.range_mg["high"]
-        values.update(
-            co2_mg=co2.mg,
-            co2_method=co2.method,
-            co2_estimated=int(co2.estimated),
-            co2_range_low_mg=low,
-            co2_range_high_mg=high,
-            co2_allocation=co2.allocation,
-            co2_reason=co2.reason,
-        )
+        values.update(_co2_columns(co2))
     assignments = ", ".join(f"{column} = ?" for column in values)
     conn.execute(
         f"UPDATE runs SET {assignments} WHERE id = ?", (*values.values(), run_id)
     )  # noqa: S608 - colonnes fixes
+
+
+def _co2_columns(co2: Co2) -> dict[str, Any]:
+    low = None if co2.range_mg is None else co2.range_mg["low"]
+    high = None if co2.range_mg is None else co2.range_mg["high"]
+    return {
+        "co2_mg": co2.mg,
+        "co2_method": co2.method,
+        "co2_estimated": int(co2.estimated),
+        "co2_range_low_mg": low,
+        "co2_range_high_mg": high,
+        "co2_allocation": co2.allocation,
+        "co2_reason": co2.reason,
+    }
+
+
+def fill_cancelled_co2(conn: sqlite3.Connection, items: Iterable[tuple[str, Co2]]) -> None:
+    """`co2` d'une feuille annulée qui n'en a pas (AD-10 : présent sur chaque feuille). Ne touche
+    ni une feuille close avant l'annulation, ni un `co2` déjà écrit."""
+    for run_id, co2 in items:
+        values = _co2_columns(co2)
+        assignments = ", ".join(f"{column} = ?" for column in values)
+        conn.execute(
+            f"UPDATE runs SET {assignments} WHERE id = ?"  # noqa: S608 - colonnes fixes
+            " AND status = 'cancelled' AND co2_method IS NULL",
+            (*values.values(), run_id),
+        )
 
 
 def cancel_rows(conn: sqlite3.Connection, run_ids: Iterable[str], ended_at: str) -> None:

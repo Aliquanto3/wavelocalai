@@ -97,6 +97,7 @@ async def test_nominal_chat_streams_tokens_then_metrics_and_stores_both_messages
         assert metrics["tps"] == 40.0 and metrics["tps_source"] == "ollama_eval"
         assert (metrics["load_s"], metrics["eval_s"], metrics["total_s"]) == (0.2, 0.5, 1.0)
         assert metrics["eval_tokens"] == 20 and metrics["ttft_s"] is not None
+        assert (metrics["prefill_s"], metrics["prefill_tps"]) == (0.1, 70.0)  # 7 jetons en 0,1 s
         co2 = metrics["co2"]  # présent partout (AD-10), ici non mesurable avec sa raison
         assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
         assert events[-1]["data"] == {"status": "ok", "error": None}
@@ -180,6 +181,9 @@ async def test_cancelling_closes_the_http_stream_and_keeps_the_partial_answer(tm
         assert _messages(app, started["conversation_id"])[-1] == ("assistant", "Début", None)
         events = await _events(client, started["run_id"])
         assert events[-1]["data"]["status"] == "cancelled"
+        # AD-10 : la feuille annulée garde un `co2`, non mesurable et avec sa raison
+        co2 = (await client.get(f"/api/runs/{started['run_id']}")).json()["metrics"]["co2"]
+        assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
 
 
 async def test_a_cut_generation_is_retried_once_then_succeeds(tmp_path):

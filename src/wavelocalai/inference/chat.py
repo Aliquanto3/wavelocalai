@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from wavelocalai.config import Settings
 from wavelocalai.errors import build_envelope
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest
 from wavelocalai.models.registry import ModelRegistry
@@ -64,6 +64,8 @@ class ChatService:
             user_message=command.message,
             conversation_id=command.conversation_id,
         )
+        # Annulé avant même la lecture du flux, le run garde un `co2` (AD-10).
+        self._hub.declare_leaf(handle.run_id, CANCELLED_CO2)
         task = asyncio.create_task(
             self._run(handle, model, command.temperature),
             name=f"wavelocalai-chat-{handle.run_id}",

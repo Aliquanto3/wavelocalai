@@ -31,7 +31,7 @@ deferred:
     location: src/wavelocalai/inference/streaming.py
     severity: low
   - summary: >-
-      `LoadState("loaded").duration_s` est le délai jusqu'au premier fragment (chargement et lecture du prompt compris) : l'API d'Ollama ne donne `load_duration` qu'au fragment final, où il reste exact dans `metrics.load_s`. Le débit de lecture du prompt (prefill) n'a pas de champ dans `ChatResult` (figé par AD-8) : seul `input_tokens` est exposé.
+      `LoadState("loaded").duration_s` est le délai jusqu'au premier fragment (chargement et lecture du prompt compris) : l'API d'Ollama ne donne `load_duration` qu'au fragment final, où il reste exact dans `metrics.load_s`. Le prefill est exposé par deux champs optionnels ajoutés en fin de `ChatResult` (`prefill_s`, `prefill_tps = prompt_eval_count / prompt_eval_duration`), renseignés par l'adaptateur Ollama seulement et publiés dans `metrics` : écart additif à AD-8 et à `contrat-api.md`, à ratifier. Ils ne sont pas en colonnes de `runs` : l'instantané d'un run terminé ne les a pas.
     evidence: |-
       Docstring de `models/ollama.py` ; `test_loading_is_announced_...`.
     location: src/wavelocalai/models/ollama.py
@@ -78,3 +78,18 @@ deferred:
 - `src/wavelocalai/web/` : `routes_chat.py`, `app.py` (client Ollama partagé, service, `LocalSlot`)
 - `src/wavelocalai/errors.py` : `timeout`, `generation_interrupted`, `ollama_error` en fin de liste
 - Tests : `tests/v2/fake_ollama.py`, `unit/test_ollama_adapter.py`, `unit/test_chat_service.py`, `unit/test_errors.py`, `web/test_chat_api.py`, `integration/test_chat_ollama.py`
+
+## Revue
+
+Revue Opus, une passe, sur dc1c4e1 ; liste du second avis (Haiku) reprise une à une.
+
+- medium, second avis 1 : prefill jamais lu (`prompt_eval_duration`). Corrigé : `ChatResult.prefill_s` et `prefill_tps` (optionnels, en fin de classe), calculés par `ollama_result`, publiés dans `metrics` ; écart additif à AD-8, à ratifier. Tests : `test_prefill_has_its_own_duration_and_rate_apart_from_d3`, assertion dans le test nominal de `test_chat_api.py`.
+- low, second avis 2 : `eval_count` absent, jetons estimés mais `tps_source = "ollama_eval"`. Rejeté : comportement identique à la v1 (`src/core/metrics.py`), Ollama envoie `eval_count` et `eval_duration` ensemble ; le contrat n'a que deux sources.
+- medium, second avis 3 : run annulé sans `co2` en base, alors qu'AD-10 le veut sur chaque feuille. Confirmé sur le hub fusionné (`cancel` → `_close(run, "cancelled")` sans `co2`, `cancel_rows` pour les enfants ; l'instantané rendait `metrics: null`). Corrigé par ajout : `RunHub.declare_leaf(run_id, co2)`, appelé par `ChatService.start` et `stream_into_run` ; un run déclaré feuille et clos sans `co2` (annulation, arrêt du serveur) reçoit `unmeasurable` (« réponse annulée avant la fin ») ; enfants annulés via `repo.fill_cancelled_co2`, qui ne touche ni une feuille déjà terminée ni un `co2` écrit. Tests : `test_hub.py::test_a_declared_leaf_closed_without_co2_keeps_an_unmeasurable_co2`, assertion dans `test_cancelling_closes_the_http_stream_and_keeps_the_partial_answer`.
+- low, second avis 3 (suite) : reporté à la story 2.3. Le hub clôt le run avant que la tâche annulée ne reprenne la main : le CO2 mesuré par CodeCarbon jusqu'à l'annulation ne pourra pas s'écrire par `finish_leaf`. La 2.3 doit le passer au hub (par exemple via `declare_leaf` mis à jour, ou une clôture attendue). Les runs `interrupted` au redémarrage (`interrupt_orphans`) restent sans `co2`.
+- low, second avis 4 : délai de lane par tentative, donc jusqu'à 2 × 300 s avec la relance. Rejeté : voulu (« délai de lane de chaque appel », AC 5), chaque tentative reprend la place.
+- low, second avis 5 : `model_loaded.duration_s` = délai jusqu'au premier fragment. Rejeté : déjà au `deferred` ; Ollama ne donne `load_duration` qu'au fragment final, exact dans `metrics.load_s`.
+- low, second avis 6 : `ToolCall` ignoré sans trace par `stream_into_run`. Rejeté : voulu jusqu'à la story des agents (docstring).
+- low, second avis 7 : ligne NDJSON `{"error": …}` en cours de flux non testée. Corrigé : `test_an_error_line_in_the_middle_of_the_stream_is_ollama_error` (le client lève `ResponseError`, traduit en `ollama_error`, flux fermé).
+- low, second avis 8 : « AGENTS.md dit Python 3.10+ ». Rejeté : `AGENTS.md` et `pyproject.toml` disent 3.11+ (`requires-python = ">=3.11,<3.13"`) ; `asyncio.timeout` est donc disponible.
+- Reporté (service réel) : `integration/test_chat_ollama.py` sur `qwen2.5:1.5b`, à lancer sur un poste où le modèle est installé (`pytest tests/v2 -m integration`), en vérifiant `prefill_tps` non nul au premier tour.
