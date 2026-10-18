@@ -28,7 +28,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 
 - Installation et lancement : `uv sync` puis `uv run wavelocalai` (`src/app/launcher.py`). Appeler l'interpréteur directement (`.venv\Scripts\python -m …`) plutôt qu'activer le venv : l'exécution de scripts PowerShell peut être bloquée.
 - `.venv` est celui de l'application (`uv sync`, `uv.lock` versionné). Sur les machines de banc, le venv du benchmark, qui n'a que ses dépendances (pas Streamlit), s'appelle `.venv-bench` ; ne jamais lancer `uv sync` ni installer `requirements.txt` dedans. `requirements.txt` et `constraints.txt` restent pour la méthode sans uv.
-- Tests : `python -m pytest tests/unit`. Un `pytest` nu ou `pytest tests/` lance aussi `tests/integration`, qui exige Ollama et `qwen2.5:1.5b`.
+- Tests (à lancer avant toute PR) : `python -m pytest tests/unit tests/app` (`tests/app` : AppTest, sans Ollama). Un `pytest` nu ou `pytest tests/` lance aussi `tests/integration`, qui exige Ollama et `qwen2.5:1.5b`.
 - Contrôle rapide (lint, format, imports, sur les fichiers modifiés depuis `master`) : `.venv\Scripts\python .claude/cost-kit/controle_rapide.py`.
 - `pytest.ini` prime sur la section pytest de `pyproject.toml`, dont les options de couverture sont donc ignorées ; la CI ajoute `--cov` elle-même.
 - Viser Python 3.10+ (cible black/ruff `py310`, CI de 3.10 à 3.12).
@@ -39,8 +39,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 
 ## Known pitfalls
 
-- La CI (`.github/workflows/tests.yml`) ne se déclenche que sur `main` et `develop` : elle ne tourne jamais ici. Lancer les tests en local avant toute PR.
-- Sur `master` (3dfdfda), 4 tests de `tests/unit` échouent déjà : `test_inference_reelle_ollama`, `test_get_langchain_model_mistral`, `test_pull_model_cloud_raises_error`, `test_get_all_languages`. Ne pas les imputer à sa propre modification.
+- La CI (`.github/workflows/tests.yml`) tourne sur les push et les PR vers `master` (3 systèmes, Python 3.10 à 3.12) et lance `pytest tests/unit tests/app` ; son lint est informatif. Le même contrôle en local évite de le découvrir en PR.
 - `.secrets.baseline` : sous Windows PowerShell 5.1, `Out-File -Encoding utf8` ajoute un BOM qui casse detect-secrets ; écrire avec `[System.Text.UTF8Encoding]::new($false)`.
 - Télémétries coupées par défaut par `src/core/telemetry.py` (`TELEMETRY_OPT_OUTS`, liste reprise dans le README) : tout module de `src/` ou `scripts/` qui importe Chroma, CrewAI, Ragas, Hugging Face ou `langchain_community` (qui charge Hugging Face) appelle `disable_telemetry()` juste avant cet import ; un test AST de `tests/unit/test_telemetry.py` relève ces modules et vérifie l'ordre. Réactivation par l'environnement ou le `.env`, dont la valeur l'emporte.
 - Tests navigateur : les listes de modèles de Streamlit sont virtualisées (taper pour filtrer), et une écriture Chroma faite par un autre processus reste invisible pour un serveur déjà lancé (ingérer via l'interface).
