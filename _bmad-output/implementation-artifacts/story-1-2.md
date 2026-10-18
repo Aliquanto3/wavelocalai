@@ -73,3 +73,14 @@ deferred:
 ## Reports
 
 Voir l'en-tête `deferred` : arrêt propre des runs (hub), délais provisoires du `.toml`, découverte des routes hors schéma, journaux d'accès uvicorn.
+
+## Revue
+
+- medium, second avis n° 1 — corrigé : un Ollama vivant mais lent (> 100 ms, démarrage à froid) était annoncé `up: false` à la première lecture. Le contrat impose `up` booléen, donc pas d'état « inconnu » : `OllamaProbe.start()` lance la première sonde dans le `lifespan` de l'app, avant toute requête, et un cache échu rend l'état précédent pendant la sonde suivante (seul un échec de sonde fait passer à `up: false`). Budget de 300 ms inchangé (`status()` attend toujours 100 ms au plus). Tests : `test_start_probes_before_the_first_read…`, `test_expired_cache_keeps_the_last_state…`, `test_startup_probe_reports_a_slow_ollama_up…` (échoue sans le correctif).
+- medium, revue — corrigé : `test_real_launch.py` échouait sous Windows (sortie tubée du sous-processus en cp1252, lue en UTF-8 : `err` vaut `None`). La CI Windows aurait été rouge. Le test passe `PYTHONIOENCODING=utf-8` au sous-processus.
+- low, second avis n° 2 — reporté : `Origin` non contrôlée sur une poignée de main WebSocket (le `Host` l'est). Aucune route WS, le contrat n'utilise que SSE ; à traiter avec la première route WS, s'il y en a une.
+- low, second avis n° 3 — rejeté : h11 (uvicorn) refuse déjà plusieurs `Host` ; un navigateur n'envoie jamais deux `Origin`, et une page étrangère ne peut pas en forger.
+- low, second avis n° 4 — corrigé : `MISTRAL_API_KEY=…` et `ANTHROPIC_API_KEY=…` n'étaient pas masqués (`\b` après `_`) ; l'expression accepte désormais un préfixe (`test_prefixed_env_var_names_are_masked`).
+- low, second avis n° 5 — reporté : les `Mount` (fichiers statiques de `web/static/`) échappent à la découverte du budget de lecture ; à revoir avec la story qui monte les fichiers statiques.
+- low, second avis n° 6 — reporté : toute `OSError` du verrou devient « un autre wavelocalai-v2 » et `setup_logging` précède le verrou (un second lancement écrit une ligne dans le journal du serveur vivant). Sans gravité ; reprise du lanceur laissée aux stories qui le modifient (1.3) pour ne pas gêner leur fusion.
+- low, second avis n° 7 — rejeté : une clé d'API réelle fait toujours plus de 8 caractères ; masquer des valeurs plus courtes remplacerait des sous-chaînes banales.

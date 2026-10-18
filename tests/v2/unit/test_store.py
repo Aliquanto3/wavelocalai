@@ -57,7 +57,7 @@ def test_absent_database_is_created_with_the_hub_schema(tmp_path):
     try:
         assert path.name == DB_NAME == "wavelocalai.db"
         assert _tables(path) >= HUB_TABLES
-        assert store.read("PRAGMA user_version")[0][0] == 1
+        assert store.read("PRAGMA user_version")[0][0] == len(discover())
         assert not list(path.parent.glob("*.bak-*"))  # rien à sauvegarder sur une base neuve
     finally:
         store.close()

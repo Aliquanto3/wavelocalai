@@ -70,6 +70,14 @@ class CarbonSettings(_Section):
     pue: float = Field(1.1, ge=1.0)
 
 
+class CloudSettings(_Section):
+    """Modèles cloud proposés (listes fixes : aucun fournisseur n'est appelé pour les lister) et
+    correspondance Groq vers l'entrée `huggingface_hub` d'ecologits (AD-11)."""
+
+    models: dict[str, list[str]] = Field(default_factory=dict)
+    groq_ecologits: dict[str, str] = Field(default_factory=dict)
+
+
 class DelaySettings(_Section):
     lane_timeout_s: float = Field(300.0, gt=0)
     approval_expiry_s: float = Field(600.0, gt=0)
@@ -84,6 +92,7 @@ class Settings(BaseModel):
     data: DataSettings = DataSettings()
     ollama: OllamaSettings = OllamaSettings()
     carbon: CarbonSettings = CarbonSettings()
+    cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
