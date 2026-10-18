@@ -7,6 +7,7 @@ Composant de sélection de modèle.
 import streamlit as st
 
 from src.core.llm_provider import LLMProvider
+from src.core.model_defaults import is_embedding_model
 from src.core.models_db import MODELS_DB
 
 
@@ -39,6 +40,7 @@ def render_model_selector(
         st.error("❌ Impossible de récupérer la liste des modèles")
         return None
 
+    models = [m for m in models if not is_embedding_model(m)]
     if not models:
         st.warning("⚠️ Aucun modèle disponible")
         return None

@@ -35,6 +35,7 @@ from src.core.model_defaults import (
     arena_preselection,
     choose_judge,
     find_entry,
+    is_embedding_model,
     rank_models,
 )
 from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
@@ -217,9 +218,10 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     poste, sinon d'après la mémoire) et présélection de l'Arène. Les tags ne
     changent pas : seul l'ordre des libellés dépend de la machine. Deux tags au même nom
     affiché : le nom de chacun est complété par son tag, aucun modèle n'est masqué. Une
-    entrée sans `model` est ignorée.
+    entrée sans `model` est ignorée, de même qu'un modèle d'embedding (il ne génère pas de
+    texte : ni défaut ni choix possible ; l'onglet de gestion des modèles les liste toujours).
     """
-    models = [m for m in models if m.get("model")]
+    models = [m for m in models if m.get("model") and not is_embedding_model(m)]
     friendly = {m["model"]: _display_name(m) for m in models}
     # Benchmark de ce poste, lu une fois : débit du tri (s'il mesure tous les locaux qui
     # tiennent) et juge par défaut.
