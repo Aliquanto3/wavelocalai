@@ -94,13 +94,21 @@ async def test_a_composite_parent_is_never_counted_only_its_leaves(store, hub):
     assert summary["measured_runs"] == 2
 
 
-async def test_unfinished_leaves_and_failed_runs_without_co2_are_not_counted(store, hub):
+async def test_unfinished_leaves_are_not_counted_and_closed_leaves_without_co2_are_unmeasurable(
+    store, hub
+):
     running = await hub.create_run("chat", models=["m:1b"], user_message="Q ?")
     failed = await hub.create_run("agent", models=["m:1b"], user_message="Q ?")
-    await hub.finish_leaf(failed.run_id, LeafResult(status="error"))
     summary = await session_summary(store, hub.app_session_id)
-    assert summary["measured_runs"] == 0 and summary["unmeasurable_runs"] == 0
+    assert summary["measured_runs"] == 0 and summary["unmeasurable_runs"] == 0  # tous actifs
+    # Une feuille en erreur ou annulée sans `co2` n'a pas de mesure : non-mesurable, jamais oubliée.
+    await hub.finish_leaf(failed.run_id, LeafResult(status="error", origin="local"))
     await hub.cancel(running.run_id)
+    summary = await session_summary(store, hub.app_session_id)
+    assert summary["measured_runs"] == 0 and summary["unmeasurable_runs"] == 2
+    assert summary["total_mg"] == 0.0
+    assert summary["by_module"]["agent"] == {"mg": 0.0, "runs": 1, "unmeasurable_runs": 1}
+    assert summary["by_origin"]["local"]["runs"] == 2
 
 
 async def test_a_new_app_session_restarts_the_sum_and_keeps_the_history(store, hub):
