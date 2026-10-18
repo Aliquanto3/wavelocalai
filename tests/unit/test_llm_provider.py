@@ -809,6 +809,149 @@ class TestPrefixedCloudRouting:
         client_cls.assert_called_once_with(api_key="cle-factice")
 
     @pytest.mark.asyncio
+    async def test_anthropic_chat_stream_matches_sdk_signature(self):
+        """Les arguments passés à `messages.stream()` respectent la signature du SDK installé
+        (le SDK 1.x a retiré `temperature`) et le flux rend tokens puis métriques."""
+        import inspect
+
+        from anthropic.resources.messages import AsyncMessages
+
+        from src.core.providers import anthropic_provider
+
+        calls = []
+
+        class _FakeAnthropicStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            @property
+            async def text_stream(self):
+                for token in ("Bon", "jour"):
+                    yield token
+
+            async def get_final_message(self):
+                return MagicMock(usage=MagicMock(input_tokens=5, output_tokens=2))
+
+        def stream(**kwargs):
+            inspect.signature(AsyncMessages.stream).bind(None, **kwargs)
+            calls.append(kwargs)
+            return _FakeAnthropicStream()
+
+        client = MagicMock()
+        client.messages.stream = stream
+        with (
+            patch.object(anthropic_provider, "ANTHROPIC_AVAILABLE", True),
+            patch.object(anthropic_provider, "_AsyncAnthropic", return_value=client),
+        ):
+            provider = anthropic_provider.AnthropicProvider(api_key="cle-factice")
+            chunks = [
+                c
+                async for c in provider.chat_stream(
+                    "claude-haiku-5-5",
+                    [
+                        {"role": "system", "content": "Contexte RAG : le ciel est bleu."},
+                        {"role": "user", "content": "Salut"},
+                    ],
+                    temperature=0.2,
+                    system_prompt="Consigne.",
+                )
+            ]
+        assert "temperature" not in calls[0]
+        # Le contexte system (RAG) est conservé, jamais remplacé par le défaut.
+        assert calls[0]["system"] == "Consigne.\n\nContexte RAG : le ciel est bleu."
+        assert calls[0]["messages"] == [{"role": "user", "content": "Salut"}]
+        assert chunks[:2] == ["Bon", "jour"]
+        assert isinstance(chunks[2], InferenceMetrics)
+        assert chunks[2].output_tokens == 2
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("system_prompt", "messages", "expected_system"),
+        [
+            # Aucun system : le défaut s'applique.
+            (None, [{"role": "user", "content": "Salut"}], "You are a helpful assistant."),
+            # Plusieurs system, dont un au milieu de l'historique : tous réunis, dans l'ordre.
+            (
+                None,
+                [
+                    {"role": "system", "content": "A"},
+                    {"role": "user", "content": "Salut"},
+                    {"role": "assistant", "content": "Bonjour"},
+                    {"role": "system", "content": "B"},
+                    {"role": "user", "content": "Encore"},
+                ],
+                "A\n\nB",
+            ),
+            # Contenus system vides, absents ou non textuels : ignorés, sans exception.
+            (
+                "Consigne.",
+                [
+                    {"role": "system", "content": ""},
+                    {"role": "system"},
+                    {"role": "system", "content": [{"type": "text", "text": "x"}]},
+                    {"role": "user", "content": "Salut"},
+                ],
+                "Consigne.",
+            ),
+        ],
+    )
+    async def test_anthropic_chat_stream_system_assembly(
+        self, system_prompt, messages, expected_system
+    ):
+        """`system` réunit `system_prompt` et les messages system ; les messages envoyés
+        n'en contiennent plus aucun."""
+        from src.core.providers import anthropic_provider
+
+        calls = []
+
+        class _FakeStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            @property
+            async def text_stream(self):
+                yield "ok"
+
+            async def get_final_message(self):
+                return MagicMock(usage=MagicMock(input_tokens=1, output_tokens=1))
+
+        def stream(**kwargs):
+            calls.append(kwargs)
+            return _FakeStream()
+
+        client = MagicMock()
+        client.messages.stream = stream
+        with (
+            patch.object(anthropic_provider, "ANTHROPIC_AVAILABLE", True),
+            patch.object(anthropic_provider, "_AsyncAnthropic", return_value=client),
+        ):
+            provider = anthropic_provider.AnthropicProvider(api_key="cle-factice")
+            _ = [
+                c
+                async for c in provider.chat_stream(
+                    "claude-haiku-5-5", messages, system_prompt=system_prompt
+                )
+            ]
+        assert calls[0]["system"] == expected_system
+        assert all(m.get("role") != "system" for m in calls[0]["messages"])
+
+    def test_anthropic_available_models_are_current(self):
+        from src.core.providers.anthropic_provider import AnthropicProvider
+
+        assert set(AnthropicProvider.AVAILABLE_MODELS) == {
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5",
+            "claude-fable-5-1",
+        }
+
+    @pytest.mark.asyncio
     async def test_openai_chat_stream_reaches_mocked_client(self):
         from src.core.providers.openai_provider import OpenAIProvider
 

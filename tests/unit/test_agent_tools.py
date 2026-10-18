@@ -528,7 +528,7 @@ def test_crew_groq_without_key_raises_readable_error(monkeypatch):
     [
         ("gpt-4o", "openai", "OPENAI_API_KEY"),
         ("gpt-4o-mini", "openai", "OPENAI_API_KEY"),
-        ("claude-3-5-sonnet-20241022", "anthropic", "ANTHROPIC_API_KEY"),
+        ("claude-sonnet-5-5", "anthropic", "ANTHROPIC_API_KEY"),
     ],
 )
 def test_crew_cloud_llm_targets_its_provider(monkeypatch, tag, provider, key_attr):
@@ -545,7 +545,8 @@ def test_crew_cloud_llm_targets_its_provider(monkeypatch, tag, provider, key_att
     assert llm.provider == provider
     assert llm.model == tag
     assert llm.api_key == "cle-factice"
-    assert llm.temperature == 0.3
+    # Claude refuse les paramètres d'échantillonnage : temperature n'est pas transmise.
+    assert llm.temperature == (None if provider == "anthropic" else 0.3)
 
 
 def test_crew_prefix_checked_before_mistral_catalog(monkeypatch):

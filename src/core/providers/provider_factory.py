@@ -130,7 +130,7 @@ class LLMProviderFactory:
         Retourne le provider approprié pour un modèle donné.
 
         Args:
-            model_tag: Tag du modèle (ex: "qwen2.5:1.5b", "gpt-4o", "claude-3-5-sonnet")
+            model_tag: Tag du modèle (ex: "qwen2.5:1.5b", "gpt-4o", "claude-opus-5-5")
 
         Returns:
             ILLMProvider correspondant

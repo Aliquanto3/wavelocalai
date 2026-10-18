@@ -478,9 +478,9 @@ THINKING_LOCAL = {
 }
 THINKING = "Lfm2.5-thinking · Local"
 # Modèles cloud tels que les listent les fournisseurs Anthropic et OpenAI.
-CLAUDE_SONNET_4 = {
-    "model": "claude-sonnet-4-20250514",
-    "name": "Claude Sonnet 4",
+CLAUDE_OPUS = {
+    "model": "claude-opus-5-5",
+    "name": "Claude Opus 5.5",
     "size": 0,
     "type": "cloud",
     "provider": "anthropic",
@@ -525,18 +525,18 @@ def test_arena_judge_from_machine_benchmark(installed, machine_benchmark, run_pa
 
 
 def test_arena_cloud_enabled_judge_is_most_capable_cloud(monkeypatch, machine_benchmark):
-    """Cloud activé (clé Anthropic et OpenAI) : juge = Claude Sonnet 4, badge Cloud ; cloud
+    """Cloud activé (clé Anthropic et OpenAI) : juge = Claude Opus 5.5, badge Cloud ; cloud
     désactivé : juge local, aucun modèle cloud proposé."""
     from src.core.llm_provider import LLMProvider
 
     def list_models(cloud_enabled=False):
-        cloud = [dict(GPT_4O), dict(CLAUDE_SONNET_4)] if cloud_enabled else []
+        cloud = [dict(GPT_4O), dict(CLAUDE_OPUS)] if cloud_enabled else []
         return [*cloud, *(dict(m) for m in (*FAKE_LOCAL_MODELS, MID_LOCAL))]
 
     monkeypatch.setattr(LLMProvider, "list_models", staticmethod(list_models))
     machine_benchmark({"qwen3.5:4b": (0.87, 62.5)})
 
-    for enabled, judge in ((True, "Claude Sonnet 4 · Cloud"), (False, MID)):
+    for enabled, judge in ((True, "Claude Opus 5.5 · Cloud"), (False, MID)):
         at = AppTest.from_file(str(APP_DIR / ARENA_PAGE), default_timeout=RENDER_TIMEOUT_S)
         at.session_state["cloud_enabled"] = enabled
         at.run()
