@@ -181,6 +181,28 @@ _SPECS = (
         "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
         "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
         ("run_id",),
+    ),  # --- base documentaire (story 4.1) ---
+    ErrorSpec(
+        "ingest_failed",
+        422,
+        "Le fichier n'a pas pu être indexé.",
+        "Vérifiez que le fichier est un PDF, TXT, MD ou DOCX lisible, sans mot de passe et avec "
+        "du texte, puis importez-le de nouveau.",
+        ("file", "reason"),
+    ),
+    ErrorSpec(
+        "no_embedding_model",
+        404,
+        "Aucun modèle d'embedding n'est installé sur ce poste.",
+        "Installez un modèle d'embedding dans Ollama (par exemple `ollama pull nomic-embed-text`), "
+        "puis réessayez.",
+    ),
+    ErrorSpec(
+        "embedding_locked",
+        409,
+        "La base documentaire utilise déjà un autre modèle d'embedding.",
+        "Importez avec le modèle de la base, ou videz la base avant d'en changer.",
+        ("current", "requested"),
     ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}

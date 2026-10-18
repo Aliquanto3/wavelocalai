@@ -16,10 +16,12 @@ import threading
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, TypeVar
 
 from wavelocalai.store.migrate import MIGRATIONS_DIR, migrate
+from wavelocalai.store.vec import ensure_vec_table, load_vec
 
 DB_NAME = "wavelocalai.db"
 BUSY_TIMEOUT_MS = 5000
@@ -74,6 +76,7 @@ class Store:
         self._lock = threading.Lock()
         # Purge (AD-13) restée incomplète : rejouée après chaque écriture et à la fermeture.
         self.purge_pending = False
+        self.vec_available = False  # sqlite-vec chargé par l'écrivain (AD-12)
 
     @classmethod
     def open(cls, path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> Store:
@@ -102,6 +105,7 @@ class Store:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             _pragmas(conn)
+            self.vec_available = load_vec(conn)
         except Exception as exc:  # noqa: BLE001 - rendu à l'appelant de `_start`
             ready.set_exception(exc)
             return
@@ -164,6 +168,10 @@ class Store:
     async def awrite(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> T:
         return await asyncio.wrap_future(self.write(func, purge=purge))
 
+    async def ensure_vec_table(self, dim: int) -> str:
+        """Crée `chunks_vec_<dim>` si elle manque (idempotent, AD-12) ; rend son nom."""
+        return await self.awrite(lambda conn: ensure_vec_table(conn, dim))
+
     def close(self) -> None:
         """Termine les écritures en file, puis ferme l'écrivain."""
         with self._lock:
@@ -176,16 +184,21 @@ class Store:
 
     # --- lectures ------------------------------------------------------------------------------
 
-    def read(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
-        """Lecture sur une connexion courte (ouverte et fermée par l'appel)."""
+    def read(self, sql: str, params: Sequence[Any] = (), *, vec: bool = False) -> list[sqlite3.Row]:
+        """Lecture sur une connexion courte (ouverte et fermée par l'appel). `vec` : charge
+        sqlite-vec pour interroger une table `chunks_vec_<dim>`."""
         conn = sqlite3.connect(self.path)
         try:
             conn.row_factory = sqlite3.Row
             _pragmas(conn)
+            if vec:
+                load_vec(conn)
             conn.execute("PRAGMA query_only=ON")
             return conn.execute(sql, params).fetchall()
         finally:
             conn.close()
 
-    async def aread(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
-        return await asyncio.to_thread(self.read, sql, params)
+    async def aread(
+        self, sql: str, params: Sequence[Any] = (), *, vec: bool = False
+    ) -> list[sqlite3.Row]:
+        return await asyncio.to_thread(partial(self.read, sql, params, vec=vec))

@@ -46,3 +46,13 @@ mistral = ["mistral-large-latest", "mistral-small-latest"]
 "openai/gpt-oss-120b" = "openai/gpt-oss-120b"
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
 "llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+
+[rag]
+# Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec
+# `chunk_overlap` de recouvrement ; chaque lot de `embed_batch_size` extraits est une feuille
+# `embedding` mesurée par CodeCarbon. `embedding_model` : défaut de la base ; absent, le premier
+# modèle d'embedding installé dans Ollama.
+chunk_size = 800
+chunk_overlap = 100
+embed_batch_size = 16
+max_file_mb = 50
