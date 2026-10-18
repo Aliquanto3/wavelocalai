@@ -4,5 +4,5 @@
 CREATE TABLE preferences (
     key TEXT NOT NULL PRIMARY KEY,
     value TEXT NOT NULL, -- JSON
-    updated_at REAL NOT NULL -- secondes depuis l'époque Unix
+    updated_at TEXT NOT NULL -- ISO 8601 UTC avec `Z` (convention des dates)
 ) WITHOUT ROWID;

@@ -12,6 +12,7 @@ from wavelocalai.models.defaults import ModelDefaults, choose_default
 from wavelocalai.models.registry import ModelInfo, ModelList
 from wavelocalai.store.preferences import InMemoryPreferenceStore
 
+NOW = "2026-10-18T12:00:00.000Z"
 SRC = Path(__file__).resolve().parents[3] / "src" / "wavelocalai"
 
 
@@ -224,7 +225,7 @@ class FakeRegistry:
 
     async def list_models(self, *, allow_cloud: bool = False) -> ModelList:
         shown = [m for m in self.models if allow_cloud or m.origin == "local"]
-        return ModelList(models=shown, ollama_up=True, refreshed_at=1.0)
+        return ModelList(models=shown, ollama_up=True, refreshed_at="2026-10-18T12:00:00.000Z")
 
 
 async def test_a_stored_preference_overrides_the_rule_for_that_purpose_only():
@@ -265,9 +266,11 @@ def test_preferences_migration_creates_a_key_value_table():
     columns = {row[1]: row for row in db.execute("PRAGMA table_info(preferences)")}
     assert list(columns) == ["key", "value", "updated_at"]
     assert columns["key"][5] == 1  # clé primaire
-    db.execute("INSERT INTO preferences VALUES ('default_model.chat', '{}', 1.0)")
+    db.execute("INSERT INTO preferences VALUES ('default_model.chat', '{}', ?)", (NOW,))
     with pytest.raises(sqlite3.IntegrityError):
-        db.execute("INSERT INTO preferences VALUES ('default_model.chat', '{}', 2.0)")
+        db.execute("INSERT INTO preferences VALUES ('default_model.chat', '{}', ?)", (NOW,))
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute("INSERT INTO preferences VALUES ('autre', '{}', NULL)")
 
 
 def test_defaults_module_never_imports_the_v1():

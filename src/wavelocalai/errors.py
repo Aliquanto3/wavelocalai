@@ -72,6 +72,13 @@ _SPECS = (
         "serveur.",
     ),
     ErrorSpec(
+        "run_busy",
+        409,
+        "Une exécution de ce genre est déjà en cours.",
+        "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
+        ("run_id",),
+    ),
+    ErrorSpec(
         "cloud_not_allowed",
         403,
         "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
@@ -114,9 +121,9 @@ _MASK = "***"
 # Clés à préfixe connu : OpenAI/Anthropic (`sk-...`), Groq (`gsk_...`), Hugging Face (`hf_...`).
 _PREFIXED_KEY = re.compile(r"\b(?:sk-|gsk_|hf_)[A-Za-z0-9_\-]{8,}")
 _BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._\-]{8,}")
-# `api_key=...`, `"token": "..."`, `Authorization: ...`.
+# `api_key=...`, `MISTRAL_API_KEY=...`, `"token": "..."`, `Authorization: ...`.
 _NAMED_SECRET = re.compile(
-    r"""(?ix)\b(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
+    r"""(?ix)(?<![a-z0-9])(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
     r"""(?!\*\*\*)[^\s"',;}]+"""
 )
 
@@ -173,3 +180,8 @@ def build_envelope(
         "action": spec.action,
         "detail": _mask_value(body, tuple(secrets)),
     }
+
+
+class ProviderError(AppError):
+    """Refus ou panne d'un fournisseur de modèle (AD-8) : un adaptateur la lève avec un code de
+    la liste fermée ; le service la met en enveloppe dans `run_ended.data.error`."""

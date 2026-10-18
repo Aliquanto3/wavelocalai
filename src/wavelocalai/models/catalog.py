@@ -48,6 +48,7 @@ class CatalogEntry:
     capabilities: tuple[str, ...]
     measured_loaded_gb: float | None
     description: str | None
+    moe: bool | None
 
 
 def _positive(value: Any) -> float | None:
@@ -77,6 +78,7 @@ def _entry(name: str, raw: dict[str, Any]) -> CatalogEntry | None:
         ),
         measured_loaded_gb=_positive(raw.get("measured_loaded_gb")),
         description=raw.get("desc") if isinstance(raw.get("desc"), str) else None,
+        moe=raw.get("moe") if isinstance(raw.get("moe"), bool) else None,
     )
 
 

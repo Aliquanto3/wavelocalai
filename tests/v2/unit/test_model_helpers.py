@@ -146,18 +146,18 @@ def test_facts_from_ollama_reads_show_and_listing():
             "lfm2moe.expert_used_count": 4,
         },
     }
-    facts = facts_from_ollama(listed, show, now=1.0)
+    facts = facts_from_ollama(listed, show, now="2026-10-18T12:00:01.000Z")
     assert facts.capabilities == ("completion", "tools", "thinking")
     assert facts.params_total_b == pytest.approx(8.4679, abs=1e-3)
     assert (facts.expert_count, facts.expert_used_count, facts.context_length) == (32, 4, 128000)
-    without_show = facts_from_ollama(listed, None, now=1.0)
+    without_show = facts_from_ollama(listed, None, now="2026-10-18T12:00:01.000Z")
     assert without_show.params_total_b == 8.5 and without_show.capabilities == ()
 
 
 def test_facts_store_keeps_one_row_per_tag_and_digest():
     store = InMemoryFactsStore()
-    old = facts_from_ollama({"model": "m", "digest": "d1"}, None, now=1.0)
-    new = facts_from_ollama({"model": "m", "digest": "d2"}, None, now=2.0)
+    old = facts_from_ollama({"model": "m", "digest": "d1"}, None, now="2026-10-18T12:00:01.000Z")
+    new = facts_from_ollama({"model": "m", "digest": "d2"}, None, now="2026-10-18T12:00:02.000Z")
     store.put(old)
     store.put(new)
     assert store.get("m", "d1") == old and store.get("m", "d2") == new
