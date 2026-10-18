@@ -1,0 +1,127 @@
+/* Écrans : Accueil. Couleurs et rayon viennent de tokens.css seulement. */
+
+.home-section {
+  margin: 1.5rem 0;
+}
+
+.home-section h2 {
+  margin-bottom: 0.75rem;
+}
+
+/* Quatre cartes d'état : une rangée quand la fenêtre le permet, sinon deux puis une colonne. */
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.home-card {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.home-card-label {
+  margin: 0;
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.home-card-value {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin: 0;
+}
+
+.home-card-detail {
+  margin-top: 0.25rem;
+}
+
+.home-card-line {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.home-card-hint {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.home-card-strong {
+  font-weight: 600;
+}
+
+.home-card .btn {
+  margin-top: 0.75rem;
+}
+
+.home-card .btn[aria-disabled="true"] {
+  cursor: progress;
+}
+
+/* Squelette du premier chargement : la valeur n'est pas encore connue. */
+.home-card[aria-busy="true"] .wl-metric-value {
+  display: none;
+}
+
+.home-skeleton {
+  display: block;
+  width: 60%;
+  height: 2.75rem;
+  background: var(--color-line);
+  border-radius: var(--radius);
+  animation: home-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes home-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Liens des modules livrés */
+.home-module-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-module-link {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  height: 100%;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.home-module-link:hover {
+  background: var(--color-surface-alt);
+}
+
+.home-module-link .icon {
+  grid-row: span 2;
+  color: var(--color-primary);
+}
+
+.home-module-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.home-module-summary {
+  grid-column: 2;
+  color: var(--color-ink-secondary);
+}

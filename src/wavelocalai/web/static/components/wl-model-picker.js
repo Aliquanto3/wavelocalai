@@ -116,6 +116,11 @@ export class WlModelPicker extends HTMLElement {
     this.values = tag ? [tag] : [];
   }
 
+  // La fiche de l'API du premier modèle choisi (nom, origine…), ou null.
+  get selected() {
+    return this.#known.get(this.value) ?? null;
+  }
+
   // --- Données ------------------------------------------------------------------------------
 
   async reload() {
