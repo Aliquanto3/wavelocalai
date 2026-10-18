@@ -14,7 +14,8 @@
 //   co2Value(co2)                    « 1,8 mg », « 0,9 mg (estimé) » ou « non mesurable » + aide
 //   ramGuardBox(detail, onAction)    garde-fou mémoire (raccourci d'errorBox)
 //   confirmAction({title, consequence, confirmLabel, cancelLabel, details}) -> Promise<boolean>
-//   confirmEmail({to, subject, body}) -> Promise<boolean>   validation d'un email (D2)
+//   confirmEmail({to, subject, body, expiryMin}) -> Promise<boolean>   validation d'un email (D2)
+//   closeDialog()                    ferme le dialogue de confirmation ouvert (comme « Annuler »)
 
 import { co2Display } from "../core/co2.js";
 import { element, icon } from "../core/dom.js";
@@ -175,8 +176,15 @@ export function confirmAction(options) {
   return dialogHost().ask(options);
 }
 
-export function confirmEmail({ to, subject, body }) {
+export function closeDialog() {
+  document.querySelector("#main > wl-confirm-dialog")?.close();
+}
+
+// Validation d'un email (D2) : `expiryMin` ajoute la mention « Sans réponse dans 10 min, l'envoi est
+// refusé. » (EXPERIENCE.md). `closeDialog()` ferme le dialogue ouvert comme « Annuler ».
+export function confirmEmail({ to, subject, body, expiryMin = 10 }) {
   return dialogHost().ask({
+    note: expiryMin ? t("states.email.expiry", { minutes: expiryMin }) : "",
     title: t("states.email.title"),
     consequence: t("states.email.consequence"),
     confirmLabel: t("states.email.confirm"),

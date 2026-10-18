@@ -1521,11 +1521,11 @@ export async function mount(host, ctx) {
   async function reopen() {
     const snap = saved.get(reopenId) ?? (await reconstruct(reopenId));
     if (!snap) {
+      // `GET /api/runs/{run_id}` répond 404 : enveloppe `run_not_found` du catalogue.
       holder.replaceChildren(
-        ctx.states.emptyState({
-          title: t("arene.missing.title"),
-          text: t("arene.missing.text"),
-          action: { label: t("arene.missing.action"), href: `#${CONFIG_PATH}` },
+        ctx.states.errorBox("run_not_found", {
+          detail: { run_id: reopenId },
+          vars: { what: t("arene.missing.what"), new_label: t("arene.missing.action"), new_href: `#${CONFIG_PATH}` },
         }),
       );
       setMode("missing");

@@ -78,8 +78,7 @@
       "failed": "Essai en échec."
     },
     "missing": {
-      "title": "Essai introuvable",
-      "text": "Cet essai n'existe pas ou a été effacé. Lancez un nouveau test depuis le Banc d'essai.",
+      "what": "Essai",
       "action": "Lancer un test"
     },
     "notice": {

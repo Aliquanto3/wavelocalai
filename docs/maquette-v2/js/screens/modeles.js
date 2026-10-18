@@ -15,6 +15,7 @@
 // gardé au niveau du module : il survit au passage liste -> fiche, et se remet à zéro avec la maquette.
 
 import { element, icon } from "../core/dom.js";
+import { errorEnvelope } from "../core/errors.js";
 import { formatGb, formatInteger, formatNumber, formatPercent, formatRate } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
@@ -61,10 +62,6 @@ function hookReset() {
 }
 
 // --- Petits utilitaires ------------------------------------------------------------------------
-
-function fill(text, vars = {}) {
-  return String(text ?? "").replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
-}
 
 // Les textes citent des commandes entre accents graves : rendues en <code>.
 function richText(tag, className, text) {
@@ -993,7 +990,7 @@ export async function mount(host, ctx) {
     }
     if (inUse(model.tag)) {
       // Un run a démarré entre-temps : 409, le modèle reste.
-      state.error = { envelope: { ...data.errors.model_in_use, message: fill(data.errors.model_in_use.message, { name: model.name, tag: model.tag }), detail: data.errors.model_in_use.detail }, tag: model.tag, target: "free" };
+      state.error = { envelope: errorEnvelope("model_in_use", { detail: { tag: model.tag }, vars: { name: model.name } }), tag: model.tag, target: "free" };
       render();
       host.querySelector('[data-fid="unload"]')?.focus();
       return;
@@ -1082,7 +1079,7 @@ export async function mount(host, ctx) {
       return null;
     }
     if (!model) {
-      const error = { ...data.errors.pull_unknown, message: fill(data.errors.pull_unknown.message, { tag }) };
+      const error = errorEnvelope("pull_failed", { detail: { tag, cause: "not_found" } });
       state.pull = null;
       const vars = pullVars({ tag, size_gb: 1 }, { partial: false, error });
       const run = startPull({ tag, name: tag, script: "modeles-pull-echec", vars, speed });
@@ -1122,7 +1119,7 @@ export async function mount(host, ctx) {
     } else if (d.status === "cancelled") {
       say("info", t("modeles.pull.cancelled", { name: pull.name }));
     } else {
-      const envelope = d.error?.code === "pull_failed" || d.error?.message ? d.error : { ...data.errors.pull_interrupted, message: fill(data.errors.pull_interrupted.message, { tag: pull.tag }) };
+      const envelope = d.error?.message ? d.error : errorEnvelope("pull_failed", { detail: { tag: pull.tag, cause: "interrupted" } });
       state.error = { envelope, tag: pull.tag, target };
       ctx.announce(envelope.message);
     }
@@ -1378,8 +1375,7 @@ export const scenarios = [
     label: "Ollama s'arrête pendant le téléchargement : pull_failed dans la ligne",
     async run(ctx) {
       await fresh(ctx);
-      const data = await ctx.data("modeles.json");
-      const envelope = { ...data.errors.pull_ollama_stopped, message: data.errors.pull_ollama_stopped.message.replace("{tag}", "granite4.1:8b") };
+      const envelope = errorEnvelope("pull_failed", { detail: { tag: "granite4.1:8b", cause: "ollama_down" } });
       view.install("granite4.1:8b", { script: "modeles-pull-echec", vars: { partial: true, error: envelope } });
       await untilIdle();
       await view.settle();

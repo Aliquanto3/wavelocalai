@@ -1,5 +1,5 @@
 {
-  "_doc": "Catalogue des codes d'erreur de la maquette (UX-DR16, AD-18, 03 §3.8). message et action : textes affichés tels quels ; {nom} est remplacé par la valeur de detail ou de vars (mise en forme fr-FR par l'appelant). buttons : actions prévues pour ce code (dans le vrai front, l'écran les tire du code et de detail). detail_example.technical : exemple fictif replié sous « Détails techniques ». ux_dr16 : false pour les codes d'errors.py hors de la liste d'UX-DR16.",
+  "_doc": "Catalogue des codes d'erreur de la maquette (UX-DR16, AD-18, 03 §3.8). message et action : textes affichés tels quels ; {nom} est remplacé par la valeur de detail, de vars ou de vars_default (mise en forme fr-FR par l'appelant), aussi dans le libellé et l'adresse des boutons. variants : message, action et exemple technique selon detail.cause (pull_failed). buttons : actions prévues pour ce code (dans le vrai front, l'écran les tire du code et de detail). detail_example.technical : exemple fictif replié sous « Détails techniques ». ux_dr16 : false pour les codes d'errors.py hors de la liste d'UX-DR16.",
   "codes": {
     "ollama_down": {
       "ux_dr16": true,
@@ -142,6 +142,51 @@
       "action": "Patientez un peu avant de réessayer, vérifiez le quota de votre compte, ou repassez en Local.",
       "buttons": [{ "id": "retry", "label": "Réessayer" }, { "id": "use_local", "label": "Repasser en Local" }],
       "detail_example": { "technical": "HTTP 429, retry-after 20 s", "provider": "groq", "provider_name": "Groq", "http_status": 429 }
+    },
+    "pull_failed": {
+      "ux_dr16": false,
+      "status": 502,
+      "where": "Modèles (installation)",
+      "message": "Le modèle {tag} n'a pas pu être installé.",
+      "action": "Réessayez. La liste des modèles est inchangée.",
+      "variants": {
+        "not_found": {
+          "message": "Le modèle {tag} n'a pas pu être installé : ce nom n'existe pas dans le registre d'Ollama.",
+          "action": "Vérifiez l'orthographe du nom (par exemple `qwen3.6:7b`), puis réessayez. La liste des modèles est inchangée.",
+          "technical": "POST http://127.0.0.1:11434/api/pull : HTTP 404, pull model manifest: file does not exist"
+        },
+        "ollama_down": {
+          "message": "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
+          "action": "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le téléchargement déjà fait est repris. La liste des modèles est inchangée.",
+          "technical": "ConnectError : connexion perdue avec http://127.0.0.1:11434/api/pull (flux interrompu à 41 %)"
+        },
+        "interrupted": {
+          "message": "L'installation de {tag} a été interrompue par le redémarrage du serveur.",
+          "action": "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. La liste des modèles est inchangée.",
+          "technical": "run interrompu : app_session fermée avant run_ended"
+        }
+      },
+      "buttons": [{ "id": "retry", "label": "Réessayer" }],
+      "detail_example": { "technical": "POST http://127.0.0.1:11434/api/pull : échec", "tag": "granite4.1:8b" }
+    },
+    "model_in_use": {
+      "ux_dr16": false,
+      "status": 409,
+      "where": "Modèles (suppression)",
+      "message": "{name} est utilisé par une réponse en cours : il n'a pas été supprimé.",
+      "action": "Attendez la fin de la réponse (ou arrêtez-la), puis supprimez le modèle.",
+      "buttons": [],
+      "detail_example": { "technical": "DELETE /api/models/{tag} : 409, run actif sur ce modèle", "tag": "qwen3.6:7b" }
+    },
+    "run_not_found": {
+      "ux_dr16": false,
+      "status": 404,
+      "where": "Résultats rouverts par leur adresse (Arène, Banc d'essai, Évaluation, Équipe d'agents)",
+      "message": "{what} introuvable : ce résultat n'existe pas ou a été effacé.",
+      "action": "Vérifiez l'adresse, ou lancez une nouvelle exécution.",
+      "buttons": [{ "id": "new_run", "label": "{new_label}", "href": "{new_href}" }],
+      "vars_default": { "what": "Résultat", "new_label": "Revenir à l'accueil", "new_href": "#/" },
+      "detail_example": { "technical": "GET /api/runs/{run_id} : 404, aucun run de cet identifiant", "run_id": "run-inconnu" }
     },
     "internal": {
       "ux_dr16": false,

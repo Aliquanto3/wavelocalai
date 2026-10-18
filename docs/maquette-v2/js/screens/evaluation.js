@@ -1022,11 +1022,9 @@ export async function mount(host, ctx) {
     if (!saved) {
       recap.hidden = false;
       recap.replaceChildren(
-        ctx.states.emptyState({
-          title: t("evaluation.not_found_title"),
-          text: t("evaluation.not_found_text", { id }),
-          action: { label: t("evaluation.new_eval"), href: "#/documents/evaluation" },
-          level: 2,
+        ctx.states.errorBox("run_not_found", {
+          detail: { run_id: id },
+          vars: { what: t("evaluation.not_found_what"), new_label: t("evaluation.new_eval"), new_href: "#/documents/evaluation" },
         }),
       );
       return;
@@ -1426,7 +1424,7 @@ export const scenarios = [
     async run(ctx) {
       await ctx.reset();
       await ctx.navigate("/documents/evaluation/run-eval-inconnue");
-      await waitUntil(() => view !== null && view.host.querySelector(".wl-empty"));
+      await waitUntil(() => view !== null && view.host.querySelector('wl-error[data-code="run_not_found"]'));
     },
   },
 ];

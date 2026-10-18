@@ -159,8 +159,7 @@
       "export_done": "Export {format} téléchargé."
     },
     "missing": {
-      "title": "Comparaison introuvable",
-      "text": "Cette comparaison n'existe pas ou a été effacée. Lancez-en une nouvelle depuis l'Arène.",
+      "what": "Comparaison",
       "action": "Lancer une comparaison"
     },
     "erased": {

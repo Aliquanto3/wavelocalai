@@ -2,7 +2,7 @@
   "id": "modeles-pull-echec",
   "kind": "pull",
   "label": "Installation qui échoue : tag inconnu (avant tout octet) ou Ollama qui s'arrête en cours de téléchargement",
-  "_doc": "vars : tag, reranker, total_bytes, b1 à b10, partial (bool : des octets ont été reçus avant l'échec), error (enveloppe pull_failed, voir donnees/modeles.json).",
+  "_doc": "vars : tag, reranker, total_bytes, b1 à b10, partial (bool : des octets ont été reçus avant l'échec), error (enveloppe pull_failed du catalogue donnees/erreurs.json).",
   "events": [
     {
       "wait": 0,

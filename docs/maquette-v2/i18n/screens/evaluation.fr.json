@@ -115,8 +115,7 @@
     "reopened_models": "Modèles : {models}",
     "reopened_note": "Résultat reconstruit depuis la base, sans relancer de modèle.",
     "new_eval": "Nouvelle évaluation",
-    "not_found_title": "Évaluation introuvable",
-    "not_found_text": "Aucune évaluation ne porte l'identifiant « {id} » : elle a peut-être été effacée. Lancez-en une nouvelle.",
+    "not_found_what": "Évaluation",
     "done_announce": "Évaluation terminée.",
     "unloaded": "Modèles inactifs déchargés : 2,7 Go libérés. Vous pouvez relancer l'évaluation.",
     "smaller": "Modèle plus petit choisi : {name}. Vous pouvez relancer l'évaluation."

@@ -617,7 +617,12 @@ export async function mount(host, ctx) {
   async function reopen() {
     const snap = saved.get(reopenId) ?? (await reconstruct(reopenId));
     if (!snap) {
-      holder.replaceChildren(ctx.states.emptyState({ title: t("banc.missing.title"), text: t("banc.missing.text"), action: { label: t("banc.missing.action"), href: `#${BASE_PATH}` } }));
+      holder.replaceChildren(
+        ctx.states.errorBox("run_not_found", {
+          detail: { run_id: reopenId },
+          vars: { what: t("banc.missing.what"), new_label: t("banc.missing.action"), new_href: `#${BASE_PATH}` },
+        }),
+      );
       form.hidden = true;
       state.mode = "missing";
       renderResult();

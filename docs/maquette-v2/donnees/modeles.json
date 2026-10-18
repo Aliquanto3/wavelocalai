@@ -1,5 +1,5 @@
 {
-  "_doc": "Écran Modèles (GET /api/models, catalogue installable, défauts, fiche, qb.results/1). Contenus fictifs. `catalog` : modèles installables (config/models_catalog.json) avec la mémoire nécessaire ; `fits` est recalculé par le serveur simulé à partir de la mémoire libre (free_gb). `facts` : caractéristiques et phrases de « Pourquoi ce débit ? » fournies par l'API (le front n'explique rien lui-même). `references` : « Sur d'autres postes » (AD-22), null = inconnu. `errors` : codes absents de donnees/erreurs.json (pull_failed, model_in_use), même forme.",
+  "_doc": "Écran Modèles (GET /api/models, catalogue installable, défauts, fiche, qb.results/1). Contenus fictifs. `catalog` : modèles installables (config/models_catalog.json) avec la mémoire nécessaire ; `fits` est recalculé par le serveur simulé à partir de la mémoire libre (free_gb). `facts` : caractéristiques et phrases de « Pourquoi ce débit ? » fournies par l'API (le front n'explique rien lui-même). `references` : « Sur d'autres postes » (AD-22), null = inconnu.",
   "free_gb": 5.9,
   "free_gb_ram_guard": 2.8,
   "loaded_size_gb": 2.7,
@@ -564,59 +564,6 @@
           }
         ]
       }
-    }
-  },
-  "errors": {
-    "pull_unknown": {
-      "code": "pull_failed",
-      "message": "Le modèle {tag} n'a pas pu être installé : ce nom n'existe pas dans le registre d'Ollama.",
-      "action": "Vérifiez l'orthographe du nom (par exemple `qwen3.6:7b`), puis réessayez. La liste des modèles est inchangée.",
-      "detail": {
-        "technical": "POST http://127.0.0.1:11434/api/pull : HTTP 404, pull model manifest: file does not exist"
-      },
-      "buttons": [
-        {
-          "id": "retry",
-          "label": "Réessayer"
-        }
-      ]
-    },
-    "pull_ollama_stopped": {
-      "code": "pull_failed",
-      "message": "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
-      "action": "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le téléchargement déjà fait est repris. La liste des modèles est inchangée.",
-      "detail": {
-        "technical": "ConnectError : connexion perdue avec http://127.0.0.1:11434/api/pull (flux interrompu à 41 %)"
-      },
-      "buttons": [
-        {
-          "id": "retry",
-          "label": "Réessayer"
-        }
-      ]
-    },
-    "pull_interrupted": {
-      "code": "pull_failed",
-      "message": "L'installation de {tag} a été interrompue par le redémarrage du serveur.",
-      "action": "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. La liste des modèles est inchangée.",
-      "detail": {
-        "technical": "run interrompu : app_session fermée avant run_ended"
-      },
-      "buttons": [
-        {
-          "id": "retry",
-          "label": "Réessayer"
-        }
-      ]
-    },
-    "model_in_use": {
-      "code": "model_in_use",
-      "message": "{name} est utilisé par une réponse en cours : il n'a pas été supprimé.",
-      "action": "Attendez la fin de la réponse (ou arrêtez-la), puis supprimez le modèle.",
-      "detail": {
-        "technical": "DELETE /api/models/{tag} : 409, run actif sur ce modèle"
-      },
-      "buttons": []
     }
   }
 }

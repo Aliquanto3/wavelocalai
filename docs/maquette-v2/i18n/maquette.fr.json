@@ -105,7 +105,8 @@
       "body": "Corps du message",
       "sent": "Email envoyé.",
       "cancelled": "Envoi annulé : l'agent en est informé.",
-      "expired": "Validation expirée après 10 minutes : l'email n'est pas parti."
+      "expired": "Validation expirée : email non envoyé.",
+      "expiry": "Sans réponse dans {minutes} min, l'envoi est refusé."
     },
     "empty_screen": {
       "title": "Écran à construire",

@@ -38,16 +38,25 @@ function fill(text, vars) {
 
 // L'enveloppe d'un code. `detail` remplace l'exemple du catalogue (fusion) ; `vars` complète les
 // valeurs à insérer dans les textes. Code inconnu : enveloppe `internal`.
+// `detail.cause` choisit une variante du code (message, action, exemple technique), si le catalogue
+// en prévoit une ; `vars_default` comble les valeurs que l'écran ne donne pas.
 export function errorEnvelope(code, { detail = {}, vars = {} } = {}) {
   const spec = catalog[code] ?? catalog.internal;
-  const merged = { ...(spec.detail_example ?? {}), ...detail };
-  const values = { ...defaultVars(merged), ...vars };
+  const variant = (detail.cause && spec.variants?.[detail.cause]) || null;
+  const example = { ...(spec.detail_example ?? {}), ...(variant?.technical ? { technical: variant.technical } : {}) };
+  const merged = { ...example, ...detail };
+  const values = { ...(spec.vars_default ?? {}), ...defaultVars(merged), ...vars };
   const cloudAware = code === "ollama_down" && store.get().allowCloud && spec.action_cloud;
+  const action = cloudAware ? spec.action_cloud : (variant?.action ?? spec.action);
   return {
     code: catalog[code] ? code : "internal",
-    message: fill(spec.message, values),
-    action: fill(cloudAware ? spec.action_cloud : spec.action, values),
-    detail: merged,
-    buttons: (spec.buttons ?? []).map((button) => ({ ...button })),
+    message: fill(variant?.message ?? spec.message, values),
+    action: fill(action, values),
+    detail: typeof merged.technical === "string" ? { ...merged, technical: fill(merged.technical, values) } : merged,
+    buttons: (spec.buttons ?? []).map((button) => ({
+      ...button,
+      label: fill(button.label, values),
+      ...(button.href ? { href: fill(button.href, values) } : {}),
+    })),
   };
 }

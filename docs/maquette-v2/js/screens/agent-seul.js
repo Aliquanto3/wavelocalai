@@ -15,6 +15,7 @@
 // icônes (voir « Pièces communes »). Elles vivent ici parce que la
 // maquette ne permet pas d'ajouter de composant commun (voir notes/agent-seul.md).
 
+import { closeDialog } from "../components/states.js";
 import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
 import { formatDuration } from "../core/format.js";
@@ -83,15 +84,11 @@ export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms / s
 export const prepareEvents = (events, vars = {}) => sim.prepare(events, vars);
 
 // --- Dialogue de validation ------------------------------------------------------------------------
-// `wl-confirm-dialog` n'a pas de méthode pour se fermer de l'extérieur : l'événement `cancel` natif
-// du `<dialog>` suffit (même chemin qu'Échap).
 export function dialogElement() {
   return document.querySelector("#main > wl-confirm-dialog dialog[open]");
 }
 
-export function closeApprovalDialog() {
-  dialogElement()?.dispatchEvent(new Event("cancel", { cancelable: true }));
-}
+export const closeApprovalDialog = closeDialog;
 
 // Clique « Envoyer l'email » (true) ou « Annuler » (false) dans le dialogue ouvert (scénarios).
 export function decideInDialog(approve) {
