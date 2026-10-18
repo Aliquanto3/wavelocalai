@@ -11,14 +11,19 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
+from ollama import AsyncClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.inference.chat import ChatService
+from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.models.defaults import ModelDefaults
+from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.facts_store import SqliteFactsStore
 from wavelocalai.models.fake import fake_models
+from wavelocalai.models.ollama import close_client, make_client
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
@@ -28,7 +33,14 @@ from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health, routes_models, routes_runs, routes_system, routes_test
+from wavelocalai.web import (
+    routes_chat,
+    routes_health,
+    routes_models,
+    routes_runs,
+    routes_system,
+    routes_test,
+)
 from wavelocalai.web.routes_static import mount_shell
 from wavelocalai.web.security import LocalOnlyMiddleware
 from wavelocalai.web.system_state import SystemSampler, cached_fiche
@@ -79,6 +91,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     hub = RunHub(store)
     await hub.start()
     app.state.hub = hub
+    # Client Ollama partagé (AD-14) ; l'app ne ferme que celui qu'elle a créé.
+    owned_client: AsyncClient | None = None
+    client: AsyncClient | None = app.state.ollama_client
+    if client is None:
+        client = owned_client = make_client(settings.ollama.host)
+        app.state.ollama_client = client
+    app.state.chat = ChatService(
+        hub,
+        app.state.registry,
+        ModelFactory(client, app.state.models),
+        app.state.local_slot,
+        settings,
+    )
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
@@ -89,6 +114,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
         await app.state.registry.stop()
         await app.state.probe.aclose()
+        app.state.chat = None
+        if owned_client is not None:
+            await close_client(owned_client)
+            app.state.ollama_client = None
         if owned is not None:
             owned.close()
 
@@ -99,12 +128,14 @@ def create_app(
     store: Store | None = None,
     registry: ModelRegistry | None = None,
     preferences: PreferenceStore | None = None,
+    ollama_client: AsyncClient | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
     `store` : base déjà ouverte par le lanceur (qui la ferme) ; sinon l'app ouvre la sienne au
     démarrage de son cycle de vie. `registry` : registre des modèles, branché sur la base du store
-    (faits d'Ollama et débit mesuré) par défaut.
+    (faits d'Ollama et débit mesuré) par défaut. `ollama_client` : client Ollama partagé des
+    générations (celui du lanceur ; sinon l'app crée le sien au démarrage de son cycle de vie).
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -121,8 +152,12 @@ def create_app(
     app.state.hub = None  # créé au démarrage du cycle de vie
     app.state.models = fake_models(settings)  # le `fake` seulement si `Settings.testing` (AD-8)
     app.state.tasks = set()  # tâches de runs en cours (références fortes)
+    app.state.ollama_client = ollama_client
+    app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
+    app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.registry = registry or ModelRegistry(
         settings,
+        extra_refs={tag: model.ref for tag, model in app.state.models.items()},
         facts=SqliteFactsStore(lambda: app.state.store),
         run_stats=SqliteRunStats(lambda: app.state.store),
         advisor=MemoryAdvisor(),
@@ -176,6 +211,7 @@ def create_app(
 
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
+    app.include_router(routes_chat.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)

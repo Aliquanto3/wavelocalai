@@ -104,3 +104,11 @@ class LeafResult:
 class RunHandle:
     run_id: str
     conversation_id: str | None = None
+
+
+@dataclass(frozen=True)
+class StoredMessage:
+    """Un message de conversation tel que le hub l'a écrit (rôle et texte seulement)."""
+
+    role: str
+    content: str

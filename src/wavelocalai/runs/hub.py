@@ -31,6 +31,7 @@ from wavelocalai.runs.models import (
     Co2,
     LeafResult,
     RunHandle,
+    StoredMessage,
 )
 from wavelocalai.store.db import Store, utc_now_iso
 
@@ -361,6 +362,10 @@ class RunHub:
         if event_type == "token" and run.conversation_id is not None:
             text = str(data.get("text") or "")
             (run.thought if data.get("channel") == "thought" else run.answer).append(text)
+        elif event_type == "retry":
+            # Génération relancée : le texte partiel de la tentative coupée n'est plus la réponse.
+            run.answer.clear()
+            run.thought.clear()
         return event.seq
 
     @staticmethod
@@ -569,6 +574,15 @@ class RunHub:
             if run.parent_id is None and run.kind == kind and not run.closing:
                 return run.id
         return self._reserved.get(kind)
+
+    async def conversation_messages(self, conversation_id: str) -> list[StoredMessage]:
+        """Messages d'une conversation dans l'ordre d'écriture (le dernier message utilisateur
+        d'un run en cours compris), pour construire la requête du modèle."""
+        rows = await self.store.aread(
+            "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY rowid",
+            (conversation_id,),
+        )
+        return [StoredMessage(r["role"], r["content"]) for r in rows]
 
     def watch(self, run_id: str) -> asyncio.Event | None:
         """Événement qui se déclenche au prochain événement (ou à la clôture) d'un run racine
