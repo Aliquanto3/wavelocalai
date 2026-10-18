@@ -96,3 +96,11 @@ def test_cloud_codes_name_the_provider_and_the_key_variable():
     from wavelocalai.runs.models import STATUSES
 
     assert not {c for c in ERRORS if c.startswith("cloud_")} & set(STATUSES)
+
+
+def test_conversation_busy_is_a_409_that_names_the_active_run():
+    spec = ERRORS["conversation_busy"]
+    assert spec.status == 409 and spec.detail_keys == ("run_id",)
+    envelope = build_envelope("conversation_busy", "run actif", run_id="abc")
+    assert envelope["detail"] == {"technical": "run actif", "run_id": "abc"}
+    assert envelope["message"] and envelope["action"]

@@ -63,9 +63,25 @@ DONE = {
 STARTED: list[tuple[str, str]] = []
 
 
+def forget_conversations(base_url: str) -> None:
+    """L'écran rouvre la dernière conversation (story 2.6) : chaque test part d'un écran vide."""
+    with urllib.request.urlopen(
+        f"{base_url}/api/conversations?limit=100", timeout=5
+    ) as response:  # noqa: S310
+        listed = json.load(response)["conversations"]
+    for item in listed:
+        request = urllib.request.Request(
+            f"{base_url}/api/conversations/{item['id']}", method="DELETE"
+        )
+        with contextlib.suppress(OSError):  # un run encore actif : le test suivant le verra
+            urllib.request.urlopen(request, timeout=5).close()  # noqa: S310
+
+
 @pytest.fixture(autouse=True)
-def cancel_leftover_runs():
-    """Un seul run de chat à la fois : un test n'en laisse aucun en cours au suivant."""
+def cancel_leftover_runs(server):
+    """Un seul run de chat à la fois : un test n'en laisse aucun en cours au suivant ; et aucune
+    conversation d'un test précédent n'est rouverte par le suivant."""
+    forget_conversations(server.base_url)
     yield
     for base_url, run_id in STARTED:
         request = urllib.request.Request(f"{base_url}/api/runs/{run_id}/cancel", method="POST")
@@ -203,7 +219,9 @@ def test_the_arena_module_is_available_and_its_other_tabs_are_disabled_with_thei
     assert link.get_attribute("aria-current") == "page"
     tabs = chat.get_by_role("navigation", name="Écrans du module Arène")
     assert tabs.get_by_role("link", name="Chat libre").get_attribute("aria-current") == "page"
-    for name in ("Arène", "Banc d'essai"):
+    arena = tabs.get_by_role("link", name="Arène", exact=True)
+    assert arena.get_attribute("href") == "#/arene/comparer"
+    for name in ("Banc d'essai",):
         tab = tabs.get_by_role("link", name=name, exact=True)
         assert tab.get_attribute("aria-disabled") == "true"
         assert tab.get_attribute("href") is None
@@ -649,10 +667,12 @@ def test_the_real_route_continues_the_same_conversation(chat):
         "allow_cloud": False,
     }
     assert commands[1]["conversation_id"] == started["conversation_id"]
-    # Effacer la conversation : sans confirmation, et la suivante en ouvre une autre.
+    # Effacer la conversation : sans confirmation, effacée côté serveur (story 2.6), et la suivante
+    # en ouvre une autre.
     chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
     chat.get_by_role("button", name="Effacer la conversation").click()
-    assert chat.locator(".wl-msg").count() == 0 and chat.locator(".chat-empty").is_visible()
+    chat.locator(".chat-empty").wait_for(state="visible")
+    assert chat.locator(".wl-msg").count() == 0
     ask(chat, "Nouveau départ")
     chat.locator(".wl-msg-user").wait_for()
     assert commands[2]["conversation_id"] is None
@@ -794,3 +814,20 @@ def test_a_disabled_filled_button_is_told_by_colors_not_by_opacity(chat, server)
     assert style == ["rgb(22, 22, 42)", "rgb(180, 180, 198)", "1"]
     count, report = contrast_violations(chat)
     assert count == 0, report
+
+
+def test_a_cloud_reply_shows_its_estimate_with_the_ecologits_caveat_in_help(chat, server):
+    estimated = {
+        "mg": 3.2,
+        "method": "ecologits",
+        "estimated": True,
+        "allocation": "direct",
+        "reason": "Estimation peu fiable pour ce modèle.",
+    }
+    scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=estimated)
+    ask(chat, "Dis bonjour")
+    metric = finished_foot(chat).locator("wl-metric", has_text="CO₂")
+    assert re.sub(r"\s+", " ", metric.inner_text()).startswith("CO₂ 3,2 mg (estimé)")
+    metric.get_by_role("button").click()
+    help_text = metric.locator(".wl-metric-help").inner_text()
+    assert "EcoLogits" in help_text and help_text.endswith(estimated["reason"])

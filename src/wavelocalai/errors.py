@@ -181,6 +181,13 @@ _SPECS = (
         "plus tard, ou repassez en Local.",
         ("provider", "provider_name", "http_status"),
     ),
+    ErrorSpec(
+        "conversation_busy",
+        409,
+        "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
+        "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
+        ("run_id",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 

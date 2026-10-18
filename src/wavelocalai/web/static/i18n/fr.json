@@ -180,12 +180,33 @@
       "rate_help": "Tokens générés divisés par le temps de génération mesuré par Ollama, chargement du modèle exclu. Avant la fin de la réponse, le débit est une estimation du navigateur.",
       "co2": "CO₂",
       "co2_help": "Émissions de CO₂ mesurées par CodeCarbon pendant cette réponse, sur ce poste.",
+      "co2_estimated": "{value} (estimé)",
+      "co2_estimated_help": "Émissions de CO₂ estimées par EcoLogits pour cette réponse cloud, d'après le modèle, les tokens générés et la durée : une estimation, pas une mesure.",
       "co2_unmeasurable": "non mesurable",
       "co2_unmeasurable_help": "Le CO₂ de cette réponse n'a pas pu être mesuré. Il n'est pas compté comme zéro.",
       "tokens": "Tokens",
       "duration": "Durée",
       "load": "Chargement",
-      "total": "Durée totale"
+      "total": "Durée totale",
+      "first_token": "Premier token"
+    },
+    "lane": {
+      "label": "Réponse de {model}",
+      "status": {
+        "waiting": "En attente",
+        "loading": "Chargement du modèle en mémoire",
+        "generating": "Génération",
+        "judging": "Notation",
+        "done": "Terminé",
+        "timeout": "Délai dépassé",
+        "failed": "Échec",
+        "cancelled": "Arrêté",
+        "interrupted": "Interrompu"
+      },
+      "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
+      "focus": "Mode focus",
+      "expand": "Afficher toute la réponse",
+      "collapse": "Réduire la réponse"
     }
   },
   "tabs": {
@@ -199,6 +220,9 @@
     "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
     "send": "Envoyer",
     "clear": "Effacer la conversation",
+    "download_json": "Télécharger (JSON)",
+    "download_markdown": "Télécharger (Markdown)",
+    "cleared": "Conversation effacée de ce poste. Le CO₂ déjà compté reste dans le total de la session.",
     "empty": "Posez une question pour commencer. La réponse s'affiche au fil de sa rédaction.",
     "no_model": "Aucun modèle n'est choisi.",
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
@@ -234,6 +258,8 @@
       "button": "CO₂ session",
       "title": "CO₂ de la session",
       "total": "Total",
+      "cloud_estimated": "{value} (estimé)",
+      "cloud_unmeasurable": "non mesurable",
       "unmeasurable": "Non mesurables",
       "unmeasurable_none": "Aucune réponse",
       "unmeasurable_one": "1 réponse",
@@ -250,5 +276,59 @@
       "message": "Le serveur a redémarré. Les exécutions en cours sont perdues.",
       "reload": "Recharger"
     }
+  },
+  "arena": {
+    "lead": "Posez la même question à 2 à 4 modèles et lisez leurs réponses côte à côte, au fil de leur rédaction.",
+    "question": "Question",
+    "scenarios": "Scénarios",
+    "scenarios_help": "Remplit la question ; vous pouvez ensuite la modifier.",
+    "scenario": {
+      "popularize": {
+        "label": "Vulgarisation",
+        "prompt": "Explique la photosynthèse à un enfant de dix ans, en trois phrases simples."
+      },
+      "extract": {
+        "label": "Extraction JSON",
+        "prompt": "Extrais de ce texte le nom, la date et le montant, et rends-les en JSON strict avec les clés « nom », « date » et « montant » : « Facture n° 2026-118 émise le 14 septembre 2026 pour Marie Durand, d'un montant de 1 250 euros. »"
+      },
+      "summarize": {
+        "label": "Résumé",
+        "prompt": "Résume en trois points le texte suivant : « Les petits modèles de langage tournent sur un ordinateur ordinaire, sans envoyer de données à l'extérieur. Ils répondent avec moins de nuances que les grands modèles hébergés dans le cloud, mais ils coûtent moins cher et consomment moins d'énergie par réponse. Le bon choix dépend de la sensibilité des données et du niveau de qualité attendu. »"
+      },
+      "translate": {
+        "label": "Traduction",
+        "prompt": "Traduis en anglais : « Les modèles locaux gardent vos données sur votre poste, ce qui rassure les équipes juridiques. »"
+      }
+    },
+    "models": "Modèles à comparer",
+    "execution": "Les modèles locaux passent l'un après l'autre (mémoire) ; les modèles cloud en parallèle.",
+    "launch": "Lancer la comparaison",
+    "need_models": "Choisissez au moins 2 modèles",
+    "too_many": "Choisissez au plus 4 modèles",
+    "need_question": "Saisissez une question",
+    "busy": "Une comparaison est en cours",
+    "start_failed": "La comparaison n'a pas pu être lancée.",
+    "joined": "Une comparaison est déjà en cours : vous la suivez.",
+    "asked": "Question posée",
+    "lanes": "Réponses des modèles",
+    "tabs": "Modèles comparés",
+    "banner": {
+      "running": "Comparaison en cours · {done} sur {total} · {clock}",
+      "ok": "Comparaison terminée · {done} sur {total} · {clock}",
+      "cancelled": "Comparaison arrêtée · {done} sur {total} · {clock}",
+      "interrupted": "Comparaison interrompue · {done} sur {total} · {clock}",
+      "error": "Comparaison en échec · {done} sur {total} · {clock}",
+      "stopping": "Arrêt en cours · {done} sur {total} · {clock}"
+    },
+    "announce": {
+      "started": "Comparaison lancée sur {count} modèles.",
+      "ok": "Comparaison terminée : {done} réponses sur {total}.",
+      "cancelled": "Comparaison arrêtée.",
+      "interrupted": "Comparaison interrompue.",
+      "error": "Comparaison en échec."
+    },
+    "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
+    "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
+    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré."
   }
 }

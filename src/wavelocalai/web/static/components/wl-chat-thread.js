@@ -4,6 +4,8 @@
 //   thread.addUserMessage(texte)
 //   const answer = thread.beginAnswer({ name, origin })   // une réponse de modèle
 //   answer.token(texte, canal)  answer.retry(raison)  answer.metrics(données)  answer.end({ status })
+//   thread.restoreAnswer({ name, origin, text, thought, result, status })   // réponse déjà finie,
+//                                                                           // rouverte : rien n'est annoncé
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -48,10 +50,17 @@ function metric(label, value, { help, provisional } = {}) {
 
 // CO2 de la réponse, tel que le serveur l'a mesuré (`metrics.co2`, AD-10) : la valeur est seulement
 // mise en forme (`formatCo2`, une seule unité, fr-FR), sans calcul ni couleur par seuil (AD-20).
-// `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide.
+// `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide. Une réponse cloud
+// est estimée (ecologits, AD-11) : « (estimé) » après la valeur, la réserve du serveur en aide.
 function co2Metric(co2) {
   const label = t("components.thread.co2");
   if (typeof co2?.mg === "number" && Number.isFinite(co2.mg)) {
+    if (co2.estimated) {
+      const help = t("components.thread.co2_estimated_help");
+      return metric(label, t("components.thread.co2_estimated", { value: formatCo2(co2.mg) }), {
+        help: co2.reason ? `${help} ${co2.reason}` : help,
+      });
+    }
     return metric(label, formatCo2(co2.mg), { help: t("components.thread.co2_help") });
   }
   return metric(label, t("components.thread.co2_unmeasurable"), {
@@ -65,8 +74,10 @@ function setValue(node, value) {
 }
 
 class ChatAnswer {
-  constructor(thread, { name, origin }) {
+  constructor(thread, { name, origin, firstToken = false, restored = false }) {
+    this.showFirstToken = firstToken; // colonne de l'Arène : le pied dit aussi le premier token
     this.thread = thread;
+    this.restored = restored;
     this.name = name;
     this.origin = origin;
     this.text = "";
@@ -145,6 +156,26 @@ class ChatAnswer {
 
   end({ status = "ok" } = {}) {
     if (this.ended) return;
+    this.#settle(status);
+    this.thread._announce(this.#announcement(status));
+  }
+
+  // Réponse retrouvée dans une conversation rouverte (GET /api/conversations/{id}) : texte,
+  // raisonnement et mesures du serveur, comme à la fin du flux, mais sans annonce (la personne
+  // n'attend pas de réponse) et sans pied provisoire : sans mesure, le pied est retiré, car la
+  // durée vue par le navigateur n'existe plus.
+  restore({ text = "", thought = "", result = null, status = "ok" }) {
+    this.text = text;
+    if (thought) {
+      this.thoughtText = thought;
+      this.thoughtNode.data = thought;
+      this.thought.hidden = false;
+    }
+    this.result = result;
+    this.#settle(status);
+  }
+
+  #settle(status) {
     this.ended = true;
     clearInterval(this.ticker);
     clearTimeout(this.timer);
@@ -157,7 +188,6 @@ class ChatAnswer {
     }
     this.#finalFoot();
     this.thread._changed();
-    this.thread._announce(this.#announcement(status));
   }
 
   #announcement(status) {
@@ -212,7 +242,8 @@ class ChatAnswer {
   #finalFoot() {
     const result = this.result;
     if (!result) {
-      this.#refreshFoot();
+      if (this.restored) this.foot.remove();
+      else this.#refreshFoot();
       return;
     }
     this.badge.setAttribute("kind", badgeKind(result.origin ?? this.origin));
@@ -225,6 +256,9 @@ class ChatAnswer {
       metric(t("components.thread.load"), formatDuration(result.load_s)),
       metric(t("components.thread.total"), formatDuration(result.total_s)),
     ];
+    if (this.showFirstToken) {
+      parts.splice(2, 0, metric(t("components.thread.first_token"), formatDuration(result.ttft_s)));
+    }
     if (result.tps_source === "wallclock") {
       const estimated = document.createElement("wl-badge");
       estimated.setAttribute("kind", "estimated");
@@ -291,12 +325,20 @@ export class WlChatThread extends HTMLElement {
     this.scrollToEnd();
   }
 
-  beginAnswer({ name, origin }) {
-    const answer = new ChatAnswer(this, { name, origin });
+  beginAnswer({ name, origin, firstToken = false }) {
+    const answer = new ChatAnswer(this, { name, origin, firstToken });
     this.#answers.add(answer);
     this.#dom.log.append(answer.root);
     this.scrollToEnd();
     return answer;
+  }
+
+  restoreAnswer({ name, origin, ...content }) {
+    const answer = new ChatAnswer(this, { name, origin, restored: true });
+    this.#answers.add(answer);
+    this.#dom.log.append(answer.root);
+    answer.restore(content);
+    this.scrollToEnd();
   }
 
   clear() {
@@ -341,6 +383,7 @@ export class WlChatThread extends HTMLElement {
   }
 
   _announce(text) {
+    if (this.hasAttribute("silent")) return; // l'écran annonce lui-même (Arène : une seule fin)
     // Vider puis remplir : un même texte est de nouveau annoncé.
     this.#dom.live.textContent = "";
     requestAnimationFrame(() => {

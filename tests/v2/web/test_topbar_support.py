@@ -32,8 +32,12 @@ async def test_a_scripted_run_publishes_carbon_updated_with_the_session_sum(serv
     assert response.status_code == 200
     summary = await next_carbon(stream)
     assert summary["total_mg"] == pytest.approx(0.9)
-    assert summary["by_origin"]["cloud"] == {"mg": pytest.approx(0.9), "runs": 1}
-    assert summary["by_origin"]["local"] == {"mg": 0.0, "runs": 0}
+    assert summary["by_origin"]["cloud"] == {
+        "mg": pytest.approx(0.9),
+        "runs": 1,
+        "unmeasurable_runs": 0,
+    }
+    assert summary["by_origin"]["local"] == {"mg": 0.0, "runs": 0, "unmeasurable_runs": 0}
     assert summary["unmeasurable_runs"] == 0
     await stream.disconnect()
 

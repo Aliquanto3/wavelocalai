@@ -55,6 +55,17 @@ export const api = {
     ),
   // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
+  // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).
+  startArena: (body) => request("/api/arena/runs", { method: "POST", body }),
+  // Conversations (AD-5, AD-13) : les plus récentes d'un genre, une conversation, son effacement,
+  // et l'adresse de ses exports (`json`, `md`), téléchargés par un lien et non par `fetch`.
+  conversations: (kind, limit = 1) =>
+    request(`/api/conversations?kind=${encodeURIComponent(kind)}&limit=${limit}`),
+  conversation: (id) => request(`/api/conversations/${encodeURIComponent(id)}`),
+  deleteConversation: (id) =>
+    request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  conversationExportUrl: (id, extension) =>
+    `/api/conversations/${encodeURIComponent(id)}.${extension}`,
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

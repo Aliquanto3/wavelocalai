@@ -9,6 +9,11 @@
 // - `409 run_busy` : le run actif est rejoint (rejoué depuis le début), sans erreur affichée.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de saisie vit dans
 //   `localStorage` seulement (`core/drafts.js`).
+// - À l'ouverture, la dernière conversation de chat est relue au serveur (`GET /api/conversations`)
+//   et remontée telle qu'affichée ; son modèle et sa créativité sont ceux de son dernier run (rien
+//   n'est gardé dans le navigateur). Un run encore actif est suivi par son flux.
+// - « Télécharger » ouvre les exports du serveur (JSON, Markdown) ; « Effacer la conversation »,
+//   sans confirmation (UX-DR21), appelle `DELETE` : le texte disparaît de la base, pas le CO2.
 
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
@@ -78,10 +83,14 @@ export function mount(host) {
   keys.id = `${uid}-keys`;
   const send = element("button", "btn chat-send", t("chat.send"));
   send.type = "submit";
+  const downloadJson = element("button", "btn", t("chat.download_json"));
+  downloadJson.type = "button";
+  const downloadMarkdown = element("button", "btn", t("chat.download_markdown"));
+  downloadMarkdown.type = "button";
   const clear = element("button", "btn", t("chat.clear"));
   clear.type = "button";
   const actions = element("div", "chat-actions");
-  actions.append(send, clear);
+  actions.append(send, downloadJson, downloadMarkdown, clear);
   const composer = element("form", "chat-composer");
   composer.append(inputLabel, input, keys, actions);
 
@@ -111,6 +120,7 @@ export function mount(host) {
   function render() {
     clear.disabled = running() || pending;
     send.disabled = running() || pending;
+    downloadJson.disabled = downloadMarkdown.disabled = conversationId === null || pending;
     empty.hidden = !thread.empty;
   }
 
@@ -168,6 +178,82 @@ export function mount(host) {
   }
 
   // --- Actions ---------------------------------------------------------------------------
+  // --- Conversation rouverte -------------------------------------------------------------
+  // Mesures d'une réponse telles que le fil les montre (`metrics` du flux) : rien si le run n'en
+  // a pas laissé (arrêté, en erreur).
+  function resultOf(run) {
+    const m = run?.metrics;
+    if (!m || (m.tps === null && m.output_tokens === null)) return null;
+    return {
+      origin: m.origin,
+      tps: m.tps,
+      tps_source: m.tps_source,
+      eval_tokens: m.output_tokens,
+      load_s: m.load_s,
+      total_s: m.total_s,
+    };
+  }
+
+  function showReply(run, message) {
+    thread.restoreAnswer({
+      name: run?.model ?? "",
+      origin: run?.metrics?.origin ?? "unknown",
+      text: message?.content ?? "",
+      thought: message?.reasoning ?? "",
+      result: resultOf(run),
+      status: run?.status ?? "ok",
+    });
+  }
+
+  function showConversation(view) {
+    const answered = new Set(
+      view.messages.filter((m) => m.role === "assistant" && m.run).map((m) => m.run.run_id),
+    );
+    for (const message of view.messages) {
+      if (message.role === "user") {
+        thread.addUserMessage(message.content);
+        const run = message.run;
+        // Run fini sans réponse écrite (arrêté avant le premier jeton, en erreur) : la réponse
+        // vide et son marqueur, comme à l'écran avant l'effacement du navigateur.
+        if (run && run.status !== "running" && !answered.has(run.run_id)) showReply(run, null);
+      } else if (message.role === "assistant") {
+        showReply(message.run, message);
+      }
+    }
+  }
+
+  async function restore() {
+    let view;
+    try {
+      const latest = (await api.conversations("chat", 1)).conversations[0];
+      if (!latest) return;
+      view = await api.conversation(latest.id);
+    } catch {
+      return; // pas d'historique lisible : l'écran reste vide, sans erreur
+    }
+    // Une personne qui a déjà écrit n'est pas dérangée par la conversation d'avant.
+    if (conversationId !== null || running() || pending || !thread.empty) return;
+    conversationId = view.id;
+    showConversation(view);
+    if (view.model) picker.value = view.model;
+    if (typeof view.temperature === "number") {
+      slider.value = String(view.temperature);
+      sliderValue.textContent = formatNumber(view.temperature);
+    }
+    if (view.active_run_id) follow(view.active_run_id);
+    render();
+  }
+
+  function download(extension) {
+    if (conversationId === null) return;
+    const link = element("a");
+    link.href = api.conversationExportUrl(conversationId, extension);
+    link.download = "";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  }
+
   async function submit() {
     if (running() || pending) return;
     const message = input.value;
@@ -218,14 +304,32 @@ export function mount(host) {
     }
   }
 
-  function clearConversation() {
+  async function clearConversation() {
     if (running() || pending) return;
+    error.error = null;
+    if (conversationId !== null) {
+      pending = true; // ni envoi ni second effacement pendant la requête
+      render();
+      try {
+        await api.deleteConversation(conversationId);
+      } catch (failure) {
+        // Déjà effacée ailleurs (404) : même résultat. Sinon (409 : une réponse est en cours),
+        // le message et l'action du serveur s'affichent et la conversation reste.
+        if (!(failure instanceof ApiError && failure.status === 404)) {
+          error.error = envelopeOf(failure);
+          pending = false;
+          render();
+          return;
+        }
+      }
+      pending = false;
+    }
     thread.clear();
     status.runId = null;
     conversationId = null;
     answer = null;
-    notice.hidden = true;
-    error.error = null;
+    notice.textContent = t("chat.cleared");
+    notice.hidden = false;
     render();
     input.focus();
   }
@@ -242,6 +346,8 @@ export function mount(host) {
   });
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
+  downloadJson.addEventListener("click", () => download("json"));
+  downloadMarkdown.addEventListener("click", () => download("md"));
   slider.addEventListener("input", () => {
     sliderValue.textContent = formatNumber(Number(slider.value));
   });
@@ -264,6 +370,7 @@ export function mount(host) {
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   render();
+  restore();
   return () => {
     visibility.disconnect();
     stream?.close();
