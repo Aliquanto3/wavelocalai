@@ -406,9 +406,9 @@ async def test_error_status_carries_the_error_envelope(hub, store):
 async def test_start_interrupts_running_runs_and_opens_a_new_session(store):
     before = RunHub(store, batch_interval_s=3600)
     await before.start()
+    done = await produce_chat(before, "Autre")  # terminé d'abord : un seul chat actif à la fois
     chat = await produce_chat(before, "Q", tokens=["par", "tiel"], finish=False)
     await before.flush()  # les deux jetons sont en base ; le serveur « s'arrête » là
-    done = await produce_chat(before, "Autre")
     parent, leaves = await produce_arena(before)
     before_session = before.app_session_id
 

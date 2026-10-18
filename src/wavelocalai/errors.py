@@ -72,6 +72,13 @@ _SPECS = (
         "serveur.",
     ),
     ErrorSpec(
+        "run_busy",
+        409,
+        "Une exécution de ce genre est déjà en cours.",
+        "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
+        ("run_id",),
+    ),
+    ErrorSpec(
         "cloud_not_allowed",
         403,
         "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
@@ -165,3 +172,8 @@ def build_envelope(
         "action": spec.action,
         "detail": _mask_value(body, tuple(secrets)),
     }
+
+
+class ProviderError(AppError):
+    """Refus ou panne d'un fournisseur de modèle (AD-8) : un adaptateur la lève avec un code de
+    la liste fermée ; le service la met en enveloppe dans `run_ended.data.error`."""
