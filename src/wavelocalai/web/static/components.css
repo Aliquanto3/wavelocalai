@@ -31,6 +31,7 @@
 /* Boutons */
 .btn {
   display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.5rem;
@@ -83,6 +84,23 @@
 
 .nav-toggle {
   margin-inline-start: auto;
+}
+
+/* Outils de la barre haute : Ollama, cloud, CO2 de session, Affichage. */
+.topbar-tools {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  order: 2;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
 }
 
 .module-nav {
@@ -142,21 +160,15 @@
 }
 
 @media (min-width: 1024px) {
-  .topbar {
-    flex-wrap: nowrap;
-  }
-
   .nav-toggle {
     display: none;
   }
 
+  /* Première ligne : la marque et les outils ; seconde ligne : les modules. */
   .topbar-tools {
+    flex: 0 1 auto;
+    order: 1;
     margin-inline-start: auto;
-  }
-
-  .module-nav {
-    flex: 1 1 auto;
-    order: 0;
   }
 
   .module-list {
@@ -171,17 +183,287 @@
   }
 }
 
-/* Menu Affichage */
-.display-panel {
+/* Panneaux de la barre haute (Affichage, Ollama, CO2, aide du cloud) */
+.tool-panel {
   position: absolute;
   inset-inline-end: 1rem;
   top: calc(100% + 0.25rem);
   z-index: 50;
-  width: min(20rem, calc(100vw - 2rem));
+  width: min(22rem, calc(100vw - 2rem));
   padding: 1rem;
   background: var(--color-surface);
   border: 1px solid var(--color-gray-graphic);
   border-radius: var(--radius);
+}
+
+.tool-panel-narrow {
+  width: min(18rem, calc(100vw - 2rem));
+}
+
+.display-panel {
+  width: min(20rem, calc(100vw - 2rem));
+}
+
+.panel-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.panel-subtitle {
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+}
+
+.help-text {
+  margin: 0;
+}
+
+.panel-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+.panel-link[aria-disabled="true"] {
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.plain-list {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.facts {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+}
+
+.facts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 0;
+  text-align: end;
+}
+
+.icon-btn {
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.375rem;
+}
+
+/* Pastilles d'état : le libellé dit l'état, l'icône et la couleur l'accompagnent seulement. */
+.status-btn[data-state="up"] .icon {
+  color: var(--color-chart-2);
+}
+
+.status-btn[data-state="down"] .icon {
+  color: var(--color-risk);
+}
+
+.status-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Interrupteur « Autoriser le cloud » */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.25rem;
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.5rem;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-graphic);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: transform 0.15s;
+}
+
+.switch input:checked {
+  background: var(--color-primary);
+}
+
+.switch input:checked::before {
+  transform: translateX(1rem);
+}
+
+/* Bandeaux sous la barre haute */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+}
+
+.banner-risk {
+  border-inline-start-color: var(--color-risk);
+}
+
+/* wl-badge : origine du modèle et étiquettes de fiabilité (toujours un texte) */
+.wl-badge {
+  --badge-tone: var(--color-gray-graphic);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem 0.125rem 0.375rem;
+  border: 1px solid var(--badge-tone);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--badge-tone) 12%, var(--color-surface));
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.wl-badge .icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--badge-tone);
+}
+
+.wl-badge-local {
+  --badge-tone: var(--color-chart-2);
+}
+
+.wl-badge-cloud {
+  --badge-tone: var(--color-chart-4);
+}
+
+.wl-badge-label {
+  padding-inline-start: 0.625rem;
+}
+
+/* wl-metric : libellé, valeur et unité, aide, état provisoire */
+.wl-metric {
+  display: block;
+}
+
+.wl-metric-head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-metric-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.wl-metric-help-button .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.wl-metric-value {
+  margin: 0;
+  font-family: var(--font-metric-value);
+  font-size: var(--text-metric-value);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.wl-metric-unit {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.wl-metric-flag {
+  font-size: var(--text-caption);
+  font-weight: 400;
+}
+
+.wl-metric[data-provisional="true"] .wl-metric-value {
+  font-style: italic;
+}
+
+.wl-metric-help {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+/* wl-error : message, action, détails techniques repliés */
+.wl-error {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-risk);
+  border-radius: var(--radius);
+}
+
+.wl-error-message {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+
+.wl-error-action {
+  margin: 0 0 0.5rem;
+}
+
+.wl-error-details summary {
+  cursor: pointer;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-error-technical {
+  margin: 0.5rem 0 0;
+  font-size: var(--text-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .display-panel fieldset {
@@ -240,4 +522,239 @@
   font-family: var(--font-caption);
   font-size: var(--text-caption);
   color: var(--color-ink-secondary);
+}
+
+/* wl-model-picker : combobox avec liste, groupes, pastilles retirables */
+.wl-picker {
+  display: block;
+  max-width: 42rem;
+}
+
+.wl-picker-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.wl-picker-box {
+  position: relative;
+}
+
+.wl-picker-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-picker-popup {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 40;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+}
+
+/* La liste elle-même défile : axe reconnaît ainsi la fenêtre d'un combobox (clavier par le champ). */
+.wl-picker-listbox {
+  max-height: min(30rem, 60vh);
+  overflow-y: auto;
+}
+
+.wl-picker-empty {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-group-title {
+  padding: 0.5rem 1rem 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-inline-start: 4px solid transparent;
+  cursor: pointer;
+}
+
+.wl-picker-option.is-active {
+  background: var(--color-surface-alt);
+  border-inline-start-color: var(--color-primary);
+}
+
+.wl-picker-option[aria-selected="true"] .wl-picker-option-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wl-picker-option[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.wl-picker-option-head,
+.wl-picker-option-meta,
+.wl-picker-option-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.wl-picker-option-meta {
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-option-name {
+  font-weight: 600;
+}
+
+.wl-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-gray-graphic);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-picker-check .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.wl-picker-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.wl-picker-warning .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--color-chart-4);
+}
+
+.wl-picker-pill {
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.wl-picker-help {
+  margin-top: 0.5rem;
+}
+
+.wl-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+}
+
+.wl-picker-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-picker-chip-remove:hover {
+  background: var(--color-line);
+}
+
+.wl-picker-chip-remove .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.wl-picker-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-picker-notice-text {
+  margin: 0;
+}
+
+/* wl-run-status : étape, chronomètre, Arrêter */
+.wl-run-status {
+  display: block;
+}
+
+.wl-run-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.wl-run-stage {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wl-run-timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-secondary);
+}
+
+.wl-run-hint {
+  margin: 0;
+}
+
+.wl-run-stop:disabled {
+  cursor: progress;
+  opacity: 0.7;
 }
