@@ -13,9 +13,10 @@ dernière release de `Aliquanto3/slm-quality-bench`, qui publie l'asset
     python scripts/sync_slm_results.py            # synchronise
     python scripts/sync_slm_results.py --check    # dit ce qui changerait, n'écrit rien
 
-Codes de sortie : 0 (synchronisé, déjà à jour, ou aucune release/aucun asset
-publié), 1 (échec réseau, tag ou schéma inutilisable, validation en échec :
-rien n'est écrit), 2 (dépendance `jsonschema` absente).
+Codes de sortie : 0 (synchronisé, déjà à jour, ou dépôt joignable sans release
+ni asset publié), 1 (dépôt source introuvable, échec réseau, tag ou schéma
+inutilisable, validation en échec : rien n'est écrit), 2 (dépendance
+`jsonschema` absente).
 
 Quand la variable `GITHUB_OUTPUT` existe, le script y écrit `changed=true|false`
 et `version=<tag>` pour le workflow `sync-slm-results.yml`.
@@ -29,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -53,6 +55,8 @@ DEFAULT_SCHEMA_ID = "qb.results-1"
 SCHEMA_FIELDS = ("schema", "schema_version")
 SCHEMA_PATH = "docs/schemas/{schema_id}.schema.json"
 MAX_REPORTED_ERRORS = 10
+# Plafond de taille d'une réponse HTTP (asset, schéma, API).
+MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 
 # Un tag ou un identifiant de schéma finit dans une URL, un nom de branche et
 # GITHUB_OUTPUT : on n'accepte que des caractères sans danger.
@@ -72,11 +76,32 @@ def http_transport(url: str, headers: Mapping[str, str]) -> tuple[int, bytes]:
     request = urllib.request.Request(url, headers=dict(headers))
     try:
         with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
-            return response.status, response.read()
+            body = response.read(MAX_DOWNLOAD_BYTES + 1)
+            if len(body) > MAX_DOWNLOAD_BYTES:
+                raise SyncError(
+                    f"Réponse trop volumineuse sur {url} (plus de {MAX_DOWNLOAD_BYTES} octets)."
+                )
+            return response.status, body
     except urllib.error.HTTPError as exc:
-        return exc.code, exc.read()
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise SyncError(f"Échec réseau sur {url} : {exc}") from exc
+        return exc.code, exc.read(MAX_DOWNLOAD_BYTES)
+    except (OSError, http.client.HTTPException) as exc:
+        # URLError, TimeoutError, ConnectionResetError, IncompleteRead...
+        raise SyncError(f"Échec réseau sur {url} : {exc!r}") from exc
+
+
+def _loads(data: bytes, what: str) -> Any:
+    """json.loads avec un message clair (JSON invalide ou trop imbriqué)."""
+    try:
+        return json.loads(data)
+    except (ValueError, RecursionError) as exc:
+        raise SyncError(f"{what} n'est pas un JSON lisible : {exc!r}") from exc
+
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    """Écrit `path` via un fichier temporaire voisin puis os.replace."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
 
 
 def _sha256(data: bytes) -> str:
@@ -108,17 +133,26 @@ def _api_headers(env: Mapping[str, str]) -> dict[str, str]:
 def fetch_latest_release(
     repo: str, transport: Transport, env: Mapping[str, str]
 ) -> dict[str, Any] | None:
-    """Dernière release du dépôt source, ou None si le dépôt n'en a aucune."""
+    """Dernière release du dépôt source, ou None si le dépôt n'en a aucune.
+
+    Un 404 sur `releases/latest` est ambigu : le dépôt n'a pas de release, ou
+    il est introuvable (renommé, privé, supprimé). Dans le second cas, on échoue
+    pour que le workflow planifié passe au rouge au lieu de rester vert à vide.
+    """
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     status, body = transport(url, _api_headers(env))
     if status == 404:
-        return None
+        repo_url = f"https://api.github.com/repos/{repo}"
+        repo_status, _ = transport(repo_url, _api_headers(env))
+        if repo_status == 200:
+            return None
+        raise SyncError(
+            f"Dépôt source {repo} introuvable (HTTP {repo_status} sur {repo_url}) : "
+            "renommé, privé ou supprimé ?"
+        )
     if status != 200:
         raise SyncError(f"L'API GitHub a répondu HTTP {status} pour {url}.")
-    try:
-        release = json.loads(body)
-    except ValueError as exc:
-        raise SyncError(f"Réponse de l'API GitHub illisible : {exc}") from exc
+    release = _loads(body, "La réponse de l'API GitHub")
     if not isinstance(release, dict):
         raise SyncError("Réponse de l'API GitHub inattendue (objet JSON attendu).")
     return release
@@ -147,7 +181,7 @@ def schema_id_of(payload: Any) -> str:
             for field in SCHEMA_FIELDS:
                 value = scope.get(field)
                 if isinstance(value, str) and value:
-                    if not _SCHEMA_ID_RE.match(value):
+                    if not _SCHEMA_ID_RE.fullmatch(value):
                         raise SyncError(
                             f"Version de schéma non reconnue dans le fichier : {value!r}."
                         )
@@ -158,6 +192,7 @@ def schema_id_of(payload: Any) -> str:
 def validate_payload(payload: Any, schema: Mapping[str, Any]) -> list[str]:
     """Valide `payload` contre `schema` ; renvoie les erreurs (liste vide si ok)."""
     try:
+        import referencing.exceptions
         from jsonschema import exceptions, validators
     except ImportError as exc:  # pragma: no cover - dépend de l'environnement
         raise ModuleNotFoundError("jsonschema") from exc
@@ -167,7 +202,11 @@ def validate_payload(payload: Any, schema: Mapping[str, Any]) -> list[str]:
         cls.check_schema(schema)
     except exceptions.SchemaError as exc:
         raise SyncError(f"Le JSON Schema téléchargé est invalide : {exc.message}") from exc
-    errors = sorted(cls(schema).iter_errors(payload), key=lambda e: list(e.absolute_path))
+    validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
+    try:
+        errors = sorted(validator.iter_errors(payload), key=lambda e: list(e.absolute_path))
+    except (referencing.exceptions.Unresolvable, RecursionError) as exc:
+        raise SyncError(f"Validation impossible avec le JSON Schema téléchargé : {exc!r}") from exc
     messages = []
     for error in errors:
         where = "/".join(str(part) for part in error.absolute_path) or "(racine)"
@@ -195,13 +234,15 @@ def sync(
     repo: str = DEFAULT_REPO,
     *,
     check: bool = False,
-    transport: Transport = http_transport,
-    out_dir: Path = DEFAULT_OUT_DIR,
+    transport: Transport | None = None,
+    out_dir: Path | None = None,
     env: Mapping[str, str] | None = None,
     now: Callable[[], datetime] | None = None,
 ) -> int:
     """Synchronise l'instantané ; renvoie le code de sortie."""
     env = os.environ if env is None else env
+    transport = transport or http_transport
+    out_dir = DEFAULT_OUT_DIR if out_dir is None else out_dir
     now = now or (lambda: datetime.now(timezone.utc))
 
     release = fetch_latest_release(repo, transport, env)
@@ -211,7 +252,7 @@ def sync(
         return 0
 
     tag = release.get("tag_name")
-    if not isinstance(tag, str) or not _TAG_RE.match(tag):
+    if not isinstance(tag, str) or not _TAG_RE.fullmatch(tag):
         raise SyncError(f"Tag de release inutilisable : {tag!r}.")
     release_url = release.get("html_url") or f"https://github.com/{repo}/releases/tag/{tag}"
 
@@ -229,10 +270,7 @@ def sync(
         raise SyncError(f"Téléchargement de {asset_url} impossible (HTTP {status}).")
     asset_sha = _sha256(asset_bytes)
 
-    try:
-        payload = json.loads(asset_bytes)
-    except ValueError as exc:
-        raise SyncError(f"{ASSET_NAME} n'est pas un JSON valide : {exc}") from exc
+    payload = _loads(asset_bytes, ASSET_NAME)
 
     schema_id = schema_id_of(payload)
     schema_url = (
@@ -242,10 +280,9 @@ def sync(
     status, schema_bytes = transport(schema_url, {"User-Agent": "wavelocalai-sync-slm-results"})
     if status != 200:
         raise SyncError(f"Téléchargement du JSON Schema impossible (HTTP {status}) : {schema_url}")
-    try:
-        schema = json.loads(schema_bytes)
-    except ValueError as exc:
-        raise SyncError(f"Le JSON Schema téléchargé n'est pas un JSON valide : {exc}") from exc
+    schema = _loads(schema_bytes, "Le JSON Schema téléchargé")
+    if not isinstance(schema, dict):
+        raise SyncError("Le JSON Schema téléchargé n'est pas un objet JSON.")
 
     errors = validate_payload(payload, schema)
     if errors:
@@ -256,8 +293,14 @@ def sync(
         lines.append("Rien n'a été écrit.")
         raise SyncError("\n".join(lines))
 
+    schema_sha = _sha256(schema_bytes)
     current_sha, meta = _read_existing(out_dir)
-    if current_sha == asset_sha and meta.get("asset_sha256") == asset_sha:
+    if (
+        current_sha == asset_sha
+        and meta.get("asset_sha256") == asset_sha
+        and meta.get("tag") == tag
+        and meta.get("schema_sha256") == schema_sha
+    ):
         print(f"Résultats déjà à jour ({tag}, sha256 {asset_sha[:12]}).")
         _write_outputs(env, False, tag)
         return 0
@@ -279,13 +322,16 @@ def sync(
         "asset_sha256": asset_sha,
         "schema": schema_id,
         "schema_url": schema_url,
-        "schema_sha256": _sha256(schema_bytes),
+        "schema_sha256": schema_sha,
         "fetched_at": now().astimezone(timezone.utc).isoformat(timespec="seconds"),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / ASSET_NAME).write_bytes(asset_bytes)
-    (out_dir / SOURCE_NAME).write_text(
-        json.dumps(source, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    # Chaque fichier est remplacé atomiquement ; SOURCE.json en dernier, si bien
+    # qu'une interruption entre les deux est détectée au passage suivant.
+    _write_atomic(out_dir / ASSET_NAME, asset_bytes)
+    _write_atomic(
+        out_dir / SOURCE_NAME,
+        (json.dumps(source, indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
     )
     print(f"Résultats synchronisés : {tag} (sha256 {asset_sha[:12]}) dans {out_dir}.")
     _write_outputs(env, True, tag)

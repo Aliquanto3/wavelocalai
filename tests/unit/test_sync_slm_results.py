@@ -81,10 +81,20 @@ def _run(tmp_path, routes, *, check=False, env=None):
     return code, transport
 
 
+REPO_URL = f"https://api.github.com/repos/{REPO}"
+
+
 def test_release_absente(tmp_path, capsys):
-    code, _ = _run(tmp_path, {})
+    code, _ = _run(tmp_path, {REPO_URL: (200, b"{}")})
     assert code == 0
     assert "Aucune release" in capsys.readouterr().out
+    assert not (tmp_path / "snap").exists()
+
+
+def test_depot_source_introuvable_echoue(tmp_path):
+    # 404 sur releases/latest ET sur le dépôt : renommé, privé ou supprimé.
+    with pytest.raises(sync_mod.SyncError, match="introuvable"):
+        _run(tmp_path, {})
     assert not (tmp_path / "snap").exists()
 
 
@@ -212,7 +222,7 @@ def test_github_output_changed_true_puis_false(tmp_path):
 
 def test_github_output_sans_release(tmp_path):
     out = tmp_path / "github_output.txt"
-    _run(tmp_path, {}, env={"GITHUB_OUTPUT": str(out)})
+    _run(tmp_path, {REPO_URL: (200, b"{}")}, env={"GITHUB_OUTPUT": str(out)})
     assert out.read_text(encoding="utf-8").splitlines() == ["changed=false", "version="]
 
 
@@ -228,3 +238,141 @@ def test_tag_dangereux_refuse(tmp_path):
     release = json.dumps({"tag_name": "v1\nchanged=true", "assets": []}).encode()
     with pytest.raises(sync_mod.SyncError, match="Tag de release inutilisable"):
         _run(tmp_path, {API_URL: (200, release)})
+
+
+def test_tag_avec_saut_de_ligne_final_refuse(tmp_path):
+    release = json.dumps({"tag_name": TAG + "\n", "assets": []}).encode()
+    with pytest.raises(sync_mod.SyncError, match="Tag de release inutilisable"):
+        _run(tmp_path, {API_URL: (200, release)})
+
+
+def test_schema_avec_saut_de_ligne_final_refuse(tmp_path):
+    payload = dict(VALID, schema="qb.results/1" + "\n")
+    with pytest.raises(sync_mod.SyncError, match="non reconnue"):
+        _run(tmp_path, _routes(payload=payload))
+
+
+def test_schema_annonce_dans_le_header(tmp_path):
+    payload = dict(VALID, header={"schema_version": "qb.results-3"})
+    routes = _routes(payload=payload)
+    schema_v3 = SCHEMA_URL.replace("qb.results-1", "qb.results-3")
+    routes[schema_v3] = routes.pop(SCHEMA_URL)
+    code, _ = _run(tmp_path, routes)
+    assert code == 0
+    source = json.loads((tmp_path / "snap" / "SOURCE.json").read_text(encoding="utf-8"))
+    assert source["schema"] == "qb.results-3"
+
+
+def test_asset_json_invalide(tmp_path):
+    routes = _routes()
+    routes[ASSET_URL] = (200, b"{pas du json")
+    with pytest.raises(sync_mod.SyncError, match="JSON lisible"):
+        _run(tmp_path, routes)
+    assert not (tmp_path / "snap").exists()
+
+
+def test_asset_json_trop_imbrique(tmp_path):
+    routes = _routes()
+    routes[ASSET_URL] = (200, b"[" * 200_000 + b"]" * 200_000)
+    with pytest.raises(sync_mod.SyncError, match="JSON lisible"):
+        _run(tmp_path, routes)
+
+
+def test_asset_http_500(tmp_path):
+    routes = _routes()
+    routes[ASSET_URL] = (500, b"")
+    with pytest.raises(sync_mod.SyncError, match="HTTP 500"):
+        _run(tmp_path, routes)
+
+
+def test_ref_non_resolue_message_clair(tmp_path):
+    routes = _routes()
+    schema = {"$ref": "https://exemple.invalid/autre.schema.json"}
+    routes[SCHEMA_URL] = (200, json.dumps(schema).encode())
+    with pytest.raises(sync_mod.SyncError, match="Validation impossible"):
+        _run(tmp_path, routes)
+    assert not (tmp_path / "snap").exists()
+
+
+def test_format_verifie(tmp_path):
+    routes = _routes(payload=dict(VALID, contact="pas-un-courriel"))
+    schema = dict(TEST_SCHEMA, properties={"contact": {"type": "string", "format": "email"}})
+    routes[SCHEMA_URL] = (200, json.dumps(schema).encode())
+    with pytest.raises(sync_mod.SyncError, match="Validation échouée"):
+        _run(tmp_path, routes)
+
+
+def test_nouveau_tag_meme_fichier_met_a_jour_la_provenance(tmp_path):
+    _run(tmp_path, _routes())
+    tag2 = "v1.3.0"
+    release = json.loads(_release())
+    release["tag_name"] = tag2
+    routes = _routes()
+    routes[API_URL] = (200, json.dumps(release).encode())
+    routes[SCHEMA_URL.replace(TAG, tag2)] = routes.pop(SCHEMA_URL)
+    _run(tmp_path, routes)
+    source = json.loads((tmp_path / "snap" / "SOURCE.json").read_text(encoding="utf-8"))
+    assert source["tag"] == tag2
+
+
+def test_aucun_fichier_temporaire_restant(tmp_path):
+    _run(tmp_path, _routes())
+    assert sorted(p.name for p in (tmp_path / "snap").iterdir()) == [
+        "SOURCE.json",
+        "slm-quality-results.json",
+    ]
+
+
+def test_main_renvoie_2_sans_jsonschema(monkeypatch, capsys):
+    def sans_jsonschema(repo, check=False):
+        raise ModuleNotFoundError("jsonschema")
+
+    monkeypatch.setattr(sync_mod, "sync", sans_jsonschema)
+    assert sync_mod.main([]) == 2
+    assert "jsonschema" in capsys.readouterr().err
+
+
+def test_main_de_bout_en_bout(monkeypatch, tmp_path):
+    transport = FakeTransport(_routes())
+    monkeypatch.setattr(sync_mod, "http_transport", transport)
+    monkeypatch.setattr(sync_mod, "DEFAULT_OUT_DIR", tmp_path / "snap")
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    assert sync_mod.main([]) == 0
+    assert (tmp_path / "snap" / "slm-quality-results.json").read_bytes() == _bytes(VALID)
+
+
+class _FakeResponse:
+    def __init__(self, body=b"", exc=None):
+        self.status = 200
+        self._body = body
+        self._exc = exc
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, size=-1):
+        if self._exc:
+            raise self._exc
+        return self._body if size < 0 else self._body[:size]
+
+
+def test_transport_plafonne_la_taille(monkeypatch):
+    monkeypatch.setattr(sync_mod, "MAX_DOWNLOAD_BYTES", 10)
+    monkeypatch.setattr(
+        sync_mod.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(b"x" * 11)
+    )
+    with pytest.raises(sync_mod.SyncError, match="trop volumineuse"):
+        sync_mod.http_transport("https://exemple.invalid/x", {})
+
+
+@pytest.mark.parametrize(
+    "exc", [ConnectionResetError("reset"), sync_mod.http.client.IncompleteRead(b"")]
+)
+def test_transport_convertit_les_erreurs_reseau(monkeypatch, exc):
+    monkeypatch.setattr(sync_mod.urllib.request, "urlopen", lambda *a, **k: _FakeResponse(exc=exc))
+    with pytest.raises(sync_mod.SyncError, match="Échec réseau"):
+        sync_mod.http_transport("https://exemple.invalid/x", {})

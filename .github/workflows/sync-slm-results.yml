@@ -16,6 +16,13 @@
 #     de GitHub App dans l'étape « Ouvrir la PR ».
 #   - Les workflows planifiés se désactivent après 60 jours sans activité dans
 #     le dépôt : les réactiver depuis l'onglet Actions si besoin.
+#
+# Une branche par version, sans date : bench/synchro-slm-<version>.
+#   - PR ouverte pour la version : si l'asset a changé (republication sous le
+#     même tag), la branche est mise à jour et la PR suit ; sinon rien.
+#   - PR fermée sans fusion et branche encore présente : la version a été
+#     refusée, rien n'est reproposé. Pour la reproposer, supprimer la branche.
+#   - Sinon : nouvelle PR.
 
 name: Synchro résultats slm-quality-bench
 
@@ -25,9 +32,7 @@ on:
     - cron: "37 3 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: sync-slm-results
@@ -37,6 +42,9 @@ jobs:
   sync:
     name: Synchroniser les résultats
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       # actions/checkout v7.0.1
       - name: Récupérer le dépôt
@@ -51,7 +59,8 @@ jobs:
           python-version: "3.12"
 
       - name: Installer jsonschema
-        run: python -m pip install jsonschema
+        # Versions figées par constraints.txt (jsonschema et ses dépendances).
+        run: python -m pip install jsonschema -c constraints.txt
 
       - name: Synchroniser
         id: sync
@@ -68,22 +77,43 @@ jobs:
           set -euo pipefail
           branch="bench/synchro-slm-${VERSION}"
 
+          sha="$(jq -r .asset_sha256 benchmarks/slm-quality/SOURCE.json)"
+          release_url="$(jq -r .release_url benchmarks/slm-quality/SOURCE.json)"
+
           open_prs="$(gh pr list --head "$branch" --base master --state open --json number --jq 'length')"
-          if [ "$open_prs" != "0" ]; then
-            echo "Une PR est déjà ouverte pour ${VERSION} (${branch}) : rien à faire."
+          rejected_prs="$(gh pr list --head "$branch" --base master --state closed --json mergedAt --jq '[.[] | select(.mergedAt == null)] | length')"
+          branch_exists=false
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            branch_exists=true
+          fi
+
+          if [ "$open_prs" = "0" ] && [ "$rejected_prs" != "0" ] && [ "$branch_exists" = true ]; then
+            echo "La PR de ${VERSION} a été fermée sans fusion : rien n'est reproposé (supprimer la branche ${branch} pour la reproposer)."
             exit 0
           fi
 
-          sha="$(jq -r .asset_sha256 benchmarks/slm-quality/SOURCE.json)"
-          release_url="$(jq -r .release_url benchmarks/slm-quality/SOURCE.json)"
+          if [ "$open_prs" != "0" ] && [ "$branch_exists" = true ]; then
+            git fetch --depth=1 origin "$branch"
+            branch_sha="$(git show FETCH_HEAD:benchmarks/slm-quality/SOURCE.json | jq -r .asset_sha256 || true)"
+            if [ "$branch_sha" = "$sha" ]; then
+              echo "Une PR est déjà ouverte pour ${VERSION} avec le même fichier : rien à faire."
+              exit 0
+            fi
+            echo "Asset de ${VERSION} republié : mise à jour de la PR ouverte."
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
           git add benchmarks/slm-quality
           git commit -m "Bench: résultats slm-quality-bench ${VERSION}"
-          # Branche réservée à l'automatisation : on l'écrase si elle traîne d'une PR fermée.
+          # Branche réservée à l'automatisation : elle repart toujours de master.
           git push --force origin "$branch"
+
+          if [ "$open_prs" != "0" ]; then
+            gh pr comment "$branch" --body "Asset republié sous le même tag : branche mise à jour (sha256 \`${sha}\`)."
+            exit 0
+          fi
 
           cat > pr-body.md <<EOF
           Synchronisation automatique des résultats de benchmark publiés par slm-quality-bench.
