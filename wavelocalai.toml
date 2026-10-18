@@ -1,0 +1,25 @@
+# Réglages versionnés de la v2 (AD-15). Chargés une fois au démarrage par `wavelocalai/config.py`,
+# jamais réécrits par l'application. Les secrets (clés d'API) vont dans `.env`, jamais ici ;
+# ce que l'interface modifie vit dans la table `preferences`.
+
+[server]
+# 8501 reste à la v1. Écoute sur 127.0.0.1 seulement (AD-19).
+port = 8502
+
+[data]
+# Dossier des données (base, journaux, caches). Relatif à ce fichier.
+dir = "data"
+
+[ollama]
+# 127.0.0.1 et non localhost : sur certains postes, localhost résout en IPv6 et échoue.
+host = "http://127.0.0.1:11434"
+probe_timeout_s = 1.0  # délai de la sonde de santé (1 s au plus, AD-15)
+probe_cache_s = 5.0    # durée de vie de l'état d'Ollama en cache
+
+[carbon]
+country_iso = "FRA"
+pue = 1.1
+
+[delays]
+lane_timeout_s = 300.0    # délai d'une lane d'Arène, depuis l'acquisition du sémaphore (local)
+approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut refus

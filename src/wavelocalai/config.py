@@ -1,1 +1,174 @@
-"""Module config de la v2 (squelette)."""
+"""Configuration de la v2 : `Settings`, chargé une fois au démarrage (AD-15).
+
+Ordre de chargement : défauts du code, puis `wavelocalai.toml` (`tomllib`), puis `.env` et
+l'environnement du processus (secrets et quelques réglages de poste), puis les surcharges
+explicites (options de la ligne de commande). L'application n'écrit jamais le `.toml`.
+
+C'est le seul module de la v2 qui lit l'environnement : aucun `os.getenv` ailleurs (un test AST
+le vérifie). Module de base : il n'importe rien du paquet.
+"""
+
+from __future__ import annotations
+
+import os
+import tomllib
+from collections.abc import Mapping
+from importlib import metadata
+from pathlib import Path
+from typing import Any
+
+from dotenv import dotenv_values
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TOML = PROJECT_ROOT / "wavelocalai.toml"
+DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
+DEFAULT_PORT = 8502
+LOOPBACK = "127.0.0.1"
+
+# Fournisseurs cloud et variable (de `.env` ou de l'environnement) qui porte leur clé.
+CLOUD_KEY_VARS: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+}
+
+# Réglages de poste lisibles dans `.env` ou l'environnement : variable -> chemin dans les réglages.
+ENV_OVERRIDES: dict[str, tuple[str, str]] = {
+    "WAVELOCALAI_PORT": ("server", "port"),
+    "WAVELOCALAI_DATA_DIR": ("data", "dir"),
+    "WAVELOCALAI_OLLAMA_HOST": ("ollama", "host"),
+}
+TESTING_VAR = "WAVELOCALAI_TESTING"
+
+
+class ConfigError(Exception):
+    """Configuration illisible ou invalide (message en français, affiché au lancement)."""
+
+
+class _Section(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ServerSettings(_Section):
+    port: int = Field(DEFAULT_PORT, ge=1, le=65535)
+
+
+class DataSettings(_Section):
+    dir: Path = Path("data")
+
+
+class OllamaSettings(_Section):
+    host: str = "http://127.0.0.1:11434"
+    probe_timeout_s: float = Field(1.0, gt=0, le=1.0)  # AD-15 : 1 s au plus
+    probe_cache_s: float = Field(5.0, ge=0)
+
+
+class CarbonSettings(_Section):
+    country_iso: str = Field("FRA", min_length=3, max_length=3)
+    pue: float = Field(1.1, ge=1.0)
+
+
+class DelaySettings(_Section):
+    lane_timeout_s: float = Field(300.0, gt=0)
+    approval_expiry_s: float = Field(600.0, gt=0)
+
+
+class Settings(BaseModel):
+    """Réglages du serveur ; immuables une fois chargés."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    server: ServerSettings = ServerSettings()
+    data: DataSettings = DataSettings()
+    ollama: OllamaSettings = OllamaSettings()
+    carbon: CarbonSettings = CarbonSettings()
+    delays: DelaySettings = DelaySettings()
+    api_keys: dict[str, SecretStr] = Field(default_factory=dict)
+    testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
+    base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)
+    env_file: Path | None = None  # `.env` lu (et passé à `disable_telemetry`)
+
+    @property
+    def data_dir(self) -> Path:
+        path = self.data.dir.expanduser()
+        return path if path.is_absolute() else (self.base_dir / path).resolve()
+
+    def cloud_providers(self) -> list[dict[str, Any]]:
+        """`[{id, configured}]` lu d'ici : aucun fournisseur n'est appelé."""
+        return [
+            {"id": provider, "configured": bool(self.api_keys.get(provider))}
+            for provider in CLOUD_KEY_VARS
+        ]
+
+    def secret_values(self) -> list[str]:
+        """Valeurs des clés configurées, pour le masquage (AD-18)."""
+        return [key.get_secret_value() for key in self.api_keys.values() if key.get_secret_value()]
+
+
+def get_version() -> str:
+    """Version du paquet installé (celle de `pyproject.toml`)."""
+    try:
+        return metadata.version("wavelocalai")
+    except metadata.PackageNotFoundError:  # pragma: no cover - paquet non installé
+        return "0+unknown"
+
+
+def _merge(base: dict[str, Any], extra: Mapping[str, Any]) -> dict[str, Any]:
+    for key, value in extra.items():
+        if isinstance(value, Mapping) and isinstance(base.get(key), dict):
+            _merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _read_toml(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        with path.open("rb") as handle:
+            return tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"Le fichier de réglages {path} est illisible : {exc}") from exc
+
+
+def load_settings(
+    toml_path: Path | None = None,
+    env_file: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    overrides: Mapping[str, Any] | None = None,
+) -> Settings:
+    """Charge `Settings` une fois : `.toml`, puis `.env` et environnement, puis surcharges.
+
+    `environ` vaut l'environnement du processus par défaut ; il l'emporte sur `.env`.
+    """
+    toml_file = Path(toml_path) if toml_path is not None else DEFAULT_TOML
+    dotenv_file = Path(env_file) if env_file is not None else DEFAULT_ENV_FILE
+    data = _read_toml(toml_file)
+    values: dict[str, str | None] = (
+        dict(dotenv_values(dotenv_file)) if dotenv_file.is_file() else {}
+    )
+    values.update(os.environ if environ is None else environ)
+
+    for var, (section, key) in ENV_OVERRIDES.items():
+        if values.get(var):
+            data.setdefault(section, {})[key] = values[var]
+    data["api_keys"] = {
+        provider: value
+        for provider, var in CLOUD_KEY_VARS.items()
+        if (value := (values.get(var) or "").strip())
+    }
+    data["testing"] = (values.get(TESTING_VAR) or "").strip().lower() in {"1", "true"}
+    data["base_dir"] = toml_file.resolve().parent
+    data["env_file"] = dotenv_file
+    if overrides:
+        _merge(data, overrides)
+    try:
+        return Settings.model_validate(data)
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(part) for part in err['loc'])} : {err['msg']}" for err in exc.errors()
+        )
+        raise ConfigError(f"Réglages invalides ({details}).") from exc
