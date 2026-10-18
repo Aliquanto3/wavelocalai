@@ -9,7 +9,8 @@ finit `ok` dès que l'orchestration aboutit (l'échec d'une lane reste dans son 
 
 Chaque lane passe par `stream_into_run`, le chemin de feuille commun du chat : une lane locale est
 mesurée par son propre tracker CodeCarbon, démarré et arrêté sous la place Ollama (AD-10, AD-11) ;
-une lane cloud reste « non mesurable » jusqu'à ecologits. `carbon_updated` suit chaque feuille.
+une lane cloud est estimée par ecologits, comme dans le chat. `carbon_updated` suit chaque
+feuille.
 Aucune conversation : l'Arène n'est pas un genre de conversation (AD-5). La question et les critères
 de notation, du texte saisi, vivent dans l'événement `question` du flux (AD-7), jamais dans
 `runs.params`.
@@ -27,6 +28,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
+from wavelocalai.inference.chat import cloud_estimator
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
 from wavelocalai.models.factory import ModelFactory
@@ -207,6 +209,7 @@ class ArenaService:
                 lane.model,
                 request,
                 secrets=secrets,
+                estimate_co2=cloud_estimator(lane.model, self._settings),
                 slot=self._slot,
                 timeout_s=self._settings.delays.lane_timeout_s,
                 retry_interrupted=True,

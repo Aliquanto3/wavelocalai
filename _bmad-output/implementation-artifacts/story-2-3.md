@@ -1,5 +1,5 @@
 ---
-title: 'Chaque réponse locale affiche son CO2 mesuré (serveur)'
+title: 'Chaque réponse locale affiche son CO2 mesuré'
 type: 'feature'
 created: '2026-10-18'
 status: 'review'
@@ -12,12 +12,6 @@ context:
   - '{project-root}/_bmad-output/implementation-artifacts/story-2-1.md'
 warnings: []
 deferred:
-  - summary: >-
-      Le pied de réponse du chat (« CO2 1,8 mg », `fr-FR`, sans couleur par seuil) est le dernier critère de la story 2.3 mais appartient à l'écran Chat (story 2.2, `screens/chat.js`). Le serveur publie tout ce qu'il lui faut : `metrics.co2` (`mg`, `method`, `reason`) et `metrics.energy_wh` dans le flux du run, `co2` et `energy_wh` dans `GET /api/runs/{id}` (`metrics`), et `carbon_updated` sur le flux système (le panneau CO2 de la barre haute le suit déjà, story 1.7). À brancher dans le pied de l'écran Chat : `mg` en `fr-FR`, « non mesurable » avec `reason` sinon.
-    evidence: |-
-      `web/test_chat_api.py::test_nominal_chat_...` (co2 et energy_wh dans `metrics`) et `test_carbon_updated_follows_each_local_reply_with_the_session_sum`.
-    location: src/wavelocalai/web/static/screens/chat.js
-    severity: medium
   - summary: >-
       Préchauffage de CodeCarbon (revue) : une réponse locale demandée pendant les premières secondes du serveur attend la fin du préchauffage (verrou du compteur, un seul tracker à la fois) ; mesuré 3,8 à 14,5 s selon la charge de la machine au démarrage. À trancher si l'on préfère, dans cette fenêtre, répondre sans mesure (`unmeasurable`) plutôt qu'attendre.
     evidence: |-
@@ -44,11 +38,11 @@ deferred:
     severity: low
 ---
 
-# Story 2.3 : chaque réponse locale affiche son CO2 mesuré (serveur)
+# Story 2.3 : chaque réponse locale affiche son CO2 mesuré
 
 ## Objectif
 
-Une réponse locale du chat est mesurée par CodeCarbon (`OfflineEmissionsTracker`, pays et PUE de `Settings`) et sa feuille porte `co2 = {mg, method: "codecarbon", estimated: false, range_mg: null, allocation: "direct", reason: null}` et `energy_wh`. Le service publie `carbon_updated` après chaque feuille. Côté serveur seulement : le pied de réponse « CO2 1,8 mg » est dans l'écran Chat (story 2.2), voir reports.
+Une réponse locale du chat est mesurée par CodeCarbon (`OfflineEmissionsTracker`, pays et PUE de `Settings`) et sa feuille porte `co2 = {mg, method: "codecarbon", estimated: false, range_mg: null, allocation: "direct", reason: null}` et `energy_wh`. Le service publie `carbon_updated` après chaque feuille. Le pied de réponse de l'écran Chat (story 2.2) affiche « CO₂ 1,8 mg ».
 
 ## Critères d'acceptation et preuves
 
@@ -58,13 +52,15 @@ Une réponse locale du chat est mesurée par CodeCarbon (`OfflineEmissionsTracke
 4. Un seul tracker à la fois, même avec plusieurs feuilles locales : trois runs (`chat`, `rag`, `agent`) en parallèle sous un `LocalSlot`, pic de trackers simultanés 1 ; le compteur seul, sans sémaphore, sérialise aussi. Preuve : `test_several_local_leaves_never_run_two_trackers_at_once`, `test_the_meter_alone_serializes_trackers_even_without_the_slot`.
 5. `carbon_updated` : `ChatService` passe `on_leaf_closed` à `stream_into_run`, qui l'attend à la fermeture de la feuille, annulation comprise, après l'écriture du `co2` ; l'événement porte la somme de la session (`announce_carbon_updated`). Un échec de publication est journalisé sans interrompre. Preuve : `test_carbon_updated_is_published_after_each_leaf_including_a_cancelled_one`, `test_a_failing_announcement_...`, `test_chat_api.py::test_carbon_updated_follows_each_local_reply_with_the_session_sum`.
 6. Test `integration` : les deux plus petits modèles de chat installés, de tailles différentes (le plus petit, puis le plus petit pesant au moins 1,5 fois plus ; lus dans `GET /api/tags`, aucun téléchargement), donnent des `co2.mg` différents, tous deux `codecarbon`, ni égaux à `0,19 mg x jetons` ni à 0,19 mg/jeton. Preuve : `integration/test_co2_ollama.py` (lancé sur ce poste, voir le rapport) ; `test_chat_ollama.py` attend désormais `codecarbon` (saute sans `qwen2.5:1.5b`).
+7. Pied de réponse (`wl-chat-thread`) : à `metrics`, le pied définitif affiche « CO₂ 1,8 mg » entre le badge et le débit (ordre UX-DR10 : badge, CO₂, débit, chargement, durée), lu dans `metrics.co2.mg`, mis en forme par `core/format.js` (`formatCo2`, `fr-FR`, une seule unité : « 2,4 g » au-delà de 1 000 mg) sans aucun calcul côté front (AD-20) et sans couleur par seuil (même couleur que les autres chiffres du pied). `mg` nul : « CO₂ non mesurable », la `reason` du serveur en aide (bouton d'aide de `wl-metric`), jamais 0. `energy_wh` n'est pas affiché : l'UX ne le prévoit pas dans le pied. Le `fake` publie un `co2` par le champ `co2` de la route de test (`POST /api/test/runs`). Preuve : `e2e/test_chat.py` (`test_a_measured_local_reply_shows_its_co2_...`, `test_a_large_co2_keeps_a_single_unit`, `test_an_unmeasurable_reply_says_so_...`, `test_axe_finds_no_violation_on_the_footer_with_a_measured_and_an_unmeasurable_co2` en clair et en sombre).
 
 ## Fichiers
 
 - `src/wavelocalai/greenops/local_meter.py` (nouveau), `greenops/__init__.py`
 - `src/wavelocalai/inference/streaming.py` (compteur sous la place, `on_leaf_closed`, `energy_wh`), `inference/chat.py` (`meter`, `bus`), `web/app.py` (`create_app(meter=)`, `app.state.meter`)
 - `src/wavelocalai/runs/hub.py`, `runs/repo.py` (`amend_cancelled_leaf`)
-- Tests : `tests/v2/carbon_stub.py` (double de tracker), `tests/v2/conftest.py` (le double remplace `load_tracker_class` pour tous les tests), `unit/test_local_meter.py`, `unit/test_hub.py`, `web/test_chat_api.py`, `integration/conftest.py` (`real_meter`), `integration/test_co2_ollama.py`, `integration/test_chat_ollama.py`
+- `src/wavelocalai/web/static/components/wl-chat-thread.js` (pied : `co2Metric`), `static/i18n/fr.json` (`components.thread.co2*`)
+- Tests : `tests/v2/carbon_stub.py` (double de tracker), `tests/v2/conftest.py` (le double remplace `load_tracker_class` pour tous les tests), `unit/test_local_meter.py`, `unit/test_hub.py`, `web/test_chat_api.py`, `integration/conftest.py` (`real_meter`), `integration/test_co2_ollama.py`, `integration/test_chat_ollama.py`, `e2e/test_chat.py` (paramètre `co2` de `scripted`, tests du pied)
 
 ## Télémétrie
 

@@ -45,7 +45,8 @@ SETTINGS_CLOUD = {
         "groq": ["openai/gpt-oss-20b"],
         "anthropic": ["claude-haiku-5-5"],
         "mistral": ["mistral-small-latest"],
-    }
+    },
+    "groq_ecologits": {"openai/gpt-oss-20b": "openai/gpt-oss-20b"},
 }
 
 

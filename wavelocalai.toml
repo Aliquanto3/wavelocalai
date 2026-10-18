@@ -39,6 +39,10 @@ mistral = ["mistral-large-latest", "mistral-small-latest"]
 
 [cloud.groq_ecologits]
 # Modèle Groq -> entrée `huggingface_hub` d'ecologits (AD-11). Sans entrée, le CO2 d'un modèle
-# Groq est « non mesurable ». Entrées à confirmer par le test de contrat ecologits (story 2.5).
+# Groq est « non mesurable » (raison affichée). Entrées confirmées le 2026-10-18 (story 2.5) contre
+# ecologits 0.11.3 par `tests/v2/unit/test_cloud_estimate.py` : chacune doit exister dans le
+# référentiel installé. `llama-3.3-70b-versatile` n'a pas d'entrée : ecologits ne connaît pas
+# Llama 3.3, et Llama 3.1 70B est un autre modèle (pas de correspondance inventée).
 "openai/gpt-oss-120b" = "openai/gpt-oss-120b"
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
+"llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"

@@ -1,0 +1,329 @@
+/* Chat libre (story 2.2) : onglets du module, réglages, fil de conversation, saisie. Couleurs et
+   rayon viennent de tokens.css seulement. */
+
+/* Onglets d'un module (core/screen-tabs.js) */
+.screen-tabs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.screen-tab {
+  display: flex;
+  flex-direction: column;
+}
+
+.screen-tab-link {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.screen-tab-link[href]:hover {
+  background: var(--color-line);
+}
+
+.screen-tab-link[aria-current="page"] {
+  border-bottom-color: var(--color-primary);
+}
+
+.screen-tab-link[aria-disabled="true"] {
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.screen-tab-reason {
+  padding: 0 0.75rem 0.25rem;
+  font-family: var(--font-caption);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--color-ink-secondary);
+}
+
+/* Réglages : modèle et créativité */
+.chat-settings {
+  display: grid;
+  gap: 1rem 2rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .chat-settings {
+    grid-template-columns: minmax(0, 42rem) minmax(0, 20rem);
+    align-items: start;
+  }
+}
+
+.chat-slider-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.chat-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chat-slider {
+  flex: 1;
+  min-height: 2.5rem;
+  accent-color: var(--color-primary);
+}
+
+.chat-slider-value {
+  min-width: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Fil de conversation (wl-chat-thread) */
+wl-chat-thread,
+.wl-thread {
+  display: block;
+  position: relative;
+}
+
+.chat-empty {
+  margin: 0 0 1rem;
+}
+
+.wl-thread-log {
+  min-height: 8rem;
+  max-height: min(60vh, 40rem);
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* Fil vide : le journal reste dans l'arbre d'accessibilité, sans cadre ni hauteur. */
+.wl-thread-log:empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wl-thread-end {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.wl-msg + .wl-msg {
+  margin-top: 1rem;
+}
+
+.wl-msg-user {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-msg-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+}
+
+.wl-msg-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wl-md {
+  overflow-wrap: anywhere;
+}
+
+.wl-md > :last-child,
+.wl-md li > :last-child {
+  margin-bottom: 0;
+}
+
+.wl-md ul,
+.wl-md ol {
+  margin: 0 0 1em;
+  padding-inline-start: 1.5rem;
+}
+
+.wl-md blockquote {
+  margin: 0 0 1em;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--color-line);
+  color: var(--color-ink-secondary);
+}
+
+.wl-md hr {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.wl-md code {
+  padding: 0.0625rem 0.25rem;
+  border-radius: 4px;
+  background: var(--color-surface-alt);
+  font-size: 0.9em;
+}
+
+.wl-md pre.md-code {
+  margin: 0 0 1em;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  white-space: pre-wrap; /* le code se replie : pas de zone qui défile au clavier seulement */
+  overflow-wrap: anywhere;
+}
+
+.wl-md pre.md-code code {
+  padding: 0;
+  background: none;
+}
+
+.md-heading {
+  margin-bottom: 0.5em;
+}
+
+.md-heading-1 {
+  font-size: 1.25rem;
+}
+
+.md-heading-2 {
+  font-size: 1.125rem;
+}
+
+.wl-thought {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-thought summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wl-thought-body {
+  margin-top: 0.25rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--color-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wl-msg-note {
+  margin: 0.25rem 0 0;
+}
+
+.wl-msg-flag {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  padding: 0 0.5rem;
+  border-inline-start: 3px solid var(--color-risk);
+  font-weight: 600;
+}
+
+.wl-msg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.25rem 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.wl-msg-foot .wl-metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Statut du run et saisie */
+.chat-notice {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+wl-chat-thread + wl-run-status {
+  margin-top: 0.75rem;
+}
+
+.chat-composer {
+  margin-top: 1rem;
+}
+
+.chat-input-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.chat-input {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  max-height: 14rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  resize: vertical;
+}
+
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.chat-send {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.chat-send:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Désactivé : jamais par la seule opacité. */
+.chat-send:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Sous 768 px, la saisie reste en bas de l'écran. */
+@media (max-width: 767px) {
+  .chat-composer {
+    position: sticky;
+    bottom: 0;
+    padding: 0.5rem 0 0.75rem;
+    background: var(--color-surface);
+  }
+}
