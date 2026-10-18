@@ -103,3 +103,47 @@ async def test_closed_port_answers_down_within_the_read_budget():
     started = time.perf_counter()
     assert await probe.status() == DOWN
     assert time.perf_counter() - started < 0.25
+
+
+async def test_start_probes_before_the_first_read_so_a_slow_ollama_is_seen_up():
+    calls: list[str] = []
+    probe = OllamaProbe(
+        "http://127.0.0.1:11434", transport=_transport(calls, delay=0.15), wait_s=0.02
+    )
+    probe.start()  # démarrage du serveur
+    await asyncio.sleep(0.3)  # le navigateur s'ouvre
+    assert (await probe.status()).up is True
+    assert len(calls) == 1
+
+
+async def test_expired_cache_keeps_the_last_state_while_the_next_probe_runs():
+    calls: list[str] = []
+    clock = FakeClock()
+    probe = OllamaProbe(
+        "http://127.0.0.1:11434",
+        transport=_transport(calls, delay=0.15),
+        wait_s=0.02,
+        clock=clock,
+    )
+    probe.start()
+    await asyncio.sleep(0.3)
+    clock.now += 10  # cache échu, sonde suivante lente
+    assert (await probe.status()).up is True  # état précédent, pas « arrêté »
+    assert len(calls) == 2
+    await probe.aclose()
+
+
+async def test_slow_client_construction_does_not_block_the_read(monkeypatch):
+    # Le chargement synchrone des certificats (lent sous Windows) ne doit pas retenir `status()`.
+    real_client = httpx.AsyncClient
+
+    def slow_client(*args, **kwargs):
+        time.sleep(0.4)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", slow_client)
+    probe = OllamaProbe(f"http://127.0.0.1:{closed_port()}")
+    started = time.perf_counter()
+    assert await probe.status() == DOWN
+    assert time.perf_counter() - started < 0.25
+    await probe.aclose()
