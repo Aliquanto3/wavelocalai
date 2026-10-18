@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
@@ -158,6 +158,7 @@ async def stream_into_run(
     on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
+    metrics_extra: Mapping[str, object] | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
     `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
@@ -183,6 +184,9 @@ async def stream_into_run(
     cloud, le `co2` est celui passé en argument. `on_leaf_closed` est attendu quand la feuille est
     close, annulation comprise (le hub a alors déjà clos le run) : le service y publie
     `carbon_updated`. Son échec est journalisé, il n'interrompt rien.
+
+    `metrics_extra` : champs ajoutés à l'événement `metrics` de la feuille (le RAG y met la durée de
+    la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux.
     """
     try:
         return await _play(
@@ -199,6 +203,7 @@ async def stream_into_run(
             retry_interrupted,
             meter,
             on_phase,
+            metrics_extra,
         )
     finally:
         if on_leaf_closed is not None:
@@ -222,6 +227,7 @@ async def _play(
     retry_interrupted: bool,
     meter: LocalMeter | None,
     on_phase: PhaseCallback | None,
+    metrics_extra: Mapping[str, object] | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
@@ -272,7 +278,9 @@ async def _play(
         except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
             logger.warning("Estimation du CO2 impossible : %r", exc)
             co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
-    hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2, footprint))
+    metrics = _metrics(lane, result, origin, co2, footprint)
+    metrics.update({k: v for k, v in (metrics_extra or {}).items() if k not in metrics})
+    hub.publish(stream_id, "metrics", metrics)
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,
