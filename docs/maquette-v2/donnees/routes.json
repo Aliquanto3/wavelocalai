@@ -1,0 +1,31 @@
+{
+  "_doc": "Routes de la maquette (UX-DR4, 03 §3.3). Le routeur charge js/screens/<screen>.js (screen = slug par défaut), css/screens/<screen>.css et i18n/screens/<screen>.fr.json. `example` : chemin réel pour une route à paramètre (tests). `tab` : libellé de l'onglet dans son module. `maquette: true` : page propre à la maquette, hors navigation.",
+  "modules": [
+    { "id": "home", "label": "Accueil", "icon": "home", "entry": "accueil" },
+    { "id": "arena", "label": "Arène", "icon": "swords", "entry": "arene" },
+    { "id": "documents", "label": "Documents", "icon": "description", "entry": "discussion" },
+    { "id": "agents", "label": "Agents", "icon": "smart-toy", "entry": "agent-seul" },
+    { "id": "sobriety", "label": "Sobriété", "icon": "eco", "entry": "sobriete" },
+    { "id": "models", "label": "Modèles", "icon": "deployed-code", "entry": "modeles" }
+  ],
+  "routes": [
+    { "slug": "accueil", "path": "/", "title": "Accueil", "module": "home" },
+    { "slug": "chat-libre", "path": "/arene/chat", "title": "Chat libre", "module": "arena", "tab": "Chat libre" },
+    { "slug": "arene", "path": "/arene/comparer", "title": "Arène", "module": "arena", "tab": "Arène" },
+    { "slug": "arene-resultat", "path": "/arene/comparer/:run_id", "screen": "arene", "title": "Arène", "module": "arena", "example": "/arene/comparer/run-arene-demo" },
+    { "slug": "banc-essai", "path": "/arene/banc", "title": "Banc d'essai", "module": "arena", "tab": "Banc d'essai" },
+    { "slug": "banc-essai-resultat", "path": "/arene/banc/:run_id", "screen": "banc-essai", "title": "Banc d'essai", "module": "arena", "example": "/arene/banc/run-banc-demo" },
+    { "slug": "references", "path": "/arene/references", "title": "Références", "module": "arena", "tab": "Références" },
+    { "slug": "discussion", "path": "/documents", "title": "Discussion", "module": "documents", "tab": "Discussion" },
+    { "slug": "base-documentaire", "path": "/documents/base", "title": "Base documentaire", "module": "documents", "tab": "Base documentaire" },
+    { "slug": "evaluation", "path": "/documents/evaluation", "title": "Évaluation de la qualité", "module": "documents", "tab": "Évaluation de la qualité" },
+    { "slug": "evaluation-resultat", "path": "/documents/evaluation/:run_id", "screen": "evaluation", "title": "Évaluation de la qualité", "module": "documents", "example": "/documents/evaluation/run-eval-demo" },
+    { "slug": "agent-seul", "path": "/agents/seul", "title": "Agent seul", "module": "agents", "tab": "Agent seul" },
+    { "slug": "equipe-agents", "path": "/agents/equipe", "title": "Équipe d'agents", "module": "agents", "tab": "Équipe d'agents" },
+    { "slug": "equipe-agents-resultat", "path": "/agents/equipe/:run_id", "screen": "equipe-agents", "title": "Équipe d'agents", "module": "agents", "example": "/agents/equipe/run-equipe-demo" },
+    { "slug": "sobriete", "path": "/sobriete", "title": "Sobriété et matériel", "module": "sobriety" },
+    { "slug": "modeles", "path": "/modeles", "title": "Modèles", "module": "models" },
+    { "slug": "fiche-modele", "path": "/modeles/:tag", "screen": "modeles", "title": "Modèles", "module": "models", "example": "/modeles/qwen3.5%3A2b" },
+    { "slug": "etats", "path": "/maquette/etats", "title": "Catalogue des états", "module": null, "maquette": true }
+  ]
+}

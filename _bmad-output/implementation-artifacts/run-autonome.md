@@ -7,7 +7,8 @@ Fichier lu par `/agent-cost-kit:avancement-run`. Le détail du run (règles, out
 | Périmètre | Epics | Note |
 |---|---|---|
 | Dans le run | Epics 1 à 4 | MVP de la v2 ; préversions 2.0.0a1 à 2.0.0a4, une par epic (tag et release par Anaël après recette) |
-| Hors run | Epics 5 à 8 | définies par une autre session (PR #48, #49) ; après le MVP |
+| Dans le run | Epics 5 à 8 | après le MVP, seulement après fusion de la PR `bmad-correct-course` ; préversions 2.0.0a5 à a7 sans tag ni release (confirmé par Anaël) |
+| Hors run | Story 8.4 | « La v2 remplace la v1 » : revient à Anaël |
 
 ## Règles fixes
 
@@ -77,3 +78,36 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-18 22:20 · 3.2 · second-avis · 2 low · —
 - 2026-10-18 22:25 · 2.6 · contrôles · contrôles locaux verts (649 v2, 172 E2E, 5 integration, 1286 v1) ; PR à ouvrir · 4a2f8e1
 - 2026-10-18 22:24 · 2.6 · contrôles · finalisée, PR #57 ouverte avec la version 2.0.0a2 · 4a2f8e1
+- 2026-10-18 · 3.2 · review · 2 medium corrigés (échec d'orchestration avec sa cause, focus en onglets), 178 E2E · d104fc4
+- 2026-10-18 22:38 · 2.6 · fusion · PR #57 fusionnée, version 2.0.0a2, Epic 2 terminée (tag et release en attente d'Anaël) · 8963e14
+- 2026-10-18 · 4.2 · dev · fini, 787 tests v2, 179 E2E · 8b73a5b
+- 2026-10-18 23:02 · run · reprise · reprise après /clear (ordre : 3.1 → 4.1 → 3.2 → 3.3 ; 4.2 en second avis) · —
+- 2026-10-18 23:02 · 4.2 · second-avis · lancé (Haiku) · —
+- 2026-10-18 23:02 · 3.1 · fusion master · conflits `streaming.py` et `web/app.py` résolus ; lanes cloud de l'Arène estimées par ecologits (`cloud_estimator` partagé, test) ; contrôles lancés · 784ff71
+- 2026-10-18 23:05 · 4.1 · fusion master · master actuel fusionné d'avance (conflits garder les deux), 785 tests v2 unit+web · 6384545
+- 2026-10-18 23:05 · 4.2 · second-avis · 2 medium (Annuler à 100 % d'envoi alors que l'index tourne ; focus perdu au rafraîchissement du tableau), 5 low · —
+- 2026-10-18 23:05 · 4.2 · review · lancée (Opus) · —
+- 2026-10-18 23:10 · 3.2 · fusion 3.1 · 3.1 à jour de master fusionnée d'avance (conflits `routes_test.py`, `wl-chat-thread.js`, `api.js`), 671 tests v2 unit+web · 16774d8
+- 2026-10-18 23:10 · 3.3 · fusion 3.2 · 3.2 fusionnée (conflits `streaming.py`, `arena.py`, `contrat-api.md`), 705 tests v2 unit+web · 0dce811
+- 2026-10-18 23:10 · 3.3 · dev · lancé, seconde passe écran (Sonnet high, worktree v2-3-3) · —
+- 2026-10-18 23:22 · run · décision · Ollama laissé au run pour la nuit (Anaël) · —
+- 2026-10-18 23:22 · 3.1 · contrôles · verts (668 v2, 172 E2E dont topbar relancé seul, 6 integration, 1286 v1) ; finalisation et PR · 784ff71
+- 2026-10-18 23:24 · run · décision · périmètre étendu aux Epics 5 à 8 sauf 8.4 (confirmé par Anaël) ; garde-fou : PR correct-course fusionnée avant l'Epic 5 · —
+- 2026-10-18 23:24 · run · décision · second message de périmètre de wavelocalai-d7 attendu dans la nuit, à prendre en compte (Anaël) · —
+- 2026-10-18 23:25 · 4.2 · review · 2 medium et 5 low corrigés, 1 low reporté (plafonds avant lecture du multipart) · 5a77b2a
+- 2026-10-18 23:27 · 4.2 · fusion 4.1 · 4.1 à jour de master fusionnée d'avance (conflits garder les deux), 804 tests v2 unit+web · bac487f
+- 2026-10-18 23:36 · 3.1 · fusion · PR #59 fusionnée · 5ab78e4
+- 2026-10-18 23:38 · 4.1 · fusion master · master avec 3.1 fusionné (conflit `web/app.py`), 803 tests v2 unit+web ; contrôles lancés · f65e592
+- 2026-10-18 23:46 · 3.3 · dev · fini, seconde passe écran (critères, juge, note /100, non évalué, peu fiable ; CO₂ du juge cloud estimé), 717 tests v2, 207 E2E · 2a8f225
+- 2026-10-18 23:46 · 3.3 · second-avis · lancé (Haiku) · —
+- 2026-10-18 23:51 · 3.3 · second-avis · 1 medium (colonne en notation figée « Non évalué » si le flux tombe), 5 low · —
+- 2026-10-18 23:51 · 3.3 · review · lancée (Opus) · —
+- 2026-10-18 23:55 · 4.1 · contrôles · verts (810 v2, 172 E2E, 7 integration, 1286 v1 ; black de `errors.py` corrigé) ; finalisation et PR · def67ea
+- 2026-10-18 23:59 · 3.3 · review · 1 medium corrigé (colonne en notation figée si le flux tombe), fixture E2E attend la fin du run ; rattachement au run reporté · ef39f97
+- 2026-10-19 00:10 · 4.1 · CI · rouge (Linux : dossier de transit restant après annulation ; macOS : `vec0` absent, extension non chargée) ; correctif lancé (Sonnet high) · def67ea
+- 2026-10-19 00:10 · run · décision · 3.2 fusionnée avant 4.1 (indépendantes ; 4.1 en correctif CI) · —
+- 2026-10-19 00:10 · 3.2 · fusion master · master avec 3.1 fusionné (sans conflit) ; contrôles lancés · 74286f2
+- 2026-10-19 00:19 · 4.1 · CI · correctif poussé (course du test d'annulation ; index numpy si sqlite-vec absent, `select_index`) ; report : index numpy en mémoire perdu au redémarrage (4.3) · 2d4b0b6
+- 2026-10-19 00:25 · 3.2 · contrôles · verts (677 v2, 195 E2E, 6 integration, 1286 v1) ; finalisation et PR · 74286f2
+- 2026-10-19 00:42 · run · décision · second message de wavelocalai-d7 appliqué : #58 et #61 fusionnées, garde-fou Epic 5 levé, 1.12 et 2.7 ajoutées, ajustements 3.2/3.3/4.1/4.2 avant PR, écarts §7(d) en variante conservatrice · 72137a4
+- 2026-10-19 00:42 · run · report · incident b7703cd (fichiers d'état poussés sur master par l'autre session) : version locale gardée, aucune ligne perdue ; annulation à décider par Anaël · b7703cd

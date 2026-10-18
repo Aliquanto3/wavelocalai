@@ -58,6 +58,9 @@ def _metrics(
     }
 
 
+PhaseCallback = Callable[[str], None]  # "loading" | "generating" (Arène : `lane_status`)
+
+
 async def _attempt(
     hub: RunHub,
     run_id: str,
@@ -65,6 +68,7 @@ async def _attempt(
     request: ChatRequest,
     slot: AbstractAsyncContextManager[object] | None,
     timeout_s: float | None,
+    on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     footprints: list[Footprint] | None = None,
 ) -> ChatResult:
@@ -80,10 +84,12 @@ async def _attempt(
     local = model.ref.origin == "local"
     gate = slot if slot is not None and local else nullcontext()
     async with gate, _tracking(meter if local else None, footprints):
+        if on_phase is not None:
+            on_phase("generating")  # place prise et tracker démarré (local), ou appel parti (cloud)
         deadline = asyncio.timeout(timeout_s)
         try:
             async with deadline:
-                return await _consume(hub, run_id, lane, model.stream(request))
+                return await _consume(hub, run_id, lane, model.stream(request), on_phase)
         except TimeoutError:
             if not deadline.expired():
                 raise
@@ -111,7 +117,11 @@ async def _tracking(
 
 
 async def _consume(
-    hub: RunHub, run_id: str, lane: str, stream: AsyncIterator[ChatChunk]
+    hub: RunHub,
+    run_id: str,
+    lane: str,
+    stream: AsyncIterator[ChatChunk],
+    on_phase: PhaseCallback | None = None,
 ) -> ChatResult:
     result = ChatResult()
     try:
@@ -121,6 +131,8 @@ async def _consume(
             elif isinstance(chunk, LoadState):
                 kind = "model_loading" if chunk.phase == "loading" else "model_loaded"
                 hub.publish(run_id, kind, {"tag": lane, "duration_s": chunk.duration_s})
+                if on_phase is not None:
+                    on_phase("loading" if chunk.phase == "loading" else "generating")
             elif isinstance(chunk, Done):
                 result = chunk.result
     finally:
@@ -142,10 +154,18 @@ async def stream_into_run(
     slot: AbstractAsyncContextManager[object] | None = None,
     timeout_s: float | None = None,
     retry_interrupted: bool = False,
+    publish_to: str | None = None,
+    on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
-) -> None:
-    """Joue une génération sur le run racine `run_id` (une feuille racine) jusqu'à sa fin.
+) -> LeafResult:
+    """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
+    `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
+
+    Run racine sans enfants (chat) : `run_id` publie son propre flux. Feuille d'un run composite
+    (Arène) : `publish_to` est le parent, seul à publier (AD-5), et `run_id` la feuille que le hub
+    termine avec ses métriques et son `co2` ; `on_phase` reçoit `generating` à la prise de la place
+    (ou au départ de l'appel cloud), `loading` pendant le chargement du modèle.
 
     Termine par `hub.finish_leaf` : `ok` avec les métriques de `Done`, `error` avec l'enveloppe
     d'AD-18 si l'adaptateur lève une `ProviderError` (ou toute `AppError`) ; une annulation laisse
@@ -165,9 +185,10 @@ async def stream_into_run(
     `carbon_updated`. Son échec est journalisé, il n'interrompt rien.
     """
     try:
-        await _play(
+        return await _play(
             hub,
             run_id,
+            publish_to or run_id,
             model,
             request,
             secrets,
@@ -177,6 +198,7 @@ async def stream_into_run(
             timeout_s,
             retry_interrupted,
             meter,
+            on_phase,
         )
     finally:
         if on_leaf_closed is not None:
@@ -189,6 +211,7 @@ async def stream_into_run(
 async def _play(
     hub: RunHub,
     run_id: str,
+    stream_id: str,
     model: ChatModel,
     request: ChatRequest,
     secrets: Iterable[str],
@@ -198,7 +221,8 @@ async def _play(
     timeout_s: float | None,
     retry_interrupted: bool,
     meter: LocalMeter | None,
-) -> None:
+    on_phase: PhaseCallback | None,
+) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
     hub.declare_leaf(run_id, CANCELLED_CO2)
@@ -207,7 +231,9 @@ async def _play(
     footprints: list[Footprint] = []
     for attempt in range(1, attempts + 1):
         try:
-            result = await _attempt(hub, run_id, model, request, slot, timeout_s, meter, footprints)
+            result = await _attempt(
+                hub, stream_id, model, request, slot, timeout_s, on_phase, meter, footprints
+            )
             break
         except asyncio.CancelledError:
             # `hub.cancel` a déjà fixé `cancelled` ; le `finally` d'`_consume` a fermé le flux. Le
@@ -222,7 +248,7 @@ async def _play(
             ):
                 logger.warning("Génération de %s interrompue : relance unique.", lane)
                 hub.publish(
-                    run_id,
+                    stream_id,
                     "retry",
                     {
                         "lane": lane,
@@ -234,12 +260,9 @@ async def _play(
                 continue
             error = _error_envelope(exc, secrets)
             # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
-            await hub.finish_leaf(
-                run_id,
-                LeafResult(status="error", origin=origin, error=error),
-                FAILED_CO2 if footprints else co2,
-            )
-            return
+            failed = LeafResult(status="error", origin=origin, error=error)
+            await hub.finish_leaf(run_id, failed, FAILED_CO2 if footprints else co2)
+            return failed
     footprint = combine(footprints)
     if footprint is not None:
         co2 = footprint.co2()
@@ -249,7 +272,7 @@ async def _play(
         except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
             logger.warning("Estimation du CO2 impossible : %r", exc)
             co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
-    hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2, footprint))
+    hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2, footprint))
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,
@@ -263,6 +286,7 @@ async def _play(
         energy_wh=None if footprint is None else footprint.energy_wh,
     )
     await hub.finish_leaf(run_id, leaf, co2)
+    return leaf
 
 
 async def _amend_cancelled(hub: RunHub, run_id: str, footprints: list[Footprint]) -> None:

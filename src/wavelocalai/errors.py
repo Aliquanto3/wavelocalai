@@ -181,7 +181,7 @@ _SPECS = (
         "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
         "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
         ("run_id",),
-    ),    # --- base documentaire (story 4.1) ---
+    ),  # --- base documentaire (story 4.1) ---
     ErrorSpec(
         "ingest_failed",
         422,

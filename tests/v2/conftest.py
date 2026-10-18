@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import socket
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,24 @@ from wavelocalai.config import Settings, load_settings
 from wavelocalai.telemetry import TELEMETRY_OPT_OUTS
 
 TEST_PORT = 8502
+
+
+@functools.cache
+def vec_loadable() -> bool:
+    """`sqlite-vec` se charge-t-il ici ? Faux avec un CPython sans `enable_load_extension`
+    (Python de `setup-python` sur macOS) : l'application bascule alors sur `NumpyIndex`."""
+    from wavelocalai.store.vec import load_vec
+
+    conn = sqlite3.connect(":memory:")
+    try:
+        return load_vec(conn)
+    finally:
+        conn.close()
+
+
+needs_vec = pytest.mark.skipif(
+    not vec_loadable(), reason="l'extension sqlite-vec ne se charge pas sur cette plateforme"
+)
 
 
 def closed_port() -> int:

@@ -12,6 +12,7 @@ n'est importé que dans les méthodes de `NumpyIndex`.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import struct
 import threading
@@ -19,6 +20,8 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from wavelocalai.store.vec import ensure_vec_table, vec_table, vec_tables
+
+logger = logging.getLogger("wavelocalai.rag")
 
 BATCH = 500  # identifiants par requête (limite de variables de SQLite)
 
@@ -142,3 +145,16 @@ class NumpyIndex:
     def count(self, conn: sqlite3.Connection, dim: int | None = None) -> int:
         with self._lock:
             return sum(1 for d, _ in self._vectors.values() if dim is None or d == dim)
+
+
+def select_index(vec_available: bool) -> VectorIndex:
+    """L'index d'une base : `SqliteVecIndex` si l'écrivain a chargé sqlite-vec, sinon `NumpyIndex`
+    (CPython sans chargement d'extensions, par exemple celui de `setup-python` sur macOS). Le repli
+    ne lance jamais de requête `vec0`, mais ses vecteurs vivent en mémoire : ils ne survivent pas
+    à un redémarrage."""
+    if vec_available:
+        return SqliteVecIndex()
+    logger.warning(
+        "sqlite-vec indisponible : index vectoriel en mémoire (numpy), perdu à l'arrêt du serveur"
+    )
+    return NumpyIndex()

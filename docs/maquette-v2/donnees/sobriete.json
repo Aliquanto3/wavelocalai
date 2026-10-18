@@ -1,0 +1,39 @@
+{
+  "_doc": "Écran Sobriété et matériel (GET /api/system/identity, GET /api/carbon/history?window=). Contenus fictifs. `now` fixe la date de référence des fenêtres 7 j / 30 j (la maquette ne lit pas l'horloge). `history` : une ligne par app_session, total_mg nul = aucune réponse mesurée dans la session (non mesuré, jamais 0). Le CO₂ de la session en cours vient du store (donnees/commun/systeme.json).",
+  "now": "2026-10-18T09:15:00+02:00",
+  "equivalence": { "g_per_km": 111, "source": "valeur fictive de la maquette, alignée sur l'exemple de 03 §3.5 (412 mg, environ 3,7 m) ; le front citera la référence retenue, par exemple la Base Empreinte de l'ADEME" },
+  "gpu": {
+    "name": "NVIDIA RTX 3050 6 Go",
+    "vram_total_gb": 6,
+    "vram_used_gb": 2.1,
+    "temperature_c": 62
+  },
+  "identity": {
+    "cpu": "Processeur 14 cœurs (20 fils), 2,3 GHz",
+    "memory_gb": 15.7,
+    "os": "Windows 11 Famille, build 26300",
+    "python": "3.12",
+    "country": "France (intensité du réseau électrique du pays)"
+  },
+  "modules": {
+    "chat": "Chat libre",
+    "arena": "Arène",
+    "rag": "Discussion",
+    "agent": "Agents",
+    "ingest": "Import de documents"
+  },
+  "history": [
+    { "start": "2026-08-29T14:02:00+02:00", "end": "2026-08-29T16:40:00+02:00", "total_mg": 280, "local_mg": 280, "cloud_mg": 0, "unmeasurable": 0 },
+    { "start": "2026-09-05T09:30:00+02:00", "end": "2026-09-05T12:10:00+02:00", "total_mg": 1210, "local_mg": 1160, "cloud_mg": 50, "unmeasurable": 1 },
+    { "start": "2026-09-12T10:00:00+02:00", "end": "2026-09-12T10:35:00+02:00", "total_mg": null, "local_mg": null, "cloud_mg": null, "unmeasurable": 2 },
+    { "start": "2026-09-21T15:20:00+02:00", "end": "2026-09-21T17:05:00+02:00", "total_mg": 530, "local_mg": 530, "cloud_mg": 0, "unmeasurable": 0 },
+    { "start": "2026-09-30T08:45:00+02:00", "end": "2026-09-30T09:20:00+02:00", "total_mg": 96, "local_mg": 96, "cloud_mg": 0, "unmeasurable": 0 },
+    { "start": "2026-10-02T13:10:00+02:00", "end": "2026-10-02T16:30:00+02:00", "total_mg": 740, "local_mg": 702, "cloud_mg": 38, "unmeasurable": 3 },
+    { "start": "2026-10-06T11:00:00+02:00", "end": "2026-10-06T11:50:00+02:00", "total_mg": 188, "local_mg": 188, "cloud_mg": 0, "unmeasurable": 0 },
+    { "start": "2026-10-10T09:05:00+02:00", "end": "2026-10-10T09:40:00+02:00", "total_mg": null, "local_mg": null, "cloud_mg": null, "unmeasurable": 1 },
+    { "start": "2026-10-13T14:30:00+02:00", "end": "2026-10-13T15:55:00+02:00", "total_mg": 322, "local_mg": 322, "cloud_mg": 0, "unmeasurable": 0 },
+    { "start": "2026-10-15T09:00:00+02:00", "end": "2026-10-15T12:25:00+02:00", "total_mg": 905, "local_mg": 871, "cloud_mg": 34, "unmeasurable": 2 },
+    { "start": "2026-10-17T10:15:00+02:00", "end": "2026-10-17T11:45:00+02:00", "total_mg": 641, "local_mg": 641, "cloud_mg": 0, "unmeasurable": 0 }
+  ],
+  "closed_session_start": "2026-10-18T08:12:00+02:00"
+}

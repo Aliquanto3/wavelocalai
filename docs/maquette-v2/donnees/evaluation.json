@@ -1,0 +1,170 @@
+{
+  "_doc": "Données simulées de l'Évaluation de la qualité (POST /api/rag/eval/runs, événements `sources`, `lane_status`, `metrics`, `eval_metric`). Contenus 100 % fictifs (société Ombrelune, atelier inventé). `profiles` : ce que le juge rendrait pour quatre niveaux de réponse (A très bon, B bon, C moyen, D faible) ; `models` associe chaque modèle simulé à un profil. Les scores /100 sont ceux que « le serveur » publierait : la fidélité est la part d'affirmations appuyées (A 7 sur 8 = 88, B 6 sur 7 = 86, C 5 sur 7 = 71, D 5 sur 8 = 63), la précision du contexte la part des 4 extraits communs jugés utiles. `support` : numéro de l'extrait commun qui appuie l'affirmation (null : aucun). `runs` : résultats déjà conservés, rouvrables par leur adresse.",
+  "default_question": "Que doivent préparer les participants avant l'atelier du 4 novembre ?",
+  "max_models": 4,
+  "sets": [
+    {
+      "id": "atelier",
+      "label": "Atelier du 4 novembre, 8 questions",
+      "questions": [
+        "Que doivent préparer les participants avant l'atelier du 4 novembre ?",
+        "Où se déroule l'atelier ?",
+        "À quelle heure commence l'atelier ?",
+        "Quand a lieu la vérification technique des postes ?",
+        "Quels formats de document peut-on importer ?",
+        "Faut-il une connexion à Internet pendant l'atelier ?",
+        "Combien de pages au maximum pour le document apporté ?",
+        "Quelle question faut-il préparer ?"
+      ]
+    },
+    {
+      "id": "securite",
+      "label": "Sécurité du poste de travail, 5 questions",
+      "questions": [
+        "Comment sauvegarder son poste de travail ?",
+        "Que faire en cas de perte d'un portable ?",
+        "Peut-on travailler sur un document confidentiel en télétravail ?",
+        "Qui contacter en cas d'incident de sécurité ?",
+        "À quelle fréquence change-t-on son mot de passe ?"
+      ]
+    }
+  ],
+  "deltas": [6, -4, 2, -9, 5, -1, 3, -2],
+  "models": {
+    "qwen3.6:7b": { "profile": "A" },
+    "qwen3.6:35b-a3b": { "profile": "A" },
+    "gpt-5-mini": { "profile": "A" },
+    "openai/gpt-oss-120b": { "profile": "A" },
+    "qwen3.5:2b": { "profile": "B" },
+    "lfm2.5:8b-a1b": { "profile": "B" },
+    "claude-haiku-4-5": { "profile": "B" },
+    "gemma4:1b": { "profile": "C" },
+    "mistral-small-latest": { "profile": "C" },
+    "lfm2.5:1.2b": { "profile": "D" }
+  },
+  "lane_metrics": {
+    "qwen3.5:2b": { "ttft_s": 0.42, "load_s": 3.2, "eval_tokens": 212, "eval_s": 5.17, "tps": 41, "tps_source": "ollama_eval", "total_s": 8.9, "origin": "local", "co2": { "mg": 1.8, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gemma4:1b": { "ttft_s": 0.31, "load_s": 1.9, "eval_tokens": 188, "eval_s": 2.98, "tps": 63, "tps_source": "ollama_eval", "total_s": 5.3, "origin": "local", "co2": { "mg": 0.94, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "lfm2.5:1.2b": { "ttft_s": 0.33, "load_s": 2.1, "eval_tokens": 196, "eval_s": 3.38, "tps": 58, "tps_source": "ollama_eval", "total_s": 5.9, "origin": "local", "co2": { "mg": 1.1, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "lfm2.5:8b-a1b": { "ttft_s": 0.5, "load_s": 4.4, "eval_tokens": 205, "eval_s": 5.5, "tps": 37, "tps_source": "ollama_eval", "total_s": 10.4, "origin": "local", "co2": { "mg": 3.2, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "qwen3.6:7b": { "ttft_s": 0.9, "load_s": 6.8, "eval_tokens": 231, "eval_s": 12.8, "tps": 18, "tps_source": "ollama_eval", "total_s": 20.6, "origin": "local", "co2": { "mg": 6.3, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "qwen3.6:35b-a3b": { "ttft_s": 2.8, "load_s": 19.5, "eval_tokens": 240, "eval_s": 26.7, "tps": 9, "tps_source": "ollama_eval", "total_s": 49, "origin": "local", "co2": { "mg": 21.4, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gpt-5-mini": { "ttft_s": 0.71, "load_s": null, "eval_tokens": 205, "eval_s": 2.4, "tps": 85, "tps_source": "wallclock", "total_s": 3.1, "origin": "cloud", "co2": { "mg": 0.9, "method": "ecologits", "estimated": true, "range_mg": { "low": 0.6, "high": 1.4 }, "allocation": "direct", "reason": null } },
+    "openai/gpt-oss-120b": { "ttft_s": 0.22, "load_s": null, "eval_tokens": 219, "eval_s": 0.6, "tps": 365, "tps_source": "wallclock", "total_s": 0.9, "origin": "cloud", "co2": { "mg": 2.4, "method": "ecologits", "estimated": true, "range_mg": { "low": 1.5, "high": 3.9 }, "allocation": "direct", "reason": null } },
+    "claude-haiku-4-5": { "ttft_s": 0.55, "load_s": null, "eval_tokens": 224, "eval_s": 2.1, "tps": 107, "tps_source": "wallclock", "total_s": 2.7, "origin": "cloud", "co2": { "mg": null, "method": "unmeasurable", "estimated": false, "range_mg": null, "allocation": "direct", "reason": "Anthropic ne publie pas la taille de ce modèle : son empreinte ne peut pas être calculée." } },
+    "mistral-small-latest": { "ttft_s": 0.6, "load_s": null, "eval_tokens": 210, "eval_s": 2.9, "tps": 72, "tps_source": "wallclock", "total_s": 3.7, "origin": "cloud", "co2": { "mg": 1.2, "method": "ecologits", "estimated": true, "range_mg": { "low": 0.8, "high": 1.9 }, "allocation": "direct", "reason": null } }
+  },
+  "profiles": {
+    "A": {
+      "faithfulness": {
+        "score": 88,
+        "claims": [
+          { "claim": "Les participants doivent apporter un portable avec au moins 16 Go de mémoire.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Ollama doit être installé avant l'atelier.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Un modèle de conversation doit être téléchargé à l'avance.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Aucun téléchargement ne sera possible sur place.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Chaque participant apporte un document interne non confidentiel de moins de 40 pages.", "verdict": "appuyée", "support": 2 },
+          { "claim": "Le document est au format PDF, TXT, MD ou DOCX.", "verdict": "appuyée", "support": 2 },
+          { "claim": "Une vérification technique de 30 minutes a lieu le 29 octobre, en visioconférence.", "verdict": "appuyée", "support": 3 },
+          { "claim": "Les participants doivent aussi prévoir un adaptateur pour le vidéoprojecteur.", "verdict": "non appuyée", "support": null }
+        ]
+      },
+      "relevance": {
+        "score": 91,
+        "reason": "Les questions retrouvées à partir de la réponse portent bien sur la préparation de l'atelier, comme la question posée.",
+        "questions": ["Que faut-il préparer avant l'atelier ?", "Quel matériel apporter pour l'atelier ?"]
+      },
+      "context_precision": {
+        "score": 100,
+        "reason": "Les quatre extraits servent la réponse : le quatrième confirme la configuration attendue du poste.",
+        "useful": [1, 2, 3, 4]
+      }
+    },
+    "B": {
+      "faithfulness": {
+        "score": 86,
+        "claims": [
+          { "claim": "Les participants doivent apporter un portable de 16 Go de mémoire.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Ollama doit être installé sur le portable.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Le document apporté est interne, non confidentiel et de moins de 40 pages.", "verdict": "appuyée", "support": 2 },
+          { "claim": "Le document sera importé dans la base documentaire locale.", "verdict": "appuyée", "support": 2 },
+          { "claim": "Une vérification technique a lieu le jeudi 29 octobre.", "verdict": "appuyée", "support": 3 },
+          { "claim": "L'atelier se déroule hors ligne.", "verdict": "appuyée", "support": 3 },
+          { "claim": "Le document doit être au format PDF ou DOCX uniquement.", "verdict": "non appuyée", "support": null }
+        ]
+      },
+      "relevance": {
+        "score": 79,
+        "reason": "La réponse traite la préparation mais ajoute des précisions sur l'import des documents qui s'éloignent un peu de la question.",
+        "questions": ["Que faut-il préparer pour l'atelier ?", "Comment importer son document avant l'atelier ?"]
+      },
+      "context_precision": {
+        "score": 75,
+        "reason": "Trois extraits sur quatre servent la réponse ; le quatrième, sur le poste remis aux nouveaux arrivants, n'est pas utilisé.",
+        "useful": [1, 2, 3]
+      }
+    },
+    "C": {
+      "faithfulness": {
+        "score": 71,
+        "claims": [
+          { "claim": "Les participants doivent venir avec un portable de 16 Go de mémoire.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Ollama doit être installé.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Le document apporté doit être non confidentiel.", "verdict": "appuyée", "support": 2 },
+          { "claim": "Le document fait moins de 40 pages.", "verdict": "appuyée", "support": 2 },
+          { "claim": "La vérification technique dure 30 minutes.", "verdict": "appuyée", "support": 3 },
+          { "claim": "La vérification technique a lieu le jour de l'atelier, le 4 novembre.", "verdict": "contredite", "support": 3 },
+          { "claim": "Les participants doivent s'inscrire sur le portail interne.", "verdict": "non appuyée", "support": null }
+        ]
+      },
+      "relevance": {
+        "score": 74,
+        "reason": "La réponse mélange la préparation et le déroulement de la vérification technique : les questions retrouvées s'éloignent de la question posée.",
+        "questions": ["Quand a lieu la vérification technique ?", "Que faut-il apporter à l'atelier ?"]
+      },
+      "context_precision": {
+        "score": 75,
+        "reason": "Trois extraits sur quatre servent la réponse ; le quatrième n'est pas utilisé.",
+        "useful": [1, 2, 3]
+      }
+    },
+    "D": {
+      "faithfulness": {
+        "score": 63,
+        "claims": [
+          { "claim": "Les participants doivent apporter un portable de 16 Go de mémoire.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Ollama doit être installé.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Aucun téléchargement n'est possible sur place.", "verdict": "appuyée", "support": 1 },
+          { "claim": "Le document apporté est interne et non confidentiel.", "verdict": "appuyée", "support": 2 },
+          { "claim": "L'atelier se déroule hors ligne.", "verdict": "appuyée", "support": 3 },
+          { "claim": "L'atelier dure deux jours.", "verdict": "non appuyée", "support": null },
+          { "claim": "Le mode cloud sera activé pour la démonstration.", "verdict": "contredite", "support": 3 },
+          { "claim": "Les participants reçoivent une licence logicielle à leur arrivée.", "verdict": "non appuyée", "support": null }
+        ]
+      },
+      "relevance": {
+        "score": 70,
+        "reason": "La réponse s'écarte de la préparation : durée de l'atelier, licences et cloud ne répondent pas à la question.",
+        "questions": ["Combien de temps dure l'atelier ?", "Le cloud est-il utilisé pendant l'atelier ?"]
+      },
+      "context_precision": {
+        "score": 50,
+        "reason": "Deux extraits sur quatre servent la réponse ; les extraits 2 et 4 ne sont pas utilisés.",
+        "useful": [1, 3]
+      }
+    }
+  },
+  "profile_unscored": { "B": 1, "D": 1 },
+  "runs": {
+    "run-eval-demo": {
+      "_doc": "Résultat conservé, rouvert depuis son adresse : trois modèles locaux, Gemma 4 1B « non évalué : réponse vide ».",
+      "finished_at": "2026-10-18T09:42:00Z",
+      "mode": "question",
+      "question": "Que doivent préparer les participants avant l'atelier du 4 novembre ?",
+      "set_id": null,
+      "judge": "qwen3.6:7b",
+      "models": ["qwen3.5:2b", "gemma4:1b", "lfm2.5:1.2b"],
+      "overrides": { "gemma4:1b": { "all": "réponse vide" } }
+    }
+  }
+}

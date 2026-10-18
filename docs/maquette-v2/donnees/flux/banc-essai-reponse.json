@@ -1,0 +1,15 @@
+{
+  "id": "banc-essai-reponse",
+  "kind": "bench",
+  "label": "Un essai du Banc d'essai : réponse en flux, mesures, fin (ok) ou délai dépassé après une sortie partielle",
+  "_doc": "vars : tag, scenario, force_format, concise, loading (bool), load_s, text (sortie complète ou partielle), tps, metrics (objet de l'événement metrics, ou null), ok (bool : le run finit ok), status (ok|error), error (enveloppe ou null). Le verdict de format n'est pas un événement : l'écran le lit dans l'instantané du run à run_ended (comme le verdict de l'Arène).",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "bench", "models": ["{{tag}}"], "params": { "scenario": "{{scenario}}", "force_format": "{{force_format}}", "concise": "{{concise}}" } } },
+    { "wait": 150, "when": "{{loading}}", "type": "model_loading", "data": { "tag": "{{tag}}" } },
+    { "wait": 3200, "slow_wait": 14000, "when": "{{loading}}", "type": "model_loaded", "data": { "tag": "{{tag}}", "duration_s": "{{load_s}}" } },
+    { "wait": 350, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{text}}", "tps": "{{tps}}" } },
+    { "wait": 2500, "when": "{{timed_out}}", "type": "run_ended", "data": { "status": "error", "error": "{{error}}" } },
+    { "wait": 120, "when": "{{ok}}", "type": "metrics", "data": "{{metrics}}" },
+    { "wait": 40, "when": "{{ok}}", "type": "run_ended", "data": { "status": "ok", "error": null } }
+  ]
+}

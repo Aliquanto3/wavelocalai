@@ -18,6 +18,7 @@ from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.inference.arena import ArenaService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.models.cloud import HttpClientFactory
@@ -29,7 +30,7 @@ from wavelocalai.models.ollama import close_client, make_client
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
-from wavelocalai.rag.index import SqliteVecIndex
+from wavelocalai.rag.index import select_index
 from wavelocalai.rag.ingest import IngestService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
@@ -38,6 +39,7 @@ from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
+    routes_arena,
     routes_chat,
     routes_conversations,
     routes_health,
@@ -115,13 +117,22 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         meter=app.state.meter,
         bus=app.state.system_feed,
     )
+    app.state.arena = ArenaService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+    )
     app.state.ingest = IngestService(
         hub,
         app.state.registry,
         factory,
         app.state.local_slot,
         settings,
-        SqliteVecIndex(),
+        select_index(store.vec_available),
         meter=app.state.meter,
         bus=app.state.system_feed,
         fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement
@@ -143,6 +154,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.probe.aclose()
         app.state.chat = None
         app.state.ingest = None
+        app.state.arena = None
         if owned_client is not None:
             await close_client(owned_client)
             app.state.ollama_client = None
@@ -192,6 +204,7 @@ def create_app(
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.ingest = None  # service d'ingestion des documents, idem
+    app.state.arena = None  # service de l'Arène, idem
     app.state.registry = registry or ModelRegistry(
         settings,
         extra_refs={
@@ -260,6 +273,7 @@ def create_app(
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
     app.include_router(routes_chat.router)
+    app.include_router(routes_arena.router)
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_system.router)

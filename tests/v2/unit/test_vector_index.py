@@ -8,10 +8,12 @@ from pathlib import Path
 import pytest
 
 from wavelocalai.models.fake import fake_vector
-from wavelocalai.rag.index import NumpyIndex, SqliteVecIndex, VectorIndex
+from wavelocalai.rag.index import NumpyIndex, SqliteVecIndex, VectorIndex, select_index
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.migrate import discover
 from wavelocalai.store.vec import vec_table, vec_tables
+
+from ..conftest import needs_vec
 
 
 @pytest.fixture
@@ -29,11 +31,13 @@ def _tables(store: Store) -> list[str]:
 # --- store.ensure_vec_table ----------------------------------------------------------------------
 
 
+@needs_vec
 def test_the_extension_is_loaded_by_the_writer(store):
     assert store.vec_available
     assert store.read("SELECT vec_version() AS v", vec=True)[0]["v"].startswith("v0.")
 
 
+@needs_vec
 async def test_ensure_vec_table_creates_a_named_table_once(store):
     assert "chunks_vec_16" not in _tables(store)
     assert await store.ensure_vec_table(16) == "chunks_vec_16"
@@ -44,6 +48,7 @@ async def test_ensure_vec_table_creates_a_named_table_once(store):
     assert found == {8: "chunks_vec_8", 16: "chunks_vec_16"}  # sans les tables d'ombre de vec0
 
 
+@needs_vec
 async def test_vec_tables_are_not_part_of_any_migration(store, tmp_path):
     """Seule exception écrite aux migrations (AD-12) : aucun `.sql` ne les crée."""
     creates = [
@@ -64,6 +69,7 @@ def test_a_wrong_dimension_is_refused(dim):
         vec_table(dim)
 
 
+@needs_vec
 async def test_the_table_survives_a_reopen_and_ships_the_cosine_metric(tmp_path):
     path = db_path(tmp_path / "data")
     first = Store.open(path)
@@ -92,7 +98,7 @@ TEXTS = {
 }
 
 
-@pytest.fixture(params=["sqlite-vec", "numpy"])
+@pytest.fixture(params=[pytest.param("sqlite-vec", marks=needs_vec), "numpy"])
 def index(request) -> VectorIndex:
     return SqliteVecIndex() if request.param == "sqlite-vec" else NumpyIndex()
 
@@ -139,6 +145,7 @@ def test_search_returns_the_closest_chunks_first(store, index):
     assert len(_search(store, index, "chat", k=2)) == 2
 
 
+@needs_vec
 def test_both_implementations_agree(store, tmp_path):
     other = Store.open(db_path(tmp_path / "numpy"))
     try:
@@ -191,3 +198,37 @@ def test_a_ragged_or_empty_batch_is_refused(store, index):
         store.write(lambda conn: index.add(conn, [], [])).result()
     with pytest.raises(ValueError):
         store.write(lambda conn: index.add(conn, [1], [[1.0], [2.0]])).result()
+
+
+# --- sans l'extension : repli numpy (AD-12) ----------------------------------------------------
+
+
+def test_the_index_follows_the_availability_of_the_extension():
+    assert isinstance(select_index(False), NumpyIndex)
+    assert isinstance(select_index(True), SqliteVecIndex)
+
+
+def test_without_the_extension_the_store_says_so_and_numpy_serves_the_search(tmp_path, monkeypatch):
+    """CPython sans `enable_load_extension` : l'écrivain ne charge rien, l'index est `numpy`,
+    et aucune table ni requête `vec0` n'est émise."""
+
+    class NoExtension(sqlite3.Connection):
+        def enable_load_extension(self, enabled: bool) -> None:
+            raise sqlite3.NotSupportedError("not authorized")
+
+    real_connect = sqlite3.connect
+    monkeypatch.setattr(
+        sqlite3, "connect", lambda *a, **kw: real_connect(*a, **{**kw, "factory": NoExtension})
+    )
+    opened = Store.open(db_path(tmp_path / "data"))
+    try:
+        assert not opened.vec_available
+        index = select_index(opened.vec_available)
+        assert isinstance(index, NumpyIndex)
+        opened.write(lambda conn: index.add(conn, [1, 2], [[1.0, 0.0], [0.0, 1.0]])).result()
+        assert index_search(opened, index, [1.0, 0.0], 2)[0][0] == 1
+        opened.write(lambda conn: index.remove(conn, [1])).result()
+        assert [i for i, _ in index_search(opened, index, [1.0, 0.0], 2)] == [2]
+        assert not [t for t in _tables(opened) if t.startswith("chunks_vec")]
+    finally:
+        opened.close()

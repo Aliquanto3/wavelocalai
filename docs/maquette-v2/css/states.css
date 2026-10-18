@@ -1,0 +1,106 @@
+/* États communs (js/components/states.js) : vide, message, garde-fous, score, CO₂. Couleurs et
+   rayon de tokens.css seulement ; le sens est toujours porté par un texte. */
+
+.wl-empty {
+  max-width: 45rem;
+  margin: 0 0 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-empty-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.wl-empty-title .icon {
+  color: var(--color-primary);
+}
+
+.wl-empty-text {
+  color: var(--color-ink-secondary);
+}
+
+.wl-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-3);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-notice .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+}
+
+.wl-notice-success {
+  border-inline-start-color: var(--color-chart-2);
+}
+
+.wl-notice-warning {
+  border-inline-start-color: var(--color-chart-4);
+}
+
+.wl-loading {
+  margin: 0 0 1rem;
+}
+
+.wl-guard {
+  max-width: 60rem;
+}
+
+.wl-score[data-state="not-evaluated"] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+}
+
+.wl-score-value {
+  font-style: italic;
+  font-weight: 600;
+}
+
+.wl-score-reason,
+.wl-co2-help {
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-co2 {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.wl-co2-value {
+  font-weight: 600;
+}
+
+/* Catalogue des états (#/maquette/etats) */
+.states-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+
+.states-item {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px dashed var(--color-gray-graphic);
+  border-radius: var(--radius);
+}
+
+.states-item > h3 {
+  font-size: 1rem;
+}

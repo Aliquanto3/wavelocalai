@@ -1,0 +1,442 @@
+/* Équipe d'agents : équipe, mission, schéma SVG, suivi par agent, rapport, panneau « Configurer ».
+   Jetons de tokens.css seulement. La trace d'étapes (.step-*) vient de css/screens/agent-seul.css, que
+   l'écran ajoute lui-même (un @import relatif casse axe-core, qui le résout depuis la page). */
+
+.crew-section {
+  margin: 0 0 1.5rem;
+}
+
+.crew-section > .crew-title {
+  margin-bottom: 0.5rem;
+}
+
+.crew-subtitle {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.crew-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+/* Équipe et sujet : champ, puis boutons, qui passent à la ligne sur petit écran */
+.crew-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.crew-select-box {
+  flex: 0 1 22rem;
+  min-width: min(100%, 14rem);
+}
+
+.crew-topic-box {
+  flex: 1 1 22rem;
+  max-width: 42rem;
+}
+
+.crew-select,
+.crew-topic,
+.crew-field {
+  display: block;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+textarea.crew-field {
+  resize: vertical;
+}
+
+.crew-description,
+.crew-busy,
+.crew-reason {
+  max-width: 45rem;
+}
+
+.crew-reason:empty {
+  display: none;
+}
+
+.crew-modified-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.crew-modified {
+  padding: 0 0.625rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
+.crew-notices:empty {
+  display: none;
+}
+
+.crew-notices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.crew-notices > .wl-notice {
+  flex: 1 1 20rem;
+  margin-bottom: 0;
+}
+
+/* Schéma de l'équipe : SVG fait main, sans interaction */
+.crew-graph {
+  max-width: 100%;
+}
+
+.crew-svg {
+  display: block;
+  width: 100%;
+  max-width: 46rem;
+  height: auto;
+}
+
+.crew-svg[data-orientation="vertical"] {
+  max-width: 15rem;
+}
+
+.crew-graph-empty {
+  max-width: 45rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.tg-node {
+  fill: var(--color-surface);
+  stroke: var(--color-gray-graphic);
+  stroke-width: 2;
+}
+
+.tg-group[data-report="true"] .tg-node {
+  fill: var(--color-surface-alt);
+  stroke-dasharray: 6 4;
+}
+
+/* L'agent actif : contour épais ET libellé « en cours » (jamais la couleur seule). */
+.tg-group[data-state="running"] .tg-node,
+.tg-group[data-state="approval"] .tg-node {
+  stroke: var(--color-primary);
+  stroke-width: 5;
+}
+
+.tg-group[data-state="approval"] .tg-node {
+  stroke: var(--color-chart-4);
+  stroke-dasharray: 8 4;
+}
+
+.tg-group[data-state="done"] .tg-node {
+  stroke: var(--color-chart-2);
+  stroke-width: 3;
+}
+
+.tg-group[data-state="failed"] .tg-node,
+.tg-group[data-state="interrupted"] .tg-node,
+.tg-group[data-state="cancelled"] .tg-node {
+  stroke: var(--color-risk);
+  stroke-dasharray: 6 4;
+}
+
+.tg-label {
+  fill: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tg-state {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 12px;
+}
+
+.tg-group[data-state="idle"] .tg-state,
+.tg-group[data-state="waiting"] .tg-state,
+.tg-group[data-state="notrun"] .tg-state {
+  fill: var(--color-ink-secondary);
+}
+
+.tg-arrow line {
+  stroke: var(--color-gray-graphic);
+  stroke-width: 2;
+}
+
+.tg-arrow polygon {
+  fill: var(--color-gray-graphic);
+}
+
+/* Suivi : une ligne dépliable par agent */
+.crew-agents {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.crew-agent {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.crew-agent[data-state="running"] {
+  border: 2px solid var(--color-primary);
+}
+
+.crew-agent[data-state="approval"] {
+  border: 2px dashed var(--color-chart-4);
+}
+
+.crew-agent[data-state="failed"],
+.crew-agent[data-state="interrupted"],
+.crew-agent[data-state="cancelled"] {
+  border-inline-start: 6px solid var(--color-risk);
+}
+
+.crew-agent-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-ink);
+  text-align: start;
+  cursor: pointer;
+}
+
+.crew-agent-head:hover {
+  background: var(--color-surface-alt);
+}
+
+.crew-agent-name {
+  flex: none;
+  min-width: 6rem;
+  font-weight: 700;
+}
+
+.crew-agent-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-ink-secondary);
+}
+
+.crew-agent[data-state="running"] .crew-agent-status,
+.crew-agent[data-state="approval"] .crew-agent-status {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.crew-agent-head > .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.15s;
+}
+
+.crew-agent-head[aria-expanded="true"] > .icon {
+  transform: rotate(180deg);
+}
+
+.crew-agent-body {
+  padding: 0 0.75rem 0.75rem;
+}
+
+.crew-approval-note {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 0.5rem;
+  border-inline-start: 3px solid var(--color-chart-4);
+  color: var(--color-ink);
+}
+
+.crew-section > .wl-run-status {
+  margin-bottom: 0.75rem;
+}
+
+.crew-log {
+  max-width: 60rem;
+}
+
+.crew-log summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.crew-log-text {
+  max-height: 16rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Rapport */
+.crew-report-body {
+  max-width: 60rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.crew-report-foot {
+  margin-top: 0.75rem;
+}
+
+/* Panneau latéral « Configurer l'équipe » : dialogue modal collé à droite */
+/* « Configurer » : volet non modal (décision 35). En large, colonne de droite collante, le contenu de
+   l'écran se resserre à gauche et le schéma reste visible ; en deçà de 1 024 px, dans le flux, sous
+   le schéma. */
+.crew-drawer {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  margin: 1rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+@media (min-width: 1024px) {
+  .crew-has-drawer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) min(30rem, 40vw);
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+
+  .crew-has-drawer > * {
+    grid-column: 1;
+  }
+
+  .crew-has-drawer > .crew-drawer {
+    position: sticky;
+    inset-block-start: 1rem;
+    grid-column: 2;
+    grid-row: 1 / span 40;
+    max-height: calc(100vh - 2rem);
+    margin: 0;
+    overflow-y: auto;
+  }
+}
+
+.crew-drawer-title {
+  font-size: 1.25rem;
+}
+
+.crew-config-agents {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.crew-config-agent {
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.crew-config-agent legend {
+  padding: 0 0.25rem;
+  font-weight: 700;
+}
+
+.crew-config-agent > * + * {
+  margin-top: 0.5rem;
+}
+
+.crew-config-tools {
+  min-width: 0;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.crew-config-tools legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.crew-config-tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 0.25rem 0.75rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crew-config-tool-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.crew-config-tool-list input {
+  flex: none;
+}
+
+.crew-field-error {
+  margin: 0.25rem 0 0;
+  padding-inline-start: 0.5rem;
+  border-inline-start: 4px solid var(--color-risk);
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.crew-field-error[hidden] {
+  display: none;
+}
+
+.crew-field[aria-invalid="true"] {
+  border-color: var(--color-risk);
+  border-width: 2px;
+}
+
+.crew-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
