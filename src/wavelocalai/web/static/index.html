@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WaveLocalAI</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/base.css">
+  <link rel="stylesheet" href="/static/components.css">
+  <link rel="modulepreload" href="/static/main.js">
+  <link rel="modulepreload" href="/static/core/i18n.js">
+  <link rel="modulepreload" href="/static/core/registry.js">
+  <link rel="modulepreload" href="/static/core/router.js">
+  <link rel="modulepreload" href="/static/core/shell.js">
+  <link rel="modulepreload" href="/static/screens/home.js">
+  <script type="module" src="/static/core/theme.js" blocking="render"></script>
+  <script type="module" src="/static/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" id="skip-link" href="#main" data-i18n="shell.skip">Aller au contenu</a>
+
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <img src="/static/favicon.svg" alt="" width="28" height="28">
+      <span data-i18n="app.name">WaveLocalAI</span>
+    </a>
+
+    <button class="btn nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="module-list">
+      <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-menu"/></svg>
+      <span data-i18n="shell.menu">Menu</span>
+    </button>
+
+    <nav class="module-nav" id="modules-nav" aria-label="Modules" data-i18n-aria-label="shell.modules">
+      <ul class="module-list" id="module-list"></ul>
+    </nav>
+
+    <div class="topbar-tools">
+      <button class="btn" id="display-button" type="button" aria-expanded="false" aria-controls="display-panel">
+        <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-palette"/></svg>
+        <span data-i18n="shell.display.button">Affichage</span>
+      </button>
+      <div class="display-panel" id="display-panel" hidden>
+        <fieldset>
+          <legend data-i18n="shell.display.theme">Thème</legend>
+          <label class="choice"><input type="radio" name="theme" value="light"><span data-i18n="shell.display.light">Clair</span></label>
+          <label class="choice"><input type="radio" name="theme" value="dark"><span data-i18n="shell.display.dark">Sombre</span></label>
+        </fieldset>
+        <label class="choice"><input type="checkbox" name="projection" aria-describedby="projection-help"><span data-i18n="shell.display.projection">Mode projection</span></label>
+        <p class="help" id="projection-help" data-i18n="shell.display.projection_help">Texte agrandi pour la salle ; le pied de page est masqué.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="main" id="main" tabindex="-1">
+    <noscript><p data-i18n="shell.noscript">WaveLocalAI a besoin de JavaScript pour s'afficher. Activez-le dans votre navigateur, puis rechargez la page.</p></noscript>
+  </main>
+
+  <footer class="footer">
+    <p data-i18n="shell.footer">Les données restent sur ce poste tant que le cloud n'est pas autorisé.</p>
+  </footer>
+
+  <div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
+</body>
+</html>

@@ -1,0 +1,120 @@
+/* Reset, typographie, focus, mouvement et mode projection (UX-DR2). */
+
+/* Inter, servie depuis ce dossier (aucun CDN) : la pile Aptos -> Inter -> sans-serif est dans
+   tokens.css. Aptos est appelée par son nom (--font-body) : installée, elle prime ; sinon le
+   navigateur ne télécharge Inter que pour les caractères qu'il affiche. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable-Italic.woff2") format("woff2");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  line-height: 1.25;
+  margin: 0 0 0.5em;
+}
+
+h1 {
+  font-size: var(--text-heading);
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 1.375rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--color-link);
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* Focus visible à 3:1 au moins sur toutes les surfaces (primary : 9,32:1 clair, 4,6:1 sombre). */
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Cibles de focus programmatique (h1 de l'écran, <main>) : pas d'anneau parasite. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mode projection : rampe typographique x9/7 (toute la mise en page est en rem), métriques
+   agrandies, pied de page masqué. */
+:root[data-projection="true"] {
+  font-size: calc(100% * 9 / 7);
+  --text-metric-value: 3.25rem;
+}
+
+:root[data-projection="true"] .footer {
+  display: none;
+}
