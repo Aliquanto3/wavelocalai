@@ -351,11 +351,9 @@ class ModelRegistry:
         if rec is not None:
             return ModelRef(rec.facts.tag, "ollama", _origin(rec), _classify(rec.facts))
         provider, _, model = tag.partition("/")
-        if (
-            model
-            and self._settings.api_keys.get(provider)
-            and model in self._settings.cloud.models.get(provider, ())
-        ):
+        # Un modèle cloud déclaré se résout même sans clé (la liste, elle, ne le propose pas) : la
+        # clé absente est alors dite par l'appel (`cloud_key_missing`, avec où la configurer).
+        if model and model in self._settings.cloud.models.get(provider, ()):
             return ModelRef(tag, provider, "cloud", "chat")
         return None
 

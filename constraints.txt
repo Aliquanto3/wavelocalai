@@ -235,7 +235,6 @@ httpx==0.28.1
     #   langchain-mistralai
     #   langgraph-sdk
     #   mcp
-    #   mistralai
     #   ollama
     #   openai
 httpx-sse==0.4.3
@@ -247,6 +246,7 @@ httpx2==2.13.1
     # via
     #   anthropic
     #   langsmith
+    #   mistralai
 httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten'
     # via httpx2
 huggingface-hub==1.33.0
@@ -415,7 +415,7 @@ mdit-py-plugins==0.6.1
     # via textual
 mdurl==0.1.2
     # via markdown-it-py
-mistralai==2.10.1
+mistralai==3.2.0
     # via -r requirements.txt
 mmh3==5.3.0
     # via chromadb

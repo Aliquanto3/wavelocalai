@@ -82,6 +82,22 @@ def test_chat_codes_are_declared_and_none_reuses_a_status_name():
     assert ERRORS["ollama_error"].status == 502
 
 
+def test_cloud_codes_name_the_provider_and_the_key_variable():
+    detail = {"provider": "groq", "provider_name": "Groq", "key_var": "GROQ_API_KEY"}
+    missing = build_envelope("cloud_key_missing", "x", **detail)
+    assert "Groq" in missing["message"] and "GROQ_API_KEY" in missing["action"]
+    assert ".env" in missing["action"] and "{" not in missing["message"] + missing["action"]
+    unreachable = build_envelope("cloud_unreachable", None, provider="groq", provider_name="Groq")
+    assert "Groq" in unreachable["message"] and "Local" in unreachable["action"]
+    refused = build_envelope("cloud_key_refused", None, http_status=401, **detail)
+    assert refused["detail"]["http_status"] == 401
+    bare = build_envelope("cloud_error")  # sans detail : formule neutre, jamais d'accolade
+    assert "{" not in bare["message"] and "le fournisseur" in bare["message"]
+    from wavelocalai.runs.models import STATUSES
+
+    assert not {c for c in ERRORS if c.startswith("cloud_")} & set(STATUSES)
+
+
 def test_conversation_busy_is_a_409_that_names_the_active_run():
     spec = ERRORS["conversation_busy"]
     assert spec.status == 409 and spec.detail_keys == ("run_id",)

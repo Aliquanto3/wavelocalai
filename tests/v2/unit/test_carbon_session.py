@@ -38,8 +38,8 @@ async def test_session_without_run_is_zero_and_nothing_unmeasurable(store, hub):
     assert summary["total_mg"] == 0.0 and summary["unmeasurable_runs"] == 0
     assert summary["measured_runs"] == 0 and summary["by_module"] == {}
     assert summary["by_origin"] == {
-        "local": {"mg": 0.0, "runs": 0},
-        "cloud": {"mg": 0.0, "runs": 0},
+        "local": {"mg": 0.0, "runs": 0, "unmeasurable_runs": 0},
+        "cloud": {"mg": 0.0, "runs": 0, "unmeasurable_runs": 0},
     }
     assert summary["app_session"]["id"] == hub.app_session_id
     assert summary["app_session"]["reason"] == "startup"
@@ -52,8 +52,16 @@ async def test_leaves_are_summed_by_module_and_by_origin(store, hub):
     await hub.finish_leaf(rag.run_id, LeafResult(origin="cloud"), CLOUD_CO2)
     summary = await session_summary(store, hub.app_session_id)
     assert summary["total_mg"] == pytest.approx(7.0)
-    assert summary["by_origin"]["local"] == {"mg": pytest.approx(3.0), "runs": 2}
-    assert summary["by_origin"]["cloud"] == {"mg": pytest.approx(4.0), "runs": 1}
+    assert summary["by_origin"]["local"] == {
+        "mg": pytest.approx(3.0),
+        "runs": 2,
+        "unmeasurable_runs": 0,
+    }
+    assert summary["by_origin"]["cloud"] == {
+        "mg": pytest.approx(4.0),
+        "runs": 1,
+        "unmeasurable_runs": 0,
+    }
     assert summary["by_module"]["chat"] == {
         "mg": pytest.approx(3.0),
         "runs": 2,
@@ -71,7 +79,7 @@ async def test_unmeasurable_leaves_are_counted_apart_never_as_zero(store, hub):
     assert summary["total_mg"] == pytest.approx(1.5)
     assert summary["unmeasurable_runs"] == 1 and summary["measured_runs"] == 1
     assert summary["by_module"]["chat"]["unmeasurable_runs"] == 1
-    assert summary["by_origin"]["cloud"] == {"mg": 0.0, "runs": 1}
+    assert summary["by_origin"]["cloud"] == {"mg": 0.0, "runs": 1, "unmeasurable_runs": 1}
 
 
 async def test_a_composite_parent_is_never_counted_only_its_leaves(store, hub):

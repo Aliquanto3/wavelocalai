@@ -113,8 +113,9 @@ def install_models(page):
     page.route(re.compile(r"/api/models/defaults\?"), on_defaults)
 
 
-def scripted(page, server, script, commands=None):
-    """Les commandes de chat de la page lancent un run scripté du `fake` (route de test)."""
+def scripted(page, server, script, commands=None, co2=None):
+    """Les commandes de chat de la page lancent un run scripté du `fake` (route de test). `co2` fixe
+    le champ `co2` de la feuille (AD-10), comme le ferait le compteur CodeCarbon (story 2.3)."""
 
     def on_chat(route):
         body = json.loads(route.request.post_data)
@@ -127,6 +128,7 @@ def scripted(page, server, script, commands=None):
                 "model": body["model"],
                 "message": body["message"],
                 "script": script,
+                **({} if co2 is None else {"co2": co2}),
             },
         )
         if response.ok:
@@ -269,7 +271,8 @@ def test_tokens_are_shown_as_safe_markdown_and_the_footer_turns_final(chat, serv
     assert "Débit 38,4 tokens/s" in foot and "(provisoire)" not in foot
     assert "Tokens 12" in foot and "Chargement 0,42 s" in foot and "Durée totale 1,2 s" in foot
     chat.locator(".wl-msg-foot wl-metric", has_text="Débit").get_by_role("button").click()
-    assert "chargement du modèle exclu" in chat.locator(".wl-metric-help").inner_text()
+    rate_help = chat.locator(".wl-msg-foot wl-metric", has_text="Débit").locator(".wl-metric-help")
+    assert "chargement du modèle exclu" in rate_help.inner_text()
     wait_for(
         chat,
         "() => document.querySelector('wl-chat-thread [role=status]').textContent"
@@ -305,6 +308,71 @@ def test_the_footer_is_provisional_and_italic_until_the_metrics_arrive(chat, ser
     assert "Durée" in chat.locator(".wl-msg-foot").inner_text()
     chat.locator(".wl-msg-foot").filter(has_text="Durée totale").wait_for()
     assert "(provisoire)" not in chat.locator(".wl-msg-foot").inner_text()
+
+
+# --- CO2 mesuré dans le pied de réponse (story 2.3) ---------------------------------------------
+
+MEASURED = {"mg": 1.8, "method": "codecarbon", "estimated": False, "allocation": "direct"}
+UNMEASURABLE = {
+    "mg": None,
+    "method": "unmeasurable",
+    "reason": "CodeCarbon n'a pas démarré (RuntimeError).",
+}
+
+
+def finished_foot(page):
+    page.locator(".wl-msg-foot").filter(has_text="Durée totale").wait_for()
+    return page.locator(".wl-msg-foot")
+
+
+def test_a_measured_local_reply_shows_its_co2_in_the_footer_in_one_unit_and_no_threshold_color(
+    chat, server
+):
+    scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=MEASURED)
+    ask(chat, "Dis bonjour")
+    foot = finished_foot(chat)
+    text = re.sub(r"\s+", " ", foot.inner_text())
+    assert "CO₂ 1,8 mg" in text  # fr-FR : virgule décimale, espace insécable avant l'unité
+    assert text.index("CO₂") < text.index("Débit")  # badge, CO₂, débit, chargement, durée
+    co2 = foot.locator("wl-metric", has_text="CO₂")
+    assert co2.locator(".wl-metric-unit, .wl-metric-flag").count() == 0
+    # Jamais de couleur par seuil : le CO₂ a la couleur des autres chiffres du pied.
+    colors = foot.locator(".wl-metric-value").evaluate_all(
+        "nodes => nodes.map(n => getComputedStyle(n).color)"
+    )
+    assert len(set(colors)) == 1, colors
+
+
+def test_a_large_co2_keeps_a_single_unit(chat, server):
+    scripted(chat, server, [{"text": "Long"}, {"done": DONE}], co2={**MEASURED, "mg": 2400.0})
+    ask(chat, "Dis bonjour")
+    text = re.sub(r"\s+", " ", finished_foot(chat).inner_text())
+    assert "CO₂ 2,4 g" in text and " mg" not in text.split("Débit")[0]
+
+
+def test_an_unmeasurable_reply_says_so_with_its_reason_in_help_and_never_shows_zero(chat, server):
+    scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=UNMEASURABLE)
+    ask(chat, "Dis bonjour")
+    foot = finished_foot(chat)
+    metric = foot.locator("wl-metric", has_text="CO₂")
+    assert re.sub(r"\s+", " ", metric.inner_text()).startswith("CO₂ non mesurable")
+    assert not re.search(r"CO₂\s*0", re.sub(r"\s+", " ", foot.inner_text()))
+    metric.get_by_role("button").click()
+    assert metric.locator(".wl-metric-help").inner_text() == UNMEASURABLE["reason"]
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_axe_finds_no_violation_on_the_footer_with_a_measured_and_an_unmeasurable_co2(
+    chat, server, theme
+):
+    chat.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
+    for co2, label in ((MEASURED, "mesuré"), (UNMEASURABLE, "non mesurable")):
+        scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=co2)
+        ask(chat, f"Question {label}")
+        chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
+        foot = finished_foot(chat).last
+        foot.locator("wl-metric", has_text="CO₂").get_by_role("button").click()
+        assert_no_axe_violations(chat, f"pied avec CO₂ {label}, thème {theme}")
 
 
 # `core/markdown.js` seul, dans une page : titres, listes, code, liens sûrs, jamais du HTML.
@@ -744,3 +812,20 @@ def test_a_disabled_filled_button_is_told_by_colors_not_by_opacity(chat, server)
     assert style == ["rgb(22, 22, 42)", "rgb(180, 180, 198)", "1"]
     count, report = contrast_violations(chat)
     assert count == 0, report
+
+
+def test_a_cloud_reply_shows_its_estimate_with_the_ecologits_caveat_in_help(chat, server):
+    estimated = {
+        "mg": 3.2,
+        "method": "ecologits",
+        "estimated": True,
+        "allocation": "direct",
+        "reason": "Estimation peu fiable pour ce modèle.",
+    }
+    scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=estimated)
+    ask(chat, "Dis bonjour")
+    metric = finished_foot(chat).locator("wl-metric", has_text="CO₂")
+    assert re.sub(r"\s+", " ", metric.inner_text()).startswith("CO₂ 3,2 mg (estimé)")
+    metric.get_by_role("button").click()
+    help_text = metric.locator(".wl-metric-help").inner_text()
+    assert "EcoLogits" in help_text and help_text.endswith(estimated["reason"])

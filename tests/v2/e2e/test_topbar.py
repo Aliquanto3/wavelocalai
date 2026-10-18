@@ -274,7 +274,7 @@ def test_co2_panel_follows_carbon_updated_in_milligrams_then_grams(fresh_bar):
         "pill": f"2,7{NBSP}mg",
         "total": f"2,7{NBSP}mg",
         "local": f"1,8{NBSP}mg",
-        "cloud": f"0,9{NBSP}mg",
+        "cloud": f"0,9{NBSP}mg (estimé)",
         "unmeasurable": "1 réponse",
     }
     assert panel.get_by_text("ne sont pas comptées dans le total").is_visible()
@@ -283,7 +283,20 @@ def test_co2_panel_follows_carbon_updated_in_milligrams_then_grams(fresh_bar):
     run_scripted(bar, server, origin="local", co2={**LOCAL_CO2, "mg": 1500.0})
     wait_for(bar, f"() => document.getElementById('co2-total').textContent === '1,5{NBSP}g'")
     rows = co2_rows(bar)
-    assert rows["local"] == f"1,5{NBSP}g" and rows["cloud"] == f"0,0009{NBSP}g"
+    assert rows["local"] == f"1,5{NBSP}g" and rows["cloud"] == f"0,0009{NBSP}g (estimé)"
+
+
+def test_a_cloud_without_any_measure_reads_non_mesurable_never_zero(fresh_bar):
+    bar, server = fresh_bar
+    bar.locator("#co2-value").wait_for(state="visible")
+    open_panel(bar, "co2-button", "co2-panel")
+    run_scripted(bar, server, origin="cloud")  # ni mesure ni estimation : jamais « 0 mg »
+    wait_for(bar, "() => document.getElementById('co2-unmeasurable').textContent === '1 réponse'")
+    rows = co2_rows(bar)
+    assert rows["cloud"] == "non mesurable" and rows["total"] == f"0{NBSP}mg"
+    run_scripted(bar, server, origin="cloud", co2=CLOUD_CO2)
+    wait_for(bar, "() => document.getElementById('co2-cloud').textContent.includes('(estimé)')")
+    assert co2_rows(bar)["cloud"] == f"0,9{NBSP}mg (estimé)"
 
 
 def test_co2_survives_a_reload_from_the_session_endpoint(fresh_bar):
