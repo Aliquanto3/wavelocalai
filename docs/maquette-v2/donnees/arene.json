@@ -10,7 +10,7 @@
     {
       "id": "extraction-json",
       "label": "Extraction JSON",
-      "prompt": "Extrais la date, le montant et le fournisseur de cette facture fictive, en JSON : « Facture du 12 octobre 2026 de la société Hélianthe pour 480 €. »"
+      "prompt": "Extrais la date, le montant et le fournisseur de cette facture fictive, en JSON : « Facture du 12 octobre 2026 de la société Ombrelune pour 480 €. »"
     },
     {
       "id": "resume",

@@ -102,3 +102,43 @@ def test_models_changed_on_the_models_screen_are_shared(page, base_url):
     assert result["found"] == "Granite 4.1 8B"
     assert "granite4.1:8b" not in result["afterReset"]
     assert "qwen3.5:2b" in result["afterReset"]
+
+
+def test_restore_cancels_pending_retries_and_missing_when_omits(page, base_url):
+    open_route(page, base_url, "/")
+    result = page.evaluate(
+        """async ([simPath, sysPath, storePath]) => {
+            const { sim } = await import(simPath);
+            const { loseConnection, restoreConnection } = await import(sysPath);
+            const { store } = await import(storePath);
+            loseConnection();
+            restoreConnection(); // bascule rapide : les tentatives en attente ne reviennent pas
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const status = store.get().connection.status;
+            const prepared = sim.prepare([{ wait: 0, type: "model_loading", data: {}, when: "{{absent}}" }], {});
+            return { status, prepared: prepared.length };
+        }""",
+        [SIM, SYSTEME, STORE],
+    )
+    assert result["status"] == "open"
+    assert result["prepared"] == 0
+
+
+def test_stop_before_the_script_is_ready_emits_no_token(page, base_url):
+    open_route(page, base_url, "/")
+    types = page.evaluate(
+        """async (simPath) => {
+            const { sim } = await import(simPath);
+            const types = [];
+            const run = sim.play({ kind: "test-arret", events: [
+              { wait: 0, type: "run_started", data: {} },
+              { wait: 0, type: "token", data: { lane: 0, text: "a", channel: "answer" } },
+              { wait: 0, type: "run_ended", data: { status: "ok", error: null } },
+            ] }, { "*": (data, env) => types.push(env.type) }, { speed: 1 });
+            run.stop(); // avant que `run.ready` soit résolu
+            await run.done;
+            return types;
+        }""",
+        SIM,
+    )
+    assert types == ["run_ended"]

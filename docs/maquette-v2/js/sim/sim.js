@@ -54,7 +54,8 @@ function substitute(value, vars) {
 function expand(events = []) {
   const out = [];
   for (const event of events) {
-    if ("when" in event && !event.when) continue; // "when": "{{var}}" faux : événement omis
+    // "when": "{{var}}" faux, ou variable absente (la chaîne reste "{{var}}") : événement omis
+    if ("when" in event && (!event.when || /^\{\{\w+\}\}$/.test(event.when))) continue;
     if (!event.tokens) {
       out.push(event);
       continue;
@@ -111,7 +112,7 @@ class SimRun {
   }
 
   schedule() {
-    if (this.ended || this.paused || this.index >= this.queue.length) return;
+    if (this.ended || this.stopping || this.paused || this.index >= this.queue.length) return;
     const event = this.queue[this.index];
     if (event.pause) {
       this.index += 1;

@@ -75,7 +75,7 @@
         "kind": "tool_call",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "contrat Hélianthe date de signature",
+          "query": "contrat Ombrelune date de signature",
           "limit": 5
         },
         "summary": null,
@@ -93,7 +93,7 @@
         "kind": "tool_result",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "contrat Hélianthe date de signature",
+          "query": "contrat Ombrelune date de signature",
           "limit": 5
         },
         "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
@@ -141,7 +141,7 @@
         "kind": "tool_call",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe contrat cadre",
+          "query": "Ombrelune contrat cadre",
           "limit": 5
         },
         "summary": null,
@@ -159,7 +159,7 @@
         "kind": "tool_result",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe contrat cadre",
+          "query": "Ombrelune contrat cadre",
           "limit": 5
         },
         "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
@@ -207,7 +207,7 @@
         "kind": "tool_call",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe convention 2024",
+          "query": "Ombrelune convention 2024",
           "limit": 5
         },
         "summary": null,
@@ -225,7 +225,7 @@
         "kind": "tool_result",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe convention 2024",
+          "query": "Ombrelune convention 2024",
           "limit": 5
         },
         "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
@@ -273,7 +273,7 @@
         "kind": "tool_call",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe avenant",
+          "query": "Ombrelune avenant",
           "limit": 5
         },
         "summary": null,
@@ -291,7 +291,7 @@
         "kind": "tool_result",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe avenant",
+          "query": "Ombrelune avenant",
           "limit": 5
         },
         "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",
@@ -339,7 +339,7 @@
         "kind": "tool_call",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe bon de commande",
+          "query": "Ombrelune bon de commande",
           "limit": 5
         },
         "summary": null,
@@ -357,7 +357,7 @@
         "kind": "tool_result",
         "tool": "recherche_interne",
         "arguments": {
-          "query": "Hélianthe bon de commande",
+          "query": "Ombrelune bon de commande",
           "limit": 5
         },
         "summary": "0 fiche de contrat trouvée (2 fiches commerciales, sans date de signature).",

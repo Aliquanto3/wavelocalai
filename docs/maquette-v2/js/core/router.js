@@ -126,12 +126,23 @@ export function createRouter({ main, announcer, routes, makeContext, onRoute = (
     entry.mounted = false;
   }
 
+  // Un seul montage ou démontage à la fois par écran : deux navigations rapprochées ne montent pas
+  // deux fois le même hôte (la fonction de démontage du premier serait perdue, ses écouteurs aussi).
+  function exclusive(entry, task) {
+    const next = (entry.busy ?? Promise.resolve()).then(task);
+    entry.busy = next.catch(() => {});
+    return next;
+  }
+
   // Démonte puis remonte l'écran courant (scénarios : repartir d'un état propre).
   async function remount(screen) {
     const entry = entries.get(screen);
     if (!entry || !current || current.route.screen !== screen) return;
-    await unmountEntry(entry);
-    await mountEntry(entry, current.route, current.params);
+    const { route, params } = current;
+    await exclusive(entry, async () => {
+      await unmountEntry(entry);
+      await mountEntry(entry, route, params);
+    });
   }
 
   async function show(route, params, { focus, reason }) {
@@ -141,11 +152,14 @@ export function createRouter({ main, announcer, routes, makeContext, onRoute = (
     try {
       entry.module ??= await loadModule(route.screen);
       if (mine !== token) return;
-      if (entry.mounted && entry.key !== key) await unmountEntry(entry);
-      if (!entry.mounted) {
-        await mountEntry(entry, route, params);
-        entry.key = key;
-      }
+      await exclusive(entry, async () => {
+        if (mine !== token) return;
+        if (entry.mounted && entry.key !== key) await unmountEntry(entry);
+        if (!entry.mounted) {
+          await mountEntry(entry, route, params);
+          entry.key = key;
+        }
+      });
     } catch (error) {
       console.error(`Écran ${route.screen} : échec du chargement`, error);
       showError(entry, route, error);

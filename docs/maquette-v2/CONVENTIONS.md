@@ -56,4 +56,4 @@ Chaque agent écrit `notes/<s>.md` : (a) états couverts (id des scénarios) ; (
 
 ## Vérifier
 
-`C:\Users\Utilisateur\Documents\GitHub\wavelocalai\.venv\Scripts\python.exe -m pytest docs/maquette-v2/tests -q --tb=short` (Edge via `WAVELOCALAI_E2E_CHROMIUM`, sinon Edge à son emplacement habituel). Les tests lisent `donnees/routes.json` et les `scenarios` de chaque module : axe sans exclusion (clair, sombre, projection), 320 à 1 440 px sans défilement horizontal, clavier, aucune erreur ni avertissement de console, aucune requête hors de 127.0.0.1.
+Depuis la racine du dépôt : `.venv\Scripts\python.exe -m pytest docs/maquette-v2/tests -q --tb=short` (Edge via `WAVELOCALAI_E2E_CHROMIUM`, sinon Edge à son emplacement habituel). Les tests lisent `donnees/routes.json` et les `scenarios` de chaque module : axe sans exclusion (clair, sombre, projection), 320 à 1 440 px sans défilement horizontal, clavier, aucune erreur ni avertissement de console, aucune requête hors de 127.0.0.1.

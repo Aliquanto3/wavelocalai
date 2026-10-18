@@ -48,7 +48,9 @@ def test_each_scenario_of_the_screen_passes_axe(page, base_url, route):
     path = route_path(route)
     open_route(page, base_url, path)
     failures: list[str] = []
-    for scenario_id in scenario_ids(page):
+    ids = scenario_ids(page)
+    assert ids, f"{route['slug']} : aucun scénario exporté, les états de l'écran ne sont pas vérifiés"
+    for scenario_id in ids:
         # Un scénario peut quitter l'écran (parcours) : on y revient avant le suivant.
         page.evaluate("(path) => window.__maquette.navigate(path)", path)
         try:

@@ -78,16 +78,21 @@ export function setOllamaDown(down) {
   }
 }
 
+let retryTimers = []; // tentatives en attente : `restoreConnection` les annule (bascule rapide)
+
 export function loseConnection() {
-  RETRY_STEPS_MS.forEach((delay, index) => {
+  retryTimers.forEach(clearTimeout);
+  retryTimers = RETRY_STEPS_MS.map((delay, index) =>
     setTimeout(() => {
       const failures = index + 1;
       store.set({ connection: { status: failures >= 3 ? "lost" : "retrying", failures } });
-    }, delay / speed());
-  });
+    }, delay / speed()),
+  );
 }
 
 export function restoreConnection() {
+  retryTimers.forEach(clearTimeout);
+  retryTimers = [];
   store.set({ connection: { status: "open", failures: 0 }, ollama: ollamaState(), system: systemState() });
 }
 

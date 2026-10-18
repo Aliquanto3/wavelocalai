@@ -1,5 +1,5 @@
 {
-  "_doc": "Base documentaire simulée (GET /api/rag/documents, GET /api/rag/settings). Contenus 100 % fictifs : la société Hélianthe n'existe pas. 12 documents et 340 extraits pour la base « complet » (résumé de l'Accueil). `presets` : les bases que les scénarios posent ; `samples` : les fichiers que les scénarios « déposent » (la maquette ne lit jamais un fichier choisi : seuls son nom et sa taille servent).",
+  "_doc": "Base documentaire simulée (GET /api/rag/documents, GET /api/rag/settings). Contenus 100 % fictifs : la société Ombrelune n'existe pas. 12 documents et 340 extraits pour la base « complet » (résumé de l'Accueil). `presets` : les bases que les scénarios posent ; `samples` : les fichiers que les scénarios « déposent » (la maquette ne lit jamais un fichier choisi : seuls son nom et sa taille servent).",
   "documents": [
     { "id": "doc-01", "name": "Note-cadrage-atelier.docx", "chunks": 14, "pages": 4, "added_at": "2026-10-17T09:15:00Z" },
     { "id": "doc-02", "name": "Charte-sobriete-numerique.pdf", "chunks": 35, "pages": 12, "added_at": "2026-10-16T14:02:00Z" },

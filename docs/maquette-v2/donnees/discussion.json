@@ -1,5 +1,5 @@
 {
-  "_doc": "Données simulées de la Discussion (POST /api/rag/runs). Contenus 100 % fictifs (société Hélianthe, atelier inventé). `sources` : les cinq extraits que la recherche pourrait rendre, dans l'ordre de pertinence ; le run n'en publie que `top_k`. `passage` : champ HORS CONTRAT de l'événement `sources`, la maquette s'en sert pour surligner le passage qui fonde la réponse (voir notes/discussion.md). `citations` : correspondances [n] vers les sources, vérifiées par le serveur. metrics : ce que le serveur publierait dans `metrics` (D3, AD-10), plus `search_s` (durée de recherche, à part).",
+  "_doc": "Données simulées de la Discussion (POST /api/rag/runs). Contenus 100 % fictifs (société Ombrelune, atelier inventé). `sources` : les cinq extraits que la recherche pourrait rendre, dans l'ordre de pertinence ; le run n'en publie que `top_k`. `passage` : champ HORS CONTRAT de l'événement `sources`, la maquette s'en sert pour surligner le passage qui fonde la réponse (voir notes/discussion.md). `citations` : correspondances [n] vers les sources, vérifiées par le serveur. metrics : ce que le serveur publierait dans `metrics` (D3, AD-10), plus `search_s` (durée de recherche, à part).",
   "default_question": "Que doivent préparer les participants avant l'atelier du 4 novembre ?",
   "second_question": "Où se déroule l'atelier ?",
   "answer": {

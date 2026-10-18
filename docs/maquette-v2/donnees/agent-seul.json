@@ -1,5 +1,5 @@
 {
-  "_doc": "Données simulées de l'écran Agent seul (GET /api/agents/tools, actions rapides, réponses, métriques d'un run d'agent). Contenus 100 % fictifs : société Hélianthe, fichiers ventes*.csv, adresses en .test. `metrics` : ce que le serveur publierait dans l'événement metrics (agrégat des appels de modèle de la tâche, D3, AD-10).",
+  "_doc": "Données simulées de l'écran Agent seul (GET /api/agents/tools, actions rapides, réponses, métriques d'un run d'agent). Contenus 100 % fictifs : société Ombrelune, fichiers ventes*.csv, adresses en .test. `metrics` : ce que le serveur publierait dans l'événement metrics (agrégat des appels de modèle de la tâche, D3, AD-10).",
   "smtp_reason": "Configuration SMTP absente : renseignez SMTP_HOST, SMTP_USER et SMTP_PASSWORD dans le fichier .env.",
   "approval_expiry_min": 10,
   "tools": [
@@ -114,7 +114,7 @@
   ],
   "prompts": {
     "erreur_outil": "Analyse le fichier ventes_t3.csv et résume les tendances du trimestre.",
-    "bornes": "Retrouve la date de signature du contrat du client Hélianthe dans les fiches internes.",
+    "bornes": "Retrouve la date de signature du contrat du client Ombrelune dans les fiches internes.",
     "email": "Analyse le fichier ventes.csv puis prépare un email de synthèse pour le client."
   },
   "answers": {
@@ -126,12 +126,12 @@
     "email_refuse": "L'email **n'a pas été envoyé** : vous avez refusé l'envoi. Rien n'a quitté le poste.\n\nLe brouillon est dans la trace des étapes. Dites-moi ce qu'il faut modifier et je le prépare de nouveau.",
     "email_expire": "L'email **n'a pas été envoyé** : la validation a expiré au bout de 10 minutes, ce qui vaut refus.\n\nLe brouillon est dans la trace des étapes. Relancez la tâche si vous voulez le renvoyer.",
     "erreur_outil": "Le fichier `ventes_t3.csv` n'existe pas ; j'ai utilisé **ventes.csv**, le seul disponible.\n\nSur le trimestre le plus récent :\n\n- Octobre : 44 800 €.\n- Novembre : 51 200 €.\n- Décembre : 48 900 €.\n\nLe chiffre d'affaires est stable, avec un pic en novembre.",
-    "bornes": "Je n'ai pas trouvé la date de signature du contrat Hélianthe : la limite de 12 étapes est atteinte.\n\nCe que j'ai vérifié : cinq recherches dans les fiches internes, sans fiche de contrat. Précisez le nom du dossier ou donnez-moi un numéro de fiche, et je reprends."
+    "bornes": "Je n'ai pas trouvé la date de signature du contrat Ombrelune : la limite de 12 étapes est atteinte.\n\nCe que j'ai vérifié : cinq recherches dans les fiches internes, sans fiche de contrat. Précisez le nom du dossier ou donnez-moi un numéro de fiche, et je reprends."
   },
   "email": {
     "to": "c.moreau@clientexemple.test",
     "subject": "Synthèse des ventes de l'année",
-    "body": "Bonjour,\n\nVoici la synthèse des ventes de l'année, d'après le fichier ventes.csv :\n\n- Chiffre d'affaires total : 482 300 €.\n- Progression de janvier à décembre : +12 %.\n- Meilleur mois : novembre (51 200 €).\n\nLe graphique par mois est disponible sur demande.\n\nCordialement,\nL'équipe Hélianthe"
+    "body": "Bonjour,\n\nVoici la synthèse des ventes de l'année, d'après le fichier ventes.csv :\n\n- Chiffre d'affaires total : 482 300 €.\n- Progression de janvier à décembre : +12 %.\n- Meilleur mois : novembre (51 200 €).\n\nLe graphique par mois est disponible sur demande.\n\nCordialement,\nL'équipe Ombrelune"
   },
   "results": {
     "approved": "Email envoyé.",

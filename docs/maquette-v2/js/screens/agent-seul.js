@@ -76,7 +76,7 @@ export function decideInDialog(approve) {
 // --- Fichiers produits par les outils ------------------------------------------------------------------
 // Le vrai front lit `GET /api/outputs/{name}` ; la maquette fabrique un petit fichier fictif.
 export function openOutput(name) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120"><title>${name}</title><rect x="20" y="60" width="24" height="40" fill="#451DC7"/><rect x="60" y="45" width="24" height="55" fill="#451DC7"/><rect x="100" y="35" width="24" height="65" fill="#451DC7"/><rect x="140" y="20" width="24" height="80" fill="#451DC7"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120"><title>${name.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)}</title><rect x="20" y="60" width="24" height="40" fill="#451DC7"/><rect x="60" y="45" width="24" height="55" fill="#451DC7"/><rect x="100" y="35" width="24" height="65" fill="#451DC7"/><rect x="140" y="20" width="24" height="80" fill="#451DC7"/></svg>`;
   const blob = new Blob([name.endsWith(".svg") ? svg : "Fichier fictif de la maquette.\n"], {
     type: name.endsWith(".svg") ? "image/svg+xml" : "text/plain",
   });

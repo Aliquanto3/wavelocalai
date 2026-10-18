@@ -660,6 +660,7 @@ a.btn-primary {
 
 .wl-table thead th {
   background: var(--color-surface-alt);
+  vertical-align: middle; /* en-têtes triables (bouton) et simples sur la même ligne */
 }
 
 .wl-table tbody tr:last-child > * {

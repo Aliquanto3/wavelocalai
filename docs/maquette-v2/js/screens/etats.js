@@ -41,7 +41,7 @@ export function mount(host, ctx) {
 
   async function askEmail() {
     const ok = await s.confirmEmail({
-      to: "direction@helianthe.example",
+      to: "direction@ombrelune.example",
       subject: "Synthèse des ventes fictives du trimestre",
       body: "Bonjour,\n\nVoici la synthèse préparée par l'agent : les ventes fictives progressent de 4 % sur le trimestre.\n\nCordialement",
     });

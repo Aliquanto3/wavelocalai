@@ -50,7 +50,7 @@
       "id": "courrier",
       "name": "Compte rendu au client",
       "description": "Un analyste lit les chiffres, un rédacteur prépare le compte rendu et l'email au client. L'envoi demande votre validation.",
-      "default_topic": "Ventes du trimestre pour la société Hélianthe",
+      "default_topic": "Ventes du trimestre pour la société Ombrelune",
       "agents": [
         {
           "id": "analyste",
@@ -336,7 +336,7 @@
   "email": {
     "to": "c.moreau@clientexemple.test",
     "subject": "Compte rendu des ventes du trimestre",
-    "body": "Bonjour,\n\nVoici le compte rendu des ventes du trimestre :\n\n- Chiffre d'affaires : 144 900 €.\n- Meilleur mois : novembre (51 200 €).\n- Progression : +6 %.\n\nCordialement,\nL'équipe Hélianthe"
+    "body": "Bonjour,\n\nVoici le compte rendu des ventes du trimestre :\n\n- Chiffre d'affaires : 144 900 €.\n- Meilleur mois : novembre (51 200 €).\n- Progression : +6 %.\n\nCordialement,\nL'équipe Ombrelune"
   },
   "results": {
     "approved": "Email envoyé.",

@@ -40,7 +40,7 @@
       "label": "Extraction (JSON)",
       "description": "Extraire la date, le montant et le fournisseur d'une facture fictive.",
       "instruction": "Extrais la date, le montant et le fournisseur. Réponds uniquement avec un JSON.",
-      "input": "Facture du 12/12/2026 de la société Hélianthe pour 500 €.",
+      "input": "Facture du 12/12/2026 de la société Ombrelune pour 500 €.",
       "schema": [
         { "field": "date", "type": "texte (JJ/MM/AAAA)", "required": true },
         { "field": "montant", "type": "nombre", "required": true },
@@ -48,9 +48,9 @@
         { "field": "devise", "type": "texte", "required": false }
       ],
       "outputs": {
-        "ok": { "text": "{\"date\": \"12/12/2026\", \"montant\": 500, \"vendeur\": \"Hélianthe\", \"devise\": \"EUR\"}", "verdict": { "ok": true } },
-        "missing_field": { "text": "{\"montant\": 500, \"vendeur\": \"Hélianthe\"}", "verdict": { "ok": false, "kind": "missing_field", "field": "date" } },
-        "not_json": { "text": "La facture date du 12 décembre 2026, elle vient de la société Hélianthe et son montant est de 500 euros.", "verdict": { "ok": false, "kind": "not_json" } }
+        "ok": { "text": "{\"date\": \"12/12/2026\", \"montant\": 500, \"vendeur\": \"Ombrelune\", \"devise\": \"EUR\"}", "verdict": { "ok": true } },
+        "missing_field": { "text": "{\"montant\": 500, \"vendeur\": \"Ombrelune\"}", "verdict": { "ok": false, "kind": "missing_field", "field": "date" } },
+        "not_json": { "text": "La facture date du 12 décembre 2026, elle vient de la société Ombrelune et son montant est de 500 euros.", "verdict": { "ok": false, "kind": "not_json" } }
       }
     },
     {
@@ -110,7 +110,7 @@
       "started_at": "2026-10-18T10:02:00Z",
       "scenario": "extraction",
       "model": "lfm2.5:1.2b",
-      "input": "Facture du 12/12/2026 de la société Hélianthe pour 500 €.",
+      "input": "Facture du 12/12/2026 de la société Ombrelune pour 500 €.",
       "force_format": false,
       "concise": false,
       "outcome": "missing_field"
