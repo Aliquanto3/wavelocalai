@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 import socket
 import sys
 
 import uvicorn
+from fastapi import FastAPI
 
 from wavelocalai.config import LOOPBACK, Settings
-from wavelocalai.web.app import create_app
+from wavelocalai.store.db import Store
+from wavelocalai.web.app import create_app, stop_streams
+
+logger = logging.getLogger("wavelocalai.web")
+
+# Filet : une connexion qui ne finit toujours pas est coupée après ce délai, puis le cycle de vie
+# s'arrête (hub, base). Sans lui, uvicorn attend sans fin (`timeout_graceful_shutdown=None`).
+GRACEFUL_SHUTDOWN_S = 5.0
 
 
 class PortBusyError(Exception):
@@ -34,9 +43,28 @@ def bind_socket(port: int) -> socket.socket:
     return sock
 
 
-def serve(settings: Settings, sock: socket.socket) -> None:
-    """Sert l'application jusqu'à l'arrêt (Ctrl+C ou SIGTERM : arrêt propre d'uvicorn)."""
-    app = create_app(settings)
+class _Server(uvicorn.Server):
+    """uvicorn attend la fin des connexions **avant** l'arrêt du cycle de vie : les flux ouverts
+    (système, runs actifs) sont donc terminés d'abord, sinon l'arrêt ne vient jamais."""
+
+    def __init__(self, config: uvicorn.Config, app: FastAPI) -> None:
+        super().__init__(config)
+        self._app = app
+
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
+        for server in self.servers:
+            server.close()  # plus de nouvelle connexion pendant qu'on ferme les flux
+        try:
+            await stop_streams(self._app)
+        except Exception:
+            logger.exception("Arrêt : les flux ouverts n'ont pas pu être fermés")
+        await super().shutdown(sockets)
+
+
+def serve(settings: Settings, sock: socket.socket, store: Store | None = None) -> None:
+    """Sert l'application jusqu'à l'arrêt (Ctrl+C ou SIGTERM : arrêt propre d'uvicorn, qui
+    annule les runs actifs). `store` : la base ouverte par le lanceur, qui la ferme ensuite."""
+    app = create_app(settings, store=store)
     config = uvicorn.Config(
         app,
         host=LOOPBACK,
@@ -44,5 +72,6 @@ def serve(settings: Settings, sock: socket.socket) -> None:
         log_config=None,  # les journaux sont réglés par `store/logs.py`
         server_header=False,
         proxy_headers=False,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
     )
-    uvicorn.Server(config).run(sockets=[sock])
+    _Server(config, app).run(sockets=[sock])

@@ -71,6 +71,49 @@ _SPECS = (
         "Réessayez ; si elle persiste, consultez les journaux de `data/logs/` et relancez le "
         "serveur.",
     ),
+    ErrorSpec(
+        "run_busy",
+        409,
+        "Une exécution de ce genre est déjà en cours.",
+        "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
+        ("run_id",),
+    ),
+    ErrorSpec(
+        "cloud_not_allowed",
+        403,
+        "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
+        "Autorisez le mode cloud pour cette demande, ou choisissez un modèle local.",
+        ("tag",),
+    ),
+    ErrorSpec(
+        "model_not_chat",
+        422,
+        "Ce modèle ne sert pas à générer du texte.",
+        "Choisissez un modèle de conversation dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_embedding",
+        422,
+        "Ce modèle ne sert pas à calculer des embeddings.",
+        "Choisissez un modèle d'embedding local dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_found",
+        404,
+        "Ce modèle n'est pas dans la liste des modèles disponibles.",
+        "Rechargez la liste des modèles, ou installez ce modèle dans Ollama.",
+        ("tag",),
+    ),
+    ErrorSpec(
+        "no_model",
+        404,
+        "Aucun modèle de conversation n'est disponible pour cet usage.",
+        "Installez un modèle de conversation dans Ollama (par exemple `ollama pull qwen3.5:2b`), "
+        "puis rechargez la liste.",
+        ("purpose",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 
@@ -78,9 +121,9 @@ _MASK = "***"
 # Clés à préfixe connu : OpenAI/Anthropic (`sk-...`), Groq (`gsk_...`), Hugging Face (`hf_...`).
 _PREFIXED_KEY = re.compile(r"\b(?:sk-|gsk_|hf_)[A-Za-z0-9_\-]{8,}")
 _BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._\-]{8,}")
-# `api_key=...`, `"token": "..."`, `Authorization: ...`.
+# `api_key=...`, `MISTRAL_API_KEY=...`, `"token": "..."`, `Authorization: ...`.
 _NAMED_SECRET = re.compile(
-    r"""(?ix)\b(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
+    r"""(?ix)(?<![a-z0-9])(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
     r"""(?!\*\*\*)[^\s"',;}]+"""
 )
 
@@ -137,3 +180,8 @@ def build_envelope(
         "action": spec.action,
         "detail": _mask_value(body, tuple(secrets)),
     }
+
+
+class ProviderError(AppError):
+    """Refus ou panne d'un fournisseur de modèle (AD-8) : un adaptateur la lève avec un code de
+    la liste fermée ; le service la met en enveloppe dans `run_ended.data.error`."""

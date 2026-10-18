@@ -1,0 +1,221 @@
+"""Store SQLite : pragmas, écrivain unique sur un fil, lectures courtes, migrations (AD-12)."""
+
+from __future__ import annotations
+
+import shutil
+import sqlite3
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import pytest
+
+from wavelocalai.store.db import DB_NAME, Store, db_path, utc_now_iso
+from wavelocalai.store.migrate import (
+    MIGRATIONS_DIR,
+    DatabaseTooNewError,
+    MigrationError,
+    backup_path,
+    discover,
+    migrate,
+    statements,
+)
+
+HUB_TABLES = {"app_sessions", "conversations", "messages", "run_events", "runs"}
+
+
+@pytest.fixture
+def store(tmp_path: Path):
+    opened = Store.open(db_path(tmp_path / "data"))
+    yield opened
+    opened.close()
+
+
+def _tables(path: Path) -> set[str]:
+    conn = sqlite3.connect(path)
+    try:
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+        return {name for (name,) in rows}
+    finally:
+        conn.close()
+
+
+def _migrations_dir(tmp_path: Path, **extra: str) -> Path:
+    """Copie de `0001_hub.sql` plus des migrations de test (`{"0002_x.sql": "…"}`)."""
+    directory = tmp_path / "migrations"
+    directory.mkdir()
+    shutil.copy(MIGRATIONS_DIR / "0001_hub.sql", directory)
+    for name, sql in extra.items():
+        (directory / name).write_text(sql, encoding="utf-8")
+    return directory
+
+
+def test_absent_database_is_created_with_the_hub_schema(tmp_path):
+    path = db_path(tmp_path / "data")
+    assert not path.exists()
+    store = Store.open(path)
+    try:
+        assert path.name == DB_NAME == "wavelocalai.db"
+        assert _tables(path) >= HUB_TABLES
+        assert store.read("PRAGMA user_version")[0][0] == len(discover())
+        assert not list(path.parent.glob("*.bak-*"))  # rien à sauvegarder sur une base neuve
+    finally:
+        store.close()
+
+
+def test_pragmas_wal_foreign_keys_secure_delete(store):
+    assert store.read("PRAGMA journal_mode")[0][0] == "wal"
+    writer = store.write(
+        lambda conn: [
+            conn.execute(f"PRAGMA {name}").fetchone()[0]
+            for name in ("foreign_keys", "secure_delete", "journal_mode")
+        ]
+    ).result()
+    assert writer == [1, 1, "wal"]
+    assert store.read("PRAGMA foreign_keys")[0][0] == 1
+    assert store.read("PRAGMA secure_delete")[0][0] == 1
+
+
+def test_all_writes_run_on_one_dedicated_thread(store):
+    store.write(lambda conn: conn.execute("CREATE TABLE t (n INTEGER, thread INTEGER)")).result()
+
+    def insert(n: int):
+        return store.write(
+            lambda conn: conn.execute("INSERT INTO t VALUES (?, ?)", (n, threading.get_ident()))
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = list(pool.map(insert, range(200)))
+    for future in futures:
+        future.result()
+    rows = store.read("SELECT count(*) AS n, count(DISTINCT thread) AS threads FROM t")[0]
+    assert (rows["n"], rows["threads"]) == (200, 1)
+    assert store.read("SELECT thread FROM t LIMIT 1")[0][0] != threading.get_ident()
+
+
+def test_a_failing_write_rolls_back_and_the_writer_survives(store):
+    def broken(conn):
+        conn.execute("INSERT INTO app_sessions VALUES ('s1', ?, 'startup')", (utc_now_iso(),))
+        raise RuntimeError("boum")
+
+    with pytest.raises(RuntimeError, match="boum"):
+        store.write(broken).result()
+    assert store.read("SELECT count(*) FROM app_sessions")[0][0] == 0
+    store.write(
+        lambda conn: conn.execute(
+            "INSERT INTO app_sessions VALUES ('s2', ?, 'startup')", (utc_now_iso(),)
+        )
+    ).result()
+    assert store.read("SELECT id FROM app_sessions")[0][0] == "s2"
+
+
+async def test_awrite_and_aread(store):
+    await store.awrite(
+        lambda conn: conn.execute(
+            "INSERT INTO app_sessions VALUES ('s1', ?, 'reset')", (utc_now_iso(),)
+        )
+    )
+    rows = await store.aread("SELECT reason FROM app_sessions")
+    assert [r["reason"] for r in rows] == ["reset"]
+
+
+def test_reads_are_short_and_read_only(store):
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        store.read("INSERT INTO app_sessions VALUES ('x', 'now', 'startup')")
+
+
+def test_write_after_close_is_refused(tmp_path):
+    store = Store.open(db_path(tmp_path))
+    store.close()
+    store.close()  # idempotent
+    with pytest.raises(RuntimeError, match="fermé"):
+        store.write(lambda conn: None)
+
+
+def test_utc_now_iso_is_iso8601_with_z():
+    assert utc_now_iso().endswith("Z") and len(utc_now_iso()) == len("2026-10-18T12:00:00.000Z")
+
+
+# --- migrations -------------------------------------------------------------------------------
+
+
+def test_existing_database_is_backed_up_then_migrated(tmp_path):
+    path = tmp_path / "wavelocalai.db"
+    directory = _migrations_dir(tmp_path)
+    assert migrate(path, directory) == 1
+    conn = sqlite3.connect(path)
+    conn.execute("INSERT INTO app_sessions VALUES ('s1', 'now', 'startup')")
+    conn.commit()
+    conn.close()
+
+    (directory / "0002_extra.sql").write_text("CREATE TABLE extra (n INTEGER);\n", encoding="utf-8")
+    assert migrate(path, directory) == 2
+
+    bak = backup_path(path, 1)
+    assert bak.name == "wavelocalai.db.bak-1"
+    saved = sqlite3.connect(bak)
+    try:
+        assert saved.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert saved.execute("SELECT id FROM app_sessions").fetchall() == [("s1",)]
+        assert "extra" not in _tables(bak)
+    finally:
+        saved.close()
+    assert "extra" in _tables(path)
+    assert migrate(path, directory) == 2  # idempotent
+    assert not backup_path(path, 2).exists()
+
+
+def test_failing_migration_is_rolled_back(tmp_path):
+    path = tmp_path / "wavelocalai.db"
+    directory = _migrations_dir(tmp_path)
+    migrate(path, directory)
+    (directory / "0002_bad.sql").write_text(
+        "CREATE TABLE good (n INTEGER);\nINSERT INTO absent VALUES (1);\n", encoding="utf-8"
+    )
+    with pytest.raises(MigrationError, match="0002_bad.sql") as info:
+        migrate(path, directory)
+    assert "wavelocalai.db.bak-1" in str(info.value)
+    conn = sqlite3.connect(path)
+    try:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+    finally:
+        conn.close()
+    assert "good" not in _tables(path)
+
+
+def test_newer_database_refuses_to_start(tmp_path):
+    path = db_path(tmp_path / "data")
+    migrate(path)
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA user_version = 99")
+    conn.close()
+    with pytest.raises(DatabaseTooNewError, match="version 99"):
+        Store.open(path)
+    conn = sqlite3.connect(path)
+    try:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 99  # intacte
+    finally:
+        conn.close()
+    assert not list(path.parent.glob("*.bak-*"))
+
+
+def test_discover_requires_contiguous_numbered_files(tmp_path):
+    (tmp_path / "0002_x.sql").write_text("", encoding="utf-8")
+    with pytest.raises(MigrationError, match="sans trou"):
+        discover(tmp_path)
+    (tmp_path / "x.sql").write_text("", encoding="utf-8")
+    with pytest.raises(MigrationError, match="invalide"):
+        discover(tmp_path)
+
+
+def test_real_migrations_are_numbered_from_0001():
+    assert [m.path.name for m in discover()][0] == "0001_hub.sql"
+
+
+def test_statement_splitter_keeps_triggers_and_comments_whole():
+    script = (
+        "-- commentaire ; avec point-virgule\nCREATE TABLE a (n INTEGER);\n"
+        "CREATE TRIGGER t AFTER INSERT ON a BEGIN\n  UPDATE a SET n = 1;\nEND;\n-- fin\n"
+    )
+    parts = list(statements(script))
+    assert len(parts) == 3 and parts[1].startswith("CREATE TRIGGER") and parts[1].endswith("END;")
