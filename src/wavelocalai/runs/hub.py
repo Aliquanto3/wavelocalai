@@ -39,6 +39,7 @@ logger = logging.getLogger("wavelocalai.runs")
 
 BATCH_INTERVAL_S = 1.0  # AD-7 : un lot au plus chaque seconde
 TOKEN_WINDOW_S = 0.05  # AD-6 : les `token` sont groupés par tranches de 50 ms au plus
+CLOSE_WAIT_S = 5.0  # attente de la clôture d'une feuille annulée avant d'y écrire sa mesure
 
 # `runs.params` ne contient aucun texte saisi (AD-7) : clés qui en portent d'ordinaire, et taille
 # au-delà de laquelle une valeur texte est tenue pour du texte saisi.
@@ -118,6 +119,7 @@ class _Run:
         self.thought: list[str] = []
         self.leaf_co2: Co2 | None = None  # `co2` d'une feuille close sans le sien (annulation)
         self.lock = asyncio.Lock()
+        self.closed = asyncio.Event()  # levé quand la clôture est écrite (`amend_cancelled_leaf`)
         # Abonnement (AD-6) : un flux ouvert attend `signal` ; chaque événement le déclenche et le
         # remplace. Jetons en attente de groupage : (lane, channel) -> textes.
         self.signal = asyncio.Event()
@@ -458,6 +460,29 @@ class RunHub:
         self._forget(run, "cancelled")
         return True
 
+    async def amend_cancelled_leaf(
+        self, run_id: str, co2: Co2, energy_wh: float | None = None
+    ) -> bool:
+        """Écrit la mesure d'une feuille annulée. Le hub clôt une annulation avant que la tâche du
+        service reprenne la main (elle ne peut donc pas appeler `finish_leaf`) : le `co2` de
+        remplacement de `declare_leaf` est alors remplacé par ce qui a été mesuré jusqu'à
+        l'arrêt (AD-10, l'énergie dépensée compte). Rend `False` si la feuille n'est pas annulée
+        ou a déjà une valeur. Si la clôture est en cours d'écriture, l'attend (au plus quelques
+        secondes) : la tâche annulée peut reprendre la main avant elle."""
+        run = self._runs.get(run_id)
+        if run is not None:
+            if not run.closing:
+                return False  # encore active : `finish_leaf` écrira le `co2`
+            try:
+                await asyncio.wait_for(run.closed.wait(), CLOSE_WAIT_S)
+            except TimeoutError:
+                return False
+        elif run_id not in self._closed:
+            return False
+        return await self.store.awrite(
+            lambda conn: repo.amend_cancelled_co2(conn, run_id, co2, energy_wh)
+        )
+
     def _cancel_tasks(self, run: _Run) -> None:
         current = asyncio.current_task()
         for item in [run, *(self._runs[c] for c in run.children if c in self._runs)]:
@@ -536,6 +561,7 @@ class RunHub:
         run.flushed = 0
         self._runs.pop(run.id, None)
         self._closed.add(run.id)
+        run.closed.set()
 
     # --- lots d'événements ---------------------------------------------------------------------
 

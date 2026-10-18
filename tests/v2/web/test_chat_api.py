@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 
 import httpx
+import pytest
 
 from wavelocalai.models.ollama_api import OllamaHttpSource
 from wavelocalai.models.registry import ModelRegistry
@@ -98,8 +99,12 @@ async def test_nominal_chat_streams_tokens_then_metrics_and_stores_both_messages
         assert (metrics["load_s"], metrics["eval_s"], metrics["total_s"]) == (0.2, 0.5, 1.0)
         assert metrics["eval_tokens"] == 20 and metrics["ttft_s"] is not None
         assert (metrics["prefill_s"], metrics["prefill_tps"]) == (0.1, 70.0)  # 7 jetons en 0,1 s
-        co2 = metrics["co2"]  # présent partout (AD-10), ici non mesurable avec sa raison
-        assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
+        co2 = metrics["co2"]  # CodeCarbon (double de test) : 1,8 mg mesurés, en direct (AD-10)
+        assert co2 == {
+            "mg": pytest.approx(1.8), "method": "codecarbon", "estimated": False,
+            "range_mg": None, "allocation": "direct", "reason": None,
+        }  # fmt: skip
+        assert metrics["energy_wh"] == pytest.approx(0.001)
         assert events[-1]["data"] == {"status": "ok", "error": None}
         assert _messages(app, started["conversation_id"]) == [
             ("user", "Salut modèle", None),
@@ -111,6 +116,34 @@ async def test_nominal_chat_streams_tokens_then_metrics_and_stores_both_messages
         assert "Salut" not in row["params"] and row["model"] == TAG
         assert row["tps_source"] == "ollama_eval"
         assert "Salut" not in str(events[0])
+
+
+async def _next_event(queue, event_type):
+    """Prochain événement système de ce type (le flux publie aussi `system_state` toutes les 2 s)."""
+    while (envelope := await queue.get())["type"] != event_type:
+        pass
+    return envelope
+
+
+async def test_carbon_updated_follows_each_local_reply_with_the_session_sum(tmp_path):
+    server = FakeOllama(
+        loaded=[TAG], plans=[Plan([part("Un"), final()]), Plan([part("Deux"), final()])]
+    )
+    async with chat_app(tmp_path, server) as (app, client):
+        with app.state.system_feed.subscribe() as bus:
+            for expected_runs in (1, 2):
+                run_id = (await _post(client, "Salut")).json()["run_id"]
+                assert (await _ended(client, run_id))["status"] == "ok"
+                async with asyncio.timeout(3):
+                    carbon = await _next_event(bus, "carbon_updated")
+                assert carbon["run_id"] is None  # événement système, pas d'un run
+                data = carbon["data"]
+                assert data["total_mg"] == pytest.approx(1.8 * expected_runs)
+                assert data["by_origin"]["local"]["runs"] == expected_runs
+                assert (
+                    data["unmeasurable_runs"] == 0
+                    and data["by_module"]["chat"]["runs"] == expected_runs
+                )
 
 
 async def test_second_message_resumes_the_conversation_with_its_whole_history(tmp_path):
@@ -181,9 +214,15 @@ async def test_cancelling_closes_the_http_stream_and_keeps_the_partial_answer(tm
         assert _messages(app, started["conversation_id"])[-1] == ("assistant", "Début", None)
         events = await _events(client, started["run_id"])
         assert events[-1]["data"]["status"] == "cancelled"
-        # AD-10 : la feuille annulée garde un `co2`, non mesurable et avec sa raison
-        co2 = (await client.get(f"/api/runs/{started['run_id']}")).json()["metrics"]["co2"]
-        assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
+        # AD-10 : la feuille annulée garde un `co2` ; la mesure faite jusqu'à l'arrêt le remplace
+        # un instant après la clôture (`amend_cancelled_leaf`), le temps que la tâche reprenne
+        async with asyncio.timeout(3):
+            while True:
+                snapshot = (await client.get(f"/api/runs/{started['run_id']}")).json()
+                if snapshot["metrics"]["co2"]["method"] == "codecarbon":
+                    break
+                await asyncio.sleep(0.02)
+        assert snapshot["metrics"]["co2"]["mg"] == pytest.approx(1.8)
 
 
 async def test_a_cut_generation_is_retried_once_then_succeeds(tmp_path):

@@ -4,6 +4,9 @@ Le service obtient le modèle par `registry.resolve(tag, allow_cloud)` seulement
 créer le run `chat` (conversation et message utilisateur compris), puis lance dans une tâche la
 lecture du flux (`stream_into_run`) : le hub est seul à numéroter, persister et fixer le statut.
 `runs.params` ne reçoit que la température et `allow_cloud`, jamais le texte saisi (AD-7).
+
+Une réponse locale est mesurée par le `LocalMeter` de `greenops/` dans la place du `LocalSlot`
+(AD-11) ; la feuille close, le service publie `carbon_updated` sur le `SystemBus` (AD-10).
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from dataclasses import dataclass
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import build_envelope
+from wavelocalai.greenops.local_meter import LocalMeter
+from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
 from wavelocalai.models.factory import ModelFactory
@@ -21,6 +26,7 @@ from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import LeafResult, RunHandle
+from wavelocalai.runs.system_bus import SystemBus
 
 logger = logging.getLogger("wavelocalai.inference")
 
@@ -42,12 +48,16 @@ class ChatService:
         factory: ModelFactory,
         slot: LocalSlot,
         settings: Settings,
+        meter: LocalMeter | None = None,
+        bus: SystemBus | None = None,
     ) -> None:
         self._hub = hub
         self._registry = registry
         self._factory = factory
         self._slot = slot
         self._settings = settings
+        self._meter = meter  # sans compteur, le CO2 d'une réponse locale n'est pas mesuré
+        self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: ChatCommand) -> RunHandle:
@@ -87,6 +97,7 @@ class ChatService:
                 LeafResult(status="error", origin=model.ref.origin, error=error),
                 NOT_MEASURED,
             )
+            await self._announce_carbon()
             return
         await stream_into_run(
             self._hub,
@@ -97,7 +108,17 @@ class ChatService:
             slot=self._slot,
             timeout_s=self._settings.delays.lane_timeout_s,
             retry_interrupted=True,
+            meter=self._meter,
+            on_leaf_closed=self._announce_carbon,
         )
+
+    async def _announce_carbon(self) -> None:
+        """`carbon_updated` après chaque feuille, annulation comprise (le hub a déjà écrit le
+        `co2` de la feuille annulée, `unmeasurable`) : le panneau de la barre haute se met à jour.
+        """
+        session_id = self._hub.app_session_id
+        if self._bus is not None and session_id is not None:
+            await announce_carbon_updated(self._bus, self._hub.store, session_id)
 
     async def _request(self, handle: RunHandle, temperature: float) -> ChatRequest:
         """Toute la conversation, le message qui vient d'être écrit compris. Un message assistant

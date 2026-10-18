@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Iterable
-from contextlib import AbstractAsyncContextManager, nullcontext
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
+from wavelocalai.greenops.local_meter import Footprint, LocalMeter, combine
 from wavelocalai.models.port import (
     ChatChunk,
     ChatModel,
@@ -28,13 +29,18 @@ from wavelocalai.runs.models import Co2, LeafResult
 
 logger = logging.getLogger("wavelocalai.inference")
 
-# Tant que `greenops/` n'existe pas (étape 4), une génération n'a pas de mesure de CO2.
+# Sans compteur (feuille cloud avant ecologits, service sans `LocalMeter`), pas de mesure de CO2.
 NOT_MEASURED = Co2(mg=None, method="unmeasurable", reason="mesure non branchée")
 # Feuille annulée (ou arrêtée) avant sa fin : son `co2` reste présent, sans valeur (AD-10).
 CANCELLED_CO2 = Co2(mg=None, method="unmeasurable", reason="réponse annulée avant la fin")
+# Une feuille locale en erreur ne retient pas de mesure : l'énergie d'un appel raté n'est pas celle
+# d'une réponse, et un inconnu n'est jamais un 0 (AD-10).
+FAILED_CO2 = Co2(mg=None, method="unmeasurable", reason="réponse en erreur : aucune mesure retenue")
 
 
-def _metrics(lane: str, result: ChatResult, origin: str, co2: Co2) -> dict[str, object]:
+def _metrics(
+    lane: str, result: ChatResult, origin: str, co2: Co2, footprint: Footprint | None = None
+) -> dict[str, object]:
     return {
         "lane": lane,
         "ttft_s": result.ttft_s,
@@ -47,6 +53,7 @@ def _metrics(lane: str, result: ChatResult, origin: str, co2: Co2) -> dict[str, 
         "prefill_s": result.prefill_s,  # ajout à `contrat-api.md` (story 2.1), à ratifier
         "prefill_tps": result.prefill_tps,
         "co2": co2.as_dict(),
+        "energy_wh": None if footprint is None else footprint.energy_wh,
         "origin": origin,
     }
 
@@ -58,14 +65,21 @@ async def _attempt(
     request: ChatRequest,
     slot: AbstractAsyncContextManager[object] | None,
     timeout_s: float | None,
+    meter: LocalMeter | None = None,
+    footprints: list[Footprint] | None = None,
 ) -> ChatResult:
     """Un appel de modèle : place du sémaphore « Ollama local » prise pour cet appel seulement
     (AD-14), puis flux publié dans le hub sous le délai de lane. Le délai court depuis la prise de
     la place (local) ou le départ de l'appel (cloud, sans place). Le flux de l'adaptateur est
-    fermé dans le `finally`, annulation comprise."""
+    fermé dans le `finally`, annulation comprise.
+
+    Un appel local est mesuré par `meter` **dans la place** (AD-11) : le tracker démarre après la
+    prise et s'arrête avant la remise, hors du délai de lane (son démarrage peut durer quelques
+    secondes). La mesure est ajoutée à `footprints`, que l'appel réussisse ou non."""
     lane = model.ref.tag
-    gate = slot if slot is not None and model.ref.origin == "local" else nullcontext()
-    async with gate:
+    local = model.ref.origin == "local"
+    gate = slot if slot is not None and local else nullcontext()
+    async with gate, _tracking(meter if local else None, footprints):
         deadline = asyncio.timeout(timeout_s)
         try:
             async with deadline:
@@ -76,6 +90,24 @@ async def _attempt(
             raise ProviderError(
                 "timeout", f"Aucune fin de réponse après {timeout_s} s.", timeout_s=timeout_s
             ) from None
+
+
+@asynccontextmanager
+async def _tracking(
+    meter: LocalMeter | None, footprints: list[Footprint] | None
+) -> AsyncIterator[None]:
+    """Un tracker autour du bloc ; sa mesure rejoint `footprints` à la sortie, annulation et
+    erreur comprises (`meter.track` ne lève pas)."""
+    if meter is None:
+        yield
+        return
+    tracking = None
+    try:
+        async with meter.track() as tracking:
+            yield
+    finally:
+        if footprints is not None and tracking is not None and tracking.footprint is not None:
+            footprints.append(tracking.footprint)
 
 
 async def _consume(
@@ -109,6 +141,8 @@ async def stream_into_run(
     slot: AbstractAsyncContextManager[object] | None = None,
     timeout_s: float | None = None,
     retry_interrupted: bool = False,
+    meter: LocalMeter | None = None,
+    on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
 ) -> None:
     """Joue une génération sur le run racine `run_id` (une feuille racine) jusqu'à sa fin.
 
@@ -121,18 +155,51 @@ async def stream_into_run(
     en cas de dépassement). `retry_interrupted` : une génération coupée (`generation_interrupted`)
     est relancée une fois, avec un événement `retry` qui efface le texte partiel ; copie adaptée de
     `retry_interrupted` de la v1 : toute autre erreur, délai compris, est relayée sans relance.
+
+    `meter` : compteur CodeCarbon d'une feuille locale (story 2.3) ; sans lui, ou pour une feuille
+    cloud, le `co2` est celui passé en argument. `on_leaf_closed` est attendu quand la feuille est
+    close, annulation comprise (le hub a alors déjà clos le run) : le service y publie
+    `carbon_updated`. Son échec est journalisé, il n'interrompt rien.
     """
+    try:
+        await _play(
+            hub, run_id, model, request, secrets, co2, slot, timeout_s, retry_interrupted, meter
+        )
+    finally:
+        if on_leaf_closed is not None:
+            try:
+                await on_leaf_closed()
+            except Exception:  # noqa: BLE001 - aucune mesure n'interrompt un run
+                logger.exception("Publication de carbon_updated en échec")
+
+
+async def _play(
+    hub: RunHub,
+    run_id: str,
+    model: ChatModel,
+    request: ChatRequest,
+    secrets: Iterable[str],
+    co2: Co2,
+    slot: AbstractAsyncContextManager[object] | None,
+    timeout_s: float | None,
+    retry_interrupted: bool,
+    meter: LocalMeter | None,
+) -> None:
     lane = model.ref.tag
     origin = model.ref.origin
     hub.declare_leaf(run_id, CANCELLED_CO2)
     attempts = 2 if retry_interrupted else 1
     result = ChatResult()
+    footprints: list[Footprint] = []
     for attempt in range(1, attempts + 1):
         try:
-            result = await _attempt(hub, run_id, model, request, slot, timeout_s)
+            result = await _attempt(hub, run_id, model, request, slot, timeout_s, meter, footprints)
             break
         except asyncio.CancelledError:
-            raise  # `hub.cancel` a déjà fixé `cancelled` ; le `finally` d'`_consume` a fermé le flux
+            # `hub.cancel` a déjà fixé `cancelled` ; le `finally` d'`_consume` a fermé le flux. Le
+            # tracker est arrêté : l'énergie dépensée jusqu'à l'arrêt remplace le `co2` de remplacement.
+            await _amend_cancelled(hub, run_id, footprints)
+            raise
         except Exception as exc:
             if (
                 attempt < attempts
@@ -154,10 +221,15 @@ async def stream_into_run(
             error = _error_envelope(exc, secrets)
             # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
             await hub.finish_leaf(
-                run_id, LeafResult(status="error", origin=origin, error=error), co2
+                run_id,
+                LeafResult(status="error", origin=origin, error=error),
+                FAILED_CO2 if footprints else co2,
             )
             return
-    hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2))
+    footprint = combine(footprints)
+    if footprint is not None:
+        co2 = footprint.co2()
+    hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2, footprint))
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,
@@ -168,8 +240,19 @@ async def stream_into_run(
         total_s=result.total_s,
         tps=result.tps,
         tps_source=result.tps_source,
+        energy_wh=None if footprint is None else footprint.energy_wh,
     )
     await hub.finish_leaf(run_id, leaf, co2)
+
+
+async def _amend_cancelled(hub: RunHub, run_id: str, footprints: list[Footprint]) -> None:
+    footprint = combine(footprints)
+    if footprint is None or not footprint.measured:
+        return
+    try:
+        await hub.amend_cancelled_leaf(run_id, footprint.co2(), footprint.energy_wh)
+    except Exception:  # noqa: BLE001 - aucune mesure n'interrompt un run
+        logger.exception("Mesure d'une feuille annulée non écrite")
 
 
 def _error_envelope(exc: Exception, secrets: Iterable[str]) -> dict[str, object]:

@@ -164,6 +164,21 @@ def fill_cancelled_co2(conn: sqlite3.Connection, items: Iterable[tuple[str, Co2]
         )
 
 
+def amend_cancelled_co2(
+    conn: sqlite3.Connection, run_id: str, co2: Co2, energy_wh: float | None
+) -> bool:
+    """Remplace le `co2` de remplacement (`unmeasurable`) d'une feuille annulée par la mesure faite
+    jusqu'à l'annulation. Ne touche qu'une feuille `cancelled` dont le `co2` est sans valeur."""
+    values = {**_co2_columns(co2), "energy_wh": energy_wh}
+    assignments = ", ".join(f"{column} = ?" for column in values)
+    cursor = conn.execute(
+        f"UPDATE runs SET {assignments} WHERE id = ?"  # noqa: S608 - colonnes fixes
+        " AND status = 'cancelled' AND co2_method = 'unmeasurable' AND co2_mg IS NULL",
+        (*values.values(), run_id),
+    )
+    return cursor.rowcount > 0
+
+
 def cancel_rows(conn: sqlite3.Connection, run_ids: Iterable[str], ended_at: str) -> None:
     conn.executemany(
         "UPDATE runs SET status = 'cancelled', ended_at = ? WHERE id = ?"

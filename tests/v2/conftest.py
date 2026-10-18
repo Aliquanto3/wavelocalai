@@ -58,3 +58,17 @@ def _restore_telemetry_env():
             os.environ.pop(name, None)
         else:
             os.environ[name] = value
+
+
+@pytest.fixture(autouse=True)
+def _stub_codecarbon(monkeypatch):
+    """Les tests ne lancent jamais le vrai CodeCarbon (plusieurs secondes de détection du matériel) :
+    le compteur par défaut de l'app prend un double. Les tests de la vraie mesure construisent leur
+    `LocalMeter` avec `real_loader` (importé avant ce remplacement)."""
+    from wavelocalai.greenops import local_meter
+
+    from .carbon_stub import Probe
+
+    probe = Probe()
+    monkeypatch.setattr(local_meter, "load_tracker_class", probe.tracker_class)
+    return probe
