@@ -69,6 +69,12 @@ class LangChainAdapter(BaseTool):
             return f"Erreur lors de l'exécution de l'outil {self.name}: {str(e)}"
 
 
+# API de Mistral compatible OpenAI. CrewAI 1.15 n'a pas de fournisseur Mistral natif : un
+# modèle `mistral/…` exige LiteLLM (absent, lourd). Comme Groq, Mistral passe par le
+# fournisseur OpenAI natif de CrewAI, avec cette URL de base.
+MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
+
+
 def _ollama_base_url() -> str:
     """Hôte Ollama du provider de la fabrique (celui des autres modules, `localhost` visé en
     127.0.0.1) ; hôte par défaut du provider si la fabrique n'en a pas."""
@@ -92,7 +98,8 @@ class CrewFactory:
         """
         Configure le LLM de CrewAI pour un tag, dans l'ordre de la fabrique de providers :
         Groq, puis OpenAI et Anthropic (préfixe), puis Mistral (catalogue), puis Ollama.
-        Groq, OpenAI et Anthropic passent par les fournisseurs natifs de CrewAI, sans LiteLLM.
+        Groq, Mistral, OpenAI et Anthropic passent par les fournisseurs natifs de CrewAI
+        (Groq et Mistral par l'API compatible OpenAI), sans LiteLLM.
         """
         # 1. Routing Cloud (Groq) : fournisseur OpenAI natif de CrewAI.
         # `custom_openai` retire un préfixe « openai/ » : il est doublé pour que Groq reçoive
@@ -133,7 +140,11 @@ class CrewFactory:
             if not MISTRAL_API_KEY:
                 raise ValueError("Clé API Mistral manquante.")
             return LLM(
-                model=f"mistral/{model_tag}", api_key=MISTRAL_API_KEY, temperature=temperature
+                model=f"openai/{model_tag}",
+                custom_openai=True,
+                base_url=MISTRAL_BASE_URL,
+                api_key=MISTRAL_API_KEY,
+                temperature=temperature,
             )
 
         # 4. Routing Local (Ollama)
