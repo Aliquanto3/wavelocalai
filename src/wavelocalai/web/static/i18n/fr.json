@@ -181,7 +181,7 @@
       "co2": "CO₂",
       "co2_help": "Émissions de CO₂ mesurées par CodeCarbon pendant cette réponse, sur ce poste.",
       "co2_estimated": "{value} (estimé)",
-      "co2_estimated_help": "Émissions de CO₂ estimées par EcoLogits pour cette réponse cloud, d'après le modèle, les tokens générés et la durée : une estimation, pas une mesure.",
+      "co2_estimated_help": "Émissions de CO₂ estimées par EcoLogits pour cette réponse cloud, d'après le modèle, les tokens générés et la durée : une estimation, pas une mesure.",
       "co2_unmeasurable": "non mesurable",
       "co2_unmeasurable_help": "Le CO₂ de cette réponse n'a pas pu être mesuré. Il n'est pas compté comme zéro.",
       "tokens": "Tokens",
