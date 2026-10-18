@@ -34,7 +34,6 @@ docx2txt>=0.9            # Import DOCX de l'assistant documentaire (Docx2txtLoad
 # Gestion des boucles asynchrones (indispensable pour Streamlit + Agents)
 nest_asyncio
 # Gestion des timeouts pour les benchmarks
-timeout_decorator
 func-timeout
 
 # --- Hardware & Green IT ---
@@ -59,10 +58,7 @@ langchain-huggingface>=0.0.1
 langchain-chroma>=0.1.0
 langchain-text-splitters>=0.0.1
 huggingface-hub>=0.23.0
-einops
-
-# Parsing (Docling & Fallbacks)
-docling>=1.0.0
+einops  # requis par le code distant des modèles Jina (trust_remote_code)
 
 # Évaluation RAG
 ragas>=0.1.0
