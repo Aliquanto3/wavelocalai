@@ -145,7 +145,7 @@ async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path, _stub_
     assert [e["seq"] for e in events] == list(range(1, len(events) + 1))
     assert events[0]["data"]["kind"] == "arena"
     assert events[0]["data"]["models"] == ["fake:a", "fake:b", "fake/c"]
-    assert events[1]["data"] == {"text": PROMPT}
+    assert events[1]["data"] == {"text": PROMPT, "criteria": []}
     assert events[-1]["data"] == {"status": "ok", "error": None}
     for lane, words in (
         ("fake:a", "Les plantes"),
@@ -259,7 +259,9 @@ async def test_the_loading_phase_is_published_for_a_local_lane(tmp_path):
     assert statuses(events, "fake:a") == ["waiting", "generating", "loading", "generating", "done"]
 
 
-async def test_cancelling_the_parent_cancels_every_lane_and_keeps_the_partials(tmp_path):
+async def test_cancelling_the_parent_cancels_every_lane_and_keeps_the_partials(
+    tmp_path, _stub_codecarbon
+):
     a = local("fake:a", [*say("partiel A"), Sleep(30)])
     b = local("fake:b", [*say("jamais")])  # attend la place de A
     c = cloud("fake/c", [*say("partiel C"), Sleep(30)])
@@ -279,6 +281,31 @@ async def test_cancelling_the_parent_cancels_every_lane_and_keeps_the_partials(t
         async with asyncio.timeout(2):
             while a.closed < 1 or c.closed < 1:  # flux des adaptateurs fermés
                 await asyncio.sleep(0.01)
+        # La lane locale annulée garde l'énergie mesurée jusqu'à l'arrêt (AD-10), écrite après
+        # la clôture ; la lane en attente et la lane cloud restent non mesurables, avec raison.
+        async with asyncio.timeout(2):
+            while True:
+                co2 = {
+                    r["model"]: r
+                    for r in app.state.store.read(
+                        "SELECT model, co2_mg, co2_method, co2_reason FROM runs"
+                        " WHERE parent_run_id = ?",
+                        (run_id,),
+                    )
+                }
+                if co2["fake:a"]["co2_method"] == "codecarbon":
+                    break
+                await asyncio.sleep(0.01)
+        root_co2 = app.state.store.read(
+            "SELECT co2_mg, co2_method, energy_wh FROM runs WHERE id = ?", (run_id,)
+        )[0]
+
+    assert co2["fake:a"]["co2_mg"] == pytest.approx(1.8)
+    for lane in ("fake:b", "fake/c"):
+        assert co2[lane]["co2_method"] == "unmeasurable" and co2[lane]["co2_mg"] is None
+        assert co2[lane]["co2_reason"]
+    # Le parent ne porte ni métriques ni CO2 (AD-5).
+    assert dict(root_co2) == {"co2_mg": None, "co2_method": None, "energy_wh": None}
 
     assert snapshot["status"] == "cancelled"
     assert [c_["status"] for c_ in snapshot["children"]] == ["cancelled"] * 3
@@ -294,6 +321,32 @@ async def test_cancelling_the_parent_cancels_every_lane_and_keeps_the_partials(t
     }
     assert text == {"fake:a": "partiel A", "fake:b": "", "fake/c": "partiel C"}
     assert b.opened == 0  # la lane en attente n'a jamais appelé le modèle
+
+
+async def test_an_orchestration_failure_ends_every_lane_and_the_root_in_error(tmp_path):
+    a = local("fake:a", [*say("partiel A"), Sleep(30)])
+    b = local("fake:b", say("B"))
+    async with arena_app(tmp_path, a, b) as (app, client):
+        hub = app.state.hub
+        attach = hub.attach_task
+        leaves: list[str] = []
+
+        def failing_attach(run_id, task):
+            if hub._runs[run_id].parent_id is not None:
+                leaves.append(run_id)
+                if len(leaves) == 2:
+                    task.cancel()
+                    raise RuntimeError("panne simulée")
+            attach(run_id, task)
+
+        hub.attach_task = failing_attach
+        run_id = (await _post(client, "fake:a", "fake:b")).json()["run_id"]
+        snapshot = await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert snapshot["status"] == "error" and snapshot["error"]["code"] == "internal"
+    for lane in ("fake:a", "fake:b"):
+        assert statuses(events, lane)[-1] == "cancelled"
+    assert events[-1]["type"] == "run_ended"
 
 
 async def test_a_second_arena_gets_409_run_busy_with_the_active_run_id(tmp_path):
@@ -366,10 +419,14 @@ async def test_the_prompt_lives_in_run_events_never_in_run_params(tmp_path):
         "temperature": 0.2,
         "allow_cloud": True,
         "judge": "fake:a",
-        "criteria": ["clarté", "exactitude"],
     }
-    assert PROMPT not in events[0]["data"]  # run_started
-    assert json.loads(events[1]["data"]) == {"text": PROMPT}  # question
+    # Les critères sont du texte saisi : dans l'événement `question`, comme la question (AD-7).
+    assert all("clarté" not in row["params"] for row in rows)
+    assert PROMPT not in events[0]["data"] and "clarté" not in events[0]["data"]  # run_started
+    assert json.loads(events[1]["data"]) == {
+        "text": PROMPT,
+        "criteria": ["clarté", "exactitude"],
+    }  # question
 
 
 async def test_the_arena_is_cancelled_with_the_server(tmp_path):

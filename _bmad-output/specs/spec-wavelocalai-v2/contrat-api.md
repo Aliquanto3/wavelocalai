@@ -45,7 +45,7 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | Type | Données | Écrans |
 |---|---|---|
 | `run_started` | `kind`, modèles, paramètres | tous |
-| `question` | `text` : la question d'une Arène, publiée juste après `run_started` (une Arène n'a pas de conversation ni de `messages` ; `runs.params` ne porte pas de texte saisi, AD-7) | Arène |
+| `question` | `text` : la question d'une Arène, et `criteria` : ses critères de notation (liste, vide par défaut), publiés juste après `run_started` (une Arène n'a pas de conversation ni de `messages` ; `runs.params` ne porte pas de texte saisi, AD-7) | Arène |
 | `model_loading` / `model_loaded` | `tag`, durée | chat, Arène, RAG, agents |
 | `token` | `lane`, `text`, `channel` (`answer` ou `thought`) | chat, Arène, RAG, agent |
 | `retry` | raison | chat, Arène, RAG |

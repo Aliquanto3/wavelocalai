@@ -10,8 +10,9 @@ finit `ok` dès que l'orchestration aboutit (l'échec d'une lane reste dans son 
 Chaque lane passe par `stream_into_run`, le chemin de feuille commun du chat : une lane locale est
 mesurée par son propre tracker CodeCarbon, démarré et arrêté sous la place Ollama (AD-10, AD-11) ;
 une lane cloud reste « non mesurable » jusqu'à ecologits. `carbon_updated` suit chaque feuille.
-Aucune conversation : l'Arène n'est pas un genre de conversation (AD-5), la question vit dans
-l'événement `question` du flux (AD-7), jamais dans `runs.params`.
+Aucune conversation : l'Arène n'est pas un genre de conversation (AD-5). La question et les critères
+de notation, du texte saisi, vivent dans l'événement `question` du flux (AD-7), jamais dans
+`runs.params`.
 """
 
 from __future__ import annotations
@@ -115,8 +116,7 @@ class ArenaService:
             params={
                 "temperature": TEMPERATURE,
                 "allow_cloud": command.allow_cloud,
-                "judge": command.judge,
-                "criteria": list(command.criteria),
+                "judge": command.judge,  # tag du registre, pas du texte saisi
             },
         )
         arena = _Arena(root.run_id)
@@ -132,7 +132,9 @@ class ArenaService:
             error = build_envelope("internal", "Création des lanes de l'Arène impossible.")
             await self._hub.finish_run(root.run_id, "error", error=error)
             raise
-        self._hub.publish(root.run_id, "question", {"text": command.prompt})
+        self._hub.publish(
+            root.run_id, "question", {"text": command.prompt, "criteria": list(command.criteria)}
+        )
         for lane in arena.lanes:  # les colonnes existent avant le premier jeton
             self._hub.publish(root.run_id, "lane_status", {"lane": lane.tag, "status": "waiting"})
         self._hub.set_cancel_hook(root.run_id, lambda: self._cancel_unfinished(arena))
@@ -192,6 +194,7 @@ class ArenaService:
             )
             for task in tasks:
                 task.cancel()
+            self._cancel_unfinished(arena)  # aucune lane sans `lane_status` final
             with contextlib.suppress(Exception):
                 await self._hub.finish_run(arena.run_id, "error", error=error)
 
