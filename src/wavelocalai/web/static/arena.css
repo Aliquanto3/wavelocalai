@@ -262,6 +262,7 @@
   }
 
   .arena-lanes[data-count="4"]:not([data-focus]) .wl-arena-lane:not(.is-expanded) .wl-msg-text {
+    max-height: 6em; /* repli sans `lh` : 4 lignes à 1,5 */
     max-height: 4lh;
     overflow: hidden;
   }

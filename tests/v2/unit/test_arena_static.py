@@ -119,7 +119,7 @@ def test_the_launch_legends_the_summary_and_the_no_local_alert_have_their_texts(
         assert arena[key]
     # Elle dit quoi faire : installer un modèle depuis Modèles, ou autoriser le cloud.
     assert "écran Modèles" in arena["no_local_cloud_off"]
-    assert "Autoriser le cloud" in arena["no_local_cloud_off"].replace("00a0", " ")
+    assert "Autoriser le cloud" in arena["no_local_cloud_off"].replace(" ", " ")
     assert "écran Modèles" in arena["no_local_cloud_on"]
 
 

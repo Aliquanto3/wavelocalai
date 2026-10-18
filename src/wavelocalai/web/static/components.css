@@ -767,7 +767,7 @@
   margin: 0 0 1rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-line);
-  border-inline-start: 6px solid var(--color-chart-3);
+  border-inline-start: 6px solid var(--color-primary);
   border-radius: var(--radius);
   background: var(--color-surface-alt);
 }

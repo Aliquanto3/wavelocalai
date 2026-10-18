@@ -77,7 +77,7 @@ def cancel_leftover_runs():
     time.sleep(0.2)
 
 
-def install_models(page, models=None, defaults=("fake:a", "fake:b")):
+def install_models(page, models=None, defaults=("fake:a", "fake:b"), ollama_up=True):
     listed = MODELS if models is None else models
 
     def on_models(route):
@@ -85,7 +85,7 @@ def install_models(page, models=None, defaults=("fake:a", "fake:b")):
             status=200,
             content_type="application/json",
             body=json.dumps(
-                {"models": listed, "ollama_up": True, "refreshed_at": "2026-10-18T10:00:00Z"}
+                {"models": listed, "ollama_up": ollama_up, "refreshed_at": "2026-10-18T10:00:00Z"}
             ),
         )
 
@@ -257,7 +257,7 @@ def test_without_a_ready_local_model_an_info_alert_says_what_to_do_and_the_launc
     assert button.get_attribute("aria-describedby") == reason.get_attribute("id")
     # Le cloud autorisé : la phrase ne le propose plus, la raison redevient celle du nombre de modèles.
     page.get_by_label("Autoriser le cloud").check()
-    page.locator(".wl-notice-info").filter(has_text="restent utilisables").wait_for()
+    page.locator(".wl-notice-info").filter(has_text="clé d'API est configurée").wait_for()
     assert "Autoriser le cloud" not in page.locator(".wl-notice-info").inner_text()
     assert page.get_by_text("Choisissez au moins 2 modèles").is_visible()
     assert_no_axe_violations(page, "Arène sans modèle local")
@@ -265,6 +265,20 @@ def test_without_a_ready_local_model_an_info_alert_says_what_to_do_and_the_launc
 
 def test_with_a_ready_local_model_there_is_no_info_alert(arena):
     assert arena.locator(".wl-notice-info").is_hidden()
+
+
+def test_with_ollama_stopped_the_known_models_do_not_enable_the_launch(page, server):
+    # Ollama arrêté : les modèles connus restent listés, indisponibles, et le défaut les retient.
+    down = [{**model, "available": False} for model in MODELS]
+    install_models(page, models=down, ollama_up=False)
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
+    button = page.get_by_role("button", name="Lancer la comparaison")
+    reason = page.get_by_text("Aucun modèle local prêt, installez un modèle ou autorisez le cloud")
+    reason.wait_for()
+    assert button.is_disabled()
+    assert page.locator(".wl-notice-info").is_hidden()  # le sélecteur dit déjà qu'Ollama est arrêté
 
 
 def test_the_configuration_is_replaced_by_a_summary_until_the_run_ends(arena, server):
@@ -300,6 +314,8 @@ def test_the_configuration_is_replaced_by_a_summary_until_the_run_ends(arena, se
     assert arena.locator(".arena-banner").get_by_role("button", name="Arrêter").is_visible()
     wait_banner(arena, "Comparaison terminée")
     summary.wait_for(state="hidden")  # `run_ended` : la configuration revient
+    # Le titre du résumé avait le focus : il passe au bandeau, pas au corps de la page.
+    assert arena.evaluate("document.activeElement.className") == "arena-banner-text"
     assert arena.locator(".arena-form").is_visible()
     assert question.input_value() == asked
     assert arena.get_by_role("list", name="Modèles choisis").inner_text().count("Charlie 3B") == 1
@@ -437,10 +453,31 @@ def test_stop_cancels_every_lane_and_keeps_the_partial_answers(arena, server):
     lane(arena, "fake:a").locator(".wl-md").filter(has_text="Partiel").wait_for()
     arena.get_by_role("button", name="Arrêter").click()
     wait_banner(arena, "Comparaison arrêtée")
+    # Arrêter disparaît avec le run : le focus passe au bandeau, pas au corps de la page.
+    assert arena.evaluate("document.activeElement.className") == "arena-banner-text"
     assert status_of(arena, "fake:a") == status_of(arena, "fake:b") == "Arrêté"
     assert lane(arena, "fake:a").locator(".wl-md").inner_text().strip() == "Partiel"
     assert lane(arena, "fake:b").locator(".wl-md").count() == 0  # jamais démarrée : pas de réponse
     assert arena.get_by_role("button", name="Lancer la comparaison").is_enabled()
+
+
+def test_a_refused_launch_keeps_the_form_and_gives_the_focus_back_to_the_button(arena_lenient):
+    page = arena_lenient
+    envelope = {"code": "internal", "message": "Refus du serveur pour ce test."}
+
+    def refuse(route):
+        if route.request.method != "POST":
+            route.fallback()
+            return
+        route.fulfill(status=500, content_type="application/json", body=json.dumps(envelope))
+
+    page.route(re.compile(r"/api/arena/runs$"), refuse)
+    launch(page)
+    page.locator("wl-error:visible").filter(has_text="Refus du serveur").wait_for()
+    assert page.locator(".arena-form").is_visible() and page.locator(".arena-summary").is_hidden()
+    button = page.get_by_role("button", name="Lancer la comparaison")
+    assert button.is_enabled()
+    assert page.evaluate("document.activeElement.classList.contains('arena-launch')")
 
 
 def test_escape_stops_the_comparison(arena, server):
@@ -484,6 +521,8 @@ def test_a_running_arena_is_joined_on_run_busy_and_by_its_url(arena_lenient, ser
     assert page.get_by_text(
         f"Une comparaison est déjà en cours{NBSP}: vous la suivez."
     ).is_visible()
+    # Lancer s'est retiré avec le formulaire : le focus est passé au titre du résumé.
+    assert page.evaluate("document.activeElement.className") == "arena-summary-title"
     assert page.locator("wl-error:visible").count() == 0
     assert (
         page.locator(".arena-summary").get_by_text("Question d'ailleurs").is_visible()
@@ -623,7 +662,10 @@ def test_below_1440_px_four_models_keep_the_two_column_layout(arena, server):
     sizes = arena.locator(".arena-lanes").evaluate("(n) => [n.clientWidth, n.scrollWidth]")
     assert sizes[1] > sizes[0]  # défilement horizontal, comme à 3 modèles
     text = lane(arena, "fake:a").locator(".wl-msg-text")
-    assert text.evaluate("(n) => n.clientHeight") > 6 * 24  # pas de repli à 4 lignes
+    height, line = text.evaluate(
+        "(n) => [n.clientHeight, parseFloat(getComputedStyle(n).lineHeight)]"
+    )
+    assert height > 4 * line + 1  # pas de repli à 4 lignes
 
 
 def test_between_1024_and_1439_px_two_columns_are_visible_with_a_horizontal_scroll(arena, server):

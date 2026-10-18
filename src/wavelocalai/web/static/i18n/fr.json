@@ -308,7 +308,7 @@
     "need_question": "Saisissez une question",
     "no_local_reason": "Aucun modèle local prêt, installez un modèle ou autorisez le cloud",
     "no_local_cloud_off": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles, ou activez « Autoriser le cloud » dans la barre haute pour comparer des modèles cloud.",
-    "no_local_cloud_on": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles pour comparer des modèles locaux. Les modèles cloud autorisés restent utilisables.",
+    "no_local_cloud_on": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles pour comparer des modèles locaux, ou choisissez des modèles cloud si une clé d'API est configurée.",
     "summary": {
       "title": "Comparaison",
       "question": "Question",

@@ -84,8 +84,7 @@ export function mount(host, params = {}) {
   const noLocal = element("p", "wl-notice wl-notice-info");
   noLocal.setAttribute("role", "status");
   const noLocalText = element("span", "");
-  noLocal.append(icon("info"), noLocalText);
-  noLocal.hidden = true;
+  noLocal.append(icon("info"), noLocalText); // masqué ou non par `render()`, dès le montage
 
   // Pendant l'exécution, la configuration est remplacée par ce résumé (D-16), jusqu'à `run_ended`.
   const summaryTitle = element("h2", "arena-summary-title", t("arena.summary.title"));
@@ -105,6 +104,7 @@ export function mount(host, params = {}) {
 
   // --- Bandeau, question posée, colonnes -----------------------------------------------
   const bannerText = element("p", "arena-banner-text");
+  bannerText.tabIndex = -1; // reçoit le focus quand Arrêter ou le résumé se retire à la fin
   const stop = element("button", "btn arena-stop", t("components.run_status.stop"));
   stop.type = "button";
   stop.setAttribute("aria-keyshortcuts", "Escape");
@@ -156,6 +156,7 @@ export function mount(host, params = {}) {
   let ticker = null;
   let finalState = null; // ok | cancelled | error | interrupted une fois le run terminé
   let stopping = false;
+  let stopHadFocus = false; // Arrêter avait le focus avant d'être désactivé (il le perd alors)
   let wasHidden = host.hidden;
   let askedText = ""; // la question du run suivi (événement `question`), pour le résumé
   const narrow = window.matchMedia(NARROW);
@@ -173,15 +174,16 @@ export function mount(host, params = {}) {
     });
   }
 
-  // Aucun modèle local prêt : la liste est arrivée, Ollama répond, et rien de local n'est listé.
-  const noLocalReady = () => picker.localReadyCount === 0 && picker.ollamaUp;
+  // Aucun modèle local prêt (Ollama arrêté compris : les modèles connus sont listés indisponibles).
+  const noLocalReady = () => picker.localReadyCount === 0;
+  const availableChoices = () =>
+    picker.values.filter((tag) => picker.modelFor(tag)?.available !== false).length;
 
-  // Ce qui empêche le lancement, dans l'ordre où on le dit (la première raison l'emporte). Un
-  // prérequis de plus (le juge, story 3.3) est une ligne de plus ici.
+  // Prérequis du lancement, la première raison l'emporte (la 3.3 y ajoute le juge, une ligne).
   const launchChecks = [
     () => (running() || pending ? t("arena.busy") : ""),
     () =>
-      noLocalReady() && !store.get().allowCloud && picker.values.length < MIN_MODELS
+      noLocalReady() && !store.get().allowCloud && availableChoices() < MIN_MODELS
         ? t("arena.no_local_reason")
         : "",
     () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
@@ -226,23 +228,27 @@ export function mount(host, params = {}) {
     );
   }
 
-  // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16).
+  // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16). Le focus suit
+  // la partie qui se retire : titre du résumé, ou bandeau (à défaut la question) au retour.
   function renderMode() {
     const showSummary = running();
+    const leaving = showSummary ? form : summary;
+    const lost = !leaving.hidden && leaving.contains(document.activeElement);
     form.hidden = showSummary;
     summary.hidden = !showSummary;
     asked.hidden = showSummary || askedText === "";
     if (showSummary) renderSummary();
+    if (lost) focusAfter(showSummary ? summaryTitle : null);
   }
 
+  const focusAfter = (target) => (target ?? (banner.hidden ? question : bannerText)).focus();
+
+  // Ollama arrêté garde le message du sélecteur ; pendant un run, le résumé a la place.
   function renderNoLocal() {
-    const missing = noLocalReady();
+    const missing = noLocalReady() && picker.ollamaUp && !running();
     noLocal.hidden = !missing;
-    if (missing) {
-      noLocalText.textContent = store.get().allowCloud
-        ? t("arena.no_local_cloud_on")
-        : t("arena.no_local_cloud_off");
-    }
+    const cloud = store.get().allowCloud ? "on" : "off";
+    if (missing) noLocalText.textContent = t(`arena.no_local_cloud_${cloud}`);
   }
 
   function render() {
@@ -391,6 +397,7 @@ export function mount(host, params = {}) {
   const laneOf = (data) => lanes.get(data?.lane)?.el ?? null;
 
   function finish(state) {
+    const stopFocused = stopHadFocus || stop === document.activeElement; // Arrêter va se masquer
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
@@ -400,6 +407,7 @@ export function mount(host, params = {}) {
     stopTicker();
     renderBanner();
     render();
+    if (stopFocused) focusAfter(null);
     const { done, total } = count();
     announce(t(`arena.announce.${state}`, { done, total }));
   }
@@ -473,6 +481,7 @@ export function mount(host, params = {}) {
     endMs = null;
     finalState = null;
     stopping = false;
+    stopHadFocus = false;
     if (!host.hidden) openStream(id); // masqué : le flux s'ouvrira au retour (AD-6)
     render();
     renderBanner();
@@ -484,6 +493,7 @@ export function mount(host, params = {}) {
     const models = picker.values;
     notice.hidden = true;
     error.error = null;
+    const refocus = document.activeElement === launch; // désactivé pendant la requête, il le perd
     pending = true; // pas de second envoi (bouton ni Entrée) pendant la requête
     render();
     try {
@@ -496,7 +506,6 @@ export function mount(host, params = {}) {
       lanesEl.hidden = false;
       setAsked(question.value);
       follow(started.run_id);
-      summaryTitle.focus(); // le bouton de lancement vient de se retirer avec le formulaire
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;
@@ -512,12 +521,15 @@ export function mount(host, params = {}) {
     } finally {
       pending = false;
       render();
+      if (running()) summaryTitle.focus(); // Lancer s'est retiré avec le formulaire
+      else if (refocus) launch.focus();
     }
   }
 
   async function cancel() {
     if (!running() || stopping) return;
     const id = runId;
+    stopHadFocus = stop === document.activeElement;
     stopping = true;
     stop.disabled = true;
     renderBanner();
@@ -526,6 +538,8 @@ export function mount(host, params = {}) {
     } catch (failure) {
       if (id !== runId) return;
       stopping = false;
+      const refocus = stopHadFocus;
+      stopHadFocus = false;
       error.error = {
         code: "internal",
         message:
@@ -534,6 +548,7 @@ export function mount(host, params = {}) {
             : t("components.run_status.cancel_failed"),
       };
       renderBanner();
+      if (refocus) stop.focus(); // de nouveau actif : il reprend le focus
     }
   }
 
