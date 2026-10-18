@@ -10,12 +10,18 @@
 //   run.detach()        l'écran ferme son flux (le run continue) ; run.attach(handlers, {after})
 //                       rejoue ce qui suit `after` (reprise par `?after=<seq>`) puis suit en direct
 //   run.done            promesse du statut final ; run.lastSeq, run.status, run.id
+//   run.resume(events)  reprend un run suspendu par `{pause: true}` (attente d'une décision) : joue
+//                       d'abord `events` (préparés par `sim.prepare`), puis la suite du script
+//   run.paused          vrai tant que le run attend une décision
 //
 // Script : `{id, kind, events: [{wait, type, data} | {wait, tokens: {lane, channel, text, tps}}]}`.
 // `wait` = délai en ms avant l'événement (`slow_wait` le remplace en « premier chargement lent ») ;
 // `tokens` est développé en événements `token` groupés par tranches de 50 ms (AD-6). Une chaîne
 // "{{nom}}" est remplacée par `vars.nom` (la valeur garde son type si la chaîne est entière).
 // `"when": "{{nom}}"` : l'événement n'est joué que si `vars.nom` est vrai (modèle déjà chargé…).
+// `{pause: true}` : le run reste ouvert sans rien émettre jusqu'à `run.resume(…)` (validation d'email).
+// Au lieu d'un identifiant, `sim.play` accepte un script construit à l'exécution, `{kind, events}`
+// (équipe composée par la personne, lot de fichiers, jeu de modèles évalués).
 // Options : `error`/`errorAfter` (code injecté après N événements livrés), `vars`, `speed`.
 
 import { loadData } from "../core/data.js";
@@ -45,7 +51,7 @@ function substitute(value, vars) {
 }
 
 // Développe `tokens` en événements `token` de 50 ms de génération chacun.
-function expand(events) {
+function expand(events = []) {
   const out = [];
   for (const event of events) {
     if ("when" in event && !event.when) continue; // "when": "{{var}}" faux : événement omis
@@ -79,6 +85,7 @@ class SimRun {
     this.attachments = new Set();
     this.timer = null;
     this.index = 0;
+    this.paused = false;
     this.done = new Promise((resolve) => {
       this.resolveDone = resolve;
     });
@@ -104,8 +111,13 @@ class SimRun {
   }
 
   schedule() {
-    if (this.ended || this.index >= this.queue.length) return;
+    if (this.ended || this.paused || this.index >= this.queue.length) return;
     const event = this.queue[this.index];
+    if (event.pause) {
+      this.index += 1;
+      this.paused = true;
+      return;
+    }
     const slow = store.get().maquette.slowLoad && event.slow_wait !== undefined;
     const wait = (slow ? event.slow_wait : (event.wait ?? 0)) / this.speed();
     this.timer = setTimeout(() => {
@@ -130,10 +142,12 @@ class SimRun {
     this.flush();
   }
 
+  // Le run se termine côté « serveur ». L'abonnement à la connexion reste : si elle est coupée, les
+  // derniers événements (dont `run_ended`) partent à son retour. `dispose` le retire (remise à zéro).
   finish(status) {
     this.status = status;
+    this.paused = false;
     clearTimeout(this.timer);
-    this.unsubscribe?.();
     store.set((state) => ({ runsActive: state.runsActive.filter((run) => run.run_id !== this.id) }));
     this.resolveDone(status);
   }
@@ -148,6 +162,20 @@ class SimRun {
         deliver(attachment.handlers, envelope);
       }
     }
+  }
+
+  dispose() {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+  }
+
+  // Reprend un run suspendu par `{pause: true}` : `events` passent avant la suite du script.
+  resume(events = []) {
+    if (this.ended) return;
+    this.queue.splice(this.index, 0, ...events);
+    this.paused = false;
+    clearTimeout(this.timer);
+    this.schedule();
   }
 
   attach(handlers, { after = 0 } = {}) {
@@ -200,12 +228,14 @@ function deliver(handlers, envelope) {
 }
 
 export const sim = {
-  // Lance un script ; rend le run tout de suite (les événements arrivent ensuite).
+  // Lance un script (identifiant dans donnees/flux/, ou `{kind, events}` construit à l'exécution) ;
+  // rend le run tout de suite (les événements arrivent ensuite).
   play(scriptId, handlers = {}, options = {}) {
     const placeholder = { kind: options.kind ?? "chat", events: [] };
     const run = new SimRun(placeholder, options);
     runs.set(run.id, run);
-    run.ready = loadData(`flux/${scriptId}.json`).then((script) => {
+    const source = typeof scriptId === "string" ? loadData(`flux/${scriptId}.json`) : Promise.resolve(scriptId);
+    run.ready = source.then((script) => {
       run.kind = options.kind ?? script.kind ?? run.kind;
       run.queue = expand(substitute(script.events, options.vars ?? {}));
       run.schedule();
@@ -217,6 +247,12 @@ export const sim = {
     });
     if (handlers) run.attach(handlers);
     return run;
+  },
+
+  // Événements prêts à jouer (`{{nom}}` remplacé, `when` faux omis, `tokens` développé), pour
+  // `run.resume(…)`.
+  prepare(events, vars = {}) {
+    return expand(substitute(events, vars));
   },
 
   // Ce que la commande `POST /api/<module>/runs` refuserait avant de créer un run (réponse 4xx) :
@@ -232,7 +268,8 @@ export const sim = {
       return { status: 400, ...errorEnvelope("cloud_key_missing", { detail: { provider: model.provider, provider_name: model.provider_name, key_var: `${model.provider.toUpperCase()}_API_KEY` } }) };
     }
     if (origin !== "cloud" && state.maquette.ollamaDown) return { status: 503, ...errorEnvelope("ollama_down") };
-    if (origin !== "cloud" && state.maquette.ramGuard) return { status: 507, ...errorEnvelope("ram_guard") };
+    // Le garde-fou mémoire refuse un chargement de modèle, pas un téléchargement (`pull`).
+    if (origin !== "cloud" && kind !== "pull" && state.maquette.ramGuard) return { status: 507, ...errorEnvelope("ram_guard") };
     return null;
   },
 
@@ -265,6 +302,7 @@ export const sim = {
   reset() {
     for (const run of runs.values()) {
       run.detach();
+      run.dispose();
       if (!run.ended) {
         clearTimeout(run.timer);
         run.finish("cancelled");

@@ -12,7 +12,7 @@
 // - Masqué (on change d'écran), l'écran détache son flux ; au retour il reprend après le dernier `seq`.
 //
 // Ce module exporte aussi les pièces que partage l'écran Équipe d'agents : trace d'étapes, ligne d'état,
-// lecteur d'événements (`driveRun`), icônes (voir « Pièces communes »). Elles vivent ici parce que la
+// icônes (voir « Pièces communes »). Elles vivent ici parce que la
 // maquette ne permet pas d'ajouter de composant commun (voir notes/agent-seul.md).
 
 import { element, icon } from "../core/dom.js";
@@ -78,94 +78,9 @@ export function waitUntil(condition, timeoutMs = 20000) {
 
 export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms / speedOf()));
 
-// --- Lecteur d'événements -----------------------------------------------------------------------
-// Le simulateur rejoue des scripts de `donnees/flux/` ; il ne sait ni attendre une décision ni jouer
-// des événements construits à l'exécution. Ce lecteur publie des événements dans un run du
-// simulateur (`run.emit`) : mêmes enveloppes AD-6, mêmes coupures de connexion, mêmes arrêts.
-
-function substitute(value, vars) {
-  if (typeof value === "string") {
-    const whole = /^\{\{(\w+)\}\}$/.exec(value);
-    if (whole && whole[1] in vars) return vars[whole[1]];
-    return value.replace(/\{\{(\w+)\}\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
-  }
-  if (Array.isArray(value)) return value.map((item) => substitute(item, vars));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substitute(item, vars)]));
-  }
-  return value;
-}
-
-// Développe `tokens` en événements `token` de 50 ms (même règle que le simulateur).
-function expandTokens(events) {
-  const out = [];
-  for (const event of events) {
-    if (!event.tokens) {
-      out.push(event);
-      continue;
-    }
-    const { lane, channel = "answer", text, tps = 40 } = event.tokens;
-    const perSlice = Math.max(1, Math.round((tps * 50 * 4) / 1000));
-    for (let i = 0, first = true; i < text.length; i += perSlice, first = false) {
-      out.push({ wait: first ? (event.wait ?? 0) : 50, type: "token", data: { lane, text: text.slice(i, i + perSlice), channel } });
-    }
-  }
-  return out;
-}
-
-// Événements d'un script (`{{nom}}` remplacé, `when` faux omis, `tokens` développé).
-export function prepareEvents(events, vars = {}) {
-  const filtered = substitute(events, vars).filter((event) => !("when" in event) || event.when);
-  return expandTokens(filtered);
-}
-
-// Joue `events` dans `run`. `{pause: true}` suspend le lecteur (attente d'une décision) jusqu'à
-// `resume(événements)`. `errorCode` : erreur injectée après `errorAfter` événements.
-export function driveRun(run, events, { errorCode = null, errorAfter = 3, errorDetail = undefined } = {}) {
-  const queue = [...events];
-  let timer = null;
-  let paused = false;
-  let stopped = false;
-  let emitted = 0;
-  const step = () => {
-    if (stopped || run.ended || paused || !queue.length) return;
-    const next = queue[0];
-    if (next.pause) {
-      queue.shift();
-      paused = true;
-      return;
-    }
-    const slow = store.get().maquette.slowLoad && next.slow_wait !== undefined;
-    const wait = (slow ? next.slow_wait : (next.wait ?? 0)) / speedOf();
-    timer = setTimeout(() => {
-      if (stopped || run.ended) return;
-      queue.shift();
-      if (errorCode && emitted >= errorAfter) {
-        run.fail(errorCode, errorDetail);
-        return;
-      }
-      run.emit(next.type, next.data ?? {});
-      emitted += 1;
-      step();
-    }, wait);
-  };
-  step();
-  run.done.then(() => clearTimeout(timer));
-  return {
-    stop() {
-      stopped = true;
-      clearTimeout(timer);
-    },
-    resume(extra = []) {
-      paused = false;
-      queue.unshift(...extra);
-      step();
-    },
-    get paused() {
-      return paused;
-    },
-  };
-}
+// Événements d'un script prêts à jouer : `sim.prepare` (pause de décision : `{pause: true}` puis
+// `run.resume(…)`, voir js/sim/sim.js).
+export const prepareEvents = (events, vars = {}) => sim.prepare(events, vars);
 
 // --- Dialogue de validation ------------------------------------------------------------------------
 // `wl-confirm-dialog` n'a pas de méthode pour se fermer de l'extérieur : l'événement `cancel` natif
@@ -680,7 +595,6 @@ export async function mount(host, ctx) {
   let answer = null;
   let current = null; // { tag, name, origin, text, vars, metrics }
   let lastMessage = "";
-  let tail = null;
   let approvalOpen = false;
   let expiring = false;
   let stopping = false;
@@ -764,13 +678,11 @@ export async function mount(host, ctx) {
           : "Rien n'est parti. Je l'annonce à l'utilisateur.",
       answer: data.answers[answers[decision]],
     };
-    tail = driveRun(thisRun, prepareEvents(script.events, vars));
+    thisRun.resume(sim.prepare(script.events, vars));
   }
 
   function finish(finalStatus, payload = {}) {
     closeApprovalDialog();
-    tail?.stop();
-    tail = null;
     approvalNote.hidden = true;
     const bubble = ensureAnswer();
     bubble.end({ status: finalStatus });
@@ -1094,7 +1006,6 @@ export async function mount(host, ctx) {
     document.removeEventListener("keydown", onKeydown);
     guard.dispose?.();
     closeApprovalDialog();
-    tail?.stop();
     attachment?.close();
     status.dispose();
   };

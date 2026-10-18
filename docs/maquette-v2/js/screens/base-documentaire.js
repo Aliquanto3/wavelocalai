@@ -443,8 +443,9 @@ export async function mount(host, ctx) {
     }
     const base = getBase();
     const events = buildEvents(files, { loading: !embeddingLoaded, embedding: base.settings.embedding });
-    const simRun = sim.play("base-documentaire-ingestion", serverEffects(files), {
-      vars: { events, files },
+    // Lot construit à l'exécution (nombre de fichiers libre) : le simulateur le rejoue tel quel.
+    const simRun = sim.play({ kind: "ingest", events }, serverEffects(files), {
+      vars: { files }, // entrée de la commande (409 rejoint)
       kind: "ingest",
       origin: "local",
       module: "rag",
@@ -855,8 +856,8 @@ export async function mount(host, ctx) {
     startElsewhere(files) {
       const described = files.map((file) => describeFile(file, getBase()));
       const events = buildEvents(described, { loading: false, embedding: getBase().settings.embedding });
-      return sim.play("base-documentaire-ingestion", serverEffects(described), {
-        vars: { events, files: described },
+      return sim.play({ kind: "ingest", events }, serverEffects(described), {
+        vars: { files: described },
         kind: "ingest",
         origin: "local",
         module: "rag",
@@ -1147,10 +1148,8 @@ export const scenarios = [
     label: "Connexion perdue pendant l'import, puis reprise sans doublon",
     async run(ctx) {
       await fresh(ctx, { base: "vide" });
-      // Le run dure plus longtemps que la coupure : un run qui se termine pendant une coupure resterait
-      // bloqué (SimRun.finish se désabonne de la connexion avant la livraison des derniers événements).
       view.markEmbeddingLoaded();
-      await view.importFiles([view.sample("plan")], { speed: 0.5 });
+      await view.importFiles([view.sample("plan")]);
       await waitUntil(() => view.rows[0]?.started);
       view.batch.run.cut(1500);
       await pause(1500);

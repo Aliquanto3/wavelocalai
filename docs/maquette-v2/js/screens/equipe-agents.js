@@ -12,9 +12,8 @@
 //   Télécharger) ; « Rapport partiel (mission arrêtée) » si la mission est arrêtée.
 // - Un outil sensible (Envoi d'email) suit la validation de l'écran Agent seul (`confirmEmail`).
 //
-// Les événements d'une mission sont fabriqués ici à partir de la composition de l'équipe et publiés dans
-// un run du simulateur (`driveRun`, voir agent-seul.js) : le simulateur rejoue des scripts fixes, or la
-// composition change quand on configure l'équipe.
+// Les événements d'une mission sont fabriqués ici à partir de la composition de l'équipe, puis joués
+// par le simulateur comme script construit à l'exécution (`sim.play({kind, events})`).
 
 import { co2Display } from "../core/co2.js";
 import { element, icon } from "../core/dom.js";
@@ -31,7 +30,6 @@ import {
   createAgentStatus,
   createStepTrace,
   decideInDialog,
-  driveRun,
   loadAgentTexts,
   pause,
   prepareEvents,
@@ -228,8 +226,7 @@ export async function mount(host, ctx) {
   let run = null;
   let attachment = null;
   let lastSeq = 0;
-  let driver = null;
-  const owned = new Map(); // run -> { player, input } : les runs que cet écran a lancés
+  const owned = new Map(); // run -> { input } : les runs que cet écran a lancés
   let approvalOpen = false;
   let expiring = false;
   let stopping = false;
@@ -601,13 +598,11 @@ export async function mount(host, ctx) {
     if (!owner) return;
     const full = buildMission({ ...owner.input, decision });
     const index = full.findIndex((event) => event.type === "approval_required");
-    owner.player.resume(prepareEvents(full.slice(index + 1)));
+    thisRun.resume(prepareEvents(full.slice(index + 1)));
   }
 
   function finish(finalStatus, payload = {}) {
     closeApprovalDialog();
-    driver?.stop();
-    driver = null;
     approvalNote.hidden = true;
     clearTimeout(renderTimer);
     renderTimer = null;
@@ -704,7 +699,6 @@ export async function mount(host, ctx) {
   function follow(simRun, { after = 0 } = {}) {
     run = simRun;
     lastSeq = after;
-    driver = owned.get(simRun.id)?.player ?? null;
     attachment = simRun.attach(handlers, { after });
     renderControls();
   }
@@ -737,15 +731,19 @@ export async function mount(host, ctx) {
     const cloud = agents.some((agent) => models.get(agent.model)?.origin === "cloud");
     const input = { agents, crewId: crew.id, topicText, models, decision: null };
     const events = prepareEvents(buildMission(input));
-    const simRun = sim.play("equipe-agents-mission", null, {
-      vars: { mode: "crew", crew: structuredClone(crew), topic: topicText },
+    // Script construit à l'exécution (la composition de l'équipe change) ; `{pause: true}` suspend
+    // le run sur la validation d'email.
+    const simRun = sim.play({ kind: "agent", events }, null, {
+      vars: { mode: "crew", crew: structuredClone(crew), topic: topicText }, // entrée de la commande (409 rejoint)
       kind: "agent",
       origin: cloud ? "cloud" : "local",
       module: "agent",
+      error: options.errorCode ?? undefined,
+      errorAfter: options.errorAfter ?? 3,
+      errorDetail: options.errorDetail,
     });
-    const player = driveRun(simRun, events, { errorCode: options.errorCode ?? null, errorAfter: options.errorAfter ?? 3, errorDetail: options.errorDetail });
-    owned.set(simRun.id, { player, input });
-    return { simRun, player, input };
+    owned.set(simRun.id, { input });
+    return { simRun, input };
   }
 
   async function launchMission(options = {}) {
@@ -1214,7 +1212,6 @@ export async function mount(host, ctx) {
     guard.dispose?.();
     closeApprovalDialog();
     if (drawer.open) drawer.close();
-    driver?.stop();
     attachment?.close();
     status.dispose();
     clearTimeout(renderTimer);

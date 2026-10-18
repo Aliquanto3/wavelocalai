@@ -934,8 +934,9 @@ export async function mount(host, ctx) {
     panel.clear();
     panel.root.open = false;
     for (const radio of viewSwitch.querySelectorAll("input")) radio.checked = radio.value === "table";
-    const simRun = sim.play("evaluation-run", null, {
-      vars: { events, spec },
+    // Événements construits à l'exécution (nombre de modèles et mode libres), rejoués tels quels.
+    const simRun = sim.play({ kind: "eval", events }, null, {
+      vars: { spec }, // entrée de la commande, relue par un autre onglet (409 rejoint)
       kind: "eval",
       origin: models.some((model) => model.origin === "cloud") ? "cloud" : "local",
       module: "eval",
@@ -1119,8 +1120,8 @@ export async function mount(host, ctx) {
         origins: Object.fromEntries([...models, judge].map((model) => [model.tag, model.origin])),
       };
       const outcomes = new Map(tags.map((tag) => [tag, outcomeFor(data, tag, spec)]));
-      return sim.play("evaluation-run", null, {
-        vars: { events: buildEvents(data, spec, outcomes, extracts, { loaded: new Set(tags) }), spec },
+      return sim.play({ kind: "eval", events: buildEvents(data, spec, outcomes, extracts, { loaded: new Set(tags) }) }, null, {
+        vars: { spec },
         kind: "eval",
         origin: "local",
         module: "eval",
@@ -1386,11 +1387,9 @@ export const scenarios = [
     label: "Connexion perdue pendant l'évaluation, puis reprise sans doublon",
     routes: ["evaluation"],
     async run(ctx) {
-      // Le run dure plus longtemps que la coupure : un run qui se termine pendant une coupure resterait
-      // bloqué (SimRun.finish se désabonne de la connexion avant la livraison des derniers événements).
       await filled(ctx);
       view.markLoaded();
-      const simRun = await view.start({ speed: 2 });
+      const simRun = await view.start();
       await waitUntil(() => view.ev.extracts.length > 0);
       simRun.cut(3000);
       await pause(1500);

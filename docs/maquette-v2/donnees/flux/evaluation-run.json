@@ -1,7 +1,0 @@
-{
-  "id": "evaluation-run",
-  "kind": "eval",
-  "label": "Évaluation de la qualité : extraits communs, réponses par modèle (une lane chacun), notation par métrique, run_ended",
-  "_doc": "Le nombre de modèles et le mode (question ou jeu de questions) sont libres : l'écran construit la liste d'événements (`vars.events`, au format des autres scripts : {wait, slow_wait?, type, data}) à partir du choix, puis le simulateur la rejoue telle quelle. Événements du contrat : `run_started`, `retrieval_step`, `sources` (extraits communs), `lane_status` (waiting, loading, generating, judging, done, timeout, failed), `metrics` (une lane), `eval_metric` {lane, metric: faithfulness|relevance|context_precision, score|null, reason, verdicts}, `run_ended`. Champs HORS CONTRAT pour le jeu de questions : `by_question`, `n_questions`, `n_unscored` sur `eval_metric` (voir notes/evaluation.md).",
-  "events": "{{events}}"
-}

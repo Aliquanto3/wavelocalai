@@ -2,7 +2,7 @@
   "id": "agent-seul-email",
   "kind": "agent",
   "label": "Agent seul : analyse, prépare l'email, attend la validation (le flux s'arrête sur approval_required)",
-  "_doc": "Le run reste en attente après approval_required : l'écran poste la décision, publie approval_resolved et joue agent-seul-email-suite. vars : tag, tools, loading, load_s, email_to, email_subject, email_body.",
+  "_doc": "Le run se suspend après approval_required (`{pause: true}`) : l'écran poste la décision, puis reprend le run (`run.resume`) avec agent-seul-email-suite (approval_resolved, suite). vars : tag, tools, loading, load_s, email_to, email_subject, email_body.",
   "events": [
     {
       "wait": 0,
@@ -161,6 +161,9 @@
         "subject": "{{email_subject}}",
         "body": "{{email_body}}"
       }
+    },
+    {
+      "pause": true
     }
   ]
 }
