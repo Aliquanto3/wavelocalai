@@ -21,14 +21,15 @@ Règle de choix, par usage :
   dédiés au raisonnement ; le juge n'y revient que s'il manque un modèle pour atteindre 2.
 - `agent` : locaux qui tiennent, hors raisonnement, aux outils vérifiés et d'au moins
   `AGENT_MIN_PARAMS_B` paramètres actifs : le plus précis (si mesuré), puis le plus rapide. Sans
-  candidat : le modèle de `chat`, dont les outils ne sont pas vérifiés.
+  candidat : aucun tag, et la raison le dit (comme la v1, qui ne proposait rien : un agent doit
+  savoir appeler des outils).
 - `rag` : comme `chat`, parmi les locaux hors raisonnement d'au moins `RAG_MIN_PARAMS_B`
   paramètres actifs qui tiennent ; sans candidat : le modèle de `chat`.
 
 Un défaut n'est jamais un modèle d'embedding ni un reranker, ni un modèle cloud quand le cloud
 n'est pas autorisé. Une préférence enregistrée par l'UI (`preferences`, clé
 `default_model.<usage>`) prime sur la règle pour ce seul usage, à condition de viser des modèles
-encore disponibles.
+encore disponibles (locaux seulement et au moins 2 pour `arena`, un seul tag ailleurs).
 """
 
 from __future__ import annotations
@@ -239,6 +240,11 @@ def _finite(value: float) -> float:
 
 def _arena(ranked: list[_Cand], judge: _Cand | None, use_speed: bool) -> tuple[list[_Cand], str]:
     fitting = [c for c in ranked if c.fits and not c.reasoning]
+    if not fitting and any(c.fits for c in ranked):
+        return [], (
+            "Seuls des modèles dédiés au raisonnement tiennent en mémoire : l'Arène les écarte. "
+            f"Installez au moins {ARENA_MIN_MODELS} autres modèles locaux qui tiennent."
+        )
     others = [c for c in fitting if judge is None or c.tag != judge.tag]
     order = "rapides" if use_speed else "légers"
     if len(others) >= ARENA_MIN_MODELS:
@@ -311,7 +317,8 @@ def choose_default(
     models: Sequence[ModelInfo], purpose: Purpose, allow_cloud: bool = False
 ) -> ModelDefault:
     """Défaut de la règle pour un usage. Lève `no_model` sans modèle de conversation (local pour
-    `arena`)."""
+    `arena`). `arena` et `agent` peuvent rendre moins de tags que demandé (voire aucun) : la
+    raison le dit."""
     cands = _candidates(models, allow_cloud)
     if purpose == "arena":
         cands = [c for c in cands if not c.is_cloud]
@@ -334,11 +341,12 @@ def choose_default(
         if found is not None:
             picked, reason = [found[0]], found[1]
         else:
-            picked, base = _chat(ranked, use_speed)
+            picked = []
             reason = (
-                "Aucun modèle local aux outils vérifiés ne tient en mémoire : le modèle de "
-                f"conversation par défaut est proposé, ses appels d'outils ne sont pas vérifiés. "
-                f"({base})"
+                "Aucun modèle local ne réunit les conditions de l'Agent (outils vérifiés, au "
+                f"moins {AGENT_MIN_PARAMS_B:g} milliards de paramètres actifs, tient en mémoire, "
+                "hors modèles de raisonnement) : aucun défaut n'est proposé. Un modèle choisi "
+                "à la main peut échouer à appeler les outils."
             )
     elif purpose == "rag":
         found_rag = _rag(ranked, use_speed)
@@ -375,8 +383,15 @@ class ModelDefaults:
         listed = await self._registry.list_models(allow_cloud=allow_cloud)
         stored = _stored_tags(self._preferences.get(PREFERENCE_KEY.format(purpose=purpose)))
         if stored:
-            allowed = {c.tag for c in _candidates(listed.models, allow_cloud)}
-            kept = [t for t in stored if t in allowed]
+            cands = _candidates(listed.models, allow_cloud)
+            if purpose == "arena":  # l'Arène ne compare que des modèles locaux
+                cands = [c for c in cands if not c.is_cloud]
+            allowed = {c.tag for c in cands}
+            kept = list(dict.fromkeys(t for t in stored if t in allowed))
+            if purpose == "arena":
+                kept = kept[:ARENA_MAX_MODELS] if len(kept) >= ARENA_MIN_MODELS else []
+            else:
+                kept = kept[:1]
             if kept:
                 return ModelDefault(
                     purpose=purpose,

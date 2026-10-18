@@ -30,7 +30,7 @@ deferred:
     location: src/wavelocalai/models/defaults.py
     severity: low
   - summary: >-
-      Les usages `agent` et `rag` n'ont pas de règle dans la v1 (`agent_default` exigeait le benchmark du poste, `rag` n'existait pas) : règles posées ici sur les données du registre (outils vérifiés et ≥ 3 milliards de paramètres actifs pour `agent`, ≥ 3 milliards pour `rag`, repli sur le défaut de `chat` avec la raison dite). Seuils à confirmer avec les mesures du banc.
+      Les usages `agent` et `rag` n'ont pas de règle dans la v1 (`agent_default` exigeait le benchmark du poste, `rag` n'existait pas) : règles posées ici sur les données du registre (outils vérifiés et ≥ 3 milliards de paramètres actifs pour `agent`, ≥ 3 milliards pour `rag`, sans candidat `agent` ne rend aucun tag, comme la v1, et la raison le dit ; `rag` se replie sur le défaut de `chat` avec la raison dite). Seuils à confirmer avec les mesures du banc.
     evidence: |-
       `AGENT_MIN_PARAMS_B`, `RAG_MIN_PARAMS_B` dans `models/defaults.py`.
     location: src/wavelocalai/models/defaults.py
@@ -70,3 +70,18 @@ deferred:
 - Le registre n'est lu que par `list_models` : empreinte (`needed_gb`), `fits`, débit mesuré, outils vérifiés, paramètres actifs et précision viennent de `ModelInfo`. Le raisonnement « dédié » se relit sur le tag et le nom (`is_dedicated_reasoning`), pas sur `ModelInfo.reasoning` qui inclut les hybrides.
 - Débit et empreinte ne se mêlent jamais dans un même tri : le débit mesuré sert s'il existe pour tous les locaux qui tiennent, sinon l'empreinte (règle de la v1).
 - `arena` ne rend que des locaux ; si moins de 2 tiennent, elle rend ce qui tient (voire aucun tag) et la raison le dit : le lancement reste désactivé côté UI.
+
+## Revue
+
+Revue Opus, une passe (2026-10-18), sur ff7abe4 ; second avis Haiku repris point par point.
+
+- medium, second avis 1 : corrigé. Une préférence `arena` gardait un tag cloud avec `allow_cloud=true` ; elle ne garde plus que des locaux, au plus 3, et cède à la règle s'il en reste moins de 2 (`test_an_arena_preference_keeps_local_models_only_and_at_most_three`).
+- medium, second avis 2 : corrigé. Arène où seuls des modèles de raisonnement tiennent : la raison disait « Aucun modèle local ne tient en mémoire » ; elle dit maintenant qu'ils sont écartés (`test_arena_with_only_reasoning_models_fitting_says_so`).
+- medium, second avis 3 : corrigé, selon la décision de l'orchestrateur. `agent` sans candidat ne retombe plus sur le défaut de `chat` (outils non vérifiés) : aucun tag, raison qui donne les conditions, comme la v1 (`agent_default` rendait `None`). `no_model` aurait menti (des modèles de conversation existent) ; `tags: []` suit le précédent de `arena`. À l'UI de désactiver le lancement ou de demander un choix.
+- medium, second avis 4 : corrigé par le point 3 (le texte de repli n'existe plus ; la nouvelle raison vaut aussi pour un modèle aux outils vérifiés de moins de 3 B, testé).
+- low, second avis 5 : rejeté. `unknown` traité comme cloud suit le registre (`resolve` lève `cloud_not_allowed` pour tout `origin != "local"`, D1) : jamais proposé sans accord.
+- low, second avis 6 : corrigé avec le point 1 (préférence hors Arène réduite à son premier tag valable, Arène plafonnée à 3).
+- low, second avis 7 : rejeté. 0001 arrive avec la story 1.3 ; numérotation gérée à la fusion par l'orchestrateur.
+- low, second avis 8 : rejeté. Le budget porte sur la lecture du cache du registre Ollama arrêté, déjà couverte ; la règle est un tri en mémoire sur quelques dizaines de modèles.
+- low, second avis 9 : rejeté. `tests/v2/unit/test_layers.py` interdit `src.*` par AST sur tout le paquet, y compris les imports dans une fonction.
+- low, revue : reporté. `rag` se replie encore sur le défaut de `chat` (règle provisoire, hors v1 et hors critères) ; à revoir avec les mesures du banc, comme les seuils.

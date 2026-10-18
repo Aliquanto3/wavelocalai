@@ -184,9 +184,21 @@ def test_agent_needs_verified_tools_and_enough_active_params():
     result = pick([SMALL, MID, BIG, THINK], "agent")
     assert result.tags and result.tags[0] in {"mid:4b", "big:9b"}
     assert "outils vérifiés" in result.reason
-    # Sans outils vérifiés : retombe sur le défaut de chat, et le dit.
-    fallback = pick([SMALL, info("plain:4b", params=4.0)], "agent")
-    assert fallback.tags == ["small:1b"] and "ne sont pas vérifiés" in fallback.reason
+    # Sans candidat (outils non vérifiés, ou vérifiés mais moins de 3 B) : aucun défaut, comme
+    # la v1, et la raison le dit ; jamais le défaut de chat sans outils vérifiés.
+    for models in (
+        [SMALL, info("plain:4b", params=4.0)],
+        [info("tiny:1b", params=1.0, tools=True)],
+    ):
+        fallback = pick(models, "agent")
+        assert fallback.tags == [] and "aucun défaut" in fallback.reason
+
+
+def test_arena_with_only_reasoning_models_fitting_says_so():
+    other = info("qwen3-thinking:4b", needed=2.0, params=4.0)
+    result = pick([THINK, other, HUGE], "arena")
+    assert result.tags == [] and "raisonnement" in result.reason
+    assert "ne tient en mémoire" not in result.reason
 
 
 def test_rag_prefers_a_model_with_enough_active_params():
@@ -261,3 +273,20 @@ def test_preferences_migration_creates_a_key_value_table():
 def test_defaults_module_never_imports_the_v1():
     source = (SRC / "models" / "defaults.py").read_text(encoding="utf-8")
     assert "import src" not in source and "from src" not in source
+
+
+async def test_an_arena_preference_keeps_local_models_only_and_at_most_three():
+    prefs = InMemoryPreferenceStore()
+    prefs.put("default_model.arena", {"tags": ["anthropic/claude-opus-5-5", "small:1b", "mid:4b"]})
+    prefs.put("default_model.chat", {"tags": ["mid:4b", "big:9b"]})
+    service = ModelDefaults(FakeRegistry([SMALL, MID, BIG, *CLOUD]), prefs)
+
+    arena = await service.get("arena", allow_cloud=True)
+    assert arena.tags == ["small:1b", "mid:4b"] and arena.source == "preference"
+    assert (await service.get("chat")).tags == ["mid:4b"]  # un seul tag hors Arène
+
+    prefs.put("default_model.arena", {"tags": ["anthropic/claude-opus-5-5", "small:1b"]})
+    assert (await service.get("arena", allow_cloud=True)).source == "rule"  # moins de 2 locaux
+    prefs.put("default_model.arena", {"tags": ["small:1b", "mid:4b", "big:9b", "huge:70b"]})
+    service = ModelDefaults(FakeRegistry([SMALL, MID, BIG, HUGE]), prefs)
+    assert len((await service.get("arena")).tags) == 3
