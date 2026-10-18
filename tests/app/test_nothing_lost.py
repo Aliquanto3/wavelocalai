@@ -10,6 +10,7 @@ Usage: python -m pytest tests/app/test_nothing_lost.py -v
 """
 
 import pytest
+import streamlit as st
 from langchain_core.documents import Document
 
 from src.app.formatting import NBSP, format_co2
@@ -376,6 +377,7 @@ def test_agent_model_restored_when_back_in_list(agent, run_page, monkeypatch):
     monkeypatch.setattr(
         LLMProvider, "list_models", staticmethod(lambda cloud_enabled=True: list(only_qwen))
     )
+    st.cache_data.clear()  # la liste des modèles est en cache 15 s
     at.run()
     assert _agent_select(at).value == QWEN_LABEL
     assert at.session_state[AGENT_MODEL_KEY] == "gemma3:1b"
@@ -385,6 +387,7 @@ def test_agent_model_restored_when_back_in_list(agent, run_page, monkeypatch):
         "list_models",
         staticmethod(lambda cloud_enabled=True: [dict(m) for m in FAKE_LOCAL_MODELS]),
     )
+    st.cache_data.clear()
     at.run()
     assert not at.exception, [e.value for e in at.exception]
     assert _agent_select(at).value == GEMMA_LABEL

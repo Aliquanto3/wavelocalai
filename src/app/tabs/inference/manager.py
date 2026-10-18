@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app.formatting import pluralize
-from src.app.ui import MEMORY_SNAPSHOT_KEY
+from src.app.ui import invalidate_model_caches
 from src.core.llm_provider import LLMProvider
 from src.core.model_defaults import parse_size_gb
 from src.core.models_db import (
@@ -95,8 +95,9 @@ def open_download_modal(installed_names: list):
 
             pbar.progress(1.0, text="Terminé")
             status_box.update(label="Modèle ajouté", state="complete")
-            # Mémoire et modèles installés ont changé : choix par défaut recalculés.
-            st.session_state.pop(MEMORY_SNAPSHOT_KEY, None)
+            # Mémoire et modèles installés ont changé : listes en cache et choix par défaut
+            # recalculés.
+            invalidate_model_caches()
             time.sleep(1)
             st.rerun()
 
@@ -121,7 +122,7 @@ def render_manager_tab(installed_models_list: list):
         st.caption(f"{count}.")
     with c_refresh:
         if st.button("Rafraîchir", icon=":material/refresh:", help="Rafraîchir la liste"):
-            st.session_state.pop(MEMORY_SNAPSHOT_KEY, None)
+            invalidate_model_caches()
             st.rerun()
 
     st.divider()

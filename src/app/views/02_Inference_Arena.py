@@ -1,14 +1,13 @@
 import streamlit as st
 
+from src.app.modules import ARENA
 from src.app.tabs.inference.arena import render_arena_tab
 
 # IMPORT DES NOUVEAUX TABS
 from src.app.tabs.inference.chat import render_chat_tab
 from src.app.tabs.inference.lab import render_lab_tab
 from src.app.tabs.inference.manager import render_manager_tab
-from src.app.modules import ARENA
-from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
-from src.core.llm_provider import LLMProvider
+from src.app.ui import FAVICON_PATH, installed_models, model_menu
 
 # --- Configuration de la Page ---
 st.set_page_config(page_title=ARENA.title, page_icon=FAVICON_PATH, layout="wide")
@@ -17,7 +16,7 @@ st.set_page_config(page_title=ARENA.title, page_icon=FAVICON_PATH, layout="wide"
 # CHARGEMENT CENTRALISÉ DES MODÈLES
 # ==========================================
 # Contrôle global « Autoriser le cloud » (routeur Accueil.py) : désactivé, aucun modèle cloud.
-installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled())
+installed_models_list = installed_models()
 
 # Sélecteurs : libellés « Nom · Local » / « Nom · Cloud », locaux d'abord, le modèle local le
 # plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).

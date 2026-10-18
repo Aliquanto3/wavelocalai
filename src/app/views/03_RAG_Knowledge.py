@@ -9,9 +9,6 @@ Assistant documentaire : import de documents, discussion avec ses sources, éval
 import nest_asyncio
 import streamlit as st
 
-# UI COMPONENTS
-from src.app.tabs.rag.chat import render_rag_chat_tab
-from src.app.tabs.rag.eval import render_rag_eval_tab
 from src.app.formatting import pluralize
 from src.app.modules import DOCUMENTS
 from src.app.rag_clear import (
@@ -22,10 +19,13 @@ from src.app.rag_clear import (
 )
 from src.app.rag_upload import escape_markdown, ingest_uploaded_files
 from src.app.states import render_error
-from src.app.ui import FAVICON_PATH, cloud_enabled, model_menu
+
+# UI COMPONENTS
+from src.app.tabs.rag.chat import render_rag_chat_tab
+from src.app.tabs.rag.eval import render_rag_eval_tab
+from src.app.ui import FAVICON_PATH, installed_models, model_menu
 from src.core.config import DATA_DIR
 from src.core.eval_engine import EvalEngine
-from src.core.llm_provider import LLMProvider
 from src.core.rag.strategies.hyde import HyDERetrievalStrategy
 from src.core.rag.strategies.naive import NaiveRetrievalStrategy
 from src.core.rag.strategies.self_rag import SelfRAGStrategy
@@ -336,7 +336,7 @@ if doc_count == 0:
 
 else:
     # --- NORMAL UI (TABS) ---
-    installed_models_list = LLMProvider.list_models(cloud_enabled=cloud_enabled())
+    installed_models_list = installed_models()
 
     # Locaux d'abord, le plus rapide qui tient en mémoire en tête (src/core/model_defaults.py).
     menu = model_menu(installed_models_list, cloud_types=("cloud", "api"))
