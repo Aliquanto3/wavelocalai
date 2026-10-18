@@ -15,6 +15,7 @@ from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import routes_health
+from wavelocalai.web.routes_static import mount_shell
 from wavelocalai.web.security import LocalOnlyMiddleware
 
 logger = logging.getLogger("wavelocalai.web")
@@ -86,4 +87,5 @@ def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
         return _error_response(settings, "internal", f"{type(exc).__name__}: {exc}")
 
     app.include_router(routes_health.router)
+    mount_shell(app)
     return app
