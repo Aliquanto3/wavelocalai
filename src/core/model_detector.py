@@ -30,6 +30,15 @@ def get_model_info(model_tag: str) -> dict | None:
     return None
 
 
+def _is_cloud_provider_tag(model_tag: str) -> bool:
+    """Tag reconnu par le préfixe (`claude-`, `gpt-`, `o1-`) ou la liste Groq. Import différé :
+    la fabrique de providers importe ce module."""
+    from src.core.providers.groq_provider import is_groq_model
+    from src.core.providers.provider_factory import prefixed_cloud_provider
+
+    return bool(prefixed_cloud_provider(model_tag)) or is_groq_model(model_tag)
+
+
 def is_api_model(model_tag: str) -> bool:
     """
     Détecte si un modèle est de type API.
@@ -41,6 +50,11 @@ def is_api_model(model_tag: str) -> bool:
         bool: True si API, False si local
     """
     model_info = get_model_info(model_tag)
+
+    if model_info is None and _is_cloud_provider_tag(model_tag):
+        # Modèle d'un fournisseur cloud hors catalogue (Anthropic, OpenAI, Groq) : API,
+        # sans avertissement ; les appelants testent déjà ces fournisseurs avant Mistral.
+        return True
 
     if model_info:
         model_type = model_info.get("type", "local")
