@@ -9,7 +9,7 @@ l'entité, historique d'émissions par session, échelles et étiquettes des mat
 - Couleur par entité : un modèle (clé : son tag) garde sa place dans la palette d'une
   comparaison à l'autre et d'une page à l'autre (`entity_slots`, registre de session
   unique), quels que soient son rang, les modèles filtrés ou ceux en échec.
-- Historique : une barre par session, dans l'unité CO₂ de la règle (`common_co2_unit`),
+- Historique : une barre par lancement de l'application, dans l'unité CO₂ de la règle (`common_co2_unit`),
   sur une fenêtre de temps ; aucune liaison entre deux mesures.
 
 Le module importe streamlit (configuration, session, jetons du thème Plotly). Lisent la
@@ -304,14 +304,14 @@ HISTORY_WINDOWS: dict[str, timedelta | None] = {
     ALL_WINDOW: None,
 }
 DEFAULT_HISTORY_WINDOW = "7 derniers jours"
-EMPTY_WINDOW_TEXT = "Aucune session sur cette période."
+EMPTY_WINDOW_TEXT = "Aucun lancement de l'application sur cette période."
 
 
 def empty_window_text(older_count: int) -> str:
-    """Fenêtre vide : le dire, et signaler les sessions plus anciennes s'il y en a."""
+    """Fenêtre vide : le dire, et signaler les lancements plus anciens s'il y en a."""
     if older_count <= 0:
         return EMPTY_WINDOW_TEXT
-    older = pluralize(older_count, "session plus ancienne", "sessions plus anciennes")
+    older = pluralize(older_count, "lancement plus ancien", "lancements plus anciens")
     return f"{EMPTY_WINDOW_TEXT} {older} : choisissez « {ALL_WINDOW} » pour les afficher."
 
 

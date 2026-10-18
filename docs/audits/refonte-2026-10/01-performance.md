@@ -173,3 +173,17 @@ Attention : la PR de benchmark ne doit pas être touchée (`scripts/benchmark_sl
 - Assistant documentaire avec base non vide non mesuré (la base locale est vide) : son chaud est estimé à partir du même `list_models`.
 - Pas de mesure sans Ollama (autre agent). Par lecture de code, tout ce qui dépend d'Ollama : `list_models`, `health_check`, `is_model_loaded`, `loaded_model_size_gb`, `loaded_models_ram_gb`, `pull_model`, `chat_stream`.
 - La première mesure du tracker (11,5 s puis 6,5 s) varie avec le cache disque de `cpuinfo` : fourchette, pas valeur fixe.
+
+## Revue
+
+Revue de la branche `fix/gains-rapides-perf` (gains rapides 2 à 4, mode Équipe, retrait de docling), avec la liste du second avis.
+
+- [medium] second avis 1, `SessionTracker.start` : base posée à 0 quand `flush()` renvoie None, d'où un sur-comptage (500,4 g au lieu de 0,4 g). Corrigé : base inconnue gardée à None, session « inconnue » ; test `test_unreadable_base_gives_unknown_not_overcount`.
+- [medium] second avis 2, `snapshot_kg` : None changé en 0.0, et verrou CodeCarbon (`_another_instance_already_running`) jamais détecté, donc 0 g affiché sans erreur. Corrigé : None propagé, verrou tenu pour un échec avec un message en français (`TRACKER_LOCKED_TEXT`), page Sobriété : avertissement, « — » et explication ; mission d'équipe : budget carbone inchangé quand la mesure est inconnue. L'Accueil n'affiche pas de CO₂ de session : rien à y changer.
+- [low] second avis 3, pas de ligne après un arrêt brutal, horodatage d'une barre égal au dernier enregistrement. Documenté sous le titre de l'historique (page Sobriété).
+- [low] second avis 4, `_read_lock` tenu pendant `flush()`. Rejeté : CodeCarbon n'est pas sûr entre fils, et un `flush` dure quelques millisecondes.
+- [low] second avis 5, `find_spec` : un SDK présent mais cassé passe pour disponible. Rejeté : cas rare, l'`ImportError` remonte au premier appel du client, au lieu d'un provider masqué sans explication.
+- [low] second avis 6, test réel CodeCarbon. Corrigé : attente bornée sur le fil de démarrage (60 s, 12 s mesurées), test sauté si le verrou est pris par une autre instance ; constat 1 couvert par trois tests.
+- [medium] relecture, historique Sobriété : libellés « par session » alors qu'une barre est désormais un lancement de l'application. Corrigé (titre, série, messages de fenêtre vide et d'historique vide).
+- [low] relecture, `constraints.txt` : ligne d'en-tête « Méthode recommandée : uv » perdue à la régénération. Corrigé.
+- Reporté, à vérifier par l'orchestrateur avec Ollama : mission d'équipe locale sur l'hôte du provider (`OLLAMA_HOST`), mission Mistral par l'API compatible OpenAI (clé réelle), temps de premier rendu de l'Accueil.

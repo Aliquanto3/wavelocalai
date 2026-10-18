@@ -13,9 +13,12 @@ import pytest
 from src.core import green_monitor
 from src.core.green_monitor import (
     SESSION_PROJECT,
+    TRACKER_FAILED_TEXT,
+    GreenTracker,
     SessionTracker,
     ensure_shared_tracker,
     shared_emissions_kg,
+    shared_tracker_failure,
     stop_shared_tracker,
 )
 
@@ -40,6 +43,7 @@ class FakeProcessTracker:
         return self.total_kg
 
     def snapshot_kg(self):
+        # `total_kg` à None : lecture en échec (flush de CodeCarbon qui renvoie None).
         return self.total_kg if self._is_running else None
 
 
@@ -141,8 +145,9 @@ def test_stop_and_double_calls_are_safe():
     assert not session._is_running
 
 
-def test_failed_process_tracker_gives_zero(monkeypatch):
-    """CodeCarbon qui échoue au démarrage : la session reste utilisable et compte 0 g."""
+def test_failed_process_tracker_gives_unknown(monkeypatch):
+    """CodeCarbon qui échoue au démarrage : la session reste utilisable, sa mesure est
+    inconnue (None, jamais 0 g) et la cause est exposée à l'interface."""
 
     def _boom():
         raise RuntimeError("cpuinfo")
@@ -154,7 +159,65 @@ def test_failed_process_tracker_gives_zero(monkeypatch):
 
     assert session._is_running
     assert shared_emissions_kg() is None
-    assert session.stop() == 0.0
+    assert session.stop() is None
+    assert shared_tracker_failure() == TRACKER_FAILED_TEXT
+
+
+def test_unreadable_base_gives_unknown_not_overcount():
+    """Compteur du processus déjà à 500 g, illisible au démarrage de la session : la base
+    n'est jamais posée à 0 (sinon stop() rendrait 500,4 g au lieu de 0,4 g)."""
+    process = _ready_tracker()
+    process.total_kg = None  # flush() de CodeCarbon en échec
+    session = SessionTracker()
+    session.start()
+    process.total_kg = 0.5004
+
+    assert session.stop() is None
+    # « Reprendre » ne rend pas la session de nouveau mesurable : un segment manque.
+    session.start()
+    process.total_kg = 0.5010
+    assert session.stop() is None
+
+
+def test_unreadable_end_gives_unknown():
+    process = _ready_tracker()
+    process.total_kg = 0.5
+    session = SessionTracker()
+    session.start()
+    process.total_kg = None
+
+    assert session.stop() is None
+
+
+def test_codecarbon_lock_taken_gives_unknown(monkeypatch):
+    """CodeCarbon trouve son verrou (second lancement, verrou resté) : il ne lève rien et ne
+    mesure pas. Le tracker du processus est tenu pour en échec, avec un message clair."""
+
+    class LockedTracker(FakeProcessTracker):
+        def start(self):
+            super().start()
+            self.tracker = type("Cc", (), {"_another_instance_already_running": True})()
+
+    monkeypatch.setattr(green_monitor, "_new_shared_tracker", LockedTracker)
+    session = SessionTracker()
+    session.start()
+    green_monitor._shared_thread.join(5)
+
+    assert shared_emissions_kg() is None
+    assert "verrou" in shared_tracker_failure()
+    assert session.stop() is None
+
+
+@pytest.mark.parametrize(("flushed", "expected"), [(None, None), (0.0, 0.0), (0.002, 0.002)])
+def test_green_tracker_snapshot_keeps_unknown(flushed, expected):
+    """`flush()` de CodeCarbon renvoie None en échec (décoré `@suppress(Exception)`) :
+    `snapshot_kg` le garde inconnu ; un vrai 0 reste 0."""
+    tracker = GreenTracker.__new__(GreenTracker)
+    tracker.project_name = SESSION_PROJECT
+    tracker._is_running = True
+    tracker.tracker = type("Cc", (), {"flush": lambda self: flushed})()
+
+    assert tracker.snapshot_kg() == expected
 
 
 def test_stop_shared_tracker_stops_and_rearms():
@@ -179,10 +242,14 @@ def test_real_codecarbon_session_is_written_to_history(tmp_path, monkeypatch):
     )
     session = SessionTracker()
     session.start()
-    deadline = time.monotonic() + 120
-    while shared_emissions_kg() is None and time.monotonic() < deadline:
-        time.sleep(0.2)
-    assert shared_emissions_kg() is not None, "CodeCarbon n'a pas démarré"
+    # Attente bornée du démarrage (py-cpuinfo : jusqu'à une dizaine de secondes).
+    green_monitor._shared_thread.join(60)
+    failure = shared_tracker_failure()
+    if failure and "verrou" in failure:
+        # Un autre CodeCarbon tourne sur la machine (l'application lancée à côté) : la
+        # mesure réelle n'est pas possible ici, ce n'est pas un défaut du code.
+        pytest.skip("verrou CodeCarbon déjà pris par une autre instance")
+    assert shared_emissions_kg() is not None, failure or "CodeCarbon n'a pas démarré"
     time.sleep(1.5)
 
     emissions_g = session.stop()

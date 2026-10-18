@@ -194,9 +194,10 @@ class HardwareMonitor:
 # benchmark (EMISSIONS_DIR, data/logs/emissions/emissions.csv), jamais lu ici.
 APP_EMISSIONS_FILE = "emissions.csv"
 
-# Projets CodeCarbon de l'app, tous écrits dans ce fichier. L'historique « par session » ne
-# garde que SESSION_PROJECT : les autres recouvrent la même période, et le fichier peut aussi
-# recevoir d'autres lignes (scripts/audit_and_update.py, projet « codecarbon » par défaut).
+# Projets CodeCarbon de l'app, tous écrits dans ce fichier. L'historique (une barre par
+# lancement de l'application) ne garde que SESSION_PROJECT : les autres recouvrent la même
+# période, et le fichier peut aussi recevoir d'autres lignes (scripts/audit_and_update.py,
+# projet « codecarbon » par défaut).
 SESSION_PROJECT = "wavelocal_session"  # Suivi unique du processus (routeur, Accueil.py)
 AUDIT_PROJECT = "wavelocal_audit"  # Défaut de GreenTracker
 CREW_PROJECT = "crew_mission"  # Équipe d'agents (ancien tracker par mission, plus créé)
@@ -330,7 +331,7 @@ class GreenTracker:
     def snapshot_kg(self) -> float | None:
         """
         Émissions cumulées (kg) depuis le démarrage, sonde toujours active ; None si elle est
-        arrêtée ou si la lecture échoue. CodeCarbon ajoute alors une ligne cumulée au fichier
+        arrêtée ou si la lecture échoue (exception, ou `flush()` qui renvoie None). CodeCarbon ajoute alors une ligne cumulée au fichier
         d'émissions (même `run_id` : la dernière fait foi).
         """
         if not self._is_running:
@@ -340,7 +341,9 @@ class GreenTracker:
         except Exception as e:
             logger.error(f"Erreur lecture tracker '{self.project_name}': {e}")
             return None
-        return float(emissions_kg) if emissions_kg else 0.0
+        # `flush()` est décoré `@suppress(Exception)` et renvoie None s'il échoue ou si
+        # CodeCarbon a trouvé son verrou au démarrage : valeur inconnue, jamais 0.
+        return None if emissions_kg is None else float(emissions_kg)
 
     @classmethod
     def _cleanup_all_trackers(cls):
@@ -362,9 +365,27 @@ class GreenTracker:
 # compteurs (`SessionTracker`) : la mesure par session reste exacte, sans second tracker.
 
 _shared_lock = threading.Lock()  # état du démarrage
-_read_lock = threading.Lock()  # lectures du compteur
+# Lectures du compteur : CodeCarbon n'est pas sûr entre fils (mesure puis écriture du
+# fichier) ; un `flush` dure quelques millisecondes, la sérialisation reste invisible.
+_read_lock = threading.Lock()
 _shared_tracker: GreenTracker | None = None
 _shared_thread: threading.Thread | None = None
+_shared_failure: str | None = None
+
+TRACKER_LOCKED_TEXT = (
+    "Mesure carbone indisponible : une autre instance de CodeCarbon tourne déjà sur cette "
+    "machine (un second lancement de l'application, par exemple), ou son fichier de verrou "
+    "{lock} est resté après un arrêt brutal. Fermer l'autre instance ou supprimer ce fichier, "
+    "puis relancer l'application."
+)
+TRACKER_FAILED_TEXT = (
+    "Mesure carbone indisponible : CodeCarbon n'a pas pu démarrer (détail dans le journal). "
+    "Relancer l'application pour réessayer."
+)
+SESSION_UNKNOWN_TEXT = (
+    "Mesure carbone inconnue pour cette session : le compteur de CodeCarbon n'était pas "
+    "lisible au début ou à la fin de la mesure."
+)
 
 
 def _new_shared_tracker() -> GreenTracker:
@@ -372,15 +393,33 @@ def _new_shared_tracker() -> GreenTracker:
     return GreenTracker(project_name=SESSION_PROJECT)
 
 
+def _codecarbon_lock_path() -> str:
+    """Chemin du verrou de CodeCarbon (dossier temporaire du système), pour le message."""
+    try:
+        from codecarbon.lock import LOCKFILE
+
+        return str(LOCKFILE)
+    except Exception:
+        return ".codecarbon.lock"
+
+
 def _start_shared_tracker() -> None:
-    """Corps du fil de démarrage : crée et lance le tracker du processus. Un échec est
-    journalisé et laisse les sessions à 0 g, sans empêcher l'application de fonctionner."""
-    global _shared_tracker
+    """Corps du fil de démarrage : crée et lance le tracker du processus. Un échec (exception,
+    ou CodeCarbon qui refuse de démarrer parce qu'il trouve son verrou) est journalisé et
+    noté dans `shared_tracker_failure()` : les sessions comptent alors « inconnu », jamais 0."""
+    global _shared_tracker, _shared_failure
     try:
         tracker = _new_shared_tracker()
         tracker.start()
     except Exception:
         logger.exception("Tracker CodeCarbon du processus non démarré")
+        _shared_failure = TRACKER_FAILED_TEXT
+        return
+    # CodeCarbon ne lève rien quand il trouve son verrou : il ne mesure pas, et `flush()`
+    # renvoie None à chaque lecture.
+    if getattr(getattr(tracker, "tracker", None), "_another_instance_already_running", False):
+        logger.error("Tracker CodeCarbon du processus non démarré : verrou déjà pris")
+        _shared_failure = TRACKER_LOCKED_TEXT.format(lock=_codecarbon_lock_path())
         return
     _shared_tracker = tracker
 
@@ -397,9 +436,21 @@ def ensure_shared_tracker() -> None:
         _shared_thread.start()
 
 
+def shared_tracker_failure() -> str | None:
+    """Message (français) si le tracker du processus n'a pas pu démarrer ; None sinon (prêt,
+    en cours de démarrage ou pas encore lancé)."""
+    return _shared_failure
+
+
+def shared_tracker_ready() -> bool:
+    """True quand le tracker du processus mesure."""
+    return _shared_tracker is not None
+
+
 def shared_emissions_kg() -> float | None:
-    """Émissions cumulées (kg) du processus ; None tant que le tracker démarre (ou s'il n'a
-    pas démarré). Lecture sérialisée : plusieurs sessions peuvent la demander en même temps."""
+    """Émissions cumulées (kg) du processus ; None tant que le tracker démarre, s'il n'a pas
+    démarré ou si la lecture échoue. Lecture sérialisée : plusieurs sessions peuvent la
+    demander en même temps."""
     tracker = _shared_tracker
     if tracker is None:
         return None
@@ -410,12 +461,13 @@ def shared_emissions_kg() -> float | None:
 def stop_shared_tracker(timeout: float = 30.0) -> None:
     """Arrête le tracker du processus (écrit la ligne finale) et réarme le démarrage. En fin
     de processus, `GreenTracker._cleanup_all_trackers` l'arrête déjà ; sert surtout aux tests."""
-    global _shared_tracker, _shared_thread
+    global _shared_tracker, _shared_thread, _shared_failure
     thread = _shared_thread
     if thread is not None and thread is not threading.current_thread():
         thread.join(timeout)
     with _shared_lock:
         tracker, _shared_tracker, _shared_thread = _shared_tracker, None, None
+        _shared_failure = None
     if tracker is not None:
         tracker.stop()
 
@@ -424,33 +476,49 @@ class SessionTracker:
     """
     Émissions d'une session du navigateur (ou d'une mission), en GRAMMES, par différence de
     compteurs du tracker unique du processus. Même interface que `GreenTracker` côté pages :
-    `start()`, `stop()` (grammes), `_is_running`.
+    `start()`, `stop()` (grammes, ou None si inconnues), `_is_running`.
 
     `stop()` ajoute aussi au fichier d'émissions la ligne cumulée du processus. « Reprendre »
     (`start()` après `stop()`) cumule : les émissions de la pause ne sont pas comptées.
-    Tracker pas encore prêt ou en échec : la session compte 0 g.
+
+    Valeur inconnue (None), jamais 0 : tracker en échec (`shared_tracker_failure()`), compteur
+    illisible au début ou à la fin d'un segment, ou tracker pas encore prêt à l'arrêt. Une
+    session démarrée pendant le démarrage du tracker part de 0, comme son compteur.
     """
 
     def __init__(self):
         self._is_running = False
         self._accumulated_kg = 0.0
-        self._segment_start_kg = 0.0
+        self._segment_start_kg: float | None = 0.0
+        self.unknown = False  # au moins un segment non mesuré : total inconnu
 
     def start(self) -> None:
         """Démarre (ou reprend) la mesure ; lance le tracker du processus s'il ne l'est pas."""
         if self._is_running:
             return
         ensure_shared_tracker()
-        # Tracker en cours de démarrage : son compteur part de zéro, la base aussi.
-        self._segment_start_kg = shared_emissions_kg() or 0.0
+        if shared_tracker_ready():
+            # Lecture en échec : base inconnue (None), jamais 0 sur un compteur déjà avancé.
+            self._segment_start_kg = shared_emissions_kg()
+        elif shared_tracker_failure() is None:
+            # Tracker en cours de démarrage : son compteur partira de zéro, la base aussi.
+            self._segment_start_kg = 0.0
+        else:
+            self._segment_start_kg = None
         self._is_running = True
 
-    def stop(self) -> float:
-        """Arrête la mesure et renvoie les émissions cumulées de la session, en grammes."""
+    def _total_g(self) -> float | None:
+        return None if self.unknown else self._accumulated_kg * 1000.0
+
+    def stop(self) -> float | None:
+        """Arrête la mesure et renvoie les émissions cumulées de la session, en grammes ;
+        None si une mesure a manqué (voir la classe)."""
         if not self._is_running:
-            return 0.0
+            return self._total_g()
         now_kg = shared_emissions_kg()
-        if now_kg is not None:
+        if now_kg is None or self._segment_start_kg is None:
+            self.unknown = True
+        else:
             self._accumulated_kg += max(0.0, now_kg - self._segment_start_kg)
         self._is_running = False
-        return self._accumulated_kg * 1000.0
+        return self._total_g()

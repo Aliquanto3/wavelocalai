@@ -519,7 +519,8 @@ def render_agent_crew_tab(
                 ram_gb_peak_delta = (peak_container["val"] - ram_start) / (1024**3)
 
                 # UPDATE BUDGET GAMIFICATION
-                if "carbon_budget" in st.session_state:
+                # Mesure inconnue (None, CodeCarbon indisponible) : budget inchangé.
+                if "carbon_budget" in st.session_state and emissions_g is not None:
                     impact_percent = emissions_g  # 1g = 1% arbitraire
                     st.session_state.carbon_budget -= impact_percent
 

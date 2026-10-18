@@ -293,10 +293,10 @@ def test_history_empty_window():
     assert history.empty
     assert history.older_count == 2
     assert empty_window_text(history.older_count) == (
-        f"Aucune session sur cette période. 2{NBSP}sessions plus anciennes : choisissez "
-        "« Tout » pour les afficher."
+        f"Aucun lancement de l'application sur cette période. 2{NBSP}lancements plus anciens : "
+        "choisissez « Tout » pour les afficher."
     )
-    assert empty_window_text(0) == "Aucune session sur cette période."
+    assert empty_window_text(0) == "Aucun lancement de l'application sur cette période."
 
 
 def test_history_all_single_session_has_readable_span():
