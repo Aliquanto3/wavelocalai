@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import sqlite3
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -584,3 +585,84 @@ async def test_a_document_left_indexing_by_a_crash_is_failed_without_its_chunks_
     assert rig.chunks("crash.txt") == 0 and rig.docs()["a.txt"]["status"] == "ready"
     assert rig.chunks() == rig.vectors() == 1
     assert await rig.service.recover() == 0
+
+
+# --- revue : annulation pendant une écriture hors du `try`, reprise au démarrage ------------------
+
+
+async def test_cancelling_while_the_document_row_is_written_leaves_no_indexing_row(
+    rig, monkeypatch
+):
+    import threading
+
+    gate, entered = threading.Event(), threading.Event()
+    insert = repo.insert_document
+
+    def slow_insert(conn, **kwargs):
+        entered.set()
+        gate.wait(5)  # le job tourne sur le fil de l'écrivain pendant l'annulation
+        insert(conn, **kwargs)
+
+    monkeypatch.setattr(repo, "insert_document", slow_insert)
+    handle, _ = await rig.ingest({"a.txt": "Bref."})
+    assert await asyncio.to_thread(entered.wait, 3)
+    cancelling = asyncio.create_task(rig.hub.cancel(handle.run_id))
+    await asyncio.sleep(0.05)
+    gate.set()
+    assert await cancelling
+    await rig.finished(handle.run_id)
+    await rig.store.awrite(lambda conn: None)  # file de l'écrivain vidée
+
+    assert rig.docs() == {} and rig.chunks() == rig.vectors() == 0
+    _, events, _ = await rig.run({"a.txt": "Bref."})  # pas vu comme un doublon
+    assert of_type(events, "ingest_file_done")[0]["status"] == "ready"
+
+
+async def test_cancelling_while_a_failure_is_queued_still_marks_the_document_failed(
+    rig, monkeypatch
+):
+    import threading
+
+    from wavelocalai.rag import ingest as ingest_module
+
+    gate, entered = threading.Event(), threading.Event()
+    failure = ingest_module._failure
+
+    def failure_behind_a_busy_writer(exc):
+        rig.store.write(lambda conn: (entered.set(), gate.wait(5)))  # écrivain occupé
+        return failure(exc)
+
+    monkeypatch.setattr(ingest_module, "_failure", failure_behind_a_busy_writer)
+    rig.embedder.script = [None, RuntimeError("panne")]  # premier lot fait, second en erreur
+    handle, _ = await rig.ingest({"b.txt": LONG_TEXT})
+    assert await asyncio.to_thread(entered.wait, 3)
+    cancelling = asyncio.create_task(rig.hub.cancel(handle.run_id))
+    await asyncio.sleep(0.05)
+    gate.set()
+    await cancelling
+    await rig.finished(handle.run_id)
+    await rig.store.awrite(lambda conn: None)
+
+    assert {d["status"] for d in rig.docs().values()} <= {"failed"}  # jamais `indexing`
+    assert rig.chunks() == rig.vectors() == 0
+
+
+async def test_recovery_does_not_stop_the_startup_when_the_index_is_unusable(rig):
+    run_id, _, _ = await rig.run({"a.txt": "Document terminé."})
+
+    def crash(conn):
+        repo.insert_document(
+            conn, doc_id="d2", source="crash.txt", fingerprint="f2", size_bytes=3,
+            embedding_model=FAKE_EMBED_REF.tag, run_id=run_id, now="2026-10-18T12:00:00.000Z",
+        )  # fmt: skip
+        repo.insert_chunks(conn, "d2", [ChunkDraft(0, None, "texte")])
+
+    await rig.store.awrite(crash)
+
+    class Broken(NumpyIndex):
+        def remove(self, conn, ids):
+            raise sqlite3.OperationalError("no such module: vec0")
+
+    rig.service._index = Broken()
+    assert await rig.service.recover() == 0  # journalisé, sans lever
+    assert rig.docs()["crash.txt"]["status"] == "indexing"

@@ -84,3 +84,15 @@ deferred:
 ## Vérification
 
 `pytest tests/v2` : 646 passés (dont 136 ajoutés ; les 155 E2E Playwright sont exclus par `pytest.ini`, la story n'a pas d'écran). Le test d'intégration d'embedding réel a tourné contre `nomic-embed-text:latest` (déjà installé, rien n'est téléchargé) ; sans modèle d'embedding installé il saute avec sa raison.
+
+## Revue
+
+Revue Opus du 2026-10-18, après fusion de `origin/master` (stories 2.4 et 2.5) : conflits de `pyproject.toml`, `wavelocalai.toml`, `errors.py`, `models/factory.py` et `web/app.py` résolus en gardant les deux côtés (`ModelFactory(client, fakes, fake_embedders, settings, cloud_http)`, une seule fabrique partagée par le chat et l'ingestion) ; `uv.lock` cohérent (`uv lock --check`).
+
+- medium, second avis 1 : corrigé. Une annulation pendant l'écriture de la ligne `documents` (hors `try`) ou pendant que `mark_failed` attendait dans la file de l'écrivain laissait le document `indexing` avec ses extraits (base verrouillée sur ce modèle, réimport vu `duplicate` jusqu'au redémarrage). Écritures passées par `_write_through` (job jamais sauté, attente protégée), et l'insertion annulée est retirée. Tests : `test_cancelling_while_the_document_row_is_written_...`, `test_cancelling_while_a_failure_is_queued_...` (échouent sans le correctif).
+- medium, second avis 2 : requalifié low, corrigé quand même (deux lignes). Il faut une table vec0 déjà créée puis une extension qui ne se charge plus ; `recover` journalise désormais l'échec d'un document au lieu d'empêcher le démarrage. Test : `test_recovery_does_not_stop_the_startup_...`.
+- low, second avis 3 : reporté. Sans sqlite-vec, chaque fichier échoue en « erreur interne » ; un refus explicite à `start` demande un code d'erreur nouveau dans `contrat-api.md` (story 4.2 ou 4.3, à trancher). `sqlite-vec` est une dépendance épinglée : le cas exige un CPython sans `enable_load_extension`.
+- low, second avis 4 : rejeté. `validate_path` ne voit que des chemins produits par le serveur (`staging.py`, nom neutre) ; aucun chemin utilisateur n'y arrive.
+- low, second avis 5 : reporté. Pas de plafond de nombre de fichiers ni de taille totale (Starlette borne à 1000 parties) ; le serveur écoute en local seulement. À décider avec l'écran de la story 4.2.
+- low, revue : rejeté. Complexité : `carbon_updated` après chaque lot relit les feuilles de la session (O(n) par lot, O(n²) sur un import). Mesuré : 0,6 ms à 1 000 feuilles, 2,3 ms à 4 000, 5,9 ms à 10 000, contre 100 ms ou plus par lot d'embedding ; impact négligeable. À revoir si un import dépasse 10 000 lots.
+- low, revue : reporté. `ingest_file_done` reste à ratifier dans `contrat-api.md` (noté par le développeur).

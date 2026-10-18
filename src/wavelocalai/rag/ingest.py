@@ -27,9 +27,9 @@ import logging
 import sqlite3
 import time
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
@@ -57,6 +57,8 @@ from wavelocalai.runs.system_bus import SystemBus
 from wavelocalai.store.db import Store, utc_now_iso
 
 logger = logging.getLogger("wavelocalai.rag")
+
+T = TypeVar("T")
 
 
 class IngestService:
@@ -91,14 +93,20 @@ class IngestService:
         """Au démarrage : un document resté `indexing` (arrêt pendant un import) passe à `failed`,
         sans extraits (le run correspondant est déjà `interrupted`, AD-5). Rend leur nombre."""
         rows = await self._store.aread(repo.INTERRUPTED_SQL)
+        recovered = 0
         for row in rows:
             error = self._envelope(row["source"], "indexation interrompue par l'arrêt du serveur")
-            await self._store.awrite(
-                lambda conn, doc_id=row["id"], err=error: repo.mark_failed(
-                    conn, self._index, doc_id, err
+            try:
+                await self._store.awrite(
+                    lambda conn, doc_id=row["id"], err=error: repo.mark_failed(
+                        conn, self._index, doc_id, err
+                    )
                 )
-            )
-        return len(rows)
+            except Exception:  # noqa: BLE001 - le serveur démarre même si l'index est inutilisable
+                logger.exception("Document %s resté en cours d'indexation", row["id"])
+                continue
+            recovered += 1
+        return recovered
 
     async def start(
         self, files: Sequence[StagedFile], staging_dir: Path, embedding_model: str | None = None
@@ -189,7 +197,7 @@ class IngestService:
         doc_id = uuid.uuid4().hex
         if not present:
             try:
-                await self._store.awrite(
+                await self._write_through(
                     lambda conn: repo.insert_document(
                         conn,
                         doc_id=doc_id,
@@ -203,6 +211,9 @@ class IngestService:
                 )
             except sqlite3.IntegrityError:  # même contenu inséré entre-temps
                 present = await self._store.aread(repo.PRESENT_SQL, (staged.fingerprint,))
+            except asyncio.CancelledError:
+                await self._discard(doc_id)  # l'insertion a pu aboutir pendant l'annulation
+                raise
         if present:
             self._done(run_id, meta, present[0]["id"], "duplicate", present[0]["chunk_count"])
             return
@@ -216,7 +227,8 @@ class IngestService:
             if not isinstance(exc, (IngestError, AppError)):
                 logger.error("Indexation de %s en erreur", staged.name, exc_info=exc)
             error = self._envelope(staged.name, reason, technical)
-            await self._store.awrite(
+            # À l'abri d'une annulation : sinon le document resterait `indexing` avec ses extraits.
+            await self._write_through(
                 lambda conn: repo.mark_failed(conn, self._index, doc_id, error)
             )
             self._done(run_id, meta, doc_id, "failed", 0, error)
@@ -398,8 +410,15 @@ class IngestService:
         """Retire le document en cours (annulation) ; la tâche est déjà annulée : l'écriture part
         dans la file de l'écrivain tout de suite et on l'attend à l'abri d'une seconde annulation.
         """
-        future = self._store.write(lambda conn: repo.delete_document(conn, self._index, doc_id))
-        await asyncio.shield(asyncio.wrap_future(future))
+        await self._write_through(lambda conn: repo.delete_document(conn, self._index, doc_id))
+
+    async def _write_through(self, func: Callable[[sqlite3.Connection], T]) -> T:
+        """Écriture menée à terme même si la tâche est annulée pendant l'attente : le job part
+        dans la file de l'écrivain tout de suite, et son futur n'est jamais annulé (une annulation
+        ne saute donc pas un job encore en file). `CancelledError` remonte une fois le job fini
+        ou pendant l'attente ; l'écriture, elle, a lieu."""
+        future = self._store.write(func)
+        return await asyncio.shield(asyncio.wrap_future(future))
 
     async def _announce_carbon(self) -> None:
         """`carbon_updated` après chaque feuille (AD-10) ; un échec est journalisé, sans effet."""
