@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +19,7 @@ from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.hardware.memory import MemoryAdvisor
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
+from wavelocalai.models.cloud import HttpClientFactory
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.facts_store import SqliteFactsStore
@@ -100,7 +101,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.chat = ChatService(
         hub,
         app.state.registry,
-        ModelFactory(client, app.state.models),
+        ModelFactory(client, app.state.models, settings, app.state.cloud_http),
         app.state.local_slot,
         settings,
     )
@@ -129,6 +130,7 @@ def create_app(
     registry: ModelRegistry | None = None,
     preferences: PreferenceStore | None = None,
     ollama_client: AsyncClient | None = None,
+    cloud_http: Mapping[str, HttpClientFactory] | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
@@ -136,6 +138,7 @@ def create_app(
     démarrage de son cycle de vie. `registry` : registre des modèles, branché sur la base du store
     (faits d'Ollama et débit mesuré) par défaut. `ollama_client` : client Ollama partagé des
     générations (celui du lanceur ; sinon l'app crée le sien au démarrage de son cycle de vie).
+    `cloud_http` : fabriques de client HTTP des SDK cloud par fournisseur (tests : faux transport).
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -153,6 +156,7 @@ def create_app(
     app.state.models = fake_models(settings)  # le `fake` seulement si `Settings.testing` (AD-8)
     app.state.tasks = set()  # tâches de runs en cours (références fortes)
     app.state.ollama_client = ollama_client
+    app.state.cloud_http = dict(cloud_http or {})
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.registry = registry or ModelRegistry(
