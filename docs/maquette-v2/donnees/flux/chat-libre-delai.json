@@ -1,0 +1,12 @@
+{
+  "id": "chat-libre-delai",
+  "kind": "chat",
+  "label": "Génération trop lente : délai dépassé (timeout) après une réponse partielle",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "chat", "models": ["{{tag}}"], "params": { "temperature": "{{temperature}}" } } },
+    { "wait": 150, "when": "{{loading}}", "type": "model_loading", "data": { "tag": "{{tag}}" } },
+    { "wait": 3200, "slow_wait": 14000, "when": "{{loading}}", "type": "model_loaded", "data": { "tag": "{{tag}}", "duration_s": "{{load_s}}" } },
+    { "wait": 400, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{partial}}", "tps": 6 } },
+    { "wait": 2500, "type": "run_ended", "data": { "status": "error", "error": "{{error}}" } }
+  ]
+}

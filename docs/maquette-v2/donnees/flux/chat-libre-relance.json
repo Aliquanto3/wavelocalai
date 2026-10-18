@@ -1,0 +1,13 @@
+{
+  "id": "chat-libre-relance",
+  "kind": "chat",
+  "label": "Ollama coupe la génération : relance automatique (événement retry), puis réponse complète",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "chat", "models": ["{{tag}}"], "params": { "temperature": "{{temperature}}" } } },
+    { "wait": 300, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{partial}}", "tps": "{{tps}}" } },
+    { "wait": 600, "type": "retry", "data": { "lane": "{{tag}}", "reason": "Ollama a fermé le flux avant la fin ; nouvelle tentative." } },
+    { "wait": 500, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{answer}}", "tps": "{{tps}}" } },
+    { "wait": 120, "type": "metrics", "data": "{{metrics}}" },
+    { "wait": 40, "type": "run_ended", "data": { "status": "ok", "error": null } }
+  ]
+}
