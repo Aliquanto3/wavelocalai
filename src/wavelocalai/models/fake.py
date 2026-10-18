@@ -23,7 +23,7 @@ from wavelocalai.models.port import (
     TextDelta,
 )
 
-FAKE_REF = ModelRef(tag="fake:1b", provider="fake", origin="local")
+FAKE_REF = ModelRef(tag="fake:1b", provider="fake", origin="local", kind="chat")
 
 
 @dataclass(frozen=True)

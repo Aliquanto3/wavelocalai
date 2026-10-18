@@ -11,9 +11,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
-Origin = Literal["local", "cloud"]
-Channel = Literal["answer", "thought"]
-TpsSource = Literal["ollama_eval", "wallclock"]
+Origin = Literal["local", "cloud", "unknown"]
+Kind = Literal["chat", "embedding", "reranker"]
 
 
 @dataclass(frozen=True)
@@ -21,7 +20,11 @@ class ModelRef:
     tag: str
     provider: str
     origin: Origin
-    kind: str = "chat"
+    kind: Kind
+
+
+Channel = Literal["answer", "thought"]
+TpsSource = Literal["ollama_eval", "wallclock"]
 
 
 @dataclass(frozen=True)

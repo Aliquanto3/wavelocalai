@@ -12,7 +12,7 @@ import asyncio
 import logging
 from collections.abc import Iterable
 
-from wavelocalai.errors import AppError, build_envelope
+from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.models.port import (
     ChatModel,
     ChatRequest,
@@ -102,6 +102,13 @@ async def stream_into_run(
 def _error_envelope(exc: Exception, secrets: Iterable[str]) -> dict[str, object]:
     """Enveloppe d'AD-18 pour `run_ended.data.error` ; une exception inattendue devient `internal`."""
     if isinstance(exc, AppError):
-        return build_envelope(exc.code, exc.technical, secrets, **exc.detail)
+        # Clés de `detail` non déclarées pour ce code : écartées plutôt que de lever ici, ce qui
+        # laisserait le run actif (et sa place de `kind` prise) jusqu'au redémarrage.
+        declared = ERRORS[exc.code].detail_keys
+        dropped = sorted(set(exc.detail) - set(declared))
+        if dropped:
+            logger.warning("Clés de detail non déclarées pour %s écartées : %s", exc.code, dropped)
+        detail = {key: value for key, value in exc.detail.items() if key in declared}
+        return build_envelope(exc.code, exc.technical, secrets, **detail)
     logger.error("Erreur non prévue dans un run", exc_info=exc)
     return build_envelope("internal", f"{type(exc).__name__}: {exc}", secrets)

@@ -87,3 +87,14 @@ Un écran qui change de page ne perd ni ne duplique aucun morceau de réponse : 
 ## Reports
 
 Voir l'en-tête `deferred` : `Embedder` factice, `verdict` d'arène et appels d'outils, CO2 des runs de test, `publish("token")` brut, E2E navigateur (2.2), encodage de `test_real_launch`.
+
+## Revue
+
+Revue Opus du 2026-10-18, sur `feat/v2-hub..HEAD` après fusion de la story 1.3 revue (`feat/v2-hub`, conflit de `create_run` résolu : réservation de la racine de 1.4 et feuille rattachée au parent avant écriture de 1.3).
+
+- high, second avis 1 — `ModelRef` divergent de la story 1.5 (`origin` sans `unknown`, `kind: str = "chat"`) : corrigé, `ModelRef`, `Origin` et `Kind` alignés à l'identique sur `feat/v2-registre` ; `FAKE_REF` passe `kind="chat"`.
+- medium, revue (second avis 5, relevé de low) — `_error_envelope` levait `ValueError` sur une clé de `detail` non déclarée : le run restait actif et gardait sa place de `kind` (`409 run_busy`) jusqu'au redémarrage, flux ouverts suspendus. Prouvé par un test rouge ; corrigé, les clés non déclarées sont écartées et journalisées (`test_an_error_with_an_undeclared_detail_key_still_ends_the_run`).
+- low, second avis 2 — `publish("token")` brut contourne le groupage et la `lane` : confirmé, déjà reporté (en-tête `deferred`).
+- low, second avis 3 — échec de `store.awrite` dans `_close` : racine `closing` restée en mémoire, `run_ended` diffusé mais non persisté. Confirmé, reporté : panne de base exceptionnelle, le run passe à `interrupted` au démarrage suivant. Vérification à faire avec la story d'exploitation : purger la racine et journaliser.
+- low, second avis 4 — `POST /runs/{enfant}/cancel` accepté, le parent continue : écarté, comportement voulu (l'échec ou l'arrêt d'une lane n'arrête pas les autres, AD-14 ; `cancel` d'une feuille vient de 1.3).
+- low, revue — un flux ouvert juste avant la clôture d'un run peut se terminer sans `run_ended` quand le curseur est déjà au dernier `seq` ; `EventSource` se reconnecte et reçoit `204`. Écarté : sans perte ni doublon.

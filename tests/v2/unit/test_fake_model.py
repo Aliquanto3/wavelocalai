@@ -143,3 +143,14 @@ async def test_cancelling_the_run_cancels_the_task_and_closes_the_adapter_stream
     assert last["type"] == "run_ended" and last["data"]["status"] == "cancelled"
     assert _row(store, handle.run_id)["status"] == "cancelled"
     assert store.read("SELECT content FROM messages WHERE role = 'assistant'")[0][0] == "par"
+
+
+async def test_an_error_with_an_undeclared_detail_key_still_ends_the_run(hub):
+    # Une `AppError` dont `detail` porte une clé non déclarée ne doit pas laisser le run actif
+    # (il garderait sa place de `kind` jusqu'au redémarrage).
+    model = FakeChatModel([ProviderError("internal", "boum", cle_inconnue=1)])
+    handle = await hub.create_run("chat", models=["fake:1b"])
+    await stream_into_run(hub, handle.run_id, model, REQUEST)
+    error = (await hub.events_after(handle.run_id))[-1]["data"]["error"]
+    assert error["code"] == "internal" and "boum" in error["detail"]["technical"]
+    assert hub.active_root("chat") is None
