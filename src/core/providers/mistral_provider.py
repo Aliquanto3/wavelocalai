@@ -74,6 +74,7 @@ class MistralProvider(ILLMProvider):
                 "provider": "mistral",
                 "params": "?",
                 "context_length": MISTRAL_CLOUD_CONTEXT,
+                "capabilities": list(info["capabilities"]),
             }
             for tag, info in MISTRAL_CLOUD_MODELS.items()
         ]

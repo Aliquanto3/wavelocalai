@@ -31,8 +31,8 @@ def answer_carbon_mg(
     Returns:
         Le CO₂ en mg (0.0 pour 0 token), ou None s'il est inconnu : tag absent, nombre de
         tokens absent, booléen, non fini ou négatif, catalogue illisible, ou modèle cloud de
-        taille inconnue (tag distant hors catalogue, tags Mistral `-latest`). Jamais 0 pour une valeur inconnue ; ne
-        lève jamais d'exception.
+        taille inconnue (tag distant hors catalogue, tags Mistral `-latest`). Jamais 0 pour
+        une valeur inconnue ; ne lève jamais d'exception.
     """
     if not model_tag or isinstance(output_tokens, bool):
         return None

@@ -12,25 +12,26 @@ from src.core.models_db import MODELS_DB
 logger = logging.getLogger(__name__)
 
 # Modèles Mistral cloud proposés quand la clé API est présente, vérifiés le 2026-10-18 sur
-# `GET /v1/models` (tous avec appel de fonctions). Source unique : la liste du provider, la
+# `GET /v1/models`, tous avec appel de fonctions (capacité `tools`, lue par le badge « outils
+# vérifiés » du mode Agent). Source unique : la liste du provider, la
 # détection (`is_api_model`), le routage, le mode Équipe, le nom du fournisseur et l'origine
 # cloud du tag (`is_cloud_tag`) la lisent. Les tags `-latest` n'ont pas de taille publiée
 # (pas de CO₂ estimable). Les tags Ollama locaux proches (`ministral-3:8b`, `mistral:7b`)
 # portent un « : » et n'y figurent jamais.
 MISTRAL_CLOUD_MODELS: dict[str, dict] = {
-    "mistral-small-latest": {"name": "Mistral Small", "served": "mistral-small-2603"},
-    "mistral-medium-latest": {"name": "Mistral Medium", "served": "mistral-medium"},
-    "mistral-large-latest": {"name": "Mistral Large", "served": "mistral-large-2512"},
-    "ministral-8b-latest": {"name": "Ministral 8B", "served": "ministral-8b-2512"},
+    "mistral-small-latest": {"name": "Mistral Small", "capabilities": ["tools"]},
+    "mistral-medium-latest": {"name": "Mistral Medium", "capabilities": ["tools"]},
+    "mistral-large-latest": {"name": "Mistral Large", "capabilities": ["tools"]},
+    "ministral-8b-latest": {"name": "Ministral 8B", "capabilities": ["tools"]},
 }
 MISTRAL_CLOUD_CONTEXT = 262144
 
 
 def is_mistral_cloud_tag(model_tag: str | None) -> bool:
-    """Tag de la liste intégrée des modèles Mistral cloud (appartenance exacte, sans variante
-    « : » : `ministral-3:8b` et `mistral:7b` restent locaux)."""
-    tag = str(model_tag or "").strip().lower()
-    return tag in MISTRAL_CLOUD_MODELS
+    """Tag de la liste intégrée des modèles Mistral cloud. Appartenance exacte, casse comprise,
+    comme pour Groq : le tag détecté est celui envoyé à l'API. Sans variante « : » :
+    `ministral-3:8b` et `mistral:7b` restent locaux."""
+    return isinstance(model_tag, str) and model_tag in MISTRAL_CLOUD_MODELS
 
 
 def get_model_info(model_tag: str) -> dict | None:

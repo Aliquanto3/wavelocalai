@@ -83,6 +83,57 @@ def test_list_models_without_key_is_empty():
     from_db.assert_not_called()
 
 
+def test_list_models_declares_tool_calling():
+    """Appel de fonctions publié par Mistral pour les quatre : badge « outils vérifiés »."""
+    with patch("src.core.providers.mistral_provider.get_cloud_models_from_db", return_value=[]):
+        models = _provider().list_models()
+
+    assert all(model_defaults.tools_verified(m["model"], m["capabilities"], {}) for m in models)
+
+
+def _factory_with_real_mistral() -> LLMProviderFactory:
+    """Fabrique avec un vrai MistralProvider (clé de test) et un Ollama local simulé."""
+    factory = object.__new__(LLMProviderFactory)
+    local = SimpleNamespace(
+        is_local=True,
+        list_models=lambda: [
+            {"model": "qwen2.5:1.5b", "type": "local", "size": 2**30, "details": {}}
+        ],
+    )
+    factory._providers = {"ollama": local, "mistral": _provider()}
+    return factory
+
+
+def test_list_all_models_hides_mistral_when_cloud_is_off():
+    with patch("src.core.providers.mistral_provider.get_cloud_models_from_db", return_value=[]):
+        factory = _factory_with_real_mistral()
+        local_only = factory.list_all_models(include_cloud=False)
+        with_cloud = factory.list_all_models(include_cloud=True)
+
+    assert [m["model"] for m in local_only] == ["qwen2.5:1.5b"]
+    assert [m["model"] for m in with_cloud] == ["qwen2.5:1.5b", *MISTRAL_TAGS]
+    assert {m["provider"] for m in with_cloud if m["model"] in MISTRAL_TAGS} == {"mistral"}
+
+
+def test_menu_keeps_local_first_and_badges_mistral_as_cloud(monkeypatch):
+    import src.app.ui as ui
+
+    monkeypatch.setattr(ui, "available_memory_gb", lambda: 16.0)
+    monkeypatch.setattr(ui, "machine_benchmark", lambda: {})
+    monkeypatch.setattr(ui, "cloud_enabled", lambda: True)
+    monkeypatch.setattr("src.core.model_defaults.load_versioned_catalog", lambda path=None: {})
+    monkeypatch.setattr("src.core.model_defaults.MODELS_DB", {})
+    with patch("src.core.providers.mistral_provider.get_cloud_models_from_db", return_value=[]):
+        models = [*_provider().list_models(), {"model": "qwen2.5:1.5b", "type": "local"}]
+
+    menu = ui.model_menu(models, cloud_types=("api", "cloud"))
+
+    assert menu.display_to_tag[menu.labels[0]] == "qwen2.5:1.5b"
+    cloud_labels = [label for label in menu.labels if menu.display_to_tag[label] in MISTRAL_TAGS]
+    assert len(cloud_labels) == 4
+    assert all(label.endswith("· Cloud") for label in cloud_labels)
+
+
 def test_list_models_adds_models_json_api_entries_without_duplicate():
     from_db = [
         {"model": "mistral-small-latest", "name": "Doublon", "type": "cloud"},
@@ -109,8 +160,9 @@ def test_builtin_tags_are_api_models(tag):
 
 
 @pytest.mark.parametrize("tag", ["Mistral-Small-Latest", " mistral-large-latest "])
-def test_detection_ignores_case_and_spaces(tag):
-    assert is_mistral_cloud_tag(tag)
+def test_detection_is_exact_like_the_tag_sent_to_the_api(tag):
+    """Appartenance exacte (comme Groq) : un tag détecté est toujours celui de l'API."""
+    assert not is_mistral_cloud_tag(tag)
 
 
 @pytest.mark.parametrize("tag", LOCAL_LOOKALIKES)
@@ -230,3 +282,25 @@ def test_opus_stays_default_cloud_judge_with_mistral_models():
     assert ranks["mistral-large-latest"] < ranks["mistral-medium-latest"]
     # Sans Claude, Mistral Large est le meilleur juge Mistral.
     assert min(MISTRAL_TAGS, key=model_defaults.cloud_judge_rank) == "mistral-large-latest"
+
+
+# --- Clé refusée ---
+
+KEY_REFUSED = 'API error occurred: Status 401. Body: {"detail":"Invalid API Key"}'
+
+
+def test_refused_key_is_named_in_french():
+    from src.app.states import generation_failure_advice, inference_error_message
+
+    advice = generation_failure_advice("mistral-small-latest", KEY_REFUSED)
+    assert advice.startswith("Clé d'API Mistral refusée")
+    result = SimpleNamespace(interrupted=False, timed_out=False, error=KEY_REFUSED)
+    assert "Clé d'API Mistral refusée" in inference_error_message(result, "mistral-large-latest")
+
+
+def test_other_errors_keep_the_generic_advice():
+    from src.app.states import generation_failure_advice
+
+    assert "ne répond pas" in generation_failure_advice("mistral-small-latest", "timeout")
+    # Modèle local : jamais de message de clé, même avec « 401 » dans l'erreur.
+    assert "Ollama" in generation_failure_advice("qwen2.5:1.5b", KEY_REFUSED)

@@ -106,6 +106,9 @@ installed = installed_models()
 # réussite des outils mesuré par ce benchmark quand il existe, d'après le catalogue sinon
 # (tools_verified) ; le modèle d'agent_default y satisfait toujours.
 menu = model_menu(installed, cloud_types=("api", "cloud"))
+# Capacités déclarées par le fournisseur (liste Mistral cloud intégrée), pour un modèle
+# absent du catalogue.
+provider_capabilities = {m.get("model"): m.get("capabilities") or [] for m in installed}
 bench = machine_benchmark()
 agent_choice = agent_default([menu.choices[label] for label in menu.labels], bench)
 agent_tag = agent_choice.tag if agent_choice else None
@@ -115,7 +118,7 @@ for label in menu.labels:
     choice = menu.choices[label]
     # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
     info = get_model_info(get_friendly_name_from_tag(tag))
-    capabilities = info.get("capabilities", []) if info else []
+    capabilities = info.get("capabilities", []) if info else provider_capabilities.get(tag, [])
     is_verified = tools_verified(tag, capabilities, bench)
     # Remplace l'ancien marqueur emoji : support des outils vérifié par le benchmark de ce
     # poste ou, à défaut, par le catalogue.

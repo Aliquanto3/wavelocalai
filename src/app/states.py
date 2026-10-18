@@ -7,6 +7,7 @@ Un `alert-error` dit ce qui a échoué et quoi faire ; la trace technique va dan
 replié « Détails techniques ».
 """
 
+import re
 from contextlib import suppress
 
 import streamlit as st
@@ -176,9 +177,19 @@ def _cloud_provider_name(model_tag: str | None) -> str | None:
     return None
 
 
-def generation_failure_advice(model_tag: str | None) -> str:
-    """Quoi faire après l'échec d'une génération, selon le fournisseur du modèle."""
+# Clé d'API refusée par un fournisseur cloud (Mistral : « Status 401 … Invalid API Key »).
+_KEY_REFUSED_RE = re.compile(r"401|invalid api key|unauthori[sz]ed", re.IGNORECASE)
+
+
+def generation_failure_advice(model_tag: str | None, error: str | None = None) -> str:
+    """Quoi faire après l'échec d'une génération, selon le fournisseur du modèle et, pour un
+    modèle cloud, l'erreur reçue (clé refusée)."""
     provider = _cloud_provider_name(model_tag)
+    if provider and error and _KEY_REFUSED_RE.search(error):
+        return (
+            f"Clé d'API {provider} refusée : vérifiez-la dans le fichier .env, ou repassez en "
+            "Local avec un modèle local."
+        )
     if provider:
         return (
             f"Le fournisseur cloud {provider} ne répond pas : vérifiez la connexion, la clé "
@@ -210,7 +221,9 @@ def inference_error_message(result, model_tag: str | None = None) -> str:
             "premier appel comprend son chargement en mémoire : réessayez, ou choisissez une "
             "question plus courte ou un modèle plus petit."
         )
-    return f"La génération a échoué. {generation_failure_advice(model_tag)}"
+    error = getattr(result, "error", None)
+    advice = generation_failure_advice(model_tag, error if isinstance(error, str) else None)
+    return f"La génération a échoué. {advice}"
 
 
 def render_inference_error(result, model_tag: str | None = None) -> None:
