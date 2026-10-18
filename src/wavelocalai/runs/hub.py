@@ -115,6 +115,7 @@ class _Run:
         self.status = "running"
         self.closing = False
         self.task: asyncio.Task[Any] | None = None
+        self.on_cancel: Callable[[], None] | None = None
         self.answer: list[str] = []
         self.thought: list[str] = []
         self.leaf_co2: Co2 | None = None  # `co2` d'une feuille close sans le sien (annulation)
@@ -305,6 +306,17 @@ class RunHub:
         if run is None:
             raise KeyError(f"Run inconnu : {run_id}")
         run.task = task
+
+    def set_cancel_hook(self, run_id: str, hook: Callable[[], None]) -> None:
+        """Fonction synchrone que le hub appelle une fois, juste avant de clore le run racine en
+        `cancelled` (annulation ou arrêt du serveur) : elle peut encore publier. Une Arène y publie
+        le `lane_status: cancelled` des lanes inachevées, que `run_ended` clôt ensuite."""
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return
+            raise KeyError(f"Run inconnu : {run_id}")
+        run.on_cancel = hook
 
     def declare_leaf(self, run_id: str, co2: Co2) -> None:
         """Le run porte une génération (feuille, ou racine sans enfant comme un chat) : s'il est
@@ -501,6 +513,12 @@ class RunHub:
     ) -> bool:
         if run.closing:
             return False
+        if status == "cancelled" and run.on_cancel is not None:
+            hook, run.on_cancel = run.on_cancel, None
+            try:
+                hook()
+            except Exception:  # noqa: BLE001 - une annulation ne s'arrête jamais sur un crochet
+                logger.exception("Le crochet d'annulation du run %s a échoué", run.id)
         if co2 is None and not run.children:
             co2 = run.leaf_co2  # feuille close sans mesure (annulation) : `co2` présent (AD-10)
         self._drain_tokens(run)  # le texte reçu jusque-là entre dans le flux et le partiel
