@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,9 +14,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.hardware.memory import MemoryAdvisor
 from wavelocalai.models.ollama_probe import OllamaProbe
+from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.telemetry import disable_telemetry
-from wavelocalai.web import routes_health
+from wavelocalai.web import routes_health, routes_models
 from wavelocalai.web.security import LocalOnlyMiddleware
 
 logger = logging.getLogger("wavelocalai.web")
@@ -38,10 +42,25 @@ def _error_response(
     return JSONResponse(envelope, status_code=ERRORS[code].status)
 
 
-def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
+def create_app(
+    settings: Settings,
+    probe: OllamaProbe | None = None,
+    registry: ModelRegistry | None = None,
+) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21)."""
     disable_telemetry(settings.env_file)
+    registry = registry or ModelRegistry(settings, advisor=MemoryAdvisor())
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        await registry.start()  # premier rafraîchissement des modèles, sans l'attendre
+        try:
+            yield
+        finally:
+            await registry.stop()
+
     app = FastAPI(
+        lifespan=lifespan,
         title="wavelocalai v2",
         version=get_version(),
         docs_url=None,
@@ -50,6 +69,7 @@ def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
         telemetry=FASTAPI_TELEMETRY,  # type: ignore[arg-type]
     )
     app.state.settings = settings
+    app.state.registry = registry
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,
@@ -86,4 +106,5 @@ def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
         return _error_response(settings, "internal", f"{type(exc).__name__}: {exc}")
 
     app.include_router(routes_health.router)
+    app.include_router(routes_models.router)
     return app

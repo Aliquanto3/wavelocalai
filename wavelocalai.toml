@@ -23,3 +23,18 @@ pue = 1.1
 [delays]
 lane_timeout_s = 300.0    # délai d'une lane d'Arène, depuis l'acquisition du sémaphore (local)
 approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut refus
+
+[cloud.models]
+# Modèles cloud proposés par fournisseur, une fois la clé présente dans `.env` ET `allow_cloud`
+# demandé (listes fixes : aucun fournisseur n'est appelé pour les lister). Identifiant exposé :
+# `fournisseur/modèle`.
+openai = ["gpt-4o", "gpt-4o-mini"]
+groq = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+anthropic = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
+mistral = ["mistral-large-latest", "mistral-medium-latest"]
+
+[cloud.groq_ecologits]
+# Modèle Groq -> entrée `huggingface_hub` d'ecologits (AD-11). Sans entrée, le CO2 d'un modèle
+# Groq est « non mesurable ». Entrées à confirmer par le test de contrat ecologits (story 2.5).
+"openai/gpt-oss-120b" = "openai/gpt-oss-120b"
+"openai/gpt-oss-20b" = "openai/gpt-oss-20b"
