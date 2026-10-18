@@ -51,7 +51,10 @@ export function mount(host) {
   slider.id = `${uid}-creativity`;
   slider.min = "0";
   slider.max = "2";
-  slider.step = "0.1";
+  // Pas de 0,05 : les valeurs publiées par les fabricants (0,15, 0,6, 0,7…) tombent sur la
+  // graduation ; avec un pas de 0,1, 0,15 serait arrondi par le navigateur et le curseur ne
+  // montrerait pas la valeur conseillée (D-12).
+  slider.step = "0.05";
   slider.value = String(FALLBACK_TEMPERATURE);
   slider.setAttribute("aria-describedby", `${uid}-creativity-help`);
   const sliderLabel = element("label", "chat-slider-label", t("chat.creativity"));

@@ -63,8 +63,21 @@ Pour chaque modèle, le curseur « Créativité » part de la valeur que son fab
 
 - Serveur : `models/facts.py` (`parameters`, `parse_temperature`), `models/facts_store.py`, `models/catalog.py` (`default_temperature` facultatif), `models/registry.py` (`ModelInfo.default_temperature`, relecture d'une ligne sans `parameters`), `store/migrations/0005_model_parameters.sql`
 - Front : `components/export-menu.js` (nouveau), `components/index.js`, `components/wl-run-status.js`, `components/wl-model-picker.js` (`wl-models-loaded`), `screens/chat.js`, `components.css`, `i18n/fr.json`
-- Tests : `tests/v2/unit/test_default_temperature.py` (nouveau), `tests/v2/unit/snapshots/schema_v4.sql`, `tests/v2/unit/test_model_helpers.py`, `tests/v2/web/test_models.py`, `tests/v2/integration/test_models_ollama.py`, `tests/v2/e2e/test_chat_creativity_export.py` (nouveau), `tests/v2/fake_ollama.py` (`parameters`)
+- Tests : `tests/v2/unit/test_default_temperature.py` (nouveau), `tests/v2/unit/snapshots/schema_v5.sql`, `tests/v2/unit/test_model_helpers.py`, `tests/v2/web/test_models.py`, `tests/v2/integration/test_models_ollama.py`, `tests/v2/e2e/test_chat_creativity_export.py` (nouveau), `tests/v2/fake_ollama.py` (`parameters`)
 
 ## Journal
 
 - 2026-10-19 · dev (Sonnet) · livré sur `feat/v2-chat-creativite` ; pas de revue ni de fusion ici (orchestrateur).
+- 2026-10-19 · review (Opus) · un correctif (pas du curseur), voir « Revue ».
+
+## Revue
+
+- low · second avis · corrigé · le curseur avait un pas de 0,1 : une valeur publiée hors dixième (0,15, celle de Mistral Small) était arrondie à 0,2 par le navigateur, envoyée ainsi, et l'aide disait 0,15 ; pas passé à 0,05 (aucune règle d'epics.md ni d'EXPERIENCE.md sur le pas), E2E `test_an_off_tenth_default_is_shown_and_sent_as_published` (échoue avec l'ancien pas), deux E2E ajustés (Flèche droite : 0,7 -> 0,75).
+- medium · second avis · rejeté · E2E hors CI (`-m "not e2e"`) : politique du dépôt, E2E joués en local sur Edge avant chaque PR.
+- low · second avis · rejeté · poste ayant appliqué l'ancienne `0004_model_parameters.sql` : branche jamais poussée ni lancée hors tests.
+- low · second avis · rejeté · premier `/api/models` après la migration : les lignes à `parameters` NULL rendent `default_temperature: null` tant que la relecture de fond n'a pas fini (une fois par poste) ; la route ne peut pas attendre Ollama (AD-15, 300 ms) et le rechargement suivant de la page a la valeur. Coût d'un second chargement du sélecteur jugé supérieur au gain.
+- low · second avis · rejeté · `wl-models-loaded` : même nom, même place (après `#renderAll()`), même forme (`bubbles`, sans `detail`) que la 3.2 (`142b9c7`) ; seul le commentaire d'en-tête diffère, conflit trivial à la fusion.
+- low · second avis · rejeté · message de premier chargement à chaque `model_loading` : libellé fixé par epics.md et EXPERIENCE.md ; `model_loading` n'est émis que si Ollama charge le modèle, ce qui après un déchargement `keep_alive` est bien de nouveau un premier appel.
+- low · revue · corrigé · « Fichiers » citait `schema_v4.sql`, devenu `schema_v5.sql` à la fusion de master.
+- Complexité : 0 constat (aucune structure qui grossit ; l'écouteur `pointerdown` du menu est retiré à la fermeture).
+- Vérifié sans constat : critères 1 à 7 (tests cités présents et verts), budget 300 ms Ollama arrêté (`test_default_temperature_comes_from_the_cache_under_300_ms_with_ollama_down`, `test_read_budget.py`), AD-15 (aucune écriture du `.toml`, route servie du cache), Échap du menu (`preventDefault` + `stopPropagation`, `wl-run-status` ignore un événement déjà traité), couleurs du menu en jetons.

@@ -110,13 +110,13 @@ def test_a_moved_slider_stays_while_the_model_changes_and_the_sent_value_is_the_
     commands: list[dict] = []
     scripted_fake(page, server, [{"text": "ok"}, {"done": DONE}], commands)
     slider(page).focus()
-    page.keyboard.press("ArrowRight")  # 0,7 -> 0,8
-    assert shown(page) == "0,8"
+    page.keyboard.press("ArrowRight")  # 0,7 -> 0,75 (pas de 0,05)
+    assert shown(page) == "0,75"
     choose(page, "Autre 7B")
-    assert slider(page).input_value() == "0.8" and shown(page) == "0,8"  # déplacé : il reste
+    assert slider(page).input_value() == "0.75" and shown(page) == "0,75"  # déplacé : il reste
     ask(page, "Bonjour")
     page.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
-    assert [(c["model"], c["temperature"]) for c in commands] == [("autre:7b", 0.8)]
+    assert [(c["model"], c["temperature"]) for c in commands] == [("autre:7b", 0.75)]
 
 
 def test_an_untouched_slider_sends_the_model_default(three_models, server):
@@ -130,6 +130,22 @@ def test_an_untouched_slider_sends_the_model_default(three_models, server):
     assert [(c["model"], c["temperature"]) for c in commands] == [("autre:7b", 1.2)]
 
 
+def test_an_off_tenth_default_is_shown_and_sent_as_published(page, server):
+    """0,15 (valeur publiée par Mistral) : ni arrondie par le curseur, ni différente de l'aide."""
+    precise = {**MODEL, "default_temperature": 0.15}
+    install_list(page, [precise], default="fake:1b")
+    commands: list[dict] = []
+    scripted_fake(page, server, [{"text": "ok"}, {"done": DONE}], commands)
+    page.goto(f"{server.base_url}/#/arene/chat")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.value === 'fake:1b'")
+    assert slider(page).input_value() == "0.15" and shown(page) == "0,15"
+    assert page.locator(".chat-creativity-default").inner_text().endswith(f"{NBSP}: 0,15.")
+    ask(page, "Bonjour")
+    page.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
+    assert [c["temperature"] for c in commands] == [0.15]
+
+
 def test_clearing_the_conversation_gives_the_slider_back_to_the_model(three_models, server):
     page = three_models
     scripted(page, server, [{"text": "ok"}, {"done": DONE}])
@@ -137,7 +153,7 @@ def test_clearing_the_conversation_gives_the_slider_back_to_the_model(three_mode
     page.keyboard.press("ArrowRight")
     ask(page, "Bonjour")
     page.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
-    assert shown(page) == "0,8"
+    assert shown(page) == "0,75"
     page.get_by_role("button", name="Effacer la conversation").click()
     page.locator(".chat-notice").wait_for()
     assert slider(page).input_value() == "0.7" and shown(page) == "0,7"  # nouvelle conversation
