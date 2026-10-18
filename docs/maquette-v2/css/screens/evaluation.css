@@ -1,1 +1,506 @@
-/* Écran evaluation : styles propres à l'écran (jetons de tokens.css seulement). */
+/* Évaluation de la qualité : réglages, étapes, tableau de résultats, détail, matrice (SVG).
+   Jetons de tokens.css seulement ; le sens ne passe jamais par la couleur seule. */
+
+/* Segments (Question / Jeu de questions ; Tableau / Matrice) : boutons radio natifs */
+.eval-segments {
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.eval-segments-legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.eval-view .eval-segments-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.eval-segment-row {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.eval-segment {
+  position: relative;
+  display: inline-flex;
+}
+
+.eval-segment input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.eval-segment-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--color-gray-graphic);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.eval-segment:first-child .eval-segment-label {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.eval-segment:last-child .eval-segment-label {
+  border-radius: 0 var(--radius) var(--radius) 0;
+  border-inline-start-width: 0;
+}
+
+.eval-segment input:checked + .eval-segment-label {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 700;
+}
+
+.eval-segment input:focus-visible + .eval-segment-label {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Réglages */
+.eval-settings {
+  max-width: 60rem;
+  margin: 0 0 1.5rem;
+}
+
+.eval-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.eval-question {
+  max-width: 42rem;
+}
+
+.eval-set-details {
+  max-width: 42rem;
+  margin-top: 0.5rem;
+}
+
+.eval-set-details summary {
+  cursor: pointer;
+}
+
+.eval-set-list {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.5rem;
+}
+
+.eval-pickers {
+  display: grid;
+  gap: 1rem 2rem;
+}
+
+@media (min-width: 1024px) {
+  .eval-pickers {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.eval-pickers .wl-picker {
+  max-width: none;
+}
+
+.eval-form-notes:empty,
+.eval-notices:empty {
+  display: none;
+}
+
+.eval-form-notes .wl-notice,
+.eval-notices .wl-notice {
+  margin-bottom: 0.5rem;
+}
+
+.eval-same {
+  margin: 0;
+}
+
+.eval-launch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.eval-reason {
+  margin: 0;
+}
+
+.eval-reason[hidden] {
+  display: none;
+}
+
+/* Récapitulatif d'un résultat rouvert */
+.eval-recap {
+  max-width: 60rem;
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.eval-recap-list {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 1.25rem;
+}
+
+.eval-recap .wl-empty {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+/* Étapes */
+.eval-steps-section {
+  max-width: 60rem;
+  margin: 0 0 1.5rem;
+}
+
+.eval-steps {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-step {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.eval-step[data-state="doing"] {
+  border-inline-start-color: var(--color-chart-3);
+}
+
+.eval-step[data-state="done"] {
+  border-inline-start-color: var(--color-chart-2);
+}
+
+.eval-step[data-state="failed"],
+.eval-step[data-state="stopped"] {
+  border-inline-start-color: var(--color-chart-4);
+}
+
+.eval-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+}
+
+.eval-step-state {
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.eval-step-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0;
+}
+
+.eval-lane-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-lane-state {
+  font-weight: 600;
+}
+
+.eval-lane[data-state="todo"] .eval-lane-state {
+  color: var(--color-ink-secondary);
+  font-weight: 400;
+}
+
+.eval-extracts {
+  margin-top: 0.5rem;
+}
+
+/* Résultats */
+.eval-results {
+  margin: 0 0 1.5rem;
+}
+
+.eval-results-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.eval-results-head h2 {
+  margin: 0;
+}
+
+.eval-head {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.25rem;
+}
+
+.eval-head .docs-help-text {
+  flex-basis: 100%;
+  min-width: 11rem;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.eval-model-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.eval-cell {
+  vertical-align: top;
+}
+
+.eval-cell-note {
+  display: block;
+  margin: 0.125rem 0 0;
+}
+
+.eval-score {
+  min-height: 2.25rem;
+  padding: 0.125rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.eval-score:hover {
+  background: var(--color-surface-alt);
+}
+
+.eval-score[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-alt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.eval-pending {
+  color: var(--color-ink-secondary);
+  font-style: italic;
+}
+
+/* Détail d'un score */
+.eval-detail {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.eval-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.eval-detail-title {
+  margin: 0;
+}
+
+.eval-detail-score {
+  margin: 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.eval-detail-sub {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.eval-claims,
+.eval-by-question {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-claim {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-2);
+  border-radius: var(--radius);
+}
+
+.eval-claim[data-verdict="unsupported"] {
+  border-inline-start-color: var(--color-chart-4);
+}
+
+.eval-claim[data-verdict="contradicted"] {
+  border-inline-start-color: var(--color-risk);
+}
+
+.eval-claim-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.eval-claim-head .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.eval-claim-text {
+  margin: 0.25rem 0 0;
+}
+
+.eval-claim-support {
+  margin: 0.25rem 0 0;
+}
+
+.eval-claim-quote {
+  margin: 0.25rem 0 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--color-gray-graphic);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.eval-found {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.eval-question-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.eval-question-text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.eval-first {
+  flex-basis: 100%;
+}
+
+.eval-first summary {
+  cursor: pointer;
+}
+
+/* Matrice */
+.eval-chart-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.eval-chart {
+  display: block;
+  width: 100%;
+  min-width: 34rem;
+  height: auto;
+}
+
+.eval-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.eval-tick,
+.eval-axis,
+.eval-label,
+.eval-key-text,
+.eval-key-title {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 13px;
+}
+
+.eval-axis,
+.eval-key-title {
+  fill: var(--color-ink-secondary);
+}
+
+.eval-label {
+  font-weight: 700;
+}
+
+.eval-point {
+  fill: var(--series);
+  fill-opacity: 0.8;
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.eval-point.is-empty,
+.eval-key-circle.is-empty {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.eval-key-circle {
+  fill: var(--color-gray-graphic);
+  fill-opacity: 0.6;
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.eval-see-table {
+  margin-top: 0.75rem;
+}

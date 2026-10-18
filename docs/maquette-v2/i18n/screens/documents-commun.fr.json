@@ -1,0 +1,31 @@
+{
+  "docs": {
+    "documents_one": "1 document",
+    "documents_many": "{count} documents",
+    "chunks_one": "1 extrait",
+    "chunks_many": "{count} extraits",
+    "help_for": "Aide : {label}",
+    "sources": {
+      "summary_empty": "Sources",
+      "summary_one": "1 source utilisée",
+      "summary_many": "{count} sources utilisées",
+      "empty": "Les sources apparaissent ici, avant la réponse.",
+      "page": ", page {page}",
+      "rank": "n° {rank}",
+      "raw_label": "score brut",
+      "raw_help": "Score brut de similarité : {score}. Il ne se compare qu'entre les extraits d'une même recherche ; le libellé « très proche », « proche » ou « éloignée » en est la lecture normalisée.",
+      "open": "Ouvrir l'extrait",
+      "close": "Fermer l'extrait",
+      "open_for": "Ouvrir l'extrait de la source {n}, {document}",
+      "close_for": "Fermer l'extrait de la source {n}, {document}",
+      "deleted": "extrait supprimé",
+      "deleted_help": "Le document « {document} » a été supprimé de la base : cet extrait n'est plus disponible."
+    },
+    "extracts": {
+      "summary_empty": "Extraits communs",
+      "summary_one": "1 extrait commun",
+      "summary_many": "{count} extraits communs",
+      "empty": "Les extraits communs apparaissent après la recherche."
+    }
+  }
+}

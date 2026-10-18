@@ -1,0 +1,68 @@
+{
+  "_doc": "Données simulées de la Discussion (POST /api/rag/runs). Contenus 100 % fictifs (société Hélianthe, atelier inventé). `sources` : les cinq extraits que la recherche pourrait rendre, dans l'ordre de pertinence ; le run n'en publie que `top_k`. `passage` : champ HORS CONTRAT de l'événement `sources`, la maquette s'en sert pour surligner le passage qui fonde la réponse (voir notes/discussion.md). `citations` : correspondances [n] vers les sources, vérifiées par le serveur. metrics : ce que le serveur publierait dans `metrics` (D3, AD-10), plus `search_s` (durée de recherche, à part).",
+  "default_question": "Que doivent préparer les participants avant l'atelier du 4 novembre ?",
+  "second_question": "Où se déroule l'atelier ?",
+  "answer": {
+    "thought": "La question porte sur la préparation des participants. Trois sources parlent du poste, du document à apporter et de la vérification technique. Répondre en trois points courts et citer chaque source.",
+    "text": "Les participants préparent trois choses [1][2] :\n\n1. **Un poste prêt** : au moins 16 Go de mémoire, Ollama installé et un modèle de conversation déjà téléchargé [1].\n2. **Un document à interroger** : une note, un compte rendu ou une procédure interne non confidentielle, de moins de 40 pages, au format PDF, TXT, MD ou DOCX [2].\n3. **Une question dont ils connaissent la réponse**, pour vérifier la source citée [2].\n\nUne vérification technique de 30 minutes a lieu le jeudi 29 octobre, en visioconférence [3]. L'atelier lui-même se déroule hors ligne : le mode cloud reste désactivé [3].",
+    "text_plain": "Les participants préparent trois choses :\n\n1. **Un poste prêt** : au moins 16 Go de mémoire, Ollama installé et un modèle de conversation déjà téléchargé.\n2. **Un document à interroger** : une note, un compte rendu ou une procédure interne non confidentielle, de moins de 40 pages, au format PDF, TXT, MD ou DOCX.\n3. **Une question dont ils connaissent la réponse**, pour vérifier la source citée.\n\nUne vérification technique de 30 minutes a lieu le jeudi 29 octobre, en visioconférence. L'atelier lui-même se déroule hors ligne : le mode cloud reste désactivé.",
+    "partial": "Les participants préparent trois choses [1][2] :\n\n1. **Un poste prêt** : au moins 16 Go de mémoire"
+  },
+  "sources": [
+    {
+      "n": 1, "doc_id": "doc-01", "document": "Note-cadrage-atelier.docx", "page": 1, "chunk_id": "chunk-0103", "rank": 1, "relevance_label": "très proche", "raw_score": 0.82,
+      "text": "Préparation des participants. Avant l'atelier, chaque participant prépare son poste : un portable équipé d'au moins 16 Go de mémoire, sur lequel Ollama est installé et un modèle de conversation déjà téléchargé. Aucun téléchargement ne sera possible sur place, le réseau de la salle Tilleul étant limité.",
+      "passage": "un portable équipé d'au moins 16 Go de mémoire, sur lequel Ollama est installé et un modèle de conversation déjà téléchargé"
+    },
+    {
+      "n": 2, "doc_id": "doc-01", "document": "Note-cadrage-atelier.docx", "page": 2, "chunk_id": "chunk-0107", "rank": 2, "relevance_label": "proche", "raw_score": 0.71,
+      "text": "Documents à apporter. Chaque participant choisit un document interne non confidentiel (note, compte rendu ou procédure) de moins de 40 pages, au format PDF, TXT, MD ou DOCX. Il sera importé dans la base documentaire locale de son poste et n'en sortira jamais. Il prépare aussi une question dont il connaît déjà la réponse, afin de vérifier la source citée.",
+      "passage": "un document interne non confidentiel (note, compte rendu ou procédure) de moins de 40 pages, au format PDF, TXT, MD ou DOCX"
+    },
+    {
+      "n": 3, "doc_id": "doc-01", "document": "Note-cadrage-atelier.docx", "page": 3, "chunk_id": "chunk-0111", "rank": 3, "relevance_label": "proche", "raw_score": 0.64,
+      "text": "Vérification technique. Une session de 30 minutes est proposée le jeudi 29 octobre, de 12 h 30 à 13 h 00, en visioconférence, pour contrôler les postes. L'atelier du 4 novembre se déroule hors ligne : le mode cloud reste désactivé pour toute la journée.",
+      "passage": "Une session de 30 minutes est proposée le jeudi 29 octobre"
+    },
+    {
+      "n": 4, "doc_id": "doc-03", "document": "Guide-accueil-nouveaux-arrivants.pdf", "page": 5, "chunk_id": "chunk-0322", "rank": 4, "relevance_label": "éloignée", "raw_score": 0.41,
+      "text": "Votre poste de travail. Le premier jour, l'équipe informatique remet à chaque nouvel arrivant un portable de 16 Go de mémoire, déjà configuré. Les logiciels de bureautique sont installés ; pour tout autre logiciel, une demande est à déposer sur le portail interne.",
+      "passage": "un portable de 16 Go de mémoire, déjà configuré"
+    },
+    {
+      "n": 5, "doc_id": "doc-08", "document": "FAQ-teletravail.md", "page": 1, "chunk_id": "chunk-0804", "rank": 5, "relevance_label": "éloignée", "raw_score": 0.33,
+      "text": "Puis-je travailler sur un document confidentiel en télétravail ? Oui, à condition de rester sur le poste fourni par l'entreprise et de ne pas copier le document vers un service extérieur. En cas de doute, demandez à l'équipe sécurité avant de commencer.",
+      "passage": "rester sur le poste fourni par l'entreprise"
+    }
+  ],
+  "citations": [
+    { "marker": 1, "n": 1 },
+    { "marker": 2, "n": 2 },
+    { "marker": 3, "n": 3 }
+  ],
+  "metrics": {
+    "qwen3.6:7b": { "ttft_s": 0.9, "load_s": 6.8, "eval_tokens": 231, "eval_s": 12.8, "tps": 18, "tps_source": "ollama_eval", "total_s": 20.6, "search_s": 0.06, "origin": "local", "co2": { "mg": 6.3, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "qwen3.5:2b": { "ttft_s": 0.42, "load_s": 3.2, "eval_tokens": 212, "eval_s": 5.17, "tps": 41, "tps_source": "ollama_eval", "total_s": 8.9, "search_s": 0.06, "origin": "local", "co2": { "mg": 2.4, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gemma4:1b": { "ttft_s": 0.31, "load_s": 1.9, "eval_tokens": 188, "eval_s": 2.98, "tps": 63, "tps_source": "ollama_eval", "total_s": 5.3, "search_s": 0.06, "origin": "local", "co2": { "mg": 1.3, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gpt-5-mini": { "ttft_s": 0.71, "load_s": null, "eval_tokens": 205, "eval_s": 2.4, "tps": 85, "tps_source": "wallclock", "total_s": 3.2, "search_s": 0.06, "origin": "cloud", "co2": { "mg": 0.9, "method": "ecologits", "estimated": true, "range_mg": { "low": 0.6, "high": 1.4 }, "allocation": "direct", "reason": null } },
+    "default_local": { "ttft_s": 0.5, "load_s": 3, "eval_tokens": 200, "eval_s": 5, "tps": 40, "tps_source": "ollama_eval", "total_s": 8.6, "search_s": 0.06, "origin": "local", "co2": { "mg": 2, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } }
+  },
+  "conversation": {
+    "_doc": "Conversation rouverte (GET /api/conversations/{id}, kind rag) : questions, réponses, sources réhydratées depuis `chunks`. La source 2 de la seconde réponse pointe un document supprimé depuis : `text: null`, « extrait supprimé » (AD-7).",
+    "second_answer": {
+      "text": "L'atelier se déroule en salle Tilleul, au deuxième étage [1]. Un premier planning prévoyait une autre salle, mais ce document n'est plus dans la base [2].",
+      "sources": [
+        {
+          "n": 1, "doc_id": "doc-01", "document": "Note-cadrage-atelier.docx", "page": 1, "chunk_id": "chunk-0102", "rank": 1, "relevance_label": "très proche", "raw_score": 0.88,
+          "text": "Lieu et horaires. L'atelier du 4 novembre 2026 se tient en salle Tilleul, au deuxième étage, de 9 h 00 à 17 h 00, avec une pause déjeuner commune de 12 h 30 à 13 h 30.",
+          "passage": "en salle Tilleul, au deuxième étage"
+        },
+        { "n": 2, "doc_id": "doc-99", "document": "Ancien-planning-atelier.docx", "page": 1, "chunk_id": "chunk-9901", "rank": 2, "relevance_label": "proche", "raw_score": 0.69, "text": null, "passage": null }
+      ],
+      "citations": [
+        { "marker": 1, "n": 1 },
+        { "marker": 2, "n": 2 }
+      ]
+    }
+  }
+}

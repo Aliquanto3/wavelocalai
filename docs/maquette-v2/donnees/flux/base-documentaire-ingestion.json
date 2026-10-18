@@ -1,0 +1,7 @@
+{
+  "id": "base-documentaire-ingestion",
+  "kind": "ingest",
+  "label": "Ingestion d'un lot de fichiers : ingest_progress par fichier (extract, split, embed), échec par fichier, run_ended",
+  "_doc": "Le nombre de fichiers d'un lot est libre : l'écran construit la liste d'événements (`vars.events`, au format des autres scripts : {wait, slow_wait?, type, data}) à partir des fichiers déposés, puis le simulateur la rejoue telle quelle. `ingest_progress` : {file, phase: extract|split|embed, done, total} (contrat) ; deux champs HORS CONTRAT servent aux cas que le contrat ne dit pas : `error` (enveloppe ingest_failed, le fichier échoue et le lot continue) et `skipped: \"duplicate\"` (même empreinte, non réindexé). Voir notes/base-documentaire.md.",
+  "events": "{{events}}"
+}

@@ -1,1 +1,243 @@
-/* Écran base-documentaire : styles propres à l'écran (jetons de tokens.css seulement). */
+/* Base documentaire : zone de dépôt, lignes d'import, tableau des documents, réglages.
+   Jetons de tokens.css seulement ; le sens ne passe jamais par la couleur seule. */
+
+/* Zone de dépôt, visible sans attendre le serveur */
+.docs-dropzone {
+  max-width: 45rem;
+  margin: 0 0 1rem;
+  padding: 1.25rem;
+  border: 2px dashed var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-dropzone.is-active {
+  border-color: var(--color-primary);
+  border-style: solid;
+  background: var(--color-surface-alt);
+}
+
+.docs-drop-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.docs-drop-formats {
+  margin-top: 0.5rem;
+}
+
+.docs-base-notices:empty {
+  display: none;
+}
+
+.docs-base-notices {
+  max-width: 60rem;
+}
+
+/* Lignes d'import */
+.docs-imports-section {
+  max-width: 60rem;
+  margin: 0 0 1.5rem;
+}
+
+.docs-imports {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-import {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-3);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-import[data-state="ready"] {
+  border-inline-start-color: var(--color-chart-2);
+}
+
+.docs-import[data-state="failed"],
+.docs-import[data-state="cancelled"],
+.docs-import[data-state="interrupted"],
+.docs-import[data-state="duplicate"] {
+  border-inline-start-color: var(--color-chart-4);
+}
+
+.docs-import-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+
+.docs-import-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.docs-import-steps {
+  flex: 1 1 14rem;
+  min-width: 0;
+  color: var(--color-ink-secondary);
+}
+
+.docs-import-steps strong {
+  color: var(--color-ink);
+}
+
+.docs-import-cancel {
+  min-height: 2rem;
+  margin-inline-start: auto;
+  padding-block: 0.125rem;
+}
+
+.docs-progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  accent-color: var(--color-primary);
+}
+
+.docs-import .wl-error {
+  margin-top: 0.75rem;
+}
+
+.docs-embed-loading {
+  margin: 0 0 0.75rem;
+}
+
+/* Documents indexés */
+.docs-library {
+  margin: 0 0 1.5rem;
+}
+
+.docs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.docs-filter {
+  display: block;
+  width: min(100%, 22rem);
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.docs-clear-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.docs-clear-reason {
+  margin: 0;
+}
+
+.docs-count {
+  min-height: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+
+.docs-col-added_at {
+  white-space: nowrap;
+}
+
+.docs-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.docs-sort:hover {
+  background: var(--color-line);
+}
+
+/* Sens du tri : un triangle, doublé par `aria-sort` pour les lecteurs d'écran */
+.docs-sort[data-dir]::after {
+  content: "";
+  border-inline: 0.3rem solid transparent;
+}
+
+.docs-sort[data-dir="asc"]::after {
+  border-bottom: 0.45rem solid currentColor;
+}
+
+.docs-sort[data-dir="desc"]::after {
+  border-top: 0.45rem solid currentColor;
+}
+
+.docs-delete {
+  min-height: 2rem;
+  padding-block: 0.125rem;
+}
+
+.docs-filter-none {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+@media (max-width: 767px) {
+  .docs-col-embedding {
+    display: none;
+  }
+}
+
+/* Réglages */
+.docs-settings {
+  max-width: 60rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-settings > summary {
+  min-height: 2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.docs-settings-form {
+  padding: 0.5rem 0;
+}
+
+.docs-settings-fields {
+  display: grid;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.docs-rerank {
+  margin: 0;
+  color: var(--color-ink-secondary);
+}
