@@ -83,8 +83,11 @@ export class WlModelPicker extends HTMLElement {
     this.#token += 1; // une réponse tardive ne touche plus un composant détaché
   }
 
-  attributeChangedCallback() {
-    if (this.#dom) this.#renderAll();
+  attributeChangedCallback(name, old, value) {
+    if (!this.#dom) return;
+    this.#renderAll();
+    // Autre usage : son défaut et sa raison changent (le choix fait reste).
+    if (name === "purpose" && old !== value && this.#unsubscribe) this.reload();
   }
 
   get multi() {
@@ -545,7 +548,9 @@ export class WlModelPicker extends HTMLElement {
   #move(step) {
     const count = this.#compute().length;
     if (!count) return;
-    this.#active = (this.#active + step + count) % count;
+    // Sans option active, ↑ va à la dernière et ↓ à la première.
+    const from = this.#active < 0 ? (step < 0 ? 0 : -1) : this.#active;
+    this.#active = (from + step + count) % count;
     this.#renderList();
   }
 

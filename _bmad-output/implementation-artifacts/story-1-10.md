@@ -73,3 +73,19 @@ Deux Custom Elements partagés, sans Shadow DOM, que les écrans de chat, d'Arè
 ## Reports
 
 Voir l'en-tête `deferred` : étapes RAG et agents, premier écran qui monte les composants, Échap des panneaux de la barre haute, Markdown dans l'action de `no_model`.
+
+## Revue
+
+Une passe (Opus), sur `40bc265` (1.9 revue et `master` fusionnés). Les reports « Échap des panneaux » et « Markdown de `no_model` » de l'en-tête sont traités ci-dessous.
+
+- medium, second avis 1 : corrigé. `core/disclosure.js` et le menu des modules de `core/shell.js` ferment sur Échap sans `preventDefault` ; leurs écouteurs passent avant celui de `wl-run-status` (document, enregistré plus tard), qui arrêtait donc le run. Les deux appellent `preventDefault`. Preuve : `test_escape_that_closes_a_topbar_panel_is_marked_as_handled`.
+- medium, second avis 2 : corrigé. `connectRun` sans `onStatus` : un run inconnu (4xx) ou 6 échecs finissaient en `failed` sans `run_ended`, l'UI restait « Démarrage… »/« Génération… » avec Arrêter. Le flux abandonné finit maintenant en « Interrompu » (`wl-run-ended` `interrupted`). Preuve : `test_an_unknown_run_ends_as_interrupted_instead_of_generating`.
+- medium, second avis 3 : corrigé. `wl-error` affichait les accents graves des textes du catalogue (`no_model`, mais aussi `ollama_down` et `internal`) : les segments entre accents graves sont rendus en `<code>`. La doublure du test `no_model` inventait un texte sans commande ; elle lit désormais `ERRORS["no_model"]` de `errors.py`.
+- low, second avis 4 : rejeté. Début/Fin sont facultatifs dans le motif APG du combobox éditable et y déplacent le curseur du champ, comportement natif conservé.
+- low, second avis 5 : corrigé. ↑ sans option active allait à l'avant-dernière : il va à la dernière.
+- low, second avis 6 : reporté. Un choix cloud posé par l'appelant (`values`) avant toute liste avec cloud n'est pas reconnu comme cloud (origine inconnue) et reste choisi quand le cloud est coupé. À traiter au premier écran qui restaure un choix (chat) : retirer aussi les choix absents de la liste quand le cloud est coupé.
+- low, second avis 7 : corrigé. Changer `purpose` recharge le défaut et sa raison (le choix fait reste).
+- low, second avis 8 : corrigé. `Object.hasOwn` au lieu de `in` pour le statut de `run_ended`.
+- low, second avis 9 : corrigé. Arrêter passe en `disabled` : le focus va d'abord sur l'étape (`tabindex=-1`), puis y reste à la fin.
+- low, second avis 10 : rejeté. Échap global est le geste voulu par UX-DR8 ; un composant qui consomme Échap appelle `preventDefault`, ce que `wl-run-status` respecte.
+- low, orchestrateur : corrigé. Le test du chronomètre exigeait « 2 s » exactement pour une pause de 2,2 s mesurée par le serveur : il accepte 2 ou 3 s, et vérifie toujours que la valeur se fige.

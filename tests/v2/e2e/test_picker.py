@@ -13,6 +13,8 @@ import re
 
 import pytest
 
+from wavelocalai.errors import ERRORS
+
 from .test_shell import assert_no_axe_violations, wait_for
 
 NBSP = "\N{NO-BREAK SPACE}"
@@ -119,11 +121,12 @@ def install_api(page, *, models=None, defaults_status=200, calls=None):
             route.fulfill(
                 status=defaults_status,
                 content_type="application/json",
+                # Textes du vrai catalogue (`errors.py`), accents graves compris.
                 body=json.dumps(
                     {
                         "code": "no_model",
-                        "message": "Aucun modèle de conversation n'est disponible pour cet usage.",
-                        "action": "Installez un modèle de conversation dans Ollama, puis rechargez la liste.",
+                        "message": ERRORS["no_model"].message,
+                        "action": ERRORS["no_model"].action,
                         "detail": {"purpose": "chat"},
                     }
                 ),
@@ -342,8 +345,10 @@ def test_no_model_shows_the_error_message_then_its_action(
     error.wait_for(state="visible")
     assert error.locator("p").all_inner_texts() == [
         "Aucun modèle de conversation n'est disponible pour cet usage.",
-        "Installez un modèle de conversation dans Ollama, puis rechargez la liste.",
+        "Installez un modèle de conversation dans Ollama (par exemple ollama pull qwen3.5:2b), "
+        "puis rechargez la liste.",
     ]
+    assert error.locator(".wl-error-action code").inner_text() == "ollama pull qwen3.5:2b"
     page.get_by_role("combobox", name="Modèle", exact=True).click()
     assert page.locator("#single .wl-picker-empty").inner_text() == (
         "Aucun modèle de conversation n'est disponible."
@@ -514,7 +519,8 @@ def test_the_timer_runs_locally_and_stops_at_the_end(picker, server):
     )
     stage(picker).filter(has_text="Terminé").wait_for()
     frozen = timer.inner_text()
-    assert frozen == f"2{NBSP}s"
+    # Durée serveur de `run_started` à `run_ended` : 2,2 s de pause plus la charge de la machine.
+    assert frozen in (f"2{NBSP}s", f"3{NBSP}s")
     picker.wait_for_timeout(700)
     assert timer.inner_text() == frozen
 
@@ -564,6 +570,39 @@ def test_a_failed_run_shows_the_error_envelope(picker, server):
     error.wait_for(state="visible")
     assert error.get_attribute("role") == "alert"
     assert picker.evaluate("window.ended") == ["error"]
+
+
+def test_an_unknown_run_ends_as_interrupted_instead_of_generating(
+    page_tolerating_failed_requests, fixtures_url
+):
+    page = open_page(page_tolerating_failed_requests, fixtures_url)
+    follow(page, "run-inconnu")
+    stage(page).filter(has_text="Interrompu").wait_for()
+    assert page.locator("#status .wl-run-stop").is_hidden()
+    assert page.evaluate("window.ended") == ["interrupted"]
+
+
+def test_escape_that_closes_a_topbar_panel_is_marked_as_handled(picker):
+    """Un panneau de la barre haute qui se ferme sur Échap retient la touche (`preventDefault`) :
+    `wl-run-status` n'arrête pas le run."""
+    handled = picker.evaluate(
+        """async () => {
+            const { bindDisclosure } = await import('/static/core/disclosure.js');
+            const scope = document.createElement('div');
+            const button = document.createElement('button');
+            const panel = document.createElement('div');
+            scope.append(button, panel);
+            document.body.append(scope);
+            bindDisclosure({ button, panel, scope });
+            button.click();
+            const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+            button.dispatchEvent(event);
+            const result = [panel.hidden, event.defaultPrevented];
+            scope.remove();
+            return result;
+        }"""
+    )
+    assert handled == [True, True]
 
 
 def test_a_finished_run_is_replayed_to_its_end(picker, server):

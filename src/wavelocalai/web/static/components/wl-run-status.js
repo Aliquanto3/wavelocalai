@@ -133,6 +133,10 @@ export class WlRunStatus extends HTMLElement {
       model_loaded: () => this.#setStage("generating"),
       token: () => this.#setStage("generating"),
       run_ended: (data, envelope) => this.#end(data ?? {}, envelope),
+    }, ({ status }) => {
+      // Flux abandonné (run inconnu, ou serveur muet après plusieurs essais) sans `run_ended` :
+      // l'état n'est plus suivi, on le dit au lieu de laisser « Génération… » et Arrêter.
+      if (status === "failed" && !this.#final) this.#end({ status: "interrupted" }, {});
     });
   }
 
@@ -148,10 +152,10 @@ export class WlRunStatus extends HTMLElement {
     this.#startMs ??= this.#endMs;
     clearInterval(this.#timer);
     this.#timer = null;
-    const status = data.status in STAGE_TEXT ? data.status : "error";
+    const status = Object.hasOwn(STAGE_TEXT, data.status) ? data.status : "error";
     this.#final = { status, error: data.error ?? null };
     this.#stage = status;
-    const hadFocus = document.activeElement === this.#dom.stop;
+    const hadFocus = [this.#dom.stop, this.#dom.stage].includes(document.activeElement);
     this.#render();
     if (hadFocus) this.#dom.stage.focus(); // le bouton disparaît : le focus ne se perd pas
     this.dispatchEvent(
@@ -165,6 +169,8 @@ export class WlRunStatus extends HTMLElement {
     const runId = this.#runId;
     this.#cancelling = true;
     this.#stage = "stopping";
+    // Le bouton passe en `disabled` : le focus va sur l'étape au lieu de se perdre.
+    if (document.activeElement === this.#dom.stop) this.#dom.stage.focus();
     this.#render();
     try {
       await api.cancelRun(runId);
