@@ -29,7 +29,10 @@
       "energy": "{value} Wh pour 100 questions, mesurés",
       "others": "Autres modèles mesurés : {count}.",
       "unranked": "Non classés pour cet usage : {names}.",
-      "see_table": "Voir le tableau"
+      "see_table": "Voir le tableau",
+      "compare": "Comparer ces modèles",
+      "compare_none": "Aucun modèle de ce groupe n'est installé sur ce poste.",
+      "compare_unknown": "Modèles installés non vérifiés : Ollama ne répond pas."
     },
     "mark": {
       "installed": "installé",
@@ -43,7 +46,7 @@
       "usage": "Usage",
       "model": "Modèle",
       "group": "Groupe",
-      "score": "Réussite",
+      "score": "Part de réussite",
       "interval": "Intervalle",
       "rate": "Débit (machine de référence)",
       "energy": "Énergie",

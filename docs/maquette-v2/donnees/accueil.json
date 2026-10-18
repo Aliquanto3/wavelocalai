@@ -1,8 +1,8 @@
 {
-  "_doc": "Résumés simulés de l'Accueil (03 §3.5, UX-DR24, FR47) : base documentaire, outils des agents, modèles, références. Valeurs fictives. delay_ms : délai de la lecture simulée (squelettes).",
+  "_doc": "Résumés simulés de l'Accueil (03 §3.5, UX-DR24, FR47) : base documentaire, outils des agents, modèles, références. Valeurs fictives. references.score : fraction de 0 à 1, affichée en pourcentage comme dans Références (décision 5). delay_ms : délai de la lecture simulée (squelettes).",
   "delay_ms": 700,
   "documents": { "documents": 12, "chunks": 340 },
   "agents": { "tools": 9, "disabled": 1, "disabled_reason": "configuration SMTP absente" },
   "models": { "installed": 6, "installable": 14 },
-  "references": { "usage": "Conversation", "model": "Qwen 3.5 2B", "score": 74, "source": "slm-quality-bench, campagne fictive d'octobre 2026" }
+  "references": { "usage": "Conversation", "model": "Qwen 3.5 2B", "metric": "Part de réponses jugées correctes", "score": 0.74, "source": "slm-quality-bench, campagne fictive d'octobre 2026" }
 }

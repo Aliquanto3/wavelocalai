@@ -43,11 +43,11 @@
     "modules_title": "Modules",
     "open": "Ouvrir",
     "modules": {
-      "documents": { "name": "Assistant documentaire", "summary_one": "1 document indexé · {chunks} extraits", "summary_many": "{count} documents indexés · {chunks} extraits", "summary_empty": "Base documentaire vide" },
-      "agents": { "name": "Agents autonomes", "summary": "{tools} outils, dont {disabled} désactivé ({reason})" },
-      "sobriety": { "name": "Sobriété et matériel", "summary": "CO₂ de cette session : {value}", "summary_none": "Aucune réponse mesurée dans cette session" },
-      "models": { "name": "Modèles", "summary": "{installed} modèles installés · {installable} installables" },
-      "references": { "name": "Références", "summary": "{usage} : {model} en tête ({score}), d'après {source}" }
+      "documents": { "name": "Documents", "long": "Assistant documentaire", "summary_one": "1 document indexé · {chunks} extraits", "summary_many": "{count} documents indexés · {chunks} extraits", "summary_empty": "Base documentaire vide" },
+      "agents": { "name": "Agents", "long": "Agents autonomes", "summary": "{tools} outils, dont {disabled} désactivé ({reason})" },
+      "sobriety": { "name": "Sobriété", "long": "Sobriété et matériel", "summary": "CO₂ de cette session : {value}", "summary_none": "Aucune réponse mesurée dans cette session" },
+      "models": { "name": "Modèles", "long": "Installation et choix par usage", "summary": "{installed} modèles installés · {installable} installables" },
+      "references": { "name": "Références", "long": "Quel modèle pour quel usage ?", "summary": "{metric} : {score} pour {model}, en tête en {usage}, d'après {source}" }
     }
   }
 }

@@ -982,8 +982,9 @@ export async function mount(host, ctx) {
     const toolsList = element("ul", "crew-config-tool-list");
     for (const tool of toolsData.tools) {
       const item = element("li");
-      const box = element("input");
+      const box = element("input", "wl-switch-input");
       box.type = "checkbox";
+      box.setAttribute("role", "switch");
       box.id = `${base}-tool-${tool.id}`;
       box.checked = agent.tools.includes(tool.id);
       box.addEventListener("change", () => {

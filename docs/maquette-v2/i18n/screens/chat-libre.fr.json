@@ -3,6 +3,8 @@
     "lead": "Posez une question à un modèle et lisez sa réponse au fil de sa rédaction, avec ce qu'elle coûte.",
     "creativity": "Créativité",
     "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "creativity_default": "Valeur conseillée pour {model} : {value}.",
+    "creativity_default_fallback": "Valeur par défaut : 0,2 (le modèle n'en conseille pas).",
     "message": "Écrivez votre message",
     "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
     "send": "Envoyer",

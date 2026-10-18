@@ -111,6 +111,10 @@ export async function mount(host, ctx) {
   const formatSummary = element("summary", "", t("banc.format.title"));
   const formatBody = element("div", "bc-format-body");
   formatBox.append(formatSummary, formatBody);
+  // Consigne système du scénario, repliée (décision 18) : elle explique la réponse du modèle.
+  const instructionBox = element("details", "bc-details bc-instruction");
+  const instructionBody = element("p", "bc-instruction-body");
+  instructionBox.append(element("summary", "", t("banc.instruction.title")), instructionBody);
 
   const input = element("textarea", "bc-input");
   input.id = `${uid}-input`;
@@ -130,7 +134,7 @@ export async function mount(host, ctx) {
 
   function makeSwitch(key) {
     const row = element("div", "bc-switch");
-    const box = element("input", "bc-switch-input");
+    const box = element("input", "bc-switch-input wl-switch-input");
     box.type = "checkbox";
     box.setAttribute("role", "switch");
     box.id = `${uid}-${key}`;
@@ -170,6 +174,7 @@ export async function mount(host, ctx) {
     selectLabel,
     select,
     scenarioHelp,
+    instructionBox,
     formatBox,
     inputLabel,
     input,
@@ -207,6 +212,7 @@ export async function mount(host, ctx) {
   function renderScenario() {
     const scenario = state.scenario;
     scenarioHelp.textContent = scenario.description;
+    instructionBody.textContent = scenario.instruction;
     if (scenario.schema) {
       const table = dataTable({
         caption: t("banc.format.caption"),
@@ -692,6 +698,9 @@ export async function mount(host, ctx) {
     openFormat() {
       formatBox.open = true;
     },
+    openInstruction() {
+      instructionBox.open = true;
+    },
   };
 
   state.scenario = data.scenarios[0];
@@ -753,6 +762,15 @@ async function reopened(ctx, runId) {
 
 export const scenarios = [
   { id: "vide", label: "Scénario prédéfini et entrée préremplie, avant tout essai", run: (ctx) => fresh(ctx) },
+  {
+    id: "consigne-depliee",
+    label: "Bloc « Consigne » déplié : la consigne système du scénario",
+    async run(ctx) {
+      await fresh(ctx);
+      view.chooseScenario("extraction");
+      view.openInstruction();
+    },
+  },
   {
     id: "format-attendu",
     label: "« Format attendu » déplié : champs, type, obligatoire",

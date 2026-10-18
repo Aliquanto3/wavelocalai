@@ -16,12 +16,12 @@ import { element } from "../core/dom.js";
 import { formatNumber } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
-import { findModel, modelDefaults } from "../sim/modeles.js";
+import { exportMenu } from "../components/export-menu.js";
+import { defaultTemperature, FALLBACK_TEMPERATURE, findModel, modelDefaults } from "../sim/modeles.js";
 import { sim } from "../sim/sim.js";
 import { errorEnvelope } from "../core/errors.js";
 import { setOllamaDown } from "../sim/systeme.js";
 
-const DEFAULT_TEMPERATURE = 0.7;
 let counter = 0;
 let view = null; // l'instance montée, pour les scénarios
 
@@ -37,18 +37,20 @@ export async function mount(host, ctx) {
   const slider = element("input", "chat-slider");
   slider.type = "range";
   slider.id = `${uid}-creativity`;
-  Object.assign(slider, { min: "0", max: "2", step: "0.1", value: String(DEFAULT_TEMPERATURE) });
+  Object.assign(slider, { min: "0", max: "2", step: "0.1", value: String(FALLBACK_TEMPERATURE) });
   slider.setAttribute("aria-describedby", `${uid}-creativity-help`);
   const sliderLabel = element("label", "chat-slider-label", t("chat.creativity"));
   sliderLabel.htmlFor = slider.id;
-  const sliderValue = element("output", "chat-slider-value", formatNumber(DEFAULT_TEMPERATURE));
+  const sliderValue = element("output", "chat-slider-value", formatNumber(FALLBACK_TEMPERATURE));
   sliderValue.htmlFor = slider.id;
   const sliderHelp = element("p", "help", t("chat.creativity_help"));
   sliderHelp.id = `${uid}-creativity-help`;
   const sliderRow = element("div", "chat-slider-row");
   sliderRow.append(slider, sliderValue);
   const creativity = element("div", "chat-creativity");
-  creativity.append(sliderLabel, sliderRow, sliderHelp);
+  // Défaut fourni par le serveur avec le modèle (décision 12), repli 0,2.
+  const sliderDefault = element("p", "help chat-creativity-default", t("chat.creativity_default_fallback"));
+  creativity.append(sliderLabel, sliderRow, sliderHelp, sliderDefault);
   const settings = element("div", "chat-settings");
   settings.append(picker, creativity);
 
@@ -74,12 +76,15 @@ export async function mount(host, ctx) {
   send.type = "submit";
   const clear = element("button", "btn", t("chat.clear"));
   clear.type = "button";
-  const downloadJson = element("button", "btn", t("chat.download_json"));
-  downloadJson.type = "button";
-  const downloadMd = element("button", "btn", t("chat.download_md"));
-  downloadMd.type = "button";
+  // Deux boutons en large, un menu « Exporter » sous 768 px (décision 3).
+  const exports = exportMenu({
+    items: [
+      { label: t("chat.download_json"), onClick: () => download("json") },
+      { label: t("chat.download_md"), onClick: () => download("md") },
+    ],
+  });
   const actions = element("div", "chat-actions");
-  actions.append(send, clear, downloadJson, downloadMd);
+  actions.append(send, clear, exports.root);
   const busyReason = element("p", "help", t("chat.busy_reason"));
   busyReason.hidden = true;
   const composer = element("form", "chat-composer");
@@ -117,13 +122,11 @@ export async function mount(host, ctx) {
     const busy = running();
     send.disabled = busy;
     clear.disabled = busy;
-    downloadJson.disabled = busy;
-    downloadMd.disabled = busy;
+    exports.setDisabled(busy);
     busyReason.hidden = !busy;
     const hasContent = !thread.empty;
     clear.hidden = !hasContent;
-    downloadJson.hidden = !hasContent;
-    downloadMd.hidden = !hasContent;
+    exports.setHidden(!hasContent);
     busyReason.hidden = !busy || !hasContent;
     empty.hidden = hasContent;
   }
@@ -304,11 +307,25 @@ export async function mount(host, ctx) {
     }
   });
   clear.addEventListener("click", clearConversation);
-  downloadJson.addEventListener("click", () => download("json"));
-  downloadMd.addEventListener("click", () => download("md"));
+  let creativityTouched = false;
   slider.addEventListener("input", () => {
+    creativityTouched = true;
     sliderValue.textContent = formatNumber(Number(slider.value));
   });
+  // Le défaut suit le modèle choisi tant que la personne n'a pas bougé le curseur.
+  function applyModelTemperature() {
+    const model = picker.selected;
+    const value = defaultTemperature(model);
+    sliderDefault.textContent =
+      model?.default_temperature !== undefined
+        ? t("chat.creativity_default", { value: formatNumber(value), model: model.name })
+        : t("chat.creativity_default_fallback");
+    if (creativityTouched) return;
+    slider.value = String(value);
+    sliderValue.textContent = formatNumber(value);
+  }
+  picker.addEventListener("wl-model-change", applyModelTemperature);
+  applyModelTemperature();
 
   // Boutons d'action des erreurs (AD-18 : tirés du code et de `detail`).
   error.addEventListener("wl-error-action", async (event) => {

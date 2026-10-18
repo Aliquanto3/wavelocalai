@@ -86,13 +86,6 @@
   gap: 0 0.75rem;
 }
 
-.bc-switch-input {
-  width: 2.75rem;
-  height: 1.5rem;
-  margin: 0;
-  accent-color: var(--color-primary);
-}
-
 .bc-switch-label {
   font-weight: 600;
 }

@@ -17,6 +17,7 @@
 
 import { bubbleMatrix } from "../components/charts.js";
 import { dataTable } from "../components/data-table.js";
+import { exportMenu } from "../components/export-menu.js";
 import { segments } from "../components/segments.js";
 import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
@@ -33,6 +34,7 @@ import {
 import { co2Display } from "../core/co2.js";
 import { plural, t } from "../core/i18n.js";
 import { renderMarkdown } from "../core/markdown.js";
+import { takeHandOff } from "../core/handoff.js";
 import { setMaquette, store } from "../core/store.js";
 import { findModel } from "../sim/modeles.js";
 import { sim } from "../sim/sim.js";
@@ -484,6 +486,7 @@ export async function mount(host, ctx) {
     if (params.judge) state.judge = (await findModel(params.judge)) ?? { tag: params.judge, name: params.judge, origin: "unknown" };
     if ("criteria" in params) state.criteria = params.criteria;
     lanesBox.style.setProperty("--ar-count", String(tags.length));
+    lanesBox.dataset.count = String(tags.length);
     state.lanes.forEach(renderLane);
     renderSummary();
     layoutLanes();
@@ -958,16 +961,12 @@ export async function mount(host, ctx) {
     edit.type = "button";
     edit.append(icon("edit"), element("span", "", t("arene.actions.edit")));
     edit.addEventListener("click", () => resume({ launch: false }));
-    const exportRow = element("div", "ar-export");
-    exportRow.setAttribute("role", "group");
-    exportRow.setAttribute("aria-label", t("arene.actions.export_group"));
-    for (const kind of ["csv", "md"]) {
-      const button = element("button", "btn", "");
-      button.type = "button";
-      button.append(icon("download"), element("span", "", t(`arene.actions.export_${kind}`)));
-      button.addEventListener("click", () => exportRun(kind));
-      exportRow.append(button);
-    }
+    // Deux boutons en large, un menu « Exporter » sous 768 px (décision 3).
+    const exportRow = exportMenu({
+      label: t("arene.actions.export_group"),
+      className: "ar-export",
+      items: ["csv", "md"].map((kind) => ({ label: t(`arene.actions.export_${kind}`), onClick: () => exportRun(kind) })),
+    }).root;
     const status = element("p", "help ar-export-status");
     status.setAttribute("role", "status");
     status.dataset.role = "export-status";
@@ -1366,6 +1365,12 @@ export async function mount(host, ctx) {
       attachment = null;
     } else if (run) {
       attachment = run.attach(handlers, { after: lastSeq });
+    } else if (!reopenId) {
+      const tags = takeHandOff("arena-models");
+      if (tags) {
+        pending = { prompt: question.value, models: tags, launch: false };
+        ctx.remount();
+      }
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -1430,7 +1435,12 @@ export async function mount(host, ctx) {
   updateLaunch();
   if (reopenId) {
     await reopen();
-  } else if (pending) {
+  } else {
+    // « Comparer ces modèles » (Références, décision 19) : modèles présélectionnés.
+    const tags = takeHandOff("arena-models");
+    if (tags && !pending) pending = { prompt: "", models: tags, launch: false };
+  }
+  if (!reopenId && pending) {
     const cfg = pending;
     pending = null;
     await pickersReady();

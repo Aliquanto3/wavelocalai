@@ -176,7 +176,7 @@
 }
 
 .home-module-link .icon {
-  grid-row: span 3;
+  grid-row: span 4;
   color: var(--color-primary);
 }
 
@@ -186,11 +186,16 @@
   text-decoration: underline;
 }
 
+.home-module-long,
 .home-module-summary,
 .home-module-open {
   grid-column: 2;
   color: var(--color-ink-secondary);
   overflow-wrap: anywhere;
+}
+
+.home-module-long {
+  font-weight: 600;
 }
 
 .home-module-open {

@@ -1,5 +1,6 @@
 {
   "_doc": "Textes communs ajoutés par la maquette (fusionnés par-dessus fr.json, recopié du front livré). Les textes propres à un écran vont dans i18n/screens/<écran>.fr.json.",
+  "export_menu": { "label": "Exporter" },
   "shell": {
     "display": {
       "system": "Système"

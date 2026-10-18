@@ -14,6 +14,7 @@ import { formatDate, formatInteger, formatNumber, formatPercent, formatRate } fr
 import { t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
 import { dataTable } from "../components/data-table.js";
+import { handOff } from "../core/handoff.js";
 import { segments } from "../components/segments.js";
 
 let view = null;
@@ -77,6 +78,30 @@ export async function mount(host, ctx) {
     return data.models[entry.model];
   }
 
+  // « Comparer ces modèles » : l'Arène s'ouvre sur les modèles installés du groupe (décision 19).
+  function compareAction(usage, best) {
+    const tags = installedMarks() ? best.filter((entry) => modelOf(entry).installed).map((entry) => entry.model) : [];
+    const line = element("p", "rf-compare");
+    const button = element("button", "btn rf-compare-button", "");
+    button.type = "button";
+    button.append(icon("swords"), element("span", "", t("references.card.compare")));
+    button.dataset.usage = usage.id;
+    line.append(button);
+    if (tags.length === 0) {
+      const reason = element("span", "help", t(installedMarks() ? "references.card.compare_none" : "references.card.compare_unknown"));
+      reason.id = `rf-compare-reason-${usage.id}`;
+      button.disabled = true;
+      button.setAttribute("aria-describedby", reason.id);
+      line.append(reason);
+    } else {
+      button.addEventListener("click", () => {
+        handOff("arena-models", tags);
+        ctx.navigate("/arene/comparer");
+      });
+    }
+    return line;
+  }
+
   function buildCard(usage) {
     const card = element("article", "rf-card");
     card.dataset.usage = usage.id;
@@ -118,7 +143,7 @@ export async function mount(host, ctx) {
       footer.push(line);
     }
     if (unranked.length) footer.push(element("p", "help", t("references.card.unranked", { names: unranked.map((entry) => modelOf(entry).name).join(", ") })));
-    card.append(heading, element("p", "help", usage.description), element("p", "help", t("references.card.measure", { metric: usage.metric, count: formatInteger(usage.questions) })), title, group, tie, ...footer);
+    card.append(heading, element("p", "help", usage.description), element("p", "help", t("references.card.measure", { metric: usage.metric, count: formatInteger(usage.questions) })), title, group, tie, compareAction(usage, best), ...footer);
     return card;
   }
 
@@ -284,6 +309,15 @@ export const scenarios = [
       view.showSegment("table");
       view.sortBy("score");
       view.sortBy("score");
+    },
+  },
+  {
+    id: "comparer-ces-modeles",
+    label: "« Comparer ces modèles » : l'Arène s'ouvre présélectionnée sur les modèles installés du groupe",
+    async run(ctx) {
+      await fresh(ctx);
+      view.host.querySelector(".rf-compare-button:not(:disabled)").click();
+      await waitUntil(() => document.querySelector('section.screen[data-screen="arene"]:not([hidden]) wl-model-picker') !== null);
     },
   },
   { id: "chargement", label: "Premier chargement : squelettes dans les cartes", run: (ctx) => fresh(ctx, "loading") },

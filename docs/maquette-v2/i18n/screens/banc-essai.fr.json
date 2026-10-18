@@ -7,6 +7,7 @@
       "title": "Scénario",
       "label": "Scénario prédéfini"
     },
+    "instruction": { "title": "Consigne" },
     "format": {
       "title": "Format attendu",
       "caption": "Champs du format attendu",

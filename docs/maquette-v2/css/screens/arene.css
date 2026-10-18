@@ -383,6 +383,13 @@
   overflow: hidden;
 }
 
+/* Quatre modèles dès 1 440 px : quatre colonnes, réponse repliée sur 4 lignes (décision 15). */
+@media (min-width: 1440px) {
+  .ar-lanes[data-count="4"]:not([data-focus="true"]) .ar-lane-text.is-clamped {
+    max-height: 4lh;
+  }
+}
+
 .ar-lane-text:empty {
   display: none;
 }

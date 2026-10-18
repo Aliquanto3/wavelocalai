@@ -13,6 +13,20 @@ import { setMaquette, store } from "../core/store.js";
 
 const overlay = () => store.get().maquette.localModels;
 
+// Créativité par défaut que le serveur rendrait avec chaque modèle (décision 12, champ
+// `default_temperature` de `GET /api/models`, simulé ici) ; repli à 0,2 si le serveur n'en dit rien.
+export const FALLBACK_TEMPERATURE = 0.2;
+const SERVER_TEMPERATURE = { "qwen3.5:2b": 0.6, "gemma4:1b": 0.8, "qwen3.6:7b": 0.5 };
+
+export function defaultTemperature(model) {
+  return model?.default_temperature ?? FALLBACK_TEMPERATURE;
+}
+
+function withTemperature(model) {
+  const value = SERVER_TEMPERATURE[model.tag];
+  return value === undefined || model.default_temperature !== undefined ? model : { ...model, default_temperature: value };
+}
+
 export function localModelsState() {
   const { added, deleted, unloaded } = overlay();
   return { added: [...added], deleted: new Set(deleted), unloaded: new Set(unloaded) };
@@ -50,7 +64,7 @@ export function unloadModels(tags) {
 function withOverlay(models) {
   const { added, deleted } = overlay();
   const known = new Set(models.map((model) => model.tag));
-  return [...models.filter((model) => !deleted.includes(model.tag)), ...added.filter((model) => !known.has(model.tag))];
+  return [...models.filter((model) => !deleted.includes(model.tag)), ...added.filter((model) => !known.has(model.tag))].map(withTemperature);
 }
 
 export class SimApiError extends Error {
@@ -95,5 +109,6 @@ export async function modelDefaults(purpose = "chat", allowCloud = store.get().a
 
 export async function findModel(tag) {
   const data = await loadCopy("commun/modeles.json");
-  return data.models.find((model) => model.tag === tag) ?? overlay().added.find((model) => model.tag === tag) ?? null;
+  const found = data.models.find((model) => model.tag === tag) ?? overlay().added.find((model) => model.tag === tag) ?? null;
+  return found && withTemperature(found);
 }

@@ -154,3 +154,11 @@
   min-width: 56rem;
 }
 
+
+.rf-compare {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-block: 0.75rem;
+}

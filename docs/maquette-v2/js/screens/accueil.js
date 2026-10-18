@@ -11,7 +11,7 @@
 // - Onglet masqué (`visibilitychange`, ou l'état global « onglet masqué ») : les cartes se figent.
 
 import { element, icon } from "../core/dom.js";
-import { formatCo2, formatGb, formatInteger, formatPercent, formatScore, formatUnknown } from "../core/format.js";
+import { formatCo2, formatGb, formatInteger, formatPercent, formatUnknown } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
 import { listModels, modelDefaults } from "../sim/modeles.js";
@@ -204,7 +204,9 @@ async function renderDemo(demo, state, isCurrent) {
   demo.models.replaceChildren(...parts);
 }
 
-function moduleLink(href, iconName, name) {
+// Nom court du menu en titre, nom long en sous-titre (décision 10).
+function moduleLink(href, iconName, key) {
+  const name = t(`accueil.modules.${key}.name`);
   const link = element("a", "home-module-link");
   link.href = href;
   const summary = element("span", "home-module-summary");
@@ -213,7 +215,13 @@ function moduleLink(href, iconName, name) {
   summary.append(skeleton);
   const open = element("span", "home-module-open", t("accueil.open"));
   open.setAttribute("aria-hidden", "true");
-  link.append(icon(iconName), element("span", "home-module-name", name), summary, open);
+  link.append(
+    icon(iconName),
+    element("span", "home-module-name", name),
+    element("span", "home-module-long", t(`accueil.modules.${key}.long`)),
+    summary,
+    open,
+  );
   const item = element("li", "home-module");
   item.append(link);
   return { item, summary };
@@ -226,11 +234,11 @@ function buildModules() {
   title.id = "home-modules-title";
   const list = element("ul", "home-module-list");
   const links = {
-    documents: moduleLink("#/documents", "description", t("accueil.modules.documents.name")),
-    agents: moduleLink("#/agents/seul", "smart-toy", t("accueil.modules.agents.name")),
-    sobriety: moduleLink("#/sobriete", "eco", t("accueil.modules.sobriety.name")),
-    models: moduleLink("#/modeles", "deployed-code", t("accueil.modules.models.name")),
-    references: moduleLink("#/arene/references", "swords", t("accueil.modules.references.name")),
+    documents: moduleLink("#/documents", "description", "documents"),
+    agents: moduleLink("#/agents/seul", "smart-toy", "agents"),
+    sobriety: moduleLink("#/sobriete", "eco", "sobriety"),
+    models: moduleLink("#/modeles", "deployed-code", "models"),
+    references: moduleLink("#/arene/references", "swords", "references"),
   };
   list.append(...Object.values(links).map((link) => link.item));
   section.append(title, list);
@@ -259,7 +267,8 @@ function renderSummaries(links, summary) {
   links.references.summary.textContent = t("accueil.modules.references.summary", {
     usage: ref.usage,
     model: ref.model,
-    score: formatScore(ref.score),
+    metric: ref.metric,
+    score: formatPercent(ref.score * 100),
     source: ref.source,
   });
 }

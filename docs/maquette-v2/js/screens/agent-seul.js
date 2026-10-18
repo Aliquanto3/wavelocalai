@@ -232,8 +232,9 @@ export async function mount(host, ctx) {
         const id = `${uid}-tool-${tool.id}`;
         const item = element("li", "agent-tool");
         item.dataset.available = String(tool.available);
-        const box = element("input");
+        const box = element("input", "wl-switch-input");
         box.type = "checkbox";
+        box.setAttribute("role", "switch");
         box.id = id;
         box.checked = tool.checked && tool.available;
         box.setAttribute("aria-describedby", `${id}-help`);
