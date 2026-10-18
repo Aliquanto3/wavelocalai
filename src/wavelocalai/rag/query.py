@@ -49,6 +49,9 @@ logger = logging.getLogger("wavelocalai.rag")
 
 STRATEGIES = ("naive",)
 TEMPERATURE = 0.1  # une réponse qui s'appuie sur des extraits : peu de créativité
+NOT_STARTED_CO2 = Co2(
+    mg=None, method="unmeasurable", reason="réponse non lancée : la recherche a échoué"
+)
 
 SYSTEM_PROMPT = (
     "Tu réponds en français à la question de l'utilisateur à partir des extraits de documents "
@@ -212,6 +215,8 @@ class RagService:
                 raise
             except Exception as exc:  # noqa: BLE001 - la feuille `embedding` est déjà close
                 error = leaf_error(exc, secrets)
+                # La génération n'a jamais commencé : sa raison le dit (pas « annulée »).
+                self._hub.declare_leaf(run.generation_leaf_id, NOT_STARTED_CO2)
                 await self._hub.finish_run(root, "error", error=error)
                 return
             leaf = await stream_into_run(

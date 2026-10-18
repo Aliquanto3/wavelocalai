@@ -139,3 +139,9 @@ def test_positions_count_code_points_not_utf16_units():
 def test_the_choice_is_deterministic():
     text = "Alpha beta. Gamma delta. Beta gamma."
     assert pick_passage("beta gamma", text) == pick_passage("beta gamma", text)
+
+
+def test_accented_stopwords_are_folded_like_the_terms():
+    # « était », « très », « être » et « dont » ne sont jamais des termes, accents ou pas.
+    assert terms("Il était très heureux d'être là, dont acte") == {"heureu", "acte"}
+    assert terms("ETAIT Tres ÊTRE") == set()

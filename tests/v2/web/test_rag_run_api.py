@@ -404,7 +404,8 @@ async def test_an_embedding_failure_ends_the_run_in_error_before_any_source(serv
     assert leaves["embedding"]["status"] == "error"
     assert leaves["embedding"]["metrics"]["co2"]["mg"] is None  # jamais 0 pour un inconnu
     assert leaves["generation"]["status"] == "cancelled"
-    assert leaves["generation"]["metrics"]["co2"]["reason"]  # `co2` présent partout (AD-10)
+    # `co2` présent partout (AD-10), avec la vraie raison : la réponse n'a jamais été lancée.
+    assert leaves["generation"]["metrics"]["co2"]["reason"].startswith("réponse non lancée")
     assert app.state.models[FAKE_REF.tag].requests == []  # le modèle n'a jamais été appelé
 
 

@@ -123,11 +123,9 @@ CHUNK_SQL = (
     "SELECT c.id, c.document_id, d.source, c.page, c.position, c.text FROM chunks c"
     " JOIN documents d ON d.id = c.document_id WHERE c.id = ? AND d.status = 'ready'"
 )  # un extrait n'est lisible que si son document est `ready` (AD-16)
-_NOT_READY_CHUNKS_SQL = (
-    "SELECT count(*) FROM chunks c JOIN documents d ON d.id = c.document_id"
-    " WHERE d.status <> 'ready'"
+READY_CHUNK_IDS_SQL = (
+    "SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id WHERE d.status = 'ready'"
 )
-MAX_SEARCH_K = 4096  # plafond d'une requête KNN de sqlite-vec
 
 
 def search_chunks(
@@ -135,10 +133,9 @@ def search_chunks(
 ) -> list[dict[str, Any]]:
     """Les `top_k` extraits de documents `ready` les plus proches de `vector`, du plus proche, avec
     leur distance cosinus. Les extraits d'un document encore `indexing` sont déjà dans l'index :
-    la recherche en demande autant de plus, puis les écarte (AD-16, jamais de document à moitié
-    indexé)."""
-    pending = int(conn.execute(_NOT_READY_CHUNKS_SQL).fetchone()[0])
-    hits = index.search(conn, vector, min(top_k + pending, MAX_SEARCH_K))
+    la recherche les écarte **avant** de prendre les plus proches (AD-16, jamais de document à
+    moitié indexé), quel que soit leur nombre."""
+    hits = index.search(conn, vector, top_k, among=READY_CHUNK_IDS_SQL)
     if not hits:
         return []
     marks = ",".join("?" * len(hits))

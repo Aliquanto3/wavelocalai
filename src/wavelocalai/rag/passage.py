@@ -43,13 +43,12 @@ TERM_LENGTH = 6  # un terme est tronqué à ce nombre de caractères
 MIN_TERM_LENGTH = 3
 
 _STOPWORD_TEXT = (
-    "alors aussi avec avoir cette ces chez comme dans des donc elle elles est était etre "
+    "alors aussi avec avoir cette ces chez comme dans des donc dont elle elles est était etre "
     "être faire fait les leur leurs lui mais mes mon nos notre par pas pour que quel "
     "quelle quelles quels qui sans ses son sont sur tes ton tous tout tres très une vos "
     "votre vous the and are for from has have how that this was were what when where which "
     "who why with you your"
 )
-_STOPWORDS = frozenset(_STOPWORD_TEXT.split())
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _BOUNDARY = re.compile(r"(?<=[.!?…])\s+|\s*\n\s*")
 
@@ -72,6 +71,11 @@ def relevance_label(distance: float, very_close: float, close: float) -> str:
 def _fold(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text.casefold())
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
+# Repliés comme les termes (« était » devient « etait ») : sinon un mot vide accentué ne serait
+# jamais reconnu.
+_STOPWORDS = frozenset(_fold(word) for word in _STOPWORD_TEXT.split())
 
 
 def terms(text: str) -> set[str]:
