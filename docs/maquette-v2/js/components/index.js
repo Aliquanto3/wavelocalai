@@ -1,0 +1,12 @@
+// Composants partagés (AD-20) : Custom Elements `wl-*` sans Shadow DOM. Importer ce module les
+// définit tous ; les textes (`core/i18n.js`) doivent être chargés avant le premier rendu.
+
+export { WlBadge } from "./wl-badge.js";
+export { WlMetric } from "./wl-metric.js";
+export { WlError } from "./wl-error.js";
+export { WlModelPicker } from "./wl-model-picker.js";
+export { WlRunStatus } from "./wl-run-status.js";
+export { WlChatThread } from "./wl-chat-thread.js";
+export { WlConfirmDialog } from "./wl-confirm-dialog.js";
+export { WlSkeleton } from "./wl-skeleton.js";
+export * as states from "./states.js";

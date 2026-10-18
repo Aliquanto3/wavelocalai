@@ -1,0 +1,23 @@
+{
+  "_doc": "État simulé du poste (flux /api/system/stream, /api/health, /api/carbon/session). Toutes les valeurs sont fictives.",
+  "first_tick_ms": 900,
+  "tick_ms": 2000,
+  "version": "2.0.0",
+  "ollama": { "version": "0.40.6", "latency_ms": 12 },
+  "cpu_percent": { "idle": [6, 18], "busy": [55, 85] },
+  "memory": { "total_gb": 15.7, "used_gb": 9.8, "ram_guard_free_gb": 2.8 },
+  "models_loaded": [{ "tag": "qwen3.5:2b", "size_gb": 2.7 }],
+  "cloud_providers": [
+    { "id": "openai", "name": "OpenAI", "configured": true },
+    { "id": "groq", "name": "Groq", "configured": true },
+    { "id": "anthropic", "name": "Anthropic", "configured": true },
+    { "id": "mistral", "name": "Mistral", "configured": false }
+  ],
+  "carbon": {
+    "total_mg": 412,
+    "by_origin": { "local": { "mg": 398.6, "runs": 11 }, "cloud": { "mg": 13.4, "runs": 2 } },
+    "by_module": { "chat": { "mg": 96.2 }, "arena": { "mg": 288.1 }, "rag": { "mg": 27.7 } },
+    "measured_runs": 13,
+    "unmeasurable_runs": 1
+  }
+}

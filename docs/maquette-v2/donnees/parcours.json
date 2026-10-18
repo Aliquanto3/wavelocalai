@@ -1,0 +1,59 @@
+{
+  "_doc": "Parcours de bout en bout du panneau Scénarios. Étape : route (chemin du hash), scenario (id exporté par l'écran de cette route ; absent = étape sautée et signalée « à construire »), pause_ms (attente après l'étape, divisée par la vitesse du simulateur), note (texte affiché). Chaque agent d'écran branche ses étapes en exportant les scénarios nommés ici, ou corrige l'entrée de son parcours.",
+  "parcours": [
+    {
+      "id": "flow-1",
+      "label": "Flow 1 : démo d'avant-vente (Arène)",
+      "source": "EXPERIENCE.md, Flow 1",
+      "steps": [
+        { "route": "/", "scenario": "nominal", "pause_ms": 2500, "note": "Claire ouvre WaveLocalAI : Système « Disponible », mode Local." },
+        { "route": "/", "scenario": "suivre-demo-recommandee", "pause_ms": 1500, "note": "Elle suit « Arène des modèles », marquée « Démo recommandée »." },
+        { "route": "/arene/comparer", "scenario": "trois-locaux-preselectionnes", "pause_ms": 2000, "note": "Trois petits modèles locaux présélectionnés, juge local." },
+        { "route": "/arene/comparer", "scenario": "comparaison-en-cours", "pause_ms": 2000, "note": "« Chargement du modèle en mémoire… », puis les colonnes en flux." },
+        { "route": "/arene/comparer", "scenario": "resultats-vainqueur-le-plus-petit", "pause_ms": 3000, "note": "Le vainqueur est le plus petit des trois, en Local." }
+      ]
+    },
+    {
+      "id": "flow-2",
+      "label": "Flow 2 : atelier de formation (documents)",
+      "source": "EXPERIENCE.md, Flow 2",
+      "steps": [
+        { "route": "/documents/base", "scenario": "base-vide", "pause_ms": 2000, "note": "« Votre base documentaire est vide »." },
+        { "route": "/documents/base", "scenario": "import-un-document", "pause_ms": 2500, "note": "Import d'une note de cadrage fictive, progression par fichier." },
+        { "route": "/documents", "scenario": "question-avec-sources", "pause_ms": 3000, "note": "Question, premier chargement, réponse et « 3 sources utilisées »." },
+        { "route": "/documents", "scenario": "ouvrir-une-source", "pause_ms": 2500, "note": "Léa retrouve le paragraphe de sa note." }
+      ]
+    },
+    {
+      "id": "flow-3",
+      "label": "Flow 3 : préparer son poste puis montrer un agent",
+      "source": "EXPERIENCE.md, Flow 3",
+      "steps": [
+        { "route": "/modeles", "scenario": "installation-en-cours", "pause_ms": 2500, "note": "Installation d'un modèle avec progression chiffrée." },
+        { "route": "/sobriete", "scenario": "remise-a-zero", "pause_ms": 1500, "note": "Remise à zéro du compteur de session." },
+        { "route": "/agents/seul", "scenario": "etapes-en-cours", "pause_ms": 2500, "note": "Le panneau « Étapes » se remplit." },
+        { "route": "/agents/seul", "scenario": "validation-email", "pause_ms": 3000, "note": "« Rien ne part sans moi » : dialogue de validation de l'email." }
+      ]
+    },
+    {
+      "id": "mission-equipe",
+      "label": "Mission d'une équipe d'agents",
+      "source": "EXPERIENCE.md, Équipe d'agents (UX-DR28)",
+      "steps": [
+        { "route": "/agents/equipe", "scenario": "equipe-prete", "pause_ms": 1500, "note": "Équipe choisie, schéma affiché." },
+        { "route": "/agents/equipe", "scenario": "mission-en-cours", "pause_ms": 3000, "note": "L'agent actif est marqué sur le schéma." },
+        { "route": "/agents/equipe", "scenario": "rapport-final", "pause_ms": 3000, "note": "Rapport final et empreinte de la mission." }
+      ]
+    },
+    {
+      "id": "evaluation",
+      "label": "Évaluation de la qualité des réponses documentaires",
+      "source": "EXPERIENCE.md, Évaluation de la qualité (UX-DR29)",
+      "steps": [
+        { "route": "/documents/evaluation", "scenario": "jeu-de-questions", "pause_ms": 1500, "note": "Choix d'un jeu de questions fictif." },
+        { "route": "/documents/evaluation", "scenario": "evaluation-en-cours", "pause_ms": 3000, "note": "Étapes nommées et scores au fil de l'eau." },
+        { "route": "/documents/evaluation/run-eval-demo", "scenario": "resultat-rouvert", "pause_ms": 3000, "note": "Résultat rouvert depuis son adresse, « non évalué » avec sa raison." }
+      ]
+    }
+  ]
+}

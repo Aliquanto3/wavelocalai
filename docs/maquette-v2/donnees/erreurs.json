@@ -1,0 +1,156 @@
+{
+  "_doc": "Catalogue des codes d'erreur de la maquette (UX-DR16, AD-18, 03 §3.8). message et action : textes affichés tels quels ; {nom} est remplacé par la valeur de detail ou de vars (mise en forme fr-FR par l'appelant). buttons : actions prévues pour ce code (dans le vrai front, l'écran les tire du code et de detail). detail_example.technical : exemple fictif replié sous « Détails techniques ». ux_dr16 : false pour les codes d'errors.py hors de la liste d'UX-DR16.",
+  "codes": {
+    "ollama_down": {
+      "ux_dr16": true,
+      "status": 503,
+      "where": "Barre haute ; écrans locaux",
+      "message": "Ollama ne répond pas sur ce poste.",
+      "action": "Lancez Ollama (application ou `ollama serve`), puis réessayez.",
+      "action_cloud": "Lancez Ollama (application ou `ollama serve`), puis réessayez. Les modèles cloud restent disponibles.",
+      "buttons": [{ "id": "retry", "label": "Réessayer" }],
+      "detail_example": { "technical": "ConnectError: connexion refusée par http://127.0.0.1:11434/api/version (sonde de 1 s)" }
+    },
+    "no_model": {
+      "ux_dr16": true,
+      "status": 404,
+      "where": "Sélecteurs",
+      "message": "Aucun modèle de conversation n'est installé sur ce poste.",
+      "action": "Installez un modèle depuis l'écran Modèles, puis revenez ici.",
+      "buttons": [{ "id": "open_models", "label": "Installer un modèle", "href": "#/modeles" }],
+      "detail_example": { "technical": "GET /api/models/defaults?purpose=chat : aucun modèle de kind chat", "purpose": "chat" }
+    },
+    "model_not_chat": {
+      "ux_dr16": true,
+      "status": 422,
+      "where": "Défense en profondeur",
+      "message": "Ce modèle sert à représenter les textes, pas à converser.",
+      "action": "Choisissez un modèle de conversation dans la liste.",
+      "buttons": [{ "id": "choose_other", "label": "Choisir un autre modèle" }],
+      "detail_example": { "technical": "kind = embedding pour bge-m3:latest", "tag": "bge-m3:latest", "kind": "embedding" }
+    },
+    "ram_guard": {
+      "ux_dr16": true,
+      "status": 507,
+      "where": "Toute inférence locale",
+      "message": "Mémoire insuffisante : {needed} nécessaires, {free} libres.",
+      "action": "Votre question est gardée. Prenez un modèle plus petit ({suggested}), ou déchargez les modèles inactifs pour libérer la mémoire.",
+      "buttons": [
+        { "id": "smaller", "label": "Prendre un modèle plus petit" },
+        { "id": "unload", "label": "Décharger les modèles inactifs" }
+      ],
+      "detail_example": {
+        "technical": "hardware.fits : besoin estimé 5,2 Go (poids 4,1 Go + contexte 1,1 Go), libre 2,8 Go",
+        "needed_gb": 5.2,
+        "free_gb": 2.8,
+        "suggested_model": "gemma4:1b"
+      }
+    },
+    "cloud_not_allowed": {
+      "ux_dr16": true,
+      "status": 403,
+      "where": "Cloud désactivé",
+      "message": "Ce modèle est un modèle cloud : le cloud n'est pas autorisé.",
+      "action": "Autorisez le cloud dans la barre haute, ou utilisez le modèle local proposé.",
+      "buttons": [
+        { "id": "allow_cloud", "label": "Autoriser le cloud" },
+        { "id": "use_local", "label": "Utiliser un modèle local" }
+      ],
+      "detail_example": { "technical": "allow_cloud absent de la commande ; origin = cloud", "tag": "mistral-small-latest" }
+    },
+    "cloud_unreachable": {
+      "ux_dr16": true,
+      "status": 502,
+      "where": "Inférence en cloud",
+      "message": "{provider_name} est injoignable depuis ce poste.",
+      "action": "Vérifiez la connexion réseau, la clé et le quota, puis réessayez ; ou repassez en Local.",
+      "buttons": [
+        { "id": "retry", "label": "Réessayer" },
+        { "id": "use_local", "label": "Repasser en Local" }
+      ],
+      "detail_example": { "technical": "APIConnectionError: délai de connexion dépassé (10 s)", "provider": "anthropic", "provider_name": "Anthropic" }
+    },
+    "cloud_key_missing": {
+      "ux_dr16": true,
+      "status": 400,
+      "where": "Inférence en cloud",
+      "message": "La clé d'API de {provider_name} n'est pas configurée.",
+      "action": "Ajoutez {key_var}=votre clé dans le fichier `.env` à la racine du projet, relancez le serveur, ou choisissez un modèle local.",
+      "buttons": [{ "id": "use_local", "label": "Utiliser un modèle local" }],
+      "detail_example": { "technical": "Variable absente de l'environnement", "provider": "mistral", "provider_name": "Mistral", "key_var": "MISTRAL_API_KEY" }
+    },
+    "timeout": {
+      "ux_dr16": true,
+      "status": 504,
+      "where": "Chat, Arène, Banc d'essai",
+      "message": "Délai dépassé : le modèle n'a pas fini de répondre en {timeout}.",
+      "action": "Réessayez avec une question plus courte ou un modèle plus petit.",
+      "buttons": [{ "id": "retry", "label": "Réessayer" }],
+      "detail_example": { "technical": "lane_timeout_s = 120 atteint après 212 tokens", "timeout_s": 120 }
+    },
+    "interrupted": {
+      "ux_dr16": true,
+      "status": 502,
+      "where": "Toute génération",
+      "message": "Ollama a arrêté la génération avant la fin.",
+      "action": "Une relance automatique a déjà été tentée. Réessayez ; si cela se répète, redémarrez Ollama ou choisissez un modèle plus petit.",
+      "buttons": [{ "id": "retry", "label": "Réessayer" }],
+      "detail_example": { "technical": "done_reason absent, flux fermé par Ollama après 87 tokens (2 tentatives)" }
+    },
+    "not_evaluated": {
+      "ux_dr16": true,
+      "status": null,
+      "where": "Arène, Évaluation de la qualité",
+      "message": "non évalué : {reason}.",
+      "action": "",
+      "buttons": [],
+      "reasons": ["réponse vide", "juge indisponible", "Ragas indisponible"],
+      "detail_example": { "technical": "judge_score.score = null, reason = judge_unavailable" }
+    },
+    "ingest_failed": {
+      "ux_dr16": true,
+      "status": 422,
+      "where": "Base documentaire",
+      "message": "Le fichier « {file} » n'a pas pu être indexé : {reason}.",
+      "action": "Le compteur de documents est inchangé. Vérifiez le fichier (PDF, TXT, MD ou DOCX), puis importez-le de nouveau.",
+      "buttons": [{ "id": "retry", "label": "Importer de nouveau" }],
+      "detail_example": { "technical": "pypdf.errors.PdfReadError: EOF marker not found", "file": "note-cadrage-fictive.pdf", "reason": "le PDF est endommagé" }
+    },
+    "run_busy": {
+      "ux_dr16": true,
+      "status": 409,
+      "where": "Commandes",
+      "message": "Une exécution de ce genre est déjà en cours.",
+      "action": "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
+      "buttons": [{ "id": "join", "label": "Rejoindre l'exécution" }],
+      "detail_example": { "technical": "run racine actif pour kind = chat", "run_id": "run-chat-0042" }
+    },
+    "cloud_key_refused": {
+      "ux_dr16": false,
+      "status": 502,
+      "where": "Inférence en cloud",
+      "message": "{provider_name} a refusé la clé d'API.",
+      "action": "Vérifiez la valeur de {key_var} dans le fichier `.env`, relancez le serveur, ou repassez en Local.",
+      "buttons": [{ "id": "use_local", "label": "Repasser en Local" }],
+      "detail_example": { "technical": "HTTP 401", "provider": "openai", "provider_name": "OpenAI", "key_var": "OPENAI_API_KEY", "http_status": 401 }
+    },
+    "cloud_rate_limited": {
+      "ux_dr16": false,
+      "status": 429,
+      "where": "Inférence en cloud",
+      "message": "{provider_name} limite le débit ou le quota de cette clé.",
+      "action": "Patientez un peu avant de réessayer, vérifiez le quota de votre compte, ou repassez en Local.",
+      "buttons": [{ "id": "retry", "label": "Réessayer" }, { "id": "use_local", "label": "Repasser en Local" }],
+      "detail_example": { "technical": "HTTP 429, retry-after 20 s", "provider": "groq", "provider_name": "Groq", "http_status": 429 }
+    },
+    "internal": {
+      "ux_dr16": false,
+      "status": 500,
+      "where": "Toute route",
+      "message": "Une erreur interne est survenue.",
+      "action": "Réessayez ; si elle persiste, consultez les journaux de `data/logs/` et relancez le serveur.",
+      "buttons": [{ "id": "retry", "label": "Réessayer" }],
+      "detail_example": { "technical": "KeyError: 'lane' (runs/hub.py, ligne fictive 128)" }
+    }
+  }
+}

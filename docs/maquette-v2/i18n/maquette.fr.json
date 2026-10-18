@@ -1,0 +1,115 @@
+{
+  "_doc": "Textes communs ajoutés par la maquette (fusionnés par-dessus fr.json, recopié du front livré). Les textes propres à un écran vont dans i18n/screens/<écran>.fr.json.",
+  "shell": {
+    "display": {
+      "system": "Système"
+    }
+  },
+  "router": {
+    "unknown": "Cette adresse ne correspond à aucun écran. Retour à l'Accueil."
+  },
+  "tabs": {
+    "label": "Écrans du module {module}"
+  },
+  "components": {
+    "picker": {
+      "label": "Modèle",
+      "label_multi": "Modèles",
+      "chosen": "Modèles choisis",
+      "group_local": "Sur cette machine",
+      "group_cloud": "Cloud",
+      "default": "Par défaut",
+      "default_help": "Proposé par défaut : {name}. {reason}",
+      "loading": "Chargement des modèles…",
+      "ollama_down": "Ollama ne répond pas : les modèles de ce poste sont indisponibles.",
+      "fits": "Tient en mémoire",
+      "no_fit": "Ne tient pas en mémoire",
+      "no_fit_need": "Ne tient pas en mémoire ({needed} requis)",
+      "memory_unknown": "Besoin en mémoire inconnu",
+      "throughput": "{rate} mesurés",
+      "tools": "Outils vérifiés",
+      "reasoning": "Raisonnement",
+      "moe": "MoE {active}B actifs",
+      "unavailable_local": "Indisponible : Ollama ne répond pas",
+      "unavailable_cloud": "Indisponible : clé absente",
+      "empty": "Aucun modèle ne correspond à « {query} ».",
+      "none": "Aucun modèle de conversation n'est disponible.",
+      "results_one": "1 modèle proposé",
+      "results_many": "{count} modèles proposés",
+      "remove": "Retirer {name}",
+      "cloud_removed_one": "{names} est retiré de la sélection : le cloud n'est plus autorisé.",
+      "cloud_removed_many": "{names} sont retirés de la sélection : le cloud n'est plus autorisé.",
+      "use_default": "Utiliser {name}",
+      "load_failed": "La liste des modèles n'a pas pu être chargée."
+    },
+    "run_status": {
+      "starting": "Démarrage…",
+      "loading": "Chargement du modèle en mémoire…",
+      "generating": "Génération…",
+      "stopping": "Arrêt en cours…",
+      "ok": "Terminé",
+      "cancelled": "Arrêté",
+      "error": "Échec",
+      "interrupted": "Interrompu",
+      "elapsed": "Temps écoulé",
+      "stop": "Arrêter",
+      "stop_hint": "ou touche Échap",
+      "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
+    },
+    "thread": {
+      "label": "Conversation",
+      "you": "Vous",
+      "thought": "Raisonnement",
+      "to_end": "Aller à la fin",
+      "stopped": "Arrêté",
+      "failed": "Échec",
+      "interrupted": "Interrompu",
+      "retried": "Génération relancée : {reason}",
+      "done": "Réponse de {model} terminée, {tokens} tokens.",
+      "done_plain": "Réponse de {model} terminée.",
+      "stopped_announce": "Réponse de {model} arrêtée.",
+      "failed_announce": "Réponse de {model} en échec.",
+      "interrupted_announce": "Réponse de {model} interrompue.",
+      "rate": "Débit",
+      "rate_help": "Tokens générés divisés par le temps de génération mesuré par Ollama, chargement du modèle exclu. Avant la fin de la réponse, le débit est une estimation du navigateur.",
+      "tokens": "Tokens",
+      "duration": "Durée",
+      "load": "Chargement",
+      "total": "Durée totale",
+      "co2": "CO₂"
+    }
+  },
+  "co2": {
+    "unmeasurable": "non mesurable",
+    "unmeasurable_help": "L'empreinte de ce modèle ne peut pas être calculée.",
+    "estimated_value": "{value} (estimé)",
+    "estimated_help": "Estimation EcoLogits à partir du nombre de tokens et de la latence.",
+    "estimated_range": "Estimation EcoLogits : entre {low} et {high}.",
+    "measured_help": "Mesuré par CodeCarbon sur ce poste pendant la génération."
+  },
+  "states": {
+    "loading": "Chargement…",
+    "slow_loading": "Le premier chargement d'un modèle en mémoire prend de 8 à 26 secondes sur ce type de poste. Merci de patienter.",
+    "joined": "Une exécution est déjà en cours : vous la suivez.",
+    "cloud_allowed": "Le cloud est autorisé : ce modèle peut répondre.",
+    "not_evaluated_reason": "({reason})",
+    "confirm": {
+      "cancel": "Annuler"
+    },
+    "email": {
+      "title": "Envoyer cet email ?",
+      "consequence": "L'agent a préparé ce message. Rien ne part sans votre validation.",
+      "confirm": "Envoyer l'email",
+      "to": "Destinataire",
+      "subject": "Objet",
+      "body": "Corps du message",
+      "sent": "Email envoyé.",
+      "cancelled": "Envoi annulé : l'agent en est informé.",
+      "expired": "Validation expirée après 10 minutes : l'email n'est pas parti."
+    },
+    "empty_screen": {
+      "title": "Écran à construire",
+      "text": "Cet écran sera construit dans la maquette par un prochain lot. La coquille, la navigation et le titre sont déjà en place."
+    }
+  }
+}
