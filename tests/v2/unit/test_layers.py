@@ -133,6 +133,8 @@ def _layer_violation(where: str, component: str, target: str) -> list[str]:
         return [f"{where} : l'__init__ racine importe {target}"]
     if target == component or target not in COMPONENTS:
         return []
+    if component not in COMPONENTS:
+        return [f"{where} : {component} est hors du Structural Seed et importe {target}"]
     if component in BASE:
         return [f"{where} : le module de base {component} importe {target}"]
     if target in BASE:
@@ -206,6 +208,7 @@ def _tree(tmp_path: Path, files: dict[str, str]) -> Path:
         ("models/trap.py", "import anthropic\n", "niveau du module"),
         ("models/trap.py", "import mistralai\n", "niveau du module"),
         ("greenops/trap.py", "from ecologits import tracers\n", "niveau du module"),
+        ("cli.py", "from wavelocalai.runs import hub\n", "hors du Structural Seed"),
     ],
 )
 def test_trap_module_is_detected(tmp_path, rel, code, expected):
