@@ -40,7 +40,7 @@ def _co2(row: sqlite3.Row) -> dict[str, Any] | None:
     }
 
 
-def _one(row: sqlite3.Row) -> dict[str, Any]:
+def run_snapshot_row(row: sqlite3.Row) -> dict[str, Any]:
     has_metrics = any(row[column] is not None for column in METRIC_COLUMNS)
     return {
         "run_id": row["id"],
@@ -67,10 +67,10 @@ async def run_snapshot(store: Store, run_id: str) -> dict[str, Any] | None:
         "SELECT * FROM runs WHERE id = ? OR parent_run_id = ? ORDER BY started_at, rowid",
         (run_id, run_id),
     )
-    snapshot = next((_one(row) for row in rows if row["id"] == run_id), None)
+    snapshot = next((run_snapshot_row(row) for row in rows if row["id"] == run_id), None)
     if snapshot is None:
         return None
-    snapshot["children"] = [_one(row) for row in rows if row["parent_run_id"] == run_id]
+    snapshot["children"] = [run_snapshot_row(row) for row in rows if row["parent_run_id"] == run_id]
     return snapshot
 
 

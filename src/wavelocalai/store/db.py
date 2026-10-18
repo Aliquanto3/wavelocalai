@@ -9,6 +9,7 @@ chacune dans une transaction. Les lectures ouvrent une connexion courte, en lect
 from __future__ import annotations
 
 import asyncio
+import logging
 import queue
 import sqlite3
 import threading
@@ -25,8 +26,9 @@ from wavelocalai.store.vec import ensure_vec_table, load_vec
 DB_NAME = "wavelocalai.db"
 BUSY_TIMEOUT_MS = 5000
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
-_Job = tuple[Callable[[sqlite3.Connection], Any], "Future[Any]"]
+_Job = tuple[Callable[[sqlite3.Connection], Any], "Future[Any]", bool]
 
 
 def utc_now_iso() -> str:
@@ -44,6 +46,25 @@ def _pragmas(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA secure_delete=ON")
 
 
+def _checkpoint(conn: sqlite3.Connection) -> bool:
+    """`wal_checkpoint(TRUNCATE)` ; faux si un lecteur l'a empêché (`busy`) après l'attente de
+    `busy_timeout` : le journal n'est alors pas vidé."""
+    rows = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
+    return not rows or rows[0][0] == 0
+
+
+def purge_free_space(conn: sqlite3.Connection) -> bool:
+    """Fin d'un effacement (AD-13), hors transaction : `wal_checkpoint(TRUNCATE)`, `VACUUM`, puis de
+    nouveau `wal_checkpoint(TRUNCATE)`. Le premier reporte le journal dans le fichier, `VACUUM`
+    réécrit le fichier sans les pages libérées, le second vide le journal que `VACUUM` a rempli.
+
+    Rend faux si le dernier `checkpoint` n'a pas pu vider le journal (lecteur en cours) : le texte
+    effacé peut y rester, l'appelant rejoue la purge."""
+    _checkpoint(conn)
+    conn.execute("VACUUM")
+    return _checkpoint(conn)
+
+
 class Store:
     """Accès à la base : écrivain unique (`write`) et lectures courtes (`read`)."""
 
@@ -53,6 +74,8 @@ class Store:
         self._thread: threading.Thread | None = None
         self._closed = False
         self._lock = threading.Lock()
+        # Purge (AD-13) restée incomplète : rejouée après chaque écriture et à la fermeture.
+        self.purge_pending = False
         self.vec_available = False  # sqlite-vec chargé par l'écrivain (AD-12)
 
     @classmethod
@@ -89,7 +112,7 @@ class Store:
         ready.set_result(None)
         try:
             while (job := self._jobs.get()) is not None:
-                func, future = job
+                func, future, purge = job
                 if not future.set_running_or_notify_cancel():
                     continue
                 try:
@@ -99,24 +122,51 @@ class Store:
                 except BaseException as exc:  # noqa: BLE001 - rendu à l'appelant du futur
                     if conn.in_transaction:
                         conn.execute("ROLLBACK")
+                    self._purge_if_pending(conn)
                     future.set_exception(exc)
                 else:
+                    # L'effacement est validé : une purge en échec ne le défait pas, elle est
+                    # journalisée et rejouée (après la prochaine écriture, à la fermeture).
+                    self.purge_pending = self.purge_pending or purge
+                    self._purge_if_pending(conn)
                     future.set_result(result)
+            self._purge_if_pending(conn)
         finally:
             conn.close()
 
-    def write(self, func: Callable[[sqlite3.Connection], T]) -> Future[T]:
+    def _purge_if_pending(self, conn: sqlite3.Connection) -> None:
+        if not self.purge_pending:
+            return
+        try:
+            done = purge_free_space(conn)
+        except Exception:  # noqa: BLE001 - l'effacement est déjà validé
+            logger.warning("Purge de la base en échec (AD-13) : rejouée plus tard.", exc_info=True)
+            return
+        if done:
+            self.purge_pending = False
+        else:
+            logger.warning(
+                "Journal WAL non vidé, un lecteur le tenait (AD-13) : purge rejouée plus tard."
+            )
+
+    def write(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> Future[T]:
         """Met `func(conn)` dans la file de l'écrivain, dans une transaction (`COMMIT` si elle
-        rend, `ROLLBACK` si elle lève). Rend un futur ; `func` tourne sur le fil de l'écrivain."""
+        rend, `ROLLBACK` si elle lève). Rend un futur ; `func` tourne sur le fil de l'écrivain.
+
+        `purge` : après le `COMMIT`, la même tâche vide l'espace libéré et le journal (voir
+        `purge_free_space`), pour qu'un texte effacé ne reste ni dans le `.db` ni dans le `-wal`
+        (AD-13). Rien d'autre ne s'intercale entre les deux temps. Si la purge échoue ou qu'un
+        lecteur tient le journal, le futur rend quand même le résultat (l'effacement est validé)
+        et `purge_pending` reste vrai jusqu'à une purge complète."""
         future: Future[T] = Future()
         with self._lock:
             if self._closed:
                 raise RuntimeError("Le store est fermé.")
-            self._jobs.put((func, future))
+            self._jobs.put((func, future, purge))
         return future
 
-    async def awrite(self, func: Callable[[sqlite3.Connection], T]) -> T:
-        return await asyncio.wrap_future(self.write(func))
+    async def awrite(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> T:
+        return await asyncio.wrap_future(self.write(func, purge=purge))
 
     async def ensure_vec_table(self, dim: int) -> str:
         """Crée `chunks_vec_<dim>` si elle manque (idempotent, AD-12) ; rend son nom."""

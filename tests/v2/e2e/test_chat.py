@@ -63,9 +63,25 @@ DONE = {
 STARTED: list[tuple[str, str]] = []
 
 
+def forget_conversations(base_url: str) -> None:
+    """L'écran rouvre la dernière conversation (story 2.6) : chaque test part d'un écran vide."""
+    with urllib.request.urlopen(
+        f"{base_url}/api/conversations?limit=100", timeout=5
+    ) as response:  # noqa: S310
+        listed = json.load(response)["conversations"]
+    for item in listed:
+        request = urllib.request.Request(
+            f"{base_url}/api/conversations/{item['id']}", method="DELETE"
+        )
+        with contextlib.suppress(OSError):  # un run encore actif : le test suivant le verra
+            urllib.request.urlopen(request, timeout=5).close()  # noqa: S310
+
+
 @pytest.fixture(autouse=True)
-def cancel_leftover_runs():
-    """Un seul run de chat à la fois : un test n'en laisse aucun en cours au suivant."""
+def cancel_leftover_runs(server):
+    """Un seul run de chat à la fois : un test n'en laisse aucun en cours au suivant ; et aucune
+    conversation d'un test précédent n'est rouverte par le suivant."""
+    forget_conversations(server.base_url)
     yield
     for base_url, run_id in STARTED:
         request = urllib.request.Request(f"{base_url}/api/runs/{run_id}/cancel", method="POST")
@@ -649,10 +665,12 @@ def test_the_real_route_continues_the_same_conversation(chat):
         "allow_cloud": False,
     }
     assert commands[1]["conversation_id"] == started["conversation_id"]
-    # Effacer la conversation : sans confirmation, et la suivante en ouvre une autre.
+    # Effacer la conversation : sans confirmation, effacée côté serveur (story 2.6), et la suivante
+    # en ouvre une autre.
     chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
     chat.get_by_role("button", name="Effacer la conversation").click()
-    assert chat.locator(".wl-msg").count() == 0 and chat.locator(".chat-empty").is_visible()
+    chat.locator(".chat-empty").wait_for(state="visible")
+    assert chat.locator(".wl-msg").count() == 0
     ask(chat, "Nouveau départ")
     chat.locator(".wl-msg-user").wait_for()
     assert commands[2]["conversation_id"] is None

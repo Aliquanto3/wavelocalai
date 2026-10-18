@@ -101,6 +101,15 @@ export const api = {
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
   // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
   documents: () => request("/api/rag/documents"),
+  // Conversations (AD-5, AD-13) : les plus récentes d'un genre, une conversation, son effacement,
+  // et l'adresse de ses exports (`json`, `md`), téléchargés par un lien et non par `fetch`.
+  conversations: (kind, limit = 1) =>
+    request(`/api/conversations?kind=${encodeURIComponent(kind)}&limit=${limit}`),
+  conversation: (id) => request(`/api/conversations/${encodeURIComponent(id)}`),
+  deleteConversation: (id) =>
+    request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  conversationExportUrl: (id, extension) =>
+    `/api/conversations/${encodeURIComponent(id)}.${extension}`,
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

@@ -175,7 +175,13 @@ _SPECS = (
         "plus tard, ou repassez en Local.",
         ("provider", "provider_name", "http_status"),
     ),
-    # --- base documentaire (story 4.1) ---
+    ErrorSpec(
+        "conversation_busy",
+        409,
+        "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
+        "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
+        ("run_id",),
+    ),    # --- base documentaire (story 4.1) ---
     ErrorSpec(
         "ingest_failed",
         422,

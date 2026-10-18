@@ -12,8 +12,9 @@ d'étapes, chacune un objet à une clé principale :
 
 `POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
 
-`origin` (`local` ou `cloud`) et `co2` (champ `co2` d'AD-10) fixent la mesure de la feuille ; une fois
-le run terminé, la route publie `carbon_updated` comme le feront les services (AD-10).
+`conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
+d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
+`carbon_updated` comme le feront les services (AD-10).
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ class ScriptedRun(BaseModel):
     kind: str = "chat"
     model: str = "fake:1b"
     message: str | None = None  # ouvre une conversation (genres chat, rag, agent)
+    conversation_id: str | None = None  # ou prolonge celle-ci (avec `message`)
     script: list[dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_SCRIPT))
     origin: Literal["local", "cloud"] | None = None
     co2: dict[str, Any] | None = None
@@ -98,7 +100,11 @@ async def start_scripted_run(body: ScriptedRun, request: Request) -> Started:
         raise AppError("invalid_request", f"co2 : {exc}") from None
     hub = state.hub
     handle: RunHandle = await hub.create_run(
-        body.kind, models=[body.model], params={"scripted": True}, user_message=body.message
+        body.kind,
+        models=[body.model],
+        params={"scripted": True},
+        user_message=body.message,
+        conversation_id=body.conversation_id,
     )
     chat = ChatRequest([ChatMessage("user", body.message or "")])
 
