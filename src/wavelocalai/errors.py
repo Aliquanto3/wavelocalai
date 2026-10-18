@@ -114,6 +114,27 @@ _SPECS = (
         "puis rechargez la liste.",
         ("purpose",),
     ),
+    ErrorSpec(
+        "timeout",
+        504,
+        "Le modèle n'a pas fini de répondre dans le délai prévu.",
+        "Réessayez avec un modèle plus petit, ou allongez `lane_timeout_s` dans "
+        "`wavelocalai.toml`.",
+        ("timeout_s",),
+    ),
+    ErrorSpec(
+        "generation_interrupted",
+        502,
+        "Ollama a arrêté la génération avant la fin.",
+        "Réessayez ; si cela se répète, redémarrez Ollama ou choisissez un modèle plus petit.",
+    ),
+    ErrorSpec(
+        "ollama_error",
+        502,
+        "Ollama a refusé la requête.",
+        "Ouvrez les détails techniques ; vérifiez que le modèle est installé et que la mémoire "
+        "suffit.",
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 

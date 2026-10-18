@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-18-2026 19:54
+last_updated: 10-18-2026 19:56
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   epic-1-retrospective: optional
 
   epic-2: in-progress
-  2-1-converser-en-flux-avec-un-modèle-ollama-serveur: in-progress
+  2-1-converser-en-flux-avec-un-modèle-ollama-serveur: done
   2-2-l-écran-chat-libre-affiche-la-réponse-en-flux-et-la-reprend: in-progress
   2-3-chaque-réponse-locale-affiche-son-co₂-mesuré: in-progress
   2-4-converser-avec-un-modèle-cloud-openai-groq-anthropic-mistral: in-progress

@@ -69,3 +69,14 @@ def test_prefixed_env_var_names_are_masked():
     text = mask_secrets("MISTRAL_API_KEY=abcd1234efgh ANTHROPIC_API_KEY: zzzz9999yyyy")
     assert "abcd1234efgh" not in text and "zzzz9999yyyy" not in text
     assert text.startswith("MISTRAL_API_KEY=***")
+
+
+def test_chat_codes_are_declared_and_none_reuses_a_status_name():
+    # AD-5 : aucun code d'erreur ne reprend un nom de statut (d'où `generation_interrupted`).
+    from wavelocalai.runs.models import STATUSES
+
+    assert not set(ERRORS) & set(STATUSES)
+    envelope = build_envelope("timeout", "300 s", timeout_s=300.0)
+    assert envelope["detail"] == {"technical": "300 s", "timeout_s": 300.0}
+    assert ERRORS["generation_interrupted"].detail_keys == ()
+    assert ERRORS["ollama_error"].status == 502

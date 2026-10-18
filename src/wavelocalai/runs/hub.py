@@ -31,6 +31,7 @@ from wavelocalai.runs.models import (
     Co2,
     LeafResult,
     RunHandle,
+    StoredMessage,
 )
 from wavelocalai.store.db import Store, utc_now_iso
 
@@ -115,6 +116,7 @@ class _Run:
         self.task: asyncio.Task[Any] | None = None
         self.answer: list[str] = []
         self.thought: list[str] = []
+        self.leaf_co2: Co2 | None = None  # `co2` d'une feuille close sans le sien (annulation)
         self.lock = asyncio.Lock()
         # Abonnement (AD-6) : un flux ouvert attend `signal` ; chaque événement le déclenche et le
         # remplace. Jetons en attente de groupage : (lane, channel) -> textes.
@@ -302,6 +304,14 @@ class RunHub:
             raise KeyError(f"Run inconnu : {run_id}")
         run.task = task
 
+    def declare_leaf(self, run_id: str, co2: Co2) -> None:
+        """Le run porte une génération (feuille, ou racine sans enfant comme un chat) : s'il est
+        clos sans `co2` (annulation, arrêt du serveur), il reçoit celui-ci, `unmeasurable` avec sa
+        raison, plutôt que rien (AD-10). Sans effet sur un run inconnu ou déjà en clôture."""
+        run = self._runs.get(run_id)
+        if run is not None and not run.closing:
+            run.leaf_co2 = co2
+
     def publish(
         self, run_id: str, event_type: str, data: Mapping[str, Any] | None = None
     ) -> int | None:
@@ -361,6 +371,10 @@ class RunHub:
         if event_type == "token" and run.conversation_id is not None:
             text = str(data.get("text") or "")
             (run.thought if data.get("channel") == "thought" else run.answer).append(text)
+        elif event_type == "retry":
+            # Génération relancée : le texte partiel de la tentative coupée n'est plus la réponse.
+            run.answer.clear()
+            run.thought.clear()
         return event.seq
 
     @staticmethod
@@ -433,7 +447,14 @@ class RunHub:
             return await self._close(run, "cancelled")
         run.closing = True
         now = self._clock()
-        await self.store.awrite(lambda conn: repo.cancel_rows(conn, [run_id], now))
+        leaf_co2 = run.leaf_co2
+
+        def tx(conn: sqlite3.Connection) -> None:
+            repo.cancel_rows(conn, [run_id], now)
+            if leaf_co2 is not None:
+                repo.fill_cancelled_co2(conn, [(run_id, leaf_co2)])
+
+        await self.store.awrite(tx)
         self._forget(run, "cancelled")
         return True
 
@@ -455,6 +476,8 @@ class RunHub:
     ) -> bool:
         if run.closing:
             return False
+        if co2 is None and not run.children:
+            co2 = run.leaf_co2  # feuille close sans mesure (annulation) : `co2` présent (AD-10)
         self._drain_tokens(run)  # le texte reçu jusque-là entre dans le flux et le partiel
         run.closing = True  # plus aucun événement n'entre
         children = [self._runs[c] for c in run.children if c in self._runs]
@@ -468,6 +491,7 @@ class RunHub:
         self._wake(run)
         message = self._final_message(run, assistant)
         child_ids = [child.id for child in children]
+        child_co2 = [(c.id, c.leaf_co2) for c in children if c.leaf_co2 is not None]
         async with run.lock:  # attend un lot en cours : pas d'écriture en double
             batch = [event.row() for event in run.events[run.flushed :]]
 
@@ -475,6 +499,7 @@ class RunHub:
                 repo.insert_events(conn, run.id, batch)
                 repo.finish_run_row(conn, run.id, status, now, error, leaf, co2)
                 repo.cancel_rows(conn, child_ids, now)
+                repo.fill_cancelled_co2(conn, child_co2)
                 if message is not None and run.conversation_id is not None:
                     repo.insert_message(
                         conn, run.conversation_id, run.id, "assistant", now, message
@@ -569,6 +594,15 @@ class RunHub:
             if run.parent_id is None and run.kind == kind and not run.closing:
                 return run.id
         return self._reserved.get(kind)
+
+    async def conversation_messages(self, conversation_id: str) -> list[StoredMessage]:
+        """Messages d'une conversation dans l'ordre d'écriture (le dernier message utilisateur
+        d'un run en cours compris), pour construire la requête du modèle."""
+        rows = await self.store.aread(
+            "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY rowid",
+            (conversation_id,),
+        )
+        return [StoredMessage(r["role"], r["content"]) for r in rows]
 
     def watch(self, run_id: str) -> asyncio.Event | None:
         """Événement qui se déclenche au prochain événement (ou à la clôture) d'un run racine

@@ -56,6 +56,10 @@ class ChatResult:
     total_s: float | None = None
     tps: float | None = None
     tps_source: TpsSource | None = None
+    # Lecture du prompt (prefill), à part du débit D3 : écart additif à AD-8 (story 2.1), renseigné
+    # par l'adaptateur Ollama seulement (`prompt_eval_count / prompt_eval_duration`).
+    prefill_s: float | None = None
+    prefill_tps: float | None = None
 
 
 @dataclass(frozen=True)

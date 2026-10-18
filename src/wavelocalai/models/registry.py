@@ -18,7 +18,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -141,8 +141,12 @@ class ModelRegistry:
         cache_s: float | None = None,
         wait_s: float = 0.1,
         clock: Callable[[], float] = time.monotonic,
+        extra_refs: Mapping[str, ModelRef] | None = None,
     ) -> None:
+        """`extra_refs` : références résolvables hors d'Ollama et du cloud (le modèle `fake` des
+        tests, `Settings.testing` seulement) ; elles ne figurent pas dans `list_models`."""
         self._settings = settings
+        self._extra_refs = dict(extra_refs or {})
         self._source = source or OllamaHttpSource(
             settings.ollama.host, timeout_s=settings.ollama.probe_timeout_s
         )
@@ -337,6 +341,8 @@ class ModelRegistry:
     # -- accès aux modèles (AD-9) ----------------------------------------------------------
 
     def _find(self, tag: str) -> ModelRef | None:
+        if tag in self._extra_refs:
+            return self._extra_refs[tag]
         local = self._seed()
         rec = local.get(tag)
         if rec is None:
