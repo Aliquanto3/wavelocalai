@@ -16,7 +16,9 @@
 //   et propose le défaut local.
 //
 // Attributs : `purpose` (défaut `chat`), `multi`, `label`. Propriétés : `values` (liste choisie),
-// `value` (premier choix, ou ""). Événement : `wl-model-change` (`detail.values`). Sans Shadow DOM.
+// `value` (premier choix, ou ""). Événements : `wl-model-change` (`detail.values`, le choix change) et
+// `wl-models-loaded` (la liste de l'API vient d'être relue : `selected` peut avoir changé de fiche,
+// par exemple sa créativité par défaut). Sans Shadow DOM.
 
 import { api, ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
@@ -150,6 +152,7 @@ export class WlModelPicker extends HTMLElement {
     this.#dropCloudChoices(allowCloud);
     this.#preselect();
     this.#renderAll();
+    this.dispatchEvent(new CustomEvent("wl-models-loaded", { bubbles: true }));
   }
 
   #envelope(reason) {
