@@ -104,6 +104,8 @@ dev = [
     # Qualité du code & sécurité (hooks Git)
     "pre-commit",
     "detect-secrets",
+    # Test de dérive des jetons (tests/v2/unit/test_shell_static.py : front matter de DESIGN.md)
+    "pyyaml>=6.0.3",
 ]
 
 # Installation éditable seulement (AD-2) : `src.*` (v1) et `wavelocalai` (v2) s'importent tous deux.

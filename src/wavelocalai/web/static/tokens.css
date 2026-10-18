@@ -1,0 +1,56 @@
+/* Jetons de DESIGN.md (UX-DR1). Miroir : tests/v2/unit/test_shell_static.py échoue si une couleur,
+   un rayon ou une famille de police diffère. Thème clair par défaut ; le sombre s'applique par
+   data-theme="dark" sur <html> (core/theme.js). Aucune autre couleur en dur dans le CSS. */
+:root {
+  color-scheme: light;
+
+  --color-primary: #451DC7;
+  --color-on-primary: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F6F5FA;
+  --color-ink: #0A0A14;
+  --color-ink-secondary: #4A4A5E;
+  --color-gray-graphic: #8A8A9E;
+  --color-line: #E6E6EC;
+  --color-link: #451DC7;
+  --color-accent-green: #04F06A;
+  --color-risk: #FF2A49;
+  --color-chart-1: #6A4DE6;
+  --color-chart-2: #0E9F5E;
+  --color-chart-3: #2F7FD8;
+  --color-chart-4: #C98A00;
+
+  --radius: 12px;
+  --radius-full: 9999px;
+
+  /* Aptos s'il est installé (Office), sinon Inter servie par base.css, sinon sans-serif. */
+  --font-body: Aptos, Inter, sans-serif;
+  --font-heading: Aptos, Inter, sans-serif;
+  --font-metric-value: Aptos, Inter, sans-serif;
+  --font-caption: Aptos, Inter, sans-serif;
+
+  /* Rampe typographique (absente de DESIGN.md, non comparée par le test de dérive). */
+  --text-body: 1rem;
+  --text-caption: 0.875rem;
+  --text-heading: 1.75rem;
+  --text-metric-value: 2.5rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary: #7E65E9;
+  --color-on-primary: #FFFFFF;
+  --color-surface: #0A0A14;
+  --color-surface-alt: #16162A;
+  --color-ink: #F6F5FA;
+  --color-ink-secondary: #B4B4C6;
+  --color-line: #2E2E44;
+  --color-link: #9B85F0;
+  --color-accent-green: #04F06A;
+  --color-risk: #FF2A49;
+  --color-chart-1: #7A5FEA;
+  --color-chart-2: #12A564;
+  --color-chart-3: #3B86DB;
+  --color-chart-4: #B07800;
+}

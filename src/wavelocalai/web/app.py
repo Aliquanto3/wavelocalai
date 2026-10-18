@@ -23,6 +23,7 @@ from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import routes_health, routes_runs, routes_system, routes_test
+from wavelocalai.web.routes_static import mount_shell
 from wavelocalai.web.security import LocalOnlyMiddleware
 from wavelocalai.web.system_state import SystemSampler, cached_fiche
 
@@ -143,4 +144,5 @@ def create_app(
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
+    mount_shell(app)  # en dernier : la coquille ne masque aucune route d'API
     return app
