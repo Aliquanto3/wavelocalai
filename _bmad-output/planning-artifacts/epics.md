@@ -193,7 +193,7 @@ Décisions de structure (party mode du 2026-10-18) :
 - CAP-4 se partage : l'Epic 1 livre le serveur du hub, vérifié par l'adaptateur `fake` ; la story 2.2 ferme le critère E2E de reprise du flux.
 - La migration du hub porte dès maintenant tous les statuts et tous les `kind` d'AD-5, post-MVP compris : une migration fusionnée ne change jamais (AD-12).
 - Chaque carte de l'Accueil arrive avec son écran. Les modules non livrés restent visibles dans la barre haute, désactivés, avec une raison en texte visible (« Pas encore disponible dans cette préversion ») ; même règle pour les onglets de sous-écran ; registre d'écrans `available` / `planned`.
-- Les stories des Epics 5 à 8 sont écrites (2026-10-18) avec les reports du MVP (`reports-v2-inventaire.md`) ; elles se relisent avant chaque étape avec le retour de recette, et les décisions Q1 à Q7 d'Anaël les débloquent.
+- Les stories des Epics 5 à 8 sont écrites (2026-10-18) avec les reports du MVP (`reports-v2-inventaire.md`) ; elles se relisent avant chaque étape avec le retour de recette, les décisions Q1 à Q7 d'Anaël (2026-10-18) y sont reportées.
 - Préversions après le MVP : `2.0.0a5` (Epic 5), `a6` (Epic 6), `a7` (Epic 7), `2.0.0` à la bascule (Epic 8, AD-3).
 
 ### Epic 1 : Une coquille rapide qui montre l'état du poste et protège les données
@@ -1153,7 +1153,7 @@ So that l'atelier documentaire se déroule sans incident.
 
 ## Epic 5 : Suivre sa sobriété et administrer ses modèles
 
-L'utilisateur suit en direct la charge du poste et l'empreinte de sa session, retrouve l'historique carbone, installe, décharge et supprime ses modèles en sachant s'ils tiennent, consulte la fiche d'un modèle et voit quel modèle convient à quel usage d'après le banc publié. **Prérequis :** mise à jour `bmad-ux` (écrans Sobriété et Modèles, spine §Deferred) et retour de recette du MVP ; données `qb.results/1` synchronisées pour 5.6 à 5.8 (décision Q7). Se termine par la préversion `2.0.0a5`.
+L'utilisateur suit en direct la charge du poste et l'empreinte de sa session, retrouve l'historique carbone, installe, décharge et supprime ses modèles en sachant s'ils tiennent, consulte la fiche d'un modèle et voit quel modèle convient à quel usage d'après le banc publié. **Prérequis :** mise à jour `bmad-ux` (écrans Sobriété et Modèles, spine §Deferred) et retour de recette du MVP ; 5.6 et 5.8 se développent sur un fichier `qb.results/1` de test ; 5.7 attend une release de slm-quality-bench synchronisée sur `master`, et la préversion `a5` part sans elle si les données manquent (décision Q7). Se termine par la préversion `2.0.0a5`.
 
 ### Story 5.1 : L'écran Sobriété montre la machine et la session en direct
 
@@ -1253,7 +1253,7 @@ So that je libère la mémoire avant une démo et retrouve mes choix d'une séan
 **Then** Ollama supprime le modèle, ses lignes `model_facts` sont purgées (le modèle ne réapparaît plus au démarrage à froid, test), et le résultat se solde par « Modèle supprimé » ; « Annuler » ne supprime rien
 **And** un modèle utilisé par un run actif rend `409` avec son message et son action
 
-**Given** la décision Q2 tranchée (recommandation : « Définir par défaut » sur l'écran Modèles)
+**Given** le bouton « Définir par défaut » sur l'écran Modèles (décision Q2 : choix explicite, jamais retenu sans geste)
 **When** on choisit un modèle comme défaut d'un usage (`chat`, `arena`, `judge`, `agent`, `rag`) par `PUT /api/models/defaults/{purpose}` (écriture, `Origin` contrôlée)
 **Then** le choix est écrit dans `preferences` (jamais dans `wavelocalai.toml`), `GET /api/models/defaults` le rend avec la raison « Choisi par vous », un modèle cloud n'est gardé qu'avec `allow_cloud`, et « Revenir au choix automatique » efface la préférence
 **And** un défaut choisi puis supprimé du poste retombe sur la règle avec sa raison (test)
@@ -1326,7 +1326,8 @@ So that le défaut n'est pas un seuil choisi à la main mais un modèle qui réu
 
 **Given** aucun modèle local n'atteint la règle `agent`
 **When** on demande le défaut
-**Then** `tags: []` et une raison qui donne les conditions, comme au MVP ; le repli de `rag` sur le défaut `chat` est gardé ou retiré selon la décision Q7, avec un test par cas
+**Then** `tags: []` et une raison qui donne les conditions, comme au MVP ; le repli de `rag` sur le défaut `chat` est gardé tant que le banc ne publie pas d'usage documentaire (décision Q7), avec un test par cas
+**And** la story ne démarre qu'avec un fichier `qb.results/1` réel synchronisé sur `master` (décision Q7) ; sinon elle reste à faire après la préversion `a5`
 
 ### Story 5.8 : Quel modèle pour quel usage (préversion 2.0.0a5)
 
@@ -1358,7 +1359,7 @@ So that je réponds à « lequel prendre pour mon cas ? » sans relancer de comp
 
 ## Epic 6 : Confier une tâche à un agent ou à une équipe
 
-L'utilisateur confie une tâche outillée à un agent seul, suit chaque étape en direct, valide tout email avant envoi (D2), puis lance une équipe séquentielle dont il voit le schéma, la trace par agent et le rapport. Remplace LangGraph et CrewAI par une boucle maison. **Prérequis :** décision Q3. Se termine par la préversion `2.0.0a6`.
+L'utilisateur confie une tâche outillée à un agent seul, suit chaque étape en direct, valide tout email avant envoi (D2), puis lance une équipe séquentielle dont il voit le schéma, la trace par agent et le rapport. Remplace LangGraph et CrewAI par une boucle maison. Se termine par la préversion `2.0.0a6`.
 
 ### Story 6.1 : Un agent appelle des outils et publie chaque étape (serveur)
 
@@ -1471,7 +1472,7 @@ So that je montre une collaboration d'agents sans CrewAI, avec un rapport conser
 
 **Acceptance Criteria:**
 
-**Given** la bibliothèque d'équipes (forme selon la décision Q3 ; recommandation : équipes de la v1 en fichier versionné, modifications de l'utilisateur dans `preferences`)
+**Given** la bibliothèque d'équipes (décision Q3 : équipes de la v1 dans un fichier versionné en lecture seule, modifications de l'utilisateur dans `preferences`, « Revenir à l'équipe d'origine » efface la modification)
 **When** on appelle `GET /api/agents/crews` et `POST /api/agents/crews/validate`
 **Then** chaque équipe rend ses agents (rôle, objectif, outils, modèle) et ses tâches ordonnées ; `validate` rejette une équipe sans agent, un outil inconnu ou un modèle cloud sans `allow_cloud`, avec un message par champ
 
@@ -1497,7 +1498,7 @@ So that la mission se lit d'un coup d'œil et laisse une trace, à parité avec 
 
 **Given** l'écran `screens/agents-crew.js` sur `#/agents/equipe` (onglet passé à `available`)
 **When** on charge une équipe
-**Then** un schéma SVG fait main relie les agents puis le rapport (`<title>`, `<desc>`), l'agent actif est marqué par un contour et le libellé « en cours », jamais par la couleur seule ; « Configurer » ouvre les agents (rôle, objectif, outils, modèle) selon la décision Q3 ; sans agent, « Lancer la mission » est désactivé avec « Ajoutez au moins un agent »
+**Then** un schéma SVG fait main relie les agents puis le rapport (`<title>`, `<desc>`), l'agent actif est marqué par un contour et le libellé « en cours », jamais par la couleur seule ; « Configurer » ouvre les agents (rôle, objectif, outils, modèle) et enregistre la modification dans `preferences` (décision Q3) ; sans agent, « Lancer la mission » est désactivé avec « Ajoutez au moins un agent »
 
 **Given** une mission lancée
 **When** les `step` arrivent
@@ -1515,7 +1516,7 @@ So that la mission se lit d'un coup d'œil et laisse une trace, à parité avec 
 
 ## Epic 7 : Évaluer la qualité d'une réponse documentaire
 
-L'utilisateur mesure la fidélité et la pertinence des réponses de plusieurs modèles sur ses documents, avec un verdict par affirmation, et vérifie au Banc d'essai qu'un modèle respecte un format attendu. Remplace Ragas par un juge maison. **Prérequis :** décision Q4 (jeu fixe). Se termine par la préversion `2.0.0a7`.
+L'utilisateur mesure la fidélité et la pertinence des réponses de plusieurs modèles sur ses documents, avec un verdict par affirmation, et vérifie au Banc d'essai qu'un modèle respecte un format attendu. Remplace Ragas par un juge maison. **Prérequis :** relecture par Anaël des verdicts du jeu fixe (story 7.2, décision Q4). Se termine par la préversion `2.0.0a7`.
 
 ### Story 7.1 : Noter la fidélité et la pertinence d'une réponse (serveur)
 
@@ -1551,7 +1552,7 @@ So that une régression de la notation se voit avant d'arriver en démo.
 
 **Acceptance Criteria:**
 
-**Given** le jeu fixe (forme selon la décision Q4 ; recommandation : une dizaine de cas en français tirés d'un document du domaine public, verdicts annotés par Anaël) dans `tests/v2/fixtures/eval/`, sans document client (dépôt public)
+**Given** le jeu fixe (décision Q4 : une dizaine de cas en français tirés d'un document du domaine public, verdicts produits par un modèle cloud fort puis relus et corrigés par Anaël, la relecture consignée dans la story) dans `tests/v2/fixtures/eval/`, sans document client (dépôt public)
 **When** le test de non-régression tourne avec le `fake` (sorties de juge enregistrées)
 **Then** les scores et verdicts calculés égalent les attendus ; une modification de l'invite ou du découpage qui change un verdict fait échouer le test
 
@@ -1616,7 +1617,7 @@ So that je montre qu'un petit modèle sait produire un JSON exploitable.
 
 ## Epic 8 : Remplacer la v1
 
-La v2 devient l'application : dette technique soldée, accessibilité complète vérifiée, parité avec la v1 listée page par page, v1 archivée, `2.0.0` publiée. **Prérequis :** décisions Q5 et Q6.
+La v2 devient l'application : dette technique soldée, accessibilité complète vérifiée, parité avec la v1 listée page par page, v1 archivée, `2.0.0` publiée. Décisions Q5 et Q6 appliquées par 8.3 et 8.4.
 
 ### Story 8.1 : Solder la dette technique relevée pendant le MVP
 
@@ -1692,7 +1693,7 @@ So that l'archivage de la v1 ne perd aucune fonction sans le dire.
 **Given** la suite `tests/v2/e2e`
 **When** on la lance
 **Then** elle joue Flow 1, Flow 2, Sobriété et Modèles, Agents et Évaluation et Banc d'essai sans recharger la page, et vérifie qu'aucune requête ne sort de `127.0.0.1`
-**And** elle tourne selon la décision Q6 (recommandation : job CI Linux nocturne avec Chromium de Playwright installé par la CI, plus local sur Edge par `WAVELOCALAI_E2E_CHROMIUM`, mode d'emploi dans `AGENTS.md`)
+**And** elle tourne dans un job CI Linux nocturne (Chromium de Playwright installé par la CI) et en local sur Edge par `WAVELOCALAI_E2E_CHROMIUM`, mode d'emploi dans `AGENTS.md` ; les PR n'attendent pas ce job (décision Q6)
 
 **Given** le README
 **When** la story se termine
@@ -1708,9 +1709,9 @@ So that il n'existe plus qu'une application à installer et à maintenir.
 
 **Acceptance Criteria:**
 
-**Given** la décision Q5 tranchée (recommandation : code v1 et ses tests retirés de `master`, conservés par le tag `v1.3.x` et une note dans le README)
+**Given** la décision Q5 : `src/app`, `src/core`, les tests v1 (`tests/unit`, `tests/app`, `tests/integration`) et les scripts qui importent `src.core` retirés de `master`, la v1 conservée par son dernier tag `v1.3.x` cité dans le README
 **When** on bascule
-**Then** le script `wavelocalai` lance la v2 (`wavelocalai.__main__:main`), `wavelocalai-v2` reste un alias pour une version ou disparaît selon la décision, `packages` passe à `src/wavelocalai`, `dev-mode-dirs` est retiré, et une installation non éditable (`uv build` puis installation de la roue dans un venv propre) lance le serveur
+**Then** le script `wavelocalai` lance la v2 (`wavelocalai.__main__:main`), `wavelocalai-v2` disparaît, `packages` passe à `src/wavelocalai`, `dev-mode-dirs` est retiré, et une installation non éditable (`uv build` puis installation de la roue dans un venv propre) lance le serveur
 **And** les dépendances de la v1 (Streamlit, LangChain, LangGraph, CrewAI, Ragas, Chroma, torch…) sortent du `pyproject.toml`, `uv.lock` est régénéré, et la taille du `.venv` est mesurée et consignée
 
 **Given** pydantic contraint sous 2.13 par crewai
@@ -1720,8 +1721,8 @@ So that il n'existe plus qu'une application à installer et à maintenir.
 
 **Given** la CI, `requirements.txt`, `constraints.txt` et `AGENTS.md`
 **When** la bascule est faite
-**Then** le job v1 disparaît, le job v2 devient le seul, `requirements.txt` et `constraints.txt` sont régénérés depuis le verrou ou retirés selon Q5, et `AGENTS.md` décrit la seule application (lanceur, port, tests)
-**And** les scripts qui importent `src.core` (`benchmark_slm.py`, `audit_and_update.py`, `setup_models.py`, `setup_rag_models.py`) suivent la décision Q5, `scripts/sync_slm_results.py` et `scripts/build_catalog.py` restent fonctionnels
+**Then** le job v1 disparaît, le job v2 devient le seul, `requirements.txt` et `constraints.txt` (chemin pip de la v1) sont retirés, l'installation passant par `uv sync` seul (Q5), et `AGENTS.md` décrit la seule application (lanceur, port, tests)
+**And** les scripts qui importent `src.core` (`benchmark_slm.py`, `audit_and_update.py`, `setup_models.py`, `setup_rag_models.py`) sont retirés avec la v1, les règles d'`AGENTS.md` sur `benchmark_slm.py` aussi (Q5) ; `scripts/sync_slm_results.py` et `scripts/build_catalog.py` restent fonctionnels
 
 **Given** la suite complète verte et la recette humaine de Flow 1 et Flow 2 sur un PC pro de 16 Go sans GPU installé par `uv sync` seul
 **When** on publie
@@ -1739,7 +1740,7 @@ Critères proposés pour les stories 2.x à 4.x, tirés des reports (a) de `repo
 | 2.2 | **Given** un panneau de la barre haute ouvert pendant une génération **When** on appuie sur Échap **Then** seul le panneau se ferme (`preventDefault`), le run continue (E2E) | A24 |
 | 2.2 | **Given** une erreur dont l'action contient du balisage (`no_model` : « `ollama pull …` ») **When** `wl-error` l'affiche **Then** aucun accent grave ni astérisque n'est visible, pour tous les codes (test sur le catalogue d'`errors.py`) | A25 |
 | 2.2 | **Given** un événement `retry` **When** la seconde tentative démarre **Then** le partiel est remplacé et la relance annoncée (« Nouvelle tentative… »), E2E avec le `fake` | A29 |
-| 2.2 | **Given** le premier bouton plein de la v2 (« Envoyer ») **When** axe-core tourne en sombre **Then** zéro violation, selon la décision Q1 sur le blanc sur `primary-dark` (4,26:1) | A19 |
+| 2.2 | **Given** le premier bouton plein de la v2 (« Envoyer ») **When** axe-core tourne en sombre **Then** zéro violation : le fond du bouton plein en sombre utilise le nouveau jeton de `DESIGN.md` posé par la mise à jour `bmad-ux` (décision Q1), repris dans `tokens.css` et son test de dérive. **Prérequis de 2.2** | A19 |
 | 2.4 | **Given** chaque identifiant de `[cloud.models]` **When** la recette fait un premier appel réel **Then** il est accepté par le fournisseur ; un identifiant refusé donne un code de la liste fermée, jamais `internal` | A14 |
 | 2.5 | **Given** `[cloud.groq_ecologits]` **When** le test de contrat d'ecologits tourne **Then** chaque entrée est confirmée ou corrigée contre la version installée | A13 |
 | 2.6 | **Given** « Télécharger (JSON, Markdown) » **When** on clique **Then** le navigateur suit la route d'export (`Content-Disposition: attachment`), sans `blob:` ni élargissement de la politique de contenu | A20 |

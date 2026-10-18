@@ -139,3 +139,15 @@ Ni la spec ni la spine ne les tranchent ; les stories citent leur numéro et por
 | Q5 | Forme de l'archivage de la v1 à la bascule | 8.4 | A. retirer de `master` `src/app`, `src/core`, tests v1 et scripts qui importent `src.core` (`benchmark_slm.py`, `audit_and_update.py`, `setup_models.py`, `setup_rag_models.py`), v1 gardée par le tag `v1.3.x`. B. déplacer la v1 dans `legacy/` hors CI. C. garder la v1 lançable avec ses dépendances jusqu'à une 2.1 | **A** : le banc vit dans slm-quality-bench ; B garde les dépendances lourdes, C annule le gain de la refonte |
 | Q6 | E2E en CI | 8.3 | A. local seulement (Edge), comme au MVP. B. job CI Linux nocturne avec Chromium de Playwright, plus local. C. E2E dans chaque PR | **B** : filet automatique sans ralentir les PR ; C triple la durée de la CI |
 | Q7 | `benchmarks/slm-quality/slm-quality-results.json` absent de `master` (aucune release synchronisée) : calage des défauts `agent`/`rag` et références | 5.6 à 5.8 | A. attendre une release de slm-quality-bench avant l'Epic 5, 5.6 à 5.8 en dernier. B. développer 5.6 et 5.8 sur un fichier de test, reporter 5.7 jusqu'aux données. C. garder la règle provisoire pour 2.0.0 et retirer 5.7 | **B**, et pour `rag` : garder le repli sur `chat` tant que le banc ne publie pas d'usage documentaire |
+
+### Réponses d'Anaël (2026-10-18)
+
+| # | Choix | Effet sur les stories |
+|---|---|---|
+| Q1 | **C** : nouveau jeton de fond de bouton plein en sombre, posé dans `DESIGN.md` par `bmad-ux` | mise à jour `bmad-ux` **avant la story 2.2** ; critère A19 de 2.2 |
+| Q2 | **B** : « Définir par défaut » sur l'écran Modèles | 5.4 |
+| Q3 | **B** : équipes versionnées, modifications dans `preferences` | 6.5, 6.6 |
+| Q4 | **B** : verdicts produits par un modèle cloud fort, relus par Anaël | 7.2 (relecture d'Anaël en prérequis de l'Epic 7) |
+| Q5 | **A** : v1, ses tests et ses scripts `src.core` retirés de `master`, v1 gardée par son tag | 8.4 (`requirements.txt`, `constraints.txt` et `wavelocalai-v2` retirés) |
+| Q6 | **B** : E2E en job CI nocturne, plus en local | 8.3 |
+| Q7 | **B** : 5.6 et 5.8 sur fichier de test, 5.7 attend les données ; repli `rag` → `chat` gardé | 5.7, prérequis de l'Epic 5 |
