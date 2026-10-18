@@ -1,0 +1,9 @@
+{
+  "id": "chat-libre-erreur",
+  "kind": "chat",
+  "label": "Échec avant le premier token (fournisseur cloud injoignable, refus d'Ollama…)",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "chat", "models": ["{{tag}}"], "params": { "temperature": "{{temperature}}" } } },
+    { "wait": 1500, "type": "run_ended", "data": { "status": "error", "error": "{{error}}" } }
+  ]
+}

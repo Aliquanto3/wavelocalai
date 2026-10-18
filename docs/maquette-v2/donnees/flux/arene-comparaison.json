@@ -1,0 +1,433 @@
+{
+ "id": "arene-comparaison",
+ "kind": "arena",
+ "label": "Comparaison de 2 à 4 modèles : les modèles cloud d'abord (en parallèle), puis les modèles locaux l'un après l'autre ; chaque lane est notée par le juge dès qu'elle a fini",
+ "_doc": "vars : models, prompt, judge, criteria, puis pour chaque emplacement n de 1 à 4 : sN (tag ou null), sN_first (waiting|loading|generating), sN_loading, sN_load_s, sN_has_text, sN_text, sN_tps, sN_fail (bool), sN_fail_status (timeout|failed), sN_error, sN_ok (la lane est jugée), sN_metrics, sN_score (null = non évalué), sN_reason. Les événements portent toujours `lane` (AD-6).",
+ "events": [
+  {
+   "wait": 0,
+   "type": "run_started",
+   "data": {
+    "kind": "arena",
+    "models": "{{models}}",
+    "params": {
+     "prompt": "{{prompt}}",
+     "judge": "{{judge}}",
+     "criteria": "{{criteria}}"
+    }
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s1}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "waiting"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s2}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "waiting"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s3}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "waiting"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s4}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "waiting"
+   }
+  },
+  {
+   "wait": 250,
+   "when": "{{s1}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "{{s1_first}}"
+   }
+  },
+  {
+   "wait": 100,
+   "when": "{{s1_loading}}",
+   "type": "model_loading",
+   "data": {
+    "lane": "{{s1}}",
+    "tag": "{{s1}}"
+   }
+  },
+  {
+   "wait": 3200,
+   "slow_wait": 14000,
+   "when": "{{s1_loading}}",
+   "type": "model_loaded",
+   "data": {
+    "lane": "{{s1}}",
+    "tag": "{{s1}}",
+    "duration_s": "{{s1_load_s}}"
+   }
+  },
+  {
+   "wait": 80,
+   "when": "{{s1_loading}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "generating"
+   }
+  },
+  {
+   "wait": 300,
+   "when": "{{s1_has_text}}",
+   "tokens": {
+    "lane": "{{s1}}",
+    "channel": "answer",
+    "text": "{{s1_text}}",
+    "tps": "{{s1_tps}}"
+   }
+  },
+  {
+   "wait": 2200,
+   "when": "{{s1_fail}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "{{s1_fail_status}}",
+    "error": "{{s1_error}}"
+   }
+  },
+  {
+   "wait": 120,
+   "when": "{{s1_ok}}",
+   "type": "metrics",
+   "data": "{{s1_metrics}}"
+  },
+  {
+   "wait": 80,
+   "when": "{{s1_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "judging"
+   }
+  },
+  {
+   "wait": 1300,
+   "when": "{{s1_ok}}",
+   "type": "judge_score",
+   "data": {
+    "lane": "{{s1}}",
+    "score": "{{s1_score}}",
+    "reason": "{{s1_reason}}"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s1_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s1}}",
+    "status": "done"
+   }
+  },
+  {
+   "wait": 250,
+   "when": "{{s2}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "{{s2_first}}"
+   }
+  },
+  {
+   "wait": 100,
+   "when": "{{s2_loading}}",
+   "type": "model_loading",
+   "data": {
+    "lane": "{{s2}}",
+    "tag": "{{s2}}"
+   }
+  },
+  {
+   "wait": 3200,
+   "slow_wait": 14000,
+   "when": "{{s2_loading}}",
+   "type": "model_loaded",
+   "data": {
+    "lane": "{{s2}}",
+    "tag": "{{s2}}",
+    "duration_s": "{{s2_load_s}}"
+   }
+  },
+  {
+   "wait": 80,
+   "when": "{{s2_loading}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "generating"
+   }
+  },
+  {
+   "wait": 300,
+   "when": "{{s2_has_text}}",
+   "tokens": {
+    "lane": "{{s2}}",
+    "channel": "answer",
+    "text": "{{s2_text}}",
+    "tps": "{{s2_tps}}"
+   }
+  },
+  {
+   "wait": 2200,
+   "when": "{{s2_fail}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "{{s2_fail_status}}",
+    "error": "{{s2_error}}"
+   }
+  },
+  {
+   "wait": 120,
+   "when": "{{s2_ok}}",
+   "type": "metrics",
+   "data": "{{s2_metrics}}"
+  },
+  {
+   "wait": 80,
+   "when": "{{s2_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "judging"
+   }
+  },
+  {
+   "wait": 1300,
+   "when": "{{s2_ok}}",
+   "type": "judge_score",
+   "data": {
+    "lane": "{{s2}}",
+    "score": "{{s2_score}}",
+    "reason": "{{s2_reason}}"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s2_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s2}}",
+    "status": "done"
+   }
+  },
+  {
+   "wait": 250,
+   "when": "{{s3}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "{{s3_first}}"
+   }
+  },
+  {
+   "wait": 100,
+   "when": "{{s3_loading}}",
+   "type": "model_loading",
+   "data": {
+    "lane": "{{s3}}",
+    "tag": "{{s3}}"
+   }
+  },
+  {
+   "wait": 3200,
+   "slow_wait": 14000,
+   "when": "{{s3_loading}}",
+   "type": "model_loaded",
+   "data": {
+    "lane": "{{s3}}",
+    "tag": "{{s3}}",
+    "duration_s": "{{s3_load_s}}"
+   }
+  },
+  {
+   "wait": 80,
+   "when": "{{s3_loading}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "generating"
+   }
+  },
+  {
+   "wait": 300,
+   "when": "{{s3_has_text}}",
+   "tokens": {
+    "lane": "{{s3}}",
+    "channel": "answer",
+    "text": "{{s3_text}}",
+    "tps": "{{s3_tps}}"
+   }
+  },
+  {
+   "wait": 2200,
+   "when": "{{s3_fail}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "{{s3_fail_status}}",
+    "error": "{{s3_error}}"
+   }
+  },
+  {
+   "wait": 120,
+   "when": "{{s3_ok}}",
+   "type": "metrics",
+   "data": "{{s3_metrics}}"
+  },
+  {
+   "wait": 80,
+   "when": "{{s3_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "judging"
+   }
+  },
+  {
+   "wait": 1300,
+   "when": "{{s3_ok}}",
+   "type": "judge_score",
+   "data": {
+    "lane": "{{s3}}",
+    "score": "{{s3_score}}",
+    "reason": "{{s3_reason}}"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s3_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s3}}",
+    "status": "done"
+   }
+  },
+  {
+   "wait": 250,
+   "when": "{{s4}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "{{s4_first}}"
+   }
+  },
+  {
+   "wait": 100,
+   "when": "{{s4_loading}}",
+   "type": "model_loading",
+   "data": {
+    "lane": "{{s4}}",
+    "tag": "{{s4}}"
+   }
+  },
+  {
+   "wait": 3200,
+   "slow_wait": 14000,
+   "when": "{{s4_loading}}",
+   "type": "model_loaded",
+   "data": {
+    "lane": "{{s4}}",
+    "tag": "{{s4}}",
+    "duration_s": "{{s4_load_s}}"
+   }
+  },
+  {
+   "wait": 80,
+   "when": "{{s4_loading}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "generating"
+   }
+  },
+  {
+   "wait": 300,
+   "when": "{{s4_has_text}}",
+   "tokens": {
+    "lane": "{{s4}}",
+    "channel": "answer",
+    "text": "{{s4_text}}",
+    "tps": "{{s4_tps}}"
+   }
+  },
+  {
+   "wait": 2200,
+   "when": "{{s4_fail}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "{{s4_fail_status}}",
+    "error": "{{s4_error}}"
+   }
+  },
+  {
+   "wait": 120,
+   "when": "{{s4_ok}}",
+   "type": "metrics",
+   "data": "{{s4_metrics}}"
+  },
+  {
+   "wait": 80,
+   "when": "{{s4_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "judging"
+   }
+  },
+  {
+   "wait": 1300,
+   "when": "{{s4_ok}}",
+   "type": "judge_score",
+   "data": {
+    "lane": "{{s4}}",
+    "score": "{{s4_score}}",
+    "reason": "{{s4_reason}}"
+   }
+  },
+  {
+   "wait": 60,
+   "when": "{{s4_ok}}",
+   "type": "lane_status",
+   "data": {
+    "lane": "{{s4}}",
+    "status": "done"
+   }
+  },
+  {
+   "wait": 200,
+   "type": "run_ended",
+   "data": {
+    "status": "ok",
+    "error": null
+   }
+  }
+ ]
+}

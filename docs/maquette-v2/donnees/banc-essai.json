@@ -1,0 +1,129 @@
+{
+  "_doc": "Données simulées du Banc d'essai (story 7.4). Contenus 100 % fictifs. `scenarios` : ceux de la v1 (USE_CASES de lab.py), consigne séparée du format ; `schema` = format attendu (champs lus du schéma JSON), null quand le scénario n'attend aucun format. `outputs` : sorties que le modèle simulé rend ; `verdict` : ce que le serveur dirait de la sortie (le front ne valide rien) ; `kind` vaut `missing_field` ou `not_json`. `free_outcome` : sortie d'un modèle quand le format n'est pas imposé (par défaut `ok`). `no_structured_output` : modèles qui ne savent pas contraindre leur sortie. `base_metrics` : débit, premier token, chargement et CO₂ par modèle ; les tokens et la durée sont déduits de la longueur de la sortie par le « serveur » simulé. `runs` : essais conservés que l'on rouvre par `#/arene/banc/<run_id>`.",
+  "lane_timeout_s": 120,
+  "scenarios": [
+    {
+      "id": "classification",
+      "label": "Classification (JSON)",
+      "description": "Classer un retour de formation par sentiment et par catégorie.",
+      "instruction": "Tu es un expert en analyse de sentiment. Réponds uniquement avec un JSON.",
+      "input": "Analyse ce retour : « La formation était excellente, mais la salle était trop chaude. »",
+      "schema": [
+        { "field": "sentiment", "type": "texte (Positif, Neutre ou Négatif)", "required": true },
+        { "field": "categorie", "type": "texte", "required": true }
+      ],
+      "outputs": {
+        "ok": { "text": "{\"sentiment\": \"Neutre\", \"categorie\": \"Formation\"}", "verdict": { "ok": true } },
+        "missing_field": { "text": "{\"sentiment\": \"Neutre\"}", "verdict": { "ok": false, "kind": "missing_field", "field": "categorie" } },
+        "not_json": { "text": "Le retour est plutôt positif sur le fond, mais la salle gêne un peu : sentiment neutre, catégorie formation.", "verdict": { "ok": false, "kind": "not_json" } }
+      }
+    },
+    {
+      "id": "traduction",
+      "label": "Traduction technique",
+      "description": "Traduire une phrase en anglais, espagnol et allemand, au format JSON.",
+      "instruction": "Traduis en anglais, espagnol et allemand. Réponds uniquement avec un JSON.",
+      "input": "L'inférence locale garantit la confidentialité des données.",
+      "schema": [
+        { "field": "en", "type": "texte", "required": true },
+        { "field": "es", "type": "texte", "required": true },
+        { "field": "de", "type": "texte", "required": true }
+      ],
+      "outputs": {
+        "ok": { "text": "{\"en\": \"Local inference guarantees data confidentiality.\", \"es\": \"La inferencia local garantiza la confidencialidad de los datos.\", \"de\": \"Die lokale Inferenz gewährleistet die Vertraulichkeit der Daten.\"}", "verdict": { "ok": true } },
+        "missing_field": { "text": "{\"en\": \"Local inference guarantees data confidentiality.\", \"de\": \"Die lokale Inferenz gewährleistet die Vertraulichkeit der Daten.\"}", "verdict": { "ok": false, "kind": "missing_field", "field": "es" } },
+        "not_json": { "text": "Voici les traductions demandées. En anglais : Local inference guarantees data confidentiality. En espagnol : La inferencia local garantiza la confidencialidad de los datos.", "verdict": { "ok": false, "kind": "not_json" } }
+      }
+    },
+    {
+      "id": "extraction",
+      "label": "Extraction (JSON)",
+      "description": "Extraire la date, le montant et le fournisseur d'une facture fictive.",
+      "instruction": "Extrais la date, le montant et le fournisseur. Réponds uniquement avec un JSON.",
+      "input": "Facture du 12/12/2026 de la société Ombrelune pour 500 €.",
+      "schema": [
+        { "field": "date", "type": "texte (JJ/MM/AAAA)", "required": true },
+        { "field": "montant", "type": "nombre", "required": true },
+        { "field": "vendeur", "type": "texte", "required": true },
+        { "field": "devise", "type": "texte", "required": false }
+      ],
+      "outputs": {
+        "ok": { "text": "{\"date\": \"12/12/2026\", \"montant\": 500, \"vendeur\": \"Ombrelune\", \"devise\": \"EUR\"}", "verdict": { "ok": true } },
+        "missing_field": { "text": "{\"montant\": 500, \"vendeur\": \"Ombrelune\"}", "verdict": { "ok": false, "kind": "missing_field", "field": "date" } },
+        "not_json": { "text": "La facture date du 12 décembre 2026, elle vient de la société Ombrelune et son montant est de 500 euros.", "verdict": { "ok": false, "kind": "not_json" } }
+      }
+    },
+    {
+      "id": "code",
+      "label": "Assistant de code (Python)",
+      "description": "Écrire une fonction asynchrone avec reprise sur erreur.",
+      "instruction": "Tu es un expert Python. Génère du code typé et documenté.",
+      "input": "Écris une fonction asynchrone qui appelle une API REST fictive et réessaie trois fois en cas d'échec.",
+      "schema": null,
+      "outputs": {
+        "ok": { "text": "```python\nasync def appeler_api(session, url: str, essais: int = 3) -> dict:\n    \"\"\"Appelle l'API et réessaie en cas d'échec.\"\"\"\n    for numero in range(1, essais + 1):\n        try:\n            async with session.get(url) as reponse:\n                reponse.raise_for_status()\n                return await reponse.json()\n        except Exception:\n            if numero == essais:\n                raise\n            await asyncio.sleep(numero)\n```", "text_concise": "```python\nasync def appeler_api(session, url: str, essais: int = 3) -> dict:\n    for n in range(essais):\n        try:\n            return await (await session.get(url)).json()\n        except Exception:\n            if n == essais - 1:\n                raise\n```", "verdict": null }
+      }
+    },
+    {
+      "id": "raisonnement",
+      "label": "Raisonnement pas à pas",
+      "description": "Résoudre un petit problème en détaillant les étapes.",
+      "instruction": "Pense étape par étape avant de répondre.",
+      "input": "J'ai 3 pommes. J'en mange une, j'en achète deux, puis j'en jette une. Combien m'en reste-t-il ?",
+      "schema": null,
+      "outputs": {
+        "ok": { "text": "1. Au départ : 3 pommes.\n2. J'en mange une : 3 − 1 = 2.\n3. J'en achète deux : 2 + 2 = 4.\n4. J'en jette une : 4 − 1 = 3.\n\n**Il me reste 3 pommes.**", "text_concise": "3 − 1 + 2 − 1 = **3 pommes**.", "verdict": null }
+      }
+    },
+    {
+      "id": "resume",
+      "label": "Résumé",
+      "description": "Résumer un compte rendu de réunion en points.",
+      "instruction": "Fais un résumé exécutif en points.",
+      "input": "Compte rendu fictif : le projet Orée a une semaine de retard à cause de la validation de l'interface. La livraison est décalée au 2 novembre.",
+      "schema": null,
+      "outputs": {
+        "ok": { "text": "- **Situation** : le projet Orée a une semaine de retard.\n- **Cause** : la validation de l'interface a pris plus de temps que prévu.\n- **Décision** : la livraison est décalée au 2 novembre.", "text_concise": "Projet Orée : une semaine de retard (validation de l'interface), livraison au 2 novembre.", "verdict": null }
+      }
+    }
+  ],
+  "free_outcome": {
+    "gemma4:1b": "not_json",
+    "lfm2.5:1.2b": "missing_field"
+  },
+  "no_structured_output": ["gemma4:1b"],
+  "base_metrics": {
+    "qwen3.5:2b": { "ttft_s": 0.42, "load_s": 3.2, "tps": 41, "co2_mg_per_s": 0.34, "origin": "local" },
+    "gemma4:1b": { "ttft_s": 0.31, "load_s": 1.9, "tps": 63, "co2_mg_per_s": 0.32, "origin": "local" },
+    "lfm2.5:1.2b": { "ttft_s": 0.33, "load_s": 2.1, "tps": 58, "co2_mg_per_s": 0.33, "origin": "local" },
+    "lfm2.5:8b-a1b": { "ttft_s": 0.4, "load_s": 5.2, "tps": 37, "co2_mg_per_s": 0.88, "origin": "local" },
+    "qwen3.6:7b": { "ttft_s": 0.9, "load_s": 6.8, "tps": 18, "co2_mg_per_s": 0.8, "origin": "local" },
+    "qwen3.6:35b-a3b": { "ttft_s": 1.4, "load_s": 14.5, "tps": 9, "co2_mg_per_s": 1.4, "origin": "local" },
+    "gpt-5-mini": { "ttft_s": 0.71, "load_s": null, "tps": 85, "co2_mg_per_s": 0.42, "origin": "cloud", "co2": "estimated" },
+    "openai/gpt-oss-120b": { "ttft_s": 0.22, "load_s": null, "tps": 365, "co2_mg_per_s": 6.2, "origin": "cloud", "co2": "estimated" },
+    "claude-haiku-4-5": { "ttft_s": 0.55, "load_s": null, "tps": 107, "co2_mg_per_s": 0, "origin": "cloud", "co2": "unmeasurable" },
+    "default": { "ttft_s": 0.5, "load_s": 3.0, "tps": 40, "co2_mg_per_s": 0.35, "origin": "local" }
+  },
+  "runs": {
+    "run-banc-demo": {
+      "status": "ok",
+      "started_at": "2026-10-18T10:02:00Z",
+      "scenario": "extraction",
+      "model": "lfm2.5:1.2b",
+      "input": "Facture du 12/12/2026 de la société Ombrelune pour 500 €.",
+      "force_format": false,
+      "concise": false,
+      "outcome": "missing_field"
+    },
+    "run-banc-delai": {
+      "status": "error",
+      "started_at": "2026-10-17T11:20:00Z",
+      "scenario": "code",
+      "model": "qwen3.6:35b-a3b",
+      "input": "Écris une fonction asynchrone qui appelle une API REST fictive et réessaie trois fois en cas d'échec.",
+      "force_format": false,
+      "concise": false,
+      "outcome": "timeout"
+    }
+  }
+}

@@ -1,0 +1,502 @@
+{
+ "_doc": "Résultats du banc joints aux modèles du poste, tels que l'API les servirait depuis benchmarks/slm-quality/slm-quality-results.json (qb.results/1, AD-22). Contenus fictifs. `score` : fraction de 0 à 1 (affichée en pourcentage), `null` = non classé. `interval` : intervalle de confiance. `group` : `best` (groupe des meilleurs, à égalité statistique : aucun rang), `other`, ou null. `energy.wh_per_100` : montré seulement si `status` vaut `measured`. `installed` : `installed` (tag et digest identiques), `other_version` (même tag, autre digest) ou null, calculé par le serveur.",
+ "schema": "qb.results/1",
+ "source": "slm-quality-bench",
+ "campaign": "campagne fictive d'octobre 2026",
+ "published": "2026-10-12",
+ "reference_machine": {
+  "label": "PC professionnel fictif",
+  "memory_gb": 16,
+  "gpu": "aucun"
+ },
+ "models": {
+  "gemma4:1b": {
+   "name": "Gemma 4 1B",
+   "params_active_b": 1,
+   "installed": "installed"
+  },
+  "qwen3.5:2b": {
+   "name": "Qwen 3.5 2B",
+   "params_active_b": 2,
+   "installed": "installed"
+  },
+  "lfm2.5:1.2b": {
+   "name": "LFM 2.5 1.2B",
+   "params_active_b": 1.2,
+   "installed": "installed"
+  },
+  "lfm2.5:8b-a1b": {
+   "name": "LFM 2.5 8B",
+   "params_active_b": 1.5,
+   "installed": "other_version"
+  },
+  "qwen3.6:7b": {
+   "name": "Qwen 3.6 7B",
+   "params_active_b": 7.6,
+   "installed": "installed"
+  },
+  "qwen3.6:35b-a3b": {
+   "name": "Qwen 3.6 35B",
+   "params_active_b": 3,
+   "installed": null
+  }
+ },
+ "usages": [
+  {
+   "id": "conversation",
+   "label": "Conversation",
+   "description": "Répondre en français à des questions courantes, de façon claire et exacte.",
+   "metric": "Part de réponses jugées correctes",
+   "questions": 120,
+   "results": [
+    {
+     "model": "qwen3.6:35b-a3b",
+     "score": 0.84,
+     "interval": [
+      0.77,
+      0.89
+     ],
+     "group": "best",
+     "tps_ref": null,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "qwen3.6:7b",
+     "score": 0.82,
+     "interval": [
+      0.75,
+      0.88
+     ],
+     "group": "best",
+     "tps_ref": 5.6,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "lfm2.5:8b-a1b",
+     "score": 0.79,
+     "interval": [
+      0.72,
+      0.85
+     ],
+     "group": "best",
+     "tps_ref": 11.2,
+     "energy": {
+      "status": "estimated",
+      "wh_per_100": 0.9
+     }
+    },
+    {
+     "model": "qwen3.5:2b",
+     "score": 0.74,
+     "interval": [
+      0.66,
+      0.81
+     ],
+     "group": "other",
+     "tps_ref": 14.8,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.52
+     }
+    },
+    {
+     "model": "gemma4:1b",
+     "score": 0.71,
+     "interval": [
+      0.63,
+      0.78
+     ],
+     "group": "other",
+     "tps_ref": 22.4,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.31
+     }
+    },
+    {
+     "model": "lfm2.5:1.2b",
+     "score": 0.66,
+     "interval": [
+      0.57,
+      0.74
+     ],
+     "group": "other",
+     "tps_ref": 20.1,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.34
+     }
+    }
+   ]
+  },
+  {
+   "id": "tool_calling",
+   "label": "Appel d'outils",
+   "description": "Choisir le bon outil et remplir ses arguments sans se tromper.",
+   "metric": "Part d'appels d'outils corrects",
+   "questions": 80,
+   "results": [
+    {
+     "model": "qwen3.6:7b",
+     "score": 0.88,
+     "interval": [
+      0.79,
+      0.93
+     ],
+     "group": "best",
+     "tps_ref": 5.6,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "qwen3.6:35b-a3b",
+     "score": 0.86,
+     "interval": [
+      0.77,
+      0.92
+     ],
+     "group": "best",
+     "tps_ref": null,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "lfm2.5:8b-a1b",
+     "score": 0.81,
+     "interval": [
+      0.71,
+      0.88
+     ],
+     "group": "other",
+     "tps_ref": 11.2,
+     "energy": {
+      "status": "estimated",
+      "wh_per_100": 0.9
+     }
+    },
+    {
+     "model": "qwen3.5:2b",
+     "score": 0.72,
+     "interval": [
+      0.62,
+      0.8
+     ],
+     "group": "other",
+     "tps_ref": 14.8,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.52
+     }
+    },
+    {
+     "model": "gemma4:1b",
+     "score": null,
+     "interval": null,
+     "group": null,
+     "tps_ref": 22.4,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.31
+     }
+    },
+    {
+     "model": "lfm2.5:1.2b",
+     "score": null,
+     "interval": null,
+     "group": null,
+     "tps_ref": 20.1,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.34
+     }
+    }
+   ]
+  },
+  {
+   "id": "json_extraction",
+   "label": "Extraction structurée",
+   "description": "Extraire des champs d'un texte et les rendre dans un JSON conforme au schéma demandé.",
+   "metric": "Part de sorties conformes et exactes",
+   "questions": 100,
+   "results": [
+    {
+     "model": "lfm2.5:8b-a1b",
+     "score": 0.94,
+     "interval": [
+      0.88,
+      0.97
+     ],
+     "group": "best",
+     "tps_ref": 11.2,
+     "energy": {
+      "status": "estimated",
+      "wh_per_100": 0.9
+     }
+    },
+    {
+     "model": "qwen3.6:7b",
+     "score": 0.86,
+     "interval": [
+      0.78,
+      0.91
+     ],
+     "group": "other",
+     "tps_ref": 5.6,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "qwen3.6:35b-a3b",
+     "score": 0.85,
+     "interval": [
+      0.76,
+      0.91
+     ],
+     "group": "other",
+     "tps_ref": null,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "qwen3.5:2b",
+     "score": 0.78,
+     "interval": [
+      0.69,
+      0.85
+     ],
+     "group": "other",
+     "tps_ref": 14.8,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.52
+     }
+    },
+    {
+     "model": "lfm2.5:1.2b",
+     "score": 0.7,
+     "interval": [
+      0.6,
+      0.78
+     ],
+     "group": "other",
+     "tps_ref": 20.1,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.34
+     }
+    },
+    {
+     "model": "gemma4:1b",
+     "score": 0.62,
+     "interval": [
+      0.52,
+      0.71
+     ],
+     "group": "other",
+     "tps_ref": 22.4,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.31
+     }
+    }
+   ]
+  },
+  {
+   "id": "summarization",
+   "label": "Résumé",
+   "description": "Résumer un compte rendu en quelques phrases fidèles, sans rien inventer.",
+   "metric": "Part de résumés jugés fidèles",
+   "questions": 90,
+   "results": [
+    {
+     "model": "lfm2.5:1.2b",
+     "score": 0.79,
+     "interval": [
+      0.7,
+      0.86
+     ],
+     "group": "best",
+     "tps_ref": 20.1,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.34
+     }
+    },
+    {
+     "model": "gemma4:1b",
+     "score": 0.77,
+     "interval": [
+      0.67,
+      0.85
+     ],
+     "group": "best",
+     "tps_ref": 22.4,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.31
+     }
+    },
+    {
+     "model": "qwen3.5:2b",
+     "score": 0.76,
+     "interval": [
+      0.66,
+      0.84
+     ],
+     "group": "best",
+     "tps_ref": 14.8,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.52
+     }
+    },
+    {
+     "model": "qwen3.6:7b",
+     "score": 0.74,
+     "interval": [
+      0.64,
+      0.82
+     ],
+     "group": "best",
+     "tps_ref": 5.6,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "lfm2.5:8b-a1b",
+     "score": 0.7,
+     "interval": [
+      0.6,
+      0.79
+     ],
+     "group": "other",
+     "tps_ref": 11.2,
+     "energy": {
+      "status": "estimated",
+      "wh_per_100": 0.9
+     }
+    },
+    {
+     "model": "qwen3.6:35b-a3b",
+     "score": null,
+     "interval": null,
+     "group": null,
+     "tps_ref": null,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    }
+   ]
+  },
+  {
+   "id": "translation",
+   "label": "Traduction",
+   "description": "Traduire un court texte professionnel du français vers l'anglais, l'espagnol et l'allemand.",
+   "metric": "Part de traductions jugées correctes",
+   "questions": 100,
+   "results": [
+    {
+     "model": "qwen3.6:35b-a3b",
+     "score": 0.91,
+     "interval": [
+      0.84,
+      0.95
+     ],
+     "group": "best",
+     "tps_ref": null,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "qwen3.6:7b",
+     "score": 0.9,
+     "interval": [
+      0.83,
+      0.94
+     ],
+     "group": "best",
+     "tps_ref": 5.6,
+     "energy": {
+      "status": "unavailable",
+      "wh_per_100": null
+     }
+    },
+    {
+     "model": "lfm2.5:8b-a1b",
+     "score": 0.88,
+     "interval": [
+      0.8,
+      0.93
+     ],
+     "group": "best",
+     "tps_ref": 11.2,
+     "energy": {
+      "status": "estimated",
+      "wh_per_100": 0.9
+     }
+    },
+    {
+     "model": "qwen3.5:2b",
+     "score": 0.83,
+     "interval": [
+      0.74,
+      0.89
+     ],
+     "group": "other",
+     "tps_ref": 14.8,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.52
+     }
+    },
+    {
+     "model": "gemma4:1b",
+     "score": 0.74,
+     "interval": [
+      0.64,
+      0.82
+     ],
+     "group": "other",
+     "tps_ref": 22.4,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.31
+     }
+    },
+    {
+     "model": "lfm2.5:1.2b",
+     "score": 0.7,
+     "interval": [
+      0.6,
+      0.79
+     ],
+     "group": "other",
+     "tps_ref": 20.1,
+     "energy": {
+      "status": "measured",
+      "wh_per_100": 0.34
+     }
+    }
+   ]
+  }
+ ]
+}

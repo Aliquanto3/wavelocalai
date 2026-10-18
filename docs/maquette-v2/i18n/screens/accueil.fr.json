@@ -1,0 +1,53 @@
+{
+  "accueil": {
+    "lead": "Le démonstrateur d'IA générative souveraine, frugale et sécurisée.",
+    "status_title": "État du poste",
+    "loading": "Chargement…",
+    "live": "en direct",
+    "system": {
+      "label": "Système",
+      "up": "Disponible",
+      "down": "Indisponible",
+      "unknown": "Inconnu",
+      "lost": "Connexion au serveur perdue.",
+      "version": "Ollama {version}",
+      "version_unknown": "Ollama, version inconnue",
+      "loaded_none": "Aucun modèle chargé en mémoire",
+      "loaded_one": "1 modèle chargé en mémoire",
+      "loaded_many": "{count} modèles chargés en mémoire",
+      "down_action": "Démarrez Ollama, puis cliquez sur Réessayer.",
+      "down_hint": "Ouvrez l'application Ollama, ou lancez la commande ollama serve.",
+      "retry": "Réessayer",
+      "retrying": "Vérification en cours…"
+    },
+    "mode": {
+      "label": "Mode",
+      "local_detail": "Les données restent sur ce poste.",
+      "cloud_detail": "Le cloud est autorisé : les données envoyées aux modèles cloud quittent ce poste.",
+      "cloud_calls_none": "0 appel cloud dans cette session",
+      "cloud_calls_one": "1 appel cloud dans cette session",
+      "cloud_calls_many": "{count} appels cloud dans cette session"
+    },
+    "cpu": { "label": "Processeur" },
+    "memory": { "label": "Mémoire", "total": "sur {total}" },
+    "demo": {
+      "title": "Démo recommandée",
+      "name": "Arène des modèles",
+      "text": "Comparez plusieurs petits modèles sur votre question : qualité, vitesse et CO₂.",
+      "ready": "Prêts :",
+      "cloud_ready": "Modèles cloud disponibles :",
+      "no_local": "Aucun modèle local disponible.",
+      "no_local_cloud_off": "Autorisez le cloud dans la barre haute pour comparer des modèles cloud, ou installez un modèle dans l'écran Modèles.",
+      "launch": "Lancer une comparaison"
+    },
+    "modules_title": "Modules",
+    "open": "Ouvrir",
+    "modules": {
+      "documents": { "name": "Documents", "long": "Assistant documentaire", "summary_one": "1 document indexé · {chunks} extraits", "summary_many": "{count} documents indexés · {chunks} extraits", "summary_empty": "Base documentaire vide" },
+      "agents": { "name": "Agents", "long": "Agents autonomes", "summary": "{tools} outils, dont {disabled} désactivé ({reason})" },
+      "sobriety": { "name": "Sobriété", "long": "Sobriété et matériel", "summary": "CO₂ de cette session : {value}", "summary_none": "Aucune réponse mesurée dans cette session" },
+      "models": { "name": "Modèles", "long": "Installation et choix par usage", "summary": "{installed} modèles installés · {installable} installables" },
+      "references": { "name": "Références", "long": "Quel modèle pour quel usage ?", "summary": "{metric} : {score} pour {model}, en tête en {usage}, d'après {source}" }
+    }
+  }
+}

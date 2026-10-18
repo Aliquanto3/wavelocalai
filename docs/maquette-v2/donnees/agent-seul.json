@@ -1,0 +1,293 @@
+{
+  "_doc": "Données simulées de l'écran Agent seul (GET /api/agents/tools, actions rapides, réponses, métriques d'un run d'agent). Contenus 100 % fictifs : société Ombrelune, fichiers ventes*.csv, adresses en .test. `metrics` : ce que le serveur publierait dans l'événement metrics (agrégat des appels de modèle de la tâche, D3, AD-10).",
+  "smtp_reason": "Configuration SMTP absente : renseignez SMTP_HOST, SMTP_USER et SMTP_PASSWORD dans le fichier .env.",
+  "approval_expiry_min": 10,
+  "tools": [
+    {
+      "id": "heure",
+      "label": "Heure",
+      "description": "Donne la date et l'heure du poste.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "calculatrice",
+      "label": "Calculatrice",
+      "description": "Évalue une expression arithmétique, sans exécuter de code.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "recherche_interne",
+      "label": "Recherche interne Wavestone",
+      "description": "Cherche dans les fiches internes de démonstration.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "analyse_donnees",
+      "label": "Analyse de données",
+      "description": "Lit un fichier CSV du dossier de travail et en résume les colonnes et les totaux.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "generation_document",
+      "label": "Génération de document",
+      "description": "Écrit un document texte dans le dossier de travail de l'agent.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "generation_graphique",
+      "label": "Génération de graphique",
+      "description": "Trace un graphique simple à partir d'un fichier CSV et l'enregistre en image.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "rapport_markdown",
+      "label": "Rapport Markdown",
+      "description": "Assemble un rapport structuré en Markdown.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "moniteur_systeme",
+      "label": "Moniteur système",
+      "description": "Lit la charge du processeur et la mémoire du poste.",
+      "available": true,
+      "reason": null,
+      "sensitive": false,
+      "default_checked": true
+    },
+    {
+      "id": "envoi_email",
+      "label": "Envoi d'email",
+      "description": "Prépare un email ; rien ne part sans votre validation.",
+      "available": true,
+      "reason": null,
+      "sensitive": true,
+      "default_checked": false
+    }
+  ],
+  "quick_actions": [
+    {
+      "id": "ventes",
+      "label": "Analyser un fichier de ventes",
+      "description": "Résume ventes.csv et trace un graphique.",
+      "prompt": "Analyse le fichier ventes.csv et fais un graphique du chiffre d'affaires par mois."
+    },
+    {
+      "id": "email",
+      "label": "Préparer un email de synthèse",
+      "description": "Analyse ventes.csv puis rédige un email au client (à valider avant envoi).",
+      "prompt": "Analyse le fichier ventes.csv puis prépare un email de synthèse pour le client.",
+      "needs_tool": "envoi_email"
+    },
+    {
+      "id": "poste",
+      "label": "Vérifier l'état du poste",
+      "description": "Lit la charge du processeur et la mémoire disponible.",
+      "prompt": "Donne-moi l'état du poste : charge du processeur et mémoire disponible."
+    },
+    {
+      "id": "devis",
+      "label": "Calculer la marge d'un devis",
+      "description": "Calcule une marge à partir de chiffres que vous donnez.",
+      "prompt": "Un devis de 18 400 euros coûte 12 650 euros à produire : quelle est la marge en pourcentage ?"
+    }
+  ],
+  "prompts": {
+    "erreur_outil": "Analyse le fichier ventes_t3.csv et résume les tendances du trimestre.",
+    "bornes": "Retrouve la date de signature du contrat du client Ombrelune dans les fiches internes.",
+    "email": "Analyse le fichier ventes.csv puis prépare un email de synthèse pour le client."
+  },
+  "answers": {
+    "analyse": "Voici l'analyse de **ventes.csv** (données fictives).\n\n- Chiffre d'affaires total : **482 300 €** sur 12 mois.\n- Progression : **+12 %** entre janvier et décembre.\n- Meilleur mois : **novembre**, avec 51 200 €.\n\nLe graphique `ventes_par_mois.svg` est enregistré dans le dossier de travail de l'agent.\n\nEn résumé, la tendance est à la hausse, avec un pic saisonnier en fin d'année.",
+    "sans_email": "Voici la synthèse de **ventes.csv** (données fictives), à envoyer vous-même : l'outil « Envoi d'email » n'est pas coché.\n\n- Chiffre d'affaires total : **482 300 €** sur 12 mois.\n- Progression : **+12 %** entre janvier et décembre.\n- Meilleur mois : **novembre**, avec 51 200 €.\n\nCochez « Envoi d'email » si vous voulez que je prépare le message : vous le validerez avant tout envoi.",
+    "poste": "Le poste est **peu chargé** :\n\n- Processeur : 14 % d'utilisation.\n- Mémoire : 9,8 Go utilisés sur 16 Go.\n- Un modèle est chargé en mémoire (Qwen 3.6 7B).\n\nIl reste de la place pour un second petit modèle.",
+    "devis": "La marge est de **5 750 €**, soit **31,3 %** du prix de vente (18 400 €).\n\nCalcul : (18 400 − 12 650) ÷ 18 400.",
+    "email_envoye": "L'email de synthèse a été envoyé à **c.moreau@clientexemple.test** après votre validation.\n\nIl résume le chiffre d'affaires de 482 300 € et la progression de 12 %. Le graphique `ventes_par_mois.svg` reste dans le dossier de travail si vous voulez le joindre.",
+    "email_refuse": "L'email **n'a pas été envoyé** : vous avez refusé l'envoi. Rien n'a quitté le poste.\n\nLe brouillon est dans la trace des étapes. Dites-moi ce qu'il faut modifier et je le prépare de nouveau.",
+    "email_expire": "L'email **n'a pas été envoyé** : la validation a expiré au bout de 10 minutes, ce qui vaut refus.\n\nLe brouillon est dans la trace des étapes. Relancez la tâche si vous voulez le renvoyer.",
+    "erreur_outil": "Le fichier `ventes_t3.csv` n'existe pas ; j'ai utilisé **ventes.csv**, le seul disponible.\n\nSur le trimestre le plus récent :\n\n- Octobre : 44 800 €.\n- Novembre : 51 200 €.\n- Décembre : 48 900 €.\n\nLe chiffre d'affaires est stable, avec un pic en novembre.",
+    "bornes": "Je n'ai pas trouvé la date de signature du contrat Ombrelune : la limite de 12 étapes est atteinte.\n\nCe que j'ai vérifié : cinq recherches dans les fiches internes, sans fiche de contrat. Précisez le nom du dossier ou donnez-moi un numéro de fiche, et je reprends."
+  },
+  "email": {
+    "to": "c.moreau@clientexemple.test",
+    "subject": "Synthèse des ventes de l'année",
+    "body": "Bonjour,\n\nVoici la synthèse des ventes de l'année, d'après le fichier ventes.csv :\n\n- Chiffre d'affaires total : 482 300 €.\n- Progression de janvier à décembre : +12 %.\n- Meilleur mois : novembre (51 200 €).\n\nLe graphique par mois est disponible sur demande.\n\nCordialement,\nL'équipe Ombrelune"
+  },
+  "results": {
+    "approved": "Email envoyé.",
+    "rejected": "Envoi annulé : l'agent en est informé.",
+    "expired": "Validation expirée : email non envoyé."
+  },
+  "metrics": {
+    "qwen3.5:2b": {
+      "ttft_s": 0.42,
+      "load_s": 3.2,
+      "eval_tokens": 445,
+      "eval_s": 10.86,
+      "tps": 41,
+      "tps_source": "ollama_eval",
+      "total_s": 23.6,
+      "origin": "local",
+      "co2": {
+        "mg": 5,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "gemma4:1b": {
+      "ttft_s": 0.31,
+      "load_s": 1.9,
+      "eval_tokens": 395,
+      "eval_s": 6.26,
+      "tps": 63,
+      "tps_source": "ollama_eval",
+      "total_s": 15.7,
+      "origin": "local",
+      "co2": {
+        "mg": 2.6,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "lfm2.5:1.2b": {
+      "ttft_s": 0.33,
+      "load_s": 2.1,
+      "eval_tokens": 412,
+      "eval_s": 7.1,
+      "tps": 58,
+      "tps_source": "ollama_eval",
+      "total_s": 17,
+      "origin": "local",
+      "co2": {
+        "mg": 3.1,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "qwen3.6:7b": {
+      "ttft_s": 0.9,
+      "load_s": 6.8,
+      "eval_tokens": 485,
+      "eval_s": 26.88,
+      "tps": 18,
+      "tps_source": "ollama_eval",
+      "total_s": 49.3,
+      "origin": "local",
+      "co2": {
+        "mg": 17.6,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "gpt-5-mini": {
+      "ttft_s": 0.71,
+      "load_s": null,
+      "eval_tokens": 431,
+      "eval_s": 5.04,
+      "tps": 85,
+      "tps_source": "wallclock",
+      "total_s": 10.8,
+      "origin": "cloud",
+      "co2": {
+        "mg": 2.5,
+        "method": "ecologits",
+        "estimated": true,
+        "range_mg": {
+          "low": 1.7,
+          "high": 3.9
+        },
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "ttft_s": 0.22,
+      "load_s": null,
+      "eval_tokens": 460,
+      "eval_s": 1.26,
+      "tps": 365,
+      "tps_source": "wallclock",
+      "total_s": 6,
+      "origin": "cloud",
+      "co2": {
+        "mg": 6.7,
+        "method": "ecologits",
+        "estimated": true,
+        "range_mg": {
+          "low": 4.2,
+          "high": 10.9
+        },
+        "allocation": "direct",
+        "reason": null
+      }
+    },
+    "claude-haiku-4-5": {
+      "ttft_s": 0.55,
+      "load_s": null,
+      "eval_tokens": 470,
+      "eval_s": 4.41,
+      "tps": 107,
+      "tps_source": "wallclock",
+      "total_s": 9.9,
+      "origin": "cloud",
+      "co2": {
+        "mg": null,
+        "method": "unmeasurable",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": "Anthropic ne publie pas la taille de ce modèle : son empreinte ne peut pas être calculée."
+      }
+    },
+    "default_local": {
+      "ttft_s": 0.5,
+      "load_s": 3,
+      "eval_tokens": 420,
+      "eval_s": 10.5,
+      "tps": 40,
+      "tps_source": "ollama_eval",
+      "total_s": 22.7,
+      "origin": "local",
+      "co2": {
+        "mg": 4.2,
+        "method": "codecarbon",
+        "estimated": false,
+        "range_mg": null,
+        "allocation": "direct",
+        "reason": null
+      }
+    }
+  }
+}

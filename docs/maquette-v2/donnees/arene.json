@@ -1,0 +1,331 @@
+{
+  "_doc": "Données simulées de l'Arène (Epic 3). Contenus 100 % fictifs. `lanes` : ce que le serveur mesurerait par modèle pour la question par défaut (réponse, métriques de l'événement `metrics` au format AD-6 et AD-10, note et raison du juge). `price_eur_per_1k` : table de prix cloud datée (story 3.5, `wavelocalai.toml`). `machine`, `digests` : preuve de mesure des exports (story 3.6). `runs` : comparaisons « conservées » que l'on rouvre par `#/arene/comparer/<run_id>` ; `outcomes` : état de fin de chaque lane (ok, empty, timeout, failed, cancelled) ; `erased` : texte effacé, mesures gardées (AD-13).",
+  "default_prompt": "Explique la dette technique à un enfant de 10 ans avec une métaphore filée.",
+  "scenarios": [
+    {
+      "id": "vulgarisation",
+      "label": "Vulgarisation",
+      "prompt": "Explique la dette technique à un enfant de 10 ans avec une métaphore filée."
+    },
+    {
+      "id": "extraction-json",
+      "label": "Extraction JSON",
+      "prompt": "Extrais la date, le montant et le fournisseur de cette facture fictive, en JSON : « Facture du 12 octobre 2026 de la société Ombrelune pour 480 €. »"
+    },
+    {
+      "id": "resume",
+      "label": "Résumé",
+      "prompt": "Résume en trois phrases ce compte rendu fictif : le projet Orée a une semaine de retard parce que la validation d'une interface a pris plus de temps ; la livraison passe au 2 novembre."
+    },
+    {
+      "id": "traduction",
+      "label": "Traduction",
+      "prompt": "Traduis en anglais : « L'inférence locale garantit la confidentialité des données. »"
+    }
+  ],
+  "criteria_default": "Exactitude du fond (40 points), clarté pour le public visé (30 points), respect de la consigne (20 points), concision (10 points). Note finale sur 100.",
+  "lane_timeout_s": 120,
+  "machine": "PC portable fictif · 16 Go de mémoire · sans GPU dédié",
+  "price_table_date": "2026-10-01",
+  "price_eur_per_1k": {
+    "gpt-5-mini": 0.42,
+    "openai/gpt-oss-120b": 0.31,
+    "claude-haiku-4-5": 0.94,
+    "mistral-small-latest": null
+  },
+  "digests": {
+    "gemma4:1b": "sha256:3f9a1c0e72b4",
+    "qwen3.5:2b": "sha256:8d21b7a45c19",
+    "lfm2.5:1.2b": "sha256:a07e55d3c8f2",
+    "lfm2.5:8b-a1b": "sha256:51c6e90b7d43",
+    "qwen3.6:7b": "sha256:c4f8029ae1b6",
+    "qwen3.6:35b-a3b": "sha256:92d0b6f3a8e7"
+  },
+  "lanes": {
+    "gemma4:1b": {
+      "answer": "Imagine que ta chambre est un petit jardin. Chaque fois que tu es pressé, tu jettes tes jouets dans un coin au lieu de les ranger : c'est la **dette technique**.\n\nAu début, tout va vite et personne ne dit rien. Mais les jours passent, les jouets s'empilent, et pour retrouver ton jeu préféré il faut tout déplacer.\n\nRanger un peu chaque semaine, c'est **rembourser la dette** : le jardin reste agréable et on peut y jouer sans se fatiguer.",
+      "partial": "Imagine que ta chambre est un petit jardin. Chaque fois que tu es pressé, tu jettes tes jouets",
+      "score": 88,
+      "reason": "Métaphore filée jusqu'au bout, vocabulaire adapté à un enfant, consigne respectée.",
+      "metrics": {
+        "ttft_s": 0.31,
+        "load_s": 1.9,
+        "eval_tokens": 112,
+        "eval_s": 1.78,
+        "tps": 63,
+        "tps_source": "ollama_eval",
+        "total_s": 4.1,
+        "origin": "local",
+        "co2": {
+          "mg": 0.94,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "qwen3.5:2b": {
+      "answer": "Pense à une maison en Lego. Quand on construit vite, on colle les briques n'importe comment : la maison tient, mais elle est fragile. C'est la **dette technique**, comme un prêt que l'on rembourse plus tard.\n\nChaque nouvelle pièce devient plus difficile à ajouter, parce qu'il faut contourner les briques mal posées.\n\nUn jour, on prend le temps de défaire et de refaire proprement : on rembourse la dette, et la maison peut grandir sans s'écrouler.",
+      "partial": "Pense à une maison en Lego. Quand on construit vite, on colle les briques n'importe comment : la maison tient",
+      "score": 82,
+      "reason": "Bonne métaphore, un peu abstraite par endroits (« prêt », « rembourse »).",
+      "metrics": {
+        "ttft_s": 0.42,
+        "load_s": 3.2,
+        "eval_tokens": 108,
+        "eval_s": 2.63,
+        "tps": 41,
+        "tps_source": "ollama_eval",
+        "total_s": 6.4,
+        "origin": "local",
+        "co2": {
+          "mg": 1.8,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "lfm2.5:1.2b": {
+      "answer": "La dette technique, c'est comme emprunter un vélo trop petit pour arriver plus vite à l'école. Tu gagnes du temps aujourd'hui, mais tes genoux fatiguent et la chaîne finit par sauter.\n\nPlus tu attends, plus la réparation coûte cher. Alors on s'arrête de temps en temps pour régler le vélo : un peu de temps maintenant évite une grosse panne plus tard.",
+      "partial": "La dette technique, c'est comme emprunter un vélo trop petit pour arriver plus vite à l'école. Tu gagnes",
+      "score": 79,
+      "reason": "Image claire mais courte : la notion de remboursement est à peine évoquée.",
+      "metrics": {
+        "ttft_s": 0.33,
+        "load_s": 2.1,
+        "eval_tokens": 89,
+        "eval_s": 1.53,
+        "tps": 58,
+        "tps_source": "ollama_eval",
+        "total_s": 4.0,
+        "origin": "local",
+        "co2": {
+          "mg": 1.1,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "lfm2.5:8b-a1b": {
+      "answer": "Imagine une bibliothèque de classe. Si chacun pose ses livres au premier endroit libre pour aller plus vite, on gagne cinq minutes aujourd'hui, mais demain personne ne retrouve rien. Ces minutes gagnées sont une **dette** : on les doit à la bibliothèque.\n\nChaque semaine, la classe passe un quart d'heure à ranger. C'est le remboursement. Plus on attend, plus les intérêts grossissent : il faut chercher plus longtemps chaque livre.\n\nUne classe qui range régulièrement trouve toujours son livre, et peut même accueillir de nouveaux élèves.",
+      "partial": "Imagine une bibliothèque de classe. Si chacun pose ses livres au premier endroit libre pour aller plus vite",
+      "score": 85,
+      "reason": "Métaphore filée avec l'idée d'intérêts, légèrement longue pour un enfant de 10 ans.",
+      "metrics": {
+        "ttft_s": 0.4,
+        "load_s": 5.2,
+        "eval_tokens": 130,
+        "eval_s": 3.5,
+        "tps": 37,
+        "tps_source": "ollama_eval",
+        "total_s": 9.3,
+        "origin": "local",
+        "co2": {
+          "mg": 3.1,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "qwen3.6:7b": {
+      "answer": "Imagine que ta famille prépare un grand pique-nique. Pour gagner du temps, quelqu'un décide de ne pas laver la vaisselle de la veille : c'est une **dette**. Ce soir-là, tout va très vite.\n\nMais le lendemain, il y a deux fois plus d'assiettes à laver, et personne n'a envie de s'y mettre. Plus on repousse, plus la pile grandit, et un jour on ne trouve plus une seule assiette propre.\n\nLa **dette technique**, c'est pareil avec un programme : on a tout écrit vite, sans ranger. Rembourser, c'est laver la vaisselle un peu chaque jour pour que le prochain pique-nique soit un plaisir.",
+      "partial": "Imagine que ta famille prépare un grand pique-nique. Pour gagner du temps, quelqu'un décide de ne pas laver",
+      "score": 91,
+      "reason": "Métaphore filée et concrète, lien explicite avec le logiciel, ton adapté.",
+      "metrics": {
+        "ttft_s": 0.9,
+        "load_s": 6.8,
+        "eval_tokens": 140,
+        "eval_s": 7.8,
+        "tps": 18,
+        "tps_source": "ollama_eval",
+        "total_s": 15.7,
+        "origin": "local",
+        "co2": {
+          "mg": 6.3,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "gpt-5-mini": {
+      "answer": "Imagine que tu construis une cabane dans le jardin. Pour aller vite, tu cloues les planches sans mesurer : la cabane est prête ce soir, c'est ta **dette technique**.\n\nMais à chaque tempête, il faut ajouter des clous, et pour agrandir la cabane il faut tout défaire. Plus tu attends, plus les réparations sont longues.\n\nUn week-end, tu remplaces les planches bancales par des planches bien droites : tu **rembourses la dette**, et la cabane devient solide pour longtemps.",
+      "partial": "Imagine que tu construis une cabane dans le jardin. Pour aller vite, tu cloues les planches",
+      "score": 90,
+      "reason": "Métaphore filée complète, claire, avec un fil narratif jusqu'au remboursement.",
+      "metrics": {
+        "ttft_s": 0.71,
+        "load_s": null,
+        "eval_tokens": 126,
+        "eval_s": 1.48,
+        "tps": 85,
+        "tps_source": "wallclock",
+        "total_s": 2.2,
+        "origin": "cloud",
+        "co2": {
+          "mg": 0.9,
+          "method": "ecologits",
+          "estimated": true,
+          "range_mg": {
+            "low": 0.6,
+            "high": 1.4
+          },
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "openai/gpt-oss-120b": {
+      "answer": "Imagine un grand puzzle que toute la classe assemble. Pour finir plus vite, certains collent des pièces qui ne vont pas tout à fait : l'image se forme, mais avec des trous. C'est la **dette technique**.\n\nPlus tard, pour ajouter une nouvelle partie du puzzle, il faut décoller les mauvaises pièces avant de continuer. Chaque raccourci pris se paie avec des intérêts.\n\nRembourser la dette, c'est reprendre quelques pièces à chaque séance pour que le puzzle reste propre jusqu'au bout.",
+      "partial": "Imagine un grand puzzle que toute la classe assemble. Pour finir plus vite, certains collent des pièces",
+      "score": 93,
+      "reason": "Réponse très claire, métaphore filée, notion d'intérêts bien introduite.",
+      "metrics": {
+        "ttft_s": 0.22,
+        "load_s": null,
+        "eval_tokens": 140,
+        "eval_s": 0.38,
+        "tps": 365,
+        "tps_source": "wallclock",
+        "total_s": 0.6,
+        "origin": "cloud",
+        "co2": {
+          "mg": 2.4,
+          "method": "ecologits",
+          "estimated": true,
+          "range_mg": {
+            "low": 1.5,
+            "high": 3.9
+          },
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    },
+    "claude-haiku-4-5": {
+      "answer": "Imagine que tu dessines sur un grand cahier. Pour gagner du temps, tu écris par-dessus les ratures au lieu de tourner la page : c'est ta **dette technique**.\n\nAu début, ça va. Puis le cahier devient illisible, et pour ajouter un nouveau dessin il faut d'abord tout déchiffrer. Reprendre une page propre de temps en temps, c'est **rembourser la dette** : le cahier reste agréable à lire.",
+      "partial": "Imagine que tu dessines sur un grand cahier. Pour gagner du temps, tu écris par-dessus les ratures",
+      "score": 89,
+      "reason": "Métaphore simple et fidèle à la consigne, un peu brève sur le remboursement.",
+      "metrics": {
+        "ttft_s": 0.55,
+        "load_s": null,
+        "eval_tokens": 120,
+        "eval_s": 1.12,
+        "tps": 107,
+        "tps_source": "wallclock",
+        "total_s": 1.7,
+        "origin": "cloud",
+        "co2": {
+          "mg": null,
+          "method": "unmeasurable",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": "Anthropic ne publie pas la taille de ce modèle : son empreinte ne peut pas être calculée."
+        }
+      }
+    },
+    "default": {
+      "answer": "Imagine un escalier que l'on construit marche après marche. Si on saute une étape pour aller plus vite, l'escalier monte, mais il devient bancal : c'est la **dette technique**.\n\nQuelques semaines plus tard, il faut refaire les marches mal posées avant d'en ajouter de nouvelles. Rembourser la dette, c'est reprendre une marche à la fois.",
+      "partial": "Imagine un escalier que l'on construit marche après marche. Si on saute une étape pour aller plus vite",
+      "score": 80,
+      "reason": "Réponse correcte, métaphore simple.",
+      "metrics": {
+        "ttft_s": 0.5,
+        "load_s": 3.0,
+        "eval_tokens": 90,
+        "eval_s": 2.2,
+        "tps": 40,
+        "tps_source": "ollama_eval",
+        "total_s": 6.0,
+        "origin": "local",
+        "co2": {
+          "mg": 1.5,
+          "method": "codecarbon",
+          "estimated": false,
+          "range_mg": null,
+          "allocation": "direct",
+          "reason": null
+        }
+      }
+    }
+  },
+  "runs": {
+    "run-arene-demo": {
+      "status": "ok",
+      "started_at": "2026-10-18T09:12:00Z",
+      "duration_s": 41,
+      "prompt": "Explique la dette technique à un enfant de 10 ans avec une métaphore filée.",
+      "judge": "qwen3.6:7b",
+      "criteria": "Exactitude du fond (40 points), clarté pour le public visé (30 points), respect de la consigne (20 points), concision (10 points). Note finale sur 100.",
+      "models": [
+        "gemma4:1b",
+        "qwen3.5:2b",
+        "lfm2.5:1.2b",
+        "gpt-5-mini"
+      ],
+      "outcomes": {
+        "gemma4:1b": "ok",
+        "qwen3.5:2b": "ok",
+        "lfm2.5:1.2b": "empty",
+        "gpt-5-mini": "ok"
+      }
+    },
+    "run-arene-efface": {
+      "status": "ok",
+      "started_at": "2026-10-16T14:30:00Z",
+      "duration_s": 33,
+      "prompt": "Explique la dette technique à un enfant de 10 ans avec une métaphore filée.",
+      "judge": "qwen3.6:7b",
+      "criteria": "Exactitude du fond (40 points), clarté pour le public visé (30 points), respect de la consigne (20 points), concision (10 points). Note finale sur 100.",
+      "models": [
+        "gemma4:1b",
+        "qwen3.5:2b",
+        "lfm2.5:1.2b"
+      ],
+      "outcomes": {
+        "gemma4:1b": "ok",
+        "qwen3.5:2b": "ok",
+        "lfm2.5:1.2b": "ok"
+      },
+      "erased": true
+    },
+    "run-arene-arrete": {
+      "status": "cancelled",
+      "started_at": "2026-10-17T16:05:00Z",
+      "duration_s": 17,
+      "prompt": "Explique la dette technique à un enfant de 10 ans avec une métaphore filée.",
+      "judge": "qwen3.6:7b",
+      "criteria": "Exactitude du fond (40 points), clarté pour le public visé (30 points), respect de la consigne (20 points), concision (10 points). Note finale sur 100.",
+      "models": [
+        "gemma4:1b",
+        "qwen3.5:2b",
+        "lfm2.5:1.2b"
+      ],
+      "outcomes": {
+        "gemma4:1b": "ok",
+        "qwen3.5:2b": "cancelled",
+        "lfm2.5:1.2b": "cancelled"
+      }
+    }
+  },
+  "reasons": {
+    "empty": "réponse vide",
+    "judge_down": "juge indisponible"
+  }
+}

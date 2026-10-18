@@ -1,0 +1,48 @@
+{
+  "_doc": "Base documentaire simulée (GET /api/rag/documents, GET /api/rag/settings). Contenus 100 % fictifs : la société Ombrelune n'existe pas. 12 documents et 340 extraits pour la base « complet » (résumé de l'Accueil). `presets` : les bases que les scénarios posent ; `samples` : les fichiers que les scénarios « déposent » (la maquette ne lit jamais un fichier choisi : seuls son nom et sa taille servent).",
+  "documents": [
+    { "id": "doc-01", "name": "Note-cadrage-atelier.docx", "chunks": 14, "pages": 4, "added_at": "2026-10-17T09:15:00Z" },
+    { "id": "doc-02", "name": "Charte-sobriete-numerique.pdf", "chunks": 35, "pages": 12, "added_at": "2026-10-16T14:02:00Z" },
+    { "id": "doc-03", "name": "Guide-accueil-nouveaux-arrivants.pdf", "chunks": 41, "pages": 16, "added_at": "2026-10-16T10:40:00Z" },
+    { "id": "doc-04", "name": "Compte-rendu-comite-projet.md", "chunks": 27, "pages": 9, "added_at": "2026-10-15T17:21:00Z" },
+    { "id": "doc-05", "name": "Procedure-sauvegarde-postes.txt", "chunks": 18, "pages": 6, "added_at": "2026-10-15T11:05:00Z" },
+    { "id": "doc-06", "name": "Rapport-activite-2025.pdf", "chunks": 52, "pages": 24, "added_at": "2026-10-14T16:48:00Z" },
+    { "id": "doc-07", "name": "Politique-achats-responsables.docx", "chunks": 23, "pages": 8, "added_at": "2026-10-14T09:30:00Z" },
+    { "id": "doc-08", "name": "FAQ-teletravail.md", "chunks": 31, "pages": 10, "added_at": "2026-10-13T15:12:00Z" },
+    { "id": "doc-09", "name": "Plan-formation-2026.pdf", "chunks": 29, "pages": 11, "added_at": "2026-10-13T08:55:00Z" },
+    { "id": "doc-10", "name": "Notes-reunion-equipe-support.txt", "chunks": 22, "pages": 7, "added_at": "2026-10-12T13:37:00Z" },
+    { "id": "doc-11", "name": "Referentiel-securite-poste.pdf", "chunks": 19, "pages": 6, "added_at": "2026-10-12T10:08:00Z" },
+    { "id": "doc-12", "name": "Glossaire-metiers.docx", "chunks": 29, "pages": 10, "added_at": "2026-10-12T09:20:00Z" },
+    { "id": "doc-13", "name": "Retour-experience-pilote.pdf", "chunks": 12, "pages": 14, "added_at": "2026-10-18T08:41:00Z", "status": "indexing" }
+  ],
+  "presets": {
+    "complet": ["doc-01", "doc-02", "doc-03", "doc-04", "doc-05", "doc-06", "doc-07", "doc-08", "doc-09", "doc-10", "doc-11", "doc-12"],
+    "indexation": ["doc-01", "doc-02", "doc-03", "doc-04", "doc-05", "doc-06", "doc-07", "doc-08", "doc-09", "doc-10", "doc-11", "doc-12", "doc-13"],
+    "atelier": ["doc-01"],
+    "vide": []
+  },
+  "settings": {
+    "embedding": "bge-m3:latest",
+    "chunk_size": 800,
+    "top_k": 3,
+    "strategy": "naive"
+  },
+  "embedding_models": [
+    { "tag": "bge-m3:latest", "name": "BGE M3", "size_gb": 1.2, "needed_gb": 1.4 },
+    { "tag": "nomic-embed-text:latest", "name": "Nomic Embed Text", "size_gb": 0.3, "needed_gb": 0.5 }
+  ],
+  "reranker": {
+    "model": "bge-reranker-v2-m3",
+    "available": false,
+    "reason": "le modèle n'est pas dans le dossier de données (aucun téléchargement n'est tenté pendant un atelier)"
+  },
+  "samples": {
+    "note": { "name": "Note-cadrage-atelier.docx", "size_kb": 184, "pages": 4, "chunks": 14 },
+    "plan": { "name": "Plan-communication-interne.pdf", "size_kb": 302, "pages": 9, "chunks": 22 },
+    "retour": { "name": "Retour-experience-atelier.md", "size_kb": 46, "pages": 3, "chunks": 9 },
+    "protege": { "name": "Budget-previsionnel-fictif.pdf", "size_kb": 410, "pages": 0, "chunks": 0, "fail": { "reason": "le PDF est protégé par un mot de passe", "technical": "pypdf.errors.FileNotDecryptedError: File has not been decrypted" } },
+    "zip": { "name": "Archive-exports.zip", "size_kb": 1320, "pages": 0, "chunks": 0, "fail": { "reason": "le format « .zip » n'est pas pris en charge", "technical": "ValueError: extension refusée : .zip (autorisées : .pdf, .txt, .md, .docx)" } },
+    "doublon": { "name": "Procedure-sauvegarde-postes.txt", "size_kb": 52, "pages": 6, "chunks": 18, "duplicate": true },
+    "gros": { "name": "Rapport-annuel-fictif.pdf", "size_kb": 980, "pages": 28, "chunks": 64 }
+  }
+}

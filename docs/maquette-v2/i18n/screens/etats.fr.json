@@ -1,0 +1,34 @@
+{
+  "etats": {
+    "lead": "Page de la maquette : chaque état commun, tel que les écrans l'instancient (js/components/states.js).",
+    "general": "États généraux",
+    "empty": "État vide",
+    "empty_title": "Votre base documentaire est vide",
+    "empty_text": "Importez un premier document pour l'interroger et voir d'où viennent les réponses.",
+    "empty_action": "Importer des documents",
+    "loading": "Premier chargement lent",
+    "notices": "Messages",
+    "notice_info": "12 extraits ajoutés depuis 1 document.",
+    "notice_success": "Base documentaire vidée.",
+    "notice_warning": "Note peu fiable : le juge a moins de 4 milliards de paramètres.",
+    "joined": "Exécution déjà en cours (409 rejoint)",
+    "runs": "Exécution : en cours, terminée, arrêtée",
+    "values": "Valeurs et garde-fous",
+    "score": "Score ou « non évalué »",
+    "co2": "CO₂ mesuré, estimé ou « non mesurable »",
+    "cloud": "Cloud désactivé puis activé",
+    "ram": "Garde-fou mémoire",
+    "dialogs": "Confirmations",
+    "errors": "Erreurs (UX-DR16)",
+    "not_uxdr16": " (hors UX-DR16)",
+    "email_open": "Valider un email",
+    "vider": {
+      "open": "Vider la base documentaire",
+      "title": "Vider la base documentaire ?",
+      "consequence": "42 extraits de 3 documents seront supprimés. Cette action ne peut pas être annulée.",
+      "confirm": "Vider la base documentaire",
+      "done": "Base documentaire vidée : 42 extraits de 3 documents supprimés.",
+      "cancelled": "Rien n'a été supprimé."
+    }
+  }
+}

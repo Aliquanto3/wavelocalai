@@ -1,0 +1,67 @@
+{
+  "references": {
+    "lead": "Quel modèle pour quel usage ? Les mesures viennent du banc slm-quality-bench : rien n'est recalculé ni téléchargé ici.",
+    "source": "Source : {source}, {campaign}, publiée le {date}. Machine de référence : {machine}, {memory} de mémoire, {gpu}.",
+    "gpu_none": "sans GPU",
+    "title": "Quel modèle pour quel usage ?",
+    "segment_label": "Affichage des références",
+    "cards": "Cartes",
+    "table": "Tableau",
+    "loading": "Lecture des résultats du banc…",
+    "loading_slow": "La lecture des résultats prend plus de temps que prévu. Merci de patienter.",
+    "ollama_down": "Ollama ne répond pas : les marques « installé » et « autre version » ne sont pas vérifiées.",
+    "unavailable": {
+      "title": "Références indisponibles",
+      "absent": "Le fichier des résultats du banc n'est pas présent sur ce poste. Il est déposé dans le dépôt par la synchronisation hebdomadaire ; rien n'est téléchargé à l'exécution.",
+      "schema": "Le fichier des résultats annonce le format « {schema} », que cette version ne sait pas lire. Mettez l'application à jour pour lire ces références.",
+      "empty": "Le banc n'a publié aucun usage dans cette campagne : il n'y a rien à recommander pour l'instant."
+    },
+    "card": {
+      "measure": "{metric} · {count} questions",
+      "best_group": "Groupe des meilleurs",
+      "best_one": "Meilleur modèle",
+      "tie": "À égalité statistique : aucun rang n'est donné dans ce groupe.",
+      "alone": "Seul modèle devant les autres, intervalle compris.",
+      "score": "{score}",
+      "interval": "intervalle : entre {low} et {high}",
+      "rate": "{rate} sur la machine de référence",
+      "rate_unknown": "débit inconnu sur la machine de référence",
+      "energy": "{value} Wh pour 100 questions, mesurés",
+      "others": "Autres modèles mesurés : {count}.",
+      "unranked": "Non classés pour cet usage : {names}.",
+      "see_table": "Voir le tableau",
+      "compare": "Comparer ces modèles",
+      "compare_none": "Aucun modèle de ce groupe n'est installé sur ce poste.",
+      "compare_unknown": "Modèles installés non vérifiés : Ollama ne répond pas."
+    },
+    "mark": {
+      "installed": "installé",
+      "other_version": "autre version"
+    },
+    "mark_help": {
+      "installed": "Ce poste a ce modèle, avec les mêmes poids que ceux mesurés.",
+      "other_version": "Ce poste a ce modèle sous le même nom, mais avec d'autres poids que ceux mesurés."
+    },
+    "col": {
+      "usage": "Usage",
+      "model": "Modèle",
+      "group": "Groupe",
+      "score": "Part de réussite",
+      "interval": "Intervalle",
+      "rate": "Débit (machine de référence)",
+      "energy": "Énergie",
+      "here": "Sur ce poste"
+    },
+    "group": {
+      "best": "Meilleurs, à égalité",
+      "other": "Hors du groupe",
+      "none": "non classé"
+    },
+    "energy_none": "non mesurée",
+    "here_none": "non installé",
+    "caption": "Résultats du banc par usage et par modèle",
+    "unknown_score": "non classé",
+    "announce_table": "Affichage en tableau.",
+    "announce_cards": "Affichage en cartes."
+  }
+}

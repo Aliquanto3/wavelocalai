@@ -1,0 +1,11 @@
+{
+  "id": "discussion-erreur",
+  "kind": "rag",
+  "label": "Les sources sont trouvées, puis la génération échoue (fournisseur cloud injoignable, délai dépassé…)",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "rag", "models": ["{{tag}}"], "params": { "strategy": "{{strategy}}", "top_k": "{{top_k}}" } } },
+    { "wait": 80, "type": "retrieval_step", "data": { "strategy": "{{strategy}}", "step": "search" } },
+    { "wait": 800, "type": "sources", "data": { "sources": "{{sources}}" } },
+    { "wait": 1500, "type": "run_ended", "data": { "status": "error", "error": "{{error}}" } }
+  ]
+}
