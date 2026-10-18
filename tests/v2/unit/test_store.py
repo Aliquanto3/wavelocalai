@@ -256,3 +256,51 @@ def test_a_failing_purge_job_still_rolls_back_the_transaction(store):
     with pytest.raises(ValueError):
         store.write(failing, purge=True).result()
     assert store.read("SELECT count(*) AS n FROM app_sessions")[0]["n"] == 0
+
+
+def test_a_purge_blocked_by_a_reader_is_reported_then_replayed(store):
+    # AD-13 : un lecteur qui tient le journal empêche `wal_checkpoint(TRUNCATE)` (`busy`) ; le
+    # texte resterait dans le `-wal`. L'effacement est validé, la purge reste due et se rejoue.
+    store.write(lambda conn: conn.execute("PRAGMA busy_timeout=50"))
+    store.write(
+        lambda conn: conn.execute(
+            "INSERT INTO app_sessions VALUES ('s', 'Aiguille-Unique-5521', 'startup')"
+        )
+    ).result()
+    wal = Path(f"{store.path}-wal")
+    reader = sqlite3.connect(store.path, isolation_level=None)
+    try:
+        reader.execute("BEGIN")
+        reader.execute("SELECT count(*) FROM app_sessions").fetchall()
+        store.write(lambda conn: conn.execute("DELETE FROM app_sessions"), purge=True).result()
+        assert store.purge_pending is True
+        assert b"Aiguille-Unique-5521" in wal.read_bytes()
+    finally:
+        reader.close()
+    store.write(lambda conn: None).result()  # écriture suivante : la purge est rejouée
+    assert store.purge_pending is False
+    assert wal.stat().st_size == 0
+    assert b"Aiguille-Unique-5521" not in Path(store.path).read_bytes()
+
+
+def test_a_failing_purge_does_not_undo_or_fail_the_committed_erase(store, monkeypatch):
+    import wavelocalai.store.db as db
+
+    def broken(conn):
+        raise sqlite3.OperationalError("disque plein")
+
+    store.write(
+        lambda conn: conn.execute("INSERT INTO app_sessions VALUES ('s', 'x', 'startup')")
+    ).result()
+    monkeypatch.setattr(db, "purge_free_space", broken)
+    assert (
+        store.write(
+            lambda conn: conn.execute("DELETE FROM app_sessions").rowcount, purge=True
+        ).result()
+        == 1
+    )
+    assert store.read("SELECT count(*) AS n FROM app_sessions")[0]["n"] == 0
+    assert store.purge_pending is True
+    monkeypatch.undo()
+    store.write(lambda conn: None).result()
+    assert store.purge_pending is False

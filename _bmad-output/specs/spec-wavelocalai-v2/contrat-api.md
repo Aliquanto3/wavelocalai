@@ -67,7 +67,7 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | Écran | Lectures | Commandes |
 |---|---|---|
 | Accueil | santé, flux système, défauts `arena`, résumé de la base, outils, CO₂ de session, carte Références | — |
-| Chat libre | modèles, défaut `chat`, `GET /api/conversations/{id}` | `POST /api/chat/runs {conversation_id?, model, message, temperature, allow_cloud}` ; `DELETE /api/conversations/{id}` ; export `GET /api/conversations/{id}.json` et `.md` |
+| Chat libre | modèles, défaut `chat`, `GET /api/conversations/{id}`, `GET /api/conversations?kind=chat&limit=1` (les plus récentes d'abord, l'écran rouvre la dernière) | `POST /api/chat/runs {conversation_id?, model, message, temperature, allow_cloud}` ; `DELETE /api/conversations/{id}` ; export `GET /api/conversations/{id}.json` et `.md` |
 | Arène | modèles, défauts `arena` et `judge`, scénarios, `GET /api/arena/runs`, verdict par `GET /api/runs/{id}` à `run_ended` et à la réouverture | `POST /api/arena/runs {models, prompt, judge, criteria, allow_cloud}` ; export `GET /api/arena/runs/{id}.csv` et `.md` |
 | Références (`#/arene/references`) | références par usage lues depuis `qb.results/1` (AD-22) | — |
 | Base documentaire | `GET /api/rag/documents` (avec `status` : `indexing`, `ready`, `failed`), `GET /api/rag/settings` | `POST /api/rag/documents` (multipart, rend le `run_id` du run `ingest`) ; `DELETE /api/rag/documents/{id}` ; `DELETE /api/rag/base?expected_count=` ; `PUT /api/rag/settings` (changer d'embedding impose « Vider ») |

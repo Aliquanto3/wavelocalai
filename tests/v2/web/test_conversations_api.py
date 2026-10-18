@@ -279,3 +279,29 @@ async def test_exports_work_on_a_conversation_without_any_answer(served, extensi
     await app.state.hub.cancel(handle.run_id)
     response = await client.get(f"/api/conversations/{handle.conversation_id}.{extension}")
     assert response.status_code == 200 and "Seule" in response.text
+
+
+async def test_delete_drops_the_technical_text_of_a_failed_run(served):  # noqa: F811
+    # AD-13 : les `runs` gardés n'ont plus de texte ; `detail.technical` peut citer la question.
+    from wavelocalai.errors import build_envelope
+
+    app, client = served
+    hub, store = app.state.hub, app.state.store
+    needle = "Technique-Citation-Wombat-4410"
+    handle = await hub.create_run(
+        "chat", models=["fake:1b"], params={"temperature": 0.2}, user_message="Q"
+    )
+    error = build_envelope("internal", f"ValueError: {needle}")
+    await hub.finish_leaf(
+        handle.run_id, LeafResult(status="error", origin="local", error=error), LOCAL_CO2
+    )
+    db = Path(store.path)
+    assert needle.encode() in db.read_bytes() + db.with_name(db.name + "-wal").read_bytes()
+
+    assert (await client.delete(f"/api/conversations/{handle.conversation_id}")).status_code == 204
+
+    assert needle.encode() not in db.read_bytes()
+    assert needle.encode() not in db.with_name(db.name + "-wal").read_bytes()
+    kept = json.loads(store.read("SELECT error FROM runs")[0]["error"])
+    assert kept["code"] == "internal" and kept["message"] and kept["action"]
+    assert "technical" not in kept["detail"]

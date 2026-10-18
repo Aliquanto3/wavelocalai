@@ -114,8 +114,15 @@ def erase_conversation(conn: sqlite3.Connection, conversation_id: str) -> None:
         (conversation_id,),
     )
     conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
+    # `runs` gardés sans texte : l'enveloppe d'erreur garde son code, son message et son action
+    # (textes fixes d'`errors.py`), mais pas `detail.technical`, texte d'exception ou de fournisseur
+    # qui peut citer la question ou la réponse.
     conn.execute(
-        "UPDATE runs SET conversation_id = NULL WHERE conversation_id = ?", (conversation_id,)
+        "UPDATE runs SET conversation_id = NULL,"
+        " error = CASE WHEN error IS NULL THEN NULL"
+        " ELSE json_remove(error, '$.detail.technical') END"
+        " WHERE conversation_id = ?",
+        (conversation_id,),
     )
     conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
 

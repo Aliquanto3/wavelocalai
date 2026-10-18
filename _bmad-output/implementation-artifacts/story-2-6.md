@@ -58,3 +58,19 @@ Rouvrir `#/arene/chat` sur la conversation en cours de la veille, l'exporter (JS
 - `src/wavelocalai/runs/conversations.py`, `runs/conversation_export.py`, `runs/repo.py` (`erase_conversation`), `runs/hub.py` (`erase_conversation`), `runs/snapshot.py` (`run_snapshot_row`), `store/db.py` (`purge`), `errors.py` (`conversation_busy`), `web/routes_conversations.py`, `web/app.py`, `web/routes_test.py`
 - Front : `screens/chat.js`, `components/wl-chat-thread.js` (`restoreAnswer`), `core/api.js`, `i18n/fr.json`
 - Tests : `tests/v2/web/test_conversations_api.py`, `tests/v2/e2e/test_conversations.py`, `tests/v2/e2e/test_chat.py`, `tests/v2/unit/test_store.py`, `tests/v2/unit/test_errors.py`
+
+## Revue
+
+Une passe (Opus), avec la liste du second avis (Haiku).
+
+- medium · second avis 1 · corrigé : `repo.erase_conversation` retire `detail.technical` de `runs.error` (texte d'exception ou de fournisseur pouvant citer le message) ; code, message et action restent. Test `test_delete_drops_the_technical_text_of_a_failed_run` (octets du `.db` et du `-wal`).
+- medium · second avis 2 · corrigé : constat prouvé (lecteur en transaction : `wal_checkpoint(TRUNCATE)` rend `busy=1`, `-wal` de 24 Kio avec le texte). `purge_free_space` rend désormais l'état du dernier checkpoint ; incomplète, la purge est journalisée et `Store.purge_pending` la rejoue après l'écriture suivante et à la fermeture. Test `test_a_purge_blocked_by_a_reader_is_reported_then_replayed` (effet disque réel).
+- medium · second avis 3 · corrigé : une purge qui lève après le `COMMIT` ne fait plus échouer l'effacement (204) ; elle est journalisée et rejouée comme ci-dessus. Test `test_a_failing_purge_does_not_undo_or_fail_the_committed_erase`.
+- medium · second avis 4 · rejeté : mesuré, effacement plus purge = 21 ms sur 5 000 `run_events` (1,4 Mo) et 123 ms sur 50 000 (14 Mo) ; acceptable pour une démo.
+- medium · second avis 5 · corrigé : `GET /api/conversations?kind=chat&limit=1` ratifiée dans `contrat-api.md` (ligne Chat libre).
+- low · second avis 6 · corrigé en partie : le test d'ordre par `Recorder` reste, l'effet disque est désormais couvert par le test de purge bloquée.
+- low · second avis 7 · rejeté : l'export `.md` est un fichier téléchargé, jamais rendu par l'application.
+- low · second avis 8 · reporté (déjà en `deferred`) : copies `.db.bak-N` ; pour Anaël, à traiter avec la première migration qui suit.
+- low · second avis 9 · rejeté : masquage limité aux secrets configurés, choix de la spec (les exports ne reprennent en plus que des champs nommés).
+- low · second avis 10 · rejeté : `forget_conversations` est un nettoyage d'isolation ; un run actif est annulé par la fixture `cancel_leftover_runs`, le test suivant le verrait.
+- info · revue · E2E `test_topbar.py::test_a_restarted_server_is_announced_with_a_reload_button` échoue une fois dans la suite complète et passe seul : intermittent, hors périmètre de la story.
