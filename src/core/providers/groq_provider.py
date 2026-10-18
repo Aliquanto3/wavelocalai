@@ -75,7 +75,7 @@ class GroqProvider(OpenAIProvider):
                 raise ImportError("openai package not installed. Run: pip install openai")
             if not self._api_key:
                 raise ValueError("Groq API key not configured")
-            self._client = openai_provider._AsyncOpenAI(
+            self._client = openai_provider._async_client_class()(
                 api_key=self._api_key, base_url=GROQ_BASE_URL
             )
         return self._client
