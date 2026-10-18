@@ -326,6 +326,17 @@ def is_remote_tag(model: Mapping[str, Any]) -> bool:
     )
 
 
+def is_embedding_model(model: Mapping[str, Any]) -> bool:
+    """Modèle d'embedding (`nomic-embed-text`), inapte à générer du texte : « embed » dans le
+    tag (insensible à la casse) ou famille BERT dans les détails d'Ollama, que son listage
+    fournit sans appel supplémentaire (les capacités exigent un appel par modèle)."""
+    if "embed" in str(model.get("model") or model.get("name") or "").lower():
+        return True
+    details = model.get("details")
+    family = details.get("family") if isinstance(details, Mapping) else None
+    return "bert" in str(family or "").lower()
+
+
 def is_dedicated_reasoning(tag: str, *names: str | None) -> bool:
     """Modèle dédié au raisonnement : « thinking » ou « reasoning » dans son tag ou l'un de
     ses noms (LFM 2.5 1.2B Thinking). Un hybride (capacité `thinking` du catalogue, Qwen 3.5)
