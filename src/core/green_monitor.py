@@ -3,6 +3,7 @@ import contextlib
 import logging
 import os
 import platform
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -196,9 +197,9 @@ APP_EMISSIONS_FILE = "emissions.csv"
 # Projets CodeCarbon de l'app, tous écrits dans ce fichier. L'historique « par session » ne
 # garde que SESSION_PROJECT : les autres recouvrent la même période, et le fichier peut aussi
 # recevoir d'autres lignes (scripts/audit_and_update.py, projet « codecarbon » par défaut).
-SESSION_PROJECT = "wavelocal_session"  # Routeur (Accueil.py) : suivi de la session
-AUDIT_PROJECT = "wavelocal_audit"  # Sobriété et matériel, défaut de GreenTracker
-CREW_PROJECT = "crew_mission"  # Équipe d'agents
+SESSION_PROJECT = "wavelocal_session"  # Suivi unique du processus (routeur, Accueil.py)
+AUDIT_PROJECT = "wavelocal_audit"  # Défaut de GreenTracker
+CREW_PROJECT = "crew_mission"  # Équipe d'agents (ancien tracker par mission, plus créé)
 
 
 def app_emissions_path() -> Path:
@@ -218,10 +219,12 @@ def read_app_emissions(path: Path | str | None = None) -> pd.DataFrame:
     Colonnes : `timestamp` (datetime), `project_name`, `emissions` (kg, unité de CodeCarbon)
     et `emissions_g` (grammes, unité de GreenTracker.stop()).
 
-    - Seul le suivi de session (`SESSION_PROJECT`) est gardé : les missions d'équipe et
-      l'audit recouvrent la même période et compteraient deux fois les mêmes émissions.
-    - Une ligne par `run_id`, la dernière : après « Reprendre le suivi », chaque stop()
-      ajoute une ligne cumulée au même run.
+    - Seul le suivi de l'application (`SESSION_PROJECT`) est gardé : les missions d'équipe
+      et l'audit recouvrent la même période et compteraient deux fois les mêmes émissions.
+    - Une ligne par `run_id`, la dernière : le suivi est unique par processus (`SessionTracker`
+      le partage entre les sessions du navigateur) et chaque enregistrement ajoute une
+      ligne cumulée au même run. Une barre de l'historique est donc un lancement de
+      l'application, toutes sessions du navigateur comprises.
     - Lignes à horodatage ou émissions illisibles écartées ; tri par date.
 
     DataFrame vide si le fichier est absent, vide ou sans session de l'app.
@@ -324,6 +327,21 @@ class GreenTracker:
             self.stop()
         return False
 
+    def snapshot_kg(self) -> float | None:
+        """
+        Émissions cumulées (kg) depuis le démarrage, sonde toujours active ; None si elle est
+        arrêtée ou si la lecture échoue. CodeCarbon ajoute alors une ligne cumulée au fichier
+        d'émissions (même `run_id` : la dernière fait foi).
+        """
+        if not self._is_running:
+            return None
+        try:
+            emissions_kg = self.tracker.flush()
+        except Exception as e:
+            logger.error(f"Erreur lecture tracker '{self.project_name}': {e}")
+            return None
+        return float(emissions_kg) if emissions_kg else 0.0
+
     @classmethod
     def _cleanup_all_trackers(cls):
         """Sécurité : Arrêt forcé des trackers zombies."""
@@ -331,3 +349,108 @@ class GreenTracker:
             with contextlib.suppress(Exception):
                 if tracker._is_running:
                     tracker.stop()
+
+
+# ==========================================
+# 5. SUIVI UNIQUE PAR PROCESSUS, MESURE PAR SESSION
+# ==========================================
+# Un `OfflineEmissionsTracker` par session du navigateur coûtait 6 à 11 s au premier accès
+# (dont environ 9 s de `py-cpuinfo`) et 1,3 s par session suivante, avec deux fils jamais
+# arrêtés avant la fin du processus. Un seul tracker (`SESSION_PROJECT`) mesure maintenant la
+# machine pendant toute la vie du processus, démarré dans un fil de fond pour ne pas bloquer
+# le premier rendu. Chaque session (ou mission d'équipe) lit ses émissions par différence de
+# compteurs (`SessionTracker`) : la mesure par session reste exacte, sans second tracker.
+
+_shared_lock = threading.Lock()  # état du démarrage
+_read_lock = threading.Lock()  # lectures du compteur
+_shared_tracker: GreenTracker | None = None
+_shared_thread: threading.Thread | None = None
+
+
+def _new_shared_tracker() -> GreenTracker:
+    """Tracker du processus (remplacé dans les tests)."""
+    return GreenTracker(project_name=SESSION_PROJECT)
+
+
+def _start_shared_tracker() -> None:
+    """Corps du fil de démarrage : crée et lance le tracker du processus. Un échec est
+    journalisé et laisse les sessions à 0 g, sans empêcher l'application de fonctionner."""
+    global _shared_tracker
+    try:
+        tracker = _new_shared_tracker()
+        tracker.start()
+    except Exception:
+        logger.exception("Tracker CodeCarbon du processus non démarré")
+        return
+    _shared_tracker = tracker
+
+
+def ensure_shared_tracker() -> None:
+    """Lance, sans attendre, le tracker unique du processus (une seule fois)."""
+    global _shared_thread
+    with _shared_lock:
+        if _shared_thread is not None:
+            return
+        _shared_thread = threading.Thread(
+            target=_start_shared_tracker, name="codecarbon-start", daemon=True
+        )
+        _shared_thread.start()
+
+
+def shared_emissions_kg() -> float | None:
+    """Émissions cumulées (kg) du processus ; None tant que le tracker démarre (ou s'il n'a
+    pas démarré). Lecture sérialisée : plusieurs sessions peuvent la demander en même temps."""
+    tracker = _shared_tracker
+    if tracker is None:
+        return None
+    with _read_lock:
+        return tracker.snapshot_kg()
+
+
+def stop_shared_tracker(timeout: float = 30.0) -> None:
+    """Arrête le tracker du processus (écrit la ligne finale) et réarme le démarrage. En fin
+    de processus, `GreenTracker._cleanup_all_trackers` l'arrête déjà ; sert surtout aux tests."""
+    global _shared_tracker, _shared_thread
+    thread = _shared_thread
+    if thread is not None and thread is not threading.current_thread():
+        thread.join(timeout)
+    with _shared_lock:
+        tracker, _shared_tracker, _shared_thread = _shared_tracker, None, None
+    if tracker is not None:
+        tracker.stop()
+
+
+class SessionTracker:
+    """
+    Émissions d'une session du navigateur (ou d'une mission), en GRAMMES, par différence de
+    compteurs du tracker unique du processus. Même interface que `GreenTracker` côté pages :
+    `start()`, `stop()` (grammes), `_is_running`.
+
+    `stop()` ajoute aussi au fichier d'émissions la ligne cumulée du processus. « Reprendre »
+    (`start()` après `stop()`) cumule : les émissions de la pause ne sont pas comptées.
+    Tracker pas encore prêt ou en échec : la session compte 0 g.
+    """
+
+    def __init__(self):
+        self._is_running = False
+        self._accumulated_kg = 0.0
+        self._segment_start_kg = 0.0
+
+    def start(self) -> None:
+        """Démarre (ou reprend) la mesure ; lance le tracker du processus s'il ne l'est pas."""
+        if self._is_running:
+            return
+        ensure_shared_tracker()
+        # Tracker en cours de démarrage : son compteur part de zéro, la base aussi.
+        self._segment_start_kg = shared_emissions_kg() or 0.0
+        self._is_running = True
+
+    def stop(self) -> float:
+        """Arrête la mesure et renvoie les émissions cumulées de la session, en grammes."""
+        if not self._is_running:
+            return 0.0
+        now_kg = shared_emissions_kg()
+        if now_kg is not None:
+            self._accumulated_kg += max(0.0, now_kg - self._segment_start_kg)
+        self._is_running = False
+        return self._accumulated_kg * 1000.0

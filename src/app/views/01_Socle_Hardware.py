@@ -37,14 +37,12 @@ from src.core.accelerator import KIND_APPLE, KIND_NVIDIA, detect_accelerator
 # --- IMPORT DYNAMIQUE ---
 try:
     from src.core.green_monitor import (
-        AUDIT_PROJECT,
-        GreenTracker,
         HardwareMonitor,
+        SessionTracker,
         read_app_emissions,
     )
 except ImportError:
-    AUDIT_PROJECT = None
-    GreenTracker = None
+    SessionTracker = None
     HardwareMonitor = None
     read_app_emissions = None
 
@@ -162,8 +160,8 @@ def render_emissions_history(df_emissions):
 
 
 # --- INIT TRACKER ---
-if "tracker" not in st.session_state and GreenTracker:
-    st.session_state.tracker = GreenTracker(project_name=AUDIT_PROJECT)
+if "tracker" not in st.session_state and SessionTracker:
+    st.session_state.tracker = SessionTracker()
     st.session_state.tracker.start()
 
 # ==========================================
@@ -234,12 +232,12 @@ with col_live, st.container(border=True):
             em = st.session_state.tracker.stop()
             st.session_state.last_emissions = em
             st.rerun()
-    elif GreenTracker is None:
+    elif SessionTracker is None:
         st.warning(TRACKING_UNAVAILABLE)
     else:
         st.warning("Suivi carbone en pause")
         if "last_emissions" in st.session_state:
-            # GreenTracker.stop() renvoie des grammes ; les équivalences prennent des kg.
+            # SessionTracker.stop() renvoie des grammes ; les équivalences prennent des kg.
             em_g = st.session_state.last_emissions
             em_kg = grams_to_kg(em_g)
 
@@ -263,7 +261,7 @@ with col_live, st.container(border=True):
 with col_hist:
     st.subheader("Historique des émissions")
     try:
-        # Sessions de l'app, lues dans le fichier écrit par le suivi (GreenTracker) ; jamais
+        # Lancements de l'app, lus dans le fichier écrit par le suivi (CodeCarbon) ; jamais
         # le fichier du benchmark.
         df_emissions = read_app_emissions() if read_app_emissions else None
 
