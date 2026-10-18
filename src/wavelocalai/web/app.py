@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -41,6 +43,13 @@ def _error_response(
 def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21)."""
     disable_telemetry(settings.env_file)
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+        app.state.probe.start()  # première sonde avant toute requête (AD-15)
+        yield
+        await app.state.probe.aclose()
+
     app = FastAPI(
         title="wavelocalai v2",
         version=get_version(),
@@ -48,6 +57,7 @@ def create_app(settings: Settings, probe: OllamaProbe | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
         telemetry=FASTAPI_TELEMETRY,  # type: ignore[arg-type]
+        lifespan=_lifespan,
     )
     app.state.settings = settings
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
