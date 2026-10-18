@@ -534,6 +534,7 @@ class RunHub:
                 await self.store.awrite(tx)
             except Exception:
                 logger.exception("Le run %s n'a pas pu être clos en base", run.id)
+                run.closed.set()  # `amend_cancelled_leaf` n'attend pas une clôture qui n'aura pas lieu
                 raise
         for child in children:
             self._forget(child, "cancelled")

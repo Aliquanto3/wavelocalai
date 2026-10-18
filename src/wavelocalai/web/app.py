@@ -110,10 +110,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
+    # CodeCarbon détecte le matériel au premier tracker (4 à 10 s) : payé ici, hors de la place
+    # Ollama de la première réponse locale (un tracker jeté, sous le verrou du compteur, AD-11).
+    meter_warmup = asyncio.create_task(app.state.meter.warm_up())
     try:
         yield
     finally:
         warmup.cancel()
+        meter_warmup.cancel()
         await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
         await app.state.registry.stop()
         await app.state.probe.aclose()

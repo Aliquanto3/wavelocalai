@@ -5,7 +5,9 @@ Copie adaptée de `LocalMeter` de `wavestack/greenops.py` (jamais importée, AD-
 (le service ouvre `meter.track()` dans la place de `LocalSlot`), un seul à la fois (un verrou
 propre au compteur le garantit même hors du sémaphore), `start` et `stop` dans le pool de threads
 (CodeCarbon interroge le matériel, parfois pendant plusieurs secondes sous Windows). Le pays et le
-PUE viennent de `Settings`. Aucun réseau : le tracker `Offline` reçoit le pays, rien n'est écrit
+PUE viennent de `Settings`. Le premier tracker du processus détecte le matériel (4 à 10 s mesurées
+sous Windows, quelques centièmes ensuite) : `warm_up`, lancé au démarrage du serveur, en paie le coût
+hors du chemin d'une requête. Aucun réseau : le tracker `Offline` reçoit le pays, rien n'est écrit
 sur disque (`save_to_file=False`), ni envoyé (`save_to_api=False`).
 
 Aucune mesure n'interrompt un run : un échec de CodeCarbon (absent, démarrage, arrêt, énergie
@@ -24,7 +26,7 @@ import math
 import warnings
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from wavelocalai.config import CarbonSettings
 from wavelocalai.runs.models import Co2
@@ -35,6 +37,22 @@ logger = logging.getLogger("wavelocalai.greenops")
 WH_PER_KWH = 1000.0
 MG_PER_KG = 1_000_000.0
 MEASURE_INTERVAL_S = 1.0
+
+T = TypeVar("T")
+
+
+async def _until_done(task: asyncio.Future[T]) -> tuple[T, bool]:
+    """Attend `task` (un fil du pool) jusqu'au bout, même si l'appelant est annulé entre-temps,
+    une fois ou plusieurs : un tracker en cours de démarrage ou d'arrêt ne libère jamais le verrou
+    avant la fin de son fil. Rend le résultat et si une annulation est arrivée, à relayer."""
+    cancelled = False
+    while True:
+        try:
+            return await asyncio.shield(task), cancelled
+        except asyncio.CancelledError:
+            if task.done():
+                raise  # le fil lui-même annulé : ne se produit pas avec `to_thread`
+            cancelled = True
 
 
 def load_tracker_class() -> Any:
@@ -133,7 +151,23 @@ class LocalMeter:
             try:
                 yield tracking
             finally:
-                tracking.footprint = await asyncio.shield(self._stop(started))
+                stop = asyncio.ensure_future(self._stop(started))
+                tracking.footprint, cancelled = await _until_done(stop)
+                if cancelled:
+                    raise asyncio.CancelledError
+
+    async def warm_up(self) -> None:
+        """Un tracker jeté, démarré puis arrêté sous le verrou (un seul à la fois) : CodeCarbon
+        détecte le matériel une fois par processus, au premier tracker. Lancé en tâche de fond au
+        démarrage du serveur, il ôte ce délai de la place Ollama de la première réponse locale.
+        Ne lève pas, annulation exceptée."""
+        async with self._lock:
+            started = await self._start()
+            footprint, cancelled = await _until_done(asyncio.ensure_future(self._stop(started)))
+        if cancelled:
+            raise asyncio.CancelledError
+        if footprint.reason is not None and started.tracker is not None:
+            logger.info("Préchauffage de CodeCarbon : %s", footprint.reason)
 
     # --- fils ----------------------------------------------------------------------------------
 
@@ -143,8 +177,9 @@ class LocalMeter:
             return await asyncio.shield(task)
         except asyncio.CancelledError:
             # Le fil démarre (ou a démarré) un tracker : on l'arrête avant de laisser partir.
+            started, _ = await _until_done(task)
             with contextlib.suppress(Exception):
-                await asyncio.shield(self._stop(await task))
+                await _until_done(asyncio.ensure_future(self._stop(started)))
             raise
 
     async def _stop(self, started: _Started) -> Footprint:
@@ -156,6 +191,7 @@ class LocalMeter:
         except Exception as exc:  # noqa: BLE001 - une mesure n'arrête jamais un run
             logger.warning("CodeCarbon est indisponible : %s", exc)
             return _Started(None, f"CodeCarbon est indisponible ({type(exc).__name__}).")
+        tracker = None
         try:
             with warnings.catch_warnings():  # `save_to_file`, déprécié par CodeCarbon 3
                 warnings.simplefilter("ignore", DeprecationWarning)
@@ -171,6 +207,9 @@ class LocalMeter:
                 )
             tracker.start()
         except Exception as exc:  # noqa: BLE001
+            if tracker is not None:  # `start` a pu lancer son fil de mesure avant d'échouer
+                with contextlib.suppress(Exception):
+                    tracker.stop()
             logger.warning("CodeCarbon n'a pas démarré : %s", exc)
             return _Started(None, f"CodeCarbon n'a pas démarré ({type(exc).__name__}).")
         if getattr(tracker, "_another_instance_already_running", False):

@@ -146,6 +146,21 @@ async def test_carbon_updated_follows_each_local_reply_with_the_session_sum(tmp_
                 )
 
 
+async def test_the_app_warms_codecarbon_up_at_startup_before_any_reply(tmp_path, _stub_codecarbon):
+    """Le premier tracker (détection du matériel, plusieurs secondes) est payé au démarrage, hors
+    de la place Ollama de la première réponse : un tracker jeté, puis un par réponse."""
+    probe = _stub_codecarbon
+    server = FakeOllama(loaded=[TAG], plans=[Plan([part("Un"), final()])])
+    async with chat_app(tmp_path, server) as (_app, client):
+        async with asyncio.timeout(3):
+            while probe.stopped < 1:
+                await asyncio.sleep(0.01)
+        assert probe.started == probe.stopped == 1  # préchauffage, avant toute requête
+        run_id = (await _post(client, "Salut")).json()["run_id"]
+        assert (await _ended(client, run_id))["status"] == "ok"
+    assert probe.started == probe.stopped == 2 and probe.peak == 1
+
+
 async def test_second_message_resumes_the_conversation_with_its_whole_history(tmp_path):
     server = FakeOllama(
         loaded=[TAG], plans=[Plan([part("Une"), final()]), Plan([part("Deux"), final()])]

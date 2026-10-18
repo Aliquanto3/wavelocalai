@@ -343,9 +343,8 @@ def test_combine_sums_measures_and_one_unknown_makes_the_sum_unknown():
 # --- le vrai CodeCarbon : aucun réseau, aucun fichier ------------------------------------------------
 
 
-def test_the_real_offline_tracker_measures_without_any_network_or_file(tmp_path, monkeypatch):
-    """`OfflineEmissionsTracker` pour de bon (quelques secondes), tout accès au réseau bloqué et
-    consigné : aucune tentative, aucune écriture (CSV) dans le dossier courant."""
+def _block_network(monkeypatch) -> list[str]:
+    """Tout accès au réseau par `socket` refusé et consigné ; rend la liste des tentatives."""
     attempts: list[str] = []
 
     class Blocked(socket.socket):
@@ -364,6 +363,13 @@ def test_the_real_offline_tracker_measures_without_any_network_or_file(tmp_path,
     monkeypatch.setattr(socket, "create_connection", blocked("create_connection"))
     monkeypatch.setattr(socket, "getaddrinfo", blocked("getaddrinfo"))
     monkeypatch.setattr(socket, "gethostbyname", blocked("gethostbyname"))
+    return attempts
+
+
+def test_the_real_offline_tracker_measures_without_any_network_or_file(tmp_path, monkeypatch):
+    """`OfflineEmissionsTracker` pour de bon (quelques secondes), tout accès au réseau bloqué et
+    consigné : aucune tentative, aucune écriture (CSV) dans le dossier courant."""
+    attempts = _block_network(monkeypatch)
     monkeypatch.chdir(tmp_path)
 
     meter = LocalMeter("FRA", 1.1, loader=real_loader)
@@ -375,3 +381,98 @@ def test_the_real_offline_tracker_measures_without_any_network_or_file(tmp_path,
     assert attempts == []  # aucun appel réseau
     assert footprint.measured and footprint.mg > 0 and footprint.energy_wh > 0
     assert list(tmp_path.iterdir()) == []  # aucun CSV
+
+
+async def test_the_real_tracker_measures_a_local_leaf_through_track(tmp_path, monkeypatch):
+    """Le vrai CodeCarbon par le chemin du service : `warm_up` (détection du matériel), puis
+    `stream_into_run` → `meter.track()` dans la place, sans réseau ni fichier. Après le
+    préchauffage, démarrage et arrêt ne pèsent plus sur la place Ollama."""
+    data = tmp_path / "data"
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    opened = Store.open(db_path(data))
+    hub = RunHub(opened, batch_interval_s=3600)
+    await hub.start()
+    attempts = _block_network(monkeypatch)
+    monkeypatch.chdir(cwd)
+    try:
+        meter = LocalMeter("FRA", 1.1, loader=real_loader)
+        await meter.warm_up()
+        handle = await _start(hub)
+        burn = Sleep(0.5)  # le tracker mesure pendant la génération
+        loop = asyncio.get_running_loop()
+        began = loop.time()
+        await _play(hub, handle, [burn, TextDelta("Bonjour")], meter)
+        elapsed = loop.time() - began
+        row = _row(opened, handle.run_id)
+    finally:
+        await hub.stop()
+        opened.close()
+
+    assert attempts == []
+    assert list(cwd.iterdir()) == []  # aucun CSV
+    assert row["status"] == "ok"
+    assert row["co2_method"] == "codecarbon", row["co2_reason"]
+    assert row["co2_mg"] > 0 and row["energy_wh"] > 0
+    assert elapsed < 0.5 + 3.0  # préchauffé : plus de détection du matériel dans la place
+
+
+async def test_a_second_cancellation_during_stop_keeps_the_lock_until_the_tracker_stops(probe):
+    """Annulé deux fois pendant l'arrêt du tracker, `track` ne libère le verrou (et ne laisse
+    démarrer un autre tracker) qu'une fois le `stop` fini."""
+    gate = asyncio.Event()
+    stopping = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    meter = LocalMeter("FRA", 1.2, loader=probe.loader())
+    original = meter._stop_sync
+
+    def slow_stop(started):
+        loop.call_soon_threadsafe(stopping.set)
+        asyncio.run_coroutine_threadsafe(gate.wait(), loop).result()
+        return original(started)
+
+    meter._stop_sync = slow_stop
+
+    async def leaf():
+        async with meter.track():
+            await asyncio.sleep(3600)
+
+    task = asyncio.create_task(leaf())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    await stopping.wait()
+    task.cancel()  # seconde annulation pendant le `stop`
+    await asyncio.sleep(0.05)
+    assert not task.done() and meter._lock.locked() and probe.running == 1
+    gate.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert probe.running == 0 and probe.peak == 1 and not meter._lock.locked()
+
+
+def test_a_tracker_whose_start_fails_midway_is_stopped():
+    """`start` qui lève après avoir lancé son fil de mesure : le tracker est arrêté."""
+    stopped: list[bool] = []
+
+    class HalfStarted:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("mesure initiale en échec")
+
+        def stop(self):
+            stopped.append(True)
+
+    started = LocalMeter("FRA", 1.2, loader=lambda: HalfStarted)._start_sync()
+    assert started.tracker is None and "RuntimeError" in (started.reason or "")
+    assert stopped == [True]
+
+
+async def test_warm_up_runs_one_throwaway_tracker_under_the_lock(probe):
+    meter = LocalMeter("FRA", 1.2, loader=probe.loader())
+    await meter.warm_up()
+    assert probe.started == probe.stopped == 1 and probe.running == 0
+    probe.start_error = RuntimeError("panne")
+    await meter.warm_up()  # ne lève pas
+    assert not meter._lock.locked()

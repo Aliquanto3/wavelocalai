@@ -19,9 +19,9 @@ deferred:
     location: src/wavelocalai/web/static/screens/chat.js
     severity: medium
   - summary: >-
-      Premier tracker du processus lent : CodeCarbon détecte le matériel au premier `start` (mesuré 8,6 s sur ce poste Windows, 1,5 s ensuite). Il s'exécute sous le sémaphore, hors du délai de lane, mais la toute première réponse attend. Un préchauffage (un tracker jeté, en tâche de fond, quand Ollama répond) est à ajouter ; il n'est pas branché ici parce qu'il importerait CodeCarbon dans chaque test qui démarre l'app et que l'ordre du préchauffage et des runs mérite une décision.
+      Préchauffage de CodeCarbon (revue) : une réponse locale demandée pendant les premières secondes du serveur attend la fin du préchauffage (verrou du compteur, un seul tracker à la fois) ; mesuré 3,8 à 14,5 s selon la charge de la machine au démarrage. À trancher si l'on préfère, dans cette fenêtre, répondre sans mesure (`unmeasurable`) plutôt qu'attendre.
     evidence: |-
-      Mesure manuelle (`start` 8,6 s puis 1,5 s) ; `local_meter.load_tracker_class` met `count_physical_cpus` en cache.
+      Mesure de revue : réponse lancée dès le démarrage 14,5 s ; lancée 12 s après, 0,52 s.
     location: src/wavelocalai/greenops/local_meter.py
     severity: low
   - summary: >-
@@ -69,3 +69,19 @@ Une réponse locale du chat est mesurée par CodeCarbon (`OfflineEmissionsTracke
 ## Télémétrie
 
 CodeCarbon n'est pas dans `TELEMETRY_OPT_OUTS` (`src/core/telemetry.py` et `wavelocalai/telemetry.py` ne le citent pas) : le tracker `Offline` n'envoie rien (`save_to_api=False`, test sans socket), `disable_telemetry()` n'est pas requis avant son import.
+
+## Revue
+
+Revue Opus du 2026-10-18 (une passe), avec la liste du second avis (Haiku).
+
+Mesures (poste Windows, `qwen2.5:1.5b`, app réelle par `ASGITransport`, vrai `LocalMeter`) :
+- avant : premier `start` 3,8 à 10 s (détection du matériel par CodeCarbon, une fois par processus), premier `stop` 0,35 à 0,68 s, tous deux dans la place Ollama de la première réponse (run complet 4,9 s pour 0,34 s de génération) ; ensuite `start` et `stop` 0,00 s (moins de 10 ms), run complet 0,15 s. Les 1,4 s et 2 à 2,7 s par appel relevés par le second avis ne se reproduisent pas (trois séries, avec ou sans charge GPU) : seul le premier tracker du processus est lent.
+- après (`warm_up` au démarrage du serveur) : première réponse 0,52 s, `start`/`stop` 0,00 s dans la place ; le préchauffage (5,9 s ici) se fait hors requête.
+
+- medium, second avis 1 (`start`/`stop` dans la place) : corrigé en partie, confirmé pour le premier tracker seulement. `LocalMeter.warm_up` (un tracker jeté, sous le verrou du compteur, AD-11) est lancé en tâche de fond par le cycle de vie de l'app (`web/app.py`) ; il paie la détection du matériel hors du chemin de requête. La piste `start_task`/`stop_task` sur un tracker unique est écartée : après le premier tracker, `start`/`stop` coûtent moins de 10 ms, et le mode tâche garderait chaque tâche dans `tracker._tasks` pendant toute la vie du serveur. Reste une attente si la première réponse arrive pendant le préchauffage (report ci-dessus). Preuve : `test_the_app_warms_codecarbon_up_at_startup_before_any_reply`, `test_warm_up_runs_one_throwaway_tracker_under_the_lock`.
+- medium, second avis 2 (vrai tracker jamais passé par `track()` en CI) : corrigé. `test_the_real_tracker_measures_a_local_leaf_through_track` : vrai CodeCarbon, réseau bloqué, dossier vide, `warm_up` puis `stream_into_run` → `meter.track()` dans la place, ligne `runs` en `codecarbon` avec `co2_mg` et `energy_wh` positifs, aucun CSV.
+- low, second avis 3 (seconde annulation pendant le `stop`) : corrigé. `_until_done` attend le fil jusqu'au bout malgré des annulations répétées, puis relaie l'annulation ; même chose pour l'arrêt du tracker d'un démarrage annulé. Preuve : `test_a_second_cancellation_during_stop_keeps_the_lock_until_the_tracker_stops` (échoue sur 8778fba).
+- low, second avis 4 (`start` qui lève après avoir lancé son fil) : corrigé, le tracker construit est arrêté (`stop` sous `suppress`). Preuve : `test_a_tracker_whose_start_fails_midway_is_stopped` (échoue sur 8778fba).
+- low, second avis 5 (branche `_another_instance_already_running` morte) : rejeté. Exact avec `allow_multiple_runs=True` (CodeCarbon 3.3.1 ne lève le drapeau qu'avec son fichier de verrou), mais la garde est sans coût et protège d'un changement de réglage.
+- low, second avis 6 (`amend_cancelled_leaf` attend 5 s si la clôture échoue) : corrigé, `_close` lève `run.closed` avant de relayer l'échec d'écriture ; `amend_cancelled_co2` ne touche alors rien (la ligne n'est pas `cancelled`).
+- info, revue : le pied de réponse « CO₂ 1,8 mg » reste reporté à la story 2.2 (report ci-dessus) ; vérifié que le serveur publie `metrics.co2`, `metrics.energy_wh` et `carbon_updated`.
