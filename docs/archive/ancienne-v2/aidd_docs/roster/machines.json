@@ -1,0 +1,62 @@
+{
+  "registry_version": 1,
+  "machines": {
+    "laptop-mobile-gpu": {
+      "description": "Gaming laptop with a mobile GPU (Asus TUF Gaming A17): Ryzen 7 5800H, 32 GB DDR4-3200 dual channel, RTX 3060 Laptop 6 GB, Windows 11. The project's development machine.",
+      "facts": {
+        "cpu_model": {"value": "AMD Ryzen 7 5800H with Radeon Graphics", "source": "declared", "read_from": "Get-CimInstance Win32_Processor Name (2026-10-02)"},
+        "cpu_cores": {"value": 8, "source": "declared", "read_from": "Get-CimInstance Win32_Processor NumberOfCores (2026-10-02)"},
+        "cpu_threads": {"value": 16, "source": "declared", "read_from": "Get-CimInstance Win32_Processor NumberOfLogicalProcessors (2026-10-02)"},
+        "instruction_set_notes": {"value": "AVX and AVX2 present; AVX-512F absent", "source": "declared", "read_from": "kernel32 IsProcessorFeaturePresent 39/40/41 (2026-10-02)"},
+        "ram_installed_gb": {"value": 32, "source": "declared", "read_from": "Get-CimInstance Win32_PhysicalMemory Capacity, 2 x 17179869184 bytes (2026-10-02)"},
+        "memory_type": {"value": "DDR4", "source": "declared", "read_from": "Get-CimInstance Win32_PhysicalMemory SMBIOSMemoryType 26 (2026-10-02)"},
+        "memory_rated_speed_mts": {"value": 3200, "source": "declared", "read_from": "Get-CimInstance Win32_PhysicalMemory Speed (2026-10-02)"},
+        "memory_configured_speed_mts": {"value": 3200, "source": "declared", "read_from": "Get-CimInstance Win32_PhysicalMemory ConfiguredClockSpeed (2026-10-02)"},
+        "memory_channels": {"value": 2, "source": "declared", "read_from": "Get-CimInstance Win32_PhysicalMemory BankLabel, P0 CHANNEL A and P0 CHANNEL B (2026-10-02)"},
+        "gpu_present": {"value": true, "source": "declared", "read_from": "PRD machine definition (gaming laptop with a mobile GPU); nvidia-smi (2026-10-02)"},
+        "gpu_model": {"value": "NVIDIA GeForce RTX 3060 Laptop GPU", "source": "declared", "read_from": "nvidia-smi --query-gpu=name (2026-10-02)"},
+        "vram_nominal_gb": {"value": 6, "source": "declared", "read_from": "nvidia-smi --query-gpu=memory.total, 6144 MiB (2026-10-02)"},
+        "vram_allocatable_gb": {"value": 5.1, "source": "declared", "read_from": "context_input/hardware.md operator measurement (WDDM reserve); not re-measured by machine-readiness order 0"},
+        "os": {"value": "Windows 11, build 26200", "source": "declared", "read_from": "Get-CimInstance Win32_OperatingSystem Caption and BuildNumber (2026-10-02)"}
+      }
+    },
+    "tower-desktop-gpu": {
+      "description": "Gaming tower with a desktop GPU and 32 GB of RAM. Every fact beyond the PRD's machine definition awaits machine-readiness order 0's read from the machine.",
+      "facts": {
+        "cpu_model": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the tower)"},
+        "cpu_cores": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the tower)"},
+        "cpu_threads": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the tower)"},
+        "instruction_set_notes": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (instruction-set read on the tower)"},
+        "ram_installed_gb": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the tower)"},
+        "memory_type": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the tower)"},
+        "memory_rated_speed_mts": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the tower)"},
+        "memory_configured_speed_mts": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the tower)"},
+        "memory_channels": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the tower)"},
+        "gpu_present": {"value": true, "source": "declared", "read_from": "PRD machine definition (gaming tower with a desktop GPU)"},
+        "gpu_model": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (nvidia-smi on the tower)"},
+        "vram_nominal_gb": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (nvidia-smi on the tower)"},
+        "vram_allocatable_gb": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (allocatable VRAM observed on the tower)"},
+        "os": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_OperatingSystem on the tower)"}
+      }
+    },
+    "pro-pc-no-gpu": {
+      "description": "Professional PC with 16 GB of RAM and no GPU. Every fact beyond the PRD's machine definition awaits machine-readiness order 0's read from the machine.",
+      "facts": {
+        "cpu_model": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the professional PC)"},
+        "cpu_cores": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the professional PC)"},
+        "cpu_threads": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_Processor on the professional PC)"},
+        "instruction_set_notes": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (instruction-set read on the professional PC)"},
+        "ram_installed_gb": {"value": 16, "source": "declared", "read_from": "PRD machine definition (professional PC with 16 GB of RAM)"},
+        "memory_type": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the professional PC)"},
+        "memory_rated_speed_mts": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the professional PC)"},
+        "memory_configured_speed_mts": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the professional PC)"},
+        "memory_channels": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_PhysicalMemory on the professional PC)"},
+        "gpu_present": {"value": false, "source": "declared", "read_from": "PRD machine definition (professional PC with no GPU)"},
+        "gpu_model": {"value": null, "source": "declared", "read_from": "PRD machine definition (no GPU): nothing to name"},
+        "vram_nominal_gb": {"value": null, "source": "declared", "read_from": "PRD machine definition (no GPU): no VRAM"},
+        "vram_allocatable_gb": {"value": null, "source": "declared", "read_from": "PRD machine definition (no GPU): no VRAM"},
+        "os": {"value": null, "source": "not_yet_declared", "read_from": "awaits order 0 (Get-CimInstance Win32_OperatingSystem on the professional PC)"}
+      }
+    }
+  }
+}

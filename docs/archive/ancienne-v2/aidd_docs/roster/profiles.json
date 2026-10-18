@@ -1,0 +1,43 @@
+{
+  "registry_version": 1,
+  "defaults": {
+    "laptop-mobile-gpu": {
+      "gpu": {
+        "threads": {"value": 8, "source": "declared", "read_from": "the thread count of the laptop's validated baseline command (context_input/baseline_qwen36.md, -t 8), formerly the roster's validated_host.threads"}
+      },
+      "cpu_only": {
+        "n_gpu_layers": {"value": 0, "source": "declared", "read_from": "compute mode cpu_only (Methodology 21): every layer on the CPU"},
+        "threads": {"value": 8, "source": "declared", "read_from": "the thread count the laptop's cpu_only evidence runs launched with (2026-10-02, aidd_docs/tasks/2026_10/2026_10_02_gpu-cpu-never-share-a-fiche/evidence/)"}
+      }
+    },
+    "tower-desktop-gpu": {
+      "gpu": {
+        "threads": {"value": null, "source": "not_yet_declared", "read_from": "awaits a thread count fitted on the tower (machine-readiness order 0)"}
+      },
+      "cpu_only": {
+        "n_gpu_layers": {"value": 0, "source": "declared", "read_from": "compute mode cpu_only (Methodology 21): every layer on the CPU"},
+        "threads": {"value": null, "source": "not_yet_declared", "read_from": "awaits a thread count fitted on the tower (machine-readiness order 0)"}
+      }
+    },
+    "pro-pc-no-gpu": {
+      "cpu_only": {
+        "n_gpu_layers": {"value": 0, "source": "declared", "read_from": "compute mode cpu_only (Methodology 21): every layer on the CPU"},
+        "threads": {"value": null, "source": "not_yet_declared", "read_from": "awaits a thread count fitted on the professional PC (machine-readiness order 0)"}
+      }
+    }
+  },
+  "entries": {
+    "qwen3.6-35b-a3b-ud-iq4xs": {
+      "laptop-mobile-gpu": {
+        "gpu": {
+          "n_cpu_moe": {"value": 37, "source": "declared", "read_from": "the laptop's validated baseline command (context_input/baseline_qwen36.md, --n-cpu-moe 37), formerly the roster's validated_host.n_cpu_moe"}
+        }
+      },
+      "tower-desktop-gpu": {
+        "gpu": {
+          "n_cpu_moe": {"value": null, "source": "not_yet_declared", "read_from": "awaits an --n-cpu-moe value fitted to the tower's VRAM (machine-readiness order 0)"}
+        }
+      }
+    }
+  }
+}

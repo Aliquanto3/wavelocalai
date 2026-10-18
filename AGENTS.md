@@ -3,7 +3,7 @@
 
 ## wavelocalai (v1)
 
-Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mesure carbone (CodeCarbon), et banc de benchmark multi-machines dans `scripts/`. Python. La v1 est en maintenance : elle sert de référence à la v2 (dépôt voisin `wavelocalai-v2`). Plans en cours : `docs/audits/frontend-2026-09/` et `_bmad-output/`.
+Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mesure carbone (CodeCarbon), et banc de benchmark multi-machines dans `scripts/`. Python. La v1 est en maintenance : elle sert de référence à la v2 (construite dans ce même dépôt, plan : `docs/audits/refonte-2026-10/00-synthese.md`). Plans en cours : `docs/audits/refonte-2026-10/`, `docs/audits/frontend-2026-09/` et `_bmad-output/`.
 
 ## Policy
 

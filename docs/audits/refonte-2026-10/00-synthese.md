@@ -9,6 +9,8 @@
   | [`01-performance.md`](01-performance.md) | Temps d'import, temps par page, stabilité, mesurés | Sonnet |
   | [`02-architecture-back.md`](02-architecture-back.md) | Carte de `src/core/`, dépendances, back cible, API | Opus |
   | [`03-ux-front.md`](03-ux-front.md) | Parcours, irritants, front cible, wireframes, lots | Opus |
+  | [`04-analyse-ancienne-v2.md`](04-analyse-ancienne-v2.md) | Ancien dépôt `wave_local_ai_v2` : ambitions, fonctionnalités, idées, leçons | Opus |
+  | [`05-code-ancienne-v2.md`](05-code-ancienne-v2.md) | Ancien dépôt : ce qui a été construit, front React, code réutilisable | Sonnet |
 
 - **Rôle de ce document :** l'entrée unique de la session qui conçoit la v2 (`bmad-product-brief` ou `bmad-spec`, puis `bmad-architecture` et `bmad-ux`). Il arbitre les écarts entre les rapports et liste les décisions. Les preuves restent dans les rapports.
 - **Décisions de septembre maintenues :** D1 à D7 de [`../frontend-2026-09/SYNTHESE.md`](../frontend-2026-09/SYNTHESE.md), dont D1 (local par défaut, cloud désactivé à chaque ouverture) et D3 (débit `eval_count / eval_duration`).
@@ -59,7 +61,7 @@ Budgets de performance (01, « Ce que la v2 doit éviter ») : changement d'écr
 
 ## 4. Plan de construction
 
-Le dépôt `wavelocalai-v2`, prévu par `AGENTS.md`, n'existe pas encore. La v2 y démarre ; la v1 reste ici comme référence.
+La v2 se construit **dans ce dépôt** (décision du 2026-10-18), versionnée en SemVer ; il n'y aura pas de dépôt séparé. L'ancien dépôt `wave_local_ai_v2` est abandonné (§7). Le benchmark reste dans `slm-quality-bench`, dont l'app lit les résultats publiés (PR #32).
 
 | Étape | Back | Front | Livrable vérifiable |
 |---|---|---|---|
@@ -104,5 +106,38 @@ Les rapports en listent 21 (10 côté back, 11 côté front). Celles-ci engagent
 | 6 | Persistance | SQLite unique, conversations comprises | 02 §5.4, §3 ci-dessus |
 | 7 | « Gestion des modèles » | Écran « Modèles » à part, hors de l'Arène (modifie `EXPERIENCE.md`) | 03 U5 |
 | 8 | Typographie | Aptos puis Inter, comme `DESIGN.md` | 03 U3 |
-| 9 | Dépôt de la v2 | Nouveau dépôt `wavelocalai-v2`, comme prévu par `AGENTS.md` | `AGENTS.md` |
+| 9 | Dépôt de la v2 | **Tranché le 2026-10-18 :** ce dépôt, versions SemVer ; benchmark dans `slm-quality-bench` | Anaël |
 | 10 | Investissement dans la v1 | Une dernière PR de gains rapides (§5), puis maintenance stricte | 03 U11, 01 |
+
+## 7. Apports de l'ancien dépôt `wave_local_ai_v2`
+
+L'ancien dépôt (août à octobre 2026) n'était pas une v2 de l'app : c'était un banc de mesure publiable (llama.cpp, juges cloud, front React en tableaux), sans chat, Arène, RAG ni agents (05 §1). Ses documents utiles sont copiés dans [`../../archive/ancienne-v2/`](../../archive/ancienne-v2/README.md) ; une copie complète est gardée hors dépôt.
+
+### 7.1 Idées retenues pour l'app
+
+| Idée (04 §3) | Où dans le plan | Données |
+|---|---|---|
+| « Quel modèle pour quel usage ? » : une carte par usage, groupe des meilleurs, intervalle, débit sur la machine de référence | Nouveau sous-écran `#/arene/references` et carte sur l'Accueil, après l'étape 5 | `qb.results/1` |
+| Verdict local ou cloud chiffré à la fin d'une comparaison (écart de note, coût pour 1 000 requêtes, CO₂, données restées sur le poste) | Étape 3 (Arène) | L'app ; table de prix cloud datée dans `wavelocalai.toml` |
+| « Sur d'autres postes » : débit et tenue en mémoire attendus sur les trois postes de référence, dont le PC pro de 16 Go sans GPU | Étape 5 (écran Modèles, Sobriété) | `qb.results/1` |
+| Fiche modèle (dense ou MoE, paramètres actifs, quantification, licence, outils et raisonnement vérifiés) et pastille « MoE 3B actifs » dans le sélecteur | Étapes 1 (pastille) et 5 (fiche) | Ollama `/api/show`, catalogue, `qb.results/1` |
+| Export de preuve : fiche machine, version d'Ollama, digest des modèles, méthode CO₂, juge | Étape 3 (export de l'Arène) | Table `runs` |
+| Étiquettes de fiabilité (« indicatif », « un seul juge », « estimé », « non mesurable ») et « bridage thermique » | Étape 1 (composants `metric`, `badge`), Sobriété | NVML (idée de `machine_state.py`) |
+| Banc d'essai : interrupteurs « format imposé » et « réponse concise » | Étape 7 | Paramètre `format` d'Ollama |
+| Panneau « Pourquoi ce débit ? » (bande passante mémoire, paramètres actifs, VRAM) | Étape 5 | Fiche locale, catalogue |
+| Moteur `llama-server` en option | Après l'étape 8 | Port `ChatModel` compatible OpenAI |
+
+Déjà couverts : mode présentation, avertissement avant un envoi cloud (D1), absence nommée plutôt qu'un zéro (03 §3.7). Code à consulter pour l'étape 1 : `hardware.py`, `nvml.py`, `machine_state.py` (archive).
+
+### 7.2 À transmettre à `slm-quality-bench`
+
+Idées de 04 §4, dont la plus urgente : le contrat `qb.results/1` n'existe pas encore, et la vitesse par machine (décidée le 2026-10-18) est hors du périmètre de son `SPEC.md`. Le reste : comparateur cloud sur questions publiques, usages absents (classification, traduction, correction, code), variantes d'invite, llama.cpp contre Ollama, bande passante mémoire. Modules statistiques et suites de l'ancien dépôt : dans la copie complète.
+
+### 7.3 Garde-fous tirés de son échec (04 §5, 05 §6)
+
+- L'app ne porte aucune exigence de publication ; le MVP est fixé (§4, étapes 1 à 4) et rien ne s'y ajoute avant sa livraison.
+- Un lot = une PR fusionnée sur `master` en un jour ou deux ; pas de branche longue.
+- « Terminé » = code et tests verts, vérifiables par l'agent ; la recette humaine se fait en fin de lot, sur une démo réelle.
+- Pas d'abstraction sans second cas (registre de moteurs à un seul moteur) ; fichiers de 600 lignes au plus.
+- Une page de spec au plus par lot ; une question à l'utilisateur seulement si elle bloque le lot en cours.
+- Contrôle à l'œil des sorties brutes dès le premier lot (défauts de mesure trouvés trop tard).
