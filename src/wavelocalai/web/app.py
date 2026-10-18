@@ -30,7 +30,7 @@ from wavelocalai.models.ollama import close_client, make_client
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
-from wavelocalai.rag.index import SqliteVecIndex
+from wavelocalai.rag.index import select_index
 from wavelocalai.rag.ingest import IngestService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
@@ -132,7 +132,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         factory,
         app.state.local_slot,
         settings,
-        SqliteVecIndex(),
+        select_index(store.vec_available),
         meter=app.state.meter,
         bus=app.state.system_feed,
         fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement

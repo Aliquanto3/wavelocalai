@@ -37,7 +37,7 @@ from wavelocalai.runs.hub import RunHub
 from wavelocalai.store.db import Store, db_path
 
 from ..carbon_stub import Probe
-from ..conftest import make_settings
+from ..conftest import make_settings, needs_vec
 from ..rag_files import make_blank_pdf, make_docx, make_encrypted_text_pdf, make_pdf
 
 OTHER_REF = ModelRef("fake-other:16", "fake", "local", "embedding")
@@ -83,6 +83,10 @@ class Rig:
         async with asyncio.timeout(timeout):
             while self.hub.watch(run_id) is not None:
                 await asyncio.sleep(0.01)
+            # `hub.cancel` ferme le run avant que la tâche ne se déroule : on attend sa fin réelle
+            # (nettoyage du dossier de transit compris), pas seulement le statut du run.
+            if tasks := set(self.service._tasks):
+                await asyncio.wait(tasks)
         return await self.hub.events_after(run_id)
 
     async def run(self, files, model: str | None = None):
@@ -108,7 +112,7 @@ class Rig:
         )
 
 
-@pytest.fixture(params=["sqlite-vec", "numpy"])
+@pytest.fixture(params=[pytest.param("sqlite-vec", marks=needs_vec), "numpy"])
 def index(request) -> VectorIndex:
     return SqliteVecIndex() if request.param == "sqlite-vec" else NumpyIndex()
 
