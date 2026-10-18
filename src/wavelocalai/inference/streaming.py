@@ -71,6 +71,7 @@ async def _attempt(
     on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     footprints: list[Footprint] | None = None,
+    capture: list[str] | None = None,
 ) -> ChatResult:
     """Un appel de modèle : place du sémaphore « Ollama local » prise pour cet appel seulement
     (AD-14), puis flux publié dans le hub sous le délai de lane. Le délai court depuis la prise de
@@ -89,7 +90,7 @@ async def _attempt(
         deadline = asyncio.timeout(timeout_s)
         try:
             async with deadline:
-                return await _consume(hub, run_id, lane, model.stream(request), on_phase)
+                return await _consume(hub, run_id, lane, model.stream(request), on_phase, capture)
         except TimeoutError:
             if not deadline.expired():
                 raise
@@ -122,11 +123,17 @@ async def _consume(
     lane: str,
     stream: AsyncIterator[ChatChunk],
     on_phase: PhaseCallback | None = None,
+    capture: list[str] | None = None,
 ) -> ChatResult:
     result = ChatResult()
     try:
         async for chunk in stream:
-            if isinstance(chunk, TextDelta):
+            if capture is not None:  # appel silencieux : le texte est gardé, rien n'est publié
+                if isinstance(chunk, TextDelta) and chunk.channel == "answer":
+                    capture.append(chunk.text)
+                elif isinstance(chunk, Done):
+                    result = chunk.result
+            elif isinstance(chunk, TextDelta):
                 hub.publish_token(run_id, lane, chunk.text, chunk.channel)
             elif isinstance(chunk, LoadState):
                 kind = "model_loading" if chunk.phase == "loading" else "model_loaded"
@@ -157,6 +164,7 @@ async def stream_into_run(
     on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
+    capture: list[str] | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
     `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
@@ -180,6 +188,10 @@ async def stream_into_run(
     cloud, le `co2` est celui passé en argument. `on_leaf_closed` est attendu quand la feuille est
     close, annulation comprise (le hub a alors déjà clos le run) : le service y publie
     `carbon_updated`. Son échec est journalisé, il n'interrompt rien.
+
+    `capture` : appel **silencieux** (une notation, story 3.3). Le texte de réponse est ajouté à
+    cette liste (vidée à chaque tentative) et rien n'est publié dans le flux du parent : ni jetons,
+    ni chargement, ni `metrics`, ni `retry`. La feuille reste mesurée et close comme les autres.
     """
     try:
         return await _play(
@@ -195,6 +207,7 @@ async def stream_into_run(
             retry_interrupted,
             meter,
             on_phase,
+            capture,
         )
     finally:
         if on_leaf_closed is not None:
@@ -217,6 +230,7 @@ async def _play(
     retry_interrupted: bool,
     meter: LocalMeter | None,
     on_phase: PhaseCallback | None,
+    capture: list[str] | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
@@ -225,9 +239,20 @@ async def _play(
     result = ChatResult()
     footprints: list[Footprint] = []
     for attempt in range(1, attempts + 1):
+        if capture is not None:
+            capture.clear()
         try:
             result = await _attempt(
-                hub, stream_id, model, request, slot, timeout_s, on_phase, meter, footprints
+                hub,
+                stream_id,
+                model,
+                request,
+                slot,
+                timeout_s,
+                on_phase,
+                meter,
+                footprints,
+                capture,
             )
             break
         except asyncio.CancelledError:
@@ -242,16 +267,17 @@ async def _play(
                 and exc.code == "generation_interrupted"
             ):
                 logger.warning("Génération de %s interrompue : relance unique.", lane)
-                hub.publish(
-                    stream_id,
-                    "retry",
-                    {
-                        "lane": lane,
-                        "code": exc.code,
-                        "reason": ERRORS[exc.code].message,
-                        "attempt": attempt + 1,
-                    },
-                )
+                if capture is None:
+                    hub.publish(
+                        stream_id,
+                        "retry",
+                        {
+                            "lane": lane,
+                            "code": exc.code,
+                            "reason": ERRORS[exc.code].message,
+                            "attempt": attempt + 1,
+                        },
+                    )
                 continue
             error = _error_envelope(exc, secrets)
             # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
@@ -261,7 +287,8 @@ async def _play(
     footprint = combine(footprints)
     if footprint is not None:
         co2 = footprint.co2()
-    hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2, footprint))
+    if capture is None:
+        hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2, footprint))
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,

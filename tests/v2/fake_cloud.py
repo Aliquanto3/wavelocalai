@@ -165,6 +165,58 @@ def anthropic_stream(texts: list[str], *, usage=(12, 7), stop="end_turn") -> byt
     return sse(*events)
 
 
+def anthropic_tool_stream(json_parts: list[str], *, usage=(12, 7)) -> bytes:
+    """Flux Anthropic d'un `tool_use` forcé : le JSON de l'entrée arrive en `input_json_delta`."""
+    start = {
+        "type": "message_start",
+        "message": {
+            "id": "m1",
+            "type": "message",
+            "role": "assistant",
+            "model": "m",
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {"input_tokens": usage[0], "output_tokens": 1},
+        },
+    }
+    events: list[tuple[str | None, dict[str, Any] | str]] = [
+        ("message_start", start),
+        (
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "tool_use", "id": "tu1", "name": "respond", "input": {}},
+            },
+        ),
+    ]
+    for part in json_parts:
+        events.append(
+            (
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "input_json_delta", "partial_json": part},
+                },
+            )
+        )
+    events += [
+        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+        (
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                "usage": {"output_tokens": usage[1]},
+            },
+        ),
+        ("message_stop", {"type": "message_stop"}),
+    ]
+    return sse(*events)
+
+
 def stream_for(provider: str, texts: list[str], **kwargs: Any) -> bytes:
     if provider == "anthropic":
         return anthropic_stream(texts, **kwargs)

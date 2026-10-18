@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.evaluation.judge import Judge
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor
 from wavelocalai.inference.arena import ArenaService
@@ -119,6 +120,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        defaults=app.state.defaults,
+        judge=Judge(
+            hub,
+            app.state.local_slot,
+            settings,
+            meter=app.state.meter,
+            bus=app.state.system_feed,
+        ),
     )
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.

@@ -29,7 +29,9 @@ from wavelocalai.models.cloud import (
     translate_error,
 )
 from wavelocalai.models.port import ChatChunk, ChatRequest, Done, ModelRef, TextDelta
+from wavelocalai.models.structured import StructuredCheck
 
+STRUCTURED_TOOL = "respond"  # outil forcé qui porte `response_schema` (`tool_use`)
 DEFAULT_MAX_TOKENS = 16_000  # `max_tokens` est obligatoire chez Anthropic ; le raisonnement en use
 
 
@@ -83,6 +85,16 @@ class AnthropicChatModel:
         client = AsyncAnthropic(**client_args)
         system, messages = _split_messages(request)
         extra: dict[str, Any] = {"system": system} if system else {}
+        if request.response_schema is not None:
+            extra["tools"] = [
+                {
+                    "name": STRUCTURED_TOOL,
+                    "description": "Rend la réponse sous la forme structurée demandée.",
+                    "input_schema": request.response_schema,
+                }
+            ]
+            extra["tool_choice"] = {"type": "tool", "name": STRUCTURED_TOOL}
+        structured = StructuredCheck(request.response_schema)
         upstream: Any = None
         fragments = 0
         finish: str | None = None
@@ -114,6 +126,13 @@ class AnthropicChatModel:
                         clock.note(text)
                         fragments += 1
                         yield TextDelta(text, "thought")
+                    elif delta_type == "input_json_delta" and _field(delta, "partial_json"):
+                        # Entrée de l'outil forcé : le JSON de la réponse, émis comme du texte.
+                        text = str(_field(delta, "partial_json"))
+                        clock.note(text)
+                        fragments += 1
+                        structured.add(text)
+                        yield TextDelta(text, "answer")
                 elif kind == "message_delta":
                     finish = _field(_field(event, "delta"), "stop_reason") or finish
                     usage = _field(event, "usage")
@@ -128,6 +147,11 @@ class AnthropicChatModel:
         finally:
             await close_quietly(upstream)
             await close_quietly(client)
+        if request.response_schema is not None and finish == "tool_use":
+            finish = "end_turn"  # l'outil forcé est le mode de réponse, pas un appel d'outil
+        if request.response_schema is not None and finish == "tool_use":
+            finish = "end_turn"  # l'outil forcé est le mode de réponse, pas un appel d'outil
+        structured.done()
         yield Done(
             clock.result(
                 finish_reason=finish, input_tokens=input_tokens, output_tokens=output_tokens

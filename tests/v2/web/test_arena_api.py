@@ -412,7 +412,9 @@ async def test_the_prompt_lives_in_run_events_never_in_run_params(tmp_path):
         events = app.state.store.read(
             "SELECT type, data FROM run_events WHERE run_id = ? ORDER BY seq", (run_id,)
         )
-    assert len(rows) == 3
+    # Racine, deux générations, et une notation par réponse (feuilles `judge`).
+    kinds = sorted(r["kind"] for r in rows)
+    assert kinds == ["arena", "generation", "generation", "judge", "judge"]
     assert all(PROMPT not in row["params"] for row in rows)
     root = next(json.loads(r["params"]) for r in rows if r["kind"] == "arena")
     assert root == {
