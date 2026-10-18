@@ -3,22 +3,12 @@
 // registre, et câble les interactions. Rien ici n'appelle `/api/` : la coquille se rend seule.
 
 import { MODULES, entryScreen } from "./registry.js";
+import { bindDisclosure } from "./disclosure.js";
+import { icon } from "./dom.js";
 import { t } from "./i18n.js";
 import { THEMES, getProjection, getTheme, setProjection, setTheme } from "./theme.js";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 const COLLAPSE_QUERY = "(min-width: 1024px)";
-
-function icon(name) {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "icon");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("focusable", "false");
-  const use = document.createElementNS(SVG_NS, "use");
-  use.setAttribute("href", `/static/icons.svg#i-${name}`);
-  svg.append(use);
-  return svg;
-}
 
 // Un module disponible est un lien ; un module à venir est un `<a>` sans `href`, `aria-disabled`,
 // focalisable, dont la raison est un texte visible relié par `aria-describedby`.
@@ -62,6 +52,7 @@ function setupModuleMenu(nav, toggle, list) {
   // Échap ferme le menu où que soit le focus dans la barre haute (le bouton est hors du `nav`).
   nav.closest("header").addEventListener("keydown", (event) => {
     if (event.key === "Escape" && nav.dataset.open === "true" && !wide.matches) {
+      event.preventDefault(); // Échap a fermé le menu : il n'arrête pas un run suivi
       setOpen(false);
       toggle.focus();
     }
@@ -76,26 +67,7 @@ function setupModuleMenu(nav, toggle, list) {
 function setupDisplayMenu() {
   const button = document.getElementById("display-button");
   const panel = document.getElementById("display-panel");
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-  };
-  setOpen(false);
-  button.addEventListener("click", () => setOpen(panel.hidden));
-  document.addEventListener("pointerdown", (event) => {
-    if (!panel.hidden && !event.target.closest(".topbar-tools")) setOpen(false);
-  });
-  panel.addEventListener("focusout", (event) => {
-    if (!panel.hidden && event.relatedTarget && !event.relatedTarget.closest(".topbar-tools")) {
-      setOpen(false);
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !panel.hidden) {
-      setOpen(false);
-      button.focus();
-    }
-  });
+  bindDisclosure({ button, panel, scope: document.getElementById("display-tool") });
 
   const current = getTheme();
   for (const radio of panel.querySelectorAll('input[name="theme"]')) {

@@ -328,3 +328,67 @@ def test_catalog_and_index_use_non_breaking_spaces_before_high_punctuation():
 def test_the_space_detector_sees_a_breaking_space():
     assert BREAKING_SPACE.search("Texte ; suite")
     assert not BREAKING_SPACE.search("Texte ; suite")
+
+
+# --- Barre haute, composants et formats (story 1.9) -------------------------------------------
+
+I18N_KEY = re.compile(r"""["']((?:topbar|components|errors|format|shell)\.[\w.]+)["']""")
+
+
+def test_every_text_key_named_in_a_script_exists_in_the_catalog():
+    """Les clés écrites dans une table (`text: "components.badge.local"`) ou passées à `t()` d'une
+    variable ne sont pas vues par le test plus haut : on les cherche par leur forme."""
+    keys: set[str] = set()
+    for path in STATIC.rglob("*.js"):
+        keys |= set(I18N_KEY.findall(path.read_text(encoding="utf-8")))
+    assert {"components.badge.local", "topbar.ollama.up", "topbar.co2.unmeasurable_many"} <= keys
+    for key in sorted(keys):
+        assert isinstance(lookup(key), str), key
+
+
+def test_the_catalog_keeps_no_unused_text_of_the_top_bar():
+    index = parse_index()
+    scripts = " ".join(path.read_text(encoding="utf-8") for path in STATIC.rglob("*.js"))
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    used = set(index.texts) | set(index.attributes) | set(I18N_KEY.findall(scripts + html))
+    orphans = [key for key in flat_keys(catalog()["topbar"], "topbar") if key not in used]
+    assert orphans == [], f"textes de la barre haute jamais utilisés : {orphans}"
+
+
+def flat_keys(value, prefix: str) -> list[str]:
+    if isinstance(value, dict):
+        return [
+            key for name, child in value.items() for key in flat_keys(child, f"{prefix}.{name}")
+        ]
+    return [prefix]
+
+
+def test_the_ollama_down_text_mirrors_errors_py():
+    from wavelocalai.errors import ERRORS
+
+    spec = ERRORS["ollama_down"]
+    mirror = catalog()["errors"]["ollama_down"]
+    assert mirror["message"] == spec.message
+    assert mirror["action"] == spec.action.replace("`", "")  # le front n'affiche pas le Markdown
+
+
+def test_no_script_reads_or_writes_the_cloud_switch_in_storage():
+    """AD-20 : la bascule cloud vit dans le store seulement. `theme.js` est le seul module qui
+    touche `localStorage` (thème et projection)."""
+    for path in STATIC.rglob("*.js"):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"\b(?:localStorage|sessionStorage|indexedDB)\s*[.[]", text):
+            assert path.name == "theme.js", f"{path.name} touche le stockage du navigateur"
+    assert "allowCloud" in (STATIC / "core/store.js").read_text(encoding="utf-8")
+
+
+def test_the_front_computes_no_measure_and_names_no_host():
+    """Aucune mesure recalculée côté front (AD-20) : pas de conversion de CO2 hors de format.js,
+    et aucune adresse en dur (les appels vont à la même origine)."""
+    for path in STATIC.rglob("*.js"):
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(
+            r"https?://", text.replace("http://www.w3.org/2000/svg", "")
+        ), path.name
+        if path.name != "format.js":
+            assert "1_000_000" not in text and "per_mg" not in text, path.name

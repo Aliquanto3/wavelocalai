@@ -14,6 +14,15 @@
   <link rel="modulepreload" href="/static/core/router.js">
   <link rel="modulepreload" href="/static/core/shell.js">
   <link rel="modulepreload" href="/static/screens/home.js">
+  <link rel="modulepreload" href="/static/core/api.js">
+  <link rel="modulepreload" href="/static/core/disclosure.js">
+  <link rel="modulepreload" href="/static/core/dom.js">
+  <link rel="modulepreload" href="/static/core/format.js">
+  <link rel="modulepreload" href="/static/core/sse.js">
+  <link rel="modulepreload" href="/static/core/store.js">
+  <link rel="modulepreload" href="/static/core/system.js">
+  <link rel="modulepreload" href="/static/core/topbar.js">
+  <link rel="modulepreload" href="/static/components/index.js">
   <script type="module" src="/static/core/theme.js" blocking="render"></script>
   <script type="module" src="/static/main.js"></script>
 </head>
@@ -36,30 +45,97 @@
     </nav>
 
     <div class="topbar-tools">
-      <button class="btn" id="display-button" type="button" aria-expanded="false" aria-controls="display-panel">
-        <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-palette"/></svg>
-        <span data-i18n="shell.display.button">Affichage</span>
-      </button>
-      <div class="display-panel" id="display-panel" hidden>
-        <fieldset>
-          <legend data-i18n="shell.display.theme">Thème</legend>
-          <label class="choice"><input type="radio" name="theme" value="light"><span data-i18n="shell.display.light">Clair</span></label>
-          <label class="choice"><input type="radio" name="theme" value="dark"><span data-i18n="shell.display.dark">Sombre</span></label>
-        </fieldset>
-        <label class="choice"><input type="checkbox" name="projection" aria-describedby="projection-help"><span data-i18n="shell.display.projection">Mode projection</span></label>
-        <p class="help" id="projection-help" data-i18n="shell.display.projection_help">Texte agrandi pour la salle ; le pied de page est masqué.</p>
+      <div class="tool" id="ollama-tool">
+        <button class="btn status-btn" id="ollama-button" type="button" aria-expanded="false" aria-controls="ollama-panel" data-state="checking">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-help"/></svg>
+          <span id="ollama-label" data-i18n="topbar.ollama.checking">Ollama, vérification en cours…</span>
+        </button>
+        <div class="tool-panel" id="ollama-panel" role="group" aria-labelledby="ollama-panel-title" hidden>
+          <p class="panel-title" id="ollama-panel-title" data-i18n="topbar.ollama.title">État d'Ollama</p>
+          <dl class="facts">
+            <div><dt data-i18n="topbar.ollama.state">État</dt><dd id="ollama-state"></dd></div>
+            <div><dt data-i18n="topbar.ollama.version">Version</dt><dd id="ollama-version"></dd></div>
+            <div><dt data-i18n="topbar.ollama.memory">Mémoire du poste</dt><dd id="ollama-memory"></dd></div>
+          </dl>
+          <p class="panel-subtitle" data-i18n="topbar.ollama.loaded">Modèles chargés</p>
+          <ul class="plain-list" id="ollama-loaded"></ul>
+          <wl-error id="ollama-error"></wl-error>
+          <button class="btn" id="ollama-retry" type="button" aria-disabled="false" data-i18n="topbar.ollama.retry">Réessayer</button>
+        </div>
+      </div>
+
+      <div class="tool tool-cloud" id="cloud-tool">
+        <label class="switch">
+          <input type="checkbox" role="switch" id="cloud-switch" aria-describedby="cloud-help">
+          <span data-i18n="topbar.cloud.label">Autoriser le cloud</span>
+        </label>
+        <button class="btn icon-btn" id="cloud-help-button" type="button" aria-expanded="false" aria-controls="cloud-help" aria-label="Aide sur l'autorisation du cloud" data-i18n-aria-label="topbar.cloud.help_button">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-info"/></svg>
+        </button>
+        <div class="tool-panel tool-panel-narrow" id="cloud-help" hidden>
+          <p class="help-text" data-i18n="topbar.cloud.help">Désactivé à chaque ouverture de la page. Activé, les données envoyées aux modèles cloud quittent la machine.</p>
+        </div>
+      </div>
+
+      <div class="tool" id="co2-tool">
+        <button class="btn status-btn" id="co2-button" type="button" aria-expanded="false" aria-controls="co2-panel">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-eco"/></svg>
+          <span data-i18n="topbar.co2.button">CO₂ session</span>
+          <strong class="status-value" id="co2-value" hidden></strong>
+        </button>
+        <div class="tool-panel" id="co2-panel" role="group" aria-labelledby="co2-panel-title" hidden>
+          <p class="panel-title" id="co2-panel-title" data-i18n="topbar.co2.title">CO₂ de la session</p>
+          <dl class="facts">
+            <div><dt data-i18n="topbar.co2.total">Total</dt><dd id="co2-total"></dd></div>
+            <div><dt><wl-badge kind="local"></wl-badge></dt><dd id="co2-local"></dd></div>
+            <div><dt><wl-badge kind="cloud"></wl-badge></dt><dd id="co2-cloud"></dd></div>
+            <div><dt data-i18n="topbar.co2.unmeasurable">Non mesurables</dt><dd id="co2-unmeasurable"></dd></div>
+          </dl>
+          <p class="help" data-i18n="topbar.co2.unmeasurable_help">Les réponses non mesurables ne sont pas comptées dans le total.</p>
+          <a class="panel-link" id="co2-link" href="#/sobriete" data-i18n="topbar.co2.link">Détails dans Sobriété</a>
+          <p class="help" id="co2-link-reason" hidden></p>
+        </div>
+      </div>
+
+      <div class="tool" id="display-tool">
+        <button class="btn" id="display-button" type="button" aria-expanded="false" aria-controls="display-panel">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-palette"/></svg>
+          <span data-i18n="shell.display.button">Affichage</span>
+        </button>
+        <div class="display-panel tool-panel" id="display-panel" hidden>
+          <fieldset>
+            <legend data-i18n="shell.display.theme">Thème</legend>
+            <label class="choice"><input type="radio" name="theme" value="light"><span data-i18n="shell.display.light">Clair</span></label>
+            <label class="choice"><input type="radio" name="theme" value="dark"><span data-i18n="shell.display.dark">Sombre</span></label>
+          </fieldset>
+          <label class="choice"><input type="checkbox" name="projection" aria-describedby="projection-help"><span data-i18n="shell.display.projection">Mode projection</span></label>
+          <p class="help" id="projection-help" data-i18n="shell.display.projection_help">Texte agrandi pour la salle ; le pied de page est masqué.</p>
+        </div>
       </div>
     </div>
   </header>
+
+  <section class="banners" aria-label="État de la connexion" data-i18n-aria-label="topbar.connection.region">
+    <div class="banner" id="connection-banner" hidden>
+      <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-warning"/></svg>
+      <span data-i18n="topbar.connection.lost">Connexion au serveur perdue, nouvelle tentative…</span>
+    </div>
+    <div class="banner banner-risk" id="restart-banner" role="alert" hidden>
+      <svg class="icon" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-error"/></svg>
+      <span data-i18n="topbar.restarted.message">Le serveur a redémarré. Les exécutions en cours sont perdues.</span>
+      <button class="btn" id="restart-reload" type="button" data-i18n="topbar.restarted.reload">Recharger</button>
+    </div>
+  </section>
 
   <main class="main" id="main" tabindex="-1">
     <noscript><p data-i18n="shell.noscript">WaveLocalAI a besoin de JavaScript pour s'afficher. Activez-le dans votre navigateur, puis rechargez la page.</p></noscript>
   </main>
 
   <footer class="footer">
-    <p data-i18n="shell.footer">Les données restent sur ce poste tant que le cloud n'est pas autorisé.</p>
+    <p id="footer-text" data-i18n="shell.footer">Les données restent sur ce poste tant que le cloud n'est pas autorisé.</p>
   </footer>
 
   <div class="sr-only" id="announcer" role="status" aria-live="polite"></div>
+  <div class="sr-only" id="status-announcer" role="status" aria-live="polite"></div>
 </body>
 </html>
