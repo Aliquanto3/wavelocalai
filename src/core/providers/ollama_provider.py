@@ -108,6 +108,12 @@ class OllamaProvider(ILLMProvider):
         return OllamaAsyncClient(host=self._base_url)
 
     @property
+    def base_url(self) -> str:
+        """URL du serveur Ollama, `localhost` déjà visé en 127.0.0.1 : à réutiliser par les
+        autres clients (CrewAI) pour ne pas payer l'essai IPv6 de Windows."""
+        return self._base_url
+
+    @property
     def provider_name(self) -> str:
         return "ollama"
 

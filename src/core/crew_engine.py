@@ -24,7 +24,11 @@ from src.core.agent_tools import CREW_TOOL_OVERRIDES, get_tools_by_names  # noqa
 from src.core.config import MISTRAL_API_KEY  # noqa: E402
 from src.core.model_detector import is_api_model  # noqa: E402
 from src.core.providers import anthropic_provider, groq_provider, openai_provider  # noqa: E402
-from src.core.providers.provider_factory import prefixed_cloud_provider  # noqa: E402
+from src.core.providers.ollama_provider import OllamaProvider  # noqa: E402
+from src.core.providers.provider_factory import (  # noqa: E402
+    get_provider_factory,
+    prefixed_cloud_provider,
+)
 
 
 class LangChainAdapter(BaseTool):
@@ -63,6 +67,13 @@ class LangChainAdapter(BaseTool):
             return self._func(*args)
         except Exception as e:
             return f"Erreur lors de l'exécution de l'outil {self.name}: {str(e)}"
+
+
+def _ollama_base_url() -> str:
+    """Hôte Ollama du provider de la fabrique (celui des autres modules, `localhost` visé en
+    127.0.0.1) ; hôte par défaut du provider si la fabrique n'en a pas."""
+    provider = get_provider_factory().get_provider_by_name("ollama")
+    return getattr(provider, "base_url", None) or OllamaProvider().base_url
 
 
 class CrewFactory:
@@ -127,7 +138,7 @@ class CrewFactory:
 
         # 4. Routing Local (Ollama)
         return LLM(
-            model=f"ollama/{model_tag}", base_url="http://localhost:11434", temperature=temperature
+            model=f"ollama/{model_tag}", base_url=_ollama_base_url(), temperature=temperature
         )
 
     @staticmethod
