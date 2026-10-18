@@ -9,7 +9,8 @@ inputDocuments:
   - docs/audits/refonte-2026-10/03-ux-front.md (§3 seul contractuel)
   - _bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/EXPERIENCE.md
-scope: 'MVP (étapes 1 à 4, CAP-1 à CAP-9) détaillé ; CAP-10 à CAP-14 inventoriés pour la couverture'
+scope: 'MVP (étapes 1 à 4, CAP-1 à CAP-9) et après le MVP (étapes 5 à 8, CAP-10 à CAP-14) détaillés ; reports du MVP intégrés depuis reports-v2-inventaire.md'
+updated: '2026-10-18'
 ---
 
 # wavelocalai v2 - Découpage en epics et stories
@@ -76,7 +77,7 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 - FR41 : Reranker fastembed optionnel (extra `rerank`) ; absent = RAG sans reranker, l'écran dit pourquoi.
 - FR42 : Accueil : cartes Système, Mode, Processeur, Mémoire en direct ; « Démo recommandée » Arène avec modèles prêts ; liens Assistant documentaire (résumé de la base), Agents, Sobriété (CO₂ de session).
 
-**Après le MVP (inventaire de couverture, non détaillé ici)**
+**Après le MVP (détaillé par les Epics 5 à 8)**
 
 - FR43 : Sobriété : métriques en direct sans clic arrêtées onglet masqué, historique carbone, bridage thermique (NVML), remise à zéro de session (CAP-10).
 - FR44 : Écran `#/modeles` : compatibilité mémoire avant installation, run `pull` chiffré, décharger, supprimer, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes » (CAP-10).
@@ -88,7 +89,7 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 ### NonFunctional Requirements
 
 - NFR1 : Coquille < 300 ms en local ; changement d'écran < 150 ms ; premier rendu < 1 s.
-- NFR2 : Aucune route de lecture > 300 ms Ollama arrêté (test de budget) ; sonde Ollama ≤ 1 s, cache 5 s.
+- NFR2 : Aucune route de lecture > 300 ms Ollama arrêté (test de budget) ; sonde Ollama ≤ 1 s, cache 5 s pour les routes de lecture, 1 s pour la sonde du flux système (AD-15 amendé).
 - NFR3 : Aucun appel réseau ni import lourd dans le chemin de rendu ni au démarrage (`codecarbon`, `fastembed`, `pypdf`, `docx`, `ecologits`, SDK cloud importés dans la fonction).
 - NFR4 : Tout local : écoute `127.0.0.1:8502`, aucune requête navigateur hors de `127.0.0.1` (E2E), aucun CDN, installation par `uv sync` seul, ni Node ni téléchargement à l'exécution.
 - NFR5 : Sécurité de l'API locale : `Host` contrôlé, `Origin` étrangère refusée en écriture, aucun CORS, télémétrie FastAPI coupée.
@@ -129,7 +130,7 @@ Issus de la spine d'architecture (AD-n) et de la pile technique. **Pas de starte
 - AR19 (AD-22) : lecture de `benchmarks/slm-quality/slm-quality-results.json` seulement, schéma `qb.results/1` (étape 5 et CAP-13).
 - AR20 (AD-23) : verrou du dossier de données, message de port occupé, arrêt propre, journaux en rotation, CSV v1 non importé.
 - AR21 (réutilisation) : copier puis adapter (jamais importer) `model_defaults.py`, `metrics.py`, `_validate_path`, `accelerator.py`, `HardwareMonitor`, `telemetry.py`, streaming des providers cloud, `retry_interrupted`, règle `answer_carbon`, fichiers du harnais (`openai_chat.py`, `anthropic_messages.py`, `greenops.py`, front `wavestack/web`), `hardware.py`/`nvml.py`/`machine_state.py` de l'archive.
-- AR22 (versions) : versions de la spine §Stack (FastAPI 0.143.5, uvicorn 0.54.0, pydantic 2.14.1, ollama 0.6.3, sqlite-vec 0.1.9, ecologits `>=0.11.3,<0.12`, fastembed 0.9.0) ; SDK `openai`, `anthropic`, `mistralai`, `codecarbon`, `pypdf`, `python-docx` revérifiés à la story qui les utilise.
+- AR22 (versions) : versions de la spine §Stack (FastAPI 0.143.5, uvicorn 0.54.0, pydantic 2.12.x jusqu'à la bascule, ollama 0.6.3, sqlite-vec 0.1.9, ecologits `>=0.11.3,<0.12`, fastembed 0.9.0) ; SDK `openai`, `anthropic`, `mistralai`, `codecarbon`, `pypdf`, `python-docx` revérifiés à la story qui les utilise.
 - AR23 (périmètre) : ne modifier ni `scripts/benchmark_slm.py` ni le `src/core/` de la v1 ; rien ne s'ajoute au MVP avant sa livraison.
 
 ### UX Design Requirements
@@ -160,6 +161,13 @@ Issus de la spine d'architecture (AD-n) et de la pile technique. **Pas de starte
 - UX-DR24 : Accueil : titre et accroche, quatre cartes d'état en direct (pause sur `visibilitychange`), carte « Démo recommandée » Arène avec modèles prêts et « Lancer une comparaison », liens de modules avec résumé ; Ollama absent = « Indisponible » + marche à suivre, liens actifs, « Aucun modèle local disponible ».
 - UX-DR25 : vérification axe-core en E2E sur chaque écran livré, clair et sombre, zéro violation sans exclusion ; vérification E2E qu'aucune requête ne sort de `127.0.0.1`.
 
+Après le MVP (`03-ux-front.md` §3.4 et §3.5, à préciser par la mise à jour `bmad-ux` d'avant l'Epic 5) :
+
+- UX-DR26 : Sobriété : « Santé du système » en direct (pause onglet masqué), « Empreinte carbone de cette session » (total, par module, Local/Cloud, non-mesurables), historique 7 jours / 30 jours / Tout en barres par session et tableau, carte d'identité et méthode repliées.
+- UX-DR27 : Modèles : tableau des installés et du catalogue installable (mémoire nécessaire, « tient en mémoire »), installer avec progression chiffrée, décharger, supprimer avec confirmation, reranker, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes ».
+- UX-DR28 : Agents : `wl-step-trace` (liste ordonnée d'étapes dépliables pendant le flux, icône et libellé par type, durée, agent courant), pastilles d'outils (email décoché, indisponible non sélectionnable avec aide), validation d'email par `wl-confirm-dialog`, schéma d'équipe en SVG avec agent actif marqué par contour et libellé.
+- UX-DR29 : Évaluation et Banc d'essai : étapes nommées, scores /100 et verdicts par affirmation dépliables, « non évalué » avec raison, verdict de format en clair, interrupteurs « Format imposé » et « Réponse concise » avec aide.
+
 ### FR Coverage Map
 
 FR1 à FR5 : Epic 1 - coquille, barre haute, santé, flux système, identité
@@ -172,10 +180,12 @@ FR24 à FR30 : Epic 3 - Arène, juge, classement, verdict, export
 FR31 à FR36 : Epic 4 - base documentaire
 FR37 à FR41 : Epic 4 - Discussion, stratégies, citations, garde-fou, reranker
 FR42 : Epics 1, 3 et 4 - Accueil livré par morceaux : cartes d'état (Epic 1), « Démo recommandée » (Epic 3), résumé de la base (Epic 4)
-FR43, FR44, FR47 : Epic 5 (post-MVP)
-FR45 : Epic 6 (post-MVP)
-FR46 : Epic 7 (post-MVP)
-FR48 : Epic 8 (post-MVP)
+FR43 : Epic 5 - Sobriété en direct (5.1), historique et remise à zéro (5.2)
+FR44 : Epic 5 - écran Modèles : installer (5.3), décharger, supprimer, défauts (5.4), reranker (5.5), fiche modèle (5.6) ; défauts calés sur le banc (5.7)
+FR47 : Epic 5 - références par usage (5.8)
+FR45 : Epic 6 - boucle d'outils (6.1), outils (6.2), email validé (6.3), Agent seul (6.4), équipe (6.5, 6.6)
+FR46 : Epic 7 - fidélité et pertinence (7.1), jeu fixe (7.2), écran Évaluation (7.3), Banc d'essai (7.4)
+FR48 : Epic 8 - dette (8.1), accessibilité et projection (8.2), parité et E2E (8.3), bascule et 2.0.0 (8.4)
 
 ## Epic List
 
@@ -183,7 +193,8 @@ Décisions de structure (party mode du 2026-10-18) :
 - CAP-4 se partage : l'Epic 1 livre le serveur du hub, vérifié par l'adaptateur `fake` ; la story 2.2 ferme le critère E2E de reprise du flux.
 - La migration du hub porte dès maintenant tous les statuts et tous les `kind` d'AD-5, post-MVP compris : une migration fusionnée ne change jamais (AD-12).
 - Chaque carte de l'Accueil arrive avec son écran. Les modules non livrés restent visibles dans la barre haute, désactivés, avec une raison en texte visible (« Pas encore disponible dans cette préversion ») ; même règle pour les onglets de sous-écran ; registre d'écrans `available` / `planned`.
-- Les stories des Epics 5 à 8 s'écrivent avant chaque étape, avec le retour de recette du MVP.
+- Les stories des Epics 5 à 8 sont écrites (2026-10-18) avec les reports du MVP (`reports-v2-inventaire.md`) ; elles se relisent avant chaque étape avec le retour de recette, et les décisions Q1 à Q7 d'Anaël les débloquent.
+- Préversions après le MVP : `2.0.0a5` (Epic 5), `a6` (Epic 6), `a7` (Epic 7), `2.0.0` à la bascule (Epic 8, AD-3).
 
 ### Epic 1 : Une coquille rapide qui montre l'état du poste et protège les données
 L'utilisateur ouvre l'app, même Ollama arrêté, voit tout de suite l'état d'Ollama, du processeur et de la mémoire et le CO₂ de session, garde la main sur le cloud et dispose d'un sélecteur de modèle qui dit l'origine et la raison du défaut. Côté serveur, toute exécution est un run annulable et rejouable.
@@ -210,11 +221,11 @@ Agent seul avec trace, email validé (D2), équipe séquentielle.
 **FRs couverts :** FR45
 
 ### Epic 7 : Évaluer la qualité d'une réponse documentaire (post-MVP)
-Fidélité et pertinence avec verdict par affirmation, banc de format.
+Fidélité et pertinence avec verdict par affirmation, jeu fixe de non-régression, banc de format.
 **FRs couverts :** FR46
 
 ### Epic 8 : Remplacer la v1 (post-MVP)
-Accessibilité complète, parité, v1 archivée, `2.0.0` publiée.
+Dette technique du MVP soldée, accessibilité complète, parité, v1 archivée, `2.0.0` publiée.
 **FRs couverts :** FR48
 
 ## Epic 1 : Une coquille rapide qui montre l'état du poste et protège les données
@@ -1139,3 +1150,603 @@ So that l'atelier documentaire se déroule sans incident.
 **Given** les Epics 1 à 4 terminés et `tests/v2` vert
 **When** on publie
 **Then** `version = "2.0.0a4"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.4`, release GitHub avec notes ; la recette humaine joue Flow 1 puis Flow 2 sur un PC pro de 16 Go sans GPU installé par `uv sync` seul (signal de succès de la spec)
+
+## Epic 5 : Suivre sa sobriété et administrer ses modèles
+
+L'utilisateur suit en direct la charge du poste et l'empreinte de sa session, retrouve l'historique carbone, installe, décharge et supprime ses modèles en sachant s'ils tiennent, consulte la fiche d'un modèle et voit quel modèle convient à quel usage d'après le banc publié. **Prérequis :** mise à jour `bmad-ux` (écrans Sobriété et Modèles, spine §Deferred) et retour de recette du MVP ; données `qb.results/1` synchronisées pour 5.6 à 5.8 (décision Q7). Se termine par la préversion `2.0.0a5`.
+
+### Story 5.1 : L'écran Sobriété montre la machine et la session en direct
+
+As a consultant qui présente la sobriété,
+I want un écran qui montre en direct le processeur, la mémoire, l'accélérateur et le CO₂ de la session, ventilé par module et par origine,
+So that je relie la charge du poste aux réponses qui l'ont produite, sans cliquer sur « Rafraîchir ».
+
+**Gouverné par :** AD-6, AD-10, AD-15, AD-20, AD-22 ; AR9, AR18 ; UX-DR13, UX-DR15, UX-DR17, UX-DR26. **Reports :** B10, B11, B13.
+
+**Acceptance Criteria:**
+
+**Given** l'écran `screens/sobriety.js` sur `#/sobriete` (module Sobriété passé à `available`)
+**When** on l'ouvre
+**Then** la section « Santé du système » affiche processeur %, mémoire utilisée et totale, accélérateur (« Aucun » si aucun n'est détecté, jamais « Actif » sans détection) et modèles chargés dans Ollama, mis à jour par le flux système sans clic
+**And** le flux de l'écran se ferme quand l'onglet est masqué (`visibilitychange`) et se rouvre au retour en relisant `GET /api/carbon/session` (E2E)
+
+**Given** un GPU NVIDIA présent (NVML)
+**When** le flux système publie son état
+**Then** il ajoute mémoire GPU utilisée et totale, température et bridage thermique (`hardware/machine_state.py`, déjà copié), lus hors de la boucle, sans ralentir l'échantillon de 2 s ; sans NVML, ces champs sont absents et l'écran dit « Aucun »
+**And** le bridage thermique s'affiche en texte (« Bridage thermique en cours »), jamais par la couleur seule
+
+**Given** `GET /api/system/identity`
+**When** on l'appelle juste après le lancement, NVML froid, sur la tour RTX 3050
+**Then** il répond en moins de 300 ms (mesure consignée dans la story) ; la carte d'identité technique, repliée, affiche la fiche machine et la version d'Ollama lue dans l'état en cache de la sonde
+
+**Given** des réponses mesurées et non mesurables dans la session
+**When** la section « Empreinte carbone de cette session » s'affiche
+**Then** elle montre le total, la part par module (chat, arène, rag, agent, ingest), Local et Cloud « (estimé) », et le nombre de réponses non mesurables à part, depuis `GET /api/carbon/session` puis `carbon_updated` ; « Comment ces chiffres sont calculés », replié, cite CodeCarbon, ecologits et le D3
+**And** axe-core sans violation, clair et sombre ; formats `fr-FR` ; aucune couleur par seuil de CO₂
+
+### Story 5.2 : Retrouver l'historique carbone et ouvrir une nouvelle session
+
+As a consultant,
+I want voir l'historique des émissions par session sur 7 jours, 30 jours ou tout, et remettre le compteur de session à zéro,
+So that je montre l'empreinte cumulée d'un atelier et repars d'un compteur propre pour la démo suivante.
+
+**Gouverné par :** AD-10, AD-13, AD-20 ; AR9 ; UX-DR13, UX-DR14, UX-DR15, UX-DR26. **Reports :** B9.
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/carbon/history?window=7d|30d|all`
+**When** on l'appelle
+**Then** il rend une ligne par `app_session` de la fenêtre (début, fin, total en mg, Local, Cloud, nombre de non-mesurables), calculée depuis les feuilles de `runs`, conversations effacées comprises (AD-13 : le registre carbone ne baisse pas)
+**And** la route entre dans le test de budget de lecture (< 300 ms Ollama arrêté, base de 1 000 runs de test)
+
+**Given** l'historique
+**When** on choisit « Graphique » puis « Tableau »
+**Then** `wl-chart-svg` trace des barres par session titrées « Émissions par session » (mg, une seule unité, trous de mesure visibles, aucune donnée tracée entre deux mesures) avec `<title>`, `<desc>` et « Voir le tableau » ; `wl-data-table` donne le même contenu, triable au clavier
+**And** sans historique : « Aucune session mesurée pour l'instant. », sans graphique vide
+
+**Given** `POST /api/carbon/session/reset` (écriture, `Origin` contrôlée)
+**When** on clique « Remettre le compteur à zéro »
+**Then** le hub ouvre une nouvelle `app_session` (`hub.new_app_session("reset")`), le total de la barre haute et de Sobriété repart de 0 par `carbon_updated`, et la session close apparaît dans l'historique
+**And** un run actif pendant la remise à zéro reste compté dans la session où il a commencé (test)
+
+### Story 5.3 : Installer un modèle en sachant s'il tient en mémoire
+
+As a consultant qui prépare son poste,
+I want voir avant l'installation si un modèle tient en mémoire, puis suivre son téléchargement chiffré,
+So that je n'installe pas un modèle inutilisable et sais quand il sera prêt.
+
+**Gouverné par :** AD-5, AD-6, AD-14, AD-15, AD-17, AD-18, AD-20 ; AR4, AR15, AR16, AR18 ; UX-DR13, UX-DR16, UX-DR17, UX-DR27. **Reports :** B6.
+
+**Acceptance Criteria:**
+
+**Given** l'écran `screens/models.js` sur `#/modeles` (module Modèles passé à `available`)
+**When** on l'ouvre
+**Then** `wl-data-table` liste les modèles installés (nom, badge, type, paramètres totaux et actifs, taille, « tient en mémoire », débit mesuré sur ce poste) depuis `GET /api/models`, et le catalogue installable (`config/models_catalog.json`, lecture seule) avec la mémoire nécessaire et `fits`
+**And** `hardware/` calcule `fits` avec la RAM libre, la VRAM (NVML) quand un GPU est présent, la mémoire des modèles déjà chargés et une marge de contexte (taille du cache KV au contexte par défaut, formule testée) ; le front ne calcule rien
+
+**Given** `POST /api/models/pull {tag}` (écriture, `Origin` contrôlée)
+**When** on clique « Installer » sur un modèle du catalogue ou un tag saisi
+**Then** un run racine `pull` démarre (`409 run_busy` si un autre `pull` tourne, que l'écran rejoint), publie `pull_progress {tag, octets reçus, octets totaux, phase}` depuis `/api/pull` d'Ollama, et la ligne affiche « Téléchargement 1,2 Go sur 4,7 Go » puis « Installé »
+**And** un modèle qui ne tient pas reste installable avec l'avertissement chiffré ; l'installation est la seule action qui télécharge (AD-17) et part d'un clic
+
+**Given** une installation en cours
+**When** on l'annule, qu'Ollama s'arrête ou que le tag n'existe pas
+**Then** le run finit `cancelled` ou `error` avec un code de la liste fermée (`pull_failed` ajouté à `errors.py`, message et action), la liste des modèles reste inchangée, et le registre se rafraîchit en tâche de fond après un succès
+**And** quitter l'écran puis revenir reprend la progression par `?after=` ; axe-core sans violation, clair et sombre
+
+### Story 5.4 : Décharger, supprimer un modèle et choisir ses défauts
+
+As a consultant,
+I want décharger les modèles inactifs, supprimer un modèle et choisir le modèle proposé par défaut pour un usage,
+So that je libère la mémoire avant une démo et retrouve mes choix d'une séance à l'autre.
+
+**Gouverné par :** AD-9, AD-13, AD-15, AD-18, AD-20 ; AR13, AR16 ; UX-DR12, UX-DR27. **Reports :** B8 (décision Q2), B12.
+
+**Acceptance Criteria:**
+
+**Given** « Décharger les modèles inactifs » (`POST /api/models/unload`, livré par 4.8)
+**When** on clique depuis l'écran Modèles
+**Then** les modèles Ollama sans run actif sont déchargés, la colonne « chargé » et la mémoire libre se mettent à jour par le flux système
+
+**Given** un modèle installé sans run actif
+**When** on clique « Supprimer » puis confirme dans `wl-confirm-dialog` (« qwen3.5:2b sera supprimé de ce poste (2,7 Go libérés). », focus sur « Annuler ») ou appelle `DELETE /api/models/{tag}`
+**Then** Ollama supprime le modèle, ses lignes `model_facts` sont purgées (le modèle ne réapparaît plus au démarrage à froid, test), et le résultat se solde par « Modèle supprimé » ; « Annuler » ne supprime rien
+**And** un modèle utilisé par un run actif rend `409` avec son message et son action
+
+**Given** la décision Q2 tranchée (recommandation : « Définir par défaut » sur l'écran Modèles)
+**When** on choisit un modèle comme défaut d'un usage (`chat`, `arena`, `judge`, `agent`, `rag`) par `PUT /api/models/defaults/{purpose}` (écriture, `Origin` contrôlée)
+**Then** le choix est écrit dans `preferences` (jamais dans `wavelocalai.toml`), `GET /api/models/defaults` le rend avec la raison « Choisi par vous », un modèle cloud n'est gardé qu'avec `allow_cloud`, et « Revenir au choix automatique » efface la préférence
+**And** un défaut choisi puis supprimé du poste retombe sur la règle avec sa raison (test)
+
+### Story 5.5 : Récupérer le reranker depuis l'écran Modèles
+
+As a consultante,
+I want installer le reranker local d'un clic, avec sa progression,
+So that la recherche documentaire reclasse les extraits sans manipulation hors de l'app.
+
+**Gouverné par :** AD-5, AD-17, AD-21 ; AR15, AR17 ; UX-DR27. **Reports :** B19.
+
+**Acceptance Criteria:**
+
+**Given** l'extra `rerank` installé et le modèle absent du `cache_dir` du dossier de données
+**When** l'écran Modèles s'affiche
+**Then** la ligne « Reclassement des extraits » dit « Non installé » avec la raison de `GET /api/rag/settings` et un bouton « Installer le reranker »
+
+**Given** le clic sur « Installer le reranker »
+**When** le run `pull` démarre
+**Then** `disable_telemetry()` précède l'import de fastembed et de huggingface_hub (test AST de 4.7), le téléchargement va dans le `cache_dir`, `pull_progress` porte `reranker` et les octets, et un `pull` de modèle en cours rend `409 run_busy`
+**And** une fois installé, la recherche suivante reclasse (« Reclassement… ») sans redémarrage, et le chargement reste en `local_files_only=True`
+
+**Given** l'extra `rerank` absent
+**When** l'écran s'affiche
+**Then** le bouton est désactivé avec la raison « Installez l'option de reclassement : `uv sync --extra rerank` » ; aucun téléchargement n'est tenté (test sans réseau)
+
+### Story 5.6 : La fiche modèle explique son débit et ce qu'il donne sur d'autres postes
+
+As a consultant face à un client qui hésite sur le matériel,
+I want la fiche d'un modèle (dense ou MoE, paramètres actifs, quantification, licence, outils et raisonnement vérifiés), « Pourquoi ce débit ? » et « Sur d'autres postes »,
+So that j'explique la vitesse observée et ce qu'elle serait sur un PC pro de 16 Go sans GPU.
+
+**Gouverné par :** AD-15, AD-20, AD-22 ; AR19 ; UX-DR15, UX-DR27. **Reports :** B5.
+
+**Acceptance Criteria:**
+
+**Given** `models/catalog.py` qui lit `benchmarks/slm-quality/slm-quality-results.json` (modèle pydantic `extra="ignore"`, jamais par le réseau)
+**When** le fichier manque ou que `schema` ne vaut pas `qb.results/1`
+**Then** les références sont indisponibles avec une raison affichée, et aucune route ne dépasse 300 ms (test de budget) ; le fichier est lu une fois au démarrage et à sa modification
+**And** `results[]` se joint à `models[]` sur `(model, digest)` ; un modèle installé correspond par `(tag, digest)`, à défaut par tag avec la mention « autre version » ; `ModelInfo.accuracy` est renseignée depuis ces résultats, ce qui active la règle du juge d'après la précision (1.6)
+
+**Given** un clic sur un modèle de l'écran Modèles ou de `wl-model-picker`
+**When** la fiche s'ouvre
+**Then** elle montre dense ou MoE, paramètres totaux et actifs, quantification, licence, contexte, outils et raisonnement vérifiés (`/api/show` en cache `model_facts`, catalogue), avec « inconnu » pour une valeur absente, jamais 0
+
+**Given** « Pourquoi ce débit ? »
+**When** on l'ouvre
+**Then** il explique le débit mesuré sur ce poste par les paramètres actifs, la quantification, la bande passante mémoire et la VRAM (fiche locale, catalogue), sans calcul côté front
+
+**Given** « Sur d'autres postes »
+**When** on l'ouvre
+**Then** il affiche, pour les trois postes de référence (dont le PC pro de 16 Go sans GPU), le débit et la tenue en mémoire publiés ; `null` s'affiche « inconnu », les fractions en pourcentage, `energy` seulement si `status = "measured"` (AD-22)
+**And** axe-core sans violation, clair et sombre
+
+### Story 5.7 : Les défauts `agent` et `rag` s'appuient sur le banc
+
+As a consultant,
+I want que les modèles proposés pour l'agent et la discussion documentaire suivent les mesures publiées du banc,
+So that le défaut n'est pas un seuil choisi à la main mais un modèle qui réussit ces usages.
+
+**Gouverné par :** AD-15, AD-22 ; AR19. **Reports :** B7 (décision Q7).
+
+**Acceptance Criteria:**
+
+**Given** les résultats `qb.results/1` lus par 5.6 et les usages qu'ils publient (appel d'outils, réponse sur documents)
+**When** on recalcule les défauts `agent` et `rag`
+**Then** les seuils `AGENT_MIN_PARAMS_B` et `RAG_MIN_PARAMS_B` sont remplacés ou complétés par une règle sur les scores publiés pour ces usages, écrite dans `contrat-api.md` (Défauts) par `bmad-spec`, et la raison du défaut cite la mesure (« meilleur score d'appel d'outils publié parmi les modèles qui tiennent »)
+**And** sans résultat publié pour un modèle installé, la règle provisoire s'applique et la raison le dit
+
+**Given** aucun modèle local n'atteint la règle `agent`
+**When** on demande le défaut
+**Then** `tags: []` et une raison qui donne les conditions, comme au MVP ; le repli de `rag` sur le défaut `chat` est gardé ou retiré selon la décision Q7, avec un test par cas
+
+### Story 5.8 : Quel modèle pour quel usage (préversion 2.0.0a5)
+
+As a consultant en avant-vente,
+I want une carte par usage qui dit quels modèles le banc recommande, avec intervalle et débit sur la machine de référence,
+So that je réponds à « lequel prendre pour mon cas ? » sans relancer de comparaison.
+
+**Gouverné par :** AD-3, AD-20, AD-22 ; AR19 ; UX-DR13, UX-DR24, UX-DR25.
+
+**Acceptance Criteria:**
+
+**Given** le sous-écran `#/arene/references` (onglet « Références » de l'Arène passé à `available`)
+**When** on l'ouvre
+**Then** une carte par usage publié dans `qb.results/1` montre le groupe des meilleurs (intervalle, sans rang inventé dans un groupe à égalité), le débit sur la machine de référence et la marque « installé » ou « autre version » pour les modèles du poste ; un tableau équivalent est disponible
+**And** références indisponibles : la raison s'affiche, sans carte vide
+
+**Given** l'Accueil
+**When** les références sont disponibles
+**Then** une carte « Quel modèle pour quel usage ? » ouvre `#/arene/references` ; sinon elle n'apparaît pas
+
+**Given** le parcours Sobriété puis Modèles
+**When** le test E2E le joue (Ollama simulé, fichier `qb.results/1` de test)
+**Then** les métriques vivent sans clic, une installation simulée progresse jusqu'à « Installé », la fiche s'ouvre, et aucune requête ne sort de `127.0.0.1`
+**And** axe-core sans violation sur Sobriété, Modèles et Références, clair et sombre
+
+**Given** l'Epic 5 terminé et la suite `tests/v2` verte
+**When** on publie
+**Then** `version = "2.0.0a5"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.5`, release GitHub avec notes ; la recette humaine installe un vrai modèle et lit sa fiche
+
+## Epic 6 : Confier une tâche à un agent ou à une équipe
+
+L'utilisateur confie une tâche outillée à un agent seul, suit chaque étape en direct, valide tout email avant envoi (D2), puis lance une équipe séquentielle dont il voit le schéma, la trace par agent et le rapport. Remplace LangGraph et CrewAI par une boucle maison. **Prérequis :** décision Q3. Se termine par la préversion `2.0.0a6`.
+
+### Story 6.1 : Un agent appelle des outils et publie chaque étape (serveur)
+
+As a consultant,
+I want qu'un modèle local ou cloud puisse appeler des outils en boucle et que chaque réflexion, appel et résultat soit publié,
+So that l'écran montre ce que fait l'agent, étape par étape, quel que soit le fournisseur.
+
+**Gouverné par :** AD-5, AD-6, AD-8, AD-9, AD-14 ; AR4, AR7, AR8, AR12. **Reports :** B3, B4.
+
+**Acceptance Criteria:**
+
+**Given** le port `ChatModel` (AD-8 : `tools` en schéma JSON neutre, messages avec appels d'outils et id d'appel, `ToolCall` dans le flux)
+**When** les quatre adaptateurs reçoivent des outils
+**Then** Ollama et OpenAI-compatible les passent au format OpenAI, Anthropic en `tool_use`, Mistral en son format, et chacun rend des `ToolCall(id, name, arguments)` puis accepte le résultat au tour suivant (test par adaptateur avec un faux client, trois formats couverts)
+**And** `stream_into_run` ne jette plus les `ToolCall`
+
+**Given** `POST /api/agents/runs {mode: "solo", model, tools, prompt, conversation_id?, allow_cloud}`
+**When** on l'appelle
+**Then** il rend `{run_id, conversation_id}` (conversation `agent` créée par le hub), le modèle passe par `registry.resolve` et chaque appel de modèle est une feuille `generation` avec son `co2`
+**And** la boucle `agents/loop.py` publie `step {lane, step_id, agent, kind: think|tool_call|tool_result|answer, outil, arguments, résumé, durée}` et la réponse finale en `token`, avec un nombre de tours borné par `Settings` (borne atteinte = fin propre avec la raison)
+
+**Given** un outil qui lève une exception ou dépasse son délai
+**When** la boucle continue
+**Then** l'étape `tool_result` porte l'erreur en texte, l'agent la reçoit et peut poursuivre ; l'annulation du run coupe l'appel de modèle et l'outil en cours (test avec le `fake`)
+**And** le protocole d'appel d'outils et le format des étapes sont consignés dans la spine §Deferred (« Formats d'appel d'outils ») levée par `bmad-architecture`
+
+### Story 6.2 : L'agent dispose des outils de la v1, sans chemin libre
+
+As a consultant,
+I want retrouver les outils de la v1 (Heure, Calculatrice, Recherche interne Wavestone, Analyse de données, Génération de document, Génération de graphique, Rapport Markdown, Moniteur système, Envoi d'email) avec ce qui les rend disponibles,
+So that je refais les démos d'agent de la v1 sans risque pour le poste.
+
+**Gouverné par :** AD-2, AD-4, AD-9, AD-18 ; AR21.
+
+**Acceptance Criteria:**
+
+**Given** `agents/tools/` (fonctions `_*_impl` de `src/core/agent_tools.py` copiées, sans `@tool`, un schéma JSON par outil)
+**When** on appelle `GET /api/agents/tools`
+**Then** chaque outil rend `id`, libellé du lexique, description, `available`, raison et `sensitive` ; « Envoi d'email » est `sensitive` et, sans SMTP configuré dans `Settings`, indisponible avec « Configuration SMTP absente : renseignez … dans le fichier .env »
+**And** aucun `os.getenv` hors de `config.py` (variables SMTP lues par `Settings`)
+
+**Given** un outil qui lit ou écrit un fichier
+**When** l'agent lui passe un chemin
+**Then** le chemin est confiné au dossier de travail des agents dans le dossier de données (`_validate_path` copié) ; une traversée (`..`, chemin absolu) est refusée en `tool_result` d'erreur (test)
+**And** les fichiers produits sont servis par `GET /api/outputs/{name}` (nom validé, `Content-Disposition`), référencés par `artifact_url` dans l'étape
+
+**Given** la calculatrice et l'analyse de données
+**When** l'agent les appelle
+**Then** l'expression passe par l'évaluateur sûr de la v1 (`_calculate_safe`) et l'analyse lit un CSV du dossier de travail sans pandas si possible (`csv` standard), avec les mêmes résultats que la v1 sur un jeu de test
+
+### Story 6.3 : Aucun email ne part sans validation explicite
+
+As a consultant,
+I want que l'agent prépare l'email et attende ma décision, avec destinataire, objet et corps sous les yeux,
+So that rien ne quitte le poste sans mon accord (D2).
+
+**Gouverné par :** AD-5, AD-6, AD-9, AD-15, AD-18 ; AR8. **Reports :** B1, B2.
+
+**Acceptance Criteria:**
+
+**Given** un appel de l'outil sensible « Envoi d'email »
+**When** l'agent le demande
+**Then** le hub crée une approbation, publie `approval_required {approval_id, kind: "email", destinataire, objet, corps}` et passe le run en `awaiting_approval` (nouvelle transition du hub, testée), qui garde sa place de `kind`
+**And** l'email n'est pas envoyé tant que `approval_resolved {decision: "approved"}` n'est pas publié
+
+**Given** `POST /api/runs/{id}/approvals/{approval_id} {decision}` (écriture, `Origin` contrôlée)
+**When** on approuve, refuse, ou ne répond pas dans `approval_expiry_s` (`Settings`, 600 s, valeur confirmée par la story)
+**Then** `approval_resolved` porte `approved`, `rejected` ou `expired` ; seul `approved` envoie, `rejected` et `expired` rendent à l'agent un refus qu'il peut annoncer ; annuler le run vaut refus
+**And** aucun chemin d'approbation automatique n'existe hors de l'adaptateur `fake` (test qui cherche toute approbation sans requête)
+
+**Given** un redémarrage du serveur pendant l'attente
+**When** le serveur repart
+**Then** le run passe à `interrupted` et l'email n'est jamais envoyé
+
+### Story 6.4 : L'écran Agent seul montre chaque étape et demande la validation
+
+As a consultant en démo,
+I want suivre l'agent étape par étape, déplier une étape pendant que les suivantes arrivent et valider l'email dans un dialogue,
+So that la salle voit le raisonnement outillé et que je garde la main sur ce qui part.
+
+**Gouverné par :** AD-6, AD-9, AD-20 ; AR18 ; UX-DR8, UX-DR10, UX-DR12, UX-DR16, UX-DR17, UX-DR28. **Reports :** B14, B15.
+
+**Acceptance Criteria:**
+
+**Given** l'écran `screens/agents-solo.js` sur `#/agents/seul` (module Agents passé à `available`, onglet « Équipe d'agents » désactivé avec sa raison)
+**When** on l'ouvre
+**Then** `wl-model-picker` est sur le défaut `agent` avec sa raison (sans défaut : la raison et un choix demandé, lancement désactivé), les neuf pastilles d'outils sont visibles, toutes cochées sauf « Envoi d'email », une pastille indisponible est non sélectionnable avec son aide, et l'accueil dit « Bonjour ! L'agent est prêt. » avec des actions rapides
+
+**Given** une tâche lancée
+**When** les `step` arrivent
+**Then** `wl-step-trace` (liste ordonnée, motif APG) ajoute chaque étape avec icône, libellé, durée et agent ; on peut en déplier une pendant que les suivantes arrivent sans perdre le focus ; `wl-run-status` dit « Réflexion… », « Appel de l'outil <libellé>… », « En attente de votre validation », « Génération… »
+**And** la réponse finale arrive en flux dans `wl-chat-thread` avec son pied (badge, CO₂, nombre d'étapes, durée, Télécharger) et un Markdown rendu sans astérisques visibles (test sur une réponse réelle de la v1 : gras, séparateur, italique)
+
+**Given** `approval_required`
+**When** il arrive
+**Then** l'étape passe à « En attente de votre validation » et `wl-confirm-dialog` montre destinataire, objet et corps, focus sur « Annuler » ; « Envoyer l'email » approuve, « Annuler » refuse, et le résultat se solde par un message au même verbe
+
+**Given** un modèle local dont le besoin dépasse la mémoire libre
+**When** on lance la tâche
+**Then** le garde-fou `ram_guard` de 4.8 s'applique (question gardée, besoin chiffré, deux actions), sans bouton « Libérer la mémoire » de la v1
+**And** quitter et revenir reprend la trace par `?after=` ; axe-core sans violation, clair et sombre
+
+### Story 6.5 : Une équipe d'agents mène une mission l'un après l'autre (serveur)
+
+As a consultant,
+I want lancer une équipe d'agents (chercheur, analyste, rédacteur…) sur un sujet, chacun avec ses outils, et l'arrêter quand je veux,
+So that je montre une collaboration d'agents sans CrewAI, avec un rapport conservé.
+
+**Gouverné par :** AD-5, AD-6, AD-9, AD-14 ; AR4, AR21. **Reports :** B4 (protocole d'équipe), décision Q3.
+
+**Acceptance Criteria:**
+
+**Given** la bibliothèque d'équipes (forme selon la décision Q3 ; recommandation : équipes de la v1 en fichier versionné, modifications de l'utilisateur dans `preferences`)
+**When** on appelle `GET /api/agents/crews` et `POST /api/agents/crews/validate`
+**Then** chaque équipe rend ses agents (rôle, objectif, outils, modèle) et ses tâches ordonnées ; `validate` rejette une équipe sans agent, un outil inconnu ou un modèle cloud sans `allow_cloud`, avec un message par champ
+
+**Given** `POST /api/agents/runs {mode: "crew", crew, topic, allow_cloud}`
+**When** la mission s'exécute
+**Then** un run racine `agent` enchaîne les agents en séquence (la sortie d'un agent est l'entrée du suivant), chaque agent réutilise la boucle de 6.1 et publie ses `step` avec `agent` renseigné, et chaque appel de modèle est une feuille avec son `co2`
+**And** un outil sensible dans une équipe suit l'approbation de 6.3 (aucun email sans validation)
+
+**Given** une mission en cours
+**When** on l'annule
+**Then** l'agent courant s'arrête, le rapport partiel est gardé et marqué « Arrêté » ; une mission terminée garde son rapport final dans `messages`, rouvrable
+**And** le pic de mémoire de la mission et sa durée sont dans l'instantané `GET /api/runs/{id}`
+
+### Story 6.6 : L'écran Équipe d'agents montre le schéma, la trace et le rapport (préversion 2.0.0a6)
+
+As a consultant,
+I want voir le schéma de l'équipe, l'agent en cours, la trace par agent et le rapport à télécharger,
+So that la mission se lit d'un coup d'œil et laisse une trace, à parité avec la v1.
+
+**Gouverné par :** AD-3, AD-6, AD-20 ; AR18 ; UX-DR13, UX-DR14, UX-DR17, UX-DR25, UX-DR28.
+
+**Acceptance Criteria:**
+
+**Given** l'écran `screens/agents-crew.js` sur `#/agents/equipe` (onglet passé à `available`)
+**When** on charge une équipe
+**Then** un schéma SVG fait main relie les agents puis le rapport (`<title>`, `<desc>`), l'agent actif est marqué par un contour et le libellé « en cours », jamais par la couleur seule ; « Configurer » ouvre les agents (rôle, objectif, outils, modèle) selon la décision Q3 ; sans agent, « Lancer la mission » est désactivé avec « Ajoutez au moins un agent »
+
+**Given** une mission lancée
+**When** les `step` arrivent
+**Then** une ligne par agent dit son statut (En attente, En cours avec l'étape, Terminé avec outils et durée) et se déplie sur sa trace ; le journal brut est replié ; Arrêter (et Échap) annule
+**And** le rapport s'affiche avec son pied (badge, CO₂, pic de mémoire, durée, Télécharger en Markdown par la route d'export, sans `blob:`)
+
+**Given** l'agent seul et l'équipe de la v1
+**When** on compare les parcours
+**Then** la liste de parité (outils, validation d'email, garde-fou, équipe chargée, configurée, lancée, arrêtée, rapport conservé) est cochée dans la story, chaque écart nommé
+**And** les E2E jouent un agent seul avec un email approuvé puis refusé et une mission arrêtée en cours (modèles `fake`), axe-core sans violation, clair et sombre
+
+**Given** l'Epic 6 terminé et la suite `tests/v2` verte
+**When** on publie
+**Then** `version = "2.0.0a6"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.6`, release GitHub avec notes ; la recette humaine joue un agent seul avec un vrai email de test et une mission d'équipe
+
+## Epic 7 : Évaluer la qualité d'une réponse documentaire
+
+L'utilisateur mesure la fidélité et la pertinence des réponses de plusieurs modèles sur ses documents, avec un verdict par affirmation, et vérifie au Banc d'essai qu'un modèle respecte un format attendu. Remplace Ragas par un juge maison. **Prérequis :** décision Q4 (jeu fixe). Se termine par la préversion `2.0.0a7`.
+
+### Story 7.1 : Noter la fidélité et la pertinence d'une réponse (serveur)
+
+As a consultante,
+I want que chaque réponse soit découpée en affirmations vérifiées une à une contre les extraits, et que sa pertinence soit mesurée,
+So that je sais si un modèle invente, affirmation par affirmation.
+
+**Gouverné par :** AD-5, AD-6, AD-8 (`response_schema`), AD-9, AD-10, AD-12, AD-13, AD-14 ; AR4, AR7, AR10, AR11.
+
+**Acceptance Criteria:**
+
+**Given** une nouvelle migration qui crée `evaluations` (run, métrique, score, verdicts par affirmation en JSON) et le test d'instantané de schéma à jour
+**When** `POST /api/rag/eval/runs {questions, models, judge, allow_cloud}` est appelé
+**Then** un run racine `eval` cherche une fois les extraits communs (feuille `embedding`), fait répondre chaque modèle sur ces mêmes extraits (une lane et une feuille `generation` par modèle), puis note (feuilles `judge`) ; locaux en séquence, cloud en parallèle (AD-14)
+
+**Given** une réponse et ses extraits
+**When** le juge évalue la fidélité
+**Then** les affirmations sont extraites puis vérifiées une à une par sortie structurée (`response_schema`), chacune avec son verdict (« appuyée », « non appuyée », « contredite ») et l'extrait qui l'appuie ; le score /100 est la part d'affirmations appuyées
+**And** la pertinence génère des questions depuis la réponse et prend le cosinus moyen avec la question, par l'`Embedder` de la base (AD-16) ; la précision du contexte note les extraits utiles
+
+**Given** le flux
+**When** chaque métrique est prête
+**Then** `eval_metric {lane, métrique, score|null, raison, verdicts}` est publié au fil de l'eau ; juge indisponible, sortie invalide ou réponse vide donnent `score: null` et `not_evaluated` avec la raison, jamais 0
+**And** effacer l'évaluation supprime ses `evaluations` et `run_events` et garde ses `runs` (AD-13)
+
+### Story 7.2 : Un jeu fixe de cas garde le juge honnête
+
+As a mainteneur,
+I want un jeu fixe de questions, de réponses et de verdicts attendus, rejoué à chaque changement du juge,
+So that une régression de la notation se voit avant d'arriver en démo.
+
+**Gouverné par :** AD-8, NFR12, NFR13 ; décision Q4.
+
+**Acceptance Criteria:**
+
+**Given** le jeu fixe (forme selon la décision Q4 ; recommandation : une dizaine de cas en français tirés d'un document du domaine public, verdicts annotés par Anaël) dans `tests/v2/fixtures/eval/`, sans document client (dépôt public)
+**When** le test de non-régression tourne avec le `fake` (sorties de juge enregistrées)
+**Then** les scores et verdicts calculés égalent les attendus ; une modification de l'invite ou du découpage qui change un verdict fait échouer le test
+
+**Given** un vrai juge local (test `integration`)
+**When** le jeu est rejoué
+**Then** l'accord avec les verdicts annotés est mesuré et consigné (part de verdicts identiques), avec un seuil minimal fixé par la story après une première mesure
+
+### Story 7.3 : L'écran Évaluation de la qualité montre les étapes et garde le résultat
+
+As a consultante en atelier,
+I want lancer une évaluation sur une question ou un jeu de questions et voir les étapes, puis les scores et les verdicts arriver,
+So that je compare la fiabilité des modèles sur mes documents et retrouve le résultat plus tard.
+
+**Gouverné par :** AD-6, AD-7, AD-20 ; AR18 ; UX-DR11, UX-DR13, UX-DR14, UX-DR17, UX-DR29.
+
+**Acceptance Criteria:**
+
+**Given** l'écran `screens/documents-eval.js` sur `#/documents/evaluation` (onglet passé à `available`)
+**When** on l'ouvre
+**Then** il propose Question ou Jeu de questions, `wl-model-picker` en mode multi, le juge sur le défaut `judge` avec sa raison et l'avertissement « note peu fiable » sous ~4B actifs, et la phrase « Les mêmes extraits sont fournis à tous les modèles. »
+
+**Given** une évaluation lancée
+**When** les événements arrivent
+**Then** trois étapes nommées avancent (« Recherche des extraits communs » avec « Voir les extraits », « Réponses » par modèle, « Notation : fidélité · pertinence · précision ») et le tableau se remplit (/100, débit, CO₂) ; une ligne « non évalué » dit sa raison, sans 0
+**And** chaque métrique a sa définition en une phrase en aide, la méthode « inspirée de Ragas » est citée en aide seulement ; chaque score se déplie sur ses verdicts par affirmation, avec l'extrait d'appui
+
+**Given** une évaluation terminée
+**When** on revient sur l'écran ou ouvre son URL `#/documents/evaluation/<run_id>`
+**Then** le résultat se reconstruit depuis la base sans relancer de modèle ; « Matrice » et « Tableau » sont proposés comme dans l'Arène
+**And** axe-core sans violation, clair et sombre
+
+### Story 7.4 : Le Banc d'essai dit si la sortie respecte le format (préversion 2.0.0a7)
+
+As a consultant,
+I want lancer un scénario prédéfini et savoir si le modèle a respecté le format attendu, avec ou sans format imposé et réponse concise,
+So that je montre qu'un petit modèle sait produire un JSON exploitable.
+
+**Gouverné par :** AD-3, AD-5, AD-8 (`response_schema`), AD-20 ; AR7, AR18 ; UX-DR13, UX-DR17, UX-DR25, UX-DR29.
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/scenarios`
+**When** on l'appelle
+**Then** il rend les scénarios de la v1 (`USE_CASES` de `lab.py`, consignes séparées du format) avec leur format attendu en schéma JSON
+
+**Given** `POST /api/bench/runs {scenario, model, input, force_format, concise, allow_cloud}`
+**When** le run `bench` se termine
+**Then** le serveur dit si la sortie respecte le schéma (« Format respecté » ou la première violation en clair) ; `force_format` passe le schéma par `response_schema` (`format` d'Ollama), `concise` ajoute la consigne de réponse concise ; débit D3, CO₂ et durée accompagnent le résultat
+
+**Given** l'écran `screens/bench.js` sur `#/arene/banc` (onglet passé à `available`)
+**When** on lance un scénario
+**Then** la réponse arrive en flux, le verdict de format s'affiche à `run_ended` avec la sortie mise en forme, et les interrupteurs « Format imposé » et « Réponse concise » ont leur aide ; le résultat est conservé et rouvrable
+**And** un délai dépassé affiche « Délai dépassé » avec le délai ; axe-core sans violation, clair et sombre
+
+**Given** les parcours Évaluation et Banc d'essai
+**When** les E2E les jouent (`fake`, base de test en dossier temporaire)
+**Then** les scores arrivent au fil de l'eau, un « non évalué » garde sa raison, un format violé est signalé ; aucune requête ne sort de `127.0.0.1`
+
+**Given** l'Epic 7 terminé et la suite `tests/v2` verte
+**When** on publie
+**Then** `version = "2.0.0a7"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.7`, release GitHub avec notes ; la recette humaine évalue deux modèles sur un vrai document
+
+## Epic 8 : Remplacer la v1
+
+La v2 devient l'application : dette technique soldée, accessibilité complète vérifiée, parité avec la v1 listée page par page, v1 archivée, `2.0.0` publiée. **Prérequis :** décisions Q5 et Q6.
+
+### Story 8.1 : Solder la dette technique relevée pendant le MVP
+
+As a mainteneur,
+I want corriger les angles morts des garde-fous et les cas d'arrêt relevés aux revues du MVP,
+So that les tests qui protègent la v2 ne laissent rien passer avant la bascule.
+
+**Gouverné par :** AD-4, AD-12, AD-15, AD-18, AD-23 ; AR3, AR20. **Reports :** C1 à C9.
+
+**Acceptance Criteria:**
+
+**Given** `tests/v2/unit/test_layers.py`
+**When** un module importe un composant par `import wavelocalai` puis accès d'attribut, par `importlib.import_module` ou par `__import__`
+**Then** le test relève la violation (modules pièges ajoutés) (C1)
+
+**Given** le test de budget de lecture
+**When** une route `GET` est posée avec `include_in_schema=False` dans un routeur inclus, ou sert des fichiers par `Mount`
+**Then** elle est découverte et mesurée, sans dépendre d'une classe interne de FastAPI (C2, C3)
+**And** un test vérifie qu'aucune route ne prend de texte saisi dans son chemin ou sa requête, pour que `uvicorn.access` n'en journalise jamais (C4)
+
+**Given** le lanceur
+**When** le verrou échoue pour une autre raison qu'un serveur vivant (droits, disque), ou qu'on lance un second serveur
+**Then** le message dit la vraie cause, et le second lancement n'écrit rien dans le journal du serveur vivant (`setup_logging` après le verrou) (C5)
+**And** sous Windows, Ctrl+Break ferme le store et relâche le verrou (test en sous-processus) (C7)
+
+**Given** l'échec de la transaction de clôture d'un run (disque plein simulé)
+**When** l'exception remonte
+**Then** la racine est purgée de la mémoire du hub, l'erreur est journalisée, sa place de `kind` est libérée, et le run passe à `interrupted` au démarrage suivant (C6)
+
+**Given** le panneau Ollama de la barre haute
+**When** on clique « Réessayer »
+**Then** une sonde est forcée sans attendre l'échéance du cache (route d'écriture ou paramètre, sous le budget de 300 ms), et l'état s'affiche aussitôt (C8)
+**And** les textes de `ollama_down` n'ont qu'une source : le front les lit de l'API ou d'un catalogue généré depuis `errors.py`, le test miroir disparaît (C9)
+
+### Story 8.2 : Tous les écrans sont accessibles et lisibles en projection
+
+As a consultant qui présente à un public varié,
+I want que chaque écran passe axe-core, la grille RGAA 4.1, le zoom à 200 % et 320 px de large, et soit lisible au vidéoprojecteur,
+So that la v2 remplace la v1 sans exclure personne.
+
+**Gouverné par :** AD-20 ; NFR8 ; UX-DR2, UX-DR19, UX-DR25. **Reports :** B16.
+
+**Acceptance Criteria:**
+
+**Given** les onze routes du registre, toutes `available`
+**When** les E2E d'accessibilité tournent
+**Then** axe-core ne relève aucune violation, sans exclusion, sur chaque écran en clair, en sombre et en mode projection, panneaux et dialogues ouverts compris
+**And** aucun défilement horizontal à 320 px CSS et à 200 % de zoom (hors tableaux larges qui défilent dans leur conteneur)
+
+**Given** la grille RGAA 4.1
+**When** l'audit manuel est fait (clavier seul, lecteur d'écran NVDA)
+**Then** `docs/accessibilite/grille-rgaa-v2.md` liste chaque critère applicable (conforme, non conforme avec correctif, non applicable) ; le focus au premier chargement (B16) y est tranché et appliqué
+**And** les non-conformités trouvées sont corrigées dans la story ou listées avec leur story de correctif
+
+**Given** le mode projection
+**When** la recette humaine l'essaie sur un vidéoprojecteur réel
+**Then** Flow 1 se lit du fond de la salle ; les écarts relevés sont corrigés ou consignés
+
+### Story 8.3 : La parité avec la v1 est listée et la suite E2E est complète
+
+As a mainteneur,
+I want une liste de parité page par page et une suite E2E qui joue tous les parcours,
+So that l'archivage de la v1 ne perd aucune fonction sans le dire.
+
+**Gouverné par :** NFR13, NFR14 ; décision Q6. **Reports :** B21.
+
+**Acceptance Criteria:**
+
+**Given** les pages et onglets de la v1 (03 §1.1)
+**When** la liste de parité est écrite dans `docs/parite-v1-v2.md`
+**Then** chaque fonction de la v1 est marquée « reprise », « remplacée par » (avec l'écran) ou « abandonnée » (avec le motif), et aucune n'est sans statut
+
+**Given** la suite `tests/v2/e2e`
+**When** on la lance
+**Then** elle joue Flow 1, Flow 2, Sobriété et Modèles, Agents et Évaluation et Banc d'essai sans recharger la page, et vérifie qu'aucune requête ne sort de `127.0.0.1`
+**And** elle tourne selon la décision Q6 (recommandation : job CI Linux nocturne avec Chromium de Playwright installé par la CI, plus local sur Edge par `WAVELOCALAI_E2E_CHROMIUM`, mode d'emploi dans `AGENTS.md`)
+
+**Given** le README
+**When** la story se termine
+**Then** les captures et le GIF du README montrent la v2 (sans données réelles indexées, dépôt public), et le README décrit l'installation par `uv sync` et le lanceur
+
+### Story 8.4 : La v2 remplace la v1 (2.0.0)
+
+As a utilisateur de wavelocalai,
+I want lancer `wavelocalai` et obtenir la v2,
+So that il n'existe plus qu'une application à installer et à maintenir.
+
+**Gouverné par :** AD-1, AD-2, AD-3 ; AR1, AR22, AR23 ; décision Q5. **Reports :** B17, B18.
+
+**Acceptance Criteria:**
+
+**Given** la décision Q5 tranchée (recommandation : code v1 et ses tests retirés de `master`, conservés par le tag `v1.3.x` et une note dans le README)
+**When** on bascule
+**Then** le script `wavelocalai` lance la v2 (`wavelocalai.__main__:main`), `wavelocalai-v2` reste un alias pour une version ou disparaît selon la décision, `packages` passe à `src/wavelocalai`, `dev-mode-dirs` est retiré, et une installation non éditable (`uv build` puis installation de la roue dans un venv propre) lance le serveur
+**And** les dépendances de la v1 (Streamlit, LangChain, LangGraph, CrewAI, Ragas, Chroma, torch…) sortent du `pyproject.toml`, `uv.lock` est régénéré, et la taille du `.venv` est mesurée et consignée
+
+**Given** pydantic contraint sous 2.13 par crewai
+**When** crewai est retiré
+**Then** pydantic passe à la dernière version vérifiée sur PyPI et par installation réelle, la spine §Stack est mise à jour par `bmad-architecture`, et `tests/v2` reste vert
+**And** la borne haute de Python est relevée si 3.13 est vérifiée par la CI, sinon gardée avec la raison (spine §Deferred)
+
+**Given** la CI, `requirements.txt`, `constraints.txt` et `AGENTS.md`
+**When** la bascule est faite
+**Then** le job v1 disparaît, le job v2 devient le seul, `requirements.txt` et `constraints.txt` sont régénérés depuis le verrou ou retirés selon Q5, et `AGENTS.md` décrit la seule application (lanceur, port, tests)
+**And** les scripts qui importent `src.core` (`benchmark_slm.py`, `audit_and_update.py`, `setup_models.py`, `setup_rag_models.py`) suivent la décision Q5, `scripts/sync_slm_results.py` et `scripts/build_catalog.py` restent fonctionnels
+
+**Given** la suite complète verte et la recette humaine de Flow 1 et Flow 2 sur un PC pro de 16 Go sans GPU installé par `uv sync` seul
+**When** on publie
+**Then** `version = "2.0.0"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0`, release GitHub avec notes ; le topic GitHub du projet passe à `status-deployed`
+
+## À ajouter aux stories du MVP
+
+Critères proposés pour les stories 2.x à 4.x, tirés des reports (a) de `reports-v2-inventaire.md`. Le run autonome du MVP les implémente en ce moment : il décide de les intégrer à la story concernée avant son développement, ou de les laisser à la story 8.1. Les éléments (a) déjà couverts par un critère existant (A2, A3, A5 à A9, A11, A12, A15, A17, A22, A23, A27, A31) ne sont pas répétés.
+
+| Story | Critère proposé | Report |
+|---|---|---|
+| 2.1 | **Given** un service qui publie un `token` **When** il appelle `hub.publish("token", …)` **Then** le hub refuse (seul `publish_token` émet ce type, groupé par 50 ms et par `lane`), test | A10 |
+| 2.1 | **Given** une génération coupée puis relancée **When** la seconde tentative aboutit **Then** la tentative coupée est une feuille close avec son `co2`, comptée dans le CO₂ de session | A28 |
+| 2.1 | **Given** Ollama rendu au run **When** la story se termine **Then** `pytest tests/v2 -m integration` (Epic 1 compris) est rejoué et son résultat consigné dans la story | A16 |
+| 2.2 | **Given** un panneau de la barre haute ouvert pendant une génération **When** on appuie sur Échap **Then** seul le panneau se ferme (`preventDefault`), le run continue (E2E) | A24 |
+| 2.2 | **Given** une erreur dont l'action contient du balisage (`no_model` : « `ollama pull …` ») **When** `wl-error` l'affiche **Then** aucun accent grave ni astérisque n'est visible, pour tous les codes (test sur le catalogue d'`errors.py`) | A25 |
+| 2.2 | **Given** un événement `retry` **When** la seconde tentative démarre **Then** le partiel est remplacé et la relance annoncée (« Nouvelle tentative… »), E2E avec le `fake` | A29 |
+| 2.2 | **Given** le premier bouton plein de la v2 (« Envoyer ») **When** axe-core tourne en sombre **Then** zéro violation, selon la décision Q1 sur le blanc sur `primary-dark` (4,26:1) | A19 |
+| 2.4 | **Given** chaque identifiant de `[cloud.models]` **When** la recette fait un premier appel réel **Then** il est accepté par le fournisseur ; un identifiant refusé donne un code de la liste fermée, jamais `internal` | A14 |
+| 2.5 | **Given** `[cloud.groq_ecologits]` **When** le test de contrat d'ecologits tourne **Then** chaque entrée est confirmée ou corrigée contre la version installée | A13 |
+| 2.6 | **Given** « Télécharger (JSON, Markdown) » **When** on clique **Then** le navigateur suit la route d'export (`Content-Disposition: attachment`), sans `blob:` ni élargissement de la politique de contenu | A20 |
+| 3.1 | **Given** `lane_timeout_s` de `wavelocalai.toml` **When** une lane dépasse le délai **Then** la valeur est lue dans `Settings` et confirmée ou corrigée par la story (300 s provisoires) | A4 |
+| 3.6 | **Given** l'export de preuve **When** Ollama est joignable **Then** la version d'Ollama vient de l'état en cache de la sonde et n'est jamais `null` | A18 |
+| 3.6 | **Given** `#/arene/comparer/<a>` puis `<b>` pendant un `mount` asynchrone **When** les deux `mount` se chevauchent **Then** seul `<b>` est monté (E2E) | A21 |
+| 3.6 | **Given** Ollama démarré sans aucun modèle de conversation **When** l'Accueil s'affiche **Then** la carte « Démo recommandée » dit « Aucun modèle local disponible » et mène à l'installation | A26 |
+| 3.6 | **Given** l'export CSV ou Markdown de l'Arène **When** on le télécharge **Then** même règle que 2.6 (route serveur, sans `blob:`) | A20 |
+| 4.1 | **Given** `uv sync` **When** la story ajoute sqlite-vec **Then** la version de la spine §Stack est vérifiée par installation réelle et verrouillée dans `uv.lock` | A1 |
+| 4.8 | **Given** un modèle `origin != "local"` **When** on lance une inférence **Then** le garde-fou mémoire ne s'applique pas (test) | A30 |
