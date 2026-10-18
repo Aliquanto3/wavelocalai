@@ -45,11 +45,12 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | Type | Données | Écrans |
 |---|---|---|
 | `run_started` | `kind`, modèles, paramètres | tous |
+| `question` | `text` : la question d'une Arène, publiée juste après `run_started` (une Arène n'a pas de conversation ni de `messages` ; `runs.params` ne porte pas de texte saisi, AD-7) | Arène |
 | `model_loading` / `model_loaded` | `tag`, durée | chat, Arène, RAG, agents |
 | `token` | `lane`, `text`, `channel` (`answer` ou `thought`) | chat, Arène, RAG, agent |
 | `retry` | raison | chat, Arène, RAG |
 | `metrics` | `lane`, `ttft_s`, `load_s`, `eval_tokens`, `eval_s`, `tps` (D3), `tps_source` (`ollama_eval` ou `wallclock`), `total_s`, `co2` (AD-10), origine | tous |
-| `lane_status` | `lane`, `status` (`waiting`, `loading`, `generating`, `judging`, `done`, `timeout`, `failed`, `cancelled`) | Arène, Évaluation |
+| `lane_status` | `lane`, `status` (`waiting`, `loading`, `generating`, `judging`, `done`, `timeout`, `failed`, `cancelled`), `error` (enveloppe d'AD-18) avec `timeout` et `failed` | Arène, Évaluation |
 | `judge_score` | `lane`, `score\|null`, `reason` | Arène |
 | `sources` | `{n, doc_id, document, page, chunk_id, text, rank, relevance_label, raw_score}` ; persisté sans `text`, réhydraté depuis `chunks` au rejeu, `text: null` si le document a été supprimé (« extrait supprimé », AD-7) | RAG, Évaluation |
 | `citations` | correspondances [n] vers les sources | RAG |

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import AbstractAsyncContextManager, nullcontext
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
@@ -47,6 +47,9 @@ def _metrics(lane: str, result: ChatResult, origin: str, co2: Co2) -> dict[str, 
     }
 
 
+PhaseCallback = Callable[[str], None]  # "loading" | "generating" (Arène : `lane_status`)
+
+
 async def _attempt(
     hub: RunHub,
     run_id: str,
@@ -54,6 +57,7 @@ async def _attempt(
     request: ChatRequest,
     slot: AbstractAsyncContextManager[object] | None,
     timeout_s: float | None,
+    on_phase: PhaseCallback | None = None,
 ) -> ChatResult:
     """Un appel de modèle : place du sémaphore « Ollama local » prise pour cet appel seulement
     (AD-14), puis flux publié dans le hub sous le délai de lane. Le délai court depuis la prise de
@@ -62,10 +66,12 @@ async def _attempt(
     lane = model.ref.tag
     gate = slot if slot is not None and model.ref.origin == "local" else nullcontext()
     async with gate:
+        if on_phase is not None:
+            on_phase("generating")  # place prise (local) ou appel parti (cloud)
         deadline = asyncio.timeout(timeout_s)
         try:
             async with deadline:
-                return await _consume(hub, run_id, lane, model.stream(request))
+                return await _consume(hub, run_id, lane, model.stream(request), on_phase)
         except TimeoutError:
             if not deadline.expired():
                 raise
@@ -75,7 +81,11 @@ async def _attempt(
 
 
 async def _consume(
-    hub: RunHub, run_id: str, lane: str, stream: AsyncIterator[ChatChunk]
+    hub: RunHub,
+    run_id: str,
+    lane: str,
+    stream: AsyncIterator[ChatChunk],
+    on_phase: PhaseCallback | None = None,
 ) -> ChatResult:
     result = ChatResult()
     try:
@@ -85,6 +95,8 @@ async def _consume(
             elif isinstance(chunk, LoadState):
                 kind = "model_loading" if chunk.phase == "loading" else "model_loaded"
                 hub.publish(run_id, kind, {"tag": lane, "duration_s": chunk.duration_s})
+                if on_phase is not None:
+                    on_phase("loading" if chunk.phase == "loading" else "generating")
             elif isinstance(chunk, Done):
                 result = chunk.result
     finally:
@@ -105,8 +117,16 @@ async def stream_into_run(
     slot: AbstractAsyncContextManager[object] | None = None,
     timeout_s: float | None = None,
     retry_interrupted: bool = False,
-) -> None:
-    """Joue une génération sur le run racine `run_id` (une feuille racine) jusqu'à sa fin.
+    publish_to: str | None = None,
+    on_phase: PhaseCallback | None = None,
+) -> LeafResult:
+    """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
+    `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
+
+    Run racine sans enfants (chat) : `run_id` publie son propre flux. Feuille d'un run composite
+    (Arène) : `publish_to` est le parent, seul à publier (AD-5), et `run_id` la feuille que le hub
+    termine avec ses métriques et son `co2` ; `on_phase` reçoit `generating` à la prise de la place
+    (ou au départ de l'appel cloud), `loading` pendant le chargement du modèle.
 
     Termine par `hub.finish_leaf` : `ok` avec les métriques de `Done`, `error` avec l'enveloppe
     d'AD-18 si l'adaptateur lève une `ProviderError` (ou toute `AppError`) ; une annulation laisse
@@ -120,11 +140,12 @@ async def stream_into_run(
     """
     lane = model.ref.tag
     origin = model.ref.origin
+    stream_id = publish_to or run_id
     attempts = 2 if retry_interrupted else 1
     result = ChatResult()
     for attempt in range(1, attempts + 1):
         try:
-            result = await _attempt(hub, run_id, model, request, slot, timeout_s)
+            result = await _attempt(hub, stream_id, model, request, slot, timeout_s, on_phase)
             break
         except asyncio.CancelledError:
             raise  # `hub.cancel` a déjà fixé `cancelled` ; le `finally` d'`_consume` a fermé le flux
@@ -136,7 +157,7 @@ async def stream_into_run(
             ):
                 logger.warning("Génération de %s interrompue : relance unique.", lane)
                 hub.publish(
-                    run_id,
+                    stream_id,
                     "retry",
                     {
                         "lane": lane,
@@ -148,11 +169,10 @@ async def stream_into_run(
                 continue
             error = _error_envelope(exc, secrets)
             # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
-            await hub.finish_leaf(
-                run_id, LeafResult(status="error", origin=origin, error=error), co2
-            )
-            return
-    hub.publish(run_id, "metrics", _metrics(lane, result, origin, co2))
+            failed = LeafResult(status="error", origin=origin, error=error)
+            await hub.finish_leaf(run_id, failed, co2)
+            return failed
+    hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2))
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,
@@ -165,6 +185,7 @@ async def stream_into_run(
         tps_source=result.tps_source,
     )
     await hub.finish_leaf(run_id, leaf, co2)
+    return leaf
 
 
 def _error_envelope(exc: Exception, secrets: Iterable[str]) -> dict[str, object]:

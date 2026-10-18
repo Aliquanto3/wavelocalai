@@ -17,6 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.inference.arena import ArenaService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.models.cloud import HttpClientFactory
@@ -35,6 +36,7 @@ from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
+    routes_arena,
     routes_chat,
     routes_health,
     routes_models,
@@ -98,13 +100,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if client is None:
         client = owned_client = make_client(settings.ollama.host)
         app.state.ollama_client = client
-    app.state.chat = ChatService(
-        hub,
-        app.state.registry,
-        ModelFactory(client, app.state.models, settings, app.state.cloud_http),
-        app.state.local_slot,
-        settings,
-    )
+    factory = ModelFactory(client, app.state.models, settings, app.state.cloud_http)
+    app.state.chat = ChatService(hub, app.state.registry, factory, app.state.local_slot, settings)
+    app.state.arena = ArenaService(hub, app.state.registry, factory, app.state.local_slot, settings)
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
@@ -116,6 +114,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.registry.stop()
         await app.state.probe.aclose()
         app.state.chat = None
+        app.state.arena = None
         if owned_client is not None:
             await close_client(owned_client)
             app.state.ollama_client = None
@@ -159,6 +158,7 @@ def create_app(
     app.state.cloud_http = dict(cloud_http or {})
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
+    app.state.arena = None  # service de l'Arène, idem
     app.state.registry = registry or ModelRegistry(
         settings,
         extra_refs={tag: model.ref for tag, model in app.state.models.items()},
@@ -224,6 +224,7 @@ def create_app(
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
     app.include_router(routes_chat.router)
+    app.include_router(routes_arena.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
