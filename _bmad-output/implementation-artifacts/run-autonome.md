@@ -103,3 +103,11 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-18 23:51 · 3.3 · second-avis · 1 medium (colonne en notation figée « Non évalué » si le flux tombe), 5 low · —
 - 2026-10-18 23:51 · 3.3 · review · lancée (Opus) · —
 - 2026-10-18 23:55 · 4.1 · contrôles · verts (810 v2, 172 E2E, 7 integration, 1286 v1 ; black de `errors.py` corrigé) ; finalisation et PR · def67ea
+- 2026-10-18 23:59 · 3.3 · review · 1 medium corrigé (colonne en notation figée si le flux tombe), fixture E2E attend la fin du run ; rattachement au run reporté · ef39f97
+- 2026-10-19 00:10 · 4.1 · CI · rouge (Linux : dossier de transit restant après annulation ; macOS : `vec0` absent, extension non chargée) ; correctif lancé (Sonnet high) · def67ea
+- 2026-10-19 00:10 · run · décision · 3.2 fusionnée avant 4.1 (indépendantes ; 4.1 en correctif CI) · —
+- 2026-10-19 00:10 · 3.2 · fusion master · master avec 3.1 fusionné (sans conflit) ; contrôles lancés · 74286f2
+- 2026-10-19 00:19 · 4.1 · CI · correctif poussé (course du test d'annulation ; index numpy si sqlite-vec absent, `select_index`) ; report : index numpy en mémoire perdu au redémarrage (4.3) · 2d4b0b6
+- 2026-10-19 00:25 · 3.2 · contrôles · verts (677 v2, 195 E2E, 6 integration, 1286 v1) ; finalisation et PR · 74286f2
+- 2026-10-19 00:42 · run · décision · second message de wavelocalai-d7 appliqué : #58 et #61 fusionnées, garde-fou Epic 5 levé, 1.12 et 2.7 ajoutées, ajustements 3.2/3.3/4.1/4.2 avant PR, écarts §7(d) en variante conservatrice · 72137a4
+- 2026-10-19 00:42 · run · report · incident b7703cd (fichiers d'état poussés sur master par l'autre session) : version locale gardée, aucune ligne perdue ; annulation à décider par Anaël · b7703cd

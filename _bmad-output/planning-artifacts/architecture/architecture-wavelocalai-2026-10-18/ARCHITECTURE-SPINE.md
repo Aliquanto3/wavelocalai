@@ -112,7 +112,7 @@ Une flèche = « peut importer ». `web/` peut importer tous les paquets ; aucun
 
 - **Binds:** `runs/`, `store/`
 - **Prevents:** une écriture SQLite par token, un rejeu qui perd la fin d'un run, du texte de document qui survit à sa suppression.
-- **Rule:** le hub garde en mémoire tous les événements d'un run actif et les écrit dans `run_events` par lots (au plus chaque seconde, et le dernier lot avec `run_ended`, le statut et le message assistant dans une transaction). L'événement `sources` est persisté **sans `text`** ; au rejeu, le hub le réhydrate depuis `chunks` (`null` si le document a été supprimé, le front affiche « extrait supprimé »). `runs.params` ne contient aucun texte saisi : la question vit dans `messages` et `run_events`.
+- **Rule:** le hub garde en mémoire tous les événements d'un run actif et les écrit dans `run_events` par lots (au plus chaque seconde, et le dernier lot avec `run_ended`, le statut et le message assistant dans une transaction). L'événement `sources` est persisté **sans `text`** ; au rejeu, le hub le réhydrate depuis `chunks` (`null` si le document a été supprimé, le front affiche « extrait supprimé »). Les positions du passage à surligner (`passage {start, end}`, décision D-21 de la maquette v2) ne sont pas du texte : elles sont persistées avec l'événement et ignorées quand `text` est `null`. `runs.params` ne contient aucun texte saisi : la question vit dans `messages` et `run_events`.
 
 ### AD-8 — Ports `ChatModel` et `Embedder`
 

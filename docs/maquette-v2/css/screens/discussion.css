@@ -1,0 +1,171 @@
+/* Discussion : en-tête de base, réglages, fil et panneau de sources côte à côte dès 1 024 px.
+   Jetons de tokens.css seulement. Les styles du panneau de sources sont dans documents-commun.css. */
+
+.docs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.docs-summary-count {
+  font-size: 1.125rem;
+}
+
+.docs-indexing-note {
+  margin: 0 0 0.75rem;
+}
+
+/* Réglages : sélecteur de modèle, puis « Réglages avancés » repliés */
+.docs-chat-settings {
+  display: grid;
+  gap: 1rem 2rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .docs-chat-settings {
+    grid-template-columns: minmax(0, 42rem) minmax(0, 24rem);
+    align-items: start;
+  }
+}
+
+.docs-cloud-note {
+  max-width: 42rem;
+  margin-top: 0.75rem;
+}
+
+.docs-cloud-note:empty {
+  display: none;
+}
+
+.docs-cloud-note .wl-notice {
+  margin-bottom: 0;
+}
+
+.docs-advanced {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-advanced > summary {
+  min-height: 2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.docs-advanced-body {
+  display: grid;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.docs-rerank {
+  margin: 0;
+  color: var(--color-ink-secondary);
+}
+
+.docs-empty:empty {
+  display: none;
+}
+
+/* Fil à gauche, sources à droite dès 1 024 px ; dessous et repliées en deçà (UX-DR19). */
+.docs-chat-layout {
+  display: grid;
+  gap: 0.75rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.docs-chat-layout > * {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .docs-chat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+    align-items: start;
+  }
+
+  .docs-chat-layout > * {
+    grid-column: 1;
+  }
+
+  .docs-chat-layout > .docs-chat-sources {
+    grid-column: 2;
+    grid-row: 1 / span 7;
+  }
+}
+
+.docs-chat-empty,
+.docs-chat-first-load {
+  margin: 0;
+}
+
+.docs-chat-notices:empty {
+  display: none;
+}
+
+wl-chat-thread + wl-run-status {
+  margin-top: 0;
+}
+
+/* Saisie */
+.docs-chat-composer {
+  margin-top: 0.25rem;
+}
+
+.docs-chat-reason[hidden] {
+  display: none;
+}
+
+/* Sous 768 px, la saisie reste en bas de l'écran. */
+@media (max-width: 767px) {
+  .docs-chat-composer {
+    position: sticky;
+    bottom: 0;
+    padding: 0.5rem 0 0.75rem;
+    background: var(--color-surface);
+  }
+}
+
+/* Marqueurs [n] confirmés par `citations` : boutons dans le texte de la réponse */
+.docs-cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  margin: 0 0.125rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.docs-cite:hover,
+.docs-cite.is-linked {
+  border-color: var(--color-primary);
+  background: var(--color-line);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.docs-show-sources {
+  min-height: 2rem;
+  padding-block: 0.125rem;
+}
+
+.docs-show-sources[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  font-weight: 600;
+}

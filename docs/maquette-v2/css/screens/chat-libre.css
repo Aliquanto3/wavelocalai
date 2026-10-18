@@ -1,0 +1,113 @@
+/* Chat libre (repris de feat/v2-ecran-chat, chat.css) : réglages, fil, saisie. Couleurs et rayon
+   viennent de tokens.css seulement. Le fil et les onglets sont dans css/components.css. */
+
+/* Réglages : modèle et créativité */
+.chat-settings {
+  display: grid;
+  gap: 1rem 2rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .chat-settings {
+    grid-template-columns: minmax(0, 42rem) minmax(0, 20rem);
+    align-items: start;
+  }
+}
+
+.chat-slider-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.chat-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.chat-slider {
+  flex: 1;
+  min-height: 2.5rem;
+  accent-color: var(--color-primary);
+}
+
+.chat-slider-value {
+  min-width: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Statut du run et saisie */
+.chat-notice {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+wl-chat-thread + wl-run-status {
+  margin-top: 0.75rem;
+}
+
+.chat-composer {
+  margin-top: 1rem;
+}
+
+.chat-input-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.chat-input {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  max-height: 14rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  resize: vertical;
+}
+
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Sous 768 px, la saisie reste en bas de l'écran. */
+@media (max-width: 767px) {
+  .chat-composer {
+    position: sticky;
+    bottom: 0;
+    padding: 0.5rem 0 0.75rem;
+    background: var(--color-surface);
+  }
+}
+
+.chat-empty,
+.chat-first-load {
+  margin: 0 0 1rem;
+}
+
+.chat-first-load {
+  margin-top: 0.5rem;
+}
+
+.chat-notices:empty {
+  display: none;
+}
+
+.chat-notices {
+  margin-top: 0.75rem;
+}

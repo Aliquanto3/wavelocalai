@@ -180,6 +180,8 @@ Légende des états : V = vide, C = chargement, E = erreur, O = Ollama absent, C
 
 ## 3. Proposition de front pour la v2
 
+> **Mise à jour du 2026-10-19 (correct course de la maquette v2).** La maquette validée `docs/maquette-v2/` et les 43 décisions d'Anaël du 2026-10-18 précisent cette section ; elles sont reportées dans `EXPERIENCE.md` (« Coquille et écrans v2 du MVP », « Écrans v2 des Epics 5 à 7 »), `DESIGN.md`, `epics.md` et `contrat-api.md`, qui priment sur §3 en cas d'écart. Principaux points qui changent ici : menu Affichage avec le thème « Système » ; routes `#/arene/references`, `#/agents/equipe/<run_id>`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`, `#/modeles/<tag>` ; créativité du Chat par défaut fournie par le serveur avec le modèle (repli 0,2, au lieu de 0,7) ; exports en deux boutons, menu « Exporter » sous 768 px ; matrice de l'Arène d'abord ; panneau des sources toujours ouvert en large ; un seul « Annuler l'import » par lot ; suppression d'un document confirmée ; équivalence parlante du CO₂ seulement dans le panneau de méthode de Sobriété ; pas de colonne « Global » à l'Évaluation. Détail : `_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-19.md`.
+
 ### 3.1 Choix de la stack
 
 Critères : (1) installation sans droits admin sur un PC pro ; (2) pas de Node à l'exécution ; (3) performance perçue ; (4) maintenabilité par un petit binôme humain et agents ; (5) accessibilité ; (6) streaming ; (7) réutilisation du harnais.
@@ -234,9 +236,9 @@ La navigation passe de 5 pages à **onglets internes** à 5 modules à **sous-é
 | Module (menu) | Sous-écrans (URL) | Changement par rapport à `EXPERIENCE.md` |
 |---|---|---|
 | Accueil | `#/` | aucun |
-| Arène des modèles | `#/arene/chat` Chat libre · `#/arene/comparer` Arène · `#/arene/banc` Banc d'essai | **« Gestion des modèles » sort de l'Arène** (décision U5) |
+| Arène des modèles | `#/arene/chat` Chat libre · `#/arene/comparer[/<run_id>]` Arène · `#/arene/banc[/<run_id>]` Banc d'essai · `#/arene/references` Références (décision D-8 de la maquette) | **« Gestion des modèles » sort de l'Arène** (décision U5) |
 | Assistant documentaire | `#/documents` Discussion · `#/documents/base` Base documentaire · `#/documents/evaluation` Évaluation de la qualité | Le dialogue « Gérer la base » devient un écran à part entière |
-| Agents autonomes | `#/agents/seul` · `#/agents/equipe` | Le mode passe de la radio latérale à des onglets |
+| Agents autonomes | `#/agents/seul` · `#/agents/equipe[/<run_id>]` | Le mode passe de la radio latérale à des onglets |
 | Sobriété et matériel | `#/sobriete` | aucun |
 | Modèles (nouveau, en bas du menu) | `#/modeles` | ex-« Gestion des modèles » |
 
@@ -253,7 +255,7 @@ La navigation passe de 5 pages à **onglets internes** à 5 modules à **sous-é
 - `[o]` : pastille d'état avec un libellé (jamais la couleur seule) : « Ollama disponible », « Ollama ne répond pas ». Un clic ouvre un panneau : version, modèles chargés, mémoire, « Réessayer ».
 - « Autoriser le cloud » : interrupteur unique (D1). Son aide le dit : « Désactivé à chaque ouverture de la page. Activé, les données envoyées aux modèles cloud quittent la machine. » La perte au rechargement devient explicite, donc comprise (T6).
 - « CO₂ session » ouvre un panneau, comme le bilan de la séance du harnais : total, part Local et Cloud, réponses non mesurables, lien vers Sobriété.
-- « Aff. » ouvre le menu Affichage : thème, mode projection.
+- « Aff. » ouvre le menu Affichage : thème (Clair par défaut, Sombre, Système, décision D-7), mode projection (interrupteur, D-6).
 - À moins de 1 024 px, les liens passent dans un menu repliable.
 
 ### 3.4 Composants clés

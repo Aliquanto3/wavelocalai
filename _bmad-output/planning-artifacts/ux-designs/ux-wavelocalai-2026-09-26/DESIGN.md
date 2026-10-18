@@ -2,12 +2,13 @@
 name: WaveLocalAI
 description: Démonstrateur Wavestone d'IA générative locale et sobre, en Streamlit 1.x natif ; charte Wavestone appliquée par .streamlit/config.toml, sans framework CSS. La v2 (src/wavelocalai/) reprend ces jetons dans static/tokens.css, comparés par un test de dérive.
 status: final
-updated: 2026-10-18
+updated: 2026-10-19
 sources:
   - docs/audits/frontend-2026-09/SYNTHESE.md
   - docs/audits/frontend-2026-09/poste-rtx3060/UX.md
   - docs/audits/refonte-2026-10/03-ux-front.md
   - _bmad-output/planning-artifacts/reports-v2-inventaire.md
+  - docs/maquette-v2/README.md (maquette validée du front v2, décisions d'Anaël du 2026-10-18)
 colors:
   # Thème clair (par défaut) -> [theme.light]
   primary: '#451DC7'            # primaryColor ; blanc dessus 9,32:1
@@ -139,8 +140,16 @@ components:
     background-dark: '{colors.primary-fill-dark}'
     foreground: '{colors.on-primary}'
     radius: '{rounded.DEFAULT}'
+  wl-switch:
+    web: '<input type="checkbox" role="switch"> en bascule visuelle (Autoriser le cloud, Mode projection, Format imposé, Réponse concise, outils de l''agent ; décision D-6)'
+    track-on: '{colors.primary-fill}'
+    track-on-dark: '{colors.primary-fill-dark}'
+    track-off: '{colors.surface-alt}'
+    border: '{colors.ink-secondary}'
+    thumb: '{colors.surface}'
+    radius: '{rounded.full}'
   wl-pill-selected:
-    web: 'pastille ou segment choisi (outils, fenêtre d''historique, Graphique / Tableau)'
+    web: 'pastille ou segment choisi (fenêtre d''historique, Graphique / Tableau, Cartes / Tableau, modèles choisis)'
     background: '{colors.primary-fill}'
     background-dark: '{colors.primary-fill-dark}'
     foreground: '{colors.on-primary}'
@@ -172,7 +181,7 @@ WaveLocalAI est un démonstrateur Wavestone : il prouve, mesures à l'appui, qu'
 1. **Les chiffres sont les héros.** Débit, CO₂ et latence portent la plus grande taille de la page (`{typography.metric-value}`).
 2. **Une seule couleur d'action.** Violet `{colors.primary}` pour agir, vert pour « local, sobre, réussi », rouge `{colors.risk}` pour le risque seulement.
 3. **La souveraineté se voit.** Le badge Local/Cloud est l'**élément signature** : sobre, répété, porteur du propos. Le reste de l'interface s'efface.
-4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception.
+4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception. v2 (décision D-2) : **Material Symbols Rounded** officiels, sous-ensemble en sprite `icons.svg` avec sa licence ; les tracés Material Icons (Filled) de la maquette n'entrent pas dans le front.
 
 **Implémentation.** Streamlit 1.x, composants natifs uniquement : aucun framework CSS, aucun `<style>` injecté, aucun hex dans le code des pages. Les tokens passent par `.streamlit/config.toml` :
 
@@ -184,7 +193,7 @@ Chaque clé se vérifie dans la documentation de la version de Streamlit figée 
 
 ## Colors
 
-Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et soigné, avec des neutres dérivés de l'encre. Seuils WCAG 2.2 : 4,5:1 pour le texte courant, 3:1 pour le grand texte et le graphique.
+Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et soigné, avec des neutres dérivés de l'encre. En v2, le menu Affichage propose aussi « Système », qui applique le jeu clair ou sombre selon `prefers-color-scheme` (décision D-7) ; aucun troisième jeu de jetons. Seuils WCAG 2.2 : 4,5:1 pour le texte courant, 3:1 pour le grand texte et le graphique.
 
 | Token (clair / sombre) | Clair | Sombre | Clé `config.toml` | Usage | Interdit |
 |---|---|---|---|---|---|
@@ -266,10 +275,13 @@ Rendu propre à la v2 (HTML et CSS servis par `web/`), là où il s'écarte du t
 | Composant | Spécification visuelle |
 |---|---|
 | `wl-button-primary` | Fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}` ; désactivé : fond `{colors.surface-alt}`, bordure `{colors.line}`, texte `{colors.ink-secondary}`, jamais par la seule opacité. |
+| `wl-switch` | Bascule visuelle (D-6) : piste `{rounded.full}` bordée `{colors.ink-secondary}` (3:1 au moins sur le fond), curseur rond `{colors.surface}` ; activée : piste `{colors.primary-fill}` / `{colors.primary-fill-dark}` et icône `check` dans le curseur ; libellé texte toujours à côté, jamais l'état porté par la seule couleur. Indisponible : `aria-disabled`, piste en pointillés `{colors.line}`, libellé `{colors.ink-secondary}`, raison en légende visible. |
 | `wl-pill-selected` | Pastille ou segment choisi : fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}`, icône `check` à gauche ; non choisi : bordure `{colors.line}`, texte `{colors.ink}`. Indisponible : texte `{colors.ink-secondary}`, icône `block`, bordure en pointillés `{colors.line}`. |
-| `wl-side-panel` | À droite dès 1 024 px (largeur 1/3, 360 px au moins), bordure gauche `{colors.line}`, en-tête `h2` + bouton « Fermer » ; en deçà, sous le contenu, replié. |
+| `wl-side-panel` | À droite dès 1 024 px (largeur 1/3, 360 px au moins), bordure gauche `{colors.line}`, en-tête `h2` + bouton « Fermer » ; en deçà, sous le contenu, replié. Variantes fixées par la maquette : panneau des sources sans « Fermer » ni repli en large (D-22) ; fiche modèle à droite dès 1 120 px, au-dessus de la liste en deçà (D-40) ; « Configurer l'équipe » en colonne de droite non modale, sous le schéma en deçà de 1 024 px (D-35). |
 | `wl-step-trace` | Une ligne par étape : numéro, icône Material par type (`psychology` réflexion, `build` appel d'outil, `output` résultat, `chat` réponse, `pending_actions` attente de validation), libellé, durée en `{typography.caption}` alignée à droite. Étape en cours : contour 2 px `{colors.primary}` et libellé « en cours ». Erreur d'outil : icône `error` et texte, sans fond rouge. |
-| `wl-team-graph` | Nœuds en rectangles `{rounded.DEFAULT}` bordés `{colors.ink-secondary}`, nom du rôle dedans ; flèches `{colors.gray-graphic}` vers le nœud « Rapport ». Agent actif : contour 3 px `{colors.primary}` + libellé « en cours » sous le nœud ; terminé : icône `check_circle` ; arrêté : libellé « Arrêté ». |
+| `wl-team-graph` | Nœuds en rectangles `{rounded.DEFAULT}` bordés `{colors.ink-secondary}`, nom du rôle dedans ; flèches `{colors.gray-graphic}` vers le nœud « Rapport ». Agent actif : contour 3 px `{colors.primary}` + libellé « en cours » sous le nœud ; terminé : icône `check_circle` ; arrêté : libellé « Arrêté » ; non lancé : libellé « Non lancé » (D-34). Horizontal dès 768 px jusqu'à 4 agents, vertical en deçà ou à 5 agents (maximum, D-36). |
+| Menu « Exporter » | Sous 768 px, les deux boutons d'export (Chat, Arène) cèdent la place à un `button-secondary` « Exporter » (icône `expand_more`) qui ouvre une liste des formats, fermée par Échap et au clic extérieur, focus rendu au bouton (D-3). |
+| Réponse repliée (Arène) | Dès 1 440 px avec 4 colonnes : réponse limitée à 4 lignes (`line-clamp`), sans fondu de couleur, puis le bouton « Afficher toute la réponse » (D-15). |
 | `wl-progress-bytes` | Barre `{colors.primary}` sur piste `{colors.line}`, texte « Téléchargement 1,2 Go sur 4,7 Go · 26 % » à côté, jamais la barre seule. |
 | Verdict par affirmation | Liste : verdict en texte avec icône (`check_circle` « appuyée », `help` « non appuyée », `cancel` « contredite »), affirmation, puis extrait d'appui cité en `{typography.caption}`. Couleur d'icône `{colors.ink}` : le verdict se lit dans le mot. |
 

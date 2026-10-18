@@ -1,0 +1,226 @@
+{
+  "id": "agent-seul-erreur-outil",
+  "kind": "agent",
+  "label": "Agent seul : un outil échoue (fichier introuvable), l'agent corrige et poursuit",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "agent",
+        "models": [
+          "{{tag}}"
+        ],
+        "params": {
+          "mode": "solo",
+          "tools": "{{tools}}"
+        }
+      }
+    },
+    {
+      "wait": 150,
+      "when": "{{loading}}",
+      "type": "model_loading",
+      "data": {
+        "tag": "{{tag}}"
+      }
+    },
+    {
+      "wait": 3200,
+      "slow_wait": 14000,
+      "when": "{{loading}}",
+      "type": "model_loaded",
+      "data": {
+        "tag": "{{tag}}",
+        "duration_s": "{{load_s}}"
+      }
+    },
+    {
+      "wait": 250,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 800,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s1",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Je lis ventes_t3.csv, puis je résume les tendances du trimestre.",
+        "artifact_url": null,
+        "duration_s": 0.8
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes_t3.csv",
+          "operation": "résumé"
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 400,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s2",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes_t3.csv",
+          "operation": "résumé"
+        },
+        "summary": "Erreur : fichier introuvable : ventes_t3.csv. Fichiers disponibles : ventes.csv.",
+        "artifact_url": null,
+        "duration_s": 0.4,
+        "is_error": true
+      }
+    },
+    {
+      "wait": 150,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 900,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s3",
+        "agent": "agent",
+        "kind": "think",
+        "tool": null,
+        "arguments": null,
+        "summary": "Le fichier s'appelle ventes.csv. Je relance l'analyse dessus et je garde les trois derniers mois.",
+        "artifact_url": null,
+        "duration_s": 0.9
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s4",
+        "agent": "agent",
+        "kind": "tool_call",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes.csv",
+          "operation": "résumé",
+          "derniers_mois": 3
+        },
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 2000,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s4",
+        "agent": "agent",
+        "kind": "tool_result",
+        "tool": "analyse_donnees",
+        "arguments": {
+          "file": "ventes.csv",
+          "operation": "résumé",
+          "derniers_mois": 3
+        },
+        "summary": "3 mois retenus : octobre 44 800 €, novembre 51 200 €, décembre 48 900 €.",
+        "artifact_url": null,
+        "duration_s": 2
+      }
+    },
+    {
+      "wait": 200,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s5",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": null,
+        "artifact_url": null,
+        "duration_s": null
+      }
+    },
+    {
+      "wait": 150,
+      "tokens": {
+        "lane": "{{tag}}",
+        "channel": "answer",
+        "text": "{{answer}}",
+        "tps": "{{tps}}"
+      }
+    },
+    {
+      "wait": 100,
+      "type": "step",
+      "data": {
+        "lane": "{{tag}}",
+        "step_id": "s5",
+        "agent": "agent",
+        "kind": "answer",
+        "tool": null,
+        "arguments": null,
+        "summary": "Réponse finale rédigée à partir des résultats des outils.",
+        "artifact_url": null,
+        "duration_s": 4.4
+      }
+    },
+    {
+      "wait": 120,
+      "type": "metrics",
+      "data": "{{metrics}}"
+    },
+    {
+      "wait": 40,
+      "type": "run_ended",
+      "data": {
+        "status": "ok",
+        "error": null
+      }
+    }
+  ]
+}
