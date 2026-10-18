@@ -1,3 +1,91 @@
 {
-  "banc-essai": {}
+  "banc": {
+    "lead": "Choisissez un scénario prédéfini, un modèle, puis lancez le test : le Banc d'essai dit si la sortie respecte le format attendu, avec le débit, le CO₂ et la durée de l'essai.",
+    "model": "Modèle",
+    "launch": "Lancer le test",
+    "scenario": {
+      "title": "Scénario",
+      "label": "Scénario prédéfini"
+    },
+    "format": {
+      "title": "Format attendu",
+      "caption": "Champs du format attendu",
+      "field": "Champ",
+      "type": "Type",
+      "required": "Obligatoire",
+      "yes": "oui",
+      "no": "non",
+      "none": "Ce scénario n'attend aucun format : la sortie est libre."
+    },
+    "input": {
+      "label": "Entrée",
+      "kept": "Votre entrée est gardée : elle n'a pas été remplacée par celle du nouveau scénario.",
+      "replace": "Remplacer par l'exemple du scénario"
+    },
+    "settings": {
+      "title": "Réglages"
+    },
+    "force": {
+      "label": "Format imposé",
+      "help": "Le schéma est transmis au modèle et contraint sa sortie. Désactivé, le format n'est demandé que dans la consigne.",
+      "no_schema": "Indisponible : ce scénario n'attend aucun format, il n'y a rien à imposer.",
+      "unsupported": "Indisponible : {name} ne sait pas contraindre sa sortie à un schéma."
+    },
+    "concise": {
+      "label": "Réponse concise",
+      "help": "Ajoute une consigne de réponse courte : moins de durée et de CO₂, parfois moins de détail."
+    },
+    "legend": {
+      "running": "Un essai est en cours : arrêtez-le ou attendez sa fin",
+      "model": "Choisissez un modèle",
+      "input": "Saisissez une entrée",
+      "ready": "Test de « {scenario} » avec {name}."
+    },
+    "result": {
+      "title": "Résultat",
+      "answer": "Réponse du modèle"
+    },
+    "verdict": {
+      "title": "Verdict de format",
+      "ok": "Format respecté",
+      "missing": "Format non respecté : le champ « {field} » manque",
+      "not_json": "Format non respecté : la sortie n'est pas du JSON valide.",
+      "none": "Ce scénario n'attend aucun format : il n'y a pas de verdict de format."
+    },
+    "formatted": {
+      "title": "Sortie mise en forme",
+      "raw": "La sortie n'est pas du JSON : elle est affichée telle que le modèle l'a rendue."
+    },
+    "metric": {
+      "rate": "Débit",
+      "co2": "CO₂",
+      "total": "Durée totale",
+      "load": "Chargement",
+      "already": "déjà en mémoire",
+      "rate_help": "Tokens produits par seconde pendant la génération, mesuré par Ollama ; le chargement est compté à part.",
+      "total_help": "De l'envoi de l'entrée à la fin de la réponse, chargement compris.",
+      "load_help": "Temps passé à mettre le modèle en mémoire, compté à part."
+    },
+    "actions": {
+      "rerun": "Relancer le test",
+      "edit": "Modifier le test"
+    },
+    "announce": {
+      "done": "Essai terminé.",
+      "ok": "Essai terminé : format respecté.",
+      "ko": "Essai terminé : format non respecté.",
+      "cancelled": "Essai arrêté : la sortie partielle est gardée.",
+      "failed": "Essai en échec."
+    },
+    "missing": {
+      "title": "Essai introuvable",
+      "text": "Cet essai n'existe pas ou a été effacé. Lancez un nouveau test depuis le Banc d'essai.",
+      "action": "Lancer un test"
+    },
+    "notice": {
+      "smaller": "{name} remplace le modèle trop gros. L'entrée est gardée.",
+      "unloaded": "Modèles inactifs déchargés. L'entrée est gardée.",
+      "reopened": "Résultat conservé : aucun modèle n'a été relancé pour l'afficher."
+    }
+  }
 }

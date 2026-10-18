@@ -1,1 +1,281 @@
-/* Écran banc-essai : styles propres à l'écran (jetons de tokens.css seulement). */
+/* Banc d'essai (jetons de tokens.css seulement) : scénario, réglages, résultat et verdict de format. */
+
+.bc-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 60rem;
+  margin-bottom: 1rem;
+}
+
+.bc-form > h2,
+.bc-form > p {
+  margin-bottom: 0;
+}
+
+.bc-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.bc-select,
+.bc-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.bc-input {
+  resize: vertical;
+}
+
+.bc-details {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.bc-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bc-details[open] summary {
+  margin-bottom: 0.5rem;
+}
+
+.bc-replace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.bc-replace .help {
+  margin: 0;
+}
+
+.bc-settings {
+  display: grid;
+  gap: 1rem 2rem;
+}
+
+@media (min-width: 768px) {
+  .bc-settings {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+
+.bc-switches {
+  display: grid;
+  gap: 1rem;
+}
+
+.bc-switch {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0 0.75rem;
+}
+
+.bc-switch-input {
+  width: 2.75rem;
+  height: 1.5rem;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.bc-switch-label {
+  font-weight: 600;
+}
+
+.bc-switch-help,
+.bc-switch-reason {
+  grid-column: 2;
+}
+
+.bc-switch-reason {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.bc-launch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.bc-legend {
+  margin: 0;
+}
+
+.bc-notices:empty {
+  display: none;
+}
+
+.bc-notices {
+  margin-bottom: 1rem;
+}
+
+/* Résultat */
+.bc-result {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 60rem;
+}
+
+.bc-result > * {
+  margin-bottom: 0;
+}
+
+.bc-result h3 {
+  margin: 0.5rem 0 0;
+}
+
+.bc-stream,
+.bc-json {
+  max-width: 100%;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: var(--text-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bc-stream {
+  max-height: 16rem;
+}
+
+.bc-verdict-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.bc-verdict-line .icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.bc-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.5rem;
+}
+
+.bc-metrics .wl-metric-value {
+  font-size: 1.75rem;
+}
+
+.bc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bc-actions .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.bc-md {
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+/* Tableau du format attendu */
+.bc-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.bc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bc-table th,
+.bc-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.bc-table thead th {
+  background: var(--color-surface-alt);
+}
+
+.bc-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+/* Interrupteurs : bascule visible, le rôle `switch` et l'état sont aussi portés par le texte d'aide */
+.bc-switch-input {
+  position: relative;
+  flex: none;
+  appearance: none;
+  border: 2px solid var(--color-ink-secondary);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.bc-switch-input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-full);
+  background: var(--color-ink-secondary);
+}
+
+.bc-switch-input:checked {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+}
+
+.bc-switch-input:checked::after {
+  left: calc(100% - 1.125rem);
+  background: var(--color-on-primary);
+}
+
+.bc-switch-input:disabled {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.bc-result {
+  margin-top: 1.5rem;
+}
+
+.bc-form > *,
+.bc-format-body,
+.bc-settings > * {
+  min-width: 0;
+}
