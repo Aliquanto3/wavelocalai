@@ -99,6 +99,14 @@ _SPECS = (
         "Rechargez la liste des modèles, ou installez ce modèle dans Ollama.",
         ("tag",),
     ),
+    ErrorSpec(
+        "no_model",
+        404,
+        "Aucun modèle de conversation n'est disponible pour cet usage.",
+        "Installez un modèle de conversation dans Ollama (par exemple `ollama pull qwen3.5:2b`), "
+        "puis rechargez la liste.",
+        ("purpose",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 
