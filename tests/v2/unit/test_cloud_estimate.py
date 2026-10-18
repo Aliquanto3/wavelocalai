@@ -12,6 +12,7 @@ import socket
 import tomllib
 from importlib import metadata
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -103,6 +104,33 @@ def test_ecologits_init_is_never_called_and_the_source_does_not_name_it(monkeypa
                 assert getattr(node.value, "id", "") != "EcoLogits", path
 
 
+# --- réserve des avertissements d'ecologits -------------------------------------------------------
+
+
+def test_an_unreleased_architecture_keeps_the_estimate_with_its_caveat():
+    co2 = _estimate("anthropic", "claude-haiku-5-5")  # `model-arch-not-released` dans ecologits
+    assert co2.method == "ecologits" and co2.estimated is True and co2.mg > 0
+    assert "Anthropic ne publie pas l'architecture de ce modèle" in co2.reason
+
+
+def test_a_model_without_warning_has_no_caveat():
+    assert _estimate("groq", "openai/gpt-oss-120b").reason is None
+
+
+def test_an_unknown_warning_code_is_cited(monkeypatch):
+    from ecologits.tracers import utils
+
+    real = utils.llm_impacts
+
+    def with_warning(**kwargs):
+        out = real(**kwargs)
+        return out.model_copy(update={"warnings": [SimpleNamespace(code="new-warning")]})
+
+    monkeypatch.setattr(utils, "llm_impacts", with_warning)
+    co2 = _estimate("groq", "openai/gpt-oss-120b")
+    assert co2.method == "ecologits" and "new-warning" in co2.reason
+
+
 # --- estimation nominale ---------------------------------------------------------------------------
 
 
@@ -118,7 +146,7 @@ def test_ecologits_init_is_never_called_and_the_source_does_not_name_it(monkeypa
 def test_nominal_estimate_for_each_provider(provider, model):
     co2 = _estimate(provider, model)
     assert co2.method == "ecologits" and co2.estimated is True and co2.allocation == "direct"
-    assert co2.reason is None and co2.mg is not None and co2.mg > 0
+    assert co2.mg is not None and co2.mg > 0
     low, high = co2.range_mg["low"], co2.range_mg["high"]
     assert 0 < low <= co2.mg <= high
     assert co2.as_dict()["range_mg"] == {"low": low, "high": high}

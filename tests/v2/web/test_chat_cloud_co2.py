@@ -39,7 +39,8 @@ async def test_estimated_cloud_response_is_stored_and_announced(tmp_path):
         run_id, summary = await _run_and_wait_update(app, client, OPENAI_TAG)
         co2 = await _metrics_co2(client, run_id)
         assert co2["method"] == "ecologits" and co2["estimated"] is True and co2["mg"] > 0
-        assert co2["allocation"] == "direct" and co2["reason"] is None
+        assert co2["allocation"] == "direct"
+        assert co2["reason"] is None or "moins précise" in co2["reason"]  # réserve d'ecologits
         row = app.state.store.read("SELECT * FROM runs WHERE id = ?", (run_id,))[0]
         assert row["co2_method"] == "ecologits" and row["co2_estimated"] == 1
         assert row["co2_mg"] == pytest.approx(co2["mg"])

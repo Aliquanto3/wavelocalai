@@ -124,7 +124,8 @@ async def test_cloud_chat_streams_without_the_local_slot_and_marks_the_run_as_cl
         assert metrics["load_s"] is None and metrics["eval_tokens"] > 0
         co2 = metrics["co2"]  # story 2.5 : estimé par ecologits, avec sa plage, jamais 0
         assert co2["method"] == "ecologits" and co2["estimated"] is True and co2["mg"] > 0
-        assert co2["allocation"] == "direct" and co2["reason"] is None
+        assert co2["allocation"] == "direct"
+        assert co2["reason"] is None or "moins précise" in co2["reason"]  # réserve d'ecologits
         assert 0 < co2["range_mg"]["low"] <= co2["mg"] <= co2["range_mg"]["high"]
         assert events[-1]["data"] == {"status": "ok", "error": None}
         assert app.state.local_slot.acquired == 0  # pas de place du sémaphore local (AD-14)

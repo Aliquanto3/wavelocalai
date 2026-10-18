@@ -14,7 +14,7 @@ context:
 warnings: []
 deferred:
   - summary: >-
-      Le pied de réponse de l'écran Chat (story 2.2, autre branche) n'existe pas ici : il doit afficher « 0,9 mg (estimé) » ou « non mesurable » avec son aide, jamais « — » seul ni 0. Les données sont publiées (`metrics.co2` : `mg`, `estimated`, `range_mg`, `reason` en français), la `reason` est le texte d'aide à afficher. Le panneau CO2 de session (barre du haut) est fait.
+      Le pied de réponse de l'écran Chat (story 2.2, autre branche) n'existe pas ici : il doit afficher « 0,9 mg (estimé) » ou « non mesurable » avec son aide, jamais « — » seul ni 0. Les données sont publiées (`metrics.co2` : `mg`, `estimated`, `range_mg`, `reason` en français), la `reason` est le texte d'aide à afficher ; sur une estimation, elle porte la réserve d'ecologits (« … ne publie pas l'architecture de ce modèle : … moins précise. ») et s'affiche aussi en aide, `null` sans avertissement. Le panneau CO2 de session (barre du haut) est fait.
     evidence: |-
       `web/test_chat_cloud_co2.py` (champ `co2` de `metrics`) ; `e2e/test_topbar.py::test_a_cloud_without_any_measure_reads_non_mesurable_never_zero`.
     location: src/wavelocalai/web/static/screens/
@@ -66,3 +66,17 @@ Le CO2 d'une réponse cloud est estimé par ecologits après l'appel, ou déclar
 - `src/wavelocalai/web/static/core/topbar.js`, `i18n/fr.json` (Cloud « (estimé) » ou « non mesurable »)
 - `wavelocalai.toml` (table Groq), `pyproject.toml` et `uv.lock` (ecologits)
 - Tests : `unit/test_cloud_estimate.py`, `web/test_chat_cloud_co2.py`, `web/test_chat_cloud_api.py`, `fake_cloud.py`, `unit/test_carbon_session.py`, `web/test_topbar_support.py`, `e2e/test_topbar.py`
+
+## Revue
+
+Revue Opus du 2026-10-18 sur 30c6fbe, avec la liste du second avis (Haiku). Aucun constat medium ni high.
+
+- LOW, second avis 1, corrigé : les `warnings` d'ecologits (`model-arch-not-released` pour gpt-6-*, claude-*-5-5 ; `model-arch-multimodal`) étaient ignorés. Le contrat n'exige `reason` que si `mg` est nul et ne l'interdit pas sinon : l'estimation reste `estimated: true` et `reason` porte la réserve en français (code inconnu cité). Tests : `test_an_unreleased_architecture_keeps_the_estimate_with_its_caveat`, `test_a_model_without_warning_has_no_caveat`, `test_an_unknown_warning_code_is_cited`.
+- LOW, second avis 2, rejeté : le total « 0 mg » est la somme des mesures, défini ainsi par la story 1.7 (« sans run : total 0 mg »), et le panneau dit que les non-mesurables « ne sont pas comptées dans le total » en les comptant à part. La ligne Cloud, seule visée par le critère « jamais 0 », affiche « non mesurable ».
+- LOW, second avis 3, rejeté : `contrat-api.md` définit la méthode disponible comme « `ecologits` pour un fournisseur direct » ; `test_every_declared_direct_cloud_model_is_known_to_ecologits` vérifie chaque modèle déclaré contre le référentiel installé, et un modèle inconnu donne `unmeasurable` avec sa raison à l'exécution.
+- LOW, second avis 4, rejeté : deux listes de trois fournisseurs (`registry.py`, `cloud_estimate.py`), sans écart ; les fusionner ferait importer `greenops` par `models`, contre le sens des couches. Coût de maintenance seulement.
+- LOW, second avis 5, rejeté : les quatre adaptateurs demandent l'usage (`stream_options.include_usage` pour OpenAI et Groq, `message_delta` Anthropic, dernier événement Mistral) ; le repli à 4 caractères ne joue que si le fournisseur l'omet, et l'estimation reste marquée « estimé » avec sa plage.
+- LOW, second avis 6, rejeté : la publication passe par `greenops.session.announce_carbon_updated` sur le port `SystemBus` ; `inference` ne fait que l'appeler après la feuille, seul point qui sait qu'elle est close.
+- LOW, second avis 7, rejeté : ecologits est une dépendance principale (`uv.lock`, `uv sync --locked` en CI) ; s'il manquait, l'`ImportError` donne « L'estimation d'ecologits a échoué (ModuleNotFoundError) » et un avertissement dans le journal, pas un silence.
+- LOW, second avis 8, rejeté : le test AST est doublé d'un test d'exécution qui fait lever `EcoLogits.init` pendant l'estimation (`test_ecologits_init_is_never_called_...`), ce qu'un alias ne contourne pas.
+- Vérifié par la revue : réponses réelles d'ecologits 0.11.3 pour chaque modèle déclaré (plage pour OpenAI, Anthropic et `huggingface_hub`, nombre seul pour Mistral, `model-not-registered` pour un inconnu) ; l'import d'ecologits ne charge ni client HTTP ni Hugging Face (aucune télémétrie à couper) ; la CI v2 installe ecologits par `uv sync --locked`.

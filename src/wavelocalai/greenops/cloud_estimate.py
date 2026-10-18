@@ -5,7 +5,8 @@ génération (arguments nommés ; **jamais `EcoLogits.init()`**, qui instrumente
 ne lit que les tables livrées avec le paquet : aucun appel réseau. Le résultat est toujours un `Co2` :
 
 - `ecologits` : `mg` est le milieu de la plage d'ecologits, `range_mg` en donne les bornes (kgCO2eq
-  converti en mg), `estimated` vaut vrai, `allocation` `direct` ;
+  converti en mg), `estimated` vaut vrai, `allocation` `direct` ; `reason` porte la réserve des
+  `warnings` d'ecologits (architecture non publiée, modèle multimodal), `None` sans avertissement ;
 - `unmeasurable` : `mg` nul et `reason` en français (jamais 0 pour un inconnu). Un modèle absent du
   référentiel d'ecologits, un Groq sans entrée dans la table de `wavelocalai.toml`, un résultat avec
   `errors` non vide, des jetons ou un délai absents, ou une exception d'ecologits y mènent.
@@ -53,6 +54,33 @@ _ERROR_REASONS: dict[str, str] = {
         "ecologits ne connaît pas le mix électrique demandé : l'empreinte ne peut pas être calculée."
     ),
 }
+
+
+# Avertissements d'ecologits (estimation faite, précision moindre) -> réserve affichée avec le chiffre.
+_WARNING_REASONS: dict[str, str] = {
+    "model-arch-not-released": (
+        "{provider} ne publie pas l'architecture de ce modèle : ecologits en suppose la taille, "
+        "l'estimation est moins précise."
+    ),
+    "model-arch-multimodal": "Modèle multimodal : l'estimation d'ecologits est moins précise.",
+}
+
+
+def _reason_from_warnings(warnings: list[Any], provider: str) -> str | None:
+    """Réserve en français des avertissements d'ecologits, ou `None` sans avertissement."""
+    name = PROVIDER_NAMES.get(provider, provider)
+    texts: list[str] = []
+    for warning in warnings:
+        code = str(getattr(warning, "code", "") or "")
+        template = _WARNING_REASONS.get(code)
+        text = (
+            template.format(provider=name)
+            if template is not None
+            else f"ecologits signale une estimation moins précise (code « {code or 'inconnu'} »)."
+        )
+        if text not in texts:
+            texts.append(text)
+    return " ".join(texts) or None
 
 
 def _unmeasurable(reason: str) -> Co2:
@@ -145,6 +173,7 @@ def estimate_cloud_co2(
             estimated=True,
             range_mg={"low": low, "high": high},
             allocation="direct",
+            reason=_reason_from_warnings(list(impacts.warnings or []), provider),
         )
     except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
         logger.warning("Estimation ecologits impossible pour %s/%s : %r", provider, model, exc)
