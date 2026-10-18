@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-18-2026 23:23
+last_updated: 10-18-2026 23:56
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -68,7 +68,7 @@ development_status:
   epic-3-retrospective: optional
 
   epic-4: in-progress
-  4-1-indexer-un-document-dans-la-base-locale-serveur: in-progress
+  4-1-indexer-un-document-dans-la-base-locale-serveur: done
   4-2-l-écran-base-documentaire-suit-chaque-fichier: in-progress
   4-3-supprimer-un-document-vider-la-base-changer-de-réglages: backlog
   4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: backlog
@@ -80,13 +80,34 @@ development_status:
   epic-4-retrospective: optional
 
   epic-5: backlog
+  5-1-l-écran-sobriété-montre-la-machine-et-la-session-en-direct: backlog
+  5-2-retrouver-l-historique-carbone-et-ouvrir-une-nouvelle-sessio: backlog
+  5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: backlog
+  5-4-décharger-supprimer-un-modèle-et-choisir-ses-défauts: backlog
+  5-5-récupérer-le-reranker-depuis-l-écran-modèles: backlog
+  5-6-la-fiche-modèle-explique-son-débit-et-ce-qu-il-donne-sur-d-a: backlog
+  5-7-les-défauts-agent-et-rag-s-appuient-sur-le-banc: backlog
+  5-8-quel-modèle-pour-quel-usage-préversion-2-0-0a5: backlog
   epic-5-retrospective: optional
 
   epic-6: backlog
+  6-1-un-agent-appelle-des-outils-et-publie-chaque-étape-serveur: backlog
+  6-2-l-agent-dispose-des-outils-de-la-v1-sans-chemin-libre: backlog
+  6-3-aucun-email-ne-part-sans-validation-explicite: backlog
+  6-4-l-écran-agent-seul-montre-chaque-étape-et-demande-la-validat: backlog
+  6-5-une-équipe-d-agents-mène-une-mission-l-un-après-l-autre-serv: backlog
+  6-6-l-écran-équipe-d-agents-montre-le-schéma-la-trace-et-le-rapp: backlog
   epic-6-retrospective: optional
 
   epic-7: backlog
+  7-1-noter-la-fidélité-et-la-pertinence-d-une-réponse-serveur: backlog
+  7-2-un-jeu-fixe-de-cas-garde-le-juge-honnête: backlog
+  7-3-l-écran-évaluation-de-la-qualité-montre-les-étapes-et-garde: backlog
+  7-4-le-banc-d-essai-dit-si-la-sortie-respecte-le-format-préversi: backlog
   epic-7-retrospective: optional
 
   epic-8: backlog
+  8-1-solder-la-dette-technique-relevée-pendant-le-mvp: backlog
+  8-2-tous-les-écrans-sont-accessibles-et-lisibles-en-projection: backlog
+  8-3-la-parité-avec-la-v1-est-listée-et-la-suite-e2e-est-complète: backlog
   epic-8-retrospective: optional
