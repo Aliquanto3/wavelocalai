@@ -9,7 +9,8 @@
 //   colonne). Un en-tête triable est un bouton : Entrée ou Espace trie, `aria-sort` dit l'ordre.
 // - `value(row)` donne la valeur de tri (nombre ou texte) ; `null` ou `undefined` passe en dernier,
 //   dans les deux ordres. `cell(row)` rend le texte ou le nœud affiché (sinon `value`).
-// - Le tableau garde le focus sur l'en-tête trié et annonce l'ordre dans une zone polie.
+// - Le tableau garde le focus sur l'en-tête trié (aussi quand ses lignes changent) et annonce
+//   l'ordre dans une zone polie.
 // - Le front ne calcule aucune mesure : il trie et met en forme ce que l'API a donné (AD-20).
 
 import { element, icon } from "../core/dom.js";
@@ -102,6 +103,11 @@ export class WlDataTable extends HTMLElement {
       this.#slot = element("div");
       this.replaceChildren(this.#slot, this.#announce); // la zone polie reste en place entre deux rendus
     }
+    // Un nouveau rendu (lignes mises à jour pendant un import) remplace les nœuds : le focus d'un
+    // en-tête de tri ou de la zone qui défile est rendu au nœud équivalent.
+    const focused = this.contains(document.activeElement) ? document.activeElement : null;
+    if (focused?.classList.contains("wl-table-sort")) this.#refocus ??= focused.dataset.key;
+    const refocusWrap = focused?.classList.contains("wl-table-wrap") ?? false;
     const table = element("table", "wl-table");
     table.append(element("caption", "sr-only", this.#caption));
 
@@ -153,6 +159,7 @@ export class WlDataTable extends HTMLElement {
     wrap.append(table);
     this.#slot.replaceChildren(wrap);
 
+    if (refocusWrap) wrap.focus();
     if (this.#refocus) {
       this.querySelector(`.wl-table-sort[data-key="${CSS.escape(this.#refocus)}"]`)?.focus();
       this.#refocus = null;

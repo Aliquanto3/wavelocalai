@@ -209,7 +209,7 @@ def test_a_content_already_in_the_base_is_not_indexed_twice(docs):
     choose(page, txt("copie.txt"))  # même contenu, autre nom
     row(page, "copie.txt").locator(".docs-import-state").filter(has_text="Déjà indexé").wait_for()
     wait_for(page, "() => !document.querySelector('.docs-import-progress:not([hidden])')")
-    assert summary(page) == ""  # aucun extrait ajouté : rien à annoncer
+    wait_summary(page, "1 fichier était déjà dans la base.")  # la fin est annoncée quand même
     assert len(table_rows(page)) == 1
 
 
@@ -254,6 +254,46 @@ def test_cancelling_during_the_upload_sends_nothing_to_the_run(docs):
     assert line.locator(".docs-import-state").inner_text() == "Annulé"
     runs = json.loads(page.request.get(f"{server.base_url}/api/rag/documents").text())
     assert runs["documents"] == []
+
+
+def test_cancelling_once_the_files_are_sent_stops_the_run_the_server_started(docs):
+    # Le corps est parti, le serveur a créé le run, la réponse n'est pas encore traitée : Annuler
+    # ne peut plus abandonner la requête (le run indexerait quand même), il arrête le run. La
+    # réponse est retenue dans la page (le `load` de la requête attend), pas dans le réseau : une
+    # interception Playwright couperait la progression d'envoi.
+    page, server = docs
+    script_embedder(server, page, {"sleep_s": 30})
+    page.evaluate(
+        """() => {
+          window.__hold = new Promise((resolve) => { window.__release = resolve; });
+          const base = Object.getOwnPropertyDescriptor(XMLHttpRequestEventTarget.prototype, "onload");
+          Object.defineProperty(XMLHttpRequest.prototype, "onload", {
+            configurable: true,
+            get() { return base.get.call(this); },
+            set(handler) {
+              base.set.call(this, handler && ((event) => window.__hold.then(() => handler.call(this, event))));
+            },
+          });
+        }"""
+    )
+    choose(page, txt("a.txt"), txt("b.txt", "Un autre."))
+    line = row(page, "a.txt")
+    line.locator(".docs-import-state").filter(has_text="Envoi 100").wait_for()
+    listed = f"{server.base_url}/api/rag/documents"
+    for _ in range(200):  # le serveur a répondu : le run indexe le premier fichier
+        documents = page.request.get(listed).json()["documents"]
+        if documents:
+            break
+        page.wait_for_timeout(50)
+    assert documents and documents[0]["status"] == "indexing"
+    run_id = documents[0]["run_id"]
+    line.get_by_role("button", name="Annuler l'import de a.txt").click()
+    page.evaluate("window.__release()")
+    wait_summary(page, "Import annulé. Les documents déjà indexés sont conservés.")
+    for name in ("a.txt", "b.txt"):
+        assert row(page, name).locator(".docs-import-state").inner_text() == "Annulé"
+    page.locator(".docs-card").wait_for()  # le run a été arrêté : rien n'est gardé
+    assert page.request.get(f"{server.base_url}/api/runs/{run_id}").json()["status"] == "cancelled"
 
 
 def test_leaving_the_screen_during_an_import_and_coming_back_resumes_the_progress(docs):
@@ -356,6 +396,19 @@ def test_the_table_lists_name_chunks_date_model_and_status_and_sorts_from_the_ke
     assert table_rows(page)[0][0] in ("b.txt", "c.txt")  # 1 extrait avant 3
     assert table_rows(page)[-1][0] == "a.txt"
     assert header.get_attribute("aria-sort") == "none"
+
+
+def test_a_sort_header_keeps_the_focus_while_an_import_updates_the_table(docs):
+    page, server = docs
+    choose(page, txt("a.txt"))
+    wait_summary(page, "5 extraits ajoutés depuis 1 document.")
+    script_embedder(server, page, {"sleep_s": 1.5})
+    page.locator("wl-data-table .wl-table-sort[data-key=source]").focus()
+    choose(page, txt("b.txt", "Un autre."))
+    wait_for(page, "() => document.querySelectorAll('wl-data-table tbody tr').length === 2")
+    assert page.evaluate("document.activeElement.dataset.key") == "source"  # tableau reconstruit
+    wait_summary(page, "1 extrait ajouté depuis 1 document.")
+    assert page.evaluate("document.activeElement.dataset.key") == "source"
 
 
 def test_a_failed_document_keeps_its_reason_in_the_table_after_a_reload(docs):

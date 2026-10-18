@@ -7,7 +7,8 @@
 //   d'envoi). Une ligne ne perd pas son nœud entre deux événements (le focus reste sur Annuler).
 // - L'envoi passe par `XMLHttpRequest` (seul à donner la progression d'envoi) : les octets envoyés
 //   sont répartis sur les fichiers dans l'ordre du formulaire. Annuler pendant l'envoi l'abandonne ;
-//   ensuite, Annuler arrête le run `ingest` (les fichiers non commencés ne le sont pas).
+//   le corps parti (le serveur crée peut-être déjà le run), Annuler attend le `run_id` et arrête le
+//   run ; ensuite, Annuler arrête le run `ingest` (les fichiers non commencés ne le sont pas).
 // - L'écran reste en mémoire quand on va ailleurs (le routeur le masque) : masqué, il ferme son
 //   flux en gardant le dernier `seq` ; de retour, il le rouvre par `?after=<seq>` (AD-6). Rechargée,
 //   la page retrouve l'import en cours par le `run_id` d'un document `indexing` et le rejoue.
@@ -69,7 +70,7 @@ class ImportRow {
     this.bar.setAttribute("aria-label", t("docs.row_progress", { file: name }));
     this.cancel = element("button", "btn docs-import-cancel", t("docs.cancel"));
     this.cancel.type = "button";
-    this.cancel.setAttribute("aria-label", t("docs.cancel_import"));
+    this.cancel.setAttribute("aria-label", t("docs.cancel_import", { file: name }));
     this.cancel.addEventListener("click", onCancel);
     this.failure = document.createElement("wl-error");
     this.el.append(this.title, this.line, this.cancel, this.bar, this.failure);
@@ -205,7 +206,9 @@ export function mount(host) {
   let runId = null; // l'import suivi, tant qu'il n'est pas terminé
   let stream = null;
   let uploading = null; // AbortController de l'envoi en cours
-  let tally = { docs: 0, chunks: 0, failed: 0 };
+  let sent = false; // le corps de l'envoi en cours est parti : l'abandonner n'arrêterait pas le run
+  let cancelPending = false; // Annuler demandé après l'envoi du corps : le run sera arrêté
+  let tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
   let wasHidden = host.hidden;
   let listFailed = false; // la liste n'a pas pu être lue (le message d'erreur le dit)
   let refreshing = false;
@@ -281,7 +284,7 @@ export function mount(host) {
     busyHelp.hidden = !locked;
     loading.hidden = data !== null || listFailed;
     empty.hidden = data === null || documents.length > 0 || locked;
-    tableSection.hidden = documents.length === 0;
+    tableSection.hidden = listFailed || documents.length === 0; // jamais une liste périmée
     imports.hidden = rows.size === 0;
     if (documents.length > 0) {
       table.rows = documents;
@@ -337,7 +340,7 @@ export function mount(host) {
   function resetRows() {
     rows.clear();
     importList.replaceChildren();
-    tally = { docs: 0, chunks: 0, failed: 0 };
+    tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
     summary.textContent = "";
   }
 
@@ -347,6 +350,7 @@ export function mount(host) {
     if (tally.docs > 0) {
       parts.push(`${plural("docs.added", tally.chunks)} ${plural("docs.from", tally.docs)}.`);
     }
+    if (tally.duplicate > 0) parts.push(plural("docs.duplicate_count", tally.duplicate));
     if (tally.failed > 0) parts.push(plural("docs.failed_count", tally.failed));
     if (status === "cancelled") parts.push(t("docs.cancelled"));
     else if (status !== "ok") parts.push(t("docs.interrupted"));
@@ -383,6 +387,7 @@ export function mount(host) {
     },
     ingest_file_done: (payload) => {
       const row = rowFor(payload);
+      if (row.final) return; // flux rejoué depuis le début : déjà compté
       row.state = payload.status;
       row.chunks = payload.chunks ?? 0;
       row.error = payload.error ?? null;
@@ -392,6 +397,8 @@ export function mount(host) {
         tally.chunks += row.chunks;
       } else if (payload.status === "failed") {
         tally.failed += 1;
+      } else if (payload.status === "duplicate") {
+        tally.duplicate += 1;
       }
       refresh();
     },
@@ -409,7 +416,10 @@ export function mount(host) {
       } catch {
         // Run inconnu : l'import est dit interrompu.
       }
-      if (runId === id) endRun(ended === "running" ? "interrupted" : ended);
+      if (runId !== id) return;
+      // Flux perdu mais run actif : on le suit de nouveau (événements rejoués écartés par ligne).
+      if (ended !== "running") endRun(ended);
+      else if (!host.hidden) openStream(id);
     });
   }
 
@@ -446,11 +456,14 @@ export function mount(host) {
     });
     const controller = new AbortController();
     uploading = controller;
+    sent = false;
+    cancelPending = false;
     render();
     try {
       const started = await uploadDocuments(files, {
         signal: controller.signal,
         onProgress: (loaded, size) => spreadProgress(files, loaded, size),
+        onSent: () => (sent = true),
       });
       uploading = null;
       for (const row of rows.values()) {
@@ -459,8 +472,11 @@ export function mount(host) {
         row.render();
       }
       follow(started.run_id);
+      if (cancelPending) stopRun(started.run_id); // Annuler demandé pendant que le run naissait
     } catch (failure) {
       uploading = null;
+      cancelPending = false;
+      for (const row of rows.values()) row.cancel.disabled = false;
       if (failure?.name === "AbortError") {
         for (const row of rows.values()) {
           row.state = "cancelled";
@@ -496,14 +512,17 @@ export function mount(host) {
     });
   }
 
+  const stopRun = (id) =>
+    api.cancelRun(id).catch(() => rows.forEach((row) => (row.cancel.disabled = false)));
+
   function cancel() {
     for (const row of rows.values()) row.cancel.disabled = true; // un seul arrêt à la fois
-    if (uploading) {
+    if (uploading && sent) {
+      cancelPending = true; // le serveur a le corps : abandonner la requête laisserait le run indexer
+    } else if (uploading) {
       uploading.abort();
     } else if (runId) {
-      api.cancelRun(runId).catch(() => {
-        for (const row of rows.values()) row.cancel.disabled = false;
-      });
+      stopRun(runId);
     }
   }
 

@@ -77,3 +77,14 @@ L'écran `#/documents/base` (module Documents passé à `available`) montre une 
 ## Vérification
 
 `pytest tests/v2` : 787 passés ; `-m e2e` : 179 passés (dont 22 de l'écran).
+
+## Revue
+
+- medium · second avis · corrigé : Annuler une fois le corps envoyé (« Envoi 100 % ») abandonnait la requête alors que le serveur créait le run, qui indexait quand même. `uploadDocuments` signale l'envoi du corps (`onSent`) ; Annuler attend alors le `run_id` et arrête le run. Preuve : `test_cancelling_once_the_files_are_sent_stops_the_run_the_server_started` (échoue sur l'ancien code).
+- medium · second avis · corrigé : chaque lecture de la liste pendant un import reconstruisait le tableau et faisait perdre le focus à l'en-tête de tri (ou à la zone qui défile). `wl-data-table` rend le focus au nœud équivalent. Preuve : `test_a_sort_header_keeps_the_focus_while_an_import_updates_the_table` (échoue sur l'ancien code).
+- low · second avis · corrigé : après 6 échecs du flux, l'import était dit interrompu alors que le run tournait encore ; si `GET /api/runs/{id}` dit `running`, le flux est rouvert, et un `ingest_file_done` rejoué n'est plus compté deux fois.
+- low · second avis · corrigé : après un échec de lecture de la liste, le tableau périmé restait affiché ; il est masqué tant que l'erreur est là.
+- low · second avis · corrigé : « Annuler l'import de <fichier> » (nom accessible propre à chaque ligne).
+- low · second avis · corrigé : un import fait seulement de doublons finissait sans annonce ; la phrase de fin dit « N fichier(s) déjà dans la base ».
+- low · second avis · reporté : les plafonds de taille sont vérifiés pendant la copie de staging, après que Starlette a déjà lu tout le multipart en fichiers temporaires. Un refus avant lecture demande une limite sur `Content-Length` (middleware ou serveur) ; l'écran refuse déjà avant l'envoi. À traiter avec le durcissement du serveur.
+- low · revue · rejeté (complexité) : chaque événement de fin de fichier relit la liste et reconstruit le tableau, soit O(fichiers × documents) par import ; les lectures sont coalescées (`refreshAgain`), 50 fichiers au plus par import, base locale : impact négligeable. Complexité : 1 constat, sans correctif.

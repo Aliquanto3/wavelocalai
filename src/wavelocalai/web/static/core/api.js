@@ -45,8 +45,9 @@ export async function request(path, { method = "GET", body, timeoutMs = 5000, si
 
 // Envoie des fichiers à `POST /api/rag/documents` (multipart). `fetch` ne rend pas la progression de
 // l'envoi : `XMLHttpRequest` la donne (`onProgress(octets envoyés, octets au total)`). Rend
-// `{run_id}`. Annuler par `signal` rejette avec une `DOMException` `AbortError`.
-export function uploadDocuments(files, { signal, onProgress = () => {} } = {}) {
+// `{run_id}`. Annuler par `signal` rejette avec une `DOMException` `AbortError`. `onSent()` dit que
+// le corps est parti : le serveur peut dès lors créer le run, abandonner la requête ne l'arrête plus.
+export function uploadDocuments(files, { signal, onProgress = () => {}, onSent = () => {} } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const form = new FormData();
@@ -57,6 +58,7 @@ export function uploadDocuments(files, { signal, onProgress = () => {} } = {}) {
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded, event.total);
     };
+    xhr.upload.onload = () => onSent();
     xhr.onload = () => {
       finish();
       let body = null;
