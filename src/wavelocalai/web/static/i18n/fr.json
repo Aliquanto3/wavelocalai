@@ -185,7 +185,26 @@
       "tokens": "Tokens",
       "duration": "Durée",
       "load": "Chargement",
-      "total": "Durée totale"
+      "total": "Durée totale",
+      "first_token": "Premier token"
+    },
+    "lane": {
+      "label": "Réponse de {model}",
+      "status": {
+        "waiting": "En attente",
+        "loading": "Chargement du modèle en mémoire",
+        "generating": "Génération",
+        "judging": "Notation",
+        "done": "Terminé",
+        "timeout": "Délai dépassé",
+        "failed": "Échec",
+        "cancelled": "Arrêté",
+        "interrupted": "Interrompu"
+      },
+      "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
+      "focus": "Mode focus",
+      "expand": "Afficher toute la réponse",
+      "collapse": "Réduire la réponse"
     }
   },
   "tabs": {
@@ -250,5 +269,56 @@
       "message": "Le serveur a redémarré. Les exécutions en cours sont perdues.",
       "reload": "Recharger"
     }
+  },
+  "arena": {
+    "lead": "Posez la même question à 2 à 4 modèles et lisez leurs réponses côte à côte, au fil de leur rédaction.",
+    "question": "Question",
+    "scenarios": "Scénarios",
+    "scenarios_help": "Remplit la question ; vous pouvez ensuite la modifier.",
+    "scenario": {
+      "popularize": {
+        "label": "Vulgarisation",
+        "prompt": "Explique la photosynthèse à un enfant de dix ans, en trois phrases simples."
+      },
+      "extract": {
+        "label": "Extraction JSON",
+        "prompt": "Extrais de ce texte le nom, la date et le montant, et rends-les en JSON strict avec les clés « nom », « date » et « montant » : « Facture n° 2026-118 émise le 14 septembre 2026 pour Marie Durand, d'un montant de 1 250 euros. »"
+      },
+      "summarize": {
+        "label": "Résumé",
+        "prompt": "Résume en trois points le texte suivant : « Les petits modèles de langage tournent sur un ordinateur ordinaire, sans envoyer de données à l'extérieur. Ils répondent avec moins de nuances que les grands modèles hébergés dans le cloud, mais ils coûtent moins cher et consomment moins d'énergie par réponse. Le bon choix dépend de la sensibilité des données et du niveau de qualité attendu. »"
+      },
+      "translate": {
+        "label": "Traduction",
+        "prompt": "Traduis en anglais : « Les modèles locaux gardent vos données sur votre poste, ce qui rassure les équipes juridiques. »"
+      }
+    },
+    "models": "Modèles à comparer",
+    "execution": "Les modèles locaux passent l'un après l'autre (mémoire) ; les modèles cloud en parallèle.",
+    "launch": "Lancer la comparaison",
+    "need_models": "Choisissez au moins 2 modèles",
+    "too_many": "Choisissez au plus 4 modèles",
+    "need_question": "Saisissez une question",
+    "busy": "Une comparaison est en cours",
+    "start_failed": "La comparaison n'a pas pu être lancée.",
+    "joined": "Une comparaison est déjà en cours : vous la suivez.",
+    "asked": "Question posée",
+    "lanes": "Réponses des modèles",
+    "tabs": "Modèles comparés",
+    "banner": {
+      "running": "Comparaison en cours · {done} sur {total} · {clock}",
+      "ok": "Comparaison terminée · {done} sur {total} · {clock}",
+      "cancelled": "Comparaison arrêtée · {done} sur {total} · {clock}",
+      "interrupted": "Comparaison interrompue · {done} sur {total} · {clock}",
+      "stopping": "Arrêt en cours · {done} sur {total} · {clock}"
+    },
+    "announce": {
+      "started": "Comparaison lancée sur {count} modèles.",
+      "ok": "Comparaison terminée : {done} réponses sur {total}.",
+      "cancelled": "Comparaison arrêtée.",
+      "interrupted": "Comparaison interrompue."
+    },
+    "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
+    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré."
   }
 }

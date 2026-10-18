@@ -55,6 +55,8 @@ export const api = {
     ),
   // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
+  // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).
+  startArena: (body) => request("/api/arena/runs", { method: "POST", body }),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

@@ -121,6 +121,18 @@ export class WlModelPicker extends HTMLElement {
     return this.#known.get(this.value) ?? null;
   }
 
+  // La fiche de l'API d'un modèle déjà listé, ou null.
+  modelFor(tag) {
+    return this.#known.get(tag) ?? null;
+  }
+
+  // Les fiches de tous les modèles choisis, dans l'ordre du choix (mode multi : l'Arène).
+  get selectedModels() {
+    return this.#values.map(
+      (tag) => this.#known.get(tag) ?? { tag, name: tag, origin: "unknown" },
+    );
+  }
+
   // --- Données ------------------------------------------------------------------------------
 
   async reload() {

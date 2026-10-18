@@ -448,3 +448,28 @@ async def test_the_arena_is_cancelled_with_the_server(tmp_path):
     assert [r["status"] for r in rows] == ["cancelled"] * 3
     assert last[0]["type"] == "run_ended"
     assert {json.loads(r["data"]).get("status") for r in last[1:]} == {"cancelled"}
+
+
+async def test_the_test_route_runs_a_scripted_arena_through_the_real_service(tmp_path):
+    lanes = [
+        {"tag": "fake:x", "script": [{"text": "Un "}, {"text": "mot"}]},
+        {"tag": "fake/y", "origin": "cloud", "script": [{"sleep_s": 0.05}, {"text": "Deux"}]},
+    ]
+    async with arena_app(tmp_path) as (app, client):
+        response = await client.post("/api/test/arena", json={"prompt": PROMPT, "lanes": lanes})
+        assert response.status_code == 200, response.text
+        run_id = response.json()["run_id"]
+        await _ended(client, run_id)
+        events = await app.state.hub.events_after(run_id)
+        assert [e["data"]["kind"] for e in events if e["type"] == "run_started"] == ["arena"]
+        assert statuses(events, "fake:x")[-1] == statuses(events, "fake/y")[-1] == "done"
+        for tag, text in (("fake:x", "Un mot"), ("fake/y", "Deux")):
+            said = "".join(
+                e["data"]["text"]
+                for e in events
+                if e["type"] == "token" and e["data"]["lane"] == tag
+            )
+            assert said == text
+        # Une seule lane : refusée par le service, comme `POST /api/arena/runs`.
+        one = await client.post("/api/test/arena", json={"prompt": PROMPT, "lanes": lanes[:1]})
+        assert one.status_code == 422 and one.json()["code"] == "invalid_request"
