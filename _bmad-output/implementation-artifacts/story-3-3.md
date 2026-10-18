@@ -72,3 +72,17 @@ Chaque lane terminée de l'Arène est notée sur 100 par un modèle juge, avec s
 ## Reports
 
 Voir `deferred` : écran (seconde passe, après la 3.2), contrat à valider en 3.6, lanes sans note, validateur minimal, cloud non éprouvé en réel.
+
+## Revue
+
+Revue Opus du 2026-10-18 (une passe, diff `8cefd9a..2c6f54f`). Aucun constat medium ou high. Complexité : 0 constat (texte capturé, réponse enregistrée et `StructuredCheck` accumulent puis joignent une fois ; aucun parcours complet par événement).
+
+- low, second avis 1 — `models/anthropic.py` : bloc `tool_use` → `end_turn` dupliqué. Corrigé (sans effet sur le comportement).
+- low, second avis 2 — `inference/arena.py` : modèle juge construit après `create_run("arena")`, hors du `try`. Requalifié low : `ModelFactory.chat_model` ne lève pas pour un tag résolu par le registre (constructeurs sans appel). Corrigé quand même : le juge est construit avant la racine.
+- low, second avis 3 — `inference/arena.py` : sans service de notation, l'événement `judge`, `runs.params.judge` et `judge_score.judge` nommaient un juge qui ne notait pas. Corrigé : pas de juge annoncé sans service. Test `test_without_a_scoring_service_a_named_judge_is_not_announced` (échoue sans le correctif). En production, le service est toujours câblé (`web/app.py`).
+- low, second avis 4 — `models/mistral.py` : `strict: true` envoyé sans essai réel. Reporté (déjà dans `deferred`) : vérifier par un appel réel que Mistral accepte `response_format.json_schema.strict` en flux.
+- low, revue — Groq : la sortie structurée `json_schema` avec `stream: true` n'est peut-être pas acceptée par tous les modèles Groq (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile` figurent dans `CLOUD_JUDGE_PREFERENCE`). Reporté : un refus donne « non évalué : juge indisponible », jamais 0 ; à vérifier par un appel réel, sinon demander la notation sans flux ou en `json_object` pour Groq.
+- low, revue — `evaluation/judge.py` : 12 000 caractères de réponse peuvent dépasser le `num_ctx` d'un petit juge Ollama, qui tronque alors l'entrée sans erreur. Reporté : les réponses d'Arène restent en général bien plus courtes ; à reprendre si l'on règle `num_ctx` par appel.
+- low, revue — un juge local différent des modèles comparés alterne avec eux sous la place Ollama (rechargements). Rejeté pour cette story : conforme à AD-14 (place prise appel par appel) ; optimisation possible en 3.4 (noter après toutes les lanes).
+
+Tests : `tests/v2` 644 réussis, `-m integration` 7 réussis (dont `test_judge_ollama.py`, vrai `qwen2.5:1.5b`).

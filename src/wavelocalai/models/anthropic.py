@@ -149,8 +149,6 @@ class AnthropicChatModel:
             await close_quietly(client)
         if request.response_schema is not None and finish == "tool_use":
             finish = "end_turn"  # l'outil forcé est le mode de réponse, pas un appel d'outil
-        if request.response_schema is not None and finish == "tool_use":
-            finish = "end_turn"  # l'outil forcé est le mode de réponse, pas un appel d'outil
         structured.done()
         yield Done(
             clock.result(

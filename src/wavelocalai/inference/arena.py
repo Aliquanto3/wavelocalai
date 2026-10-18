@@ -153,8 +153,12 @@ class ArenaService:
         avant toute écriture) ou `run_busy` (une Arène est déjà active, AD-14)."""
         refs, named_judge = self._resolve(command)
         judge_ref = named_judge or await self._default_judge(command.allow_cloud)
+        if self._judge is None:  # sans service de notation, aucun juge n'est annoncé
+            judge_ref = None
         judge_info = await self._judge_info(judge_ref, command.allow_cloud)
         models = [_RecordingModel(self._factory.chat_model(ref)) for ref in refs]
+        # Construit avant la racine : une erreur ici ne laisse pas d'Arène active (`run_busy`).
+        judge_model = self._factory.chat_model(judge_ref) if judge_ref else None
         root = await self._hub.create_run(
             "arena",
             models=[ref.tag for ref in refs],
@@ -168,7 +172,7 @@ class ArenaService:
             root.run_id,
             command.prompt,
             list(command.criteria),
-            self._factory.chat_model(judge_ref) if judge_ref else None,
+            judge_model,
         )
         try:
             for model in models:

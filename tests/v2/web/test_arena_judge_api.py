@@ -285,3 +285,19 @@ async def test_cancelling_during_judging_cancels_the_lane_and_the_judge_leaf(tmp
     assert not [e for e in events if e["type"] == "judge_score" and e["data"]["score"] == 0]
     judge_kids = [c for c in snapshot["children"] if c["kind"] == "judge"]
     assert judge_kids and all(k["status"] == "cancelled" for k in judge_kids)
+
+
+async def test_without_a_scoring_service_a_named_judge_is_not_announced(tmp_path):
+    """Revue : sans service de notation, l'événement `judge` n'annonce pas un juge qui ne notera
+    pas, et `runs.params.judge` reste vide ; le juge nommé n'est jamais appelé."""
+    a, b, j = local("fake:a", say("A")), local("fake:b", say("B")), local("fake:j", verdict(90))
+    async with arena_app(tmp_path, a, b, j) as (app, client):
+        app.state.arena._judge = None
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+        root = app.state.store.read("SELECT params FROM runs WHERE id = ?", (run_id,))[0]
+    assert judge_event(events)["model"] is None and judge_event(events)["chosen"] == "none"
+    assert json.loads(root["params"])["judge"] is None
+    assert all(s["score"] is None and s["judge"] is None for s in scores(events).values())
+    assert not j.requests
