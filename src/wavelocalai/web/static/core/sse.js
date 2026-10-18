@@ -199,12 +199,14 @@ export function connectStream({
 
   loop();
   return {
-    close() {
+    // `keepSeq` : l'écran quitte la vue sans quitter le run ; le dernier `seq` reste dans le store,
+    // et le prochain `connectRun` du même run reprend par `?after=<seq>` (AD-6).
+    close({ keepSeq = false } = {}) {
       if (closed) return;
       closed = true;
       controller?.abort();
       wake?.();
-      if (runId !== null) forgetRun(runId);
+      if (runId !== null && !keepSeq) forgetRun(runId);
     },
     // « Réessayer » : ne pas attendre la fin du délai.
     retryNow() {

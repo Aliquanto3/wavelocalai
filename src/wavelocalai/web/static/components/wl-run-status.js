@@ -8,6 +8,11 @@
 //
 // Événement : `wl-run-ended` (`detail.status`, `detail.error`). Un flux n'est ouvert que pour le
 // run suivi et se ferme au retrait du composant de la page. Sans Shadow DOM.
+//
+// Mode piloté (attribut `driven`) : l'écran lit déjà le flux du run (le dernier `seq` d'un run est
+// unique dans le store, deux lecteurs s'écarteraient les événements) ; il passe chaque enveloppe à
+// `feed(envelope)`, et `abandon()` dit que le flux est perdu. Aucun flux n'est ouvert ici.
+// La touche Échap n'agit que si le composant est à l'écran (un écran gardé en mémoire est masqué).
 
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
@@ -41,7 +46,7 @@ export class WlRunStatus extends HTMLElement {
   #cancelling = false;
   #dom = null;
   #onKeydown = (event) => {
-    if (event.key === "Escape" && !event.defaultPrevented && this.running) {
+    if (event.key === "Escape" && !event.defaultPrevented && this.running && !this.closest("[hidden]")) {
       event.preventDefault();
       this.cancel();
     }
@@ -120,23 +125,41 @@ export class WlRunStatus extends HTMLElement {
     this.#timer = null;
   }
 
+  // Les événements qui font avancer l'étape, que le flux soit ouvert ici ou par l'écran (`feed`).
+  #handlers = {
+    run_started: (_data, envelope) => {
+      const started = Date.parse(envelope.ts);
+      this.#startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
+      this.#timer ??= setInterval(() => this.#renderTimer(), TICK_MS);
+      this.#render();
+    },
+    model_loading: () => this.#setStage("loading"),
+    model_loaded: () => this.#setStage("generating"),
+    token: () => this.#setStage("generating"),
+    run_ended: (data, envelope) => this.#end(data ?? {}, envelope),
+  };
+
+  get driven() {
+    return this.hasAttribute("driven");
+  }
+
+  // Mode piloté : une enveloppe `{type, data, ts…}` du flux que l'écran lit.
+  feed(envelope) {
+    if (!this.driven || !envelope || !Object.hasOwn(this.#handlers, envelope.type)) return;
+    this.#handlers[envelope.type](envelope.data, envelope);
+  }
+
+  // Flux abandonné (run inconnu, ou serveur muet après plusieurs essais) sans `run_ended` :
+  // l'état n'est plus suivi, on le dit au lieu de laisser « Génération… » et Arrêter.
+  abandon() {
+    if (this.#runId !== null && !this.#final) this.#end({ status: "interrupted" }, {});
+  }
+
   #start() {
     this.#render();
-    this.#stream = connectRun(this.#runId, {
-      run_started: (_data, envelope) => {
-        const started = Date.parse(envelope.ts);
-        this.#startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
-        this.#timer ??= setInterval(() => this.#renderTimer(), TICK_MS);
-        this.#render();
-      },
-      model_loading: () => this.#setStage("loading"),
-      model_loaded: () => this.#setStage("generating"),
-      token: () => this.#setStage("generating"),
-      run_ended: (data, envelope) => this.#end(data ?? {}, envelope),
-    }, ({ status }) => {
-      // Flux abandonné (run inconnu, ou serveur muet après plusieurs essais) sans `run_ended` :
-      // l'état n'est plus suivi, on le dit au lieu de laisser « Génération… » et Arrêter.
-      if (status === "failed" && !this.#final) this.#end({ status: "interrupted" }, {});
+    if (this.driven) return;
+    this.#stream = connectRun(this.#runId, this.#handlers, ({ status }) => {
+      if (status === "failed") this.abandon();
     });
   }
 

@@ -20,7 +20,12 @@ export const MODULES = [
     id: "arena",
     icon: "swords",
     screens: [
-      { id: "arena-chat", path: "/arene/chat", status: "planned" },
+      {
+        id: "arena-chat",
+        path: "/arene/chat",
+        status: "available",
+        load: () => import("../screens/chat.js"),
+      },
       { id: "arena-compare", path: "/arene/comparer", param: "run_id", status: "planned" },
       { id: "arena-bench", path: "/arene/banc", status: "planned" },
     ],
