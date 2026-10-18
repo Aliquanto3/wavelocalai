@@ -11,6 +11,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 - Nouvelles fonctionnalités dans la v1 seulement si elles améliorent l'UI ou l'UX ; les autres vont dans la v2.
 - Ne modifier la mesure du benchmark (`scripts/benchmark_slm.py`, et ce qu'il importe de `src/core/`, dont `config.py`) que dans une PR dédiée au benchmark. Les exports ne tracent que le SHA de `benchmark_slm.py` : un changement dans `src/core/` fausse les comparaisons sans alerte.
 - Ne jamais éditer à la main `benchmarks/results/*.json` (écrit par `scripts/bench_here.py export`) ni `config/models_catalog.json` (écrit par `scripts/build_catalog.py`).
+- Les résultats de benchmark viennent de slm-quality-bench (`benchmarks/slm-quality/`, écrit par `scripts/sync_slm_results.py`) ; ne jamais les éditer à la main ni en produire dans wavelocalai.
 - Ne jamais commiter, vider ou réinitialiser `data/` (Chroma, logs, `models.json` local). Le dépôt est public : aucun document client, extrait de réponse RAG ou capture montrant du contenu indexé dans un commit ou une PR.
 - Ne jamais éditer `_bmad/` ni `.claude/skills/bmad-*`, régénérés par l'installeur : personnaliser via `_bmad/custom/*.toml`.
 - Ne jamais figer une version de dépendance de mémoire : la vérifier sur PyPI ou npm, ou par une installation réelle.
