@@ -109,3 +109,6 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 00:10 · 3.2 · fusion master · master avec 3.1 fusionné (sans conflit) ; contrôles lancés · 74286f2
 - 2026-10-19 00:19 · 4.1 · CI · correctif poussé (course du test d'annulation ; index numpy si sqlite-vec absent, `select_index`) ; report : index numpy en mémoire perdu au redémarrage (4.3) · 2d4b0b6
 - 2026-10-19 00:25 · 3.2 · contrôles · verts (677 v2, 195 E2E, 6 integration, 1286 v1) ; finalisation et PR · 74286f2
+- 2026-10-19 00:42 · run · décision · second message de wavelocalai-d7 appliqué : #58 et #61 fusionnées, garde-fou Epic 5 levé, 1.12 et 2.7 ajoutées, ajustements 3.2/3.3/4.1/4.2 avant PR, écarts §7(d) en variante conservatrice · 72137a4
+- 2026-10-19 00:42 · run · report · incident b7703cd (fichiers d'état poussés sur master par l'autre session) : version locale gardée, aucune ligne perdue ; annulation à décider par Anaël · b7703cd
+- 2026-10-19 00:44 · 4.1 · fusion master · correct course fusionné ; ajustement §7(a) : `ingest_progress` et `ingest_file_done` consignés dans `contrat-api.md` ; 805 tests v2 unit+web ; poussé · 6d17a04

@@ -1,0 +1,84 @@
+{
+  "id": "modeles-pull-echec",
+  "kind": "pull",
+  "label": "Installation qui échoue : tag inconnu (avant tout octet) ou Ollama qui s'arrête en cours de téléchargement",
+  "_doc": "vars : tag, reranker, total_bytes, b1 à b10, partial (bool : des octets ont été reçus avant l'échec), error (enveloppe pull_failed du catalogue donnees/erreurs.json).",
+  "events": [
+    {
+      "wait": 0,
+      "type": "run_started",
+      "data": {
+        "kind": "pull",
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}"
+      }
+    },
+    {
+      "wait": 300,
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": 0,
+        "total_bytes": "{{total_bytes}}",
+        "phase": "preparing"
+      }
+    },
+    {
+      "wait": 600,
+      "when": "{{partial}}",
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b1}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "when": "{{partial}}",
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b2}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "when": "{{partial}}",
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b3}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 600,
+      "when": "{{partial}}",
+      "type": "pull_progress",
+      "data": {
+        "tag": "{{tag}}",
+        "reranker": "{{reranker}}",
+        "received_bytes": "{{b4}}",
+        "total_bytes": "{{total_bytes}}",
+        "phase": "downloading"
+      }
+    },
+    {
+      "wait": 800,
+      "type": "run_ended",
+      "data": {
+        "status": "error",
+        "error": "{{error}}"
+      }
+    }
+  ]
+}
