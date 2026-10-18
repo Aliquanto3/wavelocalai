@@ -310,15 +310,18 @@
       "ok": "Comparaison terminée · {done} sur {total} · {clock}",
       "cancelled": "Comparaison arrêtée · {done} sur {total} · {clock}",
       "interrupted": "Comparaison interrompue · {done} sur {total} · {clock}",
+      "error": "Comparaison en échec · {done} sur {total} · {clock}",
       "stopping": "Arrêt en cours · {done} sur {total} · {clock}"
     },
     "announce": {
       "started": "Comparaison lancée sur {count} modèles.",
       "ok": "Comparaison terminée : {done} réponses sur {total}.",
       "cancelled": "Comparaison arrêtée.",
-      "interrupted": "Comparaison interrompue."
+      "interrupted": "Comparaison interrompue.",
+      "error": "Comparaison en échec."
     },
     "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
+    "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
     "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré."
   }
 }

@@ -68,3 +68,16 @@ deferred:
 ## Reports
 
 Voir `deferred` : notation (3.3), rouvrir par URL et verdict (3.4, 3.6), classement et actions (3.4, 3.5), tracé des icônes d'état.
+
+## Revue
+
+Revue Opus du 2026-10-18 sur `2eed892..1612fe2`, une passe. E2E de l'Arène joués (mise en page 1 200 px, 1 440 px, 600 px, mode focus, axe clair, sombre et projection) : verts.
+
+- medium, second avis 1 : corrigé. Un `run_ended` en `error` (échec de l'orchestration, `arena.py`) était dit « Comparaison interrompue », sans la cause publiée par le hub. Le bandeau dit « Comparaison en échec », l'annonce aussi, et le `wl-error` de l'écran montre l'enveloppe du serveur (à défaut, `arena.run_failed`). Preuve : `test_an_orchestration_failure_is_said_with_its_cause` (flux simulé, rouge sans le correctif).
+- medium, revue : corrigé. Mode focus actif puis passage sous 768 px : l'onglet choisi pouvait désigner une colonne masquée par le focus, et aucune colonne n'était visible. Le passage en onglets quitte le mode focus. Preuve : `test_the_focus_mode_is_left_when_the_arena_becomes_tabs` (rouge sans le correctif).
+- low, second avis 2 : reporté. Un flux de run figé sans fermeture n'est pas détecté (`connectRun` sans `idleMs`), comme pour le chat. Un chien de garde côté client exige d'abord un battement de cœur serveur sur les flux de run : une lane locale qui attend le sémaphore ou charge son modèle peut rester muette plusieurs minutes, et un délai d'inactivité seul la déclarerait perdue à tort. Le flux système, lui, signale déjà un serveur mort (bandeau de connexion). À traiter dans `core/sse.js` et `routes_runs.py` pour tous les écrans.
+- low, développeur : reporté (déjà en `deferred`). Les 8 icônes d'état sont des Material Icons 24 px, pas des Symbols Rounded : aucun jeu Symbols n'est disponible hors ligne sur ce poste, et AGENTS.md interdit d'en figer un de mémoire. `close-fullscreen` est d'ailleurs inutilisé (le bouton de focus garde `open-in-full` et `aria-pressed`).
+- low, développeur : accepté. Question préremplie du scénario « Vulgarisation » : conforme à EXPERIENCE.md, « Défauts qui marchent sans rien toucher ».
+- low, développeur : accepté. Légendes « Choisissez au plus 4 modèles » et « Saisissez une question » : même mécanisme que la légende exigée, reliée par `aria-describedby`.
+- low, revue : rejeté. `wl-model-picker.selectedModels` n'a pas d'appelant ; sans effet, gardé pour la 3.4.
+- Complexité : 0 constat. Comptages et mises à jour d'onglets en O(colonnes) (4 au plus) ; le rendu Markdown du fil est déjà limité dans le temps (`RENDER_MS`).

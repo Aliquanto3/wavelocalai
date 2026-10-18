@@ -434,6 +434,45 @@ def test_an_unknown_run_in_the_url_is_said(page_tolerating_failed_requests, serv
     assert page.locator("wl-arena-lane").count() == 0
 
 
+def test_an_orchestration_failure_is_said_with_its_cause(page, server):
+    """`run_ended` en `error` (échec de l'orchestration, AD-5) : « en échec » et la cause, pas
+    « interrompue ». Le flux est simulé : le vrai service ne casse pas sur commande."""
+
+    def frame(seq, kind, data):
+        envelope = {
+            "seq": seq,
+            "run_id": "casse",
+            "type": kind,
+            "ts": "2026-10-18T10:00:00Z",
+            "data": data,
+        }
+        return f"id: {seq}\ndata: {json.dumps(envelope)}\n\n"
+
+    body = "".join(
+        [
+            frame(1, "run_started", {"kind": "arena", "models": ["fake:a", "fake:b"]}),
+            frame(2, "lane_status", {"lane": "fake:a", "status": "cancelled"}),
+            frame(3, "lane_status", {"lane": "fake:b", "status": "cancelled"}),
+            frame(
+                4,
+                "run_ended",
+                {
+                    "status": "error",
+                    "error": {"code": "internal", "message": "Orchestration cassée"},
+                },
+            ),
+        ]
+    )
+    page.route(
+        re.compile(r"/api/runs/casse/events"),
+        lambda route: route.fulfill(status=200, content_type="text/event-stream", body=body),
+    )
+    open_arena(page, server, "#/arene/comparer/casse")
+    wait_banner(page, "Comparaison en échec")
+    assert page.locator("wl-error:visible").filter(has_text="Orchestration cassée").count() == 1
+    assert status_of(page, "fake:a") == "Arrêté"
+
+
 # --- Mise en page ---------------------------------------------------------------------------------------------
 
 
@@ -527,6 +566,18 @@ def test_the_focus_mode_enlarges_one_column_and_hides_the_others(arena, server):
     assert width > arena.locator(".arena-lanes").bounding_box()["width"] * 0.9
     button.click()
     assert button.get_attribute("aria-pressed") == "false"
+    assert arena.locator("wl-arena-lane:visible").count() == 3
+
+
+def test_the_focus_mode_is_left_when_the_arena_becomes_tabs(arena, server):
+    three_columns(arena, server)
+    lane(arena, "fake:b").get_by_role("button", name="Mode focus").click()
+    arena.set_viewport_size({"width": 600, "height": 900})
+    arena.get_by_role("tablist", name="Modèles comparés").wait_for(state="visible")
+    assert lane(arena, "fake:a").is_visible()  # l'onglet choisi reste lisible
+    assert arena.locator(".arena-lanes").get_attribute("data-focus") is None
+    arena.set_viewport_size({"width": 1440, "height": 900})
+    arena.get_by_role("tablist", name="Modèles comparés").wait_for(state="hidden")
     assert arena.locator("wl-arena-lane:visible").count() == 3
 
 

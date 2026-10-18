@@ -40,10 +40,12 @@ def test_the_dynamic_text_families_match_the_catalog():
     assert re.findall(r'"(\w+)"', scenarios.group(1)) == list(CATALOG["arena"]["scenario"])
     for scenario in CATALOG["arena"]["scenario"].values():
         assert scenario["label"] and scenario["prompt"]
-    assert {"running", "ok", "cancelled", "interrupted", "stopping"} == set(
+    assert {"running", "ok", "cancelled", "error", "interrupted", "stopping"} == set(
         CATALOG["arena"]["banner"]
     )
-    assert {"started", "ok", "cancelled", "interrupted"} == set(CATALOG["arena"]["announce"])
+    assert {"started", "ok", "cancelled", "error", "interrupted"} == set(
+        CATALOG["arena"]["announce"]
+    )
 
 
 def test_every_lane_status_of_the_server_has_a_text_and_an_icon():

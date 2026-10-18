@@ -135,7 +135,7 @@ export function mount(host, params = {}) {
   let startMs = null;
   let endMs = null;
   let ticker = null;
-  let finalState = null; // ok | cancelled | interrupted une fois le run terminé
+  let finalState = null; // ok | cancelled | error | interrupted une fois le run terminé
   let stopping = false;
   let wasHidden = host.hidden;
   const narrow = window.matchMedia(NARROW);
@@ -264,6 +264,8 @@ export function mount(host, params = {}) {
   function layout() {
     const tabbed = narrow.matches && lanes.size > 0;
     tabs.hidden = !tabbed;
+    // Onglets : pas de mode focus (son bouton est masqué), sinon l'onglet choisi pourrait être caché.
+    if (tabbed && lanesEl.dataset.focus) setFocus(false, null);
     for (const [tag, { el, tab }] of lanes) {
       const selected = tag === activeTab;
       tab.setAttribute("aria-selected", String(selected));
@@ -281,8 +283,7 @@ export function mount(host, params = {}) {
     }
   }
 
-  lanesEl.addEventListener("wl-lane-focus", (event) => {
-    const { on, tag } = event.detail;
+  function setFocus(on, tag) {
     for (const [other, { el }] of lanes) {
       const focused = on && other === tag;
       el.setFocus(focused);
@@ -290,7 +291,9 @@ export function mount(host, params = {}) {
     }
     if (on) lanesEl.dataset.focus = tag;
     else delete lanesEl.dataset.focus;
-  });
+  }
+
+  lanesEl.addEventListener("wl-lane-focus", (event) => setFocus(event.detail.on, event.detail.tag));
 
   // --- Flux ------------------------------------------------------------------------------
   const laneOf = (data) => lanes.get(data?.lane)?.el ?? null;
@@ -348,7 +351,11 @@ export function mount(host, params = {}) {
       endMs = Number.isNaN(ended) ? Date.now() : ended;
       startMs ??= endMs;
       const status = data?.status;
-      finish(status === "ok" ? "ok" : status === "cancelled" ? "cancelled" : "interrupted");
+      if (status === "error") {
+        // Échec de l'orchestration (AD-5) : la cause du serveur est dite, pas un simple « interrompu ».
+        error.error = data?.error ?? { code: "internal", message: t("arena.run_failed") };
+      }
+      finish(["ok", "cancelled", "error"].includes(status) ? status : "interrupted");
     },
   };
 
