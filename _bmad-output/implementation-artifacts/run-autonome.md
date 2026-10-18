@@ -77,3 +77,17 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-18 22:20 · 3.2 · second-avis · 2 low · —
 - 2026-10-18 22:25 · 2.6 · contrôles · contrôles locaux verts (649 v2, 172 E2E, 5 integration, 1286 v1) ; PR à ouvrir · 4a2f8e1
 - 2026-10-18 22:24 · 2.6 · contrôles · finalisée, PR #57 ouverte avec la version 2.0.0a2 · 4a2f8e1
+- 2026-10-18 · 3.2 · review · 2 medium corrigés (échec d'orchestration avec sa cause, focus en onglets), 178 E2E · d104fc4
+- 2026-10-18 22:38 · 2.6 · fusion · PR #57 fusionnée, version 2.0.0a2, Epic 2 terminée (tag et release en attente d'Anaël) · 8963e14
+- 2026-10-18 · 4.2 · dev · fini, 787 tests v2, 179 E2E · 8b73a5b
+- 2026-10-18 23:02 · run · reprise · reprise après /clear (ordre : 3.1 → 4.1 → 3.2 → 3.3 ; 4.2 en second avis) · —
+- 2026-10-18 23:02 · 4.2 · second-avis · lancé (Haiku) · —
+- 2026-10-18 23:02 · 3.1 · fusion master · conflits `streaming.py` et `web/app.py` résolus ; lanes cloud de l'Arène estimées par ecologits (`cloud_estimator` partagé, test) ; contrôles lancés · 784ff71
+- 2026-10-18 23:05 · 4.1 · fusion master · master actuel fusionné d'avance (conflits garder les deux), 785 tests v2 unit+web · 6384545
+- 2026-10-18 23:05 · 4.2 · second-avis · 2 medium (Annuler à 100 % d'envoi alors que l'index tourne ; focus perdu au rafraîchissement du tableau), 5 low · —
+- 2026-10-18 23:05 · 4.2 · review · lancée (Opus) · —
+- 2026-10-18 23:10 · 3.2 · fusion 3.1 · 3.1 à jour de master fusionnée d'avance (conflits `routes_test.py`, `wl-chat-thread.js`, `api.js`), 671 tests v2 unit+web · 16774d8
+- 2026-10-18 23:10 · 3.3 · fusion 3.2 · 3.2 fusionnée (conflits `streaming.py`, `arena.py`, `contrat-api.md`), 705 tests v2 unit+web · 0dce811
+- 2026-10-18 23:10 · 3.3 · dev · lancé, seconde passe écran (Sonnet high, worktree v2-3-3) · —
+- 2026-10-18 23:22 · run · décision · Ollama laissé au run pour la nuit (Anaël) · —
+- 2026-10-18 23:22 · 3.1 · contrôles · verts (668 v2, 172 E2E dont topbar relancé seul, 6 integration, 1286 v1) ; finalisation et PR · 784ff71

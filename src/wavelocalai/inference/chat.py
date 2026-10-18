@@ -34,6 +34,24 @@ from wavelocalai.runs.system_bus import SystemBus
 logger = logging.getLogger("wavelocalai.inference")
 
 
+def cloud_estimator(model: ChatModel, settings: Settings) -> Callable[[ChatResult], Co2] | None:
+    """Estimation ecologits d'une réponse cloud (AD-11) ; rien pour un modèle local.
+
+    Partagée par le chat et les lanes cloud de l'Arène.
+    """
+    if model.ref.origin != "cloud":
+        return None
+    provider, name = provider_of(model.ref.tag), model_of(model.ref.tag)
+    groq_table = settings.cloud.groq_ecologits
+    return lambda result: estimate_cloud_co2(
+        provider,
+        name,
+        output_tokens=result.output_tokens,
+        latency_s=result.total_s,
+        groq_table=groq_table,
+    )
+
+
 @dataclass(frozen=True)
 class ChatCommand:
     model: str
@@ -117,18 +135,7 @@ class ChatService:
         )
 
     def _cloud_estimator(self, model: ChatModel) -> Callable[[ChatResult], Co2] | None:
-        """Estimation ecologits d'une réponse cloud (AD-11) ; rien pour un modèle local."""
-        if model.ref.origin != "cloud":
-            return None
-        provider, name = provider_of(model.ref.tag), model_of(model.ref.tag)
-        groq_table = self._settings.cloud.groq_ecologits
-        return lambda result: estimate_cloud_co2(
-            provider,
-            name,
-            output_tokens=result.output_tokens,
-            latency_s=result.total_s,
-            groq_table=groq_table,
-        )
+        return cloud_estimator(model, self._settings)
 
     async def _announce_carbon(self) -> None:
         """`carbon_updated` après chaque feuille, annulation comprise (le hub a déjà écrit le
