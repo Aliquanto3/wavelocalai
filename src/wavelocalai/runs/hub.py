@@ -165,6 +165,8 @@ class RunHub:
                 await self._flusher
             self._flusher = None
         for run in [r for r in self._runs.values() if r.parent_id is None]:
+            if run.closing:  # sa clôture est en cours : annuler sa tâche la perdrait
+                continue
             self._cancel_tasks(run)
             try:
                 await self._close(run, "cancelled")
@@ -260,29 +262,45 @@ class RunHub:
             if user_message is not None:  # après le run, que le message référence
                 repo.insert_message(conn, str(conv_id), run_id, "user", now, user_message)
 
+        run = _Run(run_id, kind, parent_run_id, conv_id)
         if parent is None:
-            self._reserved[kind] = (
-                run_id  # réservé pendant l'écriture : pas de course entre deux POST
-            )
+            # Racine réservée pendant l'écriture : pas de course entre deux POST du même genre.
+            self._reserved[kind] = run_id
+        else:
+            # Une feuille est rattachée à son parent avant son écriture : un parent clos pendant
+            # celle-ci l'annule (`cancel_rows` passe après l'insertion dans la file de l'écrivain).
+            self._runs[run_id] = run
+            parent.children.append(run_id)
         try:
             await self.store.awrite(tx)
-            run = _Run(run_id, kind, parent_run_id, conv_id)
+        except Exception:
+            if parent is not None:
+                self._runs.pop(run_id, None)
+                with contextlib.suppress(ValueError):
+                    parent.children.remove(run_id)
+            raise
+        else:
             if started is not None:
                 run.events.append(started)
                 run.flushed = 1
-            self._runs[run_id] = run
+                self._runs[run_id] = run
         finally:
             if parent is None and self._reserved.get(kind) == run_id:
                 del self._reserved[kind]
-        if parent is not None:
-            parent.children.append(run_id)
         return RunHandle(run_id, conv_id)
 
     # --- publication ---------------------------------------------------------------------------
 
     def attach_task(self, run_id: str, task: asyncio.Task[Any]) -> None:
-        """Associe la tâche asyncio d'un run, que `cancel` interrompra (AD-8)."""
-        self._runs[run_id].task = task
+        """Associe la tâche asyncio d'un run, que `cancel` interrompra (AD-8). Si le run a déjà
+        été clos (parent annulé pendant la création de la feuille), la tâche est annulée."""
+        run = self._runs.get(run_id)
+        if run is None and run_id in self._closed:
+            task.cancel()
+            return
+        if run is None:
+            raise KeyError(f"Run inconnu : {run_id}")
+        run.task = task
 
     def publish(
         self, run_id: str, event_type: str, data: Mapping[str, Any] | None = None
@@ -511,10 +529,23 @@ class RunHub:
                 if run.closing or not batch:
                     continue
                 rows = [event.row() for event in batch]
-                try:
-                    await self.store.awrite(
+                future = asyncio.wrap_future(
+                    self.store.write(
                         lambda conn, rows=rows, rid=run.id: repo.insert_events(conn, rid, rows)
                     )
+                )
+                try:
+                    await asyncio.shield(future)
+                except asyncio.CancelledError:
+                    # `stop()` annule le flusher : le lot peut déjà être parti dans le fil de
+                    # l'écrivain. Son sort est attendu sous le verrou, sinon `_close` réécrirait
+                    # les mêmes `seq` (UNIQUE) et la clôture échouerait.
+                    while not future.done():
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await asyncio.wait([future])
+                    if not future.cancelled() and future.exception() is None:
+                        run.flushed += len(batch)
+                    raise
                 except Exception:
                     logger.exception(
                         "Lot d'événements du run %s non écrit, nouvel essai plus tard", run.id
