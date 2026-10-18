@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor
 from wavelocalai.inference.arena import ArenaService
 from wavelocalai.inference.chat import ChatService
@@ -101,15 +102,35 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         client = owned_client = make_client(settings.ollama.host)
         app.state.ollama_client = client
     factory = ModelFactory(client, app.state.models, settings, app.state.cloud_http)
-    app.state.chat = ChatService(hub, app.state.registry, factory, app.state.local_slot, settings)
-    app.state.arena = ArenaService(hub, app.state.registry, factory, app.state.local_slot, settings)
+    app.state.chat = ChatService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+    )
+    app.state.arena = ArenaService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+    )
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
+    # CodeCarbon détecte le matériel au premier tracker (4 à 10 s) : payé ici, hors de la place
+    # Ollama de la première réponse locale (un tracker jeté, sous le verrou du compteur, AD-11).
+    meter_warmup = asyncio.create_task(app.state.meter.warm_up())
     try:
         yield
     finally:
         warmup.cancel()
+        meter_warmup.cancel()
         await stop_streams(app)  # déjà fait par le serveur réel ; ici pour les autres hôtes ASGI
         await app.state.registry.stop()
         await app.state.probe.aclose()
@@ -130,6 +151,7 @@ def create_app(
     preferences: PreferenceStore | None = None,
     ollama_client: AsyncClient | None = None,
     cloud_http: Mapping[str, HttpClientFactory] | None = None,
+    meter: LocalMeter | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
@@ -138,6 +160,8 @@ def create_app(
     (faits d'Ollama et débit mesuré) par défaut. `ollama_client` : client Ollama partagé des
     générations (celui du lanceur ; sinon l'app crée le sien au démarrage de son cycle de vie).
     `cloud_http` : fabriques de client HTTP des SDK cloud par fournisseur (tests : faux transport).
+    `meter` : compteur CodeCarbon des réponses locales (AD-11), construit sur le pays et le PUE de
+    `Settings` par défaut.
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -157,6 +181,7 @@ def create_app(
     app.state.ollama_client = ollama_client
     app.state.cloud_http = dict(cloud_http or {})
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
+    app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.arena = None  # service de l'Arène, idem
     app.state.registry = registry or ModelRegistry(

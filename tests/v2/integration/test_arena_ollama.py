@@ -42,9 +42,9 @@ def _require_models(host: str) -> None:
             pytest.skip(f"{tag} n'est pas installé")
 
 
-async def test_two_real_local_models_answer_one_after_the_other(real_settings):
+async def test_two_real_local_models_answer_one_after_the_other(real_settings, real_meter):
     _require_models(real_settings.ollama.host)
-    app = create_app(real_settings)
+    app = create_app(real_settings, meter=real_meter)
     async with app.router.lifespan_context(app):
         await app.state.registry.refresh()
         transport = httpx.ASGITransport(app=app)
@@ -71,7 +71,9 @@ async def test_two_real_local_models_answer_one_after_the_other(real_settings):
         assert "".join(e["data"]["text"] for e in lane if e["type"] == "token").strip()
         metrics = next(e["data"] for e in lane if e["type"] == "metrics")
         assert metrics["tps_source"] == "ollama_eval" and metrics["origin"] == "local"
-        assert metrics["co2"]["method"] == "unmeasurable"
+        # Vraie mesure CodeCarbon, un tracker par lane locale (AD-10, AD-11).
+        assert metrics["co2"]["method"] == "codecarbon" and metrics["co2"]["mg"] is not None
+        assert metrics["co2"]["mg"] > 0 and metrics["energy_wh"] is not None
     # Un seul modèle à la fois en mémoire : le second ne produit rien avant la fin du premier.
     first, second = TAGS
     last_first = max(

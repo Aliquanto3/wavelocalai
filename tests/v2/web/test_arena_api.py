@@ -101,10 +101,14 @@ def children(snapshot):
     return {c["model"]: c for c in snapshot["children"]}
 
 
-async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path):
+async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path, _stub_codecarbon):
     a, b = local("fake:a", say("Les ", "plantes")), local("fake:b", say("Elles ", "mangent"))
     c = cloud("fake/c", say("La ", "lumière"))
+    probe = _stub_codecarbon
     async with arena_app(tmp_path, a, b, c) as (app, client):
+        async with asyncio.timeout(5):
+            while probe.stopped < 1:  # préchauffage de CodeCarbon au démarrage
+                await asyncio.sleep(0.01)
         response = await _post(client, "fake:a", "fake:b", "fake/c")
         assert response.status_code == 200, response.text
         assert set(response.json()) == {"run_id"}  # pas de conversation
@@ -121,8 +125,14 @@ async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path):
             assert child["kind"] == "generation" and child["parent_run_id"] == run_id
             assert child["status"] == "ok"
             assert child["metrics"]["origin"] == ("cloud" if tag == "fake/c" else "local")
-            assert child["metrics"]["co2"]["method"] == "unmeasurable"  # mesure non branchée
-            assert child["metrics"]["co2"]["reason"]
+            co2 = child["metrics"]["co2"]
+            if tag == "fake/c":  # cloud : ecologits pas encore branché
+                assert co2["method"] == "unmeasurable" and co2["mg"] is None and co2["reason"]
+            else:  # chaque lane locale a son propre tracker (AD-10, AD-11)
+                assert co2["method"] == "codecarbon" and co2["allocation"] == "direct"
+                assert co2["mg"] == pytest.approx(1.8)
+        # Un tracker par lane locale, jamais deux à la fois ; aucun pour la lane cloud.
+        assert probe.started == probe.stopped == 3 and probe.peak == 1  # préchauffage compris
         # Seul le parent publie : les feuilles n'ont pas de flux.
         for child in snapshot["children"]:
             assert (await client.get(f"/api/runs/{child['run_id']}/events")).status_code == 404
@@ -149,7 +159,9 @@ async def test_two_local_lanes_and_a_cloud_lane_compose_one_run(tmp_path):
         )
         assert text == words
         metrics = [e for e in events if e["type"] == "metrics" and e["data"]["lane"] == lane]
-        assert len(metrics) == 1 and metrics[0]["data"]["co2"]["mg"] is None
+        assert len(metrics) == 1
+        # Le flux porte le `co2` mesuré de la lane, celui de sa feuille en base.
+        assert metrics[0]["data"]["co2"] == kids[lane]["metrics"]["co2"]
         assert index(events, "metrics", lane) < index(events, "lane_status", lane, "done")
     # `lane` est présent sur tout ce qui porte une lane.
     for e in events:

@@ -7,8 +7,9 @@ partent aussitôt en parallèle. Le délai d'une lane court depuis la prise de l
 départ de l'appel (cloud) : une lane en échec ou hors délai n'arrête pas les autres, et la racine
 finit `ok` dès que l'orchestration aboutit (l'échec d'une lane reste dans son `lane_status`).
 
-Chaque lane passe par `stream_into_run`, le chemin de feuille commun du chat : c'est lui qui portera
-la mesure CO2 de chaque feuille ; sans mesure, le `co2` d'une feuille est « non mesurable ».
+Chaque lane passe par `stream_into_run`, le chemin de feuille commun du chat : une lane locale est
+mesurée par son propre tracker CodeCarbon, démarré et arrêté sous la place Ollama (AD-10, AD-11) ;
+une lane cloud reste « non mesurable » jusqu'à ecologits. `carbon_updated` suit chaque feuille.
 Aucune conversation : l'Arène n'est pas un genre de conversation (AD-5), la question vit dans
 l'événement `question` du flux (AD-7), jamais dans `runs.params`.
 """
@@ -23,13 +24,16 @@ from dataclasses import dataclass, field
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope
+from wavelocalai.greenops.local_meter import LocalMeter
+from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ModelRef
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import LeafResult, RunHandle
+from wavelocalai.runs.system_bus import SystemBus
 
 logger = logging.getLogger("wavelocalai.inference")
 
@@ -85,12 +89,16 @@ class ArenaService:
         factory: ModelFactory,
         slot: LocalSlot,
         settings: Settings,
+        meter: LocalMeter | None = None,
+        bus: SystemBus | None = None,
     ) -> None:
         self._hub = hub
         self._registry = registry
         self._factory = factory
         self._slot = slot
         self._settings = settings
+        self._meter = meter  # sans compteur, le CO2 d'une lane locale n'est pas mesuré
+        self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: ArenaCommand) -> RunHandle:
@@ -117,6 +125,8 @@ class ArenaService:
                 leaf = await self._hub.create_run(
                     "generation", models=[model.ref.tag], parent_run_id=root.run_id
                 )
+                # Annulée avant même sa première tentative, la feuille garde un `co2` (AD-10).
+                self._hub.declare_leaf(leaf.run_id, CANCELLED_CO2)
                 arena.lanes.append(_Lane(model, leaf.run_id))
         except BaseException:
             error = build_envelope("internal", "Création des lanes de l'Arène impossible.")
@@ -199,6 +209,8 @@ class ArenaService:
                 retry_interrupted=True,
                 publish_to=arena.run_id,
                 on_phase=lambda phase: self._set_status(arena, lane, phase),
+                meter=self._meter,
+                on_leaf_closed=self._announce_carbon,
             )
         except asyncio.CancelledError:
             self._set_status(arena, lane, "cancelled")
@@ -210,12 +222,20 @@ class ArenaService:
             with contextlib.suppress(Exception):
                 failed = LeafResult(status="error", origin=lane.model.ref.origin, error=error)
                 await self._hub.finish_leaf(lane.run_id, failed, NOT_MEASURED)
+            with contextlib.suppress(Exception):
+                await self._announce_carbon()
             return
         if leaf.status == "ok":
             self._set_status(arena, lane, "done")
         else:
             code = (leaf.error or {}).get("code")
             self._set_status(arena, lane, "timeout" if code == "timeout" else "failed", leaf.error)
+
+    async def _announce_carbon(self) -> None:
+        """`carbon_updated` après chaque feuille (AD-10), annulation comprise."""
+        session_id = self._hub.app_session_id
+        if self._bus is not None and session_id is not None:
+            await announce_carbon_updated(self._bus, self._hub.store, session_id)
 
     def _set_status(
         self, arena: _Arena, lane: _Lane, status: str, error: dict[str, object] | None = None
