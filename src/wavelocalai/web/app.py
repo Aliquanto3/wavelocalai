@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.facts_store import SqliteFactsStore
 from wavelocalai.models.fake import fake_models
 from wavelocalai.models.ollama_probe import OllamaProbe
@@ -23,6 +24,7 @@ from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.store.datadir import ensure_data_dir
 from wavelocalai.store.db import Store, db_path
+from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import routes_health, routes_models, routes_runs, routes_test
 from wavelocalai.web.security import LocalOnlyMiddleware
@@ -78,6 +80,7 @@ def create_app(
     probe: OllamaProbe | None = None,
     store: Store | None = None,
     registry: ModelRegistry | None = None,
+    preferences: PreferenceStore | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
@@ -105,6 +108,10 @@ def create_app(
         facts=SqliteFactsStore(lambda: app.state.store),
         run_stats=SqliteRunStats(lambda: app.state.store),
         advisor=MemoryAdvisor(),
+    )
+    # Préférences de l'UI (table `preferences`, 0003) : sur la base du store, comme `model_facts`.
+    app.state.defaults = ModelDefaults(
+        app.state.registry, preferences or SqlitePreferenceStore(lambda: app.state.store)
     )
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
