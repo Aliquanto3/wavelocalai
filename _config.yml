@@ -1,0 +1,13 @@
+# GitHub Pages (Jekyll) : le site publie le README.
+# L'archive de l'ancien dépôt contient des gabarits « {{ … }} » (Ollama, Go) que Liquid
+# ne sait pas lire : elle est exclue du site. Déclarer `exclude` remplace la liste par
+# défaut de Jekyll, d'où les entrées standard reprises ci-dessous.
+exclude:
+  - docs/archive/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
