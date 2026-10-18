@@ -48,10 +48,17 @@ function metric(label, value, { help, provisional } = {}) {
 
 // CO2 de la réponse, tel que le serveur l'a mesuré (`metrics.co2`, AD-10) : la valeur est seulement
 // mise en forme (`formatCo2`, une seule unité, fr-FR), sans calcul ni couleur par seuil (AD-20).
-// `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide.
+// `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide. Une réponse cloud
+// est estimée (ecologits, AD-11) : « (estimé) » après la valeur, la réserve du serveur en aide.
 function co2Metric(co2) {
   const label = t("components.thread.co2");
   if (typeof co2?.mg === "number" && Number.isFinite(co2.mg)) {
+    if (co2.estimated) {
+      const help = t("components.thread.co2_estimated_help");
+      return metric(label, t("components.thread.co2_estimated", { value: formatCo2(co2.mg) }), {
+        help: co2.reason ? `${help} ${co2.reason}` : help,
+      });
+    }
     return metric(label, formatCo2(co2.mg), { help: t("components.thread.co2_help") });
   }
   return metric(label, t("components.thread.co2_unmeasurable"), {
