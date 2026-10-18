@@ -45,7 +45,7 @@ Pour chaque modèle, le curseur « Créativité » part de la valeur que son fab
 
 ## Choix de conception
 
-- **Cache `model_facts`** : migration additive `0004_model_parameters.sql` (`ALTER TABLE ... ADD COLUMN parameters TEXT`, instantané `schema_v4.sql` ; aucune migration fusionnée ne change, AD-12). `parameters` est le texte brut de `/api/show` : `NULL` = détails jamais lus (lignes d'avant la migration), chaîne vide = lus sans paramètre. Une ligne en cache à `NULL` est relue une fois à l'actualisation suivante (`ModelRegistry.refresh`), et gardée telle quelle si Ollama ne répond pas. La température se déduit à la lecture (`ModelFacts.default_temperature`) : pas de colonne dérivée.
+- **Cache `model_facts`** : migration additive `0005_model_parameters.sql` (renumérotée à la fusion de master, qui apporte `0004_documents.sql` de la 4.1 ; `ALTER TABLE ... ADD COLUMN parameters TEXT`, instantané `schema_v5.sql` ; aucune migration fusionnée ne change, AD-12). `parameters` est le texte brut de `/api/show` : `NULL` = détails jamais lus (lignes d'avant la migration), chaîne vide = lus sans paramètre. Une ligne en cache à `NULL` est relue une fois à l'actualisation suivante (`ModelRegistry.refresh`), et gardée telle quelle si Ollama ne répond pas. La température se déduit à la lecture (`ModelFacts.default_temperature`) : pas de colonne dérivée.
 - **Source** : Ollama d'abord (la valeur du fabricant pour ce poids), puis le catalogue, puis `null`. Les exports de Chat n'en dépendent pas.
 - **Front** : `picker.selected` porte la fiche de l'API (donc `default_temperature`) ; l'écran suit `wl-model-change` (choix) et un nouvel événement `wl-models-loaded` du sélecteur (liste relue : la fiche du modèle restauré arrive après la conversation). `creativityTouched` est local à l'écran, remis à zéro par « Effacer ».
 - **Menu** : utilitaire plutôt que Custom Element (comme le `exportMenu` de la maquette) ; il construit les deux jeux de boutons et la bascule est faite en CSS (`@media (max-width: 767.98px)`), sans lecture de la largeur en JavaScript. Les couleurs viennent des jetons.
@@ -61,7 +61,7 @@ Pour chaque modèle, le curseur « Créativité » part de la valeur que son fab
 
 ## Fichiers
 
-- Serveur : `models/facts.py` (`parameters`, `parse_temperature`), `models/facts_store.py`, `models/catalog.py` (`default_temperature` facultatif), `models/registry.py` (`ModelInfo.default_temperature`, relecture d'une ligne sans `parameters`), `store/migrations/0004_model_parameters.sql`
+- Serveur : `models/facts.py` (`parameters`, `parse_temperature`), `models/facts_store.py`, `models/catalog.py` (`default_temperature` facultatif), `models/registry.py` (`ModelInfo.default_temperature`, relecture d'une ligne sans `parameters`), `store/migrations/0005_model_parameters.sql`
 - Front : `components/export-menu.js` (nouveau), `components/index.js`, `components/wl-run-status.js`, `components/wl-model-picker.js` (`wl-models-loaded`), `screens/chat.js`, `components.css`, `i18n/fr.json`
 - Tests : `tests/v2/unit/test_default_temperature.py` (nouveau), `tests/v2/unit/snapshots/schema_v4.sql`, `tests/v2/unit/test_model_helpers.py`, `tests/v2/web/test_models.py`, `tests/v2/integration/test_models_ollama.py`, `tests/v2/e2e/test_chat_creativity_export.py` (nouveau), `tests/v2/fake_ollama.py` (`parameters`)
 

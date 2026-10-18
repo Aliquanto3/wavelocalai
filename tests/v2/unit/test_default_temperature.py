@@ -1,5 +1,5 @@
 """Créativité par défaut d'un modèle (D-12, AD-15) : lue des paramètres publiés par Ollama, sinon du
-catalogue, sinon `null` ; mise en cache dans `model_facts` (migration 0004)."""
+catalogue, sinon `null` ; mise en cache dans `model_facts` (migration 0005)."""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ async def test_a_cloud_model_has_no_default_temperature(tmp_path):
 
 
 def _old_row(tag="a:1b", digest="da") -> ModelFacts:
-    """Ligne d'avant la migration 0004 : détails jamais lus (`parameters` à `None`)."""
+    """Ligne d'avant la migration 0005 : détails jamais lus (`parameters` à `None`)."""
     return ModelFacts(
         tag=tag, digest=digest, size_bytes=1, family=None, parameter_size="1B",
         quantization=None, context_length=None, capabilities=(), params_total_b=1.0,
@@ -168,13 +168,13 @@ def test_the_parameters_survive_the_sqlite_cache(tmp_path):
     assert back == facts and back.default_temperature == 0.8
 
 
-def test_migration_0004_adds_the_column_and_keeps_old_rows_unread(tmp_path):
+def test_migration_0005_adds_the_column_and_keeps_old_rows_unread(tmp_path):
     path = tmp_path / "wavelocalai.db"
     migrate(path, target=3)
     with sqlite3.connect(path) as conn:
         conn.execute(
             "INSERT INTO model_facts (tag, digest, fetched_at) VALUES ('m', 'd', ?)", (OLD,)
         )
-    assert migrate(path) == 4
+    assert migrate(path) == 5
     with sqlite3.connect(path) as conn:
         assert conn.execute("SELECT parameters FROM model_facts").fetchall() == [(None,)]

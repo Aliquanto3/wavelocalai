@@ -1,5 +1,10 @@
 -- user_version: 4
 
+CREATE UNIQUE INDEX documents_fingerprint_active ON documents (fingerprint)
+    WHERE status <> 'failed';
+
+CREATE INDEX documents_status ON documents (status);
+
 CREATE INDEX messages_conversation ON messages (conversation_id);
 
 CREATE INDEX messages_run ON messages (run_id);
@@ -18,11 +23,43 @@ CREATE TABLE app_sessions (
     reason TEXT NOT NULL CHECK (reason IN ('startup', 'reset'))
 );
 
+CREATE TABLE chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id TEXT NOT NULL REFERENCES documents (id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    -- Page d'origine (PDF) ; nul pour un format sans page.
+    page INTEGER CHECK (page IS NULL OR page >= 1),
+    text TEXT NOT NULL,
+    UNIQUE (document_id, position)
+);
+
 CREATE TABLE conversations (
     id TEXT PRIMARY KEY,
     kind TEXT NOT NULL CHECK (kind IN ('chat', 'rag', 'agent')),
     title TEXT,
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE documents (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    -- Empreinte SHA-256 du contenu : un même fichier n'est pas indexé deux fois.
+    fingerprint TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+    embedding_model TEXT NOT NULL,
+    -- Dimension des vecteurs, connue une fois le premier lot calculé.
+    embedding_dim INTEGER CHECK (embedding_dim IS NULL OR embedding_dim > 0),
+    status TEXT NOT NULL CHECK (status IN ('indexing', 'ready', 'failed')),
+    chunk_count INTEGER NOT NULL DEFAULT 0 CHECK (chunk_count >= 0),
+    page_count INTEGER CHECK (page_count IS NULL OR page_count >= 0),
+    -- Enveloppe d'AD-18 (`ingest_failed`) quand le document a échoué.
+    error TEXT CHECK (error IS NULL OR json_valid(error)),
+    -- Run `ingest` qui l'a créé (le registre des runs survit au document).
+    run_id TEXT REFERENCES runs (id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
+    ready_at TEXT,
+    CHECK (status <> 'failed' OR error IS NOT NULL),
+    CHECK (status <> 'ready' OR (embedding_dim IS NOT NULL AND ready_at IS NOT NULL))
 );
 
 CREATE TABLE messages (
@@ -48,7 +85,7 @@ CREATE TABLE model_facts (
     params_total_b REAL,
     expert_count INTEGER,
     expert_used_count INTEGER,
-    fetched_at TEXT NOT NULL, parameters TEXT, -- ISO 8601 UTC avec `Z` (convention des dates)
+    fetched_at TEXT NOT NULL, -- ISO 8601 UTC avec `Z` (convention des dates)
     PRIMARY KEY (tag, digest)
 ) WITHOUT ROWID;
 

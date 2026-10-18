@@ -192,7 +192,7 @@ class ModelRegistry:
             with contextlib.suppress(OllamaUnavailableError):
                 async with gate:
                     show = await self._source.show(tag)
-            if show is None and cached is not None:  # ligne d'avant la migration 0004, Ollama muet
+            if show is None and cached is not None:  # ligne d'avant la migration 0005, Ollama muet
                 return _Local(cached, is_remote_tag(item))
             facts = facts_from_ollama(item, show)
             if show is not None and digest:  # sans détails : pas de cache, on réessaiera

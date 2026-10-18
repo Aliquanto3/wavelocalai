@@ -180,7 +180,7 @@ def test_model_facts_migration_matches_the_dataclass():
     db = sqlite3.connect(":memory:")
     db.executescript(sql)
     db.executescript(
-        (REPO / "src/wavelocalai/store/migrations/0004_model_parameters.sql").read_text("utf-8")
+        (REPO / "src/wavelocalai/store/migrations/0005_model_parameters.sql").read_text("utf-8")
     )
     columns = [row[1] for row in db.execute("PRAGMA table_info(model_facts)")]
     primary = [row[1] for row in db.execute("PRAGMA table_info(model_facts)") if row[5]]
