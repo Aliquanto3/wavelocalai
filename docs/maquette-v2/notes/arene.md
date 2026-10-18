@@ -29,9 +29,15 @@ Flux : `donnees/flux/arene-comparaison.json` (événements `run_started`, `lane_
 - Comparaison introuvable : enveloppe `run_not_found` du catalogue (ajoutée à l'intégration).
 - Le bandeau « Comparaison en cours · 2 sur 3 » reste propre à l'écran (compteur de modèles, ligne de résultat rouvert, durée lue dans l'instantané) : `wl-run-status` ne porte pas ces libellés.
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Matrice ou tableau par défaut après une comparaison. (A) Matrice, tableau derrière « Voir le tableau » (actuel). (B) Tableau d'abord, matrice en second. (C) Les deux côte à côte dès 1 440 px. Recommandation : A pour la démo, C en projection.
+   **Décision n° 14** : Après une comparaison : matrice d'abord, tableau derrière « Voir le tableau ». État : déjà conforme.
 2. Colonnes étroites à 4 modèles sur 1 440 px. (A) 4 colonnes serrées (actuel). (B) 2 colonnes visibles comme à 1 024 px, défilement ensuite. (C) 4 colonnes, réponse repliée sur 4 lignes. Recommandation : C.
+   **Décision n° 15** : 4 modèles à 1 440 px : 4 colonnes, réponse repliée sur 4 lignes, dépliable. État : appliquée (repli à 4 lignes).
 3. Exporter. (A) deux boutons (actuel). (B) un bouton qui ouvre un menu CSV / Markdown. (C) Markdown à l'écran, CSV en second. Recommandation : A.
+   **Décision n° 3** : Exports : deux boutons ; sous 768 px, un seul « Exporter » qui ouvre un menu (Chat et Arène). État : appliquée.
 4. Pendant l'exécution, la configuration disparaît au profit d'un résumé. (A) résumé (actuel). (B) configuration grisée visible. (C) résumé avec configuration repliable. Recommandation : A.
+   **Décision n° 16** : Configuration de l'Arène remplacée par un résumé pendant l'exécution. État : déjà conforme.

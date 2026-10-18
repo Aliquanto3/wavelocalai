@@ -52,7 +52,9 @@ def data_uri(path: Path) -> str:
 
 def remplacer(texte: str, ancien: str, nouveau: str, ou: str) -> str:
     if ancien not in texte:
-        raise SystemExit(f"Motif attendu absent de {ou} : {ancien!r} (mettre à jour construire_autonome.py)")
+        raise SystemExit(
+            f"Motif attendu absent de {ou} : {ancien!r} (mettre à jour construire_autonome.py)"
+        )
     return texte.replace(ancien, nouveau)
 
 
@@ -77,7 +79,9 @@ def module_autonome(path: Path) -> str:
             cible += "/"
         return f"@wl/{cible}"
 
-    texte = SPEC_STATIQUE.sub(lambda m: f"{m.group(1)}{m.group(2)}{nu(m.group(3))}{m.group(2)}", texte)
+    texte = SPEC_STATIQUE.sub(
+        lambda m: f"{m.group(1)}{m.group(2)}{nu(m.group(3))}{m.group(2)}", texte
+    )
     texte = SPEC_GABARIT.sub(lambda m: f"{m.group(1)}{nu(m.group(2))}", texte)
     if nom == "js/core/dom.js":
         # Le sprite est inséré dans la page : références `#i-<nom>` sans fichier.
@@ -160,7 +164,9 @@ def construire() -> str:
     modules = {}
     for path in sorted((ROOT / "js").rglob("*.js")):
         source = module_autonome(path).encode("utf-8")
-        modules[f"@wl/{rel(path)}"] = "data:text/javascript;charset=utf-8;base64," + base64.b64encode(source).decode("ascii")
+        modules[f"@wl/{rel(path)}"] = (
+            "data:text/javascript;charset=utf-8;base64," + base64.b64encode(source).decode("ascii")
+        )
     carte = json.dumps({"imports": modules}, sort_keys=True, separators=(",", ":"))
 
     tete = "\n".join(
@@ -170,7 +176,9 @@ def construire() -> str:
             AMORCE,
         ]
     )
-    page = remplacer(page, '<meta charset="utf-8">', f'<meta charset="utf-8">\n{tete}', "index.html")
+    page = remplacer(
+        page, '<meta charset="utf-8">', f'<meta charset="utf-8">\n{tete}', "index.html"
+    )
     page = remplacer(
         page,
         '<script type="module" src="js/main.js"></script>',
@@ -191,7 +199,9 @@ def construire() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--verifier", action="store_true", help="échoue si le fichier n'est pas à jour")
+    parser.add_argument(
+        "--verifier", action="store_true", help="échoue si le fichier n'est pas à jour"
+    )
     args = parser.parse_args()
     page = construire()
     if args.verifier:

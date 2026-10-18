@@ -12,8 +12,13 @@ Scénarios : `vide`, `reponse-locale` (raisonnement replié, pied définitif : C
 - Après le garde-fou mémoire, « Prendre un modèle plus petit » choisit `detail.suggested_model` ; aucune story ne fixe ce comportement.
 - La maquette garde la conversation dans l'écran (mémoire) ; le vrai front la relit du serveur (story 2.6).
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Créativité par défaut : (A) 0,7 (03) ; (B) 0,2 (branche livrée) ; (C) défaut fourni par le serveur avec le modèle. Recommandation : C, sinon B.
+   **Décision n° 12** : Créativité par défaut du Chat fournie par le serveur avec le modèle, repli 0,2. État : appliquée (simulée dans `js/sim/modeles.js`).
 2. Forme de « Télécharger » : (A) deux boutons ; (B) un bouton qui ouvre un menu JSON / Markdown ; (C) Markdown à l'écran, JSON dans l'aide. Recommandation : B sous 768 px, A au-delà.
+   **Décision n° 3** : Exports : deux boutons ; sous 768 px, un seul « Exporter » qui ouvre un menu (Chat et Arène). État : appliquée.
 3. 409 rejoint : le message tapé reste dans le champ. (A) le garder ; (B) proposer de l'envoyer à la fin du run suivi. Recommandation : A.
+   **Décision n° 13** : 409 rejoint : le message tapé reste dans le champ. État : déjà conforme.

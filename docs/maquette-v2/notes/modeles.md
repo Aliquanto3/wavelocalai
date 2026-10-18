@@ -21,9 +21,15 @@ Fiche (la liste reste visible ; ces scénarios naviguent vers `#/modeles/<tag>`)
 - Parcours Flow 3 : EXPERIENCE.md installe `qwen3.6:7b`, déjà « installé » dans les modèles simulés communs ; la maquette installe `granite4.1:8b` (le texte de `donnees/parcours.json` le dit).
 - Pas de bouton « Fiche du modèle » dans `wl-model-picker` (hypothèse d'EXPERIENCE.md) : composant partagé, non modifié.
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Fiche : (A) panneau à droite dès 1 120 px, au-dessus de la liste en deçà (actuel) ; (B) page dédiée sans liste ; (C) tiroir modal. Recommandation : A.
+   **Décision n° 40** : Fiche modèle : panneau à droite dès 1 120 px, au-dessus de la liste en deçà. État : déjà conforme.
 2. Défaut dont le modèle est supprimé : (A) retombe sur la règle avec sa raison (actuel, story 5.4) ; (B) demande confirmation avant de supprimer un modèle choisi comme défaut. Recommandation : B, un message dans le dialogue suffit.
+   **Décision n° 41** : Supprimer un modèle choisi comme défaut : message dans le dialogue de confirmation. État : appliquée.
 3. Installer un modèle qui ne tient pas : (A) permis sans avertissement supplémentaire (actuel, ligne chiffrée) ; (B) dialogue de confirmation chiffré ; (C) bouton libellé « Installer quand même ». Recommandation : C.
+   **Décision n° 42** : Installer un modèle qui ne tient pas : bouton « Installer quand même ». État : appliquée (catalogue et fiche).
 4. Tableau « Sur ce poste » à 9 colonnes : (A) défilement horizontal dans une région focalisable (actuel) ; (B) colonnes secondaires (Usage, Origine) repliées sous 1 024 px ; (C) cartes empilées. Recommandation : B.
+   **Décision n° 43** : Tableau « Sur ce poste » : Usage et Origine repliées sous 1 024 px. État : appliquée (bouton pour les afficher).

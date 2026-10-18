@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from conftest import open_route, wait_for
 
-VISIBLE = "(el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'"
+VISIBLE = (
+    "(el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'"
+)
 
 
 def scenario(page, scenario_id: str) -> None:
@@ -14,7 +16,9 @@ def scenario(page, scenario_id: str) -> None:
 
 
 def visible(page, selector: str) -> bool:
-    return page.evaluate(f"(s) => ({VISIBLE})(document.querySelector('section.screen:not([hidden]) ' + s))", selector)
+    return page.evaluate(
+        f"(s) => ({VISIBLE})(document.querySelector('section.screen:not([hidden]) ' + s))", selector
+    )
 
 
 def test_3_exports_deux_boutons_puis_menu_sous_768(page, base_url):
@@ -37,7 +41,10 @@ def test_5_10_accueil_noms_courts_et_pourcentage(page, base_url):
     names = page.locator(".home-module-name").all_inner_texts()
     assert "Documents" in names and "Agents" in names
     assert "Assistant documentaire" in page.locator(".home-module-long").all_inner_texts()
-    wait_for(page, "() => /Part de .*%/.test(document.querySelectorAll('.home-module-summary')[4]?.textContent ?? '')")
+    wait_for(
+        page,
+        "() => /Part de .*%/.test(document.querySelectorAll('.home-module-summary')[4]?.textContent ?? '')",
+    )
 
 
 def test_6_interrupteurs_en_bascule(page, base_url):
@@ -49,16 +56,22 @@ def test_6_interrupteurs_en_bascule(page, base_url):
 
 def test_12_creativite_fournie_avec_le_modele(page, base_url):
     open_route(page, base_url, "/arene/chat")
-    wait_for(page, "() => document.querySelector('.chat-creativity-default')?.textContent.includes('Qwen 3.5 2B')")
+    wait_for(
+        page,
+        "() => document.querySelector('.chat-creativity-default')?.textContent.includes('Qwen 3.5 2B')",
+    )
     assert page.locator(".chat-slider").input_value() == "0.6"
 
 
 def test_15_quatre_colonnes_repliees_sur_4_lignes(page, base_url):
     open_route(page, base_url, "/arene/comparer/run-arene-demo")
     wait_for(page, "() => document.querySelector('.ar-lanes')?.dataset.count === '4'")
-    assert page.evaluate(
-        "() => getComputedStyle(document.querySelector('.ar-lanes')).gridTemplateColumns.split(' ').length"
-    ) == 4
+    assert (
+        page.evaluate(
+            "() => getComputedStyle(document.querySelector('.ar-lanes')).gridTemplateColumns.split(' ').length"
+        )
+        == 4
+    )
 
 
 def test_18_consigne_repliee(page, base_url):
@@ -81,21 +94,32 @@ def test_19_comparer_ces_modeles_preselectionne_l_arene(page, base_url):
 def test_21_22_passage_surligne_et_panneau_fixe(page, base_url):
     open_route(page, base_url, "/documents")
     scenario(page, "ouvrir-une-source")
-    wait_for(page, "() => !!document.querySelector('section.screen:not([hidden]) mark.wl-source-mark')")
+    wait_for(
+        page, "() => !!document.querySelector('section.screen:not([hidden]) mark.wl-source-mark')"
+    )
     page.locator("section.screen:not([hidden]) .wl-sources-summary").click()
-    assert page.evaluate("() => document.querySelector('section.screen:not([hidden]) details.wl-sources').open")
+    assert page.evaluate(
+        "() => document.querySelector('section.screen:not([hidden]) details.wl-sources').open"
+    )
 
 
 def test_24_25_26_base_documentaire(page, base_url):
     open_route(page, base_url, "/documents/base")
     scenario(page, "suppression-confirmation")
     assert page.evaluate("() => !!document.querySelector('wl-confirm-dialog dialog[open]')")
-    page.evaluate("() => document.querySelector('wl-confirm-dialog .wl-dialog-actions .btn').click()")
+    page.evaluate(
+        "() => document.querySelector('wl-confirm-dialog .wl-dialog-actions .btn').click()"
+    )
     scenario(page, "import-en-cours")
     assert page.locator("section.screen:not([hidden]) .docs-import-cancel").count() == 1
-    assert page.locator("section.screen:not([hidden]) .docs-import .docs-import-cancel").count() == 0
+    assert (
+        page.locator("section.screen:not([hidden]) .docs-import .docs-import-cancel").count() == 0
+    )
     scenario(page, "import-avec-echec")
-    wait_for(page, "() => [...document.querySelectorAll('section.screen:not([hidden]) .docs-row')].some((row) => row.textContent.includes('Échec'))")
+    wait_for(
+        page,
+        "() => [...document.querySelectorAll('section.screen:not([hidden]) .docs-row')].some((row) => row.textContent.includes('Échec'))",
+    )
 
 
 def test_31_pied_reduit_de_l_agent(page, base_url):
@@ -124,14 +148,19 @@ def test_38_equivalence_dans_la_methode(page, base_url):
 def test_39_historique_en_tableau_sous_640(page, base_url):
     page.set_viewport_size({"width": 600, "height": 900})
     open_route(page, base_url, "/sobriete")
-    wait_for(page, "() => !!document.querySelector('section.screen:not([hidden]) .sob-history-body table')")
+    wait_for(
+        page,
+        "() => !!document.querySelector('section.screen:not([hidden]) .sob-history-body table')",
+    )
 
 
 def test_41_42_43_modeles(page, base_url):
     open_route(page, base_url, "/modeles")
     scenario(page, "supprimer-confirmation")
     assert "par défaut" in page.locator("wl-confirm-dialog dialog[open]").inner_text()
-    page.evaluate("() => document.querySelector('wl-confirm-dialog .wl-dialog-actions .btn').click()")
+    page.evaluate(
+        "() => document.querySelector('wl-confirm-dialog .wl-dialog-actions .btn').click()"
+    )
     assert page.locator("text=Installer quand même").count() >= 1
     page.set_viewport_size({"width": 800, "height": 900})
     assert not visible(page, ".mod-installed .mod-col-secondary")

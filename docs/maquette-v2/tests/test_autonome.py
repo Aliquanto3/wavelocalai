@@ -28,9 +28,9 @@ EXTERNE = re.compile(r"^(?!data:|blob:|about:)")
 
 def test_page_autonome_a_jour():
     actuel = PAGE.read_bytes().decode("utf-8").replace("\r\n", "\n") if PAGE.exists() else ""
-    assert actuel == construire_autonome.construire(), (
-        "maquette-autonome.html n'est pas à jour : lancez python docs/maquette-v2/construire_autonome.py"
-    )
+    assert (
+        actuel == construire_autonome.construire()
+    ), "maquette-autonome.html n'est pas à jour : lancez python docs/maquette-v2/construire_autonome.py"
 
 
 @pytest.fixture

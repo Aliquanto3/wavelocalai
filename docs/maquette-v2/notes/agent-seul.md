@@ -24,8 +24,13 @@ Scénarios : `vide` (« Bonjour ! L'agent est prêt. », actions rapides, neuf o
 - Résolus à l'intégration : trace d'étapes (`js/components/step-trace.js`), ligne d'état (`wl-run-status` piloté : « Réflexion… », « Appel de l'outil … », « En attente de votre validation »), fermeture du dialogue (`wl-confirm-dialog.close()`), mention des 10 min dans `confirmEmail`, pause de décision du simulateur (`{pause: true}` puis `run.resume`), icônes d'étapes dans le sprite.
 - Reste : pas de `wl-team-graph` (schéma propre à l'écran Équipe d'agents).
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Panneau « Étapes » sous 1 024 px : (A) toujours déplié ; (B) repliable, déplié par défaut pendant un run ; (C) tiroir. Recommandation : A.
+   **Décision n° 30** : Panneau « Étapes » sous 1 024 px : toujours déplié. État : déjà conforme.
 2. Le pied de réponse d'une tâche d'agent : (A) pied du Chat + étapes ; (B) pied réduit (badge, CO₂, étapes, durée) comme EXPERIENCE.md ; (C) pied du Chat sans étapes. Recommandation : B (le débit agrégé de plusieurs appels dit peu).
+   **Décision n° 31** : Pied de réponse d'agent réduit : badge, CO₂, étapes, durée. État : appliquée (« Télécharger » gardé après le pied, c'est une action).
 3. Modèle sans outils vérifiés : (A) avertir et laisser lancer ; (B) bloquer le lancement ; (C) ne pas le proposer. Recommandation : A, comme la maquette.
+   **Décision n° 32** : Modèle sans outils vérifiés : avertir et laisser lancer. État : déjà conforme.

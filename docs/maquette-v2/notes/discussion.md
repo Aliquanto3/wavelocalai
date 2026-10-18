@@ -18,8 +18,13 @@ Fichiers : `js/screens/discussion.js`, `css/screens/discussion.css`, `i18n/scree
 - Le panneau est un `details` (ouvert dès 1 024 px, replié en deçà) ; la personne peut le replier en large.
 - Le défaut `rag` du sélecteur est Qwen 3.6 7B (données communes), pas « le plus rapide qui tient » d'EXPERIENCE (Flow 2, étape 4).
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Surlignage du passage : (A) le serveur renvoie `passage` (début/fin) avec chaque source ; (B) le front surligne les mots de la question (heuristique, fragile) ; (C) pas de surlignage, extrait entier seul. Recommandation : A.
+   **Décision n° 21** : Surlignage : le serveur renvoie `passage` (début, fin) dans `sources`. État : appliquée (`{start, end}` simulé).
 2. Panneau de sources en large : (A) toujours ouvert, sans repli ; (B) repliable (maquette) ; (C) colonne fixe. Recommandation : A (la vérification de la source est le climax du Flow 2).
+   **Décision n° 22** : Panneau de sources toujours ouvert en large. État : appliquée.
 3. Plusieurs réponses, un seul panneau : (A) bouton « Afficher les sources » par réponse (maquette) ; (B) un panneau par réponse ; (C) sources de la dernière réponse seulement. Recommandation : A.
+   **Décision n° 23** : Plusieurs réponses : « Afficher les sources » par réponse, un seul panneau. État : déjà conforme.

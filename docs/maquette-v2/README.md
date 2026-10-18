@@ -4,14 +4,16 @@
 
 Maquette HTML interactive du front définitif de la v2, à valider avant le codage complet. Les contenus sont fictifs (modèles, documents, mesures, sociétés). Rien n'est appelé hors du dossier : aucune requête hors de `127.0.0.1`, aucun serveur applicatif, aucun fichier de l'utilisateur lu.
 
-Ce document liste ce que la maquette couvre, les écarts avec le contrat (sans les trancher) et les questions qui reviennent à Anaël.
+Ce document liste ce que la maquette couvre, les écarts avec le contrat (sans les trancher, sauf ceux que les décisions d'Anaël règlent) et ces décisions.
 
 ## 2. Ouvrir
 
-- Windows : double-clic sur `ouvrir.cmd`.
-- Autre cas : `python serveur.py` depuis `docs/maquette-v2/`, puis l'adresse affichée.
+- Double-clic sur `maquette-autonome.html` : un seul fichier, ouvrable en `file://`, qui embarque CSS, JavaScript, données, textes, polices et icônes. Il peut circuler hors du dépôt.
+- En second, depuis les sources : double-clic sur `ouvrir.cmd` (Windows), ou `python serveur.py` depuis `docs/maquette-v2/`, puis l'adresse affichée.
 
-Un double-clic sur `index.html` ne fonctionne pas. Chromium et Edge bloquent les modules ES et `fetch` en `file://`. La page l'explique et donne la marche à suivre.
+Les sources modulaires restent la référence. `maquette-autonome.html` est généré par `python construire_autonome.py` (bibliothèque standard seulement) et commité ; un test échoue s'il n'est plus à jour. Technique : chaque module ES est embarqué en URL `data:` dans une carte d'import (`importmap`) statique, ses spécificateurs relatifs (y compris le préfixe des `import()` du routeur) deviennent des noms `@wl/js/…` ; `import.meta.url` devient l'adresse fictive `wl:/js/…`, un `fetch` intercepté sert les JSON de `donnees/` et `i18n/`, et les feuilles d'écran passent par des URL `blob:`. Le fichier pèse environ 2,3 Mo.
+
+Un double-clic sur `index.html` ne lance pas la maquette : Chromium et Edge bloquent les modules ES et `fetch` en `file://`. La page renvoie vers `maquette-autonome.html`.
 
 `serveur.py` remplace `python -m http.server` : il écoute sur `127.0.0.1`, prend un port libre et fixe les types MIME. Sous Windows, `http.server` sert parfois les `.js` en `text/plain`, que les modules refusent.
 
@@ -24,12 +26,13 @@ Version en ligne (artifact privé) : https://claude.ai/artifact/WTgFyyF3bMJGFE6j
 
 ## 3. Structure
 
-- `index.html`, `serveur.py`, `ouvrir.cmd` : point d'entrée et serveur local.
+- `maquette-autonome.html` (généré par `construire_autonome.py`) : la maquette en un seul fichier.
+- `index.html`, `serveur.py`, `ouvrir.cmd` : point d'entrée des sources et serveur local.
 - `js/` : coquille (`shell/`), écrans (`screens/`), composants communs (`components/`), simulateur de flux (`sim/`), scénarios globaux et parcours (`scenarios/`).
 - `css/`, `tokens.css`, `fonts/`, `icons.svg` : styles, jetons, police Inter, sprite d'icônes.
 - `donnees/` : routes, parcours, données fictives par écran, flux d'événements (`flux/`), catalogue d'erreurs. Le nom évite `data/`, ignoré par `.gitignore`.
 - `i18n/` : textes en français.
-- `notes/` : une note par écran (états, écarts, questions) et `revue.md`.
+- `notes/` : une note par écran (états, écarts, décisions) et `revue.md`.
 - `tests/` : suite pytest et Playwright.
 
 Les règles pour ajouter ou modifier un écran sont dans `docs/maquette-v2/CONVENTIONS.md`.
@@ -43,14 +46,14 @@ Le nombre de scénarios est celui des `scenarios` exportés par chaque module d'
 | `/` | Accueil | 10 |
 | `/arene/chat` | Chat libre | 23 |
 | `/arene/comparer`, `/arene/comparer/:run_id` | Arène | 33 |
-| `/arene/banc`, `/arene/banc/:run_id` | Banc d'essai | 27 |
-| `/arene/references` | Références | 9 |
+| `/arene/banc`, `/arene/banc/:run_id` | Banc d'essai | 28 |
+| `/arene/references` | Références | 10 |
 | `/documents` | Discussion | 28 |
-| `/documents/base` | Base documentaire | 29 |
-| `/documents/evaluation`, `/documents/evaluation/:run_id` | Évaluation de la qualité | 25 |
+| `/documents/base` | Base documentaire | 30 |
+| `/documents/evaluation`, `/documents/evaluation/:run_id` | Évaluation de la qualité | 26 |
 | `/agents/seul` | Agent seul | 31 |
-| `/agents/equipe`, `/agents/equipe/:run_id` | Équipe d'agents | 29 |
-| `/sobriete` | Sobriété et matériel | 20 |
+| `/agents/equipe`, `/agents/equipe/:run_id` | Équipe d'agents | 30 |
+| `/sobriete` | Sobriété et matériel | 21 |
 | `/modeles`, `/modeles/:tag` | Modèles | 36 |
 | `/maquette/etats` | Catalogue des états (propre à la maquette) | 3 |
 
@@ -61,7 +64,7 @@ Onze scénarios globaux s'y ajoutent dans le panneau (voir section 2).
 - Pastille Ollama (vérification, disponible, ne répond pas, inconnu) et son panneau (version, mémoire, modèles chargés, « Réessayer »).
 - Interrupteur « Autoriser le cloud » (store seulement, perdu au rechargement, pied de page qui suit).
 - CO₂ de session et son panneau (total, Local, Cloud, non mesurables).
-- Menu Affichage : clair, sombre, système, projection. Menu replié sous 1 024 px.
+- Menu Affichage : clair (défaut), sombre, système, projection (interrupteur). Menu replié sous 1 024 px.
 - Bandeaux « Connexion au serveur perdue » (après trois échecs) et « Le serveur a redémarré ».
 - États communs du catalogue : vide, chargement lent, 409 rejoint, étapes d'un run, score et « non évalué », CO₂ mesuré, estimé ou « non mesurable », garde-fou mémoire, confirmation de « Vider », chaque code de `donnees/erreurs.json`.
 
@@ -70,14 +73,14 @@ Onze scénarios globaux s'y ajoutent dans le panneau (voir section 2).
 - **Accueil** : nominal, squelettes, Ollama arrêté (avec ou sans cloud), aucun modèle local, cloud autorisé, connexion perdue, mémoire haute, onglet masqué, étape du Flow 1.
 - **Chat libre** : vide, réponse locale, en cours, arrêt, cloud estimé ou non mesurable, conversation rouverte, reprise au retour, 409, relance automatique, erreurs (interrompue, délai, Ollama, cloud, clé absente, cloud non autorisé ou retiré), garde-fou mémoire, aucun modèle, connexion perdue, serveur redémarré.
 - **Arène** : configuration (moins de deux modèles, trop de modèles, juge peu fiable), exécution (chargement lent, arrêt, reprise, 409), résultats (classement, matrice, tableau, réponse entière, focus, verdict local/cloud, non mesurable, délai, non évalué, juge indisponible, colonne en échec), erreurs et gardes, résultat conservé, effacé ou introuvable.
-- **Banc d'essai** : configuration (format attendu, entrée modifiée, format imposé indisponible), résultats (format respecté ou non, sortie non JSON, sans format, concise, cloud), exécution, erreurs et gardes, résultat conservé ou introuvable.
-- **Références** : cartes, tableau trié, chargement, fichier absent ou de format inconnu, aucun usage publié, aucun modèle installé, Ollama arrêté.
+- **Banc d'essai** : configuration (consigne repliée, format attendu, entrée modifiée, format imposé indisponible), résultats (format respecté ou non, sortie non JSON, sans format, concise, cloud), exécution, erreurs et gardes, résultat conservé ou introuvable.
+- **Références** : cartes, « Comparer ces modèles » vers l'Arène présélectionnée, tableau trié, chargement, fichier absent ou de format inconnu, aucun usage publié, aucun modèle installé, Ollama arrêté.
 - **Discussion** : base vide, sources et citations, ouverture d'une source, stratégies (HyDE, Self-RAG), reclassement, nombre d'extraits, cloud avec avertissement, conversation rouverte, indexation en cours, erreurs et gardes.
-- **Base documentaire** : base vide ou remplie, import (un fichier, plusieurs, progression, échec, format refusé, doublon, annulation), filtrage et tri, suppression, « Vider » (confirmation, annulation), réglages, changement d'embedding.
-- **Évaluation** : formulaire, jeu de questions, base vide, évaluation en cours, détails de fidélité et de précision du contexte, matrice, jeu terminé, non évalué, délai, arrêt, résultat rouvert ou introuvable.
+- **Base documentaire** : base vide ou remplie, import (un fichier, plusieurs, progression, échec, format refusé, doublon, annulation), filtrage et tri, suppression confirmée, document en échec dans le tableau, « Vider » (confirmation, annulation), réglages, changement d'embedding.
+- **Évaluation** : formulaire, jeu de questions, base vide, évaluation en cours, détails de fidélité et de précision du contexte, matrice, jeu terminé, non évalué, délai, arrêt, résultat partiel rouvert, résultat rouvert ou introuvable.
 - **Agent seul** : vide, outil indisponible, modèle sans outils, étapes en cours, tâche terminée, étape dépliée, erreur d'outil, bornes atteintes, validation d'email (envoyé, annulé, expirée, non coché), arrêt, cloud, redémarrage en attente de validation.
-- **Équipe d'agents** : équipe prête, sans agent, sujet vide, équipe modifiée, panneau Configurer (avec erreurs), mission en cours, rapport final, arrêtée (tôt ou tard), rouverte, validation d'email, 409 venant d'un agent seul.
-- **Sobriété** : nominal, squelettes, Ollama arrêté, sans accélérateur, bridage thermique, mémoire haute, session vide, non mesurable, en grammes, réponse en direct, remise à zéro, historique (7 jours, 30 jours, tout, tableau, période vide, vide).
+- **Équipe d'agents** : équipe prête, sans agent, sujet vide, équipe modifiée, volet Configurer non modal (avec erreurs, cinq agents au plus), mission en cours, rapport final, arrêtée (tôt ou tard), rouverte, validation d'email, 409 venant d'un agent seul.
+- **Sobriété** : nominal, squelettes, Ollama arrêté, sans accélérateur, bridage thermique, mémoire haute, session vide, non mesurable, en grammes, réponse en direct, remise à zéro, équivalence dans la méthode, historique (7 jours, 30 jours, tout, tableau, période vide, vide).
 - **Modèles** : liste, déchargement, suppression (confirmation, 409), installation (en cours, terminée, annulée, échecs, reprise), défauts par usage, reranker, fiche (débit, autres postes, autre version, valeurs inconnues, non installée, introuvable).
 
 Tous les écrans couvrent aussi : premier chargement lent, reprise au retour, 409 rejoint, connexion perdue, serveur redémarré, Ollama arrêté, garde-fou mémoire.
@@ -99,14 +102,14 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 ### Transverse
 
 - Dossier `donnees/` au lieu de `data/` : `data/` est ignoré par `.gitignore`.
-- Ouverture par serveur local et non par double-clic (voir section 2 et question 1).
-- Thème « Système » ajouté au menu Affichage : UX-DR2 et la story 1.8 ne prévoient que clair et sombre.
-- Route `#/arene/references` (FR47) et route `#/agents/equipe/:run_id` ajoutées aux onze routes d'UX-DR4. Les sous-routes de Banc, Évaluation et Modèles viennent d'EXPERIENCE.md.
+- Ouverture par serveur local et non par double-clic (voir section 2). **Réglé par la décision 1.**
+- Thème « Système » ajouté au menu Affichage : UX-DR2 et la story 1.8 ne prévoient que clair et sombre. **Réglé par la décision 7.**
+- Route `#/arene/references` (FR47) et route `#/agents/equipe/:run_id` ajoutées aux onze routes d'UX-DR4. Les sous-routes de Banc, Évaluation et Modèles viennent d'EXPERIENCE.md. **Réglé par la décision 8.**
 - Code d'erreur `generation_interrupted` (`errors.py`) au lieu de `interrupted` (UX-DR16).
 - Message du code `timeout` : la maquette cite le délai (« 2 min »), comme 03 §3.8, ce qu'`errors.py` ne fait pas. Texte de `cloud_not_allowed` : celui de 03 §3.8, plus court que celui d'`errors.py`.
-- Boutons d'action des erreurs dans `donnees/erreurs.json` (champ `buttons`) ; AD-18 les fait déduire du code par l'écran.
+- Boutons d'action des erreurs : le catalogue du front (`donnees/erreurs.json`, champ `buttons`) les déduit du code et de `detail` (AD-18), l'enveloppe du serveur n'en porte pas. **Réglé par la décision 4.**
 - `pull_failed` (story 5.3) et `model_in_use` sont au catalogue de la maquette ; `errors.py` ne les a pas encore.
-- Icônes : sprite de 37 symboles, dont 18 tracés Material Icons (Filled) ajoutés à l'intégration, et non les Material Symbols Rounded officiels (voir `icons.LICENSE.txt`). DESIGN.md cite `leaderboard` pour l'Arène, le sprite a `swords`.
+- Icônes : sprite de 37 symboles, dont 18 tracés Material Icons (Filled) gardés dans la maquette ; le front utilisera les Material Symbols Rounded officiels (voir `icons.LICENSE.txt`). DESIGN.md cite `leaderboard` pour l'Arène, le sprite a `swords` (non tranché). **Réglé par la décision 2.**
 - Composants lus dans des branches `feat/v2-*` non fusionnées, pas dans `master` ; la maquette peut diverger de leur version finale.
 - Contrat d'écran : `mount(host, ctx)` qui rend `unmount` (AD-20), avec `render(root, ctx)` en alias.
 - Verdict de l'Arène (story 3.5) et verdict de format du Banc lus dans l'instantané du run ; `contrat-api.md` ne dit pas où ils vivent.
@@ -120,16 +123,16 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 
 ### Accueil
 
-- `h1` « Accueil » (03 §3.9) ; EXPERIENCE.md place le titre « WaveLocalAI » en tête.
-- Libellés longs des liens (« Assistant documentaire », « Agents autonomes », « Sobriété et matériel », maquette 03 §3.5) alors que le menu dit « Documents », « Agents », « Sobriété » ; EXPERIENCE.md veut un nom unique partout.
-- Carte « Références » ajoutée, avec l'icône de l'Arène (DESIGN.md : icône jamais partagée).
+- `h1` « Accueil » (03 §3.9) ; EXPERIENCE.md place le titre « WaveLocalAI » en tête. **Réglé par la décision 9.**
+- Cartes des modules : nom court du menu en titre, nom long en sous-titre (« Documents », « Assistant documentaire »). **Réglé par la décision 10.**
+- Carte « Références » ajoutée, avec l'icône de l'Arène (DESIGN.md : icône jamais partagée ; l'icône reste non tranchée). **Réglé par la décision 8.**
 - Carte Mode : « N appels cloud dans cette session », compteur qu'aucune story ne définit.
-- Score de la carte Références en « /100 » ; l'écran Références l'affiche en pourcentage.
+- Score de la carte Références en pourcentage, libellé « Part de … » en tête, comme l'écran Références. **Réglé par la décision 5.**
 
 ### Chat libre
 
-- Créativité par défaut à 0,7 (03 §3.5) ; la branche `feat/v2-ecran-chat` utilise 0,2.
-- Deux boutons « Télécharger en JSON » et « en Markdown » ; UX-DR21 ne fixe pas la forme.
+- Créativité par défaut fournie par le serveur avec le modèle (`default_temperature`, simulé dans `js/sim/modeles.js`), repli à 0,2. **Réglé par la décision 12.**
+- Deux boutons « Télécharger en JSON » et « en Markdown », un menu « Exporter » sous 768 px. **Réglé par la décision 3.**
 - Message « de 8 à 26 secondes » pendant `model_loading` (EXPERIENCE.md), non cité par la story 2.2.
 - « Prendre un modèle plus petit » choisit `detail.suggested_model` : aucune story ne le fixe.
 - Conversation gardée en mémoire dans l'écran ; le vrai front la relit du serveur (story 2.6).
@@ -137,7 +140,7 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 ### Arène
 
 - Chronomètre en « 27 s » (EXPERIENCE.md) et non « 0:42 » (UX-DR20, 03 §3.5).
-- Exports : deux boutons CSV et Markdown (« Exporter (CSV, Markdown) »).
+- Exports : deux boutons CSV et Markdown, un menu « Exporter » sous 768 px. **Réglé par la décision 3.**
 - Légendes « Choisissez 4 modèles au plus », « Saisissez une question », « Choisissez un juge » ajoutées (story 3.2 : « au moins 2 »).
 - Étiquette « le plus petit des trois » (03) absente des stories ; dérivée des paramètres actifs.
 - `lane_status` avec champ `error` : absent du tableau d'événements de `contrat-api.md`.
@@ -152,14 +155,14 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 
 - Verdict de format lu dans l'instantané, pas un événement.
 - « Délai dépassé (120 s) » (EXPERIENCE.md) : la maquette affiche le message du code `timeout` (« 2 min »).
-- Trois scénarios sans format attendu (`GET /api/scenarios` en rend un par scénario) : « Format imposé » désactivé, pas de verdict.
+- Trois scénarios sans format attendu (`GET /api/scenarios` en rend un par scénario) : « Format imposé » désactivé, pas de verdict. **Réglé par la décision 17.**
 - Détection d'un modèle sans sortie structurée (`no_structured_output`) fixée par aucun contrat : donnée simulée.
 - Boutons « Relancer le test » et « Modifier le test » ajoutés (non demandés par UX-DR29).
-- Consignes système des scénarios non montrées.
+- Consigne système du scénario dans un bloc « Consigne » replié. **Réglé par la décision 18.**
 
 ### Références
 
-- Scores en pourcentage (AD-22) contre « /100 » sur l'Accueil et dans EXPERIENCE.md (une seule échelle).
+- Scores en pourcentage pour les références (libellé « Part de … » en tête), /100 pour les notes de juge. **Réglé par la décision 5.**
 - Groupe à égalité sans rang, tri alphabétique ; le serveur devrait dire quels modèles forment le groupe (champ `group`, hypothèse).
 - « Autres modèles mesurés », lien vers le tableau et légende des marques : non demandés par la story 5.8.
 - Schéma `qb.results/1` absent du dépôt : structure de `donnees/references.json` hypothétique.
@@ -167,21 +170,21 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 
 ### Discussion
 
-- Champ `passage` ajouté aux sources (hors contrat) pour surligner le passage (UX-DR11).
+- Champ `passage` (`{start, end}`) renvoyé par le serveur dans `sources`, simulé, pour surligner le passage (UX-DR11) ; à ajouter au contrat. **Réglé par la décision 21.**
 - `retrieval_step` publié au début de chaque étape, durée dans `metrics.search_s` ; le contrat ne précise pas le moment.
 - Forme `{citations: [{marker, n}]}` choisie ; sort d'un marqueur non vérifié non précisé.
 - « Recherche 0,06 s · Génération 5,8 s » (UX-DR23) : deux `wl-metric` ajoutés après `end()`.
 - Avertissement cloud sur les extraits envoyés : absent d'epics.md et d'EXPERIENCE.md (AD-9).
 - Pas de « Télécharger » dans le pied (présent en 03 §3.5) : aucune route d'export RAG au contrat.
-- « Afficher les sources » par réponse dès la deuxième ; panneau repliable en large.
+- « Afficher les sources » par réponse dès la deuxième, un seul panneau, toujours ouvert en large. **Réglé par la décision 22 et 23.**
 - Modèle `rag` par défaut : Qwen 3.6 7B, pas « le plus rapide qui tient » (EXPERIENCE.md, Flow 2).
 
 ### Base documentaire
 
 - Échec ou doublon par fichier : champs `error` et `skipped` ajoutés à `ingest_progress` ; le contrat ne dit pas comment ils voyagent.
-- « Annuler » par fichier (UX-DR22) arrête en fait le lot restant.
-- Document `failed` (4.1) absent du tableau, visible dans la ligne d'import seulement.
-- Suppression d'un document sans confirmation (EXPERIENCE.md : seulement « Vider » et l'email).
+- Un seul « Annuler l'import » au-dessus des lignes (le lot est un seul run). **Réglé par la décision 25.**
+- Document `failed` (4.1) dans le tableau, statut « Échec », avec Supprimer ; compteur inchangé. **Réglé par la décision 26.**
+- Suppression d'un document confirmée par `wl-confirm-dialog`, comme « Vider ». **Réglé par la décision 24.**
 - Supprimer et Vider désactivés pendant un import, au lieu du 409 prévu.
 - Pas de code d'erreur au catalogue pour : changement d'embedding avec base non vide, `expected_count` périmé, 409 d'un document à run actif.
 - Message d'action de `ram_guard` réécrit pour l'import.
@@ -189,21 +192,21 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 ### Évaluation de la qualité
 
 - Limite de 4 modèles absente du contrat.
-- Modèles évalués par défaut pris sur `arena` ; le contrat n'en définit pas.
+- Modèles évalués par défaut pris sur `arena` ; le contrat n'en définit pas. **Réglé par la décision 27.**
 - `eval_metric` étendu (`by_question`, `n_questions`, `n_unscored`) ; verdicts détaillés pour la question 1 seulement.
 - Précision du contexte variable selon le modèle (définition d'EXPERIENCE.md).
 - Pas de colonne « Global » (EXPERIENCE.md, question ouverte 4).
-- Aucune liste des évaluations passées (EXPERIENCE.md, question ouverte 5) ; le résultat partiel d'un run arrêté n'est pas conservé, le contrat ne le dit pas.
+- Aucune liste des évaluations passées (EXPERIENCE.md, question ouverte 5, non tranchée) ; le résultat partiel d'un run arrêté est conservé, rouvrable et marqué « partiel ». **Réglé par la décision 28.**
 
 ### Agent seul
 
 - `h1` « Agent seul » ; EXPERIENCE.md : « Agents autonomes ».
-- Panneau « Étapes » toujours déplié, sans repli hors run.
+- Panneau « Étapes » toujours déplié, sans repli hors run. **Réglé par la décision 30.**
 - « Arrêter » dans la saisie, pas dans la ligne d'état.
-- Pied de réponse du Chat plus « N étapes » et « Télécharger » ; EXPERIENCE.md liste badge, CO₂, étapes, durée, Télécharger. Téléchargement par `Blob` (le vrai front : route d'export, story 6.6).
+- Pied de réponse réduit : badge, CO₂, étapes, durée, puis « Télécharger » (action gardée). Téléchargement par `Blob` (le vrai front : route d'export, story 6.6). **Réglé par la décision 31.**
 - Mention « 10 min » affichée dans le panneau « Étapes » et non dans le dialogue.
 - « Validation expirée : email non envoyé. » (EXPERIENCE.md) diffère de `states.email.expired` du catalogue de la maquette.
-- Avertissement ajouté pour un modèle sans outils vérifiés.
+- Avertissement ajouté pour un modèle sans outils vérifiés. **Réglé par la décision 32.**
 - Noms de champs de `step` et `approval_required`, `step` à deux temps, `is_error`, `limit_reached`, `outcome` : propositions à confirmer pour la story 6.1.
 - Choix d'outils simulé par intention de la tâche, pas par les cases cochées.
 
@@ -211,10 +214,10 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 
 - `h1` « Équipe d'agents » ; EXPERIENCE.md : « Agents autonomes ».
 - « Charger une équipe » en liste et bouton (forme non fixée).
-- État « Non lancé » ajouté (EXPERIENCE.md : En attente, En cours, Terminé, Arrêté). La ligne « Terminé · 3 outils · 41 s » exige `agent_totals` côté serveur, non défini.
+- État « Non lancé » ajouté (EXPERIENCE.md : En attente, En cours, Terminé, Arrêté). La ligne « Terminé · 3 outils · 41 s » exige `agent_totals` côté serveur, non défini. **Réglé par la décision 34.**
 - Pic de mémoire dans `metrics` ; la story 6.5 le met dans l'instantané `GET /api/runs/{id}`.
 - Mission rouvrable par `/agents/equipe/:run_id`, route ajoutée à UX-DR4 ; l'adresse n'est pas réécrite à la fin d'une mission (l'Arène le fait).
-- « Configurer » en dialogue modal à droite ; 5 agents au plus (invention) ; schéma horizontal jusqu'à 4 agents.
+- « Configurer » en volet non modal (colonne de droite en large, sous le schéma en deçà de 1 024 px) ; 5 agents au plus, « Ajouter un agent » grisé avec la raison ; schéma horizontal jusqu'à 4 agents. **Réglé par la décision 35 et 36.**
 - Messages de validation par champ hors de `erreurs.json`.
 - Agent ajouté joue un scénario générique ; ligne d'agent qui s'ouvre et se referme seule (confort de démo).
 
@@ -223,8 +226,8 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 - Graphique et tableau d'historique en mg seulement (story 5.2) ; la section session suit UX-DR15 (mg ou g).
 - Accélérateur, température et bridage venant de `donnees/sobriete.json` : le flux système simulé n'a pas de GPU.
 - « Remettre le compteur à zéro » désactivé avec raison quand la session est vide (état non prévu).
-- Session en cours absente de l'historique jusqu'à sa clôture ; ni EXPERIENCE.md ni la story 5.2 ne tranchent.
-- Pas d'équivalence parlante (03 §3.5 : « environ 3,7 m en voiture ») ; question ouverte 3 d'EXPERIENCE.md.
+- Session en cours absente de l'historique jusqu'à sa clôture ; ni EXPERIENCE.md ni la story 5.2 ne tranchent. **Réglé par la décision 37.**
+- Équivalence parlante (distance en voiture) seulement dans le panneau de méthode, avec la source du facteur (fictif : 111 g/km, aligné sur 03 §3.5). **Réglé par la décision 38.**
 - Version d'Ollama en légende : ajout de la maquette.
 
 ### Modèles
@@ -235,73 +238,57 @@ Chaque écart est signalé sans être tranché. Références : epics.md (stories
 - Flow 3 installe `granite4.1:8b` (EXPERIENCE.md : `qwen3.6:7b`, déjà installé dans les modèles simulés).
 - Pas de bouton « Fiche du modèle » dans `wl-model-picker` (hypothèse d'EXPERIENCE.md).
 
-## 6. Questions pour Anaël
+## 6. Décisions d'Anaël (2026-10-18)
 
-Chaque question porte sur un choix que le contrat ne fixe pas. Les recommandations sont celles des notes d'écran.
+Anaël a tranché les 43 questions de la version précédente de ce document (même numérotation ; le détail des options reste dans `notes/`). « Appliquée » : la maquette a changé ; « déjà conforme » : elle faisait déjà ce qui est décidé. Chaque décision est visible dans un scénario et vérifiée par `tests/test_decisions.py` ou `tests/test_autonome.py` quand elle change un comportement.
 
-### Transverse
+| N° | Décision | État dans la maquette |
+|---|---|---|
+| 1 | Page autonome `maquette-autonome.html` générée par `construire_autonome.py`, ouvrable en `file://` ; le serveur local passe en second. | Appliquée |
+| 2 | Tracés Filled gardés dans la maquette ; le front utilisera les Material Symbols Rounded officiels (`icons.LICENSE.txt`). | Appliquée (documentation) |
+| 3 | Exports : deux boutons ; sous 768 px, un seul « Exporter » qui ouvre un menu (Chat et Arène). | Appliquée |
+| 4 | Boutons d'action des erreurs déduits du code par le front (AD-18). | Déjà conforme |
+| 5 | Scores : pourcentage pour les références, libellé « Part de … » en tête ; /100 pour les notes de juge. | Appliquée (carte de l'Accueil, colonne « Part de réussite ») |
+| 6 | Interrupteurs : bascule visuelle partout, comme « Autoriser le cloud ». | Appliquée (Banc, Mode projection, outils des agents) |
+| 7 | Thème : Clair (défaut), Sombre, Système. | Déjà conforme |
+| 8 | Références : quatrième onglet de l'Arène et carte sur l'Accueil. | Déjà conforme |
+| 9 | Titre h1 de l'Accueil : « Accueil ». | Déjà conforme |
+| 10 | Cartes de l'Accueil : nom court en titre, nom long en sous-titre. | Appliquée |
+| 11 | « Lancer une comparaison » reste actif sans modèle local prêt ; l'Arène dit quoi faire. | Déjà conforme |
+| 12 | Créativité par défaut du Chat fournie par le serveur avec le modèle, repli 0,2. | Appliquée (simulée dans `js/sim/modeles.js`) |
+| 13 | 409 rejoint : le message tapé reste dans le champ. | Déjà conforme |
+| 14 | Après une comparaison : matrice d'abord, tableau derrière « Voir le tableau ». | Déjà conforme |
+| 15 | 4 modèles à 1 440 px : 4 colonnes, réponse repliée sur 4 lignes, dépliable. | Appliquée (repli à 4 lignes) |
+| 16 | Configuration de l'Arène remplacée par un résumé pendant l'exécution. | Déjà conforme |
+| 17 | Scénario sans format (Banc) : interrupteur désactivé avec la raison, pas de verdict. | Déjà conforme |
+| 18 | Consigne du scénario (Banc) dans un bloc « Consigne » replié. | Appliquée |
+| 19 | Références : « Comparer ces modèles » ouvre l'Arène présélectionnée sur les modèles installés du groupe. | Appliquée |
+| 20 | Références : cartes par défaut. | Déjà conforme |
+| 21 | Surlignage : le serveur renvoie `passage` (début, fin) dans `sources`. | Appliquée (`{start, end}` simulé) |
+| 22 | Panneau de sources toujours ouvert en large. | Appliquée |
+| 23 | Plusieurs réponses : « Afficher les sources » par réponse, un seul panneau. | Déjà conforme |
+| 24 | Supprimer un document : confirmation `wl-confirm-dialog`, comme « Vider ». | Appliquée |
+| 25 | Annuler un import : un seul « Annuler l'import » au-dessus des lignes. | Appliquée |
+| 26 | Documents en échec aussi dans le tableau, statut « Échec », avec Supprimer. | Appliquée |
+| 27 | Évaluation : les trois petits modèles locaux de l'Arène présélectionnés. | Déjà conforme |
+| 28 | Évaluation arrêtée : résultat partiel conservé, rouvrable, marqué « partiel ». | Appliquée |
+| 29 | Évaluation, question vide : bouton désactivé avec la raison. | Déjà conforme |
+| 30 | Panneau « Étapes » sous 1 024 px : toujours déplié. | Déjà conforme |
+| 31 | Pied de réponse d'agent réduit : badge, CO₂, étapes, durée. | Appliquée (« Télécharger » gardé après le pied, c'est une action) |
+| 32 | Modèle sans outils vérifiés : avertir et laisser lancer. | Déjà conforme |
+| 33 | Journal brut d'une mission : lignes horaires lisibles. | Déjà conforme |
+| 34 | Agent qui n'a pas pu s'exécuter : « Non lancé ». | Déjà conforme |
+| 35 | « Configurer » (Équipe) : volet non modal qui laisse le schéma visible. | Appliquée |
+| 36 | Équipe : 5 agents au plus, message clair au-delà. | Appliquée (message précisé, relié au bouton grisé) |
+| 37 | Sobriété : session en cours absente de l'historique jusqu'à sa clôture. | Déjà conforme |
+| 38 | Équivalence parlante du CO₂ seulement dans le panneau de méthode, avec la source du facteur. | Appliquée (facteur fictif : 111 g/km) |
+| 39 | Historique sur écran étroit : tableau par défaut sous 640 px. | Appliquée |
+| 40 | Fiche modèle : panneau à droite dès 1 120 px, au-dessus de la liste en deçà. | Déjà conforme |
+| 41 | Supprimer un modèle choisi comme défaut : message dans le dialogue de confirmation. | Appliquée |
+| 42 | Installer un modèle qui ne tient pas : bouton « Installer quand même ». | Appliquée (catalogue et fiche) |
+| 43 | Tableau « Sur ce poste » : Usage et Origine repliées sous 1 024 px. | Appliquée (bouton pour les afficher) |
 
-1. Ouverture par double-clic sur `index.html`, impossible en `file://`. (A) Garder le serveur local (`ouvrir.cmd`, `serveur.py`) ; (B) générer une page autonome par un script Python qui inline tout (CSS, JS, JSON, polices, sprite) ; (C) réécrire en scripts classiques sans modules ES. Recommandation : A pour la maquette, B si elle doit circuler hors du dépôt (un seul fichier, aucun écart de code).
-2. Icônes ajoutées en tracés Material Icons (Filled). (A) Les remplacer par les Material Symbols Rounded officiels avant le codage ; (B) garder les tracés pour la maquette, remplacer dans le front ; (C) garder partout. Recommandation : B, la maquette n'en dépend pas.
-3. Forme des exports (Chat : JSON et Markdown ; Arène : CSV et Markdown). (A) deux boutons ; (B) un bouton qui ouvre un menu ; (C) un format à l'écran, l'autre en second. Recommandation : A, B sous 768 px.
-4. Boutons d'action des erreurs. (A) déduits du code par le front (AD-18) ; (B) champ `actions` dans l'enveloppe du serveur. Recommandation : A tant que la liste reste courte.
-5. Échelle des scores (Références en pourcentage, Accueil en /100). (A) pourcentage partout ; (B) /100 partout ; (C) pourcentage pour les références, /100 pour les notes de juge. Recommandation : C, avec le libellé « Part de … » en tête.
-6. Interrupteurs (Banc d'essai). (A) bascule visuelle ; (B) cases à cocher ; (C) segments Oui / Non. Recommandation : A.
-
-### Coquille et Accueil
-
-7. Thème « Système ». (A) le garder, défaut « Clair » ; (B) le garder et en faire le défaut ; (C) le retirer (UX-DR2 strict). Recommandation : A.
-8. Place de « Références ». (A) quatrième onglet de l'Arène (FR47) ; (B) section de Modèles ; (C) carte d'Accueil seulement. Recommandation : A, avec la carte d'Accueil en plus.
-9. Titre de l'Accueil. (A) « Accueil » ; (B) « WaveLocalAI » ; (C) « WaveLocalAI » en `h1`, « Accueil » dans l'onglet. Recommandation : A (cohérence avec les autres écrans).
-10. Noms des modules sur l'Accueil. (A) noms longs (03) ; (B) noms courts du menu ; (C) court en titre, long en sous-titre. Recommandation : C.
-11. « Lancer une comparaison » sans modèle local prêt. (A) actif, l'Arène dit quoi faire ; (B) désactivé avec la raison. Recommandation : A (03 : les liens restent actifs).
-
-### Arène (Chat libre, Arène, Banc d'essai, Références)
-
-12. Créativité par défaut du Chat. (A) 0,7 (03) ; (B) 0,2 (branche livrée) ; (C) défaut fourni par le serveur avec le modèle. Recommandation : C, sinon B.
-13. 409 rejoint : le message tapé reste dans le champ. (A) le garder ; (B) proposer de l'envoyer à la fin du run suivi. Recommandation : A.
-14. Après une comparaison. (A) matrice, tableau derrière « Voir le tableau » ; (B) tableau d'abord ; (C) les deux côte à côte dès 1 440 px. Recommandation : A pour la démo, C en projection.
-15. Colonnes à 4 modèles sur 1 440 px. (A) 4 colonnes serrées ; (B) 2 colonnes visibles puis défilement ; (C) 4 colonnes, réponse repliée sur 4 lignes. Recommandation : C.
-16. Configuration de l'Arène pendant l'exécution. (A) remplacée par un résumé ; (B) grisée et visible ; (C) résumé avec configuration repliable. Recommandation : A.
-17. Scénario sans format (Banc). (A) interrupteur désactivé avec raison, pas de verdict ; (B) interrupteur masqué ; (C) proposer un format libre. Recommandation : A.
-18. Consigne du scénario (Banc). (A) non montrée ; (B) dans « Format attendu » ; (C) bloc « Consigne » replié. Recommandation : C, pour expliquer la réponse du modèle.
-19. Références : passer à l'action. (A) rien ; (B) « Comparer ces modèles » ouvre l'Arène présélectionnée sur les modèles installés du groupe ; (C) lien « Installer » vers Modèles pour ceux qui manquent. Recommandation : B.
-20. Références : cartes ou tableau par défaut. (A) cartes ; (B) tableau ; (C) cartes en projection, tableau sinon. Recommandation : A.
-
-### Documents
-
-21. Surlignage du passage d'une source. (A) le serveur renvoie `passage` (début, fin) ; (B) le front surligne les mots de la question ; (C) aucun surlignage. Recommandation : A.
-22. Panneau de sources en large. (A) toujours ouvert ; (B) repliable ; (C) colonne fixe. Recommandation : A (la vérification de la source est le climax du Flow 2).
-23. Plusieurs réponses, un seul panneau. (A) bouton « Afficher les sources » par réponse ; (B) un panneau par réponse ; (C) sources de la dernière réponse seulement. Recommandation : A.
-24. Supprimer un document. (A) sans confirmation ; (B) avec `wl-confirm-dialog` comme « Vider » ; (C) sans confirmation mais avec « Annuler » dans le message. Recommandation : B (irréversible).
-25. Annuler un import. (A) un bouton par ligne qui arrête tout le lot ; (B) un seul « Annuler l'import » au-dessus des lignes ; (C) un run par fichier côté serveur. Recommandation : B.
-26. Documents en échec. (A) seulement dans la ligne d'import ; (B) aussi dans le tableau, statut « Échec » et Supprimer. Recommandation : B.
-27. Modèles évalués par défaut (Évaluation). (A) trois petits modèles locaux de l'Arène ; (B) le défaut `rag` seul ; (C) vide. Recommandation : A.
-28. Résultat partiel d'un run arrêté (Évaluation). (A) non conservé ; (B) conservé, rouvrable, marqué « partiel ». Recommandation : B.
-29. Question vide (Évaluation). (A) bouton désactivé avec la raison ; (B) champ prérempli par une question d'exemple. Recommandation : A pour le produit, B pour la démo d'atelier.
-
-### Agents
-
-30. Panneau « Étapes » sous 1 024 px. (A) toujours déplié ; (B) repliable, déplié pendant un run ; (C) tiroir. Recommandation : A.
-31. Pied de réponse d'une tâche d'agent. (A) pied du Chat plus étapes ; (B) pied réduit (badge, CO₂, étapes, durée) ; (C) pied du Chat sans étapes. Recommandation : B (le débit agrégé de plusieurs appels dit peu).
-32. Modèle sans outils vérifiés. (A) avertir et laisser lancer ; (B) bloquer le lancement ; (C) ne pas le proposer. Recommandation : A.
-33. Journal brut d'une mission. (A) lignes horaires lisibles ; (B) événements JSON bruts ; (C) sortie texte du serveur. Recommandation : A.
-34. Agent qui n'a pas pu s'exécuter. (A) « Non lancé » ; (B) rester « En attente ». Recommandation : A.
-35. Forme de « Configurer ». (A) volet modal à droite ; (B) volet non modal qui laisse le schéma visible ; (C) page dédiée. Recommandation : B si le schéma doit rester lisible pendant l'édition, sinon A.
-36. Nombre maximal d'agents d'une équipe. (A) 5 ; (B) 8 avec schéma vertical au-delà de 5 ; (C) illimité. Recommandation : A.
-
-### Sobriété
-
-37. Session en cours dans l'historique. (A) absente jusqu'à sa clôture ; (B) dernière barre marquée « en cours » ; (C) ligne distincte au-dessus du graphique. Recommandation : A (le total est déjà au-dessus).
-38. Équivalence parlante du CO₂. (A) aucune ; (B) « environ N m en voiture » avec la source du facteur en aide ; (C) dans le panneau de méthode seulement. Recommandation : C.
-39. Graphique d'historique sur écran étroit. (A) défilement horizontal dans une région focalisable ; (B) barres horizontales empilées ; (C) tableau par défaut sous 640 px. Recommandation : C.
-
-### Modèles
-
-40. Fiche d'un modèle. (A) panneau à droite dès 1 120 px, au-dessus de la liste en deçà ; (B) page dédiée sans liste ; (C) tiroir modal. Recommandation : A.
-41. Défaut dont le modèle est supprimé. (A) retombe sur la règle avec sa raison (story 5.4) ; (B) confirmation avant de supprimer un modèle choisi comme défaut. Recommandation : B, un message dans le dialogue suffit.
-42. Installer un modèle qui ne tient pas. (A) permis sans avertissement supplémentaire ; (B) dialogue de confirmation chiffré ; (C) bouton « Installer quand même ». Recommandation : C.
-43. Tableau « Sur ce poste » à 9 colonnes. (A) défilement horizontal dans une région focalisable ; (B) colonnes secondaires (Usage, Origine) repliées sous 1 024 px ; (C) cartes empilées. Recommandation : B.
+Scénarios ajoutés pour rendre les décisions visibles : `consigne-depliee` (Banc), `comparer-ces-modeles` (Références), `suppression-confirmation` (Base documentaire), `partiel-rouvert` (Évaluation), `configurer-cinq-agents` (Équipe), `methode-equivalence` (Sobriété).
 
 ## 7. Vérifier
 
@@ -319,10 +306,12 @@ Les tests pilotent Edge ou Chromium (variable `WAVELOCALAI_E2E_CHROMIUM`, sinon 
 - le clavier, dont l'ouverture et la fermeture du panneau Scénarios ;
 - les états globaux et les parcours de bout en bout ;
 - le simulateur (reprise, coupure de connexion, arrêt) ;
-- aucune erreur ni avertissement de console, aucune requête hors de `127.0.0.1`.
+- les décisions d'Anaël (`test_decisions.py`) ;
+- la page autonome (`test_autonome.py`) : à jour par rapport aux sources, puis ouverte en `file://` (toutes les routes, Flow 2, axe) ;
+- aucune erreur ni avertissement de console, aucune requête hors de `127.0.0.1` (hors de la page autonome en `file://`).
 
-Dernier résultat : 146 tests passés.
+Dernier résultat (2026-10-18) : 167 tests passés, dont la page autonome et les décisions.
 
 ## 8. Détail
 
-Le détail par écran (états, écarts, questions d'origine) est dans `notes/` : une note par écran, `coquille.md` et `revue.md` (revue de la maquette).
+Le détail par écran (états, écarts, questions d'origine et décisions) est dans `notes/` : une note par écran, `coquille.md` et `revue.md` (revue de la maquette).

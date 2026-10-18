@@ -1,6 +1,6 @@
 # Maquette v2 : conventions pour les agents d'écran
 
-Maquette HTML interactive du front définitif de wavelocalai v2 : modules ES natifs, sans Node, sans compilation, sans CDN. Ouvrir : double-clic sur `ouvrir.cmd` (ou `python serveur.py`). En `file://`, le navigateur bloque les modules : la page le dit. Contenus 100 % fictifs, textes en français, formats `fr-FR` (`js/core/format.js`), charte de `tokens.css` (aucune couleur en dur), aucun emoji.
+Maquette HTML interactive du front définitif de wavelocalai v2 : modules ES natifs, sans Node, sans compilation, sans CDN. Ouvrir : double-clic sur `maquette-autonome.html` (un seul fichier, ouvrable en `file://`), ou sur `ouvrir.cmd` (ou `python serveur.py`) pour les sources. En `file://`, `index.html` ne charge pas ses modules : il renvoie vers la page autonome. Contenus 100 % fictifs, textes en français, formats `fr-FR` (`js/core/format.js`), charte de `tokens.css` (aucune couleur en dur), aucun emoji.
 
 ## Ajouter un écran (aucun fichier partagé à modifier)
 
@@ -52,7 +52,11 @@ Script : `events: [{wait, type, data}]` ; `{wait, tokens: {lane, channel, text, 
 
 ## Notes par écran (obligatoire)
 
-Chaque agent écrit `notes/<s>.md` : (a) états couverts (id des scénarios) ; (b) écarts entre la maquette et epics.md, DESIGN.md ou EXPERIENCE.md, sans les trancher ; (c) questions pour Anaël : choix visuel ou d'interaction non fixé par le contrat, 2 ou 3 options, une recommandation.
+Chaque agent écrit `notes/<s>.md` : (a) états couverts (id des scénarios) ; (b) écarts entre la maquette et epics.md, DESIGN.md ou EXPERIENCE.md, sans les trancher ; (c) questions pour Anaël : choix visuel ou d'interaction non fixé par le contrat, 2 ou 3 options, une recommandation. Une question tranchée devient une décision (date, numéro du README §6).
+
+## Page autonome
+
+`maquette-autonome.html` est généré, jamais modifié à la main : après toute modification de la maquette (JS, CSS, JSON, textes, sprite, `index.html`), relancez `python construire_autonome.py` depuis `docs/maquette-v2/` et commitez le fichier. `tests/test_autonome.py` échoue s'il n'est pas à jour. Le script réécrit les spécificateurs relatifs des modules et `import.meta.url` : gardez des `import` relatifs se terminant par `.js` et des chemins de ressources construits par `new URL(…, import.meta.url)`.
 
 ## Vérifier
 

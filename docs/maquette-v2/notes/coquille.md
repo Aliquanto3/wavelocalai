@@ -16,11 +16,16 @@
 - Icônes : sprite de 37 symboles (19 Material Symbols Rounded d'origine, 18 tracés Material Icons ajoutés à l'intégration, à remplacer : voir icons.LICENSE.txt) ; DESIGN.md cite `leaderboard` pour l'Arène, le sprite a `swords`.
 - Le panneau Scénarios, fixé en bas à droite, peut recouvrir du contenu quand il est ouvert (outil de maquette, replié par défaut).
 
-## (c) Questions pour Anaël
+## (c) Décisions d'Anaël (2026-10-18)
+
+Questions tranchées ; numéros du README §6.
 
 1. Thème « Système » dans le menu Affichage ? (A) le garder, défaut « Clair » ; (B) le garder et en faire le défaut ; (C) le retirer (UX-DR2 strict). Recommandation : A.
+   **Décision n° 7** : Thème : Clair (défaut), Sombre, Système. État : déjà conforme.
 2. Où placer « Références » ? (A) quatrième onglet de l'Arène (FR47) ; (B) section de Modèles ; (C) carte de l'Accueil seulement. Recommandation : A, avec la carte d'Accueil en plus.
+   **Décision n° 8** : Références : quatrième onglet de l'Arène et carte sur l'Accueil. État : déjà conforme.
 3. Boutons d'action des erreurs : (A) déduits du code par le front (AD-18 actuel) ; (B) champ `actions` dans l'enveloppe du serveur. Recommandation : A tant que la liste reste courte.
+   **Décision n° 4** : Boutons d'action des erreurs déduits du code par le front (AD-18). État : déjà conforme.
 
 ## Note technique
 
