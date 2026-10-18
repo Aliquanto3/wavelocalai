@@ -38,3 +38,13 @@ mistral = ["mistral-large-latest", "mistral-medium-latest"]
 # Groq est « non mesurable ». Entrées à confirmer par le test de contrat ecologits (story 2.5).
 "openai/gpt-oss-120b" = "openai/gpt-oss-120b"
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
+
+[rag]
+# Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec
+# `chunk_overlap` de recouvrement ; chaque lot de `embed_batch_size` extraits est une feuille
+# `embedding` mesurée par CodeCarbon. `embedding_model` : défaut de la base ; absent, le premier
+# modèle d'embedding installé dans Ollama.
+chunk_size = 800
+chunk_overlap = 100
+embed_batch_size = 16
+max_file_mb = 50

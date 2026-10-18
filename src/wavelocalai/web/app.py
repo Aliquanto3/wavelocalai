@@ -23,11 +23,13 @@ from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.facts_store import SqliteFactsStore
-from wavelocalai.models.fake import fake_models
+from wavelocalai.models.fake import fake_embedders, fake_models
 from wavelocalai.models.ollama import close_client, make_client
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
+from wavelocalai.rag.index import SqliteVecIndex
+from wavelocalai.rag.ingest import IngestService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
@@ -38,6 +40,7 @@ from wavelocalai.web import (
     routes_chat,
     routes_health,
     routes_models,
+    routes_rag,
     routes_runs,
     routes_system,
     routes_test,
@@ -98,15 +101,28 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if client is None:
         client = owned_client = make_client(settings.ollama.host)
         app.state.ollama_client = client
+    factory = ModelFactory(client, app.state.models, app.state.embedders)
     app.state.chat = ChatService(
         hub,
         app.state.registry,
-        ModelFactory(client, app.state.models),
+        factory,
         app.state.local_slot,
         settings,
         meter=app.state.meter,
         bus=app.state.system_feed,
     )
+    app.state.ingest = IngestService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        SqliteVecIndex(),
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+        fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement
+    )
+    await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
     warmup = asyncio.create_task(asyncio.to_thread(cached_fiche))
@@ -122,6 +138,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.registry.stop()
         await app.state.probe.aclose()
         app.state.chat = None
+        app.state.ingest = None
         if owned_client is not None:
             await close_client(owned_client)
             app.state.ollama_client = None
@@ -161,14 +178,19 @@ def create_app(
     app.state.store = store
     app.state.hub = None  # créé au démarrage du cycle de vie
     app.state.models = fake_models(settings)  # le `fake` seulement si `Settings.testing` (AD-8)
+    app.state.embedders = fake_embedders(settings)  # idem pour le port `Embedder`
     app.state.tasks = set()  # tâches de runs en cours (références fortes)
     app.state.ollama_client = ollama_client
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
+    app.state.ingest = None  # service d'ingestion des documents, idem
     app.state.registry = registry or ModelRegistry(
         settings,
-        extra_refs={tag: model.ref for tag, model in app.state.models.items()},
+        extra_refs={
+            tag: model.ref
+            for tag, model in [*app.state.models.items(), *app.state.embedders.items()]
+        },
         facts=SqliteFactsStore(lambda: app.state.store),
         run_stats=SqliteRunStats(lambda: app.state.store),
         advisor=MemoryAdvisor(),
@@ -231,6 +253,7 @@ def create_app(
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
     app.include_router(routes_chat.router)
+    app.include_router(routes_rag.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)

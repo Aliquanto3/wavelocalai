@@ -20,8 +20,9 @@ ORIGINS = ("local", "cloud")
 
 # Feuille = run terminé sans enfant. Une feuille close sans `co2` (erreur, annulation, arrêt) n'a
 # pas de mesure : elle compte parmi les non-mesurables (AD-10), jamais comme 0 ni comme absente.
-# Un run encore actif n'est pas compté. L'origine manquante se déduit de la méthode : ecologits
-# estime un modèle distant, codecarbon mesure ce poste.
+# Un run encore actif n'est pas compté. Un import (`ingest`) est un parent pur : sans lot
+# d'embedding (fichiers déjà présents, tous en échec) il n'est pas une feuille à compter. L'origine
+# manquante se déduit de la méthode : ecologits estime un modèle distant, codecarbon mesure ce poste.
 _LEAVES_SQL = """
 SELECT COALESCE(parent.kind, r.kind) AS module,
        COALESCE(r.origin, CASE r.co2_method WHEN 'ecologits' THEN 'cloud' ELSE 'local' END)
@@ -34,6 +35,7 @@ LEFT JOIN runs parent ON parent.id = r.parent_run_id
 WHERE r.app_session = ?
   AND r.ended_at IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM runs child WHERE child.parent_run_id = r.id)
+  AND r.kind <> 'ingest'
 GROUP BY module, bucket
 """
 
