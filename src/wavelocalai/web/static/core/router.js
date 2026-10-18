@@ -65,6 +65,8 @@ export function createRouter({ main, announcer, onRoute = () => {} }) {
     const key = JSON.stringify(params);
     try {
       entry.module ??= await screen.load();
+      // Route supplantée pendant le chargement : ne pas monter un écran qui ne sera pas montré.
+      if (mine !== token) return;
       if (entry.mounted && entry.key !== key) {
         await entry.unmount?.();
         entry.host.replaceChildren();
@@ -99,10 +101,12 @@ export function createRouter({ main, announcer, onRoute = () => {} }) {
 
   async function resolve() {
     const path = pathFromHash(location.hash);
-    if (path === null) return;
+    // Une ancre qui n'est pas une route (`#main`) est ignorée, sauf au chargement de la page :
+    // il faut alors un écran, donc l'Accueil (branche « inconnue » ci-dessous).
+    if (path === null && !first) return;
     const focus = !first;
     first = false;
-    const found = findScreen(path);
+    const found = path === null ? null : findScreen(path);
     if (found && found.screen.status === "available") {
       await show(found.screen, found.params, { focus });
       return;

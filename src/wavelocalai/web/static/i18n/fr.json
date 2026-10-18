@@ -14,7 +14,7 @@
       "light": "Clair",
       "dark": "Sombre",
       "projection": "Mode projection",
-      "projection_help": "Texte agrandi pour la salle ; le pied de page est masqué."
+      "projection_help": "Texte agrandi pour la salle ; le pied de page est masqué."
     }
   },
   "modules": {
@@ -43,7 +43,7 @@
     "announce": "Écran {screen}",
     "planned": "Pas encore disponible dans cette préversion",
     "redirected": "{reason}. Retour à l'Accueil.",
-    "load_failed": "Cet écran n'a pas pu être chargé. Rechargez la page ; si le problème persiste, signalez-le."
+    "load_failed": "Cet écran n'a pas pu être chargé. Rechargez la page ; si le problème persiste, signalez-le."
   },
   "home": {
     "lead": "Comparez des petits modèles de langage qui tournent sur ce poste, mesurez leur vitesse et leur empreinte carbone, et gardez vos données chez vous."

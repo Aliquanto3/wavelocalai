@@ -35,12 +35,6 @@ deferred:
       `tests/v2/web/test_static.py::test_page_and_files_forbid_any_resource_outside_the_origin`.
     location: src/wavelocalai/web/routes_static.py
     severity: low
-  - summary: >-
-      `pyyaml` (lu par le test de dérive des jetons) n'est pas déclaré au `pyproject` : il vient de LangChain. À déclarer dans le groupe de test si LangChain quitte les dépendances.
-    evidence: |-
-      `tests/v2/unit/test_shell_static.py` (`import yaml`).
-    location: pyproject.toml
-    severity: low
 ---
 
 # Story 1.8 : la coquille s'affiche tout de suite, aux couleurs de Wavestone
@@ -79,4 +73,21 @@ deferred:
 
 ## Reports
 
-Voir l'en-tête `deferred` : barre haute d'état (story 1.9), focus au premier chargement, écart de contraste de `primary-dark` pour les boutons pleins, politique de contenu et `blob:`, `pyyaml` non déclaré.
+Voir l'en-tête `deferred` : barre haute d'état (story 1.9), focus au premier chargement, écart de contraste de `primary-dark` pour les boutons pleins, politique de contenu et `blob:`.
+
+## Revue
+
+Une passe (Opus), avec la liste du second avis (Haiku). Tests : `tests/v2` 164 verts, E2E 25 verts (Edge), v1 `tests/unit tests/app` verts, `controle_rapide.py` sans erreur.
+
+- medium, revue : une URL arrivant avec un hash qui n'est pas une route (`#main`, `#ancre`) laissait `main` vide (ni écran, ni `h1`, titre « WaveLocalAI ») tout en posant `shell-ready`. Corrigé : au chargement, ce hash est traité comme une route inconnue (Accueil, `replaceState` vers `#/`) ; ensuite il reste ignoré. Cas `#main` ajouté à `test_planned_or_unknown_route_goes_back_to_home`, vu en échec avant le correctif.
+- low, second avis 1 (E2E hors CI) : rejeté, voulu par NFR13 et la spine (§Consistency Conventions, « Tests ») ; marqueur `e2e` exclu par `pytest.ini`.
+- low, second avis 2 (`pyyaml` non déclaré) : corrigé, `pyyaml>=6.0.3` ajouté au groupe `dev` par `uv add --dev` (verrou : aucune version changée).
+- low, second avis 3 (blanc sur `#7E65E9` à 4,26:1) : confirmé, latent, déjà reporté dans l'en-tête `deferred` pour les stories à boutons pleins.
+- low, second avis 4 (espace ordinaire avant « ; ») : corrigé dans `fr.json` et `index.html` (U+00A0) ; nouveau test de typographie (la comparaison HTML/catalogue normalise les espaces et ne le voyait pas), détecteur vérifié.
+- low, second avis 5 (écran monté alors que sa route a été supplantée pendant `import()`) : corrigé, le routeur abandonne avant `mount` si une route plus récente a pris la main. Reste latent : deux `mount` concurrents d'un même écran si son `mount` est asynchrone et que le paramètre change pendant ce `mount` ; à traiter avec le premier écran à `mount` asynchrone (story 2.x).
+- low, second avis 6 (seuils E2E durs 300 et 150 ms) : rejeté, ce sont les critères ; la mesure prend la médiane de cinq chargements après chauffage (mesuré 40 à 80 ms).
+- low, second avis 7 (annonce par `requestAnimationFrame`, suspendue en onglet caché) : rejeté, un changement de route dans un onglet caché n'est pas un usage ; l'annonce part au retour sur l'onglet.
+- low, second avis 8 (`mimetypes.add_type` global) : rejeté, l'effet est de corriger les types pour tout le processus, sans régression possible pour un serveur mono-app.
+- low, revue : une route inconnue renvoie à l'Accueil sans annoncer de raison (seule une route `planned` en a une) ; le critère ne demande la redirection que pour `planned`. Laissé.
+- low, revue : Aptos est appelée par son nom dans la pile, pas par `@font-face { src: local() }` comme l'écrit le critère ; effet identique (police installée utilisée, aucune requête). Laissé.
+

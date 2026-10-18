@@ -302,3 +302,29 @@ def test_every_icon_the_html_names_exists_in_the_sprite():
 def test_sprite_is_monochrome_and_inherits_the_text_color():
     sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
     assert "currentColor" in sprite and not re.search(r"#[0-9a-fA-F]{3,6}\b", sprite)
+
+
+# --- Microcopie (UX-DR18) ---------------------------------------------------------------------
+
+# Espace ordinaire avant « ; : ! ? » ou » , ou après « : il faut une espace insécable (EXPERIENCE.md).
+BREAKING_SPACE = re.compile(r" [;:!?»]|« ")
+
+
+def catalog_strings(value) -> list[str]:
+    if isinstance(value, dict):
+        return [text for child in value.values() for text in catalog_strings(child)]
+    return [value] if isinstance(value, str) else []
+
+
+def test_catalog_and_index_use_non_breaking_spaces_before_high_punctuation():
+    texts = catalog_strings(catalog())
+    index = (STATIC / "index.html").read_text(encoding="utf-8")
+    texts += re.findall(r">([^<>]+)<", index)
+    assert texts
+    offending = [text for text in texts if BREAKING_SPACE.search(text)]
+    assert offending == []
+
+
+def test_the_space_detector_sees_a_breaking_space():
+    assert BREAKING_SPACE.search("Texte ; suite")
+    assert not BREAKING_SPACE.search("Texte ; suite")
