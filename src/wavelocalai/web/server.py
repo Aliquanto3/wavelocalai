@@ -8,6 +8,7 @@ import sys
 import uvicorn
 
 from wavelocalai.config import LOOPBACK, Settings
+from wavelocalai.store.db import Store
 from wavelocalai.web.app import create_app
 
 
@@ -34,9 +35,10 @@ def bind_socket(port: int) -> socket.socket:
     return sock
 
 
-def serve(settings: Settings, sock: socket.socket) -> None:
-    """Sert l'application jusqu'à l'arrêt (Ctrl+C ou SIGTERM : arrêt propre d'uvicorn)."""
-    app = create_app(settings)
+def serve(settings: Settings, sock: socket.socket, store: Store | None = None) -> None:
+    """Sert l'application jusqu'à l'arrêt (Ctrl+C ou SIGTERM : arrêt propre d'uvicorn, qui
+    annule les runs actifs). `store` : la base ouverte par le lanceur, qui la ferme ensuite."""
+    app = create_app(settings, store=store)
     config = uvicorn.Config(
         app,
         host=LOOPBACK,

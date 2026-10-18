@@ -19,7 +19,9 @@ from wavelocalai.store.datadir import (
     ensure_data_dir,
     is_under_onedrive,
 )
+from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.logs import close_logging, setup_logging
+from wavelocalai.store.migrate import MigrationError
 from wavelocalai.telemetry import disable_telemetry
 
 logger = logging.getLogger("wavelocalai")
@@ -75,12 +77,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"wavelocalai-v2 : {exc}", file=sys.stderr)
                 logger.error("%s", exc)
                 return 1
+            try:
+                store = Store.open(db_path(data_dir))  # migre la base, ou refuse de démarrer
+            except MigrationError as exc:
+                sock.close()
+                print(f"wavelocalai-v2 : {exc}", file=sys.stderr)
+                logger.error("%s", exc)
+                return 1
             logger.info(
                 "wavelocalai-v2 sur http://127.0.0.1:%d (données : %s)",
                 settings.server.port,
                 data_dir,
             )
-            serve(settings, sock)
+            try:
+                serve(settings, sock, store)
+            finally:
+                store.close()
         finally:
             lock.release()
     finally:
