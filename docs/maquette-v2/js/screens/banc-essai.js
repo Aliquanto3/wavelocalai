@@ -11,7 +11,7 @@
 //   à `run_ended` (le serveur valide la sortie, le front ne valide rien) ; l'essai est conservé et se
 //   rouvre par `#/arene/banc/<run_id>`.
 
-import { element } from "../core/dom.js";
+import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
 import { formatDuration, formatNumber } from "../core/format.js";
 import { co2Display } from "../core/co2.js";
@@ -21,7 +21,7 @@ import { setMaquette, store } from "../core/store.js";
 import { findModel } from "../sim/modeles.js";
 import { sim } from "../sim/sim.js";
 import { setOllamaDown } from "../sim/systeme.js";
-import { dataTable, localIcon } from "./arene.js";
+import { dataTable } from "../components/data-table.js";
 
 const BASE_PATH = "/arene/banc";
 let counter = 0;
@@ -312,7 +312,7 @@ export async function mount(host, ctx) {
     if (verdict.ok) text = t("banc.verdict.ok");
     else if (verdict.kind === "missing_field") text = t("banc.verdict.missing", { field: verdict.field });
     else text = t("banc.verdict.not_json");
-    line.append(localIcon(verdict.ok ? "check_circle" : "cancel"), element("span", "", text));
+    line.append(icon(verdict.ok ? "check-circle" : "cancel"), element("span", "", text));
     return [element("h3", "", t("banc.verdict.title")), line];
   }
 
@@ -365,11 +365,11 @@ export async function mount(host, ctx) {
     if (state.mode !== "done") return;
     const again = element("button", "btn", "");
     again.type = "button";
-    again.append(localIcon("replay"), element("span", "", t("banc.actions.rerun")));
+    again.append(icon("replay"), element("span", "", t("banc.actions.rerun")));
     again.addEventListener("click", () => resume(true));
     const edit = element("button", "btn", "");
     edit.type = "button";
-    edit.append(localIcon("edit"), element("span", "", t("banc.actions.edit")));
+    edit.append(icon("edit"), element("span", "", t("banc.actions.edit")));
     edit.addEventListener("click", () => resume(false));
     actions.replaceChildren(again, edit);
   }

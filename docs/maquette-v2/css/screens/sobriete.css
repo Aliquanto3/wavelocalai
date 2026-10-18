@@ -178,38 +178,6 @@
   margin-bottom: 1rem;
 }
 
-.sob-segment {
-  display: inline-flex;
-  max-width: 100%;
-  border: 1px solid var(--color-gray-graphic);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.sob-segment-button {
-  min-height: 2.5rem;
-  padding: 0.375rem 0.875rem;
-  border: 0;
-  border-inline-end: 1px solid var(--color-gray-graphic);
-  background: var(--color-surface);
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
-.sob-segment-button:last-child {
-  border-inline-end: 0;
-}
-
-.sob-segment-button:hover {
-  background: var(--color-surface-alt);
-}
-
-.sob-segment-button[aria-pressed="true"] {
-  background: var(--color-primary-fill);
-  color: var(--color-on-primary);
-  font-weight: 700;
-}
-
 .sob-history-body {
   min-width: 0;
 }
@@ -272,52 +240,7 @@
 
 /* Tableau triable */
 .sob-table {
-  width: 100%;
   min-width: 40rem;
-  border-collapse: collapse;
-}
-
-.sob-table th,
-.sob-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-line);
-  text-align: start;
-  vertical-align: top;
-}
-
-.sob-table th {
-  background: var(--color-surface-alt);
-}
-
-.sob-table .is-numeric {
-  text-align: end;
-}
-
-.sob-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-height: 2rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.sob-sort .icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  opacity: 0.45;
-}
-
-.sob-sort[data-dir] .icon {
-  opacity: 1;
-}
-
-.sob-sort[data-dir="asc"] .icon {
-  transform: rotate(180deg);
 }
 
 /* Repliés */

@@ -100,75 +100,26 @@
   margin: 0;
 }
 
-/* Tableaux */
-.mod-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-}
-
+/* Tableaux (composant commun js/components/data-table.js) */
 .mod-table {
-  width: 100%;
   min-width: 48rem;
-  border-collapse: collapse;
 }
 
 .mod-table th,
 .mod-table td {
   padding: 0.5rem 0.5rem;
-  border-bottom: 1px solid var(--color-line);
-  text-align: start;
-  vertical-align: top;
-}
-
-.mod-table th {
-  background: var(--color-surface-alt);
-}
-
-.mod-table .is-numeric {
-  text-align: end;
 }
 
 .mod-table tr.is-current td {
   background: var(--color-surface-alt);
 }
 
-.mod-table tr.mod-extra td {
+.mod-table tr.wl-table-extra td {
   padding-top: 0;
 }
 
-.mod-table tr.mod-extra .wl-error {
+.mod-table tr.wl-table-extra .wl-error {
   margin: 0.5rem 0 0;
-}
-
-.mod-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-height: 2rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: start;
-}
-
-.mod-sort .icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  opacity: 0.45;
-}
-
-.mod-sort[data-dir] .icon {
-  opacity: 1;
-}
-
-.mod-sort[data-dir="asc"] .icon {
-  transform: rotate(180deg);
 }
 
 .mod-name-box {
@@ -349,7 +300,7 @@
   font-weight: 700;
 }
 
-.mod-details .mod-scroll {
+.mod-details .mod-table-wrap {
   margin: 0.75rem 0 0.5rem;
 }
 

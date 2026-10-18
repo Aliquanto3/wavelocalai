@@ -17,7 +17,8 @@
 // Contournement local : `wl-data-table` n'existe pas encore dans les composants communs, le tableau
 // est construit ici (tri au clavier par boutons d'en-tête, `aria-sort`).
 
-import { element } from "../core/dom.js";
+import { dataTable } from "../components/data-table.js";
+import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
 import { formatInteger, formatPercent } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
@@ -50,6 +51,14 @@ const FINAL = new Set(["ready", "failed", "duplicate", "cancelled", "interrupted
 const STEP_ORDER = ["extract", "split", "embed"];
 
 // Un fichier déposé : nom et taille seulement ; pages, extraits et issue sont simulés.
+// Bouton à icône du sprite commun (décorative) suivie de son libellé.
+function withIcon(button, name) {
+  const label = button.textContent;
+  button.classList.add("docs-with-icon");
+  button.replaceChildren(icon(name), element("span", "", label));
+  return button;
+}
+
 function describeFile(file, base) {
   const out = { ...file };
   const ext = (/\.[^.]+$/.exec(out.name)?.[0] ?? "").toLowerCase();
@@ -140,7 +149,7 @@ export async function mount(host, ctx) {
   input.accept = ALLOWED.join(",");
   input.hidden = true;
   input.tabIndex = -1;
-  const choose = element("button", "btn btn-primary", t("baseDoc.drop_choose"));
+  const choose = withIcon(element("button", "btn btn-primary", t("baseDoc.drop_choose")), "upload");
   choose.type = "button";
   const dropText = element("p", "docs-drop-text");
   dropText.append(document.createTextNode(`${t("baseDoc.drop_text")} `), choose);
@@ -180,7 +189,7 @@ export async function mount(host, ctx) {
   filterLabel.htmlFor = filter.id;
   const filterField = element("div", "docs-filter-field");
   filterField.append(filterLabel, filter);
-  const clearButton = element("button", "btn docs-clear", t("baseDoc.clear"));
+  const clearButton = withIcon(element("button", "btn docs-clear", t("baseDoc.clear")), "delete");
   clearButton.type = "button";
   const clearReason = element("p", "help docs-clear-reason", t("baseDoc.busy_reason"));
   clearReason.id = `${uid}-clear-reason`;
@@ -557,64 +566,45 @@ export async function mount(host, ctx) {
       const none = element("p", "docs-filter-none", t("baseDoc.filter_none", { query: filter.value.trim() }));
       return none;
     }
-    const table = element("table", "docs-table");
-    const caption = element("caption", "sr-only", t("baseDoc.library_label"));
-    const head = element("tr");
-    for (const column of COLUMNS) {
-      const cell = element("th", `docs-col-${column.key}${column.numeric ? " is-numeric" : ""}`);
-      cell.scope = "col";
-      if (column.sortable) {
-        const active = sort.key === column.key;
-        cell.setAttribute("aria-sort", active ? (sort.dir === "asc" ? "ascending" : "descending") : "none");
-        const button = element("button", "docs-sort", t(`baseDoc.${column.label}`));
-        button.type = "button";
-        button.dataset.key = column.key;
-        button.setAttribute("aria-label", t("baseDoc.sort_by", { column: t(`baseDoc.${column.label}`) }));
-        if (active) button.dataset.dir = sort.dir;
-        button.addEventListener("click", () => {
-          sort = { key: column.key, dir: sort.key === column.key && sort.dir === "asc" ? "desc" : "asc" };
-          renderLibrary();
-          libraryBody.querySelector(`.docs-sort[data-key="${column.key}"]`)?.focus();
-          liveCount.textContent = t("baseDoc.sorted", { column: t(`baseDoc.${column.label}`), order: t(`baseDoc.${sort.dir}`) });
-        });
-        cell.append(button);
-      } else {
-        cell.textContent = t(`baseDoc.${column.label}`);
-      }
-      head.append(cell);
-    }
-    const thead = element("thead");
-    thead.append(head);
-    const tbody = element("tbody");
-    for (const doc of shown) {
-      const row = element("tr", "docs-row");
-      const name = element("th", "docs-col-name", doc.name);
-      name.scope = "row";
-      const cells = [
-        name,
-        element("td", "docs-col-chunks is-numeric", formatInteger(doc.chunks)),
-        element("td", "docs-col-added_at", formatDateTime(doc.added_at)),
-        element("td", "docs-col-embedding", embeddingName(base, doc.embedding)),
-        element("td", "docs-col-status", t(`baseDoc.status_${doc.status}`)),
-      ];
-      const action = element("td", "docs-col-actions");
-      const remove = element("button", "btn docs-delete", t("baseDoc.delete"));
-      remove.type = "button";
-      remove.dataset.id = doc.id;
-      remove.setAttribute("aria-label", t("baseDoc.delete_for", { name: doc.name }));
-      remove.disabled = ingestActive();
-      remove.addEventListener("click", () => deleteDocument(doc.id));
-      action.append(remove);
-      row.append(...cells, action);
-      tbody.append(row);
-    }
-    table.append(caption, thead, tbody);
-    const wrap = element("div", "docs-table-wrap");
-    wrap.setAttribute("role", "region");
-    wrap.setAttribute("aria-label", t("baseDoc.library_label"));
-    wrap.tabIndex = 0;
-    wrap.append(table);
-    return wrap;
+    const columns = COLUMNS.map((column) => ({
+      key: column.key,
+      label: t(`baseDoc.${column.label}`),
+      numeric: column.numeric,
+      header: column.key === "name",
+      className: `docs-col-${column.key}`,
+      value: column.sortable ? (doc) => doc[column.key] : undefined,
+      cell: (doc) => cellOf(column.key, doc, base),
+    }));
+    return dataTable({
+      caption: t("baseDoc.library_label"),
+      columns,
+      rows: shown,
+      sort,
+      className: "docs",
+      rowClass: () => "docs-row",
+      onSort: (key) => {
+        const column = columns.find((candidate) => candidate.key === key);
+        sort = { key, dir: sort.key === key && sort.dir === "asc" ? "desc" : "asc" };
+        renderLibrary();
+        libraryBody.querySelector(`.docs-sort[data-key="${key}"]`)?.focus();
+        liveCount.textContent = t("baseDoc.sorted", { column: column.label, order: t(`baseDoc.${sort.dir}`) });
+      },
+    });
+  }
+
+  function cellOf(key, doc, base) {
+    if (key === "name") return doc.name;
+    if (key === "chunks") return formatInteger(doc.chunks);
+    if (key === "added_at") return formatDateTime(doc.added_at);
+    if (key === "embedding") return embeddingName(base, doc.embedding);
+    if (key === "status") return t(`baseDoc.status_${doc.status}`);
+    const remove = withIcon(element("button", "btn docs-delete", t("baseDoc.delete")), "delete");
+    remove.type = "button";
+    remove.dataset.id = doc.id;
+    remove.setAttribute("aria-label", t("baseDoc.delete_for", { name: doc.name }));
+    remove.disabled = ingestActive();
+    remove.addEventListener("click", () => deleteDocument(doc.id));
+    return remove;
   }
 
   function renderLibrary() {

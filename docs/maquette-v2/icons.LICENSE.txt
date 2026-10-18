@@ -2,6 +2,15 @@ Material Symbols (sous-ensemble en sprite dans icons.svg)
 Copyright Google LLC, https://github.com/google/material-design-icons
 Licence Apache 2.0, texte ci-dessous.
 
+Provenance des symboles :
+- 19 symboles d'origine (viewBox 0 -960 960 960) : Material Symbols, style Rounded, poids 400.
+- 18 symboles ajoutés à l'intégration des écrans (viewBox 0 0 24 24) : hourglass, check-circle,
+  cancel, schedule, block, autorenew, download, upload, replay, edit, delete, folder, open-in-full,
+  close-fullscreen, lightbulb, terminal, chat, stop. Ce sont des tracés de Material Icons (style
+  Filled, même auteur, même licence) que les agents d'écran avaient redessinés localement ; ils ont
+  été déplacés tels quels dans le sprite, sans accès réseau pour les comparer aux tracés officiels.
+  À remplacer par les tracés Material Symbols Rounded du même nom pour un style homogène.
+
 
                                  Apache License
                            Version 2.0, January 2004

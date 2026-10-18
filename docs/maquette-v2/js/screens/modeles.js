@@ -14,6 +14,7 @@
 // serveur simulé publie (donnees/modeles.json, donnees/commun/modeles.json). L'état d'installation est
 // gardé au niveau du module : il survit au passage liste -> fiche, et se remet à zéro avec la maquette.
 
+import { dataTable } from "../components/data-table.js";
 import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
 import { formatGb, formatInteger, formatNumber, formatPercent, formatRate } from "../core/format.js";
@@ -98,64 +99,21 @@ function pullTarget(pull, catalogTags) {
 
 // --- Tableau triable ----------------------------------------------------------------------------
 
+// Tableau commun (js/components/data-table.js) : l'écran garde le tri (`sortRows`, avec l'ordre initial
+// d'EXPERIENCE.md) ; un tableau sans `onSort` n'a pas de bouton de tri.
 function buildTable({ caption, regionLabel, columns, rows, sort, onSort, tableId, rowClass, extra }) {
-  const table = element("table", "mod-table");
-  table.append(element("caption", "sr-only", caption));
-  const head = element("tr");
-  for (const column of columns) {
-    const th = element("th", column.numeric ? "is-numeric" : "");
-    th.scope = "col";
-    if (column.sortValue && onSort) {
-      const button = element("button", "mod-sort");
-      button.type = "button";
-      button.dataset.fid = `sort:${tableId}:${column.key}`;
-      button.append(element("span", "", column.label), icon("expand-more"));
-      const active = sort.key === column.key;
-      if (active) {
-        th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
-        button.dataset.dir = sort.dir;
-      }
-      button.setAttribute(
-        "aria-label",
-        `${t("modeles.installed.sort_by", { column: column.label })}${active ? `, ${t(sort.dir === "asc" ? "modeles.installed.sorted_asc" : "modeles.installed.sorted_desc")}` : ""}`,
-      );
-      button.addEventListener("click", () => onSort(column.key));
-      th.append(button);
-    } else {
-      th.append(column.label);
-    }
-    head.append(th);
-  }
-  const thead = element("thead");
-  thead.append(head);
-  const body = element("tbody");
-  for (const row of rows) {
-    const tr = element("tr", rowClass?.(row) ?? "");
-    for (const column of columns) {
-      const td = element("td", column.numeric ? "is-numeric" : "");
-      td.dataset.label = column.label;
-      const cell = column.cell(row);
-      if (cell !== null && cell !== undefined) td.append(cell);
-      tr.append(td);
-    }
-    body.append(tr);
-    const more = extra?.(row);
-    if (more) {
-      const trExtra = element("tr", "mod-extra");
-      const td = element("td");
-      td.colSpan = columns.length;
-      td.append(more);
-      trExtra.append(td);
-      body.append(trExtra);
-    }
-  }
-  table.append(thead, body);
-  const region = element("div", "mod-scroll");
-  region.tabIndex = 0;
-  region.setAttribute("role", "region");
-  region.setAttribute("aria-label", regionLabel);
-  region.append(table);
-  return region;
+  return dataTable({
+    caption,
+    regionLabel,
+    columns: columns.map(({ sortValue, ...column }) => ({ ...column, value: onSort ? sortValue : undefined })),
+    rows,
+    sort,
+    onSort,
+    className: "mod",
+    id: tableId,
+    rowClass,
+    extra,
+  });
 }
 
 function sortRows(rows, column, dir, fallback) {

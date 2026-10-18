@@ -13,7 +13,8 @@ import { element, icon } from "../core/dom.js";
 import { formatDate, formatInteger, formatNumber, formatPercent, formatRate } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { setMaquette, store } from "../core/store.js";
-import { dataTable, segments } from "./arene.js";
+import { dataTable } from "../components/data-table.js";
+import { segments } from "../components/segments.js";
 
 let view = null;
 let forced = null; // état imposé par un scénario : loading | absent | schema | empty
@@ -127,8 +128,6 @@ export async function mount(host, ctx) {
     return dataTable({
       caption: t("references.caption"),
       className: "rf",
-      sortKey: null,
-      sortLabel: (column) => t("references.sort_by", { column }),
       columns: [
         { key: "usage", label: t("references.col.usage"), value: (row) => row.usage.label, cell: (row) => row.usage.label },
         { key: "model", label: t("references.col.model"), header: true, value: (row) => row.model.name, cell: (row) => row.model.name },
@@ -154,7 +153,7 @@ export async function mount(host, ctx) {
       { value: "table", label: t("references.table") },
     ],
     value: state.segment,
-    prefix: "rf",
+    className: "rf",
     onChange: (value) => {
       state.segment = value;
       renderContent();

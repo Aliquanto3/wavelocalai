@@ -160,38 +160,6 @@
   white-space: nowrap;
 }
 
-.docs-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-height: 2rem;
-  padding: 0 0.25rem;
-  border: 0;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--color-ink);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.docs-sort:hover {
-  background: var(--color-line);
-}
-
-/* Sens du tri : un triangle, doublé par `aria-sort` pour les lecteurs d'écran */
-.docs-sort[data-dir]::after {
-  content: "";
-  border-inline: 0.3rem solid transparent;
-}
-
-.docs-sort[data-dir="asc"]::after {
-  border-bottom: 0.45rem solid currentColor;
-}
-
-.docs-sort[data-dir="desc"]::after {
-  border-top: 0.45rem solid currentColor;
-}
-
 .docs-delete {
   min-height: 2rem;
   padding-block: 0.125rem;
@@ -240,4 +208,10 @@
 .docs-rerank {
   margin: 0;
   color: var(--color-ink-secondary);
+}
+
+/* Boutons à icône (sprite commun) */
+.docs-with-icon .icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }

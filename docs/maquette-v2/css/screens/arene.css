@@ -510,43 +510,7 @@
 
 /* Segments (radiogroup) */
 .ar-seg {
-  display: inline-flex;
   margin-bottom: 1rem;
-  overflow: hidden;
-  border: 1px solid var(--color-gray-graphic);
-  border-radius: var(--radius-full);
-}
-
-.ar-seg-button {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 1rem;
-  border: 0;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
-.ar-seg-button + .ar-seg-button {
-  border-inline-start: 1px solid var(--color-gray-graphic);
-}
-
-.ar-seg-button .icon {
-  display: none;
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.ar-seg-button[aria-checked="true"] {
-  background: var(--color-primary-fill);
-  color: var(--color-on-primary);
-  font-weight: 600;
-}
-
-.ar-seg-button[aria-checked="true"] .icon {
-  display: inline-block;
 }
 
 /* Matrice */
@@ -556,134 +520,9 @@
   gap: 1rem;
 }
 
-.ar-svg {
-  width: 100%;
-  max-width: 46rem;
-  height: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-}
-
-.ar-grid {
-  stroke: var(--color-line);
-  stroke-width: 1;
-}
-
-.ar-axis {
-  stroke: var(--color-ink-secondary);
-  stroke-width: 1.5;
-}
-
-.ar-tick,
-.ar-axis-title,
-.ar-dot-label {
-  fill: var(--color-ink);
-  font-family: var(--font-caption);
-  font-size: 12px;
-}
-
-.ar-axis-title {
-  font-weight: 600;
-}
-
-.ar-dot-label {
-  font-weight: 600;
-  paint-order: stroke;
-  stroke: var(--color-surface);
-  stroke-width: 3px;
-}
-
-.ar-dot {
-  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
-  stroke: var(--color-ink);
-  stroke-width: 1.5;
-}
-
-.ar-dot.is-unknown {
-  fill: none;
-  stroke-dasharray: 4 3;
-}
-
-.ar-size-legend {
-  max-width: 46rem;
-}
-
-.ar-size-title {
-  margin: 0 0 0.25rem;
-  font-weight: 600;
-}
-
-.ar-sizes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ar-size {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ar-size-dot {
-  width: 2.75rem;
-  height: 2.75rem;
-}
-
 /* Tableau */
-.ar-table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-}
-
 .ar-table {
-  width: 100%;
   min-width: 42rem;
-  border-collapse: collapse;
-}
-
-.ar-table th,
-.ar-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-line);
-  text-align: start;
-  vertical-align: top;
-}
-
-.ar-table thead th {
-  background: var(--color-surface-alt);
-}
-
-.ar-table tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
-.ar-sort {
-  display: inline-flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.25rem;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ar-sort .icon {
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.ar-table th[aria-sort="ascending"] .icon {
-  transform: rotate(180deg);
 }
 
 /* Verdict local / cloud */

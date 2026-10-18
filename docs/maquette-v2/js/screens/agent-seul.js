@@ -29,32 +29,14 @@ import { setOllamaDown } from "../sim/systeme.js";
 // Pièces communes (réutilisées par equipe-agents.js)
 // =============================================================================================
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 const speedOf = () => store.get().maquette.speed || 1;
 
-// Le sprite partagé n'a pas d'icône pour les types d'étapes : tracés simples, décoratifs (le libellé
-// porte toujours le sens).
-const STEP_ICONS = {
-  think: "M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2zM9 19h6v2H9z",
-  tool: "M3 4h18v16H3zm2 2v12h14V6zm2.2 2.4 3.6 3.6-3.6 3.6-1.4-1.4 2.2-2.2-2.2-2.2zM12 15h5v2h-5z",
-  answer: "M4 3h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-5 4V4a1 1 0 0 1 1-1z",
-  wait: "M6 2h12v5.5L14 12l4 4.5V22H6v-5.5L10 12 6 7.5z",
-  error: "M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z",
-  stop: "M6 6h12v12H6z",
-  done: "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z",
-};
+// Icône d'un type d'étape (sprite commun), décorative : le libellé porte toujours le sens.
+const STEP_ICONS = { think: "lightbulb", tool: "terminal", answer: "chat", wait: "hourglass", error: "warning", stop: "stop", done: "check" };
 
 export function stepIcon(name) {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "icon step-icon");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("focusable", "false");
-  const path = document.createElementNS(SVG_NS, "path");
-  path.setAttribute("fill", "currentColor");
-  path.setAttribute("fill-rule", "evenodd");
-  path.setAttribute("d", STEP_ICONS[name] ?? STEP_ICONS.think);
-  svg.append(path);
+  const svg = icon(STEP_ICONS[name] ?? STEP_ICONS.think);
+  svg.classList.add("step-icon");
   return svg;
 }
 

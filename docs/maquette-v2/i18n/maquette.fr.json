@@ -42,6 +42,11 @@
       "use_default": "Utiliser {name}",
       "load_failed": "La liste des modèles n'a pas pu être chargée."
     },
+    "table": {
+      "sort_by": "Trier par {column}",
+      "sorted_asc": "trié par ordre croissant",
+      "sorted_desc": "trié par ordre décroissant"
+    },
     "run_status": {
       "starting": "Démarrage…",
       "loading": "Chargement du modèle en mémoire…",

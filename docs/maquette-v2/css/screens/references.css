@@ -144,95 +144,13 @@
   color: var(--color-ink-secondary);
 }
 
-/* Segments */
+/* Segments (composant commun) */
 .rf-seg {
-  display: inline-flex;
   margin-bottom: 1rem;
-  overflow: hidden;
-  border: 1px solid var(--color-gray-graphic);
-  border-radius: var(--radius-full);
-}
-
-.rf-seg-button {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 1rem;
-  border: 0;
-  background: var(--color-surface);
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
-.rf-seg-button + .rf-seg-button {
-  border-inline-start: 1px solid var(--color-gray-graphic);
-}
-
-.rf-seg-button .icon {
-  display: none;
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.rf-seg-button[aria-checked="true"] {
-  background: var(--color-primary-fill);
-  color: var(--color-on-primary);
-  font-weight: 600;
-}
-
-.rf-seg-button[aria-checked="true"] .icon {
-  display: inline-block;
 }
 
 /* Tableau */
-.rf-table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-}
-
 .rf-table {
-  width: 100%;
   min-width: 56rem;
-  border-collapse: collapse;
 }
 
-.rf-table th,
-.rf-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-line);
-  text-align: start;
-  vertical-align: top;
-}
-
-.rf-table thead th {
-  background: var(--color-surface-alt);
-}
-
-.rf-table tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
-.rf-sort {
-  display: inline-flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.25rem;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.rf-sort .icon {
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.rf-table th[aria-sort="ascending"] .icon {
-  transform: rotate(180deg);
-}

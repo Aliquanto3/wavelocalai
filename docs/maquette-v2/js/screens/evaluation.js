@@ -18,6 +18,8 @@
 // pas encore (le tableau et le SVG sont construits ici), les étapes de l'évaluation sont
 // nommées par `wl-run-status.setStage`, `wl-source-panel` est dans documents-commun.js.
 
+import { bubbleMatrix } from "../components/charts.js";
+import { segments } from "../components/segments.js";
 import { element, icon } from "../core/dom.js";
 import { formatCo2, formatDate, formatInteger, formatNumber, formatRate, formatTime } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
@@ -250,8 +252,16 @@ export async function mount(host, ctx) {
   const judgeBadge = document.createElement("wl-badge");
   judgeBadge.setAttribute("kind", "single-judge");
   const methodHelp = helpToggle(t("evaluation.method"), t("evaluation.method_help"));
-  const viewSwitch = segmented("view", t("evaluation.view_label"), [["table", t("evaluation.view_table")], ["matrix", t("evaluation.view_matrix")]], view_);
-  viewSwitch.classList.add("eval-view");
+  const viewSwitch = segments({
+    label: t("evaluation.view_label"),
+    options: [
+      { value: "table", label: t("evaluation.view_table") },
+      { value: "matrix", label: t("evaluation.view_matrix") },
+    ],
+    value: view_,
+    onChange: (value) => setView(value),
+  });
+  viewSwitch.root.classList.add("eval-view");
   const resultsHead = element("div", "eval-results-head");
   resultsHead.append(resultsTitle, judgeBadge, methodHelp);
   const resultsBody = element("div", "eval-results-body");
@@ -259,7 +269,7 @@ export async function mount(host, ctx) {
   const detailHost = element("div", "eval-detail-host");
   const resultsSection = element("section", "eval-results");
   resultsSection.hidden = true;
-  resultsSection.append(resultsHead, viewSwitch, resultsBody, resultsNotes, detailHost);
+  resultsSection.append(resultsHead, viewSwitch.root, resultsBody, resultsNotes, detailHost);
 
   host.replaceChildren(
     element("h1", "", ctx.route.title),
@@ -531,102 +541,33 @@ export async function mount(host, ctx) {
     return wrap;
   }
 
-  // --- Résultats : matrice (SVG fait main, UX-DR14) ---------------------------------------
+  // --- Résultats : matrice (composant commun js/components/charts.js, UX-DR14) ----------------
+  // Débit en échelle logarithmique : un modèle cloud à 365 tokens/s écraserait les locaux.
   function buildMatrix() {
     const points = ev.lanes.filter((lane) => typeof lane.scores.faithfulness?.score === "number" && lane.metrics && typeof lane.metrics.tps === "number");
     const missing = ev.lanes.filter((lane) => !points.includes(lane));
-    const W = 760;
-    const H = 470;
-    const plotBottom = 330;
-    const margin = { left: 60, right: 24, top: 24, bottom: 64 };
-    const low = Math.log10(5);
-    const high = Math.log10(500);
-    const x = (tps) => margin.left + ((Math.log10(clamp(tps, 5, 500)) - low) / (high - low)) * (W - margin.left - margin.right);
-    const y = (score) => plotBottom - (score / 100) * (plotBottom - margin.top);
-    const NS = "http://www.w3.org/2000/svg";
-    const node = (tag, attrs = {}, text) => {
-      const created = document.createElementNS(NS, tag);
-      for (const [key, value] of Object.entries(attrs)) created.setAttribute(key, String(value));
-      if (text !== undefined) created.textContent = text;
-      return created;
-    };
-    const svg = node("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", class: "eval-chart", "aria-labelledby": `${uid}-chart-title ${uid}-chart-desc`, focusable: "false" });
-    svg.append(node("title", { id: `${uid}-chart-title` }, t("evaluation.matrix_title")));
     const co2Text = (lane) => (lane.metrics.co2?.mg === null ? t("co2.unmeasurable") : formatCo2(lane.metrics.co2.mg));
-    svg.append(
-      node(
-        "desc",
-        { id: `${uid}-chart-desc` },
-        `${t("evaluation.matrix_desc")} ${points
-          .map((lane) => t("evaluation.matrix_point", { name: lane.name, score: formatNumber(lane.scores.faithfulness.score), rate: formatRate(lane.metrics.tps), co2: co2Text(lane) }))
-          .join(" ; ")}.`,
-      ),
-    );
-    // Grille et axes
-    for (const score of [0, 25, 50, 75, 100]) {
-      svg.append(node("line", { x1: margin.left, x2: W - margin.right, y1: y(score), y2: y(score), class: "eval-grid" }));
-      svg.append(node("text", { x: margin.left - 8, y: y(score) + 4, "text-anchor": "end", class: "eval-tick" }, String(score)));
-    }
-    for (const tps of [10, 30, 100, 300]) {
-      svg.append(node("line", { x1: x(tps), x2: x(tps), y1: margin.top, y2: plotBottom, class: "eval-grid" }));
-      svg.append(node("text", { x: x(tps), y: plotBottom + 20, "text-anchor": "middle", class: "eval-tick" }, formatInteger(tps)));
-    }
-    svg.append(node("text", { x: (W + margin.left - margin.right) / 2, y: plotBottom + 44, "text-anchor": "middle", class: "eval-axis" }, t("evaluation.axis_x")));
-    svg.append(node("text", { x: 16, y: (plotBottom + margin.top) / 2, "text-anchor": "middle", transform: `rotate(-90 16 ${(plotBottom + margin.top) / 2})`, class: "eval-axis" }, t("evaluation.axis_y")));
-    // Points : la taille encode le CO₂ ; un cercle vide = non mesurable ; chaque point est étiqueté.
-    points.forEach((lane, index) => {
-      const mg = lane.metrics.co2?.mg;
-      const unmeasurable = mg === null || mg === undefined;
-      const radius = unmeasurable ? 9 : 6 + Math.min(16, Math.sqrt(mg) * 5);
-      const cx = x(lane.metrics.tps);
-      const cy = y(lane.scores.faithfulness.score);
-      svg.append(
-        node("circle", {
-          cx,
-          cy,
-          r: radius,
-          class: `eval-point${unmeasurable ? " is-empty" : ""}`,
-          style: `--series: var(--color-chart-${(index % 4) + 1})`,
-        }),
-      );
-      const right = cx > W - 190;
-      svg.append(node("text", { x: right ? cx - radius - 6 : cx + radius + 6, y: cy + 4, "text-anchor": right ? "end" : "start", class: "eval-label" }, lane.name));
+    const desc = `${t("evaluation.matrix_desc")} ${points
+      .map((lane) => t("evaluation.matrix_point", { name: lane.name, score: formatNumber(lane.scores.faithfulness.score), rate: formatRate(lane.metrics.tps), co2: co2Text(lane) }))
+      .join(" ; ")}.`;
+    return bubbleMatrix({
+      title: t("evaluation.matrix_title"),
+      desc,
+      points: points.map((lane) => ({ name: lane.name, x: lane.metrics.tps, y: lane.scores.faithfulness.score, mg: lane.metrics.co2?.mg ?? null })),
+      x: { label: t("evaluation.axis_x"), log: true, min: 5, max: 500, ticks: [10, 30, 100, 300] },
+      y: { label: t("evaluation.axis_y"), max: 100, ticks: [0, 25, 50, 75, 100] },
+      size: { title: t("evaluation.legend_size"), format: (mg) => formatCo2(mg), unmeasurable: t("evaluation.legend_unmeasurable") },
+      seeTable: { label: t("evaluation.see_table"), onClick: () => setView("table", { focus: true }) },
+      missing: missing.length ? t("evaluation.unplotted", { names: missing.map((lane) => lane.name).join(", ") }) : null,
+      className: "eval",
     });
-    // Légende de taille
-    const key = node("g", { class: "eval-key", transform: `translate(${margin.left} ${plotBottom + 66})` });
-    key.append(node("text", { x: 0, y: 16, class: "eval-key-title" }, t("evaluation.legend_size")));
-    [1, 5].forEach((mg, i) => {
-      const r = 6 + Math.min(16, Math.sqrt(mg) * 5);
-      const cx = 215 + i * 90;
-      key.append(node("circle", { cx, cy: 12, r, class: "eval-key-circle" }));
-      key.append(node("text", { x: cx + r + 6, y: 16, class: "eval-key-text" }, formatCo2(mg)));
-    });
-    key.append(node("circle", { cx: 420, cy: 12, r: 9, class: "eval-key-circle is-empty" }));
-    key.append(node("text", { x: 436, y: 16, class: "eval-key-text" }, t("evaluation.legend_unmeasurable")));
-    svg.append(key);
-
-    const wrap = element("div", "eval-chart-wrap");
-    wrap.setAttribute("role", "region");
-    wrap.setAttribute("aria-label", t("evaluation.matrix_title"));
-    wrap.tabIndex = 0;
-    wrap.append(svg);
-    const out = element("div", "eval-matrix");
-    out.append(wrap);
-    if (missing.length) out.append(element("p", "help", t("evaluation.unplotted", { names: missing.map((lane) => lane.name).join(", ") })));
-    const toTable = element("button", "btn eval-see-table", t("evaluation.see_table"));
-    toTable.type = "button";
-    toTable.addEventListener("click", () => setView("table", { focus: true }));
-    out.append(toTable);
-    return out;
   }
 
   function setView(next, { focus = false } = {}) {
     view_ = next;
-    for (const radio of viewSwitch.querySelectorAll("input")) radio.checked = radio.value === next;
+    viewSwitch.select(next, { silent: true, focus });
     renderResults();
-    if (focus) viewSwitch.querySelector("input:checked")?.focus();
   }
-  for (const radio of viewSwitch.querySelectorAll("input")) radio.addEventListener("change", () => setView(radio.value));
 
   // --- Résultats : détail d'un score -------------------------------------------------------
   function verdictList(verdicts) {
@@ -755,7 +696,7 @@ export async function mount(host, ctx) {
     resultsSection.hidden = !started;
     if (!started) return;
     judgeBadge.hidden = false;
-    viewSwitch.hidden = false;
+    viewSwitch.root.hidden = false;
     resultsBody.replaceChildren(view_ === "matrix" ? buildMatrix() : buildTable());
     detailHost.replaceChildren(...(detail ? [buildDetail()] : []));
 
@@ -927,7 +868,7 @@ export async function mount(host, ctx) {
     view_ = "table";
     panel.clear();
     panel.root.open = false;
-    for (const radio of viewSwitch.querySelectorAll("input")) radio.checked = radio.value === "table";
+    viewSwitch.select("table", { silent: true });
     // Événements construits à l'exécution (nombre de modèles et mode libres), rejoués tels quels.
     const simRun = sim.play({ kind: "eval", events }, null, {
       vars: { spec }, // entrée de la commande, relue par un autre onglet (409 rejoint)

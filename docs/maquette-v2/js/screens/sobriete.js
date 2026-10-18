@@ -13,6 +13,8 @@
 // Le front ne calcule aucune mesure (AD-20) : il met en forme ce que le simulateur publie. Les sommes
 // de la session viennent de `store.carbon` ; l'historique est lu dans donnees/sobriete.json.
 
+import { dataTable, sortRows } from "../components/data-table.js";
+import { segments } from "../components/segments.js";
 import { element, icon } from "../core/dom.js";
 import { co2Group, formatCo2, formatDate, formatGb, formatInteger, formatNumber, formatPercent, formatTime } from "../core/format.js";
 import { plural, t } from "../core/i18n.js";
@@ -339,70 +341,19 @@ const COLUMNS = [
   { key: "unmeasurable", label: "col_unmeasurable", numeric: true, sort: (s) => s.unmeasurable, cell: (s) => formatInteger(s.unmeasurable) },
 ];
 
+// Tableau de l'historique (composant commun) : l'écran garde le tri, une date se trie d'abord par la
+// plus récente.
 function buildTable(sessions, sort, onSort) {
-  const rows = [...sessions].sort((a, b) => {
-    const column = COLUMNS.find((candidate) => candidate.key === sort.key);
-    const left = column.sort(a);
-    const right = column.sort(b);
-    if (left === null && right === null) return 0;
-    if (left === null) return 1; // une valeur absente reste en bas, quel que soit le sens
-    if (right === null) return -1;
-    return (left - right) * (sort.dir === "asc" ? 1 : -1);
+  const columns = COLUMNS.map((column) => ({ ...column, label: t(`sobriete.history.${column.label}`), value: column.sort }));
+  return dataTable({
+    caption: t("sobriete.history.table_caption"),
+    regionLabel: t("sobriete.history.table_region"),
+    columns,
+    rows: sortRows(sessions, columns, sort),
+    sort,
+    onSort,
+    className: "sob",
   });
-  const table = element("table", "sob-table");
-  const caption = element("caption", "sr-only", t("sobriete.history.table_caption"));
-  const head = element("tr");
-  for (const column of COLUMNS) {
-    const th = element("th", column.numeric ? "is-numeric" : "");
-    th.scope = "col";
-    const button = element("button", "sob-sort");
-    button.type = "button";
-    button.dataset.key = column.key;
-    button.append(element("span", "", t(`sobriete.history.${column.label}`)), icon("expand-more"));
-    if (sort.key === column.key) {
-      th.setAttribute("aria-sort", sort.dir === "asc" ? "ascending" : "descending");
-      button.dataset.dir = sort.dir;
-    }
-    button.setAttribute("aria-label", `${t("sobriete.history.sort_by", { column: t(`sobriete.history.${column.label}`) })}${sort.key === column.key ? `, ${t(sort.dir === "asc" ? "sobriete.history.sorted_asc" : "sobriete.history.sorted_desc")}` : ""}`);
-    button.addEventListener("click", () => onSort(column.key));
-    th.append(button);
-    head.append(th);
-  }
-  const body = element("tbody");
-  for (const session of rows) {
-    const tr = element("tr");
-    for (const column of COLUMNS) {
-      const td = element("td", column.numeric ? "is-numeric" : "");
-      const cell = column.cell(session);
-      td.append(cell);
-      tr.append(td);
-    }
-    body.append(tr);
-  }
-  table.append(caption, element("thead"), body);
-  table.tHead.append(head);
-  return table;
-}
-
-function buildSegment(label, options, onChange) {
-  const group = element("div", "sob-segment");
-  group.setAttribute("role", "group");
-  group.setAttribute("aria-label", label);
-  const buttons = new Map();
-  for (const { id, text } of options) {
-    const button = element("button", "sob-segment-button", text);
-    button.type = "button";
-    button.dataset.value = id;
-    button.addEventListener("click", () => onChange(id));
-    buttons.set(id, button);
-    group.append(button);
-  }
-  return {
-    group,
-    set(value) {
-      for (const [id, button] of buttons) button.setAttribute("aria-pressed", String(id === value));
-    },
-  };
 }
 
 // --- Écran --------------------------------------------------------------------------------
@@ -439,31 +390,33 @@ export async function mount(host, ctx) {
   carbonSection.append(carbonHead, carbon.box);
 
   // Historique
-  const windowSegment = buildSegment(
-    t("sobriete.history.window_label"),
-    [
-      { id: "w7", text: t("sobriete.history.w7") },
-      { id: "w30", text: t("sobriete.history.w30") },
-      { id: "wall", text: t("sobriete.history.wall") },
+  const windowSegment = segments({
+    label: t("sobriete.history.window_label"),
+    options: [
+      { value: "w7", label: t("sobriete.history.w7") },
+      { value: "w30", label: t("sobriete.history.w30") },
+      { value: "wall", label: t("sobriete.history.wall") },
     ],
-    (id) => {
+    value: windowId,
+    onChange: (id) => {
       windowId = id;
       renderHistory();
     },
-  );
-  const viewSegment = buildSegment(
-    t("sobriete.history.view_label"),
-    [
-      { id: "chart", text: t("sobriete.history.chart") },
-      { id: "table", text: t("sobriete.history.table") },
+  });
+  const viewSegment = segments({
+    label: t("sobriete.history.view_label"),
+    options: [
+      { value: "chart", label: t("sobriete.history.chart") },
+      { value: "table", label: t("sobriete.history.table") },
     ],
-    (id) => {
+    value: viewId,
+    onChange: (id) => {
       viewId = id;
       renderHistory();
     },
-  );
+  });
   const controls = element("div", "sob-controls");
-  controls.append(windowSegment.group, viewSegment.group);
+  controls.append(windowSegment.root, viewSegment.root);
   const historyBody = element("div", "sob-history-body");
   const historyTitle = element("h2", "", t("sobriete.history.title"));
   historyTitle.id = "sob-history-title";
@@ -495,8 +448,8 @@ export async function mount(host, ctx) {
   }
 
   function renderHistory() {
-    windowSegment.set(windowId);
-    viewSegment.set(viewId);
+    windowSegment.select(windowId, { silent: true });
+    viewSegment.select(viewId, { silent: true });
     const active = document.activeElement;
     const focusKey = active?.closest?.(".sob-history-body") ? active.dataset?.key : null;
     controls.hidden = history.length === 0;
@@ -521,21 +474,15 @@ export async function mount(host, ctx) {
       toTable.addEventListener("click", () => {
         viewId = "table";
         renderHistory();
-        historyBody.querySelector(".sob-scroll")?.focus();
+        historyBody.querySelector(".sob-table-wrap")?.focus();
       });
       historyBody.replaceChildren(heading, region, element("p", "help", t("sobriete.history.current_note")), toTable);
       return;
     }
-    const region = element("div", "sob-scroll");
-    region.tabIndex = 0;
-    region.setAttribute("role", "region");
-    region.setAttribute("aria-label", t("sobriete.history.table_region"));
-    region.append(
-      buildTable(sessions, sort, (key) => {
-        sort = { key, dir: sort.key === key && sort.dir === "desc" ? "asc" : "desc" };
-        renderHistory();
-      }),
-    );
+    const region = buildTable(sessions, sort, (key) => {
+      sort = { key, dir: sort.key === key && sort.dir === "desc" ? "asc" : "desc" };
+      renderHistory();
+    });
     const toChart = element("button", "link-button", t("sobriete.history.see_chart"));
     toChart.type = "button";
     toChart.addEventListener("click", () => {

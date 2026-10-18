@@ -15,6 +15,9 @@
 // - Le front ne calcule aucune mesure : seuls le chronomètre et le débit provisoire sont locaux. Le
 //   verdict local/cloud, le « serveur » le rend dans l'instantané du run (`serverVerdict`, ci-dessous).
 
+import { bubbleMatrix } from "../components/charts.js";
+import { dataTable } from "../components/data-table.js";
+import { segments } from "../components/segments.js";
 import { element, icon } from "../core/dom.js";
 import { errorEnvelope } from "../core/errors.js";
 import {
@@ -47,165 +50,17 @@ let view = null; // l'instance montée, pour les scénarios
 let pending = null; // configuration à appliquer au prochain montage (« Relancer », « Modifier »)
 const saved = new Map(); // instantanés des comparaisons terminées pendant cette visite
 
-// --- Icônes locales (le sprite commun n'a pas ces glyphes) ----------------------------------------
-// Tracés Material Symbols (Apache 2.0, voir icons.LICENSE.txt), viewBox 24 : même rendu que `icon()`.
-
-const SVG_NS = "http://www.w3.org/2000/svg";
-const PATHS = {
-  hourglass: "M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2H6zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z",
-  check_circle: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
-  cancel: "M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.59 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z",
-  schedule: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z",
-  block: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z",
-  autorenew: "M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z",
-  download: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z",
-  replay: "M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z",
-  edit: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
-  open_in_full: "M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10z",
-  close_fullscreen: "M22 3.41 16.71 8.7 20 12h-8V4l3.29 3.29L20.59 2 22 3.41zM3.41 22l5.29-5.29L12 20v-8H4l3.29 3.29L2 20.59 3.41 22z",
-};
-
-export function localIcon(name) {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "icon");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("focusable", "false");
-  const path = document.createElementNS(SVG_NS, "path");
-  path.setAttribute("d", PATHS[name]);
-  svg.append(path);
-  return svg;
-}
-
 const STATUS_ICON = {
-  waiting: () => localIcon("hourglass"),
+  waiting: () => icon("hourglass"),
   loading: () => icon("deployed-code"),
-  generating: () => localIcon("autorenew"),
-  judging: () => localIcon("autorenew"),
-  done: () => localIcon("check_circle"),
-  timeout: () => localIcon("schedule"),
-  failed: () => localIcon("cancel"),
-  cancelled: () => localIcon("block"),
+  generating: () => icon("autorenew"),
+  judging: () => icon("autorenew"),
+  done: () => icon("check-circle"),
+  timeout: () => icon("schedule"),
+  failed: () => icon("cancel"),
+  cancelled: () => icon("block"),
   interrupted: () => icon("warning"),
 };
-
-// --- Composants locaux partagés avec le Banc d'essai et les Références ----------------------------
-
-// Segments (EXPERIENCE.md, règles communes) : `radiogroup`, flèches pour changer, choisi en
-// `wl-pill-selected` (icône `check`). `onChange(value)` est appelé au changement.
-export function segments({ label, options, value, onChange, prefix = "ar" }) {
-  const root = element("div", `${prefix}-seg`);
-  root.setAttribute("role", "radiogroup");
-  root.setAttribute("aria-label", label);
-  const buttons = new Map();
-  const select = (next, { focus = false, silent = false } = {}) => {
-    value = next;
-    for (const [id, button] of buttons) {
-      const on = id === value;
-      button.setAttribute("aria-checked", String(on));
-      button.tabIndex = on ? 0 : -1;
-      if (on && focus) button.focus();
-    }
-    if (!silent) onChange?.(value);
-  };
-  for (const option of options) {
-    const button = element("button", `${prefix}-seg-button`);
-    button.type = "button";
-    button.setAttribute("role", "radio");
-    button.append(icon("check"), element("span", "", option.label));
-    button.addEventListener("click", () => select(option.value));
-    button.addEventListener("keydown", (event) => {
-      const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-      if (!(event.key in keys)) return;
-      event.preventDefault();
-      const index = options.findIndex((candidate) => candidate.value === value);
-      const target = options[(index + keys[event.key] + options.length) % options.length];
-      select(target.value, { focus: true });
-    });
-    buttons.set(option.value, button);
-    root.append(button);
-  }
-  select(value, { silent: true });
-  return { root, select, get value() { return value; } };
-}
-
-// Tableau sémantique triable au clavier (UX-DR13) : `<table>` avec `scope`, en-têtes boutons,
-// `aria-sort`. Colonnes : { key, label, value(row) (valeur de tri), cell(row) (nœud ou texte),
-// header (cellule d'en-tête de ligne) }. Le conteneur défile (focusable) sans déborder de la page.
-export function dataTable({ caption, columns, rows, sortKey = null, ascending = true, className = "ar", sortLabel = null }) {
-  const wrap = element("div", `${className}-table-wrap`);
-  wrap.tabIndex = 0;
-  wrap.setAttribute("role", "region");
-  wrap.setAttribute("aria-label", caption);
-  const table = element("table", `${className}-table`);
-  table.append(element("caption", "sr-only", caption));
-  const head = element("tr");
-  const headers = new Map();
-  for (const column of columns) {
-    const th = element("th");
-    th.scope = "col";
-    if (column.value) {
-      const button = element("button", `${className}-sort`);
-      button.type = "button";
-      button.dataset.key = column.key;
-      button.append(element("span", "", column.label), icon("expand-more"));
-      if (sortLabel) button.setAttribute("aria-label", sortLabel(column.label));
-      button.addEventListener("click", () => {
-        if (sortKey === column.key) ascending = !ascending;
-        else {
-          sortKey = column.key;
-          ascending = true;
-        }
-        renderBody();
-      });
-      th.append(button);
-    } else {
-      th.textContent = column.label;
-    }
-    headers.set(column.key, th);
-    head.append(th);
-  }
-  const thead = element("thead");
-  thead.append(head);
-  const tbody = element("tbody");
-  table.append(thead, tbody);
-  wrap.append(table);
-
-  function renderBody() {
-    let list = [...rows];
-    const column = columns.find((candidate) => candidate.key === sortKey);
-    if (column?.value) {
-      list.sort((a, b) => {
-        const x = column.value(a);
-        const y = column.value(b);
-        if (x == null && y == null) return 0;
-        if (x == null) return 1; // les valeurs inconnues restent en bas
-        if (y == null) return -1;
-        const order = typeof x === "string" ? x.localeCompare(y, "fr-FR") : x - y;
-        return ascending ? order : -order;
-      });
-    }
-    for (const [key, th] of headers) {
-      th.setAttribute("aria-sort", key === sortKey ? (ascending ? "ascending" : "descending") : "none");
-    }
-    tbody.replaceChildren(
-      ...list.map((row) => {
-        const tr = element("tr");
-        for (const columnItem of columns) {
-          const cell = element(columnItem.header ? "th" : "td");
-          if (columnItem.header) cell.scope = "row";
-          const content = columnItem.cell(row);
-          if (content instanceof Node) cell.append(content);
-          else cell.textContent = content;
-          tr.append(cell);
-        }
-        return tr;
-      }),
-    );
-  }
-  renderBody();
-  return wrap;
-}
 
 function waitUntil(condition, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
@@ -720,7 +575,7 @@ export async function mount(host, ctx) {
     if (["cancelled", "interrupted"].includes(lane.status) && lane.text) notes.push(element("p", "help", t("arene.lanes.partial_kept")));
     dom.note.replaceChildren(...notes);
     const focused = state.focus === lane.tag;
-    dom.focusButton.replaceChildren(localIcon(focused ? "close_fullscreen" : "open_in_full"), element("span", "", t(focused ? "arene.lanes.unfocus" : "arene.lanes.focus")));
+    dom.focusButton.replaceChildren(icon(focused ? "close-fullscreen" : "open-in-full"), element("span", "", t(focused ? "arene.lanes.unfocus" : "arene.lanes.focus")));
     dom.focusButton.setAttribute("aria-pressed", String(focused));
   }
 
@@ -933,120 +788,41 @@ export async function mount(host, ctx) {
     rankingSection.replaceChildren(...children);
   }
 
-  // Matrice : nuage de points SVG fait main (UX-DR14), titre et description, lien vers le tableau.
+  // Matrice : composant commun (js/components/charts.js), titre et description, lien vers le tableau.
   function buildChart(lanesList) {
     const plotted = lanesList.filter((lane) => typeof lane.score === "number" && typeof lane.metrics?.tps === "number");
     const missing = lanesList.filter((lane) => !plotted.includes(lane));
-    const wrap = element("div", "ar-chart");
     if (!plotted.length) {
+      const wrap = element("div", "ar-chart");
       wrap.append(element("p", "help", t("arene.chart.empty")));
       return wrap;
     }
-    const W = 560;
-    const H = 340;
-    const M = { left: 58, right: 24, top: 18, bottom: 54 };
-    const maxTps = Math.max(...plotted.map((lane) => lane.metrics.tps));
-    const step = maxTps * 1.15 <= 100 ? 20 : maxTps * 1.15 <= 250 ? 50 : 100;
-    const xMax = Math.max(step * 2, Math.ceil((maxTps * 1.15) / step) * step);
-    const x = (value) => M.left + (value / xMax) * (W - M.left - M.right);
-    const y = (value) => H - M.bottom - (value / 100) * (H - M.top - M.bottom);
-    const co2Values = plotted.map((lane) => lane.metrics.co2?.mg).filter((value) => typeof value === "number");
-    const group = co2Group(co2Values);
-    const maxCo2 = Math.max(...co2Values, 0.0001);
-    const minCo2 = Math.min(...co2Values, maxCo2);
-    const radius = (mg) => 7 + 15 * Math.sqrt(mg / maxCo2);
-
-    const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    svg.setAttribute("class", "ar-svg");
-    svg.setAttribute("role", "img");
-    svg.setAttribute("aria-labelledby", `${uid}-svg-title ${uid}-svg-desc`);
-    const add = (tag, attrs = {}, text = null, parent = svg) => {
-      const node = document.createElementNS(SVG_NS, tag);
-      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
-      if (text !== null) node.textContent = text;
-      parent.append(node);
-      return node;
-    };
+    const group = co2Group(plotted.map((lane) => lane.metrics.co2?.mg).filter((value) => typeof value === "number"));
     const points = plotted
-      .map((lane) =>
-        t("arene.chart.point", {
-          name: lane.name,
-          score: formatScore(lane.score),
-          rate: formatRate(lane.metrics.tps),
-          co2: co2Display(lane.metrics.co2).value,
-        }),
-      )
+      .map((lane) => t("arene.chart.point", { name: lane.name, score: formatScore(lane.score), rate: formatRate(lane.metrics.tps), co2: co2Display(lane.metrics.co2).value }))
       .join(" ");
-    add("title", { id: `${uid}-svg-title` }, t("arene.chart.svg_title"));
-    add("desc", { id: `${uid}-svg-desc` }, t("arene.chart.svg_desc", { points }));
-    // Axes et repères.
-    for (let value = 0; value <= 100; value += 20) {
-      add("line", { x1: M.left, x2: W - M.right, y1: y(value), y2: y(value), class: "ar-grid" });
-      add("text", { x: M.left - 8, y: y(value) + 4, class: "ar-tick", "text-anchor": "end" }, formatInteger(value));
-    }
-    for (let value = 0; value <= xMax; value += step) {
-      add("line", { x1: x(value), x2: x(value), y1: M.top, y2: H - M.bottom, class: "ar-grid" });
-      add("text", { x: x(value), y: H - M.bottom + 18, class: "ar-tick", "text-anchor": "middle" }, formatInteger(value));
-    }
-    add("line", { x1: M.left, x2: W - M.right, y1: y(0), y2: y(0), class: "ar-axis" });
-    add("line", { x1: M.left, x2: M.left, y1: M.top, y2: y(0), class: "ar-axis" });
-    add("text", { x: (M.left + W - M.right) / 2, y: H - 10, class: "ar-axis-title", "text-anchor": "middle" }, t("arene.chart.x_axis"));
-    add("text", { x: 14, y: (M.top + y(0)) / 2, class: "ar-axis-title", "text-anchor": "middle", transform: `rotate(-90 14 ${(M.top + y(0)) / 2})` }, t("arene.chart.y_axis"));
-    // Points, étiquetés par le nom complet du modèle.
-    const labels = [];
-    plotted.forEach((lane) => {
-      const mg = lane.metrics.co2?.mg;
-      const known = typeof mg === "number";
-      const r = known ? radius(mg) : 9;
-      const cx = x(lane.metrics.tps);
-      const cy = y(lane.score);
-      const color = `var(--color-chart-${(lane.index % 4) + 1})`;
-      add("circle", { cx, cy, r, class: known ? "ar-dot" : "ar-dot is-unknown", style: `--dot: ${color}` });
-      labels.push({ lane, cx, cy, r });
+    return bubbleMatrix({
+      title: t("arene.chart.svg_title"),
+      desc: t("arene.chart.svg_desc", { points }),
+      points: plotted.map((lane) => ({ name: lane.name, x: lane.metrics.tps, y: lane.score, mg: lane.metrics.co2?.mg ?? null })),
+      x: { label: t("arene.chart.x_axis") },
+      y: { label: t("arene.chart.y_axis"), max: 100, ticks: [0, 20, 40, 60, 80, 100] },
+      size: {
+        title: t("arene.chart.size_legend"),
+        format: (mg) => group.format(mg),
+        unmeasurable: t("arene.chart.size_unmeasurable"),
+        note: t("arene.chart.same_unit", { unit: group.unit }),
+      },
+      seeTable: {
+        label: t("arene.chart.see_table"),
+        onClick: () => {
+          chartSegments.select("table");
+          chartSection.querySelector(".ar-table-wrap")?.focus();
+        },
+      },
+      missing: missing.length ? t("arene.chart.not_plotted", { names: missing.map((lane) => lane.name).join(", ") }) : null,
+      className: "ar",
     });
-    labels.sort((a, b) => a.cy - b.cy);
-    labels.forEach((label, index) => {
-      const nearRight = label.cx > W - M.right - 150;
-      label.ly = label.cy - label.r - 6;
-      if (index > 0) {
-        const previous = labels[index - 1];
-        if (Math.abs(label.ly - previous.ly) < 15 && Math.abs(label.cx - previous.cx) < 150) label.ly = previous.ly + 15;
-      }
-      add("text", { x: nearRight ? label.cx + label.r : label.cx - label.r, y: label.ly, class: "ar-dot-label", "text-anchor": nearRight ? "end" : "start" }, label.lane.name);
-    });
-    wrap.append(svg);
-
-    // Légende de taille (HTML : lisible par un lecteur d'écran) et lien vers le tableau.
-    const legendBox = element("div", "ar-size-legend");
-    legendBox.append(element("p", "ar-size-title", t("arene.chart.size_legend")));
-    const sizes = element("ul", "ar-sizes");
-    const sizeItem = (mg, dashed = false, text = null) => {
-      const item = element("li", "ar-size");
-      const dot = document.createElementNS(SVG_NS, "svg");
-      dot.setAttribute("class", "ar-size-dot");
-      dot.setAttribute("viewBox", "0 0 44 44");
-      dot.setAttribute("aria-hidden", "true");
-      add("circle", { cx: 22, cy: 22, r: dashed ? 9 : Math.min(21, radius(mg)), class: dashed ? "ar-dot is-unknown" : "ar-dot", style: "--dot: var(--color-gray-graphic)" }, null, dot);
-      item.append(dot, element("span", "", text ?? group.format(mg)));
-      return item;
-    };
-    if (co2Values.length) {
-      sizes.append(sizeItem(minCo2));
-      if (maxCo2 !== minCo2) sizes.append(sizeItem(maxCo2));
-    }
-    if (plotted.some((lane) => typeof lane.metrics.co2?.mg !== "number")) sizes.append(sizeItem(0, true, t("arene.chart.size_unmeasurable")));
-    legendBox.append(sizes);
-    if (co2Values.length) legendBox.append(element("p", "help", t("arene.chart.same_unit", { unit: group.unit })));
-    const seeTable = element("button", "btn ar-see-table", t("arene.chart.see_table"));
-    seeTable.type = "button";
-    seeTable.addEventListener("click", () => {
-      chartSegments.select("table");
-      chartSection.querySelector(".ar-table-wrap")?.focus();
-    });
-    wrap.append(legendBox, seeTable);
-    if (missing.length) wrap.append(element("p", "help", t("arene.chart.not_plotted", { names: missing.map((lane) => lane.name).join(", ") })));
-    return wrap;
   }
 
   function buildTable(lanesList) {
@@ -1089,7 +865,6 @@ export async function mount(host, ctx) {
       ],
       rows,
       className: "ar",
-      sortLabel: (column) => t("arene.chart.sort_by", { column }),
     });
   }
 
@@ -1110,6 +885,7 @@ export async function mount(host, ctx) {
     const children = [element("h2", "", t("arene.chart.title"))];
     chartSegments = segments({
       label: t("arene.chart.segment_label"),
+      className: "ar",
       options: [
         { value: "matrix", label: t("arene.chart.matrix") },
         { value: "table", label: t("arene.chart.table") },
@@ -1176,11 +952,11 @@ export async function mount(host, ctx) {
     if (actionsSection.hidden) return;
     const rerun = element("button", "btn btn-primary", "");
     rerun.type = "button";
-    rerun.append(localIcon("replay"), element("span", "", t("arene.actions.rerun")));
+    rerun.append(icon("replay"), element("span", "", t("arene.actions.rerun")));
     rerun.addEventListener("click", () => resume({ launch: true }));
     const edit = element("button", "btn", "");
     edit.type = "button";
-    edit.append(localIcon("edit"), element("span", "", t("arene.actions.edit")));
+    edit.append(icon("edit"), element("span", "", t("arene.actions.edit")));
     edit.addEventListener("click", () => resume({ launch: false }));
     const exportRow = element("div", "ar-export");
     exportRow.setAttribute("role", "group");
@@ -1188,7 +964,7 @@ export async function mount(host, ctx) {
     for (const kind of ["csv", "md"]) {
       const button = element("button", "btn", "");
       button.type = "button";
-      button.append(localIcon("download"), element("span", "", t(`arene.actions.export_${kind}`)));
+      button.append(icon("download"), element("span", "", t(`arene.actions.export_${kind}`)));
       button.addEventListener("click", () => exportRun(kind));
       exportRow.append(button);
     }

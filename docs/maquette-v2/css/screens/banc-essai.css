@@ -205,34 +205,6 @@
 }
 
 /* Tableau du format attendu */
-.bc-table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-}
-
-.bc-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.bc-table th,
-.bc-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-line);
-  text-align: start;
-  vertical-align: top;
-}
-
-.bc-table thead th {
-  background: var(--color-surface-alt);
-}
-
-.bc-table tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
 /* Interrupteurs : bascule visible, le rôle `switch` et l'état sont aussi portés par le texte d'aide */
 .bc-switch-input {
   position: relative;
