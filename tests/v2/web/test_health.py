@@ -56,3 +56,18 @@ def test_cloud_providers_come_from_settings_and_keys_never_leak(tmp_path):
     providers = {p["id"]: p["configured"] for p in response.json()["cloud_providers"]}
     assert providers == {"openai": False, "groq": False, "anthropic": True, "mistral": False}
     assert "secretsecret" not in response.text
+
+
+def test_startup_probe_reports_a_slow_ollama_up_on_the_first_request(tmp_path):
+    import asyncio
+    import time
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.2)  # Ollama vivant, lent à répondre (démarrage à froid)
+        return httpx.Response(200, json={"version": "0.40.6"})
+
+    settings = make_settings(tmp_path)
+    probe = OllamaProbe(settings.ollama.host, transport=httpx.MockTransport(handler))
+    with TestClient(create_app(settings, probe), base_url=BASE) as client:
+        time.sleep(0.5)  # le navigateur s'ouvre
+        assert client.get("/api/health").json()["ollama"]["up"] is True

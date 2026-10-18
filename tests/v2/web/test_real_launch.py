@@ -26,7 +26,12 @@ def _get(port: int, path: str, host: str | None = None):
 
 
 def _launch(port: int, data_dir, ollama_port: int) -> subprocess.Popen:
-    env = {**os.environ, "WAVELOCALAI_OLLAMA_HOST": f"http://127.0.0.1:{ollama_port}"}
+    env = {
+        **os.environ,
+        "WAVELOCALAI_OLLAMA_HOST": f"http://127.0.0.1:{ollama_port}",
+        # Sortie tubée sous Windows : sinon encodée en cp1252, illisible en UTF-8.
+        "PYTHONIOENCODING": "utf-8",
+    }
     return subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "wavelocalai", "--port", str(port), "--data-dir", str(data_dir)],
         env=env,

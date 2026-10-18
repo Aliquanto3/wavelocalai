@@ -61,3 +61,11 @@ def test_masking_also_covers_known_secret_values_and_nested_detail():
     assert "ZZtopSecret99" not in envelope["detail"]["technical"]
     assert mask_secrets("rien à cacher ici") == "rien à cacher ici"
     assert mask_secrets("token=abc") == "token=***" or "abc" not in mask_secrets("token=abc")
+
+
+def test_prefixed_env_var_names_are_masked():
+    from wavelocalai.errors import mask_secrets
+
+    text = mask_secrets("MISTRAL_API_KEY=abcd1234efgh ANTHROPIC_API_KEY: zzzz9999yyyy")
+    assert "abcd1234efgh" not in text and "zzzz9999yyyy" not in text
+    assert text.startswith("MISTRAL_API_KEY=***")
