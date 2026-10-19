@@ -6,7 +6,9 @@
 //
 // À chaque route : `document.title` vaut « <Écran> · WaveLocalAI », le focus va sur le `h1` de
 // l'écran et une annonce polie le dit. Une route inconnue ou `planned` renvoie à l'Accueil.
-// Au chargement de la page, le focus reste en tête (lien d'évitement, puis navigation).
+// Au chargement de la page, le focus reste en tête (lien d'évitement, puis navigation) : décision B16
+// de la story 8.2, RGAA 12.7. Le titre et l'annonce polie sont posés dès le premier rendu ; un test
+// (`test_accessibilite.py`) garde ce comportement.
 
 import { findScreen } from "./registry.js";
 import { t } from "./i18n.js";

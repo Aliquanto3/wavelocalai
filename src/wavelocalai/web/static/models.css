@@ -197,6 +197,7 @@
 /* Story 5.4 : « Décharger », « Supprimer » et les modèles proposés par défaut. */
 .models-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 320 px : la piste ne s'élargit pas au plus large contenu */
   gap: 1rem;
 }
 
