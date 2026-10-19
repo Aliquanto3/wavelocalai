@@ -32,6 +32,7 @@ function onSystemState(data) {
       cpuPercent: data.cpu_percent ?? null,
       memory: data.memory ?? null,
       modelsLoaded: data.models_loaded ?? null,
+      gpu: data.gpu ?? null, // champ absent sans NVML : l'écran Sobriété dit « Aucun »
     },
     runsActive: Array.isArray(data.runs_active) ? data.runs_active : [],
   });
