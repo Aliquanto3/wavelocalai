@@ -216,7 +216,7 @@ L'utilisateur constitue sa base documentaire et l'interroge en naïf, HyDE ou Se
 **FRs couverts :** FR31 à FR41, FR42 (résumé de la base)
 
 ### Epic 5 : Suivre sa sobriété et administrer ses modèles (post-MVP)
-Sobriété en direct, historique carbone, écran `#/modeles`, fiche modèle, références par usage (`qb.results/1`).
+Découpe des fichiers partagés du front (5.0, décision du 2026-10-19), sobriété en direct, historique carbone, écran `#/modeles`, fiche modèle, références par usage (`qb.results/1`).
 **FRs couverts :** FR43, FR44, FR47
 
 ### Epic 6 : Confier une tâche à un agent ou à une équipe (post-MVP)
@@ -1263,6 +1263,28 @@ So that l'atelier documentaire se déroule sans incident.
 
 L'utilisateur suit en direct la charge du poste et l'empreinte de sa session, retrouve l'historique carbone, installe, décharge et supprime ses modèles en sachant s'ils tiennent, consulte la fiche d'un modèle et voit quel modèle convient à quel usage d'après le banc publié. **Prérequis :** mise à jour `bmad-ux` (écrans Sobriété et Modèles, spine §Deferred) et retour de recette du MVP ; 5.6 et 5.8 se développent sur un fichier `qb.results/1` de test ; 5.7 attend une release de slm-quality-bench synchronisée sur `master`, et la préversion `a5` part sans elle si les données manquent (décision Q7). Se termine par la préversion `2.0.0a5`.
 
+### Story 5.0 : Découper les fichiers partagés du front
+
+Story technique, avant la 5.1 (décision du 2026-10-19).
+
+As a mainteneur qui fait avancer plusieurs écrans en parallèle,
+I want que les fichiers du front partagés par tous les écrans soient découpés par écran, par composant ou par domaine,
+So that deux stories d'écrans différents ne se mettent plus en conflit et que les parcours du navigateur soient vérifiés en CI.
+
+**Gouverné par :** AD-20 ; NFR10.
+
+**Acceptance Criteria:**
+
+**Given** `static/i18n/fr.json`, les feuilles CSS communes, `core/api.js` et la déclaration des routes (`core/registry.js`)
+**When** la story est livrée
+**Then** les textes sont rangés par écran, le CSS par composant, `api.js` par domaine, et chaque écran déclare ses propres routes ; aucun changement visible (mêmes clés de texte, mêmes routes, E2E existants verts sans modification de leurs attentes)
+**And** `components/wl-model-picker.js` passe sous 600 lignes
+**And** `test_layers.py`, `test_shell_static.py`, le budget de lecture et le budget de la coquille (300 ms) restent verts
+
+**Given** `.github/workflows/tests.yml`
+**When** une PR vise `master`
+**Then** un job lance les E2E navigateur de `tests/v2/e2e` (Ollama simulé, sans réseau), et un E2E rouge fait échouer la CI
+
 ### Story 5.1 : L'écran Sobriété montre la machine et la session en direct
 
 As a consultant qui présente la sobriété,
@@ -1277,6 +1299,7 @@ So that je relie la charge du poste aux réponses qui l'ont produite, sans cliqu
 **When** on l'ouvre
 **Then** la section « Santé du système » affiche processeur %, mémoire utilisée et totale, accélérateur (« Aucun » si aucun n'est détecté, jamais « Actif » sans détection) et modèles chargés dans Ollama, mis à jour par le flux système sans clic
 **And** le flux de l'écran se ferme quand l'onglet est masqué (`visibilitychange`) et se rouvre au retour en relisant `GET /api/carbon/session` (E2E)
+**And** la version d'Ollama s'affiche en légende de « Santé du système » (décision du 2026-10-19)
 
 **Given** un GPU NVIDIA présent (NVML)
 **When** le flux système publie son état
@@ -1322,6 +1345,7 @@ So that je montre l'empreinte cumulée d'un atelier et repars d'un compteur prop
 **When** on clique « Remettre le compteur à zéro »
 **Then** le hub ouvre une nouvelle `app_session` (`hub.new_app_session("reset")`), le total de la barre haute et de Sobriété repart de 0 par `carbon_updated`, et la session close apparaît dans l'historique
 **And** un run actif pendant la remise à zéro reste compté dans la session où il a commencé (test)
+**And** session vide (aucun run compté) : « Remettre le compteur à zéro » est désactivé avec sa raison visible (décision du 2026-10-19)
 
 ### Story 5.3 : Installer un modèle en sachant s'il tient en mémoire
 
@@ -1373,6 +1397,7 @@ So that je libère la mémoire avant une démo et retrouve mes choix d'une séan
 **When** on choisit un modèle comme défaut d'un usage (`chat`, `arena`, `judge`, `agent`, `rag`) par `PUT /api/models/defaults/{purpose}` (écriture, `Origin` contrôlée)
 **Then** le choix est écrit dans `preferences` (jamais dans `wavelocalai.toml`), `GET /api/models/defaults` le rend avec la raison « Choisi par vous », un modèle cloud n'est gardé qu'avec `allow_cloud`, et « Revenir au choix automatique » efface la préférence
 **And** un défaut choisi puis supprimé du poste retombe sur la règle avec sa raison (test)
+**And** « Changer » ouvre `wl-model-picker` filtré sur les modèles éligibles à l'usage : un modèle inéligible n'est pas proposé, plutôt que refusé à « Enregistrer » (décision du 2026-10-19)
 
 ### Story 5.5 : Récupérer le reranker depuis l'écran Modèles
 
@@ -1416,6 +1441,7 @@ So that j'explique la vitesse observée et ce qu'elle serait sur un PC pro de 16
 **When** la fiche s'ouvre
 **Then** elle montre dense ou MoE, paramètres totaux et actifs, quantification, licence, contexte, outils et raisonnement vérifiés (`/api/show` en cache `model_facts`, catalogue), avec « inconnu » pour une valeur absente, jamais 0
 **And** le panneau est à droite dès 1 120 px, au-dessus de la liste en deçà, et `#/modeles/<tag>` l'ouvre directement (D-40, D-8) ; la fiche d'un modèle non installé qui ne tient pas porte « Installer quand même » (D-42)
+**And** à côté de `wl-model-picker` (hors de la liste d'options), un bouton « Fiche du modèle » ouvre la même fiche en panneau sur l'écran courant, sans changer d'URL (décision du 2026-10-19)
 
 **Given** « Pourquoi ce débit ? »
 **When** on l'ouvre
@@ -1460,6 +1486,7 @@ So that je réponds à « lequel prendre pour mon cas ? » sans relancer de comp
 **When** on l'ouvre
 **Then** une carte par usage publié dans `qb.results/1` montre le groupe des meilleurs (désigné par le serveur ; intervalle, sans rang inventé dans un groupe à égalité, tri par nom), le score en pourcentage de réussite avec le libellé « Part de … » en tête (D-5), le débit sur la machine de référence et la marque « installé » ou « autre version » pour les modèles du poste ; les cartes sont la vue par défaut, un segment « Cartes · Tableau » donne le tableau équivalent (D-20)
 **And** références indisponibles : la raison s'affiche, sans carte vide ; Ollama arrêté : les références restent lisibles, les marques « installé » sont retirées avec un message
+**And** ni bloc « Autres modèles mesurés », ni lien vers le tableau du banc, ni légende des marques (décision du 2026-10-19)
 
 **Given** une carte d'usage
 **When** on clique « Comparer ces modèles »
@@ -1468,6 +1495,7 @@ So that je réponds à « lequel prendre pour mon cas ? » sans relancer de comp
 **Given** l'Accueil
 **When** les références sont disponibles
 **Then** une carte « Références » (nom long « Quel modèle pour quel usage ? », D-10) affiche le meilleur score en pourcentage « Part de … » (D-5) et ouvre `#/arene/references` ; sinon elle n'apparaît pas
+**And** la carte a sa propre icône Material, jamais partagée, distincte de `swords` (Arène) (décision du 2026-10-19) ; elle lit ses données en un appel au plus, après le repère `shell-ready` (AD-6 amendé)
 
 **Given** le parcours Sobriété puis Modèles
 **When** le test E2E le joue (Ollama simulé, fichier `qb.results/1` de test)
@@ -1570,6 +1598,7 @@ So that la salle voit le raisonnement outillé et que je garde la main sur ce qu
 **Then** `wl-model-picker` est sur le défaut `agent` avec sa raison (sans défaut : la raison et un choix demandé, lancement désactivé), les neuf outils sont visibles en interrupteurs en bascule (D-6), tous activés sauf « Envoi d'email », un outil indisponible est non activable (`aria-disabled`, focalisable) avec son aide, et l'accueil dit « Bonjour ! L'agent est prêt. » avec des actions rapides
 **And** un modèle choisi sans outils vérifiés affiche l'avertissement « Ce modèle n'a pas d'outils vérifiés : l'agent risque de mal appeler ses outils. Préférez un modèle marqué « Outils vérifiés ». » et le lancement reste permis (D-32)
 **And** le panneau « Étapes » est à droite dès 1 024 px ; en deçà, sous la réponse et toujours déplié, sans bouton de repli (D-30)
+**And** le `h1` de l'écran est « Agent seul » (décision du 2026-10-19)
 
 **Given** une tâche lancée
 **When** les `step` arrivent
@@ -1629,6 +1658,7 @@ So that la mission se lit d'un coup d'œil et laisse une trace, à parité avec 
 **When** les `step` arrivent
 **Then** une ligne par agent dit son statut (En attente, En cours avec l'étape, Terminé avec outils et durée lus dans `agent_totals`, Arrêté, Non lancé pour un agent que la mission n'a pas atteint, D-34) et se déplie sur sa trace ; le journal brut est replié, en lignes horaires lisibles, jamais en JSON (D-33) ; Arrêter (et Échap) annule
 **And** une mission terminée ou arrêtée se rouvre par `#/agents/equipe/<run_id>` (route passée à `available`, D-8) ; un identifiant inconnu affiche `run_not_found`
+**And** à la fin du run, l'adresse est réécrite vers `#/agents/equipe/<run_id>` (`history.replaceState`), comme à l'Arène ; le `h1` de l'écran est « Équipe d'agents » (décision du 2026-10-19)
 **And** le rapport s'affiche avec son pied (badge, CO₂, pic de mémoire, durée, Télécharger en Markdown par la route d'export, sans `blob:`)
 
 **Given** l'agent seul et l'équipe de la v1
@@ -1705,6 +1735,7 @@ So that je compare la fiabilité des modèles sur mes documents et retrouve le r
 **When** on l'ouvre
 **Then** il propose Question ou Jeu de questions, `wl-model-picker` en mode multi présélectionné sur le défaut `arena` (les trois petits modèles locaux de l'Arène, D-27), le juge sur le défaut `judge` avec sa raison et l'avertissement « note peu fiable » sous ~4B actifs, et la phrase « Les mêmes extraits sont fournis à tous les modèles. »
 **And** question vide : « Lancer l'évaluation » est désactivé avec la raison visible « Saisissez une question » (D-29)
+**And** 4 modèles évalués au plus : au-delà, lancement désactivé avec « Choisissez 4 modèles au plus » ; le serveur refuse plus de 4 modèles en `422 invalid_request` (décision du 2026-10-19)
 
 **Given** une évaluation lancée
 **When** les événements arrivent
@@ -1713,7 +1744,8 @@ So that je compare la fiabilité des modèles sur mes documents et retrouve le r
 
 **Given** une évaluation terminée
 **When** on revient sur l'écran ou ouvre son URL `#/documents/evaluation/<run_id>`
-**Then** le résultat se reconstruit depuis la base sans relancer de modèle ; « Matrice » et « Tableau » sont proposés comme dans l'Arène
+**Then** le résultat se reconstruit depuis la base sans relancer de modèle ; « Matrice » et « Tableau » sont proposés comme dans l'Arène, sans colonne « Global » (décision du 2026-10-19)
+**And** l'écran liste les évaluations passées (les plus récentes d'abord, comme l'historique de l'Arène), chacune rouvrable par son adresse (décision du 2026-10-19)
 **And** un résultat partiel (instantané `partial: true`) se rouvre titré « Résultat partiel conservé », ses cellules non notées en « non évalué (évaluation arrêtée) » (D-28) ; un identifiant inconnu affiche `run_not_found`
 **And** axe-core sans violation, clair et sombre
 
@@ -1727,6 +1759,10 @@ So that je montre qu'un petit modèle sait produire un JSON exploitable.
 
 **Acceptance Criteria:**
 
+**Given** le registre des modèles
+**When** `GET /api/models` rend un modèle
+**Then** il porte le champ `structured_output` (booléen : le modèle peut imposer un format de sortie), consigné dans `contrat-api.md` ; un modèle qui ne le peut pas rend « Format imposé » désactivé avec sa raison (décision du 2026-10-19)
+
 **Given** `GET /api/scenarios`
 **When** on l'appelle
 **Then** il rend les scénarios de la v1 (`USE_CASES` de `lab.py`, consignes séparées du format) avec leur consigne système (`instruction`, D-18) et leur format attendu en schéma JSON, ou `null` pour un scénario sans format (D-17)
@@ -1739,7 +1775,8 @@ So that je montre qu'un petit modèle sait produire un JSON exploitable.
 **When** on lance un scénario
 **Then** la réponse arrive en flux, le verdict de format s'affiche à `run_ended` avec la sortie mise en forme, et les interrupteurs en bascule (D-6) « Format imposé » et « Réponse concise » ont leur aide ; le résultat est conservé et rouvrable par `#/arene/banc/<run_id>` (identifiant inconnu : `run_not_found`)
 **And** la consigne système du scénario est dans un bloc « Consigne » replié (D-18) ; un scénario sans format n'a pas de « Format attendu », « Format imposé » est désactivé avec la raison visible, et aucun verdict n'est affiché (D-17)
-**And** un délai dépassé affiche « Délai dépassé » avec le délai ; axe-core sans violation, clair et sombre
+**And** un délai dépassé affiche « Délai dépassé (120 s) », le délai réel cité ; axe-core sans violation, clair et sombre
+**And** à la fin, « Relancer le test » et « Modifier le test » (comme « Relancer » et « Modifier la question » de l'Arène), et l'écran liste les tests passés, chacun rouvrable par son adresse (décision du 2026-10-19)
 
 **Given** les parcours Évaluation et Banc d'essai
 **When** les E2E les jouent (`fake`, base de test en dossier temporaire)
@@ -1785,6 +1822,37 @@ So that les tests qui protègent la v2 ne laissent rien passer avant la bascule.
 **When** on clique « Réessayer »
 **Then** une sonde est forcée sans attendre l'échéance du cache (route d'écriture ou paramètre, sous le budget de 300 ms), et l'état s'affiche aussitôt (C8)
 **And** les textes de `ollama_down` n'ont qu'une source : le front les lit de l'API ou d'un catalogue généré depuis `errors.py`, le test miroir disparaît (C9)
+
+Ajouts du 2026-10-19 (décisions d'Anaël, écarts du §7(d) de `sprint-change-proposal-2026-10-19.md` sur le code livré) :
+
+**Given** un `timeout` dans l'Arène, le Banc ou le chat
+**When** le message s'affiche
+**Then** il cite le délai (« Délai dépassé (120 s) »), partout (écart n° 1)
+
+**Given** l'Arène livrée
+**When** un run tourne puis se termine
+**Then** le chronomètre est au format « 0:42 » (UX-DR20, écart n° 4) ; « un seul juge » s'affiche toujours avec les notes (écart n° 5) ; à la fin, l'adresse est réécrite vers `…/<run_id>` par `history.replaceState` (écart n° 7) ; chaque point est corrigé seulement si l'existant diffère, avec un E2E
+
+**Given** la Discussion avec un modèle cloud
+**When** on l'utilise
+**Then** l'avertissement « les extraits de vos documents lui sont envoyés » s'affiche (AD-9, écart n° 12)
+**And** avec la stratégie vérifiée (Self-RAG) et un modèle de moins de ~3 B paramètres actifs, l'avertissement « vérification peu fiable » s'affiche, comme pour le juge de l'Arène
+
+**Given** un import en cours dans la Base documentaire
+**When** l'écran s'affiche
+**Then** « Supprimer » et « Vider » sont désactivés avec leur raison visible au lieu d'afficher le `409` ; le `409 base_in_use` reste côté serveur (écart n° 13)
+
+**Given** les copies `.db.bak-N` laissées par les migrations
+**When** une migration réussit, puis qu'un effacement (AD-13) a lieu
+**Then** une seule copie est gardée et elle est supprimée après la migration suivante réussie ; un effacement purge aussi le texte de la copie ou la supprime (test)
+
+**Given** `components/wl-model-picker.js` (666 lignes)
+**When** la story 5.0 ne l'a pas déjà fait
+**Then** il passe sous 600 lignes
+
+**Given** le sprite d'icônes
+**When** Anaël a fourni le fichier officiel Material Symbols Rounded (aucun téléchargement par un agent)
+**Then** `icons.svg` en reprend le sous-ensemble utilisé, avec sa licence (D-2)
 
 ### Story 8.2 : Tous les écrans sont accessibles et lisibles en projection
 
