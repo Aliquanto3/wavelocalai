@@ -314,11 +314,18 @@ def test_co2_survives_a_reload_from_the_session_endpoint(fresh_bar):
     assert co2_rows(bar)["local"] == f"1,8{NBSP}mg"
 
 
-def test_co2_badges_and_the_disabled_sobriety_link(bar):
+def test_co2_badges_and_the_disabled_sobriety_link_while_the_screen_is_planned(bar):
+    bar.evaluate(
+        """async () => {
+            const registry = await import('/static/core/registry.js');
+            registry.SCREENS.find((s) => s.id === 'sobriety').status = 'planned';
+            (await import('/static/core/topbar.js')).bindSobrietyLink();
+        }"""
+    )
     panel = open_panel(bar, "co2-button", "co2-panel")
     assert panel.locator("wl-badge").all_inner_texts() == ["Local", "Cloud"]
     link = panel.get_by_role("link", name="Détails dans Sobriété")
-    # L'écran Sobriété n'existe pas encore : lien désactivé, raison visible, focalisable.
+    # Écran à venir (le registre le dit) : lien désactivé, raison visible, focalisable.
     assert link.get_attribute("aria-disabled") == "true" and link.get_attribute("href") is None
     assert (
         panel.locator("#co2-link-reason").inner_text()
@@ -330,15 +337,16 @@ def test_co2_badges_and_the_disabled_sobriety_link(bar):
     assert bar.evaluate("location.hash") in ("", "#/")
 
 
-def test_the_sobriety_link_goes_live_once_the_screen_is_available(bar):
-    make_screen_available(bar, "sobriety")
-    bar.evaluate("() => import('/static/core/topbar.js').then((m) => m.bindSobrietyLink())")
+def test_the_sobriety_link_is_live_since_the_screen_is_available(bar):
     link = open_panel(bar, "co2-button", "co2-panel").get_by_role(
         "link", name="Détails dans Sobriété"
     )
     assert link.get_attribute("href") == "#/sobriete"
     assert link.get_attribute("aria-disabled") is None
     assert bar.locator("#co2-link-reason").is_hidden()
+    link.click()
+    assert bar.evaluate("location.hash") == "#/sobriete"
+    bar.locator('[data-screen="sobriety"] h1').wait_for(state="visible")
 
 
 # --- Connexion perdue, serveur redémarré ------------------------------------------------------

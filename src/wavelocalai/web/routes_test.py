@@ -17,6 +17,8 @@ d'étapes, chacune un objet à une clé principale :
 `POST /api/test/reranker` remplace le reranker de l'app par un `FakeReranker` (`lexical` ou
 `reverse`, `delay_s`), ou le déclare indisponible (`absent`, avec sa `reason`) ; `GET` rend les
 calculs qu'il a faits (story 4.7).
+`POST /api/test/gpu` fixe l'état du GPU que le flux système publie (`gpu` : nom, mémoire, température,
+bridage thermique ; `null` : aucun GPU, le champ est absent), au lieu de la lecture NVML du poste (5.1).
 
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
@@ -158,6 +160,30 @@ async def script_embedder(body: ScriptedEmbedder, request: Request) -> dict[str,
             embedder.script = list(steps)
             embedder.calls = 0
     return {"steps": len(steps)}
+
+
+class ScriptedGpu(BaseModel):
+    gpu: dict[str, Any] | None = None
+
+
+@router.post("/gpu")
+async def script_gpu(body: ScriptedGpu, request: Request) -> dict[str, bool]:
+    """État du GPU publié par le flux système : celui du corps (ou aucun), à la place de NVML.
+    Les valeurs sont celles de `GpuState` ; une clé manquante est une erreur de test."""
+    state = body.gpu
+    if state is not None:
+        missing = {
+            "name",
+            "memory_used_gb",
+            "memory_total_gb",
+            "temperature_c",
+            "thermal_throttle",
+        } - set(state)
+        if missing:
+            raise AppError("invalid_request", f"gpu : champs manquants {sorted(missing)}.")
+        state = {"throttle_reasons": [], **state}
+    request.app.state.system_sampler.gpu_reader = lambda: state
+    return {"gpu": state is not None}
 
 
 class ScriptedChatModel(BaseModel):
