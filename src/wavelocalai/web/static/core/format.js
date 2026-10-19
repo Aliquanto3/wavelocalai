@@ -132,3 +132,14 @@ export function formatScore(score) {
   if (!isMeasure(score)) return t("format.not_evaluated");
   return `${formatNumber(score)}/100`;
 }
+
+const MONEY_FLOOR = 0.0001;
+
+// Montant dans la devise de la table de prix du serveur : « 0,03 € », « 6,60 € ». Jusqu'à quatre
+// décimales pour un petit coût ; un coût réel sous 0,0001 se dit « moins de 0,0001 € », jamais 0.
+export function formatMoney(amount, currency) {
+  if (!isMeasure(amount)) return formatUnknown();
+  const money = (value) =>
+    intl(`money-${currency}`, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value);
+  return amount > 0 && amount < MONEY_FLOOR ? t("format.money_below", { value: money(MONEY_FLOOR) }) : money(amount);
+}

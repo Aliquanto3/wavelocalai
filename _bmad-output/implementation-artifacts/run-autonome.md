@@ -7,7 +7,7 @@ Fichier lu par `/agent-cost-kit:avancement-run`. Le détail du run (règles, out
 | Périmètre | Epics | Note |
 |---|---|---|
 | Dans le run | Epics 1 à 4 | MVP de la v2 ; préversions 2.0.0a1 à 2.0.0a4, une par epic (tag et release par Anaël après recette) |
-| Dans le run | Epics 5 à 8 | après le MVP, seulement après fusion de la PR `bmad-correct-course` ; préversions 2.0.0a5 à a7 sans tag ni release (confirmé par Anaël) |
+| Hors run | Epics 5 à 8 | reportés à un run ultérieur (décision d'Anaël du 2026-10-19 vers 8 h 40 : budget de tokens ; projet non urgent). Plan des vagues V15 à V25 gardé ci-dessous pour la reprise |
 | Hors run | Story 8.4 | « La v2 remplace la v1 » : revient à Anaël |
 
 ## Règles fixes
@@ -40,6 +40,27 @@ Dépendances des Epics 3 et 4 au-delà de 3.3 et 4.2 : estimées d'après epics.
 | V12 | 3.6 ★ · 4.5 · 4.6 | 3.6 ← 3.5, 2.6 ; 4.5 ← 4.4, 4.2 ; 4.6 ← 4.4 |
 | V13 | 4.7 · 4.8 | 4.7 ← 4.4 ; 4.8 ← 4.4 |
 | V14 | 4.9 ★ | 4.9 ← 4.3, 4.5, 4.6, 4.7, 4.8, 3.6 |
+| V14b | 1.12 · 2.7 | stories de suite du correct course (§7(b)), fusionnées avant 3.6 et 4.9 |
+
+## Sprint 2 — Après le MVP (Epics 5 à 8, sauf 8.4)
+
+Vagues planifiées par fichiers touchés (décision d'Anaël du 2026-10-19) : deux stories du même écran ne vont jamais dans la même vague ; une story serveur d'un epic suivant peut prendre une place libre. Écrans : Sobriété (5.1, 5.2), Modèles (5.3 à 5.6), Usages (5.8), Agent (6.4), Équipe (6.6), Évaluation (7.3), Banc d'essai (7.4). La 5.0 découpe d'abord les fichiers partagés du front (textes par écran, CSS par composant, `api.js` par domaine, routes par écran) et ajoute le job E2E à la CI.
+
+| Vague | Stories en parallèle | Après |
+|---|---|---|
+| V15 | 5.0 ★ | 5.0 ← 4.9 |
+| V16 | 5.1 · 5.3 · 6.1 | 5.1 ← 5.0 ; 5.3 ← 5.0 ; 6.1 ← 5.0 |
+| V17 | 5.2 · 5.4 · 6.2 | 5.2 ← 5.1 ; 5.4 ← 5.3 ; 6.2 ← 6.1 |
+| V18 | 5.5 · 5.7 (mixte) · 6.3 | 5.5 ← 5.4 ; 5.7 ← 5.4 ; 6.3 ← 6.2 |
+| V19 | 5.6 · 6.5 · 7.1 | 5.6 ← 5.5 ; 6.5 ← 6.1 ; 7.1 ← 4.4 |
+| V20 | 5.8 ★ · 6.4 · 7.2 (mixte) | 5.8 ← 5.6, 5.7 ; 6.4 ← 6.3 ; 7.2 ← 7.1 |
+| V21 | 6.6 ★ · 7.3 | 6.6 ← 6.4, 6.5 ; 7.3 ← 7.1 |
+| V22 | 7.4 ★ | 7.4 ← 7.2, 7.3 |
+| V23 | 8.1 | 8.1 ← 7.4 |
+| V24 | 8.2 | 8.2 ← 8.1 |
+| V25 | 8.3 | 8.3 ← 8.2 |
+
+Étapes humaines prévues : 5.3 et 5.5 téléchargements simulés (un vrai téléchargement attend Anaël) ; 5.7 attend une release de slm-quality-bench synchronisée sur master (sinon 5.8 et a5 partent sans elle, décision Q7) ; 7.2 relecture par Anaël des verdicts du jeu fixe (décision Q4), le reste avance en attendant ; 6.3 SMTP factice seulement.
 
 ## Journal
 
@@ -227,4 +248,55 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 07:01 · 3.5 · dev · lancé (Sonnet high, worktree v2-3-5, depuis master 71cfbf3) ; consigne : aucun prix inventé · —
 - 2026-10-19 07:07 · run · décision · Anaël : fichiers d'état hors des PR de story (PR `chore/etat-run`), story technique 5.0 avant l'Epic 5, vagues par fichiers, `rerere`, journal en `merge=union`, job E2E en CI (dans 5.0) · —
 - 2026-10-19 07:08 · 4.8 · contrôles · verts après fusion (1019 v2, 317 E2E, 10 integration, 1286 v1) ; PR ouverte · 8e2f758
-- 2026-10-19 07:09 · 4.3 · fusion · PR #68 fusionnée · 71cfbf3
+- 2026-10-19 07:09 · 4.3 · fusion · refusée (PR #68 en conflit après la fusion de la 3.4) ; master à fusionner dans la branche · —
+- 2026-10-19 07:09 · run · état · PR `chore/etat-run` ouverte (#71) avec `.gitattributes` (journal en `merge=union`) · —
+- 2026-10-19 07:15 · 4.8 · CI · PR #70 ouverte · 8e2f758
+- 2026-10-19 07:15 · 4.3 · fusion master · conflits `components.css` et `components/index.js` (3.4) gardés des deux côtés ; 1037 v2 ; poussé · a1b411c
+- 2026-10-19 07:15 · run · décision · pause demandée par Anaël pour un /clear ; file de fusion #71 → #68 → #70 lancée · —
+- 2026-10-19 07:21 · 3.5 · dev · fini, 1010 v2, 153 E2E ; table de prix cloud livrée vide (aucune source datée dans le dépôt) : coût cloud « inconnu » avec raison · 763a122
+- 2026-10-19 07:21 · 3.5 · attente humaine · table `[cloud.prices]` de `wavelocalai.toml` à remplir par Anaël (prix par million de tokens entrée/sortie, `retrieved_at`, `source`) · —
+- 2026-10-19 07:33 · run · état · PR #71 fusionnée (fichiers d'état + `.gitattributes`) · 644eb47
+- 2026-10-19 07:33 · 4.3 · CI · rouge Windows (`test_read_budget` /api/models 440 ms, minutage) ; job relancé · a1b411c
+- 2026-10-19 07:33 · 4.8 · CI · rouge (fusion avec 3.4 : `arena.js` 606 lignes > 600) ; à la reprise : fusionner master dans la branche et alléger `arena.js` · 8e2f758
+- 2026-10-19 07:38 · run · reprise · après /clear (périmètre Epics 3 à 8 sauf 8.4) · —
+- 2026-10-19 07:38 · 4.3 · CI · rouge une 2e fois (`test_read_budget` /api/models 438 ms, Windows 3.11 seul) ; 3e relance · a1b411c
+- 2026-10-19 07:38 · 4.8 · fusion master · 3.4 avait aussi sorti `nextTab` (`arena-tabs.js`) : doublon `core/tab-keys.js` retiré, `moveTab`, `arena.js` 598 lignes ; contrôles lancés · f029b6d
+- 2026-10-19 07:38 · 4.5 · fusion master · conflit `components.css` gardé des deux côtés · 2f7a323
+- 2026-10-19 07:38 · 3.5 · second-avis · lancé (Haiku) · —
+- 2026-10-19 07:39 · 4.6 · dev · lancé (Sonnet high, worktree v2-4-6, depuis 4.5 revue 2f7a323 ; 4.7 attendra la 4.6 : mêmes fichiers) · —
+- 2026-10-19 07:40 · run · décision · reprise des apprentissages d'agent-cost-kit (`docs/amelioration-continue.md`) : contrôles locaux allégés (CI = suite complète), échecs relancés seuls, plafond de 5 agents, file de fusion à 60 s · —
+- 2026-10-19 07:41 · 3.5 · second-avis · 1 medium (`run_ended` publié avant l'écriture du statut : verdict lu null), 2 low (devise numérique, garde-fou statique faible) · —
+- 2026-10-19 07:41 · 3.5 · review · lancée (Opus) · —
+- 2026-10-19 07:45 · 3.5 · review · medium corrigé côté écran (relecture tant que le run est actif, test E2E), devise ISO 4217 ; regex statique écartée · ba68f14
+- 2026-10-19 07:46 · 4.3 · fusion · CI verte à la 3e relance (minutage Windows 3.11) ; PR #68 fusionnée · f25f398
+- 2026-10-19 07:47 · 4.5 · fusion master · 4.3 : conflit `documents.css` (deux blocs ajoutés en fin de fichier, gardés l'un après l'autre) · cbe054d
+- 2026-10-19 07:53 · run · décision · Anaël : Epics 5 à 8 (sauf 8.4) ajoutés au plan du run, vagues V15 à V25 par fichiers touchés · —
+- 2026-10-19 07:55 · 4.8 · contrôles · verts (1029 v2, 345 E2E, 10 integration) ; poussé, file de fusion · f029b6d
+- 2026-10-19 08:05 · run · décision · Anaël : E2E ciblés par story + suite E2E complète sur master par lots, correctif des tests instables avancé (8.1, worktree fix-instables, Sonnet), section « Contrats partagés », base à jour pour second avis et revue ; Defender en attente de sa décision · —
+- 2026-10-19 08:07 · run · décision · Anaël : Defender laissé tel quel (aucune exclusion) ; propositions 1 à 4 appliquées · —
+- 2026-10-19 08:11 · 4.8 · fusion master · PR #70 en conflit après la 4.3 : `errors.py`, `rag/query.py`, `web/app.py`, `contrat-api.md` gardés des deux côtés ; tests ciblés verts (1 test RAG instable sous charge, vert seul) ; poussé · 8ab741a
+- 2026-10-19 08:16 · 4.6 · dev · fini ; écarts : `strategy`/`top_k` dans `POST /api/rag/runs`, étapes de `retrieval_step`, `citations` (§7(d) n° 18 forme maquette), n° 12 en variante conservatrice · 94ec8bb
+- 2026-10-19 08:16 · 4.6 · fusion 4.5 à jour (4.3) · conflits `documents-settings.js` (add/add), `rag/query.py`, `contrat-api.md` ; résolution confiée à Sonnet · —
+- 2026-10-19 08:16 · fix-instables · dev · lancé (Sonnet high, worktree fix-instables) : `test_read_budget`, topbar, Arène clavier, axe sombre · —
+- 2026-10-19 08:29 · 4.8 · fusion · PR #70 fusionnée · 3a36f55
+- 2026-10-19 08:32 · 3.5 · fusion master · 4.8 : conflit `api.js` gardé des deux côtés · cf2e079
+- 2026-10-19 08:32 · 3.6 · dev · lancé (Sonnet high, worktree v2-3-6, depuis 3.5 revue cf2e079 ; version 2.0.0a3) · —
+- 2026-10-19 09:00 · run · décision · Anaël : run limité aux Epics 1 à 4 (fin à la 4.9, a4) ; Epics 5 à 8 reportés ; Ollama rendu après les contrôles de la 4.9 · —
+- 2026-10-19 09:02 · fix-instables · dev · fini (tests seuls : budget meilleur de 3, redémarrage 90 s, attente du POST Arène, attente du pied avant axe) ; relu par l'orchestrateur ; PR #72 ouverte, file de fusion · 1db6592
+- 2026-10-19 09:02 · 3.5 · prix cloud · recherche des prix publics lancée à la demande d'Anaël (Opus, lecture seule, proposition dans le scratchpad) · —
+- 2026-10-19 09:03 · 4.5 · contrôles · faussés (script réécrit en cours d'exécution, poste saturé : 2 échecs + 47 erreurs de démarrage E2E) ; integration verte (11) ; échecs relancés seuls · 29ed7f1
+- 2026-10-19 09:09 · 3.5 · prix cloud · 8 modèles relevés sur les pages officielles (USD) ; Anaël : intégrés à la PR 3.5, mistral-large-latest laissé « inconnu » ; Groq llama sans prix public · a9f0dab
+- 2026-10-19 09:09 · 4.6 · fusion 4.5 à jour · résolue (Sonnet) : réglages de la Discussion dans `documents-chat-settings.js`, priorité `top_k` question > préférence > .toml, palliatif `search` retiré au profit de `GET /api/rag/settings` ; E2E relancés seuls verts · 2cc063f
+- 2026-10-19 09:11 · 4.6 · second-avis · lancé (Haiku) · —
+- 2026-10-19 09:11 · 4.7 · dev · lancé (Sonnet high, worktree v2-4-7, empilée sur la 4.6 2cc063f ; aucun téléchargement de reranker) · —
+- 2026-10-19 09:19 · fix-instables · fusion · PR #72 fusionnée · a96db2e
+- 2026-10-19 09:19 · 4.6 · second-avis · 2 medium (notation Self-RAG tronquée à 64 tokens : extraits non notés gardés ; appels HyDE/notation/reformulation hors garde-fou mémoire après la 4.8), 2 low · —
+- 2026-10-19 09:19 · 4.6 · fusion master · 4.8 sans conflit · —
+- 2026-10-19 09:19 · 4.5 · contrôles · E2E relancés seuls : 84 verts, 1 rouge réel (contour des points de l'Arène 1 px) : `components.css` cassé par la résolution « garder les deux » (règle coupée) ; reconstruit + test d'accolades équilibrées ; 4.6 et 4.7 portent la même casse (corrigée par fusion de la 4.5) · ad38c42
+- 2026-10-19 09:19 · 4.5 · fusion master · 4.8 et #72 sans conflit ; branchement du garde-fou dans la Discussion confié à Sonnet · —
+- 2026-10-19 09:19 · 3.5 · contrôles · lancés · a9f0dab
+- 2026-10-19 09:32 · 4.5 · contrôles · garde-fou mémoire branché dans la Discussion (E2E Discussion 19 verts) ; PR #73 ouverte, file de fusion · 23357db
+- 2026-10-19 09:32 · 4.6 · fusion 4.5 finale · sans conflit, CSS équilibrés · 5bd6a5b
+- 2026-10-19 09:32 · 4.6 · review · lancée (Opus, liste du second avis) · —
+- 2026-10-19 09:36 · 3.5 · contrôles · verts (244 E2E ciblés, 1 erreur connue corrigée par #72 ; 11 integration) ; PR #74 ouverte, file de fusion · a9f0dab
+- 2026-10-19 09:47 · 4.5 · fusion · PR #73 fusionnée · 3e11106

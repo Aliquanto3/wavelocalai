@@ -161,3 +161,30 @@
 .arena-results .wl-data-table .wl-table {
   min-width: 42rem;
 }
+
+/* Verdict local/cloud (story 3.5) : quatre lignes, libellé puis phrase du serveur. */
+.arena-verdict {
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.arena-verdict-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.arena-verdict-row dt {
+  font-weight: 600;
+}
+
+.arena-verdict-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.arena-verdict-note {
+  margin: 0.25rem 0 0;
+}

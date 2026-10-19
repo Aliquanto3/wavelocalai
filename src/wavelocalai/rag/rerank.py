@@ -131,7 +131,7 @@ class RerankerService:
         self._env_file = env_file
         self._reranker: Reranker | None = None
         self._failure: str | None = None
-        self._lock: asyncio.Lock | None = None
+        self._loading: asyncio.Task[None] | None = None  # le chargement unique, partagé
 
     def preset(self, reranker: Reranker | None = None, reason: str | None = None) -> None:
         """Tests seulement : un reranker déjà chargé, ou une indisponibilité fixée par `reason`."""
@@ -156,21 +156,26 @@ class RerankerService:
         return RerankerStatus(self.model, True, None)
 
     async def _load(self) -> Reranker | None:
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-        async with self._lock:
-            if self._reranker is None and self._failure is None:
-                try:
-                    self._reranker = await asyncio.to_thread(
-                        self._loader, self.model, self.cache, self._env_file
-                    )
-                except RerankerUnavailableError as exc:
-                    self._failure = str(exc)
-                except Exception as exc:  # noqa: BLE001 - un reranker cassé ne casse pas le RAG
-                    self._failure = f"chargement impossible ({_first_line(exc)})"
-                if self._failure is not None:
-                    logger.warning("Reranker indisponible : %s", self._failure)
-            return self._reranker
+        """Le reranker, chargé au premier appel. Le chargement est une tâche unique, partagée et
+        protégée (`asyncio.shield`) : une question annulée pendant qu'il tourne ne l'interrompt pas
+        et la suivante l'attend au lieu d'en lancer un second (deux fois ~1 Go en mémoire)."""
+        if self._reranker is None and self._failure is None:
+            if self._loading is None:
+                self._loading = asyncio.ensure_future(self._load_once())
+            await asyncio.shield(self._loading)
+        return self._reranker
+
+    async def _load_once(self) -> None:
+        try:
+            self._reranker = await asyncio.to_thread(
+                self._loader, self.model, self.cache, self._env_file
+            )
+        except RerankerUnavailableError as exc:
+            self._failure = str(exc)
+        except Exception as exc:  # noqa: BLE001 - un reranker cassé ne casse pas le RAG
+            self._failure = f"chargement impossible ({_first_line(exc)})"
+        if self._failure is not None:
+            logger.warning("Reranker indisponible : %s", self._failure)
 
     async def score(self, query: str, texts: Sequence[str]) -> list[float] | None:
         """Les scores de `texts` pour `query`, ou `None` si le reranker ne peut pas servir
