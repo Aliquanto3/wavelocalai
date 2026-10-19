@@ -131,6 +131,8 @@ export const api = {
     `/api/conversations/${encodeURIComponent(id)}.${extension}`,
   // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
   unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
+  // Instantané d'un run (AD-5) : statut, mesures des feuilles et, pour une Arène, son `verdict`.
+  run: (runId) => request(`/api/runs/${encodeURIComponent(runId)}`),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

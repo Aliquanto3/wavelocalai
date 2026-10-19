@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import tomllib
 from collections.abc import Mapping
+from datetime import date
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -70,12 +71,39 @@ class CarbonSettings(_Section):
     pue: float = Field(1.1, ge=1.0)
 
 
+class ModelPrice(_Section):
+    """Prix public d'un modèle cloud, par million de tokens (dans la devise de la table)."""
+
+    input_per_mtok: float = Field(ge=0)
+    output_per_mtok: float = Field(ge=0)
+
+
+class PriceTable(_Section):
+    """Table de prix cloud datée (story 3.5), clé = identifiant exposé `fournisseur/modèle`.
+
+    Aucune entrée sans date de relevé ni source : un prix sans date ne se vérifie pas. Vide, elle
+    est valide ; le verdict dit alors le coût « inconnu » avec sa raison (jamais 0).
+    """
+
+    currency: str = Field("EUR", pattern=r"^[A-Z]{3}$")  # code ISO 4217 : lu par `Intl`
+    retrieved_at: date | None = None
+    source: str | None = None
+    models: dict[str, ModelPrice] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _dated_and_sourced(self) -> PriceTable:
+        if self.models and (self.retrieved_at is None or not (self.source or "").strip()):
+            raise ValueError("une table de prix a besoin de retrieved_at et de source")
+        return self
+
+
 class CloudSettings(_Section):
-    """Modèles cloud proposés (listes fixes : aucun fournisseur n'est appelé pour les lister) et
-    correspondance Groq vers l'entrée `huggingface_hub` d'ecologits (AD-11)."""
+    """Modèles cloud proposés (listes fixes : aucun fournisseur n'est appelé pour les lister),
+    correspondance Groq vers l'entrée `huggingface_hub` d'ecologits (AD-11) et table de prix."""
 
     models: dict[str, list[str]] = Field(default_factory=dict)
     groq_ecologits: dict[str, str] = Field(default_factory=dict)
+    prices: PriceTable = PriceTable()
 
 
 class DelaySettings(_Section):

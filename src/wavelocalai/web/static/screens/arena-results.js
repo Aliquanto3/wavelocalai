@@ -3,7 +3,7 @@
 // `metrics` et `lane_status`, jamais à chaque token) et se figent à `run_ended`.
 //
 //   const results = resultsView(uid, lanesEl);   // `lanesEl` : le conteneur des `wl-arena-lane`
-//   results.el  results.end(state)  results.reset()
+//   results.el  results.end(state, runId)  results.reset()
 //
 // La vue ne garde aucune donnée : elle relit les colonnes (statut, note, mesures) à chaque
 // changement annoncé (`wl-lane-change`, regroupés par image). Rouvrir une comparaison terminée par son
@@ -11,6 +11,8 @@
 //
 // - Classement : lanes notées par note décroissante (rang à égalité), avec badge d'origine, note,
 //   débit et CO2 ; « non évalué » est listé sous elles avec sa raison, sans rang (jamais 0).
+// - Verdict local/cloud (story 3.5, `arena-verdict.js`) : lu dans l'instantané du run à `run_ended`
+//   d'une comparaison terminée normalement, jamais calculé ici.
 // - Matrice (segments « Matrice · Tableau », Matrice par défaut, D-14) : `wl-chart-svg` ; le tableau
 //   (`wl-data-table`) est derrière « Voir le tableau » ou le segment « Tableau ». Une seule unité de
 //   CO2 pour toute la comparaison.
@@ -21,6 +23,7 @@ import { segments } from "../components/segments.js";
 import "../components/wl-badge.js";
 import "../components/wl-chart-svg.js";
 import "../components/wl-data-table.js";
+import { verdictView } from "./arena-verdict.js";
 import {
   co2GroupOf,
   co2Text,
@@ -88,7 +91,8 @@ export function resultsView(uid, lanesEl) {
     },
   });
   chartBox.append(chartTitle, seg.root, body, defs);
-  el.append(rankingBox, chartBox);
+  const verdict = verdictView(uid, (tag) => lanes().find((lane) => lane.tag === tag)?.name);
+  el.append(rankingBox, chartBox, verdict.el);
 
   let ended = false;
   let finalState = null;
@@ -254,15 +258,18 @@ export function resultsView(uid, lanesEl) {
   lanesEl.addEventListener("wl-lane-change", schedule);
   return {
     el,
-    // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted).
-    end(state) {
+    // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted) et le
+    // verdict d'une comparaison finie normalement est lu dans l'instantané du run.
+    end(state, runId) {
       ended = true;
       finalState = state;
       cancelAnimationFrame(frame);
       frame = 0;
       draw();
+      if (state === "ok" && runId) verdict.load(runId);
     },
     reset() {
+      verdict.reset();
       ended = false;
       finalState = null;
       cancelAnimationFrame(frame);

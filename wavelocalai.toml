@@ -47,6 +47,51 @@ mistral = ["mistral-large-latest", "mistral-small-latest"]
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
 "llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
+[cloud.prices]
+# Table de prix cloud datée (story 3.5), lue par le verdict local/cloud de l'Arène. Prix publics
+# par million de tokens, API standard (ni batch, ni cache, ni priorité), palier de base.
+# Relevé du 2026-10-19 sur les pages officielles des fournisseurs (chargées une à une).
+# DEVISE : tous les fournisseurs affichent leurs prix en dollars ($). La table est donc en USD,
+# et non en EUR comme la valeur par défaut ; aucune conversion de change n'est faite.
+# Laissés de côté (aucun prix inventé) :
+#   - groq/llama-3.3-70b-versatile et groq/llama-3.1-8b-instant : la page des modèles Groq
+#     affiche « Contact Sales » au lieu d'un prix par token (modèles toujours en production).
+#   - mistral/mistral-large-latest : cible de l'alias non confirmée. La page des prix liste
+#     Mistral Large 4 (prix promotionnel 0,68 / 2,09 $, prix normal 1,36 / 4,18 $) et
+#     Mistral Large 3 (25.12, 0,50 / 1,50 $) ; une doc annexe (Vibe CLI) associe encore
+#     `mistral-large-latest` à Large 3. Prix ambigu, à trancher en interrogeant /v1/models.
+currency = "USD"
+retrieved_at = 2026-10-19
+source = "https://developers.openai.com/api/docs/pricing ; https://console.groq.com/docs/models ; https://claude.com/pricing ; https://docs.mistral.ai/inference/pricing"
+
+[cloud.prices.models]
+# OpenAI — https://developers.openai.com/api/docs/pricing (Standard). Palier contexte court
+# (<= 272K tokens d'entrée) ; au-delà : 4,00 / 15,00 $.
+"openai/gpt-6-sol" = { input_per_mtok = 2.00, output_per_mtok = 10.00 }
+# OpenAI — même page. Palier contexte court (<= 272K tokens d'entrée) ; au-delà : 0,20 / 0,75 $.
+"openai/gpt-6-luna" = { input_per_mtok = 0.10, output_per_mtok = 0.50 }
+
+# Groq — https://console.groq.com/docs/models (colonne de prix des modèles de production ;
+# la page groq.com/pricing ne publie plus de table de prix).
+"groq/openai/gpt-oss-120b" = { input_per_mtok = 0.15, output_per_mtok = 0.60 }
+# Groq — même page.
+"groq/openai/gpt-oss-20b" = { input_per_mtok = 0.075, output_per_mtok = 0.30 }
+
+# Anthropic — https://claude.com/pricing (redirection de anthropic.com/pricing). Prix de base,
+# hors cache ; inférence limitée aux États-Unis à 1,1x, mode rapide d'Opus 5.5 à 2x.
+"anthropic/claude-opus-5-5" = { input_per_mtok = 4.00, output_per_mtok = 20.00 }
+# Anthropic — même page, sans palier de contexte.
+"anthropic/claude-sonnet-5-5" = { input_per_mtok = 2.00, output_per_mtok = 10.00 }
+# Anthropic — même page. Palier des prompts <= 100K tokens ; au-delà : 0,50 / 2,50 $.
+"anthropic/claude-haiku-5-5" = { input_per_mtok = 0.10, output_per_mtok = 0.50 }
+
+# Mistral — https://docs.mistral.ai/inference/pricing et
+# https://docs.mistral.ai/models/mistral-small-4-0-26-03 : Mistral Small 4 (v26.03,
+# identifiant `mistral-small-2603`). RÉSERVE : la page tronque le second alias (« +1 ») ;
+# Small 4 est le seul Mistral Small listé, d'où le rattachement à `mistral-small-latest`,
+# non confirmé mot pour mot. Le niveau (standard) n'est pas libellé sur la page.
+"mistral/mistral-small-latest" = { input_per_mtok = 0.15, output_per_mtok = 0.60 }
+
 [rag]
 # Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec
 # `chunk_overlap` de recouvrement ; chaque lot de `embed_batch_size` extraits est une feuille

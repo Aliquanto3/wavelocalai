@@ -1,7 +1,8 @@
 """Instantané d'un run (`GET /api/runs/{id}`, AD-5) : statut, métriques des feuilles, erreur.
 
 Lecture seule sur la base : le hub y écrit le statut à la clôture, et les métriques n'existent que
-sur les feuilles. Un run composite rend ses feuilles dans `children`.
+sur les feuilles. Un run composite rend ses feuilles dans `children`. Ce qui se calcule sur un run
+terminé y figure aussi, pas dans le flux : le `verdict` local/cloud d'une Arène (story 3.5).
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ import json
 import sqlite3
 from typing import Any
 
+from wavelocalai.config import PriceTable
+from wavelocalai.runs.verdict import build_verdict
 from wavelocalai.store.db import Store
 
 METRIC_COLUMNS = (
@@ -61,8 +64,30 @@ def run_snapshot_row(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-async def run_snapshot(store: Store, run_id: str) -> dict[str, Any] | None:
-    """Instantané du run, ou `None` s'il n'existe pas."""
+async def _scores(store: Store, run_id: str) -> dict[str, float]:
+    """Note /100 de chaque lane, lue dans les `judge_score` du flux ; une note nulle (« non
+    évalué ») n'en fait pas partie."""
+    rows = await store.aread(
+        "SELECT data FROM run_events WHERE run_id = ? AND type = 'judge_score' ORDER BY seq",
+        (run_id,),
+    )
+    scores: dict[str, float] = {}
+    for row in rows:
+        data = json.loads(row["data"])
+        if isinstance(data.get("score"), int | float):
+            scores[data["lane"]] = data["score"]
+        else:
+            scores.pop(data.get("lane"), None)
+    return scores
+
+
+async def run_snapshot(
+    store: Store, run_id: str, prices: PriceTable | None = None
+) -> dict[str, Any] | None:
+    """Instantané du run, ou `None` s'il n'existe pas.
+
+    Une Arène terminée `ok` porte `verdict` (local/cloud, table de prix `prices`) ; `null` quand
+    elle n'a pas de modèle local et de modèle cloud notés, ou n'est pas terminée normalement."""
     rows = await store.aread(
         "SELECT * FROM runs WHERE id = ? OR parent_run_id = ? ORDER BY started_at, rowid",
         (run_id, run_id),
@@ -71,6 +96,14 @@ async def run_snapshot(store: Store, run_id: str) -> dict[str, Any] | None:
     if snapshot is None:
         return None
     snapshot["children"] = [run_snapshot_row(row) for row in rows if row["parent_run_id"] == run_id]
+    if snapshot["kind"] == "arena":
+        snapshot["verdict"] = (
+            build_verdict(
+                snapshot["children"], await _scores(store, run_id), prices or PriceTable()
+            )
+            if snapshot["status"] == "ok"
+            else None
+        )
     return snapshot
 
 
