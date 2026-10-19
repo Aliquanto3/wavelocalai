@@ -28,6 +28,14 @@ def _stamp() -> str:
     return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+def _reason(exc: Exception) -> str:
+    """Motif d'un échec sans le chemin du disque : une `OSError` rend seulement son `strerror` (le
+    chemin absolu du dossier de données n'a pas à parvenir au modèle ni à l'écran)."""
+    if isinstance(exc, OSError):
+        return exc.strerror or type(exc).__name__
+    return str(exc)
+
+
 def _generated_on() -> str:
     return datetime.datetime.now().strftime("%d/%m/%Y à %H:%M")
 
@@ -93,7 +101,7 @@ def analyze_csv(workspace: Workspace, filepath: str, query: str, *, max_bytes: i
     except pd.errors.EmptyDataError:
         raise ToolError("Erreur : Fichier vide") from None
     except Exception as exc:  # noqa: BLE001 - l'erreur d'analyse est le résultat
-        raise ToolError(f"Erreur lors de l'analyse : {exc}") from None
+        raise ToolError(f"Erreur lors de l'analyse : {_reason(exc)}") from None
 
 
 def generate_document(
@@ -127,7 +135,7 @@ def generate_document(
                 doc.add_paragraph(line)
         doc.save(str(target))
     except Exception as exc:  # noqa: BLE001 - l'erreur de création est le résultat
-        raise ToolError(f"Erreur lors de la création du document : {exc}") from None
+        raise ToolError(f"Erreur lors de la création du document : {_reason(exc)}") from None
     return f"Document créé : {target.name}", target
 
 
@@ -187,7 +195,7 @@ def generate_chart(
         fig.tight_layout()
         fig.savefig(target, format="png", dpi=150, bbox_inches="tight")
     except Exception as exc:  # noqa: BLE001 - l'erreur de création est le résultat
-        raise ToolError(f"Erreur lors de la création du graphique : {exc}") from None
+        raise ToolError(f"Erreur lors de la création du graphique : {_reason(exc)}") from None
     return f"Graphique créé : {target.name}", target
 
 
@@ -213,5 +221,5 @@ def generate_markdown_report(
         with target.open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(report)
     except OSError as exc:
-        raise ToolError(f"Erreur lors de la création du rapport : {exc}") from None
+        raise ToolError(f"Erreur lors de la création du rapport : {_reason(exc)}") from None
     return f"Rapport Markdown créé : {target.name}", target

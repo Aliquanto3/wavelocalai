@@ -11,6 +11,7 @@ validation. Une violation lève `WorkspaceError` : la boucle la publie comme un 
 from __future__ import annotations
 
 import re
+import stat
 import unicodedata
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from urllib.parse import quote
@@ -21,8 +22,16 @@ OUTPUTS_ROUTE = "/api/outputs/"
 MAX_NAME_CHARS = 100
 # Caractères refusés dans un nom : séparateurs, flux et caractères réservés de Windows, contrôles.
 _FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f\x7f]')
-# Noms réservés de Windows (avec ou sans extension) : ouvrir `CON.txt` ouvre le périphérique.
-_RESERVED = re.compile(r"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$", re.IGNORECASE)
+# Noms réservés de Windows (avec ou sans extension, espaces avant l'extension compris) : ouvrir
+# `CON.txt` ouvre le périphérique. Les chiffres en exposant (`COM¹`) et `CONIN$`, `CONOUT$`, `CLOCK$`
+# en font partie.
+_RESERVED = re.compile(
+    r"^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³]|conin\$|conout\$|clock\$)\s*(\..*)?$",
+    re.IGNORECASE,
+)
+# Catégories Unicode refusées : contrôles, formats (bidi U+202E, largeur nulle), séparateurs de ligne.
+# Sans ce refus, un nom à inversion bidi s'afficherait à l'envers au téléchargement.
+_INVISIBLE = {"Cc", "Cf", "Zl", "Zp"}
 
 
 class WorkspaceError(ToolError, ValueError):
@@ -36,7 +45,7 @@ def _bare(name: str) -> str:
     name = unicodedata.normalize("NFC", name.strip())
     if len(name) > MAX_NAME_CHARS:
         raise WorkspaceError(f"Nom de fichier trop long (max {MAX_NAME_CHARS} caractères).")
-    if _FORBIDDEN.search(name):
+    if _FORBIDDEN.search(name) or any(unicodedata.category(c) in _INVISIBLE for c in name):
         raise WorkspaceError(
             "Nom de fichier refusé : un nom simple suffit, sans dossier ni caractère spécial "
             '(pas de / \\ : * ? " < > |).'
@@ -154,7 +163,12 @@ class Workspace:
         if any(part == ".." for part in parts):
             raise WorkspaceError("Chemin refusé : « .. » n'est pas permis.")
         for part in parts:
-            if ":" in part or _RESERVED.match(part) or part.endswith((".", " ")):
+            if (
+                ":" in part
+                or _RESERVED.match(part)
+                or part.endswith((".", " "))
+                or any(unicodedata.category(c) in _INVISIBLE for c in part)
+            ):
                 raise WorkspaceError(f"Chemin refusé : composant non valide « {part} ».")
         return parts
 
@@ -168,8 +182,13 @@ def _inside(path: Path, base: Path) -> bool:
 
 
 def _is_junction(path: Path) -> bool:
-    """Jonction Windows (`Path.is_junction` n'existe qu'à partir de Python 3.12)."""
+    """Jonction Windows. `Path.is_junction` n'existe qu'à partir de Python 3.12 ; avant, la balise
+    de point de montage de `lstat` (Windows seulement) dit la même chose."""
     checker = getattr(path, "is_junction", None)
     if checker is not None:
         return bool(checker())
-    return False
+    try:
+        tag = getattr(path.lstat(), "st_reparse_tag", 0)
+    except OSError:
+        return False
+    return tag == getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", -1)

@@ -327,3 +327,20 @@ async def test_a_producing_tool_never_writes_outside_the_work_folder(
         await run(registry, tool_id, filename=filename, **arguments)
     assert not list(tmp_path.glob("evasion*")) and not list(space.root.glob("*evasion*"))
     assert not [p for p in space.root.iterdir() if p.name != "ventes.csv"]
+
+
+async def test_a_disk_error_reaches_the_agent_without_the_data_folder_path(settings, tmp_path):
+    """Revue : une `OSError` (dossier de travail non créable) devient un `ToolError` sans le chemin
+    absolu du dossier de données, qui irait sinon au modèle et à l'écran."""
+    blocker = tmp_path / "bloque"
+    blocker.write_text("un fichier, pas un dossier", encoding="utf-8")
+    registry = build_registry(settings, Workspace(blocker / "work"))
+    for tool_id, arguments in [
+        ("generate_markdown_report", {"title": "T", "sections": "x"}),
+        ("generate_chart", {"data_json": '{"labels": ["a"], "values": [1]}'}),
+        ("generate_document", {"title": "T", "content": "x"}),
+    ]:
+        with pytest.raises(ToolError) as caught:
+            await run(registry, tool_id, **arguments)
+        assert str(tmp_path) not in str(caught.value)
+        assert "bloque" not in str(caught.value)

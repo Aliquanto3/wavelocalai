@@ -76,3 +76,17 @@ Un agent retrouve les neuf outils de la v1 (Heure, Calculatrice, Recherche inter
 
 - Tests : `tests/v2/unit` en entier, `test_agent_api`, `test_agent_tools_api` (14), `test_lifecycle`, `test_security`, `test_errors_envelope`, `test_chat_api` : 1052 passés, 6 sautés (5 liens symboliques non permis sur ce poste, 1 antérieur). Nouveaux : `test_workspace.py` (40 + 5 sautés), `test_builtin_tools.py` (34), `test_agent_tools_api.py` (14), `test_agent_tools_ollama.py` (1, vrai Ollama `qwen2.5:1.5b`, passé : calculatrice puis rapport téléchargé). Aucun E2E, aucune suite complète (poste partagé).
 - Contrôle rapide propre. Ollama : modèle déjà installé, aucun téléchargement ; aucun appel cloud ni envoi d'email.
+
+## Revue
+
+Revue Opus, une passe, sur `2f3db79..f57f435` fusionné avec `origin/feat/v2-agent-serveur`. Aucune évasion du dossier de travail trouvée ; l'oracle de l'analyse CSV a été rejoué contre `_analyze_csv_impl` de la v1 : égal sur les cinq requêtes. Test d'intégration Ollama (`qwen2.5:1.5b`) rejoué : passé.
+
+- low · second avis 1 · corrigé · `LAZY_ONLY` de `test_layers.py` ne gardait ni pandas, ni matplotlib, ni numexpr, ni func_timeout, ni psutil (docx y était) : ajoutés, aucun import au niveau module dans la v2.
+- low · second avis 2 · corrigé · `_RESERVED` acceptait `COM¹`–`³`, `LPT¹`–`³`, `CONIN$`, `CONOUT$`, `CLOCK$` et `nul .md` (espace avant l'extension) : refusés, cas ajoutés à `test_an_output_name_is_one_plain_name`.
+- low · second avis 3 · corrigé · une `OSError` (dossier non créable, sauvegarde refusée) passait au modèle et à l'écran avec le chemin absolu du dossier de données (et donc le nom du compte, y compris vers un fournisseur cloud) : `produced` la convertit en `ToolError`, et les messages d'erreur de `files.py` ne gardent que `strerror` (`test_a_disk_error_reaches_the_agent_without_the_data_folder_path`).
+- low · second avis 4 · corrigé · `_is_junction` rendait toujours `False` sous Python 3.11 : repli sur `lstat().st_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT`. Le confinement ne dépendait pas de lui (`resolve()` suit les jonctions, puis `_inside`), c'est une défense en profondeur.
+- low · second avis 5 · corrigé · caractères invisibles (catégories Unicode `Cc`, `Cf`, `Zl`, `Zp` : bidi U+202E, largeur nulle) refusés dans les noms produits et les composants lus : un nom inversé trompait l'affichage du téléchargement.
+- low · second avis 6 · rejeté · au délai, le fil (`asyncio.to_thread`) continue et peut écrire un fichier après un échec publié : limite inhérente à un fil Python, déjà consignée dans le report « plafond d'appels » ; le fichier reste dans le dossier de travail, sans `artifact_url`.
+- low · second avis 7 · rejeté · un nom fourni écrase un fichier produit plus tôt : comportement de la v1 (`outputs/` écrasé), le fichier reste dans la racine confinée ; un horodatage ou un suffixe changerait le nom que l'agent a demandé. À revoir avec la 6.4 si l'écran garde des liens d'étapes anciennes.
+- info · écart déclaré · pandas gardé pour `analyze_csv` : la justification tient, le texte de la v1 (`to_string`, `describe`, `value_counts`) n'est reproductible qu'avec pandas, déjà dépendance principale (installée par `uv sync --locked` en CI), importé dans la fonction.
+- Complexité : 0 constat (aucune structure parcourue en entier à chaque événement ; la conversation d'un run est bornée par `max_turns` et le plafond d'appels par tour).

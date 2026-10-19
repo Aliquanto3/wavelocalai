@@ -94,7 +94,11 @@ def build_registry(settings: Settings, workspace: Workspace | None = None) -> To
         async def run(arguments: dict[str, Any]) -> ToolOutput:
             values = [_argument(arguments, name) for name in required]
             extra = {n: arguments[n] for n in optional if arguments.get(n) is not None}
-            text, path = await asyncio.to_thread(function, space, *values, **extra)
+            try:
+                text, path = await asyncio.to_thread(function, space, *values, **extra)
+            except OSError as exc:  # dossier de travail non créable : motif sans chemin du disque
+                reason = exc.strerror or type(exc).__name__
+                raise ToolError(f"Erreur : dossier de travail inaccessible ({reason}).") from None
             return ToolOutput(text, space.artifact_url(path))
 
         return run

@@ -142,6 +142,15 @@ def test_an_output_is_written_flat_in_the_root_with_its_extension(space):
         "fin.",
         "a" * 101,
         "a\nb",
+        # Revue : périphériques Windows en exposant ou à « $ », espace avant l'extension, bidi.
+        "COM¹",
+        "lpt³.md",
+        "CONIN$",
+        "conout$.md",
+        "CLOCK$",
+        "nul .md",
+        "rapport‮fdp.md",
+        "a​b",
     ],
 )
 def test_an_output_name_is_one_plain_name(space, name):
@@ -185,3 +194,24 @@ def test_served_path_finds_a_flat_file_and_nothing_else(space, tmp_path):
 def test_the_artifact_url_quotes_the_name(space):
     path = space.output_path("bilan été", stem="x", extension=".md", stamp="s")
     assert space.artifact_url(path) == "/api/outputs/bilan%20%C3%A9t%C3%A9.md"
+
+
+def test_a_junction_is_detected_without_path_is_junction():
+    """Revue : Python 3.11 (CI) n'a pas `Path.is_junction` ; la balise de point de montage de
+    `lstat` le remplace."""
+    import stat
+    from types import SimpleNamespace
+
+    from wavelocalai.agents.tools import workspace
+
+    class OldPath:  # chemin sans `is_junction`, comme sous Python 3.11
+        def __init__(self, tag: int) -> None:
+            self._tag = tag
+
+        def lstat(self):
+            return SimpleNamespace(st_reparse_tag=self._tag)
+
+    mount_point = getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", None)
+    if mount_point is not None:
+        assert workspace._is_junction(OldPath(mount_point))
+    assert not workspace._is_junction(OldPath(0))
