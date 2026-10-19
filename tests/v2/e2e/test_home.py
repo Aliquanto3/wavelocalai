@@ -12,6 +12,7 @@ import time
 
 import pytest
 
+from .test_discussion import import_docs
 from .test_shell import (
     assert_no_axe_violations,
     assert_no_horizontal_scroll,
@@ -333,7 +334,14 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     links = home.locator("#second-home .home-module-link")
     assert links.count() == 2  # l'Arène, puis les Documents (Discussion, story 4.5)
     assert links.nth(1).get_attribute("href") == "#/documents"
-    assert "Interroger ses documents et voir les sources." in links.nth(1).inner_text()
+    # Le résumé de la carte « Documents » est celui de la base (story 4.9) ; base vide ici.
+    summary = links.nth(1).locator(".home-module-summary")
+    wait_for(
+        home,
+        '() => document.querySelector(\'#second-home a[href="#/documents"] '
+        ".home-module-summary')?.textContent.includes('indexé')",
+    )
+    assert summary.inner_text() == "0 document indexé · 0 extrait"
     assert links.first.get_attribute("href") == "#/arene/chat"
     assert "Arène" in links.first.inner_text()
     assert "Comparer plusieurs petits modèles" in links.first.inner_text()
@@ -345,6 +353,91 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     assert links.first.locator(".home-module-long").inner_text() == "Arène des modèles"
     # La carte « Démo recommandée » (story 3.6) n'est pas un lien de module : `test_home_demo.py`.
     assert home.locator("#second-home [data-demo]").count() == 1
+
+
+def test_the_documents_card_keeps_its_tagline_when_the_base_cannot_be_read(
+    backend, page_tolerating_failed_requests
+):
+    """Sans réponse du serveur, la carte garde sa phrase d'accroche : jamais un chiffre inventé."""
+    page = page_tolerating_failed_requests
+    server = backend.start()
+    page.route(
+        re.compile(r"/api/rag/documents$"),
+        lambda route: route.fulfill(status=500, content_type="application/json", body="{}"),
+    )
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    wait_card(page, "system", "Indisponible")
+    page.wait_for_timeout(500)
+    link = page.locator('[data-screen="home"] a.home-module-link[href="#/documents"]')
+    assert link.locator(".home-module-summary").inner_text() == (
+        "Interroger ses documents et voir les sources."
+    )
+
+
+def test_the_documents_card_counts_the_indexed_documents_and_their_extracts(backend, page):
+    """« N documents indexés · M extraits » : les documents prêts, lus sur le serveur, au singulier
+    jusqu'à 1 (comme la Discussion)."""
+    server = backend.start()
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    summary = page.locator(
+        '[data-screen="home"] a.home-module-link[href="#/documents"] .home-module-summary'
+    )
+    wait_for(
+        page,
+        '() => document.querySelector(\'[data-screen="home"] a[href="#/documents"] '
+        ".home-module-summary')?.textContent === '0 document indexé · 0 extrait'",
+    )
+    import_docs(
+        page,
+        server,
+        **{
+            "a.txt": ("text/plain", b"Un texte."),
+            "b.txt": ("text/plain", b"Un autre texte."),
+        },
+    )
+    page.evaluate("location.hash = '#/documents/base'")
+    wait_for(page, "() => document.querySelector('[data-screen=\"home\"]').hidden")
+    page.evaluate("location.hash = '#/'")  # le routeur garde l'Accueil monté : il relit la base
+    wait_for(
+        page,
+        '() => document.querySelector(\'[data-screen="home"] a[href="#/documents"] '
+        ".home-module-summary')?.textContent === '2 documents indexés · 2 extraits'",
+    )
+    assert summary.inner_text() == "2 documents indexés · 2 extraits"
+
+
+def test_the_base_summary_is_read_once_per_display_and_once_per_tab_return(backend, page, traffic):
+    """Une lecture au premier affichage (le routeur monte l'Accueil masqué puis l'affiche : pas de
+    double appel), une par retour sur l'Accueil, une par retour de l'onglet ; aucune ailleurs."""
+    server = backend.start()
+
+    def reads() -> int:
+        return sum(1 for url in traffic.urls if url.endswith("/api/rag/documents"))
+
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    wait_card(page, "system", "Indisponible")
+    page.wait_for_timeout(800)
+    assert reads() == 1
+    page.evaluate("location.hash = '#/documents/base'")
+    wait_for(page, "() => document.querySelector('[data-screen=\"home\"]').hidden")
+    page.wait_for_timeout(500)
+    before = reads()  # la Base lit la même route : on ne compte que ce que l'Accueil ajoute
+    set_tab_hidden(page, True)
+    set_tab_hidden(page, False)
+    page.wait_for_timeout(500)
+    after_tab = reads()  # l'Accueil masqué ne relit rien (la Base peut relire la sienne)
+    page.evaluate("location.hash = '#/'")
+    wait_for(page, "() => !document.querySelector('[data-screen=\"home\"]').hidden")
+    page.wait_for_timeout(500)
+    assert reads() == after_tab + 1
+    set_tab_hidden(page, True)
+    set_tab_hidden(page, False)
+    page.wait_for_timeout(500)
+    assert reads() == after_tab + 2
+    assert before <= after_tab
 
 
 # Nom court du menu, nom long (EXPERIENCE.md, D-10), lien (premier écran du module).

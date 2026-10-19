@@ -1,15 +1,20 @@
 // Accueil (UX-DR24) : le titre, l'accroche, quatre cartes d'état en direct (Système, Mode,
 // Processeur, Mémoire) et les liens des modules livrés. Les cartes lisent le store, rempli par le
-// flux système (AD-6) : l'écran ne fait aucun appel réseau et ne calcule aucune mesure (AD-20).
+// flux système (AD-6) ; l'écran ne calcule aucune mesure (AD-20). Seul appel : le résumé de la base
+// documentaire, lu une fois par `GET /api/rag/documents` (jamais en boucle).
 //
 // - Squelette tant que le premier état du flux n'est pas arrivé, jamais d'écran blanc.
 // - Ollama arrêté : « Indisponible », la marche à suivre et « Réessayer » ; les liens restent actifs.
 // - Onglet masqué : les cartes cessent de se mettre à jour (le flux est fermé par `core/system.js`)
 //   et reprennent au retour.
 // - Aucune carte ne mène à un écran absent : « Démo recommandée » (`home-demo.js`, story 3.6) n'existe
-//   que si l'Arène l'est, le résumé de la base arrive avec l'Epic 4. Un module n'est listé que si son
-//   écran est disponible.
+//   que si l'Arène l'est. Un module n'est listé que si son écran est disponible.
+// - Carte « Documents » : le résumé de la base (« N documents indexés · M extraits », story 4.9)
+//   remplace la phrase d'accroche dès que le serveur l'a donné ; sans réponse, la phrase reste. Le
+//   routeur garde l'Accueil monté quand on le quitte : le résumé est relu à chaque retour dessus,
+//   jamais avant le repère `shell-ready` (AD-15).
 
+import { api } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
 import {
   formatCo2,
@@ -17,10 +22,12 @@ import {
   formatInteger,
   formatPercent,
   formatUnknown,
+  plural,
 } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { MODULES, entryScreen } from "../core/registry.js";
 import { store } from "../core/store.js";
+import { shellReady } from "../core/shell-ready.js";
 import { recheckOllama } from "../core/system.js";
 import { demoSection } from "./home-demo.js";
 
@@ -173,6 +180,7 @@ function renderMemory(card, state) {
 // barre haute les montre déjà, désactivés, avec leur raison.
 function modulesSection() {
   const items = [];
+  const summaries = {};
   for (const module of MODULES) {
     if (module.id === "home") continue;
     const entry = entryScreen(module);
@@ -180,11 +188,13 @@ function modulesSection() {
     const link = element("a", "home-module-link");
     link.href = `#${entry.path}`;
     // Nom court du menu en titre, nom long en sous-titre, puis la phrase de résumé (D-10).
+    const summary = element("span", "home-module-summary", t(`home.modules.${module.id}`));
+    summaries[module.id] = summary;
     link.append(
       icon(module.icon),
       element("span", "home-module-name", t(`modules.${module.id}`)),
       element("span", "home-module-long", t(`home.modules_long.${module.id}`)),
-      element("span", "home-module-summary", t(`home.modules.${module.id}`)),
+      summary,
     );
     const li = element("li", "home-module");
     li.append(link);
@@ -198,7 +208,12 @@ function modulesSection() {
   const list = element("ul", "home-module-list");
   list.append(...items);
   section.append(title, list);
-  return section;
+  return { section, summaries };
+}
+
+// « 3 documents indexés · 14 extraits » : les documents prêts seulement (`totals`, D-26).
+function baseSummary(totals) {
+  return `${plural("home.documents_indexed", totals.documents)} · ${plural("docs.chunks", totals.chunks)}`;
 }
 
 export function mount(host) {
@@ -227,8 +242,32 @@ export function mount(host) {
   const demo = demoSection();
   if (demo) parts.push(demo.el);
   const modules = modulesSection();
-  if (modules) parts.push(modules);
+  if (modules) parts.push(modules.section);
   host.replaceChildren(...parts);
+
+  // Le résumé de la base : une lecture à chaque affichage de l'écran (le routeur le monte masqué puis
+  // l'affiche) et au retour de l'onglet s'il est affiché. Rien avant `shell-ready` (AD-15). Une
+  // panne laisse la phrase d'accroche ; une réponse tardive d'un écran démonté ne touche à rien.
+  let mounted = true;
+  let wasHidden = host.hidden;
+  const visibility = new MutationObserver(() => {
+    if (host.hidden === wasHidden) return;
+    wasHidden = host.hidden;
+    if (!wasHidden) refreshBase();
+  });
+  visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
+  async function refreshBase() {
+    const node = modules?.summaries.documents;
+    if (!node) return;
+    await shellReady();
+    if (!mounted) return;
+    try {
+      const { totals } = await api.documents();
+      if (mounted && totals) setText(node, baseSummary(totals));
+    } catch {
+      // l'accroche reste
+    }
+  }
 
   function render(state) {
     renderSystem(system, state);
@@ -252,8 +291,12 @@ export function mount(host) {
     host.dataset.live = "false";
   }
   function onVisibility() {
-    if (document.hidden) pause();
-    else resume();
+    if (document.hidden) {
+      pause();
+    } else {
+      resume();
+      if (!host.hidden) refreshBase();
+    }
   }
 
   document.addEventListener("visibilitychange", onVisibility);
@@ -263,8 +306,11 @@ export function mount(host) {
   } else {
     resume();
   }
+  if (!host.hidden) refreshBase(); // monté déjà affiché : l'observateur ne verra pas de changement
 
   return () => {
+    mounted = false;
+    visibility.disconnect();
     document.removeEventListener("visibilitychange", onVisibility);
     demo?.dispose();
     pause();

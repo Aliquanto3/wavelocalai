@@ -18,6 +18,7 @@ import { api } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 import { MODULES, entryScreen } from "../core/registry.js";
+import { shellReady } from "../core/shell-ready.js";
 import "../components/wl-badge.js";
 
 const CLOUD_PROPOSED = 3;
@@ -55,15 +56,6 @@ function modelLines(list, defaults, allowCloud) {
   return lines;
 }
 
-
-// Résolu une fois le repère `shell-ready` posé par `main.js` (coquille et écran courant rendus).
-function shellReady() {
-  return new Promise((resolve) => {
-    const check = () =>
-      performance.getEntriesByName("shell-ready").length > 0 ? resolve() : requestAnimationFrame(check);
-    check();
-  });
-}
 export function demoSection() {
   const arena = MODULES.find((module) => module.id === "arena");
   const compare = arena?.screens.find((screen) => screen.id === "arena-compare");
