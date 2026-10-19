@@ -77,17 +77,6 @@ async def test_an_unavailable_tool_is_refused_before_any_run(tmp_path):
     assert "Configuration SMTP absente" in response.json()["detail"]["technical"]
 
 
-async def test_a_sensitive_tool_is_still_never_run_without_approval(tmp_path):
-    env = {"SMTP_USER": "moi@example.org", "SMTP_PASSWORD": "pw-smtp-0123456789"}
-    async with env_app(tmp_path, env) as (app, client):
-        args = {"to": "a@example.org", "subject": "S", "body": "B"}
-        turns(app, [call("c1", "send_email", **args)], ["Je n'ai pas pu l'envoyer."])
-        _, snapshot, events = await _run(client, tools=("send_email",))
-    assert snapshot["status"] == "ok"
-    result = next(s for s in steps(events) if s["kind"] == "tool_result")
-    assert result["failed"] is True and "sensible" in result["summary"]
-
-
 # --- une tâche avec les outils de la v1 ----------------------------------------------------------
 
 

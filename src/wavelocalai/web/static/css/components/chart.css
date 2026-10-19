@@ -95,3 +95,33 @@
 .wl-chart-missing {
   margin: 0;
 }
+
+/* Barres (historique carbone, story 5.2) : même remplissage que les points, contour d'encre. */
+.wl-chart-bar {
+  fill: color-mix(in srgb, var(--color-chart-1) 55%, var(--color-surface));
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+/* Valeur non mesurée : pas de barre, un trait en pointillés et le mot écrit. */
+.wl-chart-bar-none {
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.wl-chart-value {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 0.75rem;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+.wl-chart-unmeasured {
+  fill: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: 0.75rem;
+}

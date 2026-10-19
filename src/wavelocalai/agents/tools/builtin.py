@@ -6,8 +6,8 @@ délai) à un fil : la boucle d'événements et les autres runs ne sont jamais b
 commence par « Erreur » est une erreur d'outil (`failed: true`, `ToolError`), comme les refus du
 dossier de travail. Disponibilité : le module Python requis est-il installé (`find_spec`, sans
 l'importer), et, pour l'email, le SMTP est-il configuré dans `Settings`. « Envoi d'email » est
-`sensitive` : la boucle ne l'exécute jamais sans approbation (6.3) et la fonction qu'il porte ne
-fait que préparer un brouillon : aucun envoi réel n'existe dans ce module.
+`sensitive` : la boucle ne l'exécute qu'après la validation de l'utilisateur (6.3) ; la fonction qu'il
+porte ne fait que contrôler un brouillon, et l'envoi réel vit dans `agents/outbox.py`, hors de ce module.
 """
 
 from __future__ import annotations
@@ -156,9 +156,9 @@ def build_registry(settings: Settings, workspace: Workspace | None = None) -> To
             ),
             AgentTool(
                 "send_email",
-                "Prépare un email (brouillon) pour l'utilisateur. L'email n'est PAS envoyé par cet "
-                "outil : l'utilisateur relit le destinataire, l'objet et le corps, puis valide "
-                "lui-même l'envoi dans l'interface.",
+                "Prépare un email pour l'utilisateur. Il n'est envoyé que si l'utilisateur, qui relit "
+                "le destinataire, l'objet et le corps, l'approuve : tu reçois alors la confirmation "
+                "d'envoi, ou son refus (ou son silence), que tu annonces. Un seul destinataire.",
                 draft_email,
                 _schema(
                     {

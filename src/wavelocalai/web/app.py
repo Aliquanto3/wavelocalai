@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse, Response
 from ollama import AsyncClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from wavelocalai.agents.crews import CrewLibrary
 from wavelocalai.agents.service import AgentService
 from wavelocalai.agents.tools import Workspace, build_registry
 from wavelocalai.config import Settings, get_version
@@ -161,6 +162,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         meter=app.state.meter,
         bus=app.state.system_feed,
         guard=guard,
+        crews=app.state.agent_crews,
     )
     index = select_index(store.vec_available)  # le même pour l'import et la question (repli numpy)
     app.state.rag = RagService(
@@ -310,6 +312,13 @@ def create_app(
     # Préférences de l'UI (table `preferences`, 0003) : sur la base du store, comme `model_facts`.
     app.state.preferences = preferences or SqlitePreferenceStore(lambda: app.state.store)
     app.state.defaults = ModelDefaults(app.state.registry, app.state.preferences)
+    # Équipes d'agents (story 6.5) : fichier versionné + modifications dans `preferences` (Q3).
+    app.state.agent_crews = CrewLibrary(
+        settings.base_dir / "config" / "agent_crews.json",
+        app.state.preferences,
+        app.state.agent_tools,
+        app.state.registry,
+    )
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,
