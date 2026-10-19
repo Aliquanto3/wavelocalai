@@ -209,6 +209,7 @@ async def stream_into_run(
     capture: list[str] | None = None,
     metrics_extra: Mapping[str, object] | None = None,
     guard: Guard | None = None,
+    publish_metrics: bool = False,
     turn: Turn | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
@@ -246,6 +247,8 @@ async def stream_into_run(
     `guard` : garde-fou mémoire d'un appel local (story 4.8), appelé dans la place avant le modèle ;
     son `ram_guard` met la feuille en `error` avec son enveloppe, sans relance ni mesure.
 
+    `publish_metrics` : avec `capture`, publie quand même l'événement `metrics` de la feuille (une
+    réponse évaluée, story 7.1 : texte gardé à part, débit et CO2 dans le flux, sans jetons).
     `turn` : tour d'une boucle d'agent (story 6.1). Le texte (réponse et réflexion) et les
     `ToolCall` sont **gardés** dans cet objet au lieu d'être publiés, comme avec `capture` ; mais le
     chargement du modèle et les `metrics` de la feuille sont publiés (un `metrics` par appel de
@@ -269,6 +272,7 @@ async def stream_into_run(
             capture=capture,
             metrics_extra=metrics_extra,
             guard=guard,
+            publish_metrics=publish_metrics,
             turn=turn,
         )
     finally:
@@ -296,6 +300,7 @@ async def _play(
     capture: list[str] | None = None,
     metrics_extra: Mapping[str, object] | None = None,
     guard: Guard | None = None,
+    publish_metrics: bool = False,
     turn: Turn | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
@@ -366,7 +371,7 @@ async def _play(
         except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
             logger.warning("Estimation du CO2 impossible : %r", exc)
             co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
-    if capture is None:
+    if capture is None or publish_metrics:
         metrics = _metrics(lane, result, origin, co2, footprint)
         metrics.update({k: v for k, v in (metrics_extra or {}).items() if k not in metrics})
         hub.publish(stream_id, "metrics", metrics)

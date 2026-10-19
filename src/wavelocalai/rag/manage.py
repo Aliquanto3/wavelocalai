@@ -7,9 +7,10 @@ texte supprimé ne reste ni dans le `.db` ni dans le `-wal`. « Vider » supprim
 puis **recrée** la table vec0 (`VectorIndex.clear`), avec la même purge ; `expected_count` (le
 nombre d'extraits que l'utilisateur a vus) doit être celui de la base, sinon rien n'est supprimé.
 
-Refus (409, AD-13 et AD-16) : `base_in_use` quand un run `rag` est actif, ou quand le document
-visé est encore `indexing` (son run `ingest` est actif), et, pour « Vider » et un changement de
-modèle d'embedding, quand un run `ingest` ou `rag` est actif ; `base_count_stale` ; et
+Refus (409, AD-13 et AD-16) : `base_in_use` quand un run `rag` ou `eval` (évaluation de la qualité,
+story 7.1) est actif, ou quand le document visé est encore `indexing` (son run `ingest` est actif),
+et, pour « Vider » et un changement de modèle d'embedding, quand un run `ingest`, `rag` ou `eval`
+est actif ; `base_count_stale` ; et
 `embedding_change_needs_clear` pour un autre modèle sur une base non vide. Le contrôle des runs et
 la mise en file de l'écriture se suivent sans `await` : aucun import ne peut démarrer entre les deux.
 
@@ -44,7 +45,7 @@ from wavelocalai.store.vec import vec_tables
 
 BASE_COUNT_SQL = "SELECT count(*) AS n FROM chunks"
 DOC_COUNT_SQL = "SELECT count(*) AS n FROM documents"
-BASE_KINDS = ("ingest", "rag")  # les runs qui lisent ou écrivent la base (AD-16)
+BASE_KINDS = ("ingest", "rag", "eval")  # les runs qui lisent ou écrivent la base (AD-16)
 
 
 def _limits() -> dict[str, dict[str, int]]:
@@ -151,7 +152,7 @@ class RagBaseService:
             }
 
         # Contrôle des runs et mise en file de l'écriture sans `await` entre les deux.
-        self._refuse_if_busy(("rag",))
+        self._refuse_if_busy(("rag", "eval"))
         future = self._store.write(erase, purge=True)
         return await asyncio.shield(asyncio.wrap_future(future))
 

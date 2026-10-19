@@ -773,6 +773,12 @@ class RunHub:
         la purge du fichier et du journal, que l'effacement d'une conversation."""
         await self.store.awrite(lambda conn: repo.erase_arena(conn, run_id), purge=True)
 
+    async def erase_eval(self, run_id: str) -> None:
+        """Efface une évaluation terminée, ses notes et le texte de ses runs (AD-13) :
+        `run_not_found` si ce n'est pas une évaluation, `run_busy` si elle est active. Même passage
+        par la file de l'écrivain, avec la purge du fichier et du journal, que l'Arène."""
+        await self.store.awrite(lambda conn: repo.erase_eval(conn, run_id), purge=True)
+
     def watch(self, run_id: str) -> asyncio.Event | None:
         """Événement qui se déclenche au prochain événement (ou à la clôture) d'un run racine
         actif ; `None` si le run n'est plus actif. À prendre *avant* `events_after`."""
