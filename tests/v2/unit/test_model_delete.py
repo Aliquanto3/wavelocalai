@@ -60,6 +60,37 @@ def test_the_in_memory_store_forgets_a_tag_too():
     assert facts.latest_per_tag() == []
 
 
+async def test_a_refresh_started_before_the_deletion_does_not_bring_the_model_back(tmp_path):
+    # Revue story 5.4 : un rafraîchissement a lu `/api/tags` (le modèle y est encore), la
+    # suppression passe pendant qu'il attend `/api/show`, puis il finit : ni la liste ni les faits
+    # ne le reprennent.
+    import asyncio
+
+    source = _fixture_source()
+    facts = InMemoryFactsStore()
+    registry = ModelRegistry(make_settings(tmp_path), source=source, facts=facts, cache_s=60.0)
+    await registry.refresh()
+    facts.delete_tag("qwen3.5:2b")  # le rafraîchissement en vol relira ses détails par `/api/show`
+    gate, waiting = asyncio.Event(), asyncio.Event()
+    show = source.show
+
+    async def slow_show(tag):
+        if tag == "qwen3.5:2b":
+            waiting.set()
+            await gate.wait()
+        return await show(tag)
+
+    source.show = slow_show
+    stale = asyncio.create_task(registry.refresh())
+    await waiting.wait()  # le rafraîchissement a lu `/api/tags` et attend `/api/show`
+    source.listed = [m for m in source.listed if m["model"] != "qwen3.5:2b"]  # Ollama l'a supprimé
+    await registry.forget("qwen3.5:2b")
+    gate.set()
+    await stale
+    assert "qwen3.5:2b" not in [m.tag for m in (await registry.list_models()).models]
+    assert all(f.tag != "qwen3.5:2b" for f in facts.latest_per_tag())
+
+
 async def test_a_deleted_model_does_not_come_back_at_a_cold_start_with_ollama_down(tmp_path):
     path = db_path(tmp_path)
     store = Store.open(path)

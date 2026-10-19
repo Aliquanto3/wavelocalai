@@ -258,6 +258,15 @@ async def test_a_loaded_model_is_unloaded_before_it_is_deleted(tmp_path):
     assert server.unloaded == ["mid:7b"] and server.deleted == ["mid:7b"]
 
 
+async def test_a_cold_model_is_deleted_without_a_keep_alive_request(tmp_path):
+    # `keep_alive: 0` sur un modèle froid le chargerait d'abord (revue story 5.4) : `/api/ps`
+    # décide.
+    server = ollama(loaded=["small:1b"])
+    async with manage_app(tmp_path, server) as (_, client, _r):
+        assert (await client.delete("/api/models/nomic-embed-text")).status_code == 200
+    assert server.unloaded == [] and server.deleted == ["nomic-embed-text"]
+
+
 async def test_a_tag_with_slashes_is_deleted_as_a_whole(tmp_path):
     tag = "hf.co/utilisateur/depot:Q4_K_M"
     server = ollama(tags=[*TAGS, tag])

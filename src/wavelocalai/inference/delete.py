@@ -23,7 +23,7 @@ from wavelocalai.models.classify import base_tag
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.ollama_api import OllamaUnavailableError
 from wavelocalai.models.ollama_delete import DeleteError, delete_model
-from wavelocalai.models.ollama_ps import unload_model
+from wavelocalai.models.ollama_ps import loaded_models, unload_model
 from wavelocalai.models.registry import ModelRegistry
 
 
@@ -71,7 +71,11 @@ async def delete_installed_model(
     if model is None:
         raise AppError("model_not_found", f"Modèle local inconnu : {tag}", tag=tag)
     _refuse_if_busy(active_models, tag)
-    await unload_model(host, tag, transport=transport)  # libère la mémoire, sans rien générer
+    # Déchargé seulement s'il est chargé : `keep_alive: 0` sur un modèle froid (`/api/embed` d'un
+    # modèle d'embedding, ou un Ollama ancien) le chargerait avant de le décharger.
+    loaded = await loaded_models(host, timeout_s=2.0, transport=transport) or []
+    if any(base_tag(m.tag) == base_tag(tag) for m in loaded):
+        await unload_model(host, tag, transport=transport)  # libère la mémoire, sans rien générer
     _refuse_if_busy(active_models, tag)  # un run a pu démarrer pendant le déchargement
     try:
         await delete_model(host, tag, transport=transport)

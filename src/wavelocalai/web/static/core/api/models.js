@@ -29,7 +29,8 @@ export function modelsApi(request) {
     deleteModel: (tag) =>
       request(`/api/models/${tag.split("/").map(encodeURIComponent).join("/")}`, {
         method: "DELETE",
-        timeoutMs: 30000,
+        // Au pire : `/api/ps` 2 s, déchargement 10 s, Ollama 20 s, purge 5 s, relecture 8 s.
+        timeoutMs: 60000,
       }),
     // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
     unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
