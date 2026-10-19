@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from wavelocalai.agents.crews import CrewAgent, CrewLibrary
 from wavelocalai.agents.loop import AgentLoop
+from wavelocalai.agents.outbox import build_actions
 from wavelocalai.agents.mission import MissionRunner
 from wavelocalai.agents.tools import AgentTool, ToolRegistry
 from wavelocalai.config import Settings
@@ -225,6 +226,7 @@ class AgentService:
                 meter=self._meter,
                 guard=self._guard,
                 announce=self._announce_carbon,
+                actions=build_actions(self._settings),
             )
             outcome = await loop.run(model, messages, tools, temperature=temperature)
             if outcome.status == "ok":

@@ -30,7 +30,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
@@ -55,7 +55,7 @@ from wavelocalai.models.defaults import ModelDefaults, is_weak_judge
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatModel, ChatRequest, Embedder, ModelRef
 from wavelocalai.models.registry import ModelRegistry
-from wavelocalai.runs.eval_snapshot import METRICS, aggregate
+from wavelocalai.runs.eval_snapshot import METRICS, aggregate, measure_totals
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import LeafResult, RunHandle
 from wavelocalai.runs.system_bus import SystemBus
@@ -118,6 +118,7 @@ class _Lane:
     status: str = "waiting"
     answers: dict[int, str] = field(default_factory=dict)  # question -> texte (réponse obtenue)
     failures: dict[int, dict[str, Any]] = field(default_factory=dict)  # question -> enveloppe
+    measured: dict[int, Mapping[str, Any]] = field(default_factory=dict)  # question -> `metrics`
 
     @property
     def tag(self) -> str:
@@ -386,7 +387,9 @@ class EvaluationService:
                     on_leaf_closed=self._announce_carbon,
                     capture=captured,
                     publish_metrics=True,
-                    metrics_extra={"question_index": index},
+                    metrics_extra=lambda event, lane=lane, index=index: self._lane_measures(
+                        ev, lane, index, event
+                    ),
                     guard=self._guard,
                 )
                 error = None if leaf.status == "ok" else (leaf.error or {})
@@ -417,6 +420,18 @@ class EvaluationService:
             error = lane.failures[len(ev.questions) - 1]
             code = error.get("code")
             self._set_status(ev, lane, "timeout" if code == "timeout" else "failed", error)
+
+    @staticmethod
+    def _lane_measures(
+        ev: _Eval, lane: _Lane, index: int, event: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Champs ajoutés au `metrics` d'une réponse : son rang et les mesures cumulées du modèle
+        (`lane_measures`, débit moyen et CO2 total : le front n'en calcule rien, AD-20)."""
+        lane.measured[index] = dict(event)
+        return {
+            "question_index": index,
+            "lane_measures": measure_totals(lane.measured.values(), len(ev.questions)),
+        }
 
     async def _score_lane(self, ev: _Eval, lane: _Lane) -> None:
         """La notation des réponses d'un modèle : `judging`, chaque note publiée dès qu'elle est

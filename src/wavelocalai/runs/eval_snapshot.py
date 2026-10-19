@@ -10,7 +10,7 @@ raison. Un inconnu n'est jamais un 0.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from wavelocalai.store.db import Store
@@ -36,6 +36,49 @@ def aggregate(scores: Iterable[int | None], total: int, *, settled: bool = True)
         "not_evaluated": len(seen) - len(present) + (unseen if settled else 0),
         "pending": 0 if settled else unseen,
         "total": total,
+    }
+
+
+def measure_totals(events: Iterable[Mapping[str, Any]], total: int) -> dict[str, Any]:
+    """Mesures d'un modèle sur un jeu de questions (revue 7.3, AD-20 : le front n'en calcule rien),
+    lues dans ses événements `metrics` (une réponse obtenue chacun) : `tps` = débit moyen des
+    réponses dont le débit est mesuré (`tps_measured` d'entre elles), `co2.mg` = somme des CO2
+    mesurés ou estimés (`co2.measured` d'entre elles, `estimated` si l'un l'est, `unmeasurable` si
+    des réponses ont un CO2 mais aucun chiffré), `answered` réponses mesurables sur `total`
+    questions. Un inconnu est `None`, jamais 0."""
+    seen = list(events)
+    rates = [e["tps"] for e in seen if isinstance(e.get("tps"), (int, float))]
+    co2 = [e["co2"] for e in seen if isinstance(e.get("co2"), Mapping)]
+    grams = [c["mg"] for c in co2 if isinstance(c.get("mg"), (int, float))]
+    return {
+        "tps": sum(rates) / len(rates) if rates else None,
+        "tps_measured": len(rates),
+        "co2": {
+            "mg": sum(grams) if grams else None,
+            "measured": len(grams),
+            "estimated": any(c.get("estimated") is True for c in co2),
+            "unmeasurable": bool(co2) and not grams,
+        },
+        "answered": len(seen),
+        "total": total,
+    }
+
+
+async def measures_by_lane(
+    store: Store, run_id: str, lanes: Sequence[str], question_count: int
+) -> dict[str, dict[str, Any]]:
+    """`{lane: measure_totals}` d'après les `metrics` enregistrés (vides une fois effacée)."""
+    rows = await store.aread(
+        "SELECT data FROM run_events WHERE run_id = ? AND type = 'metrics' ORDER BY seq",
+        (run_id,),
+    )
+    by_lane: dict[str, dict[int, dict[str, Any]]] = {lane: {} for lane in lanes}
+    for row in rows:
+        data = json.loads(row["data"])
+        if data.get("lane") in by_lane:  # une relance : la dernière mesure de la question
+            by_lane[data["lane"]][int(data.get("question_index") or 0)] = data
+    return {
+        lane: measure_totals(events.values(), question_count) for lane, events in by_lane.items()
     }
 
 
@@ -114,7 +157,8 @@ def missing_rows(
 
 async def eval_snapshot_fields(store: Store, snapshot: dict[str, Any]) -> dict[str, Any]:
     """Champs d'un instantané `eval` : `config`, `erased`, `partial`, `evaluations` (les notes lues
-    en base, de quoi tout reconstruire sans relancer un modèle), `summary` et, si l'évaluation est
+    en base, de quoi tout reconstruire sans relancer un modèle), `summary`, `measures` (débit moyen
+    et CO2 total par modèle) et, si l'évaluation est
     partielle, `missing`. `config` et les listes sont vides une fois l'évaluation effacée."""
     run_id = snapshot["run_id"]
     record = await eval_record(store, run_id)
@@ -151,6 +195,7 @@ async def eval_snapshot_fields(store: Store, snapshot: dict[str, Any]) -> dict[s
         "partial": partial,
         "evaluations": rows,
         "summary": summarize(rows, lanes, count, settled=settled),
+        "measures": await measures_by_lane(store, run_id, lanes, count),
         "judge": record["judge"],
     }
     if partial:

@@ -152,8 +152,8 @@ class AgentSettings(_Section):
 
 class SmtpSettings(_Section):
     """SMTP de l'outil « Envoi d'email » (story 6.2), lu de `.env` ou de l'environnement : le mot de
-    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 ne s'en sert que pour dire si l'outil est
-    disponible ; l'envoi, après validation de l'utilisateur, est la story 6.3."""
+    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 s'en sert pour dire si l'outil est
+    disponible ; l'envoi, après validation de l'utilisateur, est `agents/outbox.py` (story 6.3)."""
 
     server: str = "smtp.gmail.com"
     port: int = Field(587, ge=1, le=65535)

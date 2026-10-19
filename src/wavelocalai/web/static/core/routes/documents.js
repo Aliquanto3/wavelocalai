@@ -20,7 +20,8 @@ export const documentsModule = {
       id: "documents-evaluation",
       path: "/documents/evaluation",
       param: "run_id",
-      status: "planned",
+      status: "available",
+      load: () => import("../../screens/documents-eval.js"),
     },
   ],
 };

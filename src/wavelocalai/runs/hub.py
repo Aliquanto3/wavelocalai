@@ -134,6 +134,8 @@ class _Run:
         self.answer: list[str] = []
         self.thought: list[str] = []
         self.leaf_co2: Co2 | None = None  # `co2` d'une feuille close sans le sien (annulation)
+        # Demandes de validation en attente (AD-9) : `approval_id` -> résultat à attendre.
+        self.approvals: dict[str, asyncio.Future[str]] = {}
         self.lock = asyncio.Lock()
         self.closed = asyncio.Event()  # levé quand la clôture est écrite (`amend_cancelled_leaf`)
         # Abonnement (AD-6) : un flux ouvert attend `signal` ; chaque événement le déclenche et le
@@ -414,6 +416,92 @@ class RunHub:
         woken, run.signal = run.signal, asyncio.Event()
         woken.set()
 
+    # --- validation d'une action sensible (AD-9, story 6.3) ------------------------------------
+
+    async def request_approval(
+        self,
+        run_id: str,
+        kind: str,
+        details: Mapping[str, Any],
+        *,
+        expiry_s: float,
+        call_id: str | None = None,
+    ) -> str:
+        """Demande la validation de l'utilisateur et l'attend : publie `approval_required
+        {approval_id, kind, **details, call_id, expiry_s}` (les textes de `details` sont déjà
+        masqués par l'appelant), passe le run en `awaiting_approval` (il garde son `kind`), puis
+        rend `approved`, `rejected` ou `expired` (sans réponse en `expiry_s`). Seul `approved`
+        autorise l'action ; `approval_resolved` est publié avant le retour. Annuler ou clore le run
+        pendant l'attente vaut `rejected` (publié par `_close`) et la tâche reçoit `CancelledError`.
+        Un run déjà en clôture rend `rejected` sans rien publier."""
+        run = self._runs.get(run_id)
+        if run is None:
+            if run_id in self._closed:
+                return "rejected"
+            raise KeyError(f"Run inconnu : {run_id}")
+        if run.parent_id is not None:
+            raise ValueError("Seul un run racine demande une validation : le parent publie (AD-5).")
+        if run.closing:
+            return "rejected"
+        approval_id = uuid.uuid4().hex
+        waiter: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        run.approvals[approval_id] = waiter
+        data = {"approval_id": approval_id, "kind": kind, **details, "call_id": call_id}
+        self.publish(run_id, "approval_required", {**data, "expiry_s": expiry_s})
+        try:
+            await self._transition(run, "awaiting_approval", "running")
+            try:
+                async with asyncio.timeout(expiry_s):
+                    return await waiter
+            except TimeoutError:
+                if waiter.done() and not waiter.cancelled():  # réponse arrivée avec le délai
+                    return waiter.result()
+                self._resolve(run, approval_id, "expired")
+                await self._leave_approval(run)
+                return "expired"
+        finally:
+            run.approvals.pop(approval_id, None)
+
+    async def resolve_approval(self, run_id: str, approval_id: str, decision: str) -> bool:
+        """Réponse de l'utilisateur (`approved` ou `rejected`) à une demande en attente : publie
+        `approval_resolved` et réveille l'action. Rend `False` si la demande n'est plus en attente
+        (déjà traitée, expirée, run clos) : jamais deux décisions pour une demande."""
+        if decision not in ("approved", "rejected"):
+            raise ValueError(f"décision inconnue : {decision!r}")
+        run = self._runs.get(run_id)
+        waiter = None if run is None else run.approvals.get(approval_id)
+        if run is None or run.closing or waiter is None or waiter.done():
+            # `done()` : l'attente vient d'être interrompue (délai atteint, tâche annulée) sans
+            # avoir encore repris ; publier `approved` mentirait, car rien ne sera exécuté.
+            return False
+        self._resolve(run, approval_id, decision)
+        await self._leave_approval(run)
+        return True
+
+    def _resolve(self, run: _Run, approval_id: str, decision: str) -> None:
+        """Retire la demande, publie `approval_resolved` (même sur un run en clôture : `_close` le
+        fait avant `run_ended`) et réveille l'attente."""
+        waiter = run.approvals.pop(approval_id, None)
+        if waiter is None:
+            return
+        self._drain_tokens(run)
+        self._append(run, "approval_resolved", {"approval_id": approval_id, "decision": decision})
+        if not waiter.done():  # annulé avec sa tâche (annulation du run) : la décision est publiée
+            waiter.set_result(decision)
+
+    async def _leave_approval(self, run: _Run) -> None:
+        """Plus aucune demande en attente : le run repasse à `running`."""
+        if not run.approvals:
+            await self._transition(run, "running", "awaiting_approval")
+
+    async def _transition(self, run: _Run, new: str, expected: str) -> None:
+        """Transition de statut d'un run actif (`running` <-> `awaiting_approval`), en mémoire et en
+        base ; sans effet si le run est déjà en clôture."""
+        if run.closing:
+            return
+        run.status = new
+        await self.store.awrite(lambda conn: repo.transition_status(conn, run.id, new, expected))
+
     # --- fin d'un run --------------------------------------------------------------------------
 
     async def finish_leaf(self, run_id: str, result: LeafResult, co2: Co2 | None = None) -> bool:
@@ -537,6 +625,8 @@ class RunHub:
                 hook()
             except Exception:  # noqa: BLE001 - une annulation ne s'arrête jamais sur un crochet
                 logger.exception("Le crochet d'annulation du run %s a échoué", run.id)
+        for approval_id in list(run.approvals):  # clore ou annuler le run vaut refus (AD-9)
+            self._resolve(run, approval_id, "rejected")
         if co2 is None and not run.children:
             co2 = run.leaf_co2  # feuille close sans mesure (annulation) : `co2` présent (AD-10)
         self._drain_tokens(run)  # le texte reçu jusque-là entre dans le flux et le partiel

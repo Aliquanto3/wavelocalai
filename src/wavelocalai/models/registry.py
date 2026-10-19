@@ -209,12 +209,22 @@ class ModelRegistry:
         self._attempted_at: float | None = None
         self._refreshed_at: str | None = None
         self._task: asyncio.Task[None] | None = None
+        # Modèles supprimés (story 5.4) : tag -> génération de la suppression. Un rafraîchissement
+        # parti avant (génération plus ancienne) a pu lire le modèle dans `/api/tags` : il ne le
+        # remet ni dans la liste ni dans `model_facts`. Une entrée par suppression, rien de plus.
+        self._forget_gen = 0
+        self._forgotten: dict[str, int] = {}
 
     # -- rafraîchissement en tâche de fond ---------------------------------------------------
 
     async def refresh(self) -> None:
         """Relit Ollama (liste, puis détails des modèles au digest inconnu). Ne lève jamais :
         Ollama indisponible laisse la dernière liste connue."""
+        started_gen = self._forget_gen
+
+        def stale(tag: str) -> bool:  # supprimé après le départ de ce rafraîchissement
+            return self._forgotten.get(tag, -1) > started_gen
+
         try:
             listed = await self._source.list_tags()
         except OllamaUnavailableError:
@@ -225,7 +235,7 @@ class ModelRegistry:
 
         async def one(item: dict) -> _Local | None:
             tag = str(item.get("model") or item.get("name") or "")
-            if not tag:
+            if not tag or stale(tag):
                 return None
             digest = str(item.get("digest") or "")
             cached = self._facts.get(tag, digest) if digest else None
@@ -238,6 +248,8 @@ class ModelRegistry:
             if show is None and cached is not None:  # ligne d'avant la migration 0005, Ollama muet
                 return _Local(cached, is_remote_tag(item))
             facts = facts_from_ollama(item, show)
+            if stale(tag):  # supprimé pendant la lecture des détails
+                return None
             if show is not None and digest:  # sans détails : pas de cache, on réessaiera
                 self._facts.put(facts)
             return _Local(facts, is_remote_tag(item))
@@ -248,7 +260,9 @@ class ModelRegistry:
             logger.warning("Rafraîchissement des modèles interrompu", exc_info=True)
             self._attempted_at = self._clock()
             return
-        self._local = {rec.facts.tag: rec for rec in records if rec is not None}
+        self._local = {
+            rec.facts.tag: rec for rec in records if rec is not None and not stale(rec.facts.tag)
+        }
         self._ollama_up = True
         self._attempted_at = self._clock()
         self._refreshed_at = utc_now_iso()
@@ -256,6 +270,20 @@ class ModelRegistry:
     def invalidate(self) -> None:
         """Force le prochain `list_models` à relire Ollama (après un `pull` ou une suppression)."""
         self._attempted_at = None
+
+    async def forget(self, tag: str, *, wait_s: float = 8.0) -> None:
+        """Un modèle supprimé du poste (story 5.4) : ses lignes `model_facts` sont purgées (il ne
+        réapparaît plus quand la liste est reconstruite sans Ollama), il quitte aussitôt la liste en
+        mémoire, puis Ollama est relu (au plus `wait_s`) pour que la liste soit juste à la réponse.
+        """
+        self._forget_gen += 1
+        self._forgotten[tag] = self._forget_gen
+        await asyncio.to_thread(self._facts.delete_tag, tag)
+        if self._local is not None:
+            self._local.pop(tag, None)
+        self.invalidate()
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self.refresh(), wait_s)
 
     def _ensure_task(self) -> asyncio.Task[None]:
         loop = asyncio.get_running_loop()

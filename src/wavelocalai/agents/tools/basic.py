@@ -118,7 +118,7 @@ def system_report() -> str:
         return f"Erreur lors du monitoring : {exc}"
 
 
-# --- email (story 6.3 pour l'envoi réel) -------------------------------------------------------
+# --- email (le brouillon ; l'envoi est dans `agents/outbox.py`, story 6.3) -------------------------------------------------------
 
 
 def validate_email(to: str, subject: str, body: str) -> str | None:
@@ -133,8 +133,9 @@ def validate_email(to: str, subject: str, body: str) -> str | None:
 
 
 def draft_email(to: str, subject: str, body: str) -> str:
-    """Brouillon d'email : **rien n'est envoyé**, ni ici ni jamais par cette fonction (D2, AD-9). La
-    validation de l'utilisateur et l'envoi sont la story 6.3."""
+    """Contrôle d'un brouillon d'email : **rien n'est envoyé**, ni ici ni jamais par cette fonction
+    (D2, AD-9). La boucle demande ensuite la validation de l'utilisateur, puis l'envoi est
+    `agents/outbox.py` (story 6.3)."""
     error = validate_email(to, subject, body)
     if error:
         return error

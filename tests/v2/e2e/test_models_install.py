@@ -78,6 +78,23 @@ def open_models(page, models_server, ollama):
         ),
     )
     page.route(
+        re.compile(r"/api/models/defaults\?"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "purpose": "chat",
+                    "tags": ["here:2b"],
+                    "reason": "Règle.",
+                    "source": "rule",
+                    "eligible": ["here:2b"],
+                    "inactive": [],
+                }
+            ),
+        ),
+    )
+    page.route(
         re.compile(r"/api/models/catalog$"),
         lambda route: route.fulfill(
             status=200, content_type="application/json", body=json.dumps(catalog_listing(ollama))
@@ -129,8 +146,9 @@ def wait_notice(page, text: str) -> None:
 def test_the_screen_lists_what_is_installed_and_what_can_be_installed(models):
     assert models.get_by_role("heading", level=1).inner_text() == "Modèles"
     assert models.title() == "Modèles · WaveLocalAI"
-    assert [h.inner_text() for h in models.locator("h2").all()] == [
+    assert [h.inner_text() for h in models.locator("h2:not(.wl-dialog-title)").all()] == [
         "Sur ce poste",
+        "Modèles proposés par défaut",
         "Catalogue installable",
     ]
     installed = models.locator(".models-installed tbody tr")
@@ -138,7 +156,7 @@ def test_the_screen_lists_what_is_installed_and_what_can_be_installed(models):
     headers = models.locator(".models-installed thead th").all_inner_texts()
     assert headers == [
         "Nom", "Origine", "Usage", "Paramètres", "Taille", "Tient en mémoire", "Chargé",
-        "Débit sur ce poste",
+        "Débit sur ce poste", "Actions",
     ]  # fmt: skip
     cells = installed.first.locator("td").all_inner_texts()
     assert cells[2] == f"1,5{NBSP}B" and cells[3] == f"2{NBSP}Go"

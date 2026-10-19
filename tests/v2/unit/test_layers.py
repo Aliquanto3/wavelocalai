@@ -51,6 +51,9 @@ LAZY_ONLY = {
     "numexpr",
     "func_timeout",
     "psutil",
+    # Envoi d'email des agents (story 6.3) : `agents/outbox.py`, dans les fonctions seulement.
+    "smtplib",
+    "email",
 }
 
 

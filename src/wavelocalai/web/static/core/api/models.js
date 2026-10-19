@@ -14,6 +14,24 @@ export function modelsApi(request) {
     // Installe un modèle : run racine `pull`, `{run_id}` aussitôt ; la progression se lit par le flux
     // du run. `409 run_busy` (`detail.run_id`) : une installation tourne déjà (story 5.3).
     pullModel: (tag) => request("/api/models/pull", { method: "POST", body: { tag } }),
+    // Choix explicite du modèle d'un usage (`PUT`, un tag, 2 à 3 pour `arena`) : rend le défaut
+    // résultant (`source: preference`) ; `model_not_eligible`, `cloud_not_allowed` sinon (story 5.4).
+    setModelDefault: (purpose, tags, allowCloud) =>
+      request(`/api/models/defaults/${encodeURIComponent(purpose)}`, {
+        method: "PUT",
+        body: { tags, allow_cloud: Boolean(allowCloud) },
+      }),
+    // « Revenir au choix automatique » : efface la préférence de l'usage (204).
+    clearModelDefault: (purpose) =>
+      request(`/api/models/defaults/${encodeURIComponent(purpose)}`, { method: "DELETE" }),
+    // Supprime un modèle installé : `{tag, freed_gb, reverted}` ; `409 model_in_use` si un run
+    // l'emploie. Le tag garde ses `/` (un nom `hf.co/utilisateur/depot:Q4`), le reste est encodé.
+    deleteModel: (tag) =>
+      request(`/api/models/${tag.split("/").map(encodeURIComponent).join("/")}`, {
+        method: "DELETE",
+        // Au pire : `/api/ps` 2 s, déchargement 10 s, Ollama 20 s, purge 5 s, relecture 8 s.
+        timeoutMs: 60000,
+      }),
     // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
     unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
   };

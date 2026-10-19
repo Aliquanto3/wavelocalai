@@ -22,3 +22,13 @@ export function nameCell(name, tag) {
   if (name !== tag) cell.append(element("code", "models-tag", tag));
   return cell;
 }
+
+const baseTag = (tag) => tag.replace(/:latest$/, "");
+
+// Le run racine qui emploie ce modèle (`system.modelsInUse` : tag -> run_id du flux système), sinon
+// null. `:latest` ne compte pas : `qwen3.5` et `qwen3.5:latest` sont le même modèle.
+export function usedBy(modelsInUse, tag) {
+  const wanted = baseTag(tag);
+  const found = Object.keys(modelsInUse ?? {}).find((used) => baseTag(used) === wanted);
+  return found === undefined ? null : modelsInUse[found];
+}

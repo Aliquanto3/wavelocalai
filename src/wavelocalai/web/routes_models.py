@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import contextlib
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from wavelocalai.errors import AppError
+from wavelocalai.inference.delete import delete_installed_model
 from wavelocalai.inference.pull import PullService
 from wavelocalai.inference.unload import unload_idle_models
 from wavelocalai.models.defaults import ModelDefault, Purpose
@@ -32,6 +33,37 @@ async def model_defaults(
     """Modèle(s) par défaut d'un usage et sa raison ; `no_model` sans modèle de conversation.
     Jamais de cloud sans `allow_cloud`."""
     return await request.app.state.defaults.get(purpose, allow_cloud)
+
+
+class DefaultBody(BaseModel):
+    tags: list[str] = Field(min_length=1, max_length=3)  # un seul tag, 2 à 3 pour `arena`
+    allow_cloud: bool = False  # sans lui, un modèle cloud est refusé (AD-9)
+
+
+@router.put("/models/defaults/{purpose}")
+async def choose_model_default(
+    purpose: Purpose, body: DefaultBody, request: Request
+) -> ModelDefault:
+    """Choix explicite du modèle d'un usage (décision Q2 : jamais retenu sans ce geste), écrit dans
+    `preferences` et rendu comme `GET` (`source: preference`, raison « Choisi par vous »). Refus :
+    `404 model_not_found`, `403 cloud_not_allowed`, `422 model_not_eligible` (hors des modèles
+    éligibles à l'usage), `422 invalid_request` (nombre de tags)."""
+    return await request.app.state.defaults.choose(purpose, body.tags, body.allow_cloud)
+
+
+@router.delete("/models/defaults/{purpose}", status_code=204)
+async def clear_model_default(purpose: Purpose, request: Request) -> Response:
+    """« Revenir au choix automatique » : efface la préférence de l'usage (sans effet s'il n'y en a
+    pas) ; `GET /api/models/defaults` rend alors la règle."""
+    request.app.state.defaults.clear(purpose)
+    return Response(status_code=204)
+
+
+async def _publish_system_state(app) -> None:
+    """Publie sans attendre l'état du système : la mémoire libre et les modèles chargés se mettent
+    à jour sur le flux (AD-6) ; sinon le tick suivant (2 s) s'en charge."""
+    with contextlib.suppress(Exception):
+        app.state.system_feed.publish(STATE_EVENT, await app.state.system_sampler.sample())
 
 
 class KeptModel(BaseModel):
@@ -59,8 +91,7 @@ async def unload_models(request: Request) -> UnloadResult:
         reader=app.state.memory_reader,
         transport=app.state.ollama_transport,
     )
-    with contextlib.suppress(Exception):  # sinon le tick suivant (2 s) met le flux à jour
-        app.state.system_feed.publish(STATE_EVENT, await app.state.system_sampler.sample())
+    await _publish_system_state(app)
     return UnloadResult(
         unloaded=report.unloaded,
         kept=[KeptModel(**item) for item in report.kept],
@@ -105,3 +136,30 @@ async def pull_model(body: PullBody, request: Request) -> PullStarted:
         raise AppError("internal", "Le service d'installation n'est pas démarré.")
     handle = await service.start(body.tag)
     return PullStarted(run_id=handle.run_id)
+
+
+class DeleteResult(BaseModel):
+    tag: str
+    freed_gb: float | None  # taille du modèle supprimé (Go), `null` si inconnue
+    reverted: list[str]  # usages dont il était le défaut choisi, revenus à la règle automatique
+
+
+@router.delete("/models/{tag:path}")
+async def delete_model_route(tag: str, request: Request) -> DeleteResult:
+    """Supprime un modèle installé (Ollama `DELETE /api/delete`), purge ses lignes `model_facts` et
+    ramène à la règle les usages dont il était le défaut choisi (story 5.4). Refus : `409
+    model_in_use` (`detail.tag`, `detail.run_id`) si un run actif l'emploie, `404
+    model_not_found`, `503 ollama_down`, `502 model_delete_failed`. Déclarée après
+    `DELETE /models/defaults/{purpose}`, que ce chemin avalerait."""
+    app = request.app
+    hub = app.state.hub
+    report = await delete_installed_model(
+        app.state.settings.ollama.host,
+        tag,
+        registry=app.state.registry,
+        defaults=app.state.defaults,
+        active_models=(lambda: {}) if hub is None else hub.active_models,
+        transport=app.state.ollama_transport,
+    )
+    await _publish_system_state(app)
+    return DeleteResult(tag=report.tag, freed_gb=report.freed_gb, reverted=report.reverted)
