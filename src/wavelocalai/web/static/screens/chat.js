@@ -26,6 +26,7 @@ import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatNumber } from "../core/format.js";
 import { t } from "../core/i18n.js";
+import { isRamGuard, onSmallerModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
@@ -127,6 +128,7 @@ export function mount(host) {
   let answer = null;
   let wasHidden = host.hidden;
   let pending = false; // commande envoyée, réponse du serveur attendue
+  let lastMessage = ""; // la dernière question envoyée : rendue au champ si le garde-fou refuse
   let creativityTouched = false; // curseur déplacé dans cette conversation : il ne suit plus le modèle
 
   const running = () => runId !== null;
@@ -186,8 +188,19 @@ export function mount(host) {
     run_ended: (data, envelope) => {
       forward(data, envelope);
       finish(data?.status ?? "error");
+      keepQuestion(data);
     },
   };
+
+  // Garde-fou mémoire (`ram_guard`, story 4.8) : la question reste dans l'historique du fil (le
+  // serveur l'a gardée) et revient dans le champ, sauf si la personne a déjà tapé autre chose.
+  function keepQuestion(data) {
+    if (data?.status !== "error" || !isRamGuard(data.error)) return;
+    if (lastMessage && !input.value.trim()) {
+      input.value = lastMessage;
+      saveDraft(DRAFT, lastMessage);
+    }
+  }
 
   function openStream(id) {
     stream?.close({ keepSeq: true });
@@ -300,6 +313,7 @@ export function mount(host) {
       return;
     }
     pending = true; // pas de second envoi (bouton ni Entrée) ni d'effacement pendant la requête
+    lastMessage = message;
     render();
     try {
       const started = await api.startChat({
@@ -379,6 +393,14 @@ export function mount(host) {
   });
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
+  // Garde-fou mémoire : le modèle proposé par le serveur est choisi, sans relancer.
+  onSmallerModel(host, (tag) => {
+    picker.value = tag;
+    applyModelTemperature(); // l'affectation n'émet pas `wl-model-change`
+    notice.textContent = t("chat.model_changed", { model: picker.modelFor(tag)?.name ?? tag });
+    notice.hidden = false;
+    input.focus();
+  });
   slider.addEventListener("input", () => {
     creativityTouched = true;
     sliderValue.textContent = formatNumber(Number(slider.value));

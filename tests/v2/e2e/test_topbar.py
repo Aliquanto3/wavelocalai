@@ -27,6 +27,10 @@ CLOUD_HELP = (
 )
 BANNER_LOST = "Connexion au serveur perdue, nouvelle tentative…"
 BANNER_RESTARTED = "Le serveur a redémarré. Les exécutions en cours sont perdues."
+# Échéances (non des pauses : l'attente s'arrête à l'état voulu). Le démarrage d'un serveur peut
+# durer plus de 30 s sur un poste saturé, et le flux ne se reconnecte qu'après son délai de reprise.
+LOST_WAIT_MS = 45_000
+RESTART_WAIT_MS = 90_000
 
 
 def pill(page):
@@ -352,7 +356,7 @@ def test_banner_appears_after_three_failures_and_goes_when_the_server_is_back(
     assert banner.is_hidden()
 
     backend.stop()
-    banner.wait_for(state="visible", timeout=15_000)
+    banner.wait_for(state="visible", timeout=LOST_WAIT_MS)
     assert banner.inner_text().strip() == BANNER_LOST
     failures = page.evaluate(
         "() => import('/static/core/store.js').then((m) => m.store.get().connection.failures)"
@@ -363,7 +367,7 @@ def test_banner_appears_after_three_failures_and_goes_when_the_server_is_back(
     assert_no_horizontal_scroll(page)
 
     backend.start()
-    banner.wait_for(state="hidden", timeout=30_000)
+    banner.wait_for(state="hidden", timeout=RESTART_WAIT_MS)
 
 
 def test_a_restarted_server_is_announced_with_a_reload_button(
@@ -377,10 +381,10 @@ def test_a_restarted_server_is_announced_with_a_reload_button(
     wait_for(page, "() => document.getElementById('restart-banner').hidden")
 
     backend.stop()
-    page.locator("#connection-banner").wait_for(state="visible", timeout=15_000)
+    page.locator("#connection-banner").wait_for(state="visible", timeout=LOST_WAIT_MS)
     backend.start()
     restarted = page.locator("#restart-banner")
-    restarted.wait_for(state="visible", timeout=30_000)
+    restarted.wait_for(state="visible", timeout=RESTART_WAIT_MS)
     assert BANNER_RESTARTED in restarted.inner_text()
     assert restarted.get_attribute("role") == "alert"
 
@@ -435,7 +439,7 @@ def test_axe_finds_no_violation_with_the_connection_banners(
     wait_ready(page)
     apply_theme(page, theme)
     backend.stop()
-    page.locator("#connection-banner").wait_for(state="visible", timeout=15_000)
+    page.locator("#connection-banner").wait_for(state="visible", timeout=LOST_WAIT_MS)
     assert_no_axe_violations(page, f"bandeau de connexion perdue, thème {theme}")
     page.evaluate(
         "() => import('/static/core/store.js').then((m) => m.store.set({ serverRestarted: true }))"

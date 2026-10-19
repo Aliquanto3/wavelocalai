@@ -36,7 +36,7 @@ from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.chat import cloud_estimator
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import CANCELLED_CO2, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, Guard, stream_into_run
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ChatResult, Embedder
 from wavelocalai.models.registry import ModelRegistry
@@ -148,6 +148,7 @@ class RagService:
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
         preferences: PreferenceStore | None = None,
+        guard: Guard | None = None,
     ) -> None:
         self._hub = hub
         self._store: Store = hub.store
@@ -159,6 +160,7 @@ class RagService:
         self._preferences = preferences  # `top_k` choisi à l'écran (AD-15), prime sur le .toml
         self._meter = meter  # sans compteur, le CO2 d'une feuille locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
+        self._guard = guard  # garde-fou mémoire de la réponse locale (story 4.8)
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: RagCommand) -> RunHandle:
@@ -277,6 +279,7 @@ class RagService:
                 meter=self._meter,
                 on_leaf_closed=self._announce_carbon,
                 metrics_extra={"retrieval_s": retrieval_s},
+                guard=self._guard,
             )
             if leaf.status == "ok":
                 self._publish_citations(root, sources)

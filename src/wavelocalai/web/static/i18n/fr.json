@@ -129,7 +129,17 @@
       "provisional": "provisoire"
     },
     "error": {
-      "details": "Détails techniques"
+      "details": "Détails techniques",
+      "ram_guard_smaller": "Prendre un modèle plus petit",
+      "ram_guard_unload": "Décharger les modèles inactifs",
+      "ram_guard_suggested": "Modèle proposé : {model}. Il est choisi dans la liste, sans relancer.",
+      "ram_guard_none": "Aucun modèle installé ne tient dans la mémoire libre.",
+      "unloading": "Déchargement en cours…",
+      "unloaded": "Modèles déchargés : {models}. Mémoire libre : {free}.",
+      "unload_none": "Aucun modèle inactif à décharger. Mémoire libre : {free}.",
+      "unload_kept": "Gardés, car une réponse les utilise : {models}.",
+      "unload_failed": "Ollama n'a pas pu décharger : {models}.",
+      "unload_failed_generic": "Le déchargement n'a pas abouti. Vérifiez qu'Ollama répond, puis réessayez."
     },
     "picker": {
       "label": "Modèle",
@@ -282,7 +292,8 @@
     "no_model": "Aucun modèle n'est choisi.",
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
     "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
-    "start_failed": "La demande n'a pas pu être envoyée."
+    "start_failed": "La demande n'a pas pu être envoyée.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ."
   },
   "discussion": {
     "lead": "Posez une question à vos documents. Les sources apparaissent avant la réponse : vous vérifiez d'où elle vient pendant qu'elle s'écrit.",
@@ -444,6 +455,7 @@
       "version_unknown": "inconnue",
       "memory": "Mémoire du poste",
       "memory_value": "{used} utilisés sur {total}",
+      "memory_free": "Mémoire libre",
       "loaded": "Modèles chargés",
       "loaded_item": "{tag}, {size}",
       "none_loaded": "Aucun modèle chargé en mémoire",
@@ -520,6 +532,7 @@
     "busy": "Une comparaison est en cours",
     "start_failed": "La comparaison n'a pas pu être lancée.",
     "joined": "Une comparaison est déjà en cours : vous la suivez.",
+    "model_changed": "Modèle choisi : {model}, à la place de {old}. Relancez la comparaison, la question est restée dans le champ.",
     "asked": "Question posée",
     "lanes": "Réponses des modèles",
     "tabs": "Modèles comparés",

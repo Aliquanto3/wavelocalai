@@ -44,6 +44,7 @@ def test_monitor_snapshot_is_plausible_and_serialisable():
     assert 0.0 <= metrics["cpu_percent"] <= 100.0
     memory = metrics["memory"]
     assert 0 < memory["used_gb"] <= memory["total_gb"]
+    assert 0 < memory["available_gb"] <= memory["total_gb"]  # libre pour un nouveau modèle (4.8)
     assert 0.0 <= memory["percent"] <= 100.0
 
 

@@ -77,6 +77,10 @@ class FakeOllama:
     loaded: list[str] = field(default_factory=list)  # `/api/ps`
     ps_fails: str | None = None  # `connect` (refus de connexion) ou `http` (statut 500)
     tags: list[str] = field(default_factory=lambda: ["qwen2.5:1.5b"])
+    sizes: dict[str, int] = field(default_factory=dict)  # taille d'un modèle (octets), 1 Go sinon
+    unload_fails: bool = False  # `/api/generate` et `/api/embed` refusent le déchargement
+    generate_refuses: set[str] = field(default_factory=set)  # modèles d'embedding : 400 au generate
+    unloaded: list[str] = field(default_factory=list)  # modèles déchargés (`keep_alive: 0`)
     parameters: dict[str, str] = field(default_factory=dict)  # tag -> `parameters` de `/api/show`
     chat_requests: list[dict[str, Any]] = field(default_factory=list)
     opened: int = 0
@@ -97,10 +101,35 @@ class FakeOllama:
             if self.ps_fails == "http":
                 return httpx.Response(500, text="boum")
             return httpx.Response(
-                200, json={"models": [{"model": t, "name": t} for t in self.loaded]}
+                200,
+                json={
+                    "models": [
+                        {
+                            "model": t,
+                            "name": t,
+                            "size": self.sizes.get(t, 1_000_000_000),
+                            "size_vram": 0,
+                        }
+                        for t in self.loaded
+                    ]
+                },
             )
+        if path in ("/api/generate", "/api/embed"):
+            body = json.loads(request.content)
+            assert body.get("keep_alive") == 0, body
+            if self.unload_fails:
+                return httpx.Response(500, text="boum")
+            if path == "/api/generate" and body["model"] in self.generate_refuses:
+                return httpx.Response(400, json={"error": "does not support generate"})
+            self.unloaded.append(body["model"])
+            if body["model"] in self.loaded:
+                self.loaded.remove(body["model"])
+            return httpx.Response(200, json={"model": body["model"], "done": True})
         if path == "/api/tags":
-            return httpx.Response(200, json={"models": [_listed(t) for t in self.tags]})
+            return httpx.Response(
+                200,
+                json={"models": [_listed(t, self.sizes.get(t, 1_000_000_000)) for t in self.tags]},
+            )
         if path == "/api/show":
             tag = json.loads(request.content).get("model")
             shown: dict[str, Any] = {"capabilities": ["completion"], "model_info": {}}
@@ -118,11 +147,11 @@ class FakeOllama:
         return httpx.Response(200, stream=_Stream(self, plan))
 
 
-def _listed(tag: str) -> dict[str, Any]:
+def _listed(tag: str, size: int = 1_000_000_000) -> dict[str, Any]:
     return {
         "model": tag,
         "digest": f"d-{tag}",
-        "size": 1_000_000_000,
+        "size": size,
         "details": {"family": "qwen2", "parameter_size": "1.5B", "quantization_level": "Q4_K_M"},
     }
 

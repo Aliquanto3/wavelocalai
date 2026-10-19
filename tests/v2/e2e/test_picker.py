@@ -63,6 +63,7 @@ LOCAL = [
         size_gb=18.6,
         fits=False,
         needed_gb=21.4,
+        required_gb=24.1,  # 21,4 × 1,1 + 0,5 : le chiffre affiché, celui d'un refus ram_guard
         params_total_b=30.0,
         params_active_b=3.0,
     ),
@@ -288,7 +289,7 @@ def test_each_row_shows_badge_size_memory_throughput_and_pills(picker):
         assert expected in text, expected
     big = row("qwen3:30b-a3b")
     big_text = big.inner_text()
-    assert f"Ne tient pas en mémoire (21,4{NBSP}Go requis)" in big_text
+    assert f"Ne tient pas en mémoire (24,1{NBSP}Go requis)" in big_text
     assert "MoE 3B actifs" in big_text
     assert big.get_attribute("aria-disabled") is None  # reste choisissable
     assert "tokens/s" not in big_text  # pas de débit mesuré : rien d'affiché

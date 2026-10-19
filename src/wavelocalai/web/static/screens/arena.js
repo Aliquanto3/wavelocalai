@@ -22,6 +22,7 @@ import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatClock } from "../core/format.js";
 import { t } from "../core/i18n.js";
+import { onSmallerModel, swapModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
@@ -29,7 +30,7 @@ import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
 import { resultsView } from "./arena-results.js";
 import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
-import { nextTab } from "./arena-tabs.js";
+import { moveTab } from "./arena-tabs.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
@@ -297,7 +298,7 @@ export function mount(host, params = {}) {
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-controls", el.id);
     tab.addEventListener("click", () => selectTab(tag, true));
-    tab.addEventListener("keydown", (event) => onTabKey(event, tag));
+    tab.addEventListener("keydown", (event) => moveTab(event, [...lanes.keys()], tag, (next) => selectTab(next, true)));
     lanes.set(tag, { el, tab, name: fiche?.name ?? tag, origin: fiche?.origin ?? "unknown" });
     lanesEl.append(el);
     tabs.append(tab);
@@ -322,13 +323,6 @@ export function mount(host, params = {}) {
     activeTab = tag;
     layout();
     if (focus) lanes.get(tag)?.tab.focus();
-  }
-
-  function onTabKey(event, tag) {
-    const next = nextTab(event.key, [...lanes.keys()], tag);
-    if (next === null) return;
-    event.preventDefault();
-    selectTab(next, true);
   }
 
   // Étroit : onglets, une colonne à la fois ; large : toutes les colonnes, en groupes.
@@ -565,6 +559,10 @@ export function mount(host, params = {}) {
   question.addEventListener("input", () => {
     saveDraft(DRAFT, question.value);
     render();
+  });
+  onSmallerModel(host, (tag, source) => {
+    announce(t("arena.model_changed", swapModel(picker, source.closest("wl-arena-lane")?.tag, tag)));
+    render(); // garde-fou mémoire : le modèle proposé remplace celui de la colonne en échec
   });
   picker.addEventListener("wl-model-change", render);
   for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);

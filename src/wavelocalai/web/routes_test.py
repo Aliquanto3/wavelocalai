@@ -7,7 +7,8 @@ d'étapes, chacune un objet à une clé principale :
 - `{"text": "…", "channel": "answer" | "thought"}` : un morceau de texte ;
 - `{"sleep_s": 0.2}` : une pause (au plus 30 s) ;
 - `{"load": "loading" | "loaded", "duration_s": 0.1}` : l'état de chargement ;
-- `{"fail": "<code d'errors.py>", "technical": "…"}` : une `ProviderError` ;
+- `{"fail": "<code d'errors.py>", "technical": "…", "detail": {…}}` : une `ProviderError`, avec
+  les clés machine déclarées avec son code (`ram_guard` : `needed_gb`, `free_gb`, …) ;
 - `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un).
 
 `POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
@@ -84,7 +85,9 @@ def parse_script(items: list[dict[str, Any]]) -> list[Step]:
             elif "load" in item:
                 steps.append(LoadState(item["load"], item.get("duration_s")))
             elif "fail" in item:
-                steps.append(ProviderError(item["fail"], item.get("technical")))
+                steps.append(
+                    ProviderError(item["fail"], item.get("technical"), **(item.get("detail") or {}))
+                )
             elif "done" in item:
                 steps.append(Done(ChatResult(**item["done"])))
             else:

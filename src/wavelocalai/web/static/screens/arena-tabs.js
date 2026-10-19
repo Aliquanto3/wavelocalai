@@ -9,3 +9,11 @@ export function nextTab(key, order, tag) {
   if (key === "End") return order[order.length - 1];
   return null;
 }
+
+// Applique la touche : active l'onglet visé (`select(tag)`) sans faire défiler la page.
+export function moveTab(event, order, tag, select) {
+  const next = nextTab(event.key, order, tag);
+  if (next === null) return;
+  event.preventDefault();
+  select(next);
+}
