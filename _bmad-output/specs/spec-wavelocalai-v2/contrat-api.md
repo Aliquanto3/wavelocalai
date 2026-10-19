@@ -134,6 +134,12 @@ Noms de champs fixés par la story serveur 7.1 (décision du 2026-10-19, écart 
 | Banc d'essai | `GET /api/models` (`structured_output`, story 7.4) ; `GET /api/scenarios` : par scénario, consigne système (`instruction`, D-18) et format attendu en schéma JSON ou `null` si le scénario n'en a pas (D-17) ; résultat rouvert par `GET /api/runs/{id}` (route `#/arene/banc/<run_id>`) ; liste des tests passés, route fixée par la story 7.4 et consignée ici (décision du 2026-10-19) | `POST /api/bench/runs` ; le serveur dit si la sortie respecte le format (`format_verdict` de l'instantané, absent sans format attendu) |
 | Fichiers produits | `GET /api/outputs/{name}` | — |
 
+### Historique carbone et remise à zéro (story 5.2)
+
+- `GET /api/carbon/history?window=7d|30d|all` (défaut `7d` ; autre valeur : `422 invalid_request`) rend `{window, sessions: [{id, started_at, ended_at, total_mg, local_mg, cloud_mg, measured_runs, unmeasurable_runs}]}`, du plus ancien au plus récent. Une ligne par `app_session` **close** dont la dernière réponse tombe dans la fenêtre ; la session en cours n'y figure pas (D-37), ni une session sans aucune feuille comptée. `ended_at` est la fin de la dernière réponse de la session (la session n'a pas de date de clôture propre). Mêmes feuilles que `GET /api/carbon/session` (`greenops/session.py::LEAF_WHERE`) et `runs` survit à l'effacement d'une conversation : le total ne baisse jamais (AD-13). Un total inconnu n'est jamais 0 : `total_mg` est `null` quand aucune réponse de la session n'a été mesurée ; `local_mg` et `cloud_mg` le sont quand la session a des réponses de cette origine mais aucune mesurée, et valent 0 quand elle n'en a aucune (aucun appel cloud).
+- `POST /api/carbon/session/reset` (écriture, `Origin` contrôlée, sans corps) : `hub.new_app_session("reset")`, publication de `carbon_updated` (somme nulle) sur le flux système, rend le résumé de la nouvelle session (même forme que `GET /api/carbon/session`). Aucun effacement ; la session close entre dans l'historique. Un run actif reste compté dans la session où il a commencé : une feuille prend la session de son run racine, pas la session courante. Aucun code d'erreur nouveau.
+- Route de test (`WAVELOCALAI_TESTING`) : `POST /api/test/carbon-sessions {sessions: [{days_ago, leaves: [{kind, origin, mg | null}]}]}` ajoute des sessions closes datées dans le passé.
+
 ## `409` hors `run_busy`
 
 - Effacer une conversation, un run ou un document qui a un run actif (AD-13).
