@@ -15,7 +15,7 @@ context:
 warnings: []
 deferred:
   - summary: >-
-      Écart nouveau, non couvert par les décisions du 2026-10-19 : variante la plus conservatrice (le critère de la story). (1) Le bouton « Remettre le compteur à zéro » (et sa désactivation avec sa raison quand la session est vide, écart n° 16) n'est pas livré : il appelle `POST /api/carbon/session/reset`, route de la story 5.2, et l'écran n'a aucun contrôle sans effet. La 5.2 le place en tête de la section « Empreinte carbone » (`sobriety-carbon.js`, qui l'attend : le calcul « session vide » y est déjà fait par `measured_runs` et `unmeasurable_runs` à 0). (2) La carte « Santé du système » dit « Aucun » dès que le flux n'a pas de champ `gpu`, y compris sur un Mac à puce Apple (le flux ne lit que NVML) : c'est le critère (« sans NVML, ces champs sont absents et l'écran dit Aucun »), la fiche d'identité, elle, nomme « Apple Silicon ». (3) La mémoire « disponibles » de la carte Mémoire est `memory.available_gb` du serveur (celle que compare le garde-fou), non « totale moins utilisée » de la maquette : le front ne soustrait rien (AD-20).
+      (1) Le bouton « Remettre le compteur à zéro » et sa désactivation avec sa raison quand la session est vide sont couverts par la décision n° 16 du 2026-10-19 (stories 5.1 et 5.2), livrés en 5.2 avec leur route `POST /api/carbon/session/reset` : la 5.1 n'a aucun contrôle sans effet (décision de l'orchestrateur, revue). Points (2) et (3) : écarts nouveaux, variante la plus conservatrice (le critère de la story). La 5.2 le place en tête de la section « Empreinte carbone » (`sobriety-carbon.js`, qui l'attend : le calcul « session vide » y est déjà fait par `measured_runs` et `unmeasurable_runs` à 0). (2) La carte « Santé du système » dit « Aucun » dès que le flux n'a pas de champ `gpu`, y compris sur un Mac à puce Apple (le flux ne lit que NVML) : c'est le critère (« sans NVML, ces champs sont absents et l'écran dit Aucun »), la fiche d'identité, elle, nomme « Apple Silicon ». (3) La mémoire « disponibles » de la carte Mémoire est `memory.available_gb` du serveur (celle que compare le garde-fou), non « totale moins utilisée » de la maquette : le front ne soustrait rien (AD-20).
     evidence: |-
       `screens/sobriety-carbon.js`, `screens/sobriety-health.js::renderMemory`, `renderGpu`, `tests/v2/e2e/test_sobriety.py`.
     location: src/wavelocalai/web/static/screens/sobriety-carbon.js
@@ -68,3 +68,16 @@ ADEME, « Modélisation de l'empreinte carbone de la voiture - 2025 », voiture 
 
 - Joué en local : `tests/v2/unit` (901 passés, 1 sauté), `tests/v2/web` ciblé (`test_system`, `test_sobriety_api`, `test_read_budget`, `test_defaults` : 40 passés), E2E `test_sobriety.py` (27), `test_shell.py` et `test_topbar.py` (67), `test_home.py` (32). La suite complète est celle de la CI.
 - Pas de dépendance nouvelle ; `pynvml` était déjà là. Les valeurs de la maquette (111 g/km) étaient fictives : la valeur réelle est celle du `.toml`, à confirmer (deuxième report).
+
+## Revue
+
+Revue Opus du 2026-10-19, une passe, sur `13bcd36..16e2d8a`.
+
+- medium · second avis n° 1 · corrigé · l'écart n° 16 est attribué à 5.1 et 5.2 par les décisions : le premier report dit maintenant « couvert par la décision n° 16, livré en 5.2 avec sa route » ; `sobriety-carbon.js` calcule déjà la session vide (`measured_runs`, `unmeasurable_runs`) et annonce la 5.2 en tête.
+- low · second avis n° 2 · corrigé en partie · `formatDistance(0)` donnait « 0 mm » (session de réponses mesurées à 0 mg) : rend « 0 m ». 999,5 m en « 1 km » est voulu (arrondi à trois chiffres avant le choix d'unité, comme `co2Unit`) : rejeté. Vérifié sous node : 0 → « 0 m », 0,004 → « 4 mm », 3,7 → « 3,7 m », 1 234 → « 1,23 km ».
+- low · second avis n° 3 · rejeté · le test désactivé garde sa valeur : `bindSobrietyLink` traite toujours un écran `planned`, et l'ancien test du cas actif mutait déjà le registre de la même façon.
+- low · second avis n° 4 · rejeté · `nvmlDeviceGetCurrentClocksEventReasons` existe dans le `pynvml` installé et répond sur la RTX 3050 du poste (`read_gpu_state()` réel : `throttle_reasons: ['gpu_idle']`) ; le repli `[]` est la lecture au mieux de `nvml.py`, antérieure à la story.
+- low · second avis n° 5 · corrigé · `SystemSampler._read_gpu` rattrape une exception du lecteur : état GPU effacé (jamais périmé) et avertissement journalisé, plus d'exception de tâche jamais récupérée. Test `test_a_gpu_reader_that_raises_clears_the_state_and_logs_it`.
+- info · revue · Complexité : 0 constat. Panneau de méthode ouvert : une lecture de `GET /api/carbon/method` par `carbon_updated` (une agrégation SQL de session, pas de boucle) ; le store est rendu toutes les 2 s sans parcours d'historique.
+- info · revue · facteur voiture 142 g/km (ADEME 2025) : laissé à la décision d'Anaël (deuxième report).
+

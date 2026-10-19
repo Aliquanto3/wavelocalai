@@ -120,6 +120,7 @@ export function formatClock(seconds) {
 // serveur donne des mètres ; ici seulement l'unité qui convient, comme `co2Unit`.
 export function formatDistance(meters) {
   if (!isMeasure(meters) || meters < 0) return formatUnknown();
+  if (meters === 0) return withUnit(formatNumber(0), "m"); // « 0 m », jamais « 0 mm »
   const rounded = Number(meters.toPrecision(3));
   if (rounded >= 1000) return withUnit(formatNumber(meters / 1000), "km");
   if (rounded >= 1) return withUnit(formatNumber(meters), "m");

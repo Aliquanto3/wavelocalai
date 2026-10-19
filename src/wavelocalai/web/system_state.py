@@ -11,6 +11,7 @@ celle que la sonde a en cache.
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -23,6 +24,8 @@ from wavelocalai.hardware.monitor import HardwareMonitor
 from wavelocalai.models.ollama_probe import OllamaProbe
 from wavelocalai.models.ollama_ps import loaded_models
 from wavelocalai.runs.hub import RunHub
+
+_log = logging.getLogger(__name__)
 
 GPU_WAIT_S = 0.05  # attente de la lecture du GPU dans un échantillon : au-delà, la précédente sert
 
@@ -74,8 +77,13 @@ class SystemSampler:
 
     async def _read_gpu(self) -> None:
         # Une lecture sans résultat (NVML absent, GPU disparu) efface la précédente : jamais un
-        # état périmé présenté comme présent.
-        self._gpu = await asyncio.to_thread(self.gpu_reader)
+        # état périmé présenté comme présent. Un lecteur qui lève vaut aussi « aucun GPU », journalisé :
+        # sinon l'exception de la tâche n'est jamais récupérée et l'état précédent resterait publié.
+        try:
+            self._gpu = await asyncio.to_thread(self.gpu_reader)
+        except Exception:  # noqa: BLE001 - lecture au mieux
+            _log.warning("lecture de l'état du GPU en échec", exc_info=True)
+            self._gpu = None
 
     async def sample(self) -> dict[str, Any]:
         ollama = await self._probe.status()

@@ -132,6 +132,23 @@ async def test_a_gpu_that_disappears_is_not_published_from_a_stale_read(tmp_path
     assert "gpu" not in await instance.sample()
 
 
+async def test_a_gpu_reader_that_raises_clears_the_state_and_logs_it(tmp_path, caplog):
+    readings = [dict(GPU)]
+
+    def reader():
+        if readings:
+            return readings.pop(0)
+        raise RuntimeError("NVML perdu")
+
+    instance = sampler(reader, tmp_path)
+    assert "gpu" in await instance.sample()
+    await asyncio.sleep(0.1)
+    await instance.sample()  # la lecture qui lève part
+    await asyncio.sleep(0.1)
+    assert "gpu" not in await instance.sample()  # jamais l'état précédent, périmé
+    assert "GPU" in caplog.text
+
+
 # --- Équivalence en voiture ---------------------------------------------------------------------
 
 
