@@ -408,6 +408,38 @@ def test_the_documents_card_counts_the_indexed_documents_and_their_extracts(back
     assert summary.inner_text() == "2 documents indexés · 2 extraits"
 
 
+def test_the_base_summary_is_read_once_per_display_and_once_per_tab_return(backend, page, traffic):
+    """Une lecture au premier affichage (le routeur monte l'Accueil masqué puis l'affiche : pas de
+    double appel), une par retour sur l'Accueil, une par retour de l'onglet ; aucune ailleurs."""
+    server = backend.start()
+
+    def reads() -> int:
+        return sum(1 for url in traffic.urls if url.endswith("/api/rag/documents"))
+
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    wait_card(page, "system", "Indisponible")
+    page.wait_for_timeout(800)
+    assert reads() == 1
+    page.evaluate("location.hash = '#/documents/base'")
+    wait_for(page, "() => document.querySelector('[data-screen=\"home\"]').hidden")
+    page.wait_for_timeout(500)
+    before = reads()  # la Base lit la même route : on ne compte que ce que l'Accueil ajoute
+    set_tab_hidden(page, True)
+    set_tab_hidden(page, False)
+    page.wait_for_timeout(500)
+    after_tab = reads()  # l'Accueil masqué ne relit rien (la Base peut relire la sienne)
+    page.evaluate("location.hash = '#/'")
+    wait_for(page, "() => !document.querySelector('[data-screen=\"home\"]').hidden")
+    page.wait_for_timeout(500)
+    assert reads() == after_tab + 1
+    set_tab_hidden(page, True)
+    set_tab_hidden(page, False)
+    page.wait_for_timeout(500)
+    assert reads() == after_tab + 2
+    assert before <= after_tab
+
+
 # Nom court du menu, nom long (EXPERIENCE.md, D-10), lien (premier écran du module).
 MODULE_LINKS = [
     ("Arène", "Arène des modèles", "#/arene/chat"),

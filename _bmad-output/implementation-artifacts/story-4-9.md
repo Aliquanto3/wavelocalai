@@ -73,3 +73,13 @@ Ciblée (la suite complète est lancée par la CI). Unitaires et statiques : `te
 ## Journal
 
 - 2026-10-19 · dev : spec, carte « Documents » de l'Accueil, E2E du Flow 2 et axe sur les écrans du MVP, test d'intégration (naive et self_rag), version 2.0.0a4.
+
+## Revue
+
+Revue Opus du 2026-10-19, sur la branche fusionnée avec la 4.7 et la 3.6 (merge `c82d742` : `home.js` garde la carte « Démo recommandée » de la 3.6 et la carte « Documents » de la 4.9 ; le test statique de l'Accueil est réuni en un seul : `home.js` n'appelle que `api.documents`, `home-demo.js` que `api.models` et `api.modelDefaults`, les deux attendent `shell-ready`).
+
+- HIGH · second avis · corrigé : le résumé de la base partait pendant `router.start()`, avant le repère `shell-ready` (AD-15, `test_shell.py::test_shell_renders_under_300_ms_*`). `shellReady()` de la 3.6 passe dans `core/shell-ready.js`, partagé par `home-demo.js` et `home.js` (`refreshBase` l'attend).
+- MEDIUM · second avis · corrigé : deux lectures au premier affichage (montage, puis l'observateur de `hidden` quand le routeur affiche l'écran). Une lecture par affichage (observateur, ou montage si l'écran est déjà affiché) et une par retour d'onglet si l'Accueil est affiché. Preuve : `test_home.py::test_the_base_summary_is_read_once_per_display_and_once_per_tab_return` (échoue sur l'ancien code : 2 lectures au lieu d'une).
+- LOW · second avis · rejeté (sans changement) : écart AD-6, un appel d'API sur l'Accueil ; variante conservatrice déjà consignée au deuxième report.
+- LOW · revue · reporté : `components/wl-model-picker.js` fait 666 lignes (> 600), hérité de la 4.8 sur `master`, hors du périmètre de la 4.9 ; à découper dans une story de dette.
+- Vérifié sans constat : E2E du Flow 2 (chaque étape assertée, trafic local seulement, axe sur les écrans du registre), intégration qui saute proprement sans Ollama ni modèles, aucun écouteur laissé au démontage (observateur et `visibilitychange` retirés), textes `home.*` tous utilisés, couches (`test_layers`). Complexité : 0 constat (aucune structure qui grossit à l'exécution).
