@@ -20,6 +20,17 @@ probe_cache_s = 5.0    # durée de vie de l'état d'Ollama en cache
 country_iso = "FRA"
 pue = 1.1
 
+[carbon.car_equivalence]
+# Équivalence parlante du CO2 de la session en distance parcourue en voiture, dite dans le panneau
+# « Comment ces chiffres sont calculés » seulement (D-38). Facteur : voiture thermique moyenne,
+# fabrication et usage compris, 142 g de CO2e par km (0,14225 kg CO2e/km ; usage seul : 111 g/km),
+# ADEME, « Modélisation de l'empreinte carbone de la voiture - 2025 », relevé le 2026-10-19 sur
+# https://impactco2.fr/outils/transport/voiturethermique (l'API publique du même site donne 110,6 g/km,
+# usage seul, pour la même voiture).
+g_per_km = 142
+source = "ADEME, Modélisation de l'empreinte carbone de la voiture (2025), voiture thermique moyenne, fabrication et usage, via impactco2.fr"
+retrieved_at = 2026-10-19
+
 [delays]
 lane_timeout_s = 300.0    # délai d'une lane d'Arène, depuis l'acquisition du sémaphore (local)
 approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut refus
