@@ -106,6 +106,8 @@ class SystemSampler:
             "models_loaded": None if models is None else [m.as_dict() for m in models],
             **({} if gpu is None else {"gpu": dict(gpu)}),
             "runs_active": [] if hub is None else hub.active_runs(),
+            # tag -> run racine qui l'emploie : l'écran Modèles désactive « Supprimer » (story 5.4)
+            "models_in_use": {} if hub is None else hub.active_models(),
         }
 
     async def identity(self) -> dict[str, Any]:

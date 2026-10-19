@@ -1,10 +1,12 @@
 // Écran Modèles, `#/modeles` (UX-DR27, AD-5, AD-6, AD-15, AD-17, AD-20) : les modèles de ce poste, ce
 // qui tient en mémoire, et l'installation d'un modèle avec sa progression chiffrée.
 //
-// Cette story (5.3) livre la barre « Installer un modèle par son nom », « Sur ce poste » et le
-// « Catalogue installable ». Les suivantes ajoutent chacune leur section à `sections` : « Décharger »
-// et la suppression (5.4), les modèles par défaut (5.4), le reranker (5.5), la fiche d'un modèle
-// (5.6). Un fichier par bloc : `models-installed.js`, `models-catalog.js`, `models-pull.js`.
+// Story 5.3 : la barre « Installer un modèle par son nom », « Sur ce poste » et le « Catalogue
+// installable ». Story 5.4 : « Décharger les modèles inactifs », « Supprimer » (dialogue de
+// confirmation) et « Modèles proposés par défaut ». Les suivantes ajoutent chacune leur section :
+// le reranker (5.5), la fiche d'un modèle (5.6). Un fichier par bloc : `models-installed.js`,
+// `models-catalog.js`, `models-pull.js`, `models-unload.js`, `models-delete.js`,
+// `models-defaults.js`.
 //
 // - Aucun appel d'API avant le repère `shell-ready` (AD-15) ; la page se construit avant.
 // - Le front ne calcule rien (AD-20) : `fits`, la mémoire nécessaire et celle qui manque viennent
@@ -21,8 +23,11 @@ import { shellReady } from "../core/shell-ready.js";
 import { store } from "../core/store.js";
 import "../components/index.js";
 import { createCatalog } from "./models-catalog.js";
+import { createDefaults } from "./models-defaults.js";
+import { createDeleter } from "./models-delete.js";
 import { createInstalled } from "./models-installed.js";
 import { createPull } from "./models-pull.js";
+import { createUnload } from "./models-unload.js";
 
 const baseTag = (tag) => tag.replace(/:latest$/, "");
 
@@ -61,21 +66,37 @@ export function mount(host) {
   panel.hidden = true;
   const actions = element("section", "models-actions");
   actions.setAttribute("aria-label", t("models.actions.title"));
-  actions.append(form, help, reason, panel, memory);
 
-  const installed = createInstalled();
-  let catalog = null; // créé après `pull` (le tableau lit l'installation en cours)
-
-  // --- Installation -------------------------------------------------------------------------
+  // --- Textes d'état, installés, défauts, déchargement, suppression --------------------------
   const say = (text) => {
     notice.textContent = text;
+  };
+  const setProblem = (envelope) => {
+    problem.error = envelope;
   };
   const nameOf = (tag) =>
     catalog?.find(tag)?.name ??
     installedModels.find((model) => baseTag(model.tag) === baseTag(tag))?.name ??
-    tag;
+    defaults.nameOf(tag);
   let installedModels = [];
   let ollamaUp = true;
+  let catalog = null; // créé après `pull` (le tableau lit l'installation en cours)
+
+  const defaults = createDefaults({ say, allowCloud: () => store.get().allowCloud });
+  const unload = createUnload({ say, onProblem: setProblem, nameOf });
+  const deleter = createDeleter({
+    say,
+    onProblem: setProblem,
+    usagesOf: defaults.usagesOf,
+    onDone: async () => {
+      await load();
+      host.querySelector("#models-installed-title")?.focus(); // la ligne supprimée n'existe plus
+    },
+  });
+  const installed = createInstalled({ onDelete: deleter.ask, ollamaUp: () => ollamaUp });
+  actions.append(unload.el, form, help, reason, panel, memory);
+
+  // --- Installation -------------------------------------------------------------------------
   let inCatalogWhileBusy = true; // l'installation en cours avait sa ligne au catalogue
 
   const pull = createPull({
@@ -175,13 +196,19 @@ export function mount(host) {
   async function read() {
     await shellReady(); // AD-15 : rien de `/api/` avant que la coquille soit rendue
     try {
-      const [list, installable] = await Promise.all([api.models(false), api.installableModels()]);
-      installedModels = list.models;
+      const allowCloud = store.get().allowCloud;
+      const [list, installable] = await Promise.all([
+        api.models(allowCloud),
+        api.installableModels(),
+      ]);
+      // « Sur ce poste » ne montre que les modèles de ce poste ; les défauts nomment aussi le cloud.
+      installedModels = list.models.filter((model) => model.origin === "local");
       ollamaUp = list.ollama_up;
       loadedOnce = true;
       if (problem.error?.code === "list_failed") problem.error = null;
-      installed.setModels(list.models);
+      installed.setModels(installedModels);
       catalog.setData(installable);
+      await defaults.load(list.models);
     } catch (failure) {
       problem.error =
         failure instanceof ApiError && failure.envelope
@@ -209,6 +236,10 @@ export function mount(host) {
     });
   }
   const unsubscribeMemory = store.subscribe(renderMemory);
+  // Le cloud autorisé ou coupé change les noms et les défauts affichés : relecture.
+  const unsubscribeCloud = store.subscribe((state, previous) => {
+    if (state.allowCloud !== previous.allowCloud) load();
+  });
   renderMemory(store.get());
 
   // Ollama s'arrête ou revient : les boutons suivent le flux système sans relire les listes.
@@ -218,6 +249,7 @@ export function mount(host) {
       if (up === null) return;
       ollamaUp = up;
       down.hidden = up;
+      installed.refresh();
       onChange();
     },
   );
@@ -231,7 +263,9 @@ export function mount(host) {
     down,
     loading,
     installed.el,
+    defaults.el,
     catalog.el,
+    deleter.el,
   );
 
   // --- Écran masqué puis revu ---------------------------------------------------------------
@@ -250,7 +284,9 @@ export function mount(host) {
   return () => {
     visibility.disconnect();
     unsubscribeMemory();
+    unsubscribeCloud();
     unsubscribeOllama();
+    unload.dispose();
     installed.dispose();
     pull.dispose();
   };

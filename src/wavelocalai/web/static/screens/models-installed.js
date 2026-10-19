@@ -6,18 +6,22 @@
 // - Tri initial : chargés d'abord, puis par nom. Un modèle chargé « tient » par définition : il est
 //   déjà en mémoire (la mémoire libre du poste ne le compte plus).
 // - Sous 1 024 px, Usage et Origine sont repliées ; un bouton au-dessus du tableau les affiche
-//   (D-43). La colonne « Actions » (« Supprimer ») est celle de la story 5.4.
+//   (D-43).
+// - Colonne « Actions » (story 5.4) : « Supprimer » ouvre le dialogue de confirmation de `models.js`
+//   (`onDelete`). Il est `aria-disabled` (focalisable, clic sans effet) avec sa raison visible à côté :
+//   « Utilisé par une réponse en cours » (le flux système dit quels modèles un run emploie) ou
+//   Ollama muet.
 
 import { element } from "../core/dom.js";
 import { formatGb, formatRate, formatUnknown } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
-import { nameCell, paramsText } from "./models-format.js";
+import { nameCell, paramsText, usedBy } from "./models-format.js";
 
 const COLLATOR = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
 const SECONDARY = "models-secondary";
 
-export function createInstalled() {
+export function createInstalled({ onDelete, ollamaUp }) {
   let models = [];
   let loaded = null; // Set des tags chargés ; `null` : inconnu (Ollama muet)
 
@@ -31,6 +35,7 @@ export function createInstalled() {
   const section = element("section", "models-section models-installed");
   section.setAttribute("aria-labelledby", "models-installed-title");
   title.id = "models-installed-title";
+  title.tabIndex = -1; // reçoit le focus quand la ligne supprimée a disparu
   table.id = "models-installed-table";
   toggle.setAttribute("aria-controls", table.id);
   section.append(title, toggle, empty, table);
@@ -124,6 +129,36 @@ export function createInstalled() {
     },
   ];
 
+  let legends = 0;
+
+  function actionsCell(model) {
+    const box = element("div", "models-delete-cell");
+    const button = element("button", "btn models-delete", t("models.installed.delete"));
+    button.type = "button";
+    button.dataset.tag = model.tag;
+    button.setAttribute("aria-label", t("models.installed.delete_aria", { name: model.name }));
+    let why = null;
+    if (usedBy(store.get().system.modelsInUse, model.tag) !== null) why = t("models.installed.in_use");
+    else if (!ollamaUp()) why = t("models.installed.delete_ollama_down");
+    button.setAttribute("aria-disabled", String(why !== null));
+    box.append(button);
+    if (why !== null) {
+      const legend = element("span", "help models-legend", why);
+      legend.id = `models-delete-why-${++legends}`;
+      button.setAttribute("aria-describedby", legend.id);
+      box.append(legend);
+    }
+    button.addEventListener("click", () => {
+      if (button.getAttribute("aria-disabled") !== "true") onDelete(model);
+    });
+    return box;
+  }
+
+  table.columns = [
+    ...table.columns,
+    { key: "actions", label: t("models.installed.col_actions"), cell: actionsCell },
+  ];
+
   // Chargés d'abord, puis par nom.
   function ordered() {
     return [...models].sort(
@@ -139,12 +174,13 @@ export function createInstalled() {
     table.rows = ordered();
   }
 
-  // « Chargé » suit le flux système : relu seulement quand l'ensemble des modèles chargés change
-  // (pas à chaque tick de 2 s).
+  // « Chargé » et « Supprimer » suivent le flux système : relus seulement quand l'ensemble des
+  // modèles chargés ou employés par un run change (pas à chaque tick de 2 s).
   const unsubscribe = store.select(
     (state) => {
       const list = state.system.modelsLoaded;
-      return list === null ? null : list.map((m) => m.tag).sort().join("\n");
+      const used = Object.keys(state.system.modelsInUse).sort().join("|");
+      return `${list === null ? "?" : list.map((m) => m.tag).sort().join("|")}#${used}`;
     },
     () => {
       const list = store.get().system.modelsLoaded;
@@ -159,6 +195,7 @@ export function createInstalled() {
       models = list;
       render();
     },
+    refresh: () => models.length > 0 && render(), // Ollama s'arrête ou revient : les boutons suivent
     dispose: unsubscribe,
   };
 }

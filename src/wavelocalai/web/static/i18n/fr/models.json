@@ -14,7 +14,18 @@
       "install_empty": "Saisissez le nom d'un modèle pour l'installer.",
       "install_busy": "Une installation est en cours ({tag}).",
       "install_ollama_down": "Ollama ne répond pas : démarrez-le pour installer un modèle.",
-      "free": "Mémoire libre : {free} sur {total}."
+      "free": "Mémoire libre : {free} sur {total}.",
+      "unload": "Décharger les modèles inactifs",
+      "unload_none": "Aucun modèle n'est chargé en mémoire.",
+      "unload_busy": "Tous les modèles chargés servent à une réponse en cours.",
+      "unload_ollama_down": "Ollama ne répond pas : les modèles ne peuvent pas être déchargés.",
+      "unloaded_one": "{n} modèle déchargé.",
+      "unloaded_other": "{n} modèles déchargés.",
+      "unloaded_none": "Aucun modèle n'a été déchargé.",
+      "unload_kept": "Gardé en mémoire, une réponse en cours l'emploie : {names}.",
+      "unload_failed": "Ollama a refusé de décharger : {names}.",
+      "unload_error": "Le déchargement n'a pas pu être demandé.",
+      "unload_error_action": "Vérifiez que l'application tourne, puis réessayez."
     },
     "installed": {
       "title": "Sur ce poste",
@@ -39,7 +50,12 @@
       "usage_embedding": "Représentation",
       "usage_reranker": "Reclassement",
       "secondary_show": "Afficher les colonnes Usage et Origine",
-      "secondary_hide": "Replier les colonnes Usage et Origine"
+      "secondary_hide": "Replier les colonnes Usage et Origine",
+      "col_actions": "Actions",
+      "delete": "Supprimer",
+      "delete_aria": "Supprimer {name}",
+      "in_use": "Utilisé par une réponse en cours",
+      "delete_ollama_down": "Ollama ne répond pas : suppression impossible"
     },
     "catalog": {
       "title": "Catalogue installable",
@@ -78,6 +94,51 @@
       "failed_action": "Réessayez. La liste des modèles est inchangée.",
       "start_failed": "L'installation n'a pas pu démarrer.",
       "start_failed_action": "Vérifiez que l'application tourne, puis réessayez."
+    },
+    "delete": {
+      "title": "Supprimer {tag} ?",
+      "consequence": "{tag} sera supprimé de ce poste ({size} libérés).",
+      "consequence_nosize": "{tag} sera supprimé de ce poste.",
+      "default": "C'est le modèle par défaut pour : {usages}. Ces usages reviendront à la règle automatique.",
+      "confirm": "Supprimer le modèle",
+      "done": "Modèle supprimé : {name} ({size} libérés).",
+      "done_nosize": "Modèle supprimé : {name}.",
+      "failed": "{name} n'a pas pu être supprimé.",
+      "failed_action": "La liste des modèles est inchangée. Réessayez."
+    },
+    "defaults": {
+      "title": "Modèles proposés par défaut",
+      "caption": "Modèle proposé par défaut pour chaque usage",
+      "col_usage": "Usage",
+      "col_model": "Modèle",
+      "col_reason": "Raison",
+      "col_actions": "Actions",
+      "purpose_chat": "Conversation",
+      "purpose_arena": "Arène",
+      "purpose_judge": "Juge",
+      "purpose_agent": "Agent",
+      "purpose_rag": "Documents",
+      "none": "Aucun",
+      "inactive": "Votre choix, {name}, est inactif tant que le cloud n'est pas autorisé.",
+      "change": "Changer",
+      "change_aria": "Changer le modèle de l'usage {usage}",
+      "save": "Enregistrer",
+      "save_aria": "Enregistrer le modèle de l'usage {usage}",
+      "cancel": "Annuler",
+      "cancel_aria": "Annuler le changement de l'usage {usage}",
+      "revert": "Revenir au choix automatique",
+      "revert_aria": "Revenir au choix automatique pour l'usage {usage}",
+      "picker_label": "Modèle pour l'usage {usage}",
+      "picker_label_arena": "Modèles pour l'usage {usage} (2 ou 3)",
+      "nothing_chosen": "Choisissez un modèle avant d'enregistrer.",
+      "arena_count": "Choisissez 2 ou 3 modèles avant d'enregistrer.",
+      "saved": "Modèle par défaut enregistré pour l'usage {usage} : {name}.",
+      "reverted": "Choix automatique rétabli pour l'usage {usage}.",
+      "save_failed": "Le choix n'a pas pu être enregistré.",
+      "save_failed_action": "Vérifiez que l'application tourne, puis réessayez.",
+      "read_failed": "Les modèles par défaut n'ont pas pu être lus.",
+      "read_failed_action": "Rechargez la page.",
+      "no_model": "Aucun modèle de conversation n'est installé."
     }
   }
 }
