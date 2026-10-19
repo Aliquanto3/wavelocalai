@@ -66,6 +66,12 @@ class SystemSampler:
         self._gpu: GpuState | None = None  # dernière lecture réussie
         self._gpu_task: asyncio.Task[None] | None = None
 
+    @property
+    def last_gpu(self) -> GpuState | None:
+        """Dernière lecture réussie du GPU, sans attendre ni lancer de lecture (la fiche d'un modèle,
+        story 5.6) ; `None` sans GPU ou avant la première lecture."""
+        return self._gpu
+
     async def _gpu_state(self) -> GpuState | None:
         """Dernier état du GPU : une lecture part dans un fil, l'échantillon l'attend `GPU_WAIT_S`
         au plus (ce qui suffit à une lecture tiède) puis rend ce qu'il a."""

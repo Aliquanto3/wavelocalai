@@ -19,7 +19,7 @@ import contextlib
 import logging
 import math
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -28,6 +28,8 @@ from pydantic import BaseModel
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import AppError
+from wavelocalai.models.bench_results import RELATIVE_PATH, BenchReferences, LoadedBench
+from wavelocalai.models.card import CardSource
 from wavelocalai.models.catalog import Catalog, CatalogEntry, load_catalog
 from wavelocalai.models.classify import (
     base_tag,
@@ -188,6 +190,7 @@ class ModelRegistry:
         wait_s: float = 0.1,
         clock: Callable[[], float] = time.monotonic,
         extra_refs: Mapping[str, ModelRef] | None = None,
+        bench_path: Path | None = None,
     ) -> None:
         """`extra_refs` : références résolvables hors d'Ollama et du cloud (le modèle `fake` des
         tests, `Settings.testing` seulement) ; elles ne figurent pas dans `list_models`."""
@@ -201,6 +204,8 @@ class ModelRegistry:
         self._advisor = advisor
         self._catalog_path = catalog_path or settings.base_dir / "config" / "models_catalog.json"
         self._catalog: Catalog | None = None
+        # Résultats du banc (`qb.results/1`, AD-22) : lus une fois, relus quand le fichier change.
+        self.bench = BenchReferences(bench_path or settings.base_dir / RELATIVE_PATH)
         self._cache_s = settings.ollama.probe_cache_s if cache_s is None else cache_s
         self._wait_s = wait_s
         self._clock = clock
@@ -341,14 +346,17 @@ class ModelRegistry:
         """Modèles disponibles ; ceux dont l'origine n'est pas `local` seulement si `allow_cloud`."""
         local = await self._current()
         medians = await asyncio.to_thread(self._run_stats.medians)  # lecture de `runs` hors boucle
-        infos = [self._local_info(rec, medians) for rec in local.values()]
+        bench = await asyncio.to_thread(self.bench.current)  # relu seulement si le fichier change
+        infos = [self._local_info(rec, medians, bench) for rec in local.values()]
         infos += self._cloud_infos()
         if not allow_cloud:
             infos = [info for info in infos if info.origin == "local"]
         infos.sort(key=lambda info: (info.origin != "local", info.name.lower(), info.tag))
         return ModelList(models=infos, ollama_up=self._ollama_up, refreshed_at=self._refreshed_at)
 
-    def _local_info(self, rec: _Local, medians: dict[str, float]) -> ModelInfo:
+    def _local_info(
+        self, rec: _Local, medians: dict[str, float], bench: LoadedBench | None = None
+    ) -> ModelInfo:
         facts = rec.facts
         origin = _origin(rec)
         entry = self._catalog_entry(facts.tag)
@@ -398,6 +406,8 @@ class ModelRegistry:
                 facts.default_temperature, entry.default_temperature if entry else None
             ),
             throughput_tps=medians.get(facts.tag),
+            # Précision publiée pour **ces** poids (même empreinte) ; `null` sans mesure (AD-22).
+            accuracy=bench.accuracy(facts.tag, facts.digest) if bench and origin == "local" else None,
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
         )
@@ -476,6 +486,81 @@ class ModelRegistry:
             ollama_up=self._ollama_up,
             free_gb=None if free is None else math.floor(free * 10 + 1e-9) / 10,
         )
+
+    async def card_source(
+        self, tag: str, *, reclaimable: Callable[[], Awaitable[float]] | None = None
+    ) -> CardSource | None:
+        """Ce que le registre sait d'un modèle pour sa fiche (story 5.6) : installé (liste d'Ollama et
+        `model_facts`), au catalogue sans être installé, ou cloud. Jamais d'attente d'Ollama (AD-15) ;
+        `None` si le tag est inconnu. `reclaimable` (mémoire des modèles chargés, comptée libre) n'est
+        appelée que pour un modèle du catalogue. Une valeur qu'aucune source ne donne reste `None` (« inconnu »)."""
+        local = await self._current()
+        rec = local.get(tag) or next(
+            (r for t, r in local.items() if base_tag(t) == base_tag(tag)), None
+        )
+        if rec is not None:
+            medians = await asyncio.to_thread(self._run_stats.medians)
+            return self._installed_source(rec, self._local_info(rec, medians))
+        cloud = next((info for info in self._cloud_infos() if info.tag == tag), None)
+        if cloud is not None:
+            return CardSource(
+                tag=cloud.tag, name=cloud.name, editor=None, origin="cloud", installed=False,
+                in_catalog=False, digest=None, architecture=None, params_total_b=None,
+                params_active_b=None, quantization=None, context_length=None, license=None,
+                tools_verified=None, reasoning=None, size_gb=None, needed_gb=None,
+                required_gb=None, short_gb=None, fits=None, throughput_tps=None,
+            )  # fmt: skip
+        entry = self._catalog_entry(tag)
+        if entry is None:
+            return None
+        offered = next(
+            (m for m in (await self.installable(reclaimable_gb=await reclaimable() if reclaimable else 0.0)).models
+             if base_tag(m.tag) == base_tag(entry.tag)),
+            None,
+        )  # fmt: skip
+        return CardSource(
+            tag=entry.tag, name=entry.name, editor=entry.editor, origin="local", installed=False,
+            in_catalog=True, digest=None,
+            architecture=None if entry.moe is None else ("moe" if entry.moe else "dense"),
+            params_total_b=offered.params_total_b if offered else _round(entry.params_total_b),
+            params_active_b=offered.params_active_b if offered else None,
+            quantization=None, context_length=entry.context_length, license=entry.license,
+            tools_verified="tools" in entry.capabilities if entry.capabilities else None,
+            reasoning=(
+                "thinking" in entry.capabilities or is_dedicated_reasoning(entry.tag, entry.name)
+                if entry.capabilities else None
+            ),
+            size_gb=_round(entry.size_gb),
+            needed_gb=offered.needed_gb if offered else None,
+            required_gb=offered.required_gb if offered else None,
+            short_gb=offered.short_gb if offered else None,
+            fits=offered.fits if offered else None,
+            throughput_tps=None,
+        )  # fmt: skip
+
+    def _installed_source(self, rec: _Local, info: ModelInfo) -> CardSource:
+        facts = rec.facts
+        entry = self._catalog_entry(facts.tag)
+        if _is_moe(facts, entry):
+            architecture: str | None = "moe"
+        elif facts.parameters is not None or (entry is not None and entry.moe is False):
+            architecture = "dense"  # `/api/show` lu, aucun expert : dense
+        else:
+            architecture = None
+        known = bool(facts.capabilities) or entry is not None  # capacités publiées par une source
+        return CardSource(
+            tag=info.tag, name=info.name, editor=info.editor,
+            origin="cloud" if info.origin == "cloud" else "local",
+            installed=True, in_catalog=info.in_catalog, digest=info.digest,
+            architecture=architecture,  # type: ignore[arg-type]
+            params_total_b=info.params_total_b, params_active_b=info.params_active_b,
+            quantization=info.quantization, context_length=info.context_length,
+            license=entry.license if entry else None,
+            tools_verified=info.tools_verified if known else None,
+            reasoning=info.reasoning if known or info.reasoning else None,
+            size_gb=info.size_gb, needed_gb=info.needed_gb, required_gb=info.required_gb,
+            short_gb=info.short_gb, fits=info.fits, throughput_tps=info.throughput_tps,
+        )  # fmt: skip
 
     def memory_needs(self) -> list[ModelNeed]:
         """Besoin en mémoire des modèles locaux dont il est connu, depuis la dernière liste connue

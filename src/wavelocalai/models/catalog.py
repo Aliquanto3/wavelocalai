@@ -2,7 +2,7 @@
 
 Écrit par `scripts/build_catalog.py` dans la v1 ; la v2 ne le modifie jamais. Un fichier absent,
 illisible ou au format inattendu donne un catalogue vide (le registre vit de ce qu'Ollama dit).
-Les résultats du banc (`qb.results/1`) s'ajouteront ici à l'étape 5.
+Les résultats du banc (`qb.results/1`) se lisent dans `models/bench_results.py` (AD-22).
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ class CatalogEntry:
     description: str | None
     moe: bool | None
     default_temperature: float | None = None
+    license: str | None = None  # champ facultatif (absent du catalogue actuel) : « inconnu » sinon
 
 
 def _positive(value: Any) -> float | None:
@@ -89,6 +90,7 @@ def _entry(name: str, raw: dict[str, Any]) -> CatalogEntry | None:
         description=raw.get("desc") if isinstance(raw.get("desc"), str) else None,
         moe=raw.get("moe") if isinstance(raw.get("moe"), bool) else None,
         default_temperature=_temperature(raw.get("default_temperature")),
+        license=(raw.get("license") or None) if isinstance(raw.get("license"), str) else None,
     )
 
 
