@@ -222,3 +222,9 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 06:17 · 1.12 · fusion · PR #66 fusionnée · b90056e
 - 2026-10-19 06:39 · 4.3 · contrôles · verts (1017 v2, 298 E2E, 11 integration, 1286 v1) ; master (1.12) fusionné sans conflit de code, 1027 v2, 123 E2E ; PR ouverte · 55a8715
 - 2026-10-19 06:43 · 3.4 · contrôles · verts (971 v2, 307 E2E, 10 integration, 1286 v1) ; master (1.12) fusionné sans conflit de code, 981 v2, 159 E2E ; PR ouverte · a07ddbb
+- 2026-10-19 06:54 · 4.3 · CI · rouge macOS (`index.persistent` attendu vrai sans sqlite-vec) ; test corrigé et poussé · a5aab5b
+- 2026-10-19 07:00 · 3.4 · fusion · PR #69 fusionnée · 71cfbf3
+- 2026-10-19 07:01 · 3.5 · dev · lancé (Sonnet high, worktree v2-3-5, depuis master 71cfbf3) ; consigne : aucun prix inventé · —
+- 2026-10-19 07:07 · run · décision · Anaël : fichiers d'état hors des PR de story (PR `chore/etat-run`), story technique 5.0 avant l'Epic 5, vagues par fichiers, `rerere`, journal en `merge=union`, job E2E en CI (dans 5.0) · —
+- 2026-10-19 07:08 · 4.8 · contrôles · verts après fusion (1019 v2, 317 E2E, 10 integration, 1286 v1) ; PR ouverte · 8e2f758
+- 2026-10-19 07:09 · 4.3 · fusion · PR #68 fusionnée · 71cfbf3

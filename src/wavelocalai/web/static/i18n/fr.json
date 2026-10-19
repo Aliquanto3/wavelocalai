@@ -130,7 +130,17 @@
       "provisional": "provisoire"
     },
     "error": {
-      "details": "Détails techniques"
+      "details": "Détails techniques",
+      "ram_guard_smaller": "Prendre un modèle plus petit",
+      "ram_guard_unload": "Décharger les modèles inactifs",
+      "ram_guard_suggested": "Modèle proposé : {model}. Il est choisi dans la liste, sans relancer.",
+      "ram_guard_none": "Aucun modèle installé ne tient dans la mémoire libre.",
+      "unloading": "Déchargement en cours…",
+      "unloaded": "Modèles déchargés : {models}. Mémoire libre : {free}.",
+      "unload_none": "Aucun modèle inactif à décharger. Mémoire libre : {free}.",
+      "unload_kept": "Gardés, car une réponse les utilise : {models}.",
+      "unload_failed": "Ollama n'a pas pu décharger : {models}.",
+      "unload_failed_generic": "Le déchargement n'a pas abouti. Vérifiez qu'Ollama répond, puis réessayez."
     },
     "picker": {
       "label": "Modèle",
@@ -234,6 +244,9 @@
         "cancelled": "comparaison arrêtée",
         "interrupted": "comparaison interrompue"
       }
+    },
+    "confirm": {
+      "cancel": "Annuler"
     }
   },
   "tabs": {
@@ -256,7 +269,8 @@
     "no_model": "Aucun modèle n'est choisi.",
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
     "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
-    "start_failed": "La demande n'a pas pu être envoyée."
+    "start_failed": "La demande n'a pas pu être envoyée.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ."
   },
   "docs": {
     "lead": "Importez vos documents pour les interroger ensuite. Ils sont découpés et indexés sur ce poste : aucun fichier ne quitte la machine.",
@@ -319,7 +333,49 @@
     "upload_failed": "Les fichiers n'ont pas pu être envoyés.",
     "upload_failed_action": "Vérifiez que le serveur répond, puis recommencez l'import.",
     "row_progress": "Progression de {file}",
-    "failed_default": "Le fichier n'a pas pu être indexé"
+    "failed_default": "Le fichier n'a pas pu être indexé",
+    "documents_one": "{n} document",
+    "documents_other": "{n} documents",
+    "col_actions": "Actions",
+    "delete": "Supprimer",
+    "delete_for": "Supprimer {name}",
+    "delete_title": "Supprimer « {name} » ?",
+    "delete_consequence_one": "{n} extrait sera retiré de la base. Cette action est irréversible.",
+    "delete_consequence_other": "{n} extraits seront retirés de la base. Cette action est irréversible.",
+    "delete_consequence_failed": "Ce document n'a pas été indexé : aucun extrait n'est retiré.",
+    "delete_cancelled": "Suppression annulée : {name} reste dans la base.",
+    "deleted_one": "Document supprimé : {name}. {n} extrait retiré de la base.",
+    "deleted_other": "Document supprimé : {name}. {n} extraits retirés de la base.",
+    "deleted_none": "Document supprimé : {name}. Aucun extrait retiré de la base.",
+    "clear": "Vider la base documentaire",
+    "clear_title": "Vider la base documentaire ?",
+    "clear_consequence_one": "{chunks} de {documents} sera supprimé.",
+    "clear_consequence_other": "{chunks} de {documents} seront supprimés.",
+    "clear_cancelled": "Opération annulée : la base documentaire est inchangée.",
+    "cleared_one": "Base documentaire vidée : {chunks} de {documents} supprimé.",
+    "cleared_other": "Base documentaire vidée : {chunks} de {documents} supprimés.",
+    "delete_failed": "La suppression n'a pas pu être faite.",
+    "delete_failed_action": "Vérifiez que le serveur répond, puis recommencez.",
+    "settings_summary": "Réglages : représentation {embedding} · {k} · {strategy}",
+    "settings_legend": "Réglages de la base documentaire",
+    "settings_loading": "Chargement des réglages…",
+    "settings_failed": "Les réglages n'ont pas pu être chargés.",
+    "settings_failed_action": "Vérifiez que le serveur répond, puis rechargez la page.",
+    "embedding": "Modèle de représentation",
+    "embedding_help": "Transforme chaque extrait en vecteur pour la recherche. Le changer oblige à vider la base : les extraits déjà indexés ne seraient plus comparables.",
+    "embedding_default": "Par défaut (le premier modèle installé)",
+    "chunk_size": "Taille des extraits (caractères)",
+    "chunk_size_help": "S'applique aux prochains imports ; les documents déjà indexés ne changent pas.",
+    "top_k": "Nombre d'extraits",
+    "top_k_help": "Nombre maximal d'extraits lus par le modèle pour répondre.",
+    "strategy": "Stratégie de recherche par défaut",
+    "strategy_naive": "Recherche directe",
+    "save": "Enregistrer les réglages",
+    "saved": "Réglages enregistrés.",
+    "embed_changed": "Modèle de représentation changé : {{name}}. Vous pouvez importer vos documents.",
+    "settings_extracts_one": "{n} extrait lu",
+    "settings_extracts_other": "{n} extraits lus",
+    "index_volatile": "L'index de recherche de ce poste est en mémoire (sqlite-vec n'est pas chargé) : après un redémarrage du serveur, les documents devront être réimportés."
   },
   "topbar": {
     "ollama": {
@@ -335,6 +391,7 @@
       "version_unknown": "inconnue",
       "memory": "Mémoire du poste",
       "memory_value": "{used} utilisés sur {total}",
+      "memory_free": "Mémoire libre",
       "loaded": "Modèles chargés",
       "loaded_item": "{tag}, {size}",
       "none_loaded": "Aucun modèle chargé en mémoire",
@@ -411,6 +468,7 @@
     "busy": "Une comparaison est en cours",
     "start_failed": "La comparaison n'a pas pu être lancée.",
     "joined": "Une comparaison est déjà en cours : vous la suivez.",
+    "model_changed": "Modèle choisi : {model}, à la place de {old}. Relancez la comparaison, la question est restée dans le champ.",
     "asked": "Question posée",
     "lanes": "Réponses des modèles",
     "tabs": "Modèles comparés",

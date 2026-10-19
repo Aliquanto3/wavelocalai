@@ -100,6 +100,7 @@ async def test_lists_local_models_with_their_kind_origin_and_facts(tmp_path):
     assert chat.params_active_b == chat.params_total_b  # dense : actifs = totaux
     assert chat.size_gb == pytest.approx(2.5, abs=0.01)
     assert chat.needed_gb == pytest.approx(2.5 * 1.25, abs=0.01) and chat.fits is True
+    assert chat.required_gb == 4.0  # 3,125 × 1,1 + 0,5 = 3,94 : le « requis » d'un refus ram_guard
     assert chat.reasoning is True and chat.tools_verified is True
     assert chat.co2_method == "codecarbon" and chat.accuracy is None
     assert chat.throughput_tps is None  # aucun run

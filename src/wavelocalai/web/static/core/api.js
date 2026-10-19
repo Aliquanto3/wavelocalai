@@ -101,6 +101,19 @@ export const api = {
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
   // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
   documents: () => request("/api/rag/documents"),
+  // Supprime un document `ready` ou `failed` (AD-13) ; rend `{chunks_removed, ...}`. Le `VACUUM`
+  // qui suit réécrit tout le fichier : sur une grosse base, il dépasse largement 30 s.
+  deleteDocument: (id) =>
+    request(`/api/rag/documents/${encodeURIComponent(id)}`, { method: "DELETE", timeoutMs: 300000 }),
+  // Vide la base : `expectedCount` est le nombre d'extraits affiché, le serveur le compare au réel.
+  clearBase: (expectedCount) =>
+    request(`/api/rag/base?expected_count=${encodeURIComponent(expectedCount)}`, {
+      method: "DELETE",
+      timeoutMs: 300000,
+    }),
+  // Réglages de la base (embedding, découpe, nombre d'extraits, stratégie par défaut).
+  ragSettings: () => request("/api/rag/settings"),
+  saveRagSettings: (body) => request("/api/rag/settings", { method: "PUT", body }),
   // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).
   startArena: (body) => request("/api/arena/runs", { method: "POST", body }),
   // Conversations (AD-5, AD-13) : les plus récentes d'un genre, une conversation, son effacement,
@@ -112,6 +125,8 @@ export const api = {
     request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   conversationExportUrl: (id, extension) =>
     `/api/conversations/${encodeURIComponent(id)}.${extension}`,
+  // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
+  unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
   // Instantané d'un run (AD-5) : statut, mesures des feuilles et, pour une Arène, son `verdict`.
   run: (runId) => request(`/api/runs/${encodeURIComponent(runId)}`),
   cancelRun: (runId) =>

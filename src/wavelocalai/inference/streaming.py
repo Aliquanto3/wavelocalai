@@ -22,6 +22,7 @@ from wavelocalai.models.port import (
     ChatResult,
     Done,
     LoadState,
+    ModelRef,
     TextDelta,
 )
 from wavelocalai.runs.hub import RunHub
@@ -36,6 +37,10 @@ CANCELLED_CO2 = Co2(mg=None, method="unmeasurable", reason="réponse annulée av
 # Une feuille locale en erreur ne retient pas de mesure : l'énergie d'un appel raté n'est pas celle
 # d'une réponse, et un inconnu n'est jamais un 0 (AD-10).
 FAILED_CO2 = Co2(mg=None, method="unmeasurable", reason="réponse en erreur : aucune mesure retenue")
+# Garde-fou mémoire : le modèle n'a jamais chargé, rien n'a été mesuré (story 4.8).
+NOT_LOADED_CO2 = Co2(
+    mg=None, method="unmeasurable", reason="modèle non chargé : mémoire insuffisante"
+)
 
 
 def _metrics(
@@ -59,6 +64,8 @@ def _metrics(
 
 
 PhaseCallback = Callable[[str], None]  # "loading" | "generating" (Arène : `lane_status`)
+# Garde-fou d'un appel local (story 4.8) : lève `ram_guard` si le modèle ne tient pas en mémoire.
+Guard = Callable[[ModelRef], Awaitable[None]]
 
 
 async def _attempt(
@@ -71,6 +78,7 @@ async def _attempt(
     on_phase: PhaseCallback | None = None,
     meter: LocalMeter | None = None,
     footprints: list[Footprint] | None = None,
+    guard: Guard | None = None,
     capture: list[str] | None = None,
 ) -> ChatResult:
     """Un appel de modèle : place du sémaphore « Ollama local » prise pour cet appel seulement
@@ -80,23 +88,31 @@ async def _attempt(
 
     Un appel local est mesuré par `meter` **dans la place** (AD-11) : le tracker démarre après la
     prise et s'arrête avant la remise, hors du délai de lane (son démarrage peut durer quelques
-    secondes). La mesure est ajoutée à `footprints`, que l'appel réussisse ou non."""
+    secondes). La mesure est ajoutée à `footprints`, que l'appel réussisse ou non.
+
+    `guard` (appel local seulement) s'exécute **dans la place**, avant le tracker et avant tout
+    événement de phase : un refus (`ram_guard`) ne lance ni mesure ni chargement."""
     lane = model.ref.tag
     local = model.ref.origin == "local"
     gate = slot if slot is not None and local else nullcontext()
-    async with gate, _tracking(meter if local else None, footprints):
-        if on_phase is not None:
-            on_phase("generating")  # place prise et tracker démarré (local), ou appel parti (cloud)
-        deadline = asyncio.timeout(timeout_s)
-        try:
-            async with deadline:
-                return await _consume(hub, run_id, lane, model.stream(request), on_phase, capture)
-        except TimeoutError:
-            if not deadline.expired():
-                raise
-            raise ProviderError(
-                "timeout", f"Aucune fin de réponse après {timeout_s} s.", timeout_s=timeout_s
-            ) from None
+    async with gate:
+        if guard is not None and local:
+            await guard(model.ref)
+        async with _tracking(meter if local else None, footprints):
+            if on_phase is not None:
+                on_phase("generating")  # place prise et tracker démarré (local), ou appel cloud
+            deadline = asyncio.timeout(timeout_s)
+            try:
+                async with deadline:
+                    return await _consume(
+                        hub, run_id, lane, model.stream(request), on_phase, capture
+                    )
+            except TimeoutError:
+                if not deadline.expired():
+                    raise
+                raise ProviderError(
+                    "timeout", f"Aucune fin de réponse après {timeout_s} s.", timeout_s=timeout_s
+                ) from None
 
 
 @asynccontextmanager
@@ -167,6 +183,7 @@ async def stream_into_run(
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
     capture: list[str] | None = None,
     metrics_extra: Mapping[str, object] | None = None,
+    guard: Guard | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
     `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
@@ -199,6 +216,9 @@ async def stream_into_run(
 
     `metrics_extra` : champs ajoutés à l'événement `metrics` de la feuille (le RAG y met la durée de
     la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux.
+
+    `guard` : garde-fou mémoire d'un appel local (story 4.8), appelé dans la place avant le modèle ;
+    son `ram_guard` met la feuille en `error` avec son enveloppe, sans relance ni mesure.
     """
     try:
         return await _play(
@@ -215,8 +235,9 @@ async def stream_into_run(
             retry_interrupted,
             meter,
             on_phase,
-            capture,
-            metrics_extra,
+            capture=capture,
+            metrics_extra=metrics_extra,
+            guard=guard,
         )
     finally:
         if on_leaf_closed is not None:
@@ -242,6 +263,7 @@ async def _play(
     on_phase: PhaseCallback | None,
     capture: list[str] | None = None,
     metrics_extra: Mapping[str, object] | None = None,
+    guard: Guard | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
@@ -263,7 +285,8 @@ async def _play(
                 on_phase,
                 meter,
                 footprints,
-                capture,
+                guard=guard,
+                capture=capture,
             )
             break
         except asyncio.CancelledError:
@@ -293,7 +316,10 @@ async def _play(
             error = _error_envelope(exc, secrets)
             # Le `co2` est présent partout (AD-10) : une feuille en erreur reste non mesurée.
             failed = LeafResult(status="error", origin=origin, error=error)
-            await hub.finish_leaf(run_id, failed, FAILED_CO2 if footprints else co2)
+            refused = isinstance(exc, AppError) and exc.code == "ram_guard"
+            await hub.finish_leaf(
+                run_id, failed, NOT_LOADED_CO2 if refused else FAILED_CO2 if footprints else co2
+            )
             return failed
     footprint = combine(footprints)
     if footprint is not None:

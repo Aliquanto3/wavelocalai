@@ -37,7 +37,7 @@ from wavelocalai.inference.judge_port import (
     LaneJudge,
 )
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, Guard, stream_into_run
 from wavelocalai.models.defaults import ModelDefaults, is_weak_judge
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import (
@@ -133,6 +133,7 @@ class ArenaService:
         settings: Settings,
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
+        guard: Guard | None = None,
         defaults: ModelDefaults | None = None,
         judge: LaneJudge | None = None,
     ) -> None:
@@ -143,6 +144,7 @@ class ArenaService:
         self._settings = settings
         self._meter = meter  # sans compteur, le CO2 d'une lane locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
+        self._guard = guard  # garde-fou mémoire de chaque lane locale (story 4.8)
         self._defaults = defaults  # défaut `judge` ; sans lui, seul un juge nommé note
         self._judge = judge  # sans service de notation, les notes sont « non évalué »
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
@@ -325,6 +327,7 @@ class ArenaService:
                 on_phase=lambda phase: self._set_status(arena, lane, phase),
                 meter=self._meter,
                 on_leaf_closed=self._announce_carbon,
+                guard=self._guard,
             )
         except asyncio.CancelledError:
             self._set_status(arena, lane, "cancelled")
