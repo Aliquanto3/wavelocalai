@@ -26,7 +26,7 @@ def code(name: str) -> str:
 
 SCREEN_FILES = (
     "screens/documents.js",
-    "screens/documents-settings.js",
+    "screens/documents-chat-settings.js",
     "screens/documents-citations.js",
     "screens/documents-replay.js",
 )
@@ -149,9 +149,11 @@ def test_the_technical_names_of_the_strategies_only_appear_in_help_texts():
         assert not re.search(r"hyde|self-rag|top-k|naive|\brag\b", label, re.IGNORECASE), label
     helps = " ".join(v for k, v in discussion.items() if "_help" in k)
     assert "HyDE" in helps and "Self-RAG" in helps and "Top-K" in helps
-    settings = code("screens/documents-settings.js")
+    settings = code("screens/documents-chat-settings.js")
     assert 'export const STRATEGIES = ["naive", "hyde", "self_rag"];' in settings
-    assert "base.search" in code("screens/documents.js")  # le défaut et le plafond du serveur
+    # le défaut et le plafond viennent des réglages de la base (4.3), plus du palliatif de la liste
+    assert "api.ragSettings()" in code("screens/documents.js")
+    assert "base.search" not in code("screens/documents.js")
 
 
 def test_plural_texts_come_in_pairs():

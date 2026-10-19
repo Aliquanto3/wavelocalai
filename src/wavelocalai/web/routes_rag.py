@@ -63,16 +63,10 @@ class Limits(BaseModel):
     max_import_mb: int
 
 
-class SearchDefaults(BaseModel):
-    top_k: int  # nombre d'extraits par défaut d'une question
-    max_top_k: int
-
-
 class DocumentList(BaseModel):
     documents: list[DocumentOut]
     totals: Totals  # documents `ready` seulement
     limits: Limits
-    search: SearchDefaults  # réglages de la recherche que l'écran Discussion propose
 
 
 @router.get("/rag/documents")
@@ -106,7 +100,6 @@ async def list_documents(request: Request) -> DocumentList:
         limits=Limits(
             max_file_mb=rag.max_file_mb, max_files=rag.max_files, max_import_mb=rag.max_import_mb
         ),
-        search=SearchDefaults(top_k=rag.top_k, max_top_k=MAX_TOP_K),
     )
 
 
@@ -151,7 +144,8 @@ class RagBody(BaseModel):
     model: str = Field(min_length=1)
     strategy: Literal["naive", "hyde", "self_rag"] = "naive"
     allow_cloud: bool = False
-    top_k: int | None = Field(default=None, ge=1, le=MAX_TOP_K)  # sinon `rag.top_k` du serveur
+    # Absent : le réglage de l'écran Base, sinon `rag.top_k`.
+    top_k: int | None = Field(default=None, ge=1, le=MAX_TOP_K)
 
     @field_validator("question")
     @classmethod

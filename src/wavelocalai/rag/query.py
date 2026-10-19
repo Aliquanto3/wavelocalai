@@ -44,6 +44,7 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.embedding_leaf import embed_into_leaf, leaf_error
 from wavelocalai.rag.index import VectorIndex
 from wavelocalai.rag.passage import pick_passage, relevance_label, similarity
+from wavelocalai.rag.settings import effective
 from wavelocalai.rag.strategies import (
     MAX_TOP_K,
     STRATEGIES,
@@ -59,6 +60,7 @@ from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import Co2, RunHandle
 from wavelocalai.runs.system_bus import SystemBus
 from wavelocalai.store.db import Store
+from wavelocalai.store.preferences import PreferenceStore
 
 logger = logging.getLogger("wavelocalai.rag")
 
@@ -145,6 +147,7 @@ class RagService:
         *,
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
+        preferences: PreferenceStore | None = None,
     ) -> None:
         self._hub = hub
         self._store: Store = hub.store
@@ -153,6 +156,7 @@ class RagService:
         self._slot = slot
         self._settings = settings
         self._index = index
+        self._preferences = preferences  # `top_k` choisi à l'écran (AD-15), prime sur le .toml
         self._meter = meter  # sans compteur, le CO2 d'une feuille locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
@@ -169,7 +173,8 @@ class RagService:
                 "invalid_request", f"strategy : {command.strategy!r} n'est pas prise en charge."
             )
         rag = self._settings.rag
-        top_k = rag.top_k if command.top_k is None else command.top_k
+        # `top_k` de la question s'il est envoyé, sinon le réglage de l'écran Base (AD-15), sinon .toml.
+        top_k = effective(rag, self._preferences).top_k if command.top_k is None else command.top_k
         if not 1 <= top_k <= MAX_TOP_K:
             raise AppError("invalid_request", f"top_k : de 1 à {MAX_TOP_K} extraits.")
         ref = self._registry.resolve(command.model, command.allow_cloud)
@@ -180,6 +185,7 @@ class RagService:
         embedder = self._factory.embedder(
             self._registry.resolve_embedder(base[0]["embedding_model"])
         )
+        await self._check_vectors(base[0]["chunks"])
         params: dict[str, Any] = {
             "strategy": command.strategy,
             "allow_cloud": command.allow_cloud,
@@ -226,6 +232,20 @@ class RagService:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return handle
+
+    async def _check_vectors(self, chunks: int) -> None:
+        """Refus explicite d'une base dont les vecteurs ont disparu : avec l'index de repli (sans
+        sqlite-vec), ils vivent en mémoire et ne survivent pas à un redémarrage. La question
+        trouverait zéro extrait et le dirait faussement « aucun document prêt ». Lève
+        `vector_index_lost`."""
+        if self._index.persistent:
+            return
+        vectors = await self._store.aread_with(lambda conn: self._index.count(conn))
+        if vectors < int(chunks or 0):
+            raise AppError(
+                "vector_index_lost",
+                f"{vectors} vecteurs en mémoire pour {chunks} extraits prêts (index de repli).",
+            )
 
     # --- le run --------------------------------------------------------------------------------
 

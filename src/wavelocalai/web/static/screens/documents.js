@@ -20,7 +20,7 @@
 //   (`documents-citations.js`) : survoler ou focaliser `[n]` met la source en évidence, et
 //   inversement. Sans `citations`, le front n'en fabrique aucun. Pas de « Télécharger » : aucune
 //   route d'export RAG (sprint-change-proposal 2026-10-19, §7 (d), point 12).
-// - « Réglages avancés » (`documents-settings.js`) : stratégie de recherche et nombre d'extraits,
+// - « Réglages avancés » (`documents-chat-settings.js`) : stratégie de recherche et nombre d'extraits,
 //   envoyés avec chaque question ; HyDE commence par « Rédaction d'une réponse hypothétique… ».
 // - Un modèle cloud reçoit les extraits retrouvés : l'avertissement le dit tant qu'il est choisi
 //   (AD-9). `allow_cloud` du store accompagne chaque commande.
@@ -36,7 +36,7 @@ import { store } from "../core/store.js";
 import "../components/index.js";
 import { decorateCitations, linkMarkers } from "./documents-citations.js";
 import { replayAll } from "./documents-replay.js";
-import { advancedSettings, firstStage } from "./documents-settings.js";
+import { advancedSettings, firstStage } from "./documents-chat-settings.js";
 
 const DRAFT = "documents";
 let counter = 0;
@@ -190,7 +190,17 @@ export function mount(host) {
     refreshing = true;
     try {
       base = await api.documents();
-      if (base.search) advanced.configure({ topK: base.search.top_k, maxTopK: base.search.max_top_k });
+      // Défauts et bornes de la recherche : réglages de l'écran Base, relus à chaque rafraîchissement.
+      // Sans eux (route en échec), aucun `top_k` n'est envoyé et le serveur applique le sien.
+      api.ragSettings().then(
+        (settings) =>
+          advanced.configure({
+            topK: settings.top_k,
+            maxTopK: settings.limits?.top_k?.max,
+            strategy: settings.strategy,
+          }),
+        () => {},
+      );
       problem.error = null;
     } catch (failure) {
       problem.error = envelopeOf(failure, t("docs.list_failed"));

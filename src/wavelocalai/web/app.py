@@ -33,6 +33,7 @@ from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.rag.index import select_index
 from wavelocalai.rag.ingest import IngestService
+from wavelocalai.rag.manage import RagBaseService
 from wavelocalai.rag.query import RagService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
@@ -47,6 +48,7 @@ from wavelocalai.web import (
     routes_health,
     routes_models,
     routes_rag,
+    routes_rag_base,
     routes_runs,
     routes_system,
     routes_test,
@@ -146,6 +148,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         index,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        preferences=app.state.preferences,
     )
     app.state.ingest = IngestService(
         hub,
@@ -157,6 +160,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         meter=app.state.meter,
         bus=app.state.system_feed,
         fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement
+        preferences=app.state.preferences,
+    )
+    app.state.rag_base = RagBaseService(
+        hub, app.state.registry, settings, index, app.state.preferences
     )
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
@@ -176,6 +183,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.chat = None
         app.state.ingest = None
         app.state.rag = None
+        app.state.rag_base = None
         app.state.arena = None
         if owned_client is not None:
             await close_client(owned_client)
@@ -227,6 +235,7 @@ def create_app(
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.ingest = None  # service d'ingestion des documents, idem
     app.state.rag = None  # service de questions aux documents, idem
+    app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
     app.state.arena = None  # service de l'Arène, idem
     app.state.registry = registry or ModelRegistry(
         settings,
@@ -239,9 +248,8 @@ def create_app(
         advisor=MemoryAdvisor(),
     )
     # Préférences de l'UI (table `preferences`, 0003) : sur la base du store, comme `model_facts`.
-    app.state.defaults = ModelDefaults(
-        app.state.registry, preferences or SqlitePreferenceStore(lambda: app.state.store)
-    )
+    app.state.preferences = preferences or SqlitePreferenceStore(lambda: app.state.store)
+    app.state.defaults = ModelDefaults(app.state.registry, app.state.preferences)
     app.state.instance_id = uuid.uuid4().hex  # nouveau à chaque démarrage
     app.state.probe = probe or OllamaProbe(
         settings.ollama.host,
@@ -299,6 +307,7 @@ def create_app(
     app.include_router(routes_arena.router)
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
+    app.include_router(routes_rag_base.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)

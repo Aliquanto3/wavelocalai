@@ -265,10 +265,17 @@ async def test_a_number_of_excerpts_out_of_range_is_refused_before_any_run(serve
     assert after == before
 
 
-async def test_the_document_list_gives_the_search_defaults(served):
+async def test_the_question_takes_the_top_k_of_the_base_screen_unless_it_sends_its_own(served):
     _, client = served
-    body = (await client.get("/api/rag/documents")).json()
-    assert body["search"] == {"top_k": 4, "max_top_k": 20}
+    await _import(client, **{"chats.txt": CATS})
+    await client.put("/api/rag/settings", json={"top_k": 3})
+    _, snapshot, _ = await _run(client)  # ni `top_k` envoyé : le réglage de l'écran Base
+    assert snapshot["params"]["top_k"] == 3
+    _, snapshot, _ = await _run(client, top_k=1)  # celui de la question prime
+    assert snapshot["params"]["top_k"] == 1
+    await client.put("/api/rag/settings", json={"top_k": None})
+    _, snapshot, _ = await _run(client)  # réglage retiré : le .toml
+    assert snapshot["params"]["top_k"] == 4
 
 
 # --- Citations -------------------------------------------------------------------------------
