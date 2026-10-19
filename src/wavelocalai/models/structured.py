@@ -48,7 +48,8 @@ def schema_errors(value: Any, schema: dict[str, Any], path: str = "$") -> list[s
         if not any(_is(value, n) for n in names):
             return [f"{path} : type attendu {'/'.join(names)}"]
     if "enum" in schema and value not in schema["enum"]:
-        errors.append(f"{path} : valeur hors de la liste permise")
+        allowed = ", ".join(v if isinstance(v, str) else json.dumps(v) for v in schema["enum"])
+        errors.append(f"{path} : valeur hors de la liste permise ({allowed})")
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if "minimum" in schema and value < schema["minimum"]:
             errors.append(f"{path} : inférieur à {schema['minimum']}")
@@ -72,13 +73,18 @@ def schema_errors(value: Any, schema: dict[str, Any], path: str = "$") -> list[s
     return errors
 
 
+def strip_fence(text: str) -> str:
+    """`text` sans espaces autour ni clôture Markdown autour du JSON (tolérée par les adaptateurs
+    et par le verdict du Banc d'essai, story 7.4)."""
+    body = text.strip()
+    fenced = _FENCE.match(body)
+    return fenced.group(1).strip() if fenced else body
+
+
 def parse_structured(text: str, schema: dict[str, Any]) -> Any:
     """JSON de `text` validé par `schema`. Lève `ProviderError("invalid_output")`. Une clôture
     Markdown autour du JSON est tolérée."""
-    body = text.strip()
-    fenced = _FENCE.match(body)
-    if fenced:
-        body = fenced.group(1).strip()
+    body = strip_fence(text)
     try:
         value = json.loads(body)
     except json.JSONDecodeError as exc:
