@@ -52,6 +52,7 @@ from wavelocalai.web import (
     routes_arena,
     routes_chat,
     routes_conversations,
+    routes_eval,
     routes_health,
     routes_models,
     routes_rag,
@@ -190,6 +191,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.rag_base = RagBaseService(
         hub, app.state.registry, settings, index, app.state.preferences, app.state.reranker
     )
+    app.state.evaluation = routes_eval.build_service(app, hub, factory, index, guard)  # story 7.1
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
@@ -210,6 +212,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.ingest = None
         app.state.rag = None
         app.state.rag_base = None
+        app.state.evaluation = None
         app.state.arena = None
         if owned_client is not None:
             await close_client(owned_client)
@@ -271,6 +274,7 @@ def create_app(
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
     app.state.arena = None  # service de l'Arène, idem
+    app.state.evaluation = None  # service d'évaluation de la qualité, idem
     # Reranker local (story 4.7, AD-17) : ne charge ni n'importe rien tant qu'aucune question ne le
     # demande ; jamais de téléchargement.
     app.state.reranker = RerankerService(
@@ -364,6 +368,7 @@ def create_app(
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_rag_base.router)
+    app.include_router(routes_eval.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)

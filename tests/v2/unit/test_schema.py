@@ -145,6 +145,33 @@ def test_params_and_events_must_be_json(conn):
         conn.execute("INSERT INTO run_events VALUES ('r1', 1, 'run_started', ?, '{}')", (NOW,))
 
 
+def test_evaluations_keep_one_note_per_model_question_and_metric(conn):
+    """Migration 0006 (story 7.1) : une note par (run, modèle, question, métrique), de 0 à 100, ou
+    nulle (« non évalué », jamais 0) ; `detail` est du JSON."""
+    _run(conn, "e1", kind="eval")
+
+    def note(lane="m", index=0, metric="faithfulness", score=80, detail=None):
+        conn.execute(
+            "INSERT INTO evaluations VALUES ('e1', ?, ?, ?, ?, 'raison', ?, ?)",
+            (lane, index, metric, score, detail, NOW),
+        )
+
+    note(detail='{"verdicts": []}')
+    note(metric="relevance", score=None)  # non évalué
+    note(metric="context_precision", score=0)  # une vraie note à 0
+    for bad in (
+        {"score": 101}, {"score": -1}, {"metric": "global"}, {"index": -1}, {"detail": "pas json"},
+        {"lane": "m", "index": 0, "metric": "faithfulness"},  # (run, modèle, question, métrique)
+    ):  # fmt: skip
+        with pytest.raises(sqlite3.IntegrityError):
+            note(**bad)
+    with pytest.raises(sqlite3.IntegrityError):  # le run existe
+        conn.execute(
+            "INSERT INTO evaluations VALUES ('absent', 'm', 0, 'relevance', 1, 'r', NULL, ?)",
+            (NOW,),
+        )
+
+
 def test_erasing_a_conversation_keeps_the_runs_without_text(conn):
     """Prépare AD-13 : messages supprimés, `runs` gardés avec `conversation_id` à NULL."""
     conn.execute("INSERT INTO conversations VALUES ('c', 'chat', NULL, ?)", (NOW,))

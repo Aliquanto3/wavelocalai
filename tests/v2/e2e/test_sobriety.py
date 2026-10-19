@@ -106,7 +106,7 @@ def test_the_screen_has_one_title_and_the_sections_in_order(sobriety):
     assert page.locator("h1:visible").inner_text() == "Sobriété et matériel"
     assert page.title() == "Sobriété et matériel · WaveLocalAI"
     headings = page.locator('[data-screen="sobriety"] h2').all_inner_texts()
-    assert headings == ["Santé du système", "Empreinte carbone de cette session"]
+    assert headings == ["Santé du système", "Empreinte carbone de cette session", "Historique"]
     summaries = page.locator('[data-screen="sobriety"] details > summary').all_inner_texts()
     assert summaries == ["Carte d'identité technique", "Comment ces chiffres sont calculés"]
     assert page.locator("a.screen-tab-link").count() == 0  # un seul écran dans le module
