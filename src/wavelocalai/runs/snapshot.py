@@ -4,9 +4,10 @@ Lecture seule sur la base : le hub y écrit le statut à la clôture, et les mé
 sur les feuilles. Un run composite rend ses feuilles dans `children`. Ce qui se calcule sur un run
 terminé y figure aussi, pas dans le flux : le `verdict` local/cloud d'une Arène (story 3.5), sa
 `config` (de quoi la relancer ou la modifier) et `erased` (story 3.6). Une évaluation (story 7.1)
-porte ses notes, leur résumé et `partial` (`runs/eval_snapshot.py`). Un run `agent` porte `totals`
-(story 6.4 : tours, étapes, durée et CO2 de la tâche, additionnés ici et non à l'écran, AD-20). La
-liste des Arènes (`GET /api/arena/runs`) est lue ici aussi.
+porte ses notes, leur résumé et `partial` (`runs/eval_snapshot.py`) ; un banc d'essai (story 7.4)
+son entrée, sa sortie et son `format_verdict` (`runs/bench_snapshot.py`). Un run `agent` porte
+`totals` (story 6.4 : tours, étapes, durée et CO2 de la tâche, additionnés ici et non à l'écran,
+AD-20) et `mission` (story 6.5). La liste des Arènes (`GET /api/arena/runs`) est lue ici aussi.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from typing import Any
 
 from wavelocalai.config import PriceTable
 from wavelocalai.runs.agent_totals import agent_totals
+from wavelocalai.runs.bench_snapshot import bench_snapshot_fields
 from wavelocalai.runs.eval_snapshot import eval_snapshot_fields
 from wavelocalai.runs.verdict import build_verdict
 from wavelocalai.store.db import Store
@@ -156,9 +158,30 @@ async def run_snapshot(
             "SELECT count(*) AS n FROM run_events WHERE run_id = ? AND type = 'step'", (run_id,)
         )
         snapshot["totals"] = agent_totals(snapshot, rows[0]["n"])
+        snapshot["mission"] = await mission_totals(store, run_id)
     elif snapshot["kind"] == "eval":  # notes, résumé et partiel d'une évaluation (story 7.1)
         snapshot.update(await eval_snapshot_fields(store, snapshot))
+    elif snapshot["kind"] == "bench":  # entrée, sortie et verdict de format (story 7.4)
+        snapshot.update(await bench_snapshot_fields(store, snapshot))
     return snapshot
+
+
+async def mission_totals(store: Store, run_id: str) -> dict[str, Any] | None:
+    """Totaux d'une mission d'équipe (story 6.5) : durée et pic de mémoire du poste, lus dans son
+    événement `mission_totals` ; `None` pour un agent seul ou une mission encore en cours."""
+    rows = await store.aread(
+        "SELECT data FROM run_events WHERE run_id = ? AND type = 'mission_totals'"
+        " ORDER BY seq DESC LIMIT 1",
+        (run_id,),
+    )
+    if not rows:
+        return None
+    data = json.loads(rows[0]["data"])
+    return {
+        "duration_s": data.get("duration_s"),
+        "peak_memory_gb": data.get("peak_memory_gb"),
+        "agents_done": data.get("agents_done"),
+    }
 
 
 async def list_arena_runs(store: Store, limit: int = 20) -> list[dict[str, Any]]:

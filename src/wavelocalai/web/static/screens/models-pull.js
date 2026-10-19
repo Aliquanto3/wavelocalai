@@ -11,6 +11,8 @@
 //   du flux système (un run `pull` actif) : son flux rejoué depuis le début redit le tag.
 // - Seule la fin est annoncée (zone polie `say`) : jamais chaque pourcentage.
 // - Aucun calcul de mesure (AD-20) : octets, pourcentage et phase viennent du serveur.
+// - Le reranker (story 5.5) est le même run `pull` : `pull_progress.reranker` le distingue d'un modèle
+//   d'Ollama, et l'écran range sa progression dans la section « Reclassement des extraits ».
 
 import { api, ApiError, request } from "../core/api.js";
 import { t } from "../core/i18n.js";
@@ -19,10 +21,10 @@ import { store } from "../core/store.js";
 import { createProgress } from "./models-progress.js";
 
 export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) {
-  let active = null; // { runId, tag } : l'installation suivie (`runId` nul le temps du POST)
+  let active = null; // { runId, tag, reranker } : l'installation suivie (`runId` nul le temps du POST)
   let stream = null;
-  let failure = null; // { tag } : le dernier échec, son enveloppe est dans `failureNode`
-  let done = null; // le tag de la dernière installation réussie
+  let failure = null; // { tag, reranker } : le dernier échec, son enveloppe est dans `failureNode`
+  let done = null; // { tag, reranker } : la dernière installation réussie
   const finished = new Set(); // runs déjà soldés : un `runsActive` périmé ne les rouvre pas
 
   const progress = createProgress({ onCancel: () => cancel() });
@@ -31,7 +33,9 @@ export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) 
   doneNode.className = "models-pull-done";
   doneNode.textContent = t("models.pull.installed");
 
-  const label = (tag) => (tag ? nameOf(tag) : "");
+  // Le nom dit à l'écran et aux lecteurs d'écran : « Reclassement des extraits » pour le reranker.
+  const label = (tag, reranker = active?.reranker) =>
+    reranker ? t("models.rerank.name") : tag ? nameOf(tag) : "";
 
   function finish(status, error) {
     const ended = active;
@@ -40,21 +44,22 @@ export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) 
     stream?.close();
     stream = null;
     active = null;
-    const name = label(ended.tag) || ended.tag || "";
+    const name = label(ended.tag, ended.reranker) || ended.tag || "";
+    const rerank = ended.reranker === true;
     failure = null;
     done = null;
     if (status === "ok") {
-      done = ended.tag;
-      say(t("models.pull.done", { name }));
+      done = { tag: ended.tag, reranker: ended.reranker };
+      say(t(rerank ? "models.rerank.done" : "models.pull.done", { name }));
     } else if (status === "cancelled") {
-      say(t("models.pull.cancelled", { name }));
+      say(t(rerank ? "models.rerank.cancelled" : "models.pull.cancelled", { name }));
     } else {
       const envelope = error ?? {
         code: "pull_failed",
-        message: t("models.pull.failed", { name }),
-        action: t("models.pull.failed_action"),
+        message: t(rerank ? "models.rerank.failed" : "models.pull.failed", { name }),
+        action: t(rerank ? "models.rerank.failed_action" : "models.pull.failed_action"),
       };
-      failure = { tag: ended.tag };
+      failure = { tag: ended.tag, reranker: ended.reranker };
       failureNode.error = envelope;
       say(envelope.message);
     }
@@ -72,9 +77,10 @@ export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) 
     },
     pull_progress: (payload) => {
       if (!active) return;
-      if (!active.tag && payload.tag) {
-        active.tag = payload.tag;
-        onChange();
+      if ((!active.tag && payload.tag) || (payload.reranker && !active.reranker)) {
+        active.tag = active.tag || payload.tag;
+        active.reranker = active.reranker || Boolean(payload.reranker);
+        onChange(); // le nom, ou le genre d'installation, est connu : la barre rejoint sa place
       }
       progress.update(payload, label(active.tag));
     },
@@ -101,23 +107,24 @@ export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) 
   }
 
   function follow(runId, tag) {
-    active = { runId, tag };
+    active = { runId, tag, reranker: false };
     progress.update({ phase: "preparing", percent: null }, label(tag));
     if (!host.hidden) openStream();
     onChange();
   }
 
-  // Lance l'installation d'un nom d'Ollama ; un clic, aucune autre action ne télécharge (AD-17).
-  async function start(tag) {
+  // Lance l'installation d'un nom d'Ollama, ou du reranker (`reranker` : `tag` est son modèle) ; un
+  // clic, aucune autre action ne télécharge (AD-17).
+  async function start(tag, { reranker = false } = {}) {
     if (active) return;
     failure = null;
     done = null;
     failureNode.error = null;
-    active = { runId: null, tag };
+    active = { runId: null, tag, reranker };
     progress.update({ phase: "preparing", percent: null }, label(tag));
     onChange();
     try {
-      const started = await api.pullModel(tag);
+      const started = await (reranker ? api.pullReranker() : api.pullModel(tag));
       if (active?.tag !== tag || active.runId) return;
       active.runId = started.run_id;
       if (!host.hidden) openStream();
@@ -170,11 +177,21 @@ export function createPull({ host, nameOf, onChange, onEnded, onProblem, say }) 
     get activeTag() {
       return active?.tag ?? null;
     },
+    // L'installation suivie est celle du reranker (sa progression va dans sa section).
+    get activeReranker() {
+      return active?.reranker === true;
+    },
     get failedTag() {
       return failure?.tag ?? null;
     },
+    get failedReranker() {
+      return failure?.reranker === true;
+    },
     get doneTag() {
-      return done;
+      return done?.tag ?? null;
+    },
+    get doneReranker() {
+      return done?.reranker === true;
     },
     // L'écran est masqué (le routeur le garde monté) ou revu.
     setHidden(hidden) {

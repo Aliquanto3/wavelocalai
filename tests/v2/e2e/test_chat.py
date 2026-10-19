@@ -222,7 +222,7 @@ def test_the_arena_module_is_available_and_its_other_tabs_are_disabled_with_thei
     assert tabs.get_by_role("link", name="Chat libre").get_attribute("aria-current") == "page"
     arena = tabs.get_by_role("link", name="Arène", exact=True)
     assert arena.get_attribute("href") == "#/arene/comparer"
-    for name in ("Banc d'essai",):
+    for name in ("Références",):
         tab = tabs.get_by_role("link", name=name, exact=True)
         assert tab.get_attribute("aria-disabled") == "true"
         assert tab.get_attribute("href") is None

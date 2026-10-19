@@ -47,7 +47,7 @@ function badgeKind(origin) {
   return ["local", "cloud"].includes(origin) ? origin : "unknown";
 }
 
-function metric(label, value, { help, provisional } = {}) {
+export function metric(label, value, { help, provisional } = {}) {
   const node = document.createElement("wl-metric");
   node.setAttribute("label", label);
   node.setAttribute("value", value);
@@ -60,7 +60,7 @@ function metric(label, value, { help, provisional } = {}) {
 // mise en forme (`formatCo2`, une seule unité, fr-FR), sans calcul ni couleur par seuil (AD-20).
 // `mg` nul ne devient jamais 0 : « non mesurable », la raison du serveur en aide. Une réponse cloud
 // est estimée (ecologits, AD-11) : « (estimé) » après la valeur, la réserve du serveur en aide.
-function co2Metric(co2) {
+export function co2Metric(co2) {
   const label = t("components.thread.co2");
   if (typeof co2?.mg === "number" && Number.isFinite(co2.mg)) {
     if (co2.estimated) {

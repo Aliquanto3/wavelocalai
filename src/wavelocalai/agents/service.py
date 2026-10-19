@@ -14,8 +14,10 @@ import contextlib
 import logging
 from dataclasses import dataclass
 
+from wavelocalai.agents.crews import CrewAgent, CrewLibrary
 from wavelocalai.agents.loop import AgentLoop
 from wavelocalai.agents.outbox import build_actions
+from wavelocalai.agents.mission import MissionRunner
 from wavelocalai.agents.tools import AgentTool, ToolRegistry
 from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope
@@ -33,6 +35,7 @@ from wavelocalai.runs.system_bus import SystemBus
 logger = logging.getLogger("wavelocalai.agents")
 
 SOLO_MODE = "solo"
+CREW_MODE = "crew"
 TEMPERATURE = 0.2
 SYSTEM_PROMPT = (
     "Tu es un agent qui mène à bien la tâche de l'utilisateur, en français. Quand un outil permet "
@@ -51,6 +54,8 @@ class AgentCommand:
     allow_cloud: bool = False
     conversation_id: str | None = None
     mode: str = SOLO_MODE
+    crew: str | None = None  # équipe de la bibliothèque (mode `crew`)
+    topic: str = ""  # sujet de la mission (mode `crew`) ; `prompt` pour l'agent seul
 
 
 class AgentService:
@@ -66,7 +71,11 @@ class AgentService:
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
         guard: Guard | None = None,
+        crews: CrewLibrary | None = None,
     ) -> None:
+        self._crews = (
+            crews  # bibliothèque d'équipes (story 6.5) ; sans elle, le mode `crew` est refusé
+        )
         self._hub = hub
         self._registry = registry
         self._factory = factory
@@ -84,6 +93,8 @@ class AgentService:
         Lève `model_not_found`, `cloud_not_allowed` ou `model_not_chat` (registre, AD-9),
         `invalid_request` (mode autre que `solo`, outil inconnu ou indisponible), `run_busy` (un
         run `agent` est déjà actif, AD-14) ou `not_found` (conversation inconnue)."""
+        if command.mode == CREW_MODE:
+            return await self._start_crew(command)
         if command.mode != SOLO_MODE:
             raise AppError("invalid_request", f"mode : {command.mode!r} n'est pas pris en charge.")
         ref = self._registry.resolve(command.model, command.allow_cloud)
@@ -110,6 +121,96 @@ class AgentService:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return handle
+
+    async def _start_crew(self, command: AgentCommand) -> RunHandle:
+        """Mission d'une équipe : agents en séquence sous un run racine `agent` (story 6.5). Lève
+        `not_found` (équipe inconnue), `invalid_request` (équipe invalide, modèle manquant, outil
+        inconnu ou indisponible), `cloud_not_allowed`, `model_not_found`, `run_busy`."""
+        if self._crews is None or not command.crew:
+            raise AppError("invalid_request", "crew : l'équipe est obligatoire.")
+        agents = self._crews.effective_agents(command.crew)
+        self._crews.check(agents, allow_cloud=command.allow_cloud)
+        models: list[ChatModel] = []
+        tools: list[list[AgentTool]] = []
+        for rank, agent in enumerate(agents):
+            tag = agent.model or command.model
+            if not tag:
+                raise AppError(
+                    "invalid_request",
+                    f"agents[{rank}].model : aucun modèle pour « {agent.role} » : "
+                    "choisissez-en un pour la mission.",
+                )
+            ref = self._registry.resolve(tag, command.allow_cloud)
+            models.append(self._factory.chat_model(ref))
+            tools.append(self._tools.get(agent.tools))
+        handle = await self._hub.create_run(
+            "agent",
+            models=list(dict.fromkeys(model.ref.tag for model in models)),
+            params={
+                "mode": CREW_MODE,
+                "crew": command.crew,
+                "agents": [
+                    {"role": a.role, "model": m.ref.tag, "tools": [t.id for t in ts]}
+                    for a, m, ts in zip(agents, models, tools, strict=True)
+                ],
+                "allow_cloud": command.allow_cloud,
+                "temperature": command.temperature,
+                "max_turns": self._settings.agents.max_turns,
+            },
+            user_message=command.topic,
+            conversation_id=command.conversation_id,
+        )
+        task = asyncio.create_task(
+            self._run_crew(handle, list(agents), models, tools, command),
+            name=f"wavelocalai-mission-{handle.run_id}",
+        )
+        self._hub.attach_task(handle.run_id, task)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return handle
+
+    async def _run_crew(
+        self,
+        handle: RunHandle,
+        agents: list[CrewAgent],
+        models: list[ChatModel],
+        tools: list[list[AgentTool]],
+        command: AgentCommand,
+    ) -> None:
+        root = handle.run_id
+        try:
+            cfg = self._settings.agents
+            runner = MissionRunner(
+                self._hub,
+                root,
+                AgentLoop(
+                    self._hub,
+                    root,
+                    self._settings,
+                    slot=self._slot,
+                    meter=self._meter,
+                    guard=self._guard,
+                    announce=self._announce_carbon,
+                ),
+                sample_s=cfg.memory_sample_s,
+                result_chars=cfg.result_chars,
+            )
+            outcome = await runner.run(
+                agents, models, tools, command.topic, temperature=command.temperature
+            )
+            if outcome.status == "ok":
+                await self._hub.finish_run(root, "ok")
+            else:
+                await self._hub.finish_run(root, "error", error=outcome.error)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - ne jamais laisser le run actif
+            logger.error("Mission d'équipe en échec", exc_info=exc)
+            error = build_envelope(
+                "internal", f"{type(exc).__name__}: {exc}", self._settings.secret_values()
+            )
+            with contextlib.suppress(Exception):
+                await self._hub.finish_run(root, "error", error=error)
 
     async def _run(
         self, handle: RunHandle, model: ChatModel, tools: list[AgentTool], temperature: float

@@ -1,0 +1,121 @@
+{
+  "bench": {
+    "lead": "Choisissez un scénario prédéfini et un modèle, puis lancez le test : le Banc d'essai dit si la sortie respecte le format attendu, avec le débit, le CO₂ et la durée de l'essai.",
+    "model": "Modèle",
+    "launch": "Lancer le test",
+    "start_failed": "Le test n'a pas pu être lancé.",
+    "no_scenario": "Aucun scénario n'est disponible.",
+    "other_run": "Le run en cours n'est pas un essai du Banc d'essai : il n'est pas suivi ici.",
+    "timeout": "Délai dépassé ({seconds} s)",
+    "scenario": {
+      "title": "Scénario",
+      "label": "Scénario prédéfini"
+    },
+    "instruction": { "title": "Consigne" },
+    "format": {
+      "title": "Format attendu",
+      "caption": "Champs du format attendu",
+      "field": "Champ",
+      "type": "Type",
+      "required": "Obligatoire",
+      "yes": "oui",
+      "no": "non",
+      "or": "ou",
+      "among": "parmi : {values}",
+      "none": "Ce scénario n'attend aucun format : la sortie est libre."
+    },
+    "types": {
+      "object": "objet",
+      "array": "tableau",
+      "string": "texte",
+      "integer": "entier",
+      "number": "nombre",
+      "boolean": "booléen",
+      "null": "nul"
+    },
+    "input": {
+      "label": "Entrée",
+      "kept": "Votre entrée est gardée : elle n'a pas été remplacée par celle du nouveau scénario.",
+      "replace": "Remplacer par l'exemple du scénario"
+    },
+    "settings": {
+      "title": "Réglages"
+    },
+    "force": {
+      "label": "Format imposé",
+      "help": "Le schéma est transmis au modèle et contraint sa sortie. Désactivé, le format n'est demandé que dans la consigne.",
+      "no_schema": "Indisponible : ce scénario n'attend aucun format, il n'y a rien à imposer.",
+      "unsupported": "Indisponible : {name} ne sait pas contraindre sa sortie à un schéma."
+    },
+    "concise": {
+      "label": "Réponse concise",
+      "help": "Ajoute une consigne de réponse courte : moins de durée et de CO₂, parfois moins de détail."
+    },
+    "legend": {
+      "running": "Un essai est en cours : arrêtez-le ou attendez sa fin",
+      "model": "Choisissez un modèle",
+      "input": "Saisissez une entrée",
+      "ready": "Test de « {scenario} » avec {name}."
+    },
+    "result": {
+      "title": "Résultat",
+      "answer": "Réponse du modèle"
+    },
+    "verdict": {
+      "title": "Verdict de format",
+      "forced": "Le format était imposé au modèle.",
+      "asked": "Le format n'était demandé que dans la consigne.",
+      "none": "Ce scénario n'attend aucun format : il n'y a pas de verdict de format."
+    },
+    "formatted": {
+      "title": "Sortie mise en forme",
+      "raw": "La sortie n'est pas du JSON : elle est affichée telle que le modèle l'a rendue."
+    },
+    "metric": {
+      "rate": "Débit",
+      "total": "Durée totale",
+      "load": "Chargement",
+      "already": "déjà en mémoire",
+      "rate_help": "Tokens produits par seconde pendant la génération, mesuré par Ollama ; le chargement est compté à part.",
+      "total_help": "De l'envoi de l'entrée à la fin de la réponse, chargement compris.",
+      "load_help": "Temps passé à mettre le modèle en mémoire, compté à part."
+    },
+    "actions": {
+      "rerun": "Relancer le test",
+      "edit": "Modifier le test"
+    },
+    "announce": {
+      "started": "Essai lancé.",
+      "done": "Essai terminé.",
+      "ok": "Essai terminé : format respecté.",
+      "ko": "Essai terminé : format non respecté.",
+      "cancelled": "Essai arrêté : la sortie partielle est gardée.",
+      "failed": "Essai en échec."
+    },
+    "missing": {
+      "title": "Essai introuvable",
+      "unknown": "Aucun essai du Banc d'essai ne porte cet identifiant.",
+      "new": "Lancer un test"
+    },
+    "notice": {
+      "smaller": "{name} remplace le modèle trop gros. L'entrée est gardée.",
+      "joined": "Un essai était déjà en cours : il est suivi ici.",
+      "reopened": "Résultat conservé : aucun modèle n'a été relancé pour l'afficher."
+    },
+    "history": {
+      "title": "Tests passés",
+      "help": "Les plus récents d'abord ; chacun se rouvre sans relancer de modèle.",
+      "format_ok": "Format respecté",
+      "format_ko": "Format non respecté",
+      "forced": "format imposé",
+      "concise": "réponse concise",
+      "status": {
+        "ok": "Terminé",
+        "cancelled": "Arrêté",
+        "error": "En échec",
+        "interrupted": "Interrompu",
+        "running": "En cours"
+      }
+    }
+  }
+}

@@ -14,6 +14,9 @@ export function modelsApi(request) {
     // Installe un modèle : run racine `pull`, `{run_id}` aussitôt ; la progression se lit par le flux
     // du run. `409 run_busy` (`detail.run_id`) : une installation tourne déjà (story 5.3).
     pullModel: (tag) => request("/api/models/pull", { method: "POST", body: { tag } }),
+    // Installe le reranker local (modèle fastembed, extra « rerank ») : le même run racine `pull`,
+    // `{run_id}` aussitôt ; `409 run_busy` si une installation tourne, `422` sans l'extra (story 5.5).
+    pullReranker: () => request("/api/models/reranker/pull", { method: "POST" }),
     // Choix explicite du modèle d'un usage (`PUT`, un tag, 2 à 3 pour `arena`) : rend le défaut
     // résultant (`source: preference`) ; `model_not_eligible`, `cloud_not_allowed` sinon (story 5.4).
     setModelDefault: (purpose, tags, allowCloud) =>
