@@ -7,8 +7,8 @@
 //
 // `onClick` suit la route d'export du serveur (un lien `Content-Disposition: attachment`, jamais
 // de `blob:`) : le composant ne fabrique aucun fichier. La bascule large / étroit est faite en CSS
-// (`.wl-export-wide`, `.wl-export-narrow`, components.css) : les deux jeux de boutons existent,
-// un seul est affiché.
+// (`.wl-export-wide`, `.wl-export-narrow`, css/components/export-menu.css) : les deux jeux de
+// boutons existent, un seul est affiché.
 //
 // Clavier (patron du bouton à menu) : sur « Exporter », Entrée, Espace ou Flèche bas ouvrent la
 // liste sur son premier format ; Flèche haut / bas, Début et Fin la parcourent en boucle ; Entrée
