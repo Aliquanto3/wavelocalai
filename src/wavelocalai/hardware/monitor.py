@@ -18,6 +18,7 @@ class SystemMetrics:
     memory_used_gb: float
     memory_total_gb: float
     memory_percent: float
+    memory_available_gb: float  # libre pour un nouveau modèle (psutil `available`, caches compris)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -26,6 +27,7 @@ class SystemMetrics:
                 "used_gb": self.memory_used_gb,
                 "total_gb": self.memory_total_gb,
                 "percent": self.memory_percent,
+                "available_gb": self.memory_available_gb,
             },
         }
 
@@ -47,4 +49,5 @@ class HardwareMonitor:
             memory_used_gb=round(memory.used / GIB, 2),
             memory_total_gb=round(memory.total / GIB, 2),
             memory_percent=round(float(memory.percent), 1),
+            memory_available_gb=round(memory.available / GIB, 2),
         )

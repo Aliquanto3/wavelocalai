@@ -700,7 +700,12 @@ def test_criteria_are_edited_added_up_to_eight_removed_reset_and_sent_cleaned(ar
         panel(arena).get_by_role("button", name="Retirer le critère 1").click()
     assert inputs.count() == 0
     assert arena.evaluate("document.activeElement.textContent") == "Ajouter un critère"
-    launch(arena)
+    # Le bandeau de la première comparaison dit déjà « terminée » : il ne prouve pas que la
+    # seconde est partie. On attend la réponse de la commande, dont le gestionnaire de route
+    # (`scripted`) doit être fini avant la fermeture du contexte à la fin du test (sinon
+    # Playwright : « Response has been disposed », rapporté sur le test suivant).
+    with arena.expect_response(re.compile(r"/api/arena/runs$")):
+        launch(arena)
     wait_banner(arena, "Comparaison terminée")
     assert commands[1]["criteria"] == []
 
