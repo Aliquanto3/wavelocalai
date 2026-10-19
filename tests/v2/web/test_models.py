@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 
@@ -9,6 +10,7 @@ import httpx
 from fastapi import Request
 from fastapi.testclient import TestClient
 
+from wavelocalai.config import load_settings
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading
 from wavelocalai.models.facts import InMemoryFactsStore, facts_from_ollama
 from wavelocalai.models.ollama_api import OllamaHttpSource
@@ -169,3 +171,81 @@ def test_lifespan_starts_and_stops_the_background_refresh(tmp_path):
         while "/api/tags" not in calls and time.monotonic() < deadline:
             time.sleep(0.01)
     assert "/api/tags" in calls
+
+
+def test_default_temperature_is_served_from_ollama_parameters_and_null_otherwise(tmp_path):
+    shows = {**SHOWS, "qwen3.5:2b": {**SHOWS["qwen3.5:2b"], "parameters": "temperature 0.7"}}
+    settings = make_settings(
+        tmp_path,
+        environ={"GROQ_API_KEY": "gsk_test_0123456789"},
+        cloud={"models": {"groq": ["openai/gpt-oss-120b"]}},
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json=TAGS)
+        return httpx.Response(200, json=shows[json.loads(request.content)["model"]])
+
+    source = OllamaHttpSource(settings.ollama.host, transport=httpx.MockTransport(handler))
+    registry = ModelRegistry(settings, source=source, wait_s=2.0)
+    client = TestClient(create_app(settings, registry=registry), base_url=BASE)
+
+    models = {m["tag"]: m for m in client.get("/api/models?allow_cloud=true").json()["models"]}
+    assert models["qwen3.5:2b"]["default_temperature"] == 0.7
+    assert models["nomic-embed-text:latest"]["default_temperature"] is None
+    assert models["groq/openai/gpt-oss-120b"]["default_temperature"] is None  # le champ est là
+
+
+def test_default_temperature_comes_from_the_cache_under_300_ms_with_ollama_down(tmp_path):
+    settings = make_settings(tmp_path)  # Ollama injoignable
+    facts = InMemoryFactsStore()
+    shows = {**SHOWS, "qwen3.5:2b": {**SHOWS["qwen3.5:2b"], "parameters": "temperature 0.6"}}
+    for item in TAGS["models"]:
+        facts.put(facts_from_ollama(item, shows[item["model"]]))
+    registry = ModelRegistry(settings, facts=facts)
+    client = TestClient(create_app(settings, registry=registry), base_url=BASE)
+    TestClient(create_app(settings), base_url=BASE).get("/api/models")  # mise en température
+
+    started = time.perf_counter()
+    response = client.get("/api/models")
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 0.3, f"{elapsed * 1000:.0f} ms"
+    body = response.json()
+    assert body["ollama_up"] is False
+    models = {m["tag"]: m for m in body["models"]}
+    assert models["qwen3.5:2b"]["default_temperature"] == 0.6
+    assert models["nomic-embed-text:latest"]["default_temperature"] is None
+
+
+def test_the_toml_is_unchanged_after_choosing_a_model_and_reading_its_default(tmp_path):
+    toml = tmp_path / "wavelocalai.toml"
+    toml.write_text("[server]\nport = 8502\n", encoding="utf-8")
+    before = hashlib.sha256(toml.read_bytes()).hexdigest()
+    settings = load_settings(
+        toml_path=toml,
+        env_file=tmp_path / "absent.env",
+        environ={},
+        overrides={"data": {"dir": tmp_path / "data"}, "ollama": {"host": "http://127.0.0.1:9"}},
+    )
+    shows = {**SHOWS, "qwen3.5:2b": {**SHOWS["qwen3.5:2b"], "parameters": "temperature 0.7"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json=TAGS)
+        return httpx.Response(200, json=shows[json.loads(request.content)["model"]])
+
+    source = OllamaHttpSource(settings.ollama.host, transport=httpx.MockTransport(handler))
+    registry = ModelRegistry(settings, source=source, wait_s=2.0)
+    with TestClient(
+        create_app(settings, registry=registry), base_url=BASE, headers={"Origin": BASE}
+    ) as client:
+        models = client.get("/api/models").json()["models"]
+        assert next(m for m in models if m["tag"] == "qwen3.5:2b")["default_temperature"] == 0.7
+        client.get("/api/models/defaults?purpose=chat")
+        # Choisir ce modèle et sa créativité : l'envoi ne touche pas le fichier de réglages.
+        client.post(
+            "/api/chat/runs",
+            json={"model": "qwen3.5:2b", "message": "Bonjour", "temperature": 0.7},
+        )
+    assert hashlib.sha256(toml.read_bytes()).hexdigest() == before

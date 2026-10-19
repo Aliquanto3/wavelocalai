@@ -21,7 +21,7 @@ logger = logging.getLogger("wavelocalai.models")
 
 _COLUMNS = (
     "tag, digest, size_bytes, family, parameter_size, quantization, context_length, capabilities,"
-    " params_total_b, expert_count, expert_used_count, fetched_at"
+    " params_total_b, expert_count, expert_used_count, fetched_at, parameters"
 )
 
 
@@ -43,6 +43,7 @@ def _from_row(row: sqlite3.Row) -> ModelFacts:
         expert_count=row["expert_count"],
         expert_used_count=row["expert_used_count"],
         fetched_at=row["fetched_at"],
+        parameters=row["parameters"],
     )
 
 
@@ -70,12 +71,13 @@ class SqliteFactsStore:
             facts.tag, facts.digest, facts.size_bytes, facts.family, facts.parameter_size,
             facts.quantization, facts.context_length, json.dumps(list(facts.capabilities)),
             facts.params_total_b, facts.expert_count, facts.expert_used_count, facts.fetched_at,
+            facts.parameters,
         )  # fmt: skip
 
         def write(conn: sqlite3.Connection) -> None:
             conn.execute(
                 f"INSERT OR REPLACE INTO model_facts ({_COLUMNS})"  # noqa: S608
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 row,
             )
 

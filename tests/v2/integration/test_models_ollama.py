@@ -51,3 +51,20 @@ def test_real_route_is_fast_once_cached(real_settings):
         second = client.get("/api/models")
         assert time.perf_counter() - started < 0.3
         assert second.status_code == 200
+
+
+async def test_real_default_temperature_is_what_ollama_publishes_or_null(real_settings):
+    import httpx
+
+    from wavelocalai.models.facts import parse_temperature
+
+    registry = ModelRegistry(real_settings, advisor=MemoryAdvisor())
+    await registry.refresh()
+    result = await registry.list_models()
+    if not result.ollama_up or not result.models:
+        pytest.skip("Ollama ne répond pas ou n'a aucun modèle installé")
+    host = real_settings.ollama.host
+    for model in result.models:
+        shown = httpx.post(f"{host}/api/show", json={"model": model.tag}, timeout=10).json()
+        assert model.default_temperature == parse_temperature(shown.get("parameters")), model.tag
+        assert model.default_temperature is None or 0 <= model.default_temperature <= 2
