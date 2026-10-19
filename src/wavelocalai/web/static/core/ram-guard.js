@@ -10,11 +10,14 @@ export const isRamGuard = (error) => error?.code === "ram_guard";
 
 // `handler(tag, source)` : le tag du modèle proposé, et l'élément qui a émis (pour retrouver la
 // colonne d'une Arène). L'événement `wl-use-model` est émis par `wl-error` et remonte à l'écran.
+// Rend la fonction qui retire l'écouteur (un écran remonté sur le même nœud ne le cumule pas).
 export function onSmallerModel(host, handler) {
-  host.addEventListener("wl-use-model", (event) => {
+  const listener = (event) => {
     const tag = event.detail?.model;
     if (tag) handler(tag, event.target);
-  });
+  };
+  host.addEventListener("wl-use-model", listener);
+  return () => host.removeEventListener("wl-use-model", listener);
 }
 
 // Sélecteur multiple : `model` remplace `failed` (sans doublon : s'il y est déjà, `failed` s'efface).

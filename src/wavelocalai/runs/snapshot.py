@@ -149,9 +149,29 @@ async def run_snapshot(
             if snapshot["status"] == "ok"
             else None
         )
+    elif snapshot["kind"] == "agent":
+        snapshot["mission"] = await mission_totals(store, run_id)
     elif snapshot["kind"] == "eval":  # notes, résumé et partiel d'une évaluation (story 7.1)
         snapshot.update(await eval_snapshot_fields(store, snapshot))
     return snapshot
+
+
+async def mission_totals(store: Store, run_id: str) -> dict[str, Any] | None:
+    """Totaux d'une mission d'équipe (story 6.5) : durée et pic de mémoire du poste, lus dans son
+    événement `mission_totals` ; `None` pour un agent seul ou une mission encore en cours."""
+    rows = await store.aread(
+        "SELECT data FROM run_events WHERE run_id = ? AND type = 'mission_totals'"
+        " ORDER BY seq DESC LIMIT 1",
+        (run_id,),
+    )
+    if not rows:
+        return None
+    data = json.loads(rows[0]["data"])
+    return {
+        "duration_s": data.get("duration_s"),
+        "peak_memory_gb": data.get("peak_memory_gb"),
+        "agents_done": data.get("agents_done"),
+    }
 
 
 async def list_arena_runs(store: Store, limit: int = 20) -> list[dict[str, Any]]:

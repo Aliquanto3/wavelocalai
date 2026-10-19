@@ -26,6 +26,7 @@ export const TEXT_FILES = [
   "references",
   "models",
   "sobriety",
+  "evaluation",
 ];
 
 let texts = {};

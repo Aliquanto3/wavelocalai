@@ -268,7 +268,6 @@ ROUTES = [
 # Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
 MOCKUP_ROUTES = {
     "/arene/banc": "run_id",
-    "/documents/evaluation": "run_id",
     "/agents/equipe": "run_id",
 }
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
@@ -293,7 +292,7 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_arena_references_document_sobriety_and_models_screens_are_available():
+def test_only_the_available_screens_are_declared_so_far():
     text = registry_text()
     assert text.count('status: "available"') == 8
     assert text.count('status: "planned"') == len(ROUTES) - 8
@@ -314,12 +313,14 @@ def test_only_the_home_chat_arena_references_document_sobriety_and_models_screen
     assert re.search(
         r'id: "arena-references",\s*path: "/arene/references",\s*status: "available"', text
     )
+    assert re.search(
+        r'id: "documents-evaluation",\s*path: "/documents/evaluation",\s*param: "run_id",\s*status: "available"',
+        text,
+    )
 
 
 def test_the_mockup_routes_are_planned_with_their_path_parameter():
-    """D-8 : `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>` et `#/agents/equipe/<run_id>`
-    existent, `planned`, sans écran ni `load` (`#/modeles/<tag>` : story 5.6 ; `#/arene/references` :
-    story 5.8)."""
+    """D-8 : `#/arene/banc/<run_id>` et `#/agents/equipe/<run_id>` existent, `planned`, sans écran ni `load`."""
     text = registry_text()
     for path, param in MOCKUP_ROUTES.items():
         declaration = re.search(

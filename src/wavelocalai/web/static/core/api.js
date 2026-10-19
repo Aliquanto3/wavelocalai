@@ -10,6 +10,7 @@
 
 import { arenaApi } from "./api/arena.js";
 import { conversationsApi } from "./api/conversations.js";
+import { evaluationApi } from "./api/evaluation.js";
 import { modelsApi } from "./api/models.js";
 import { ragApi } from "./api/rag.js";
 import { referencesApi } from "./api/references.js";
@@ -106,6 +107,7 @@ export const api = {
   ...modelsApi(request),
   ...conversationsApi(request),
   ...arenaApi(request),
+  ...evaluationApi(request),
   ...ragApi(request),
   ...referencesApi(request),
   ...runsApi(request),
