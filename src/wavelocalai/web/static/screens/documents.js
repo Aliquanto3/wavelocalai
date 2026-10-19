@@ -26,7 +26,7 @@
 //   (AD-9). `allow_cloud` du store accompagne chaque commande.
 
 import { api, ApiError } from "../core/api.js";
-import { element, icon } from "../core/dom.js";
+import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { plural } from "../core/format.js";
 import { t } from "../core/i18n.js";
@@ -38,6 +38,7 @@ import "../components/index.js";
 import { decorateCitations, linkMarkers } from "./documents-citations.js";
 import { replayAll } from "./documents-replay.js";
 import { advancedSettings, firstStage } from "./documents-chat-settings.js";
+import { modelNotes } from "./documents-notes.js";
 
 const DRAFT = "documents";
 let counter = 0;
@@ -71,12 +72,11 @@ export function mount(host) {
 
   const picker = document.createElement("wl-model-picker");
   picker.setAttribute("purpose", "rag");
-  const cloudNote = element("p", "docs-cloud-note");
-  cloudNote.hidden = true;
   const pickerColumn = element("div", "docs-chat-picker");
-  pickerColumn.append(picker, cloudNote);
 
   const advanced = advancedSettings(uid);
+  const notes = modelNotes({ picker, strategy: () => advanced.strategy() }); // cloud, Self-RAG petit modèle
+  pickerColumn.append(picker, ...notes.nodes);
   const settings = element("div", "docs-chat-settings");
   settings.append(pickerColumn, advanced.node);
 
@@ -177,16 +177,6 @@ export function mount(host) {
     renderBase();
   }
 
-  function updateCloudNote() {
-    const model = picker.selected;
-    const cloud = model?.origin === "cloud";
-    cloudNote.hidden = !cloud;
-    cloudNote.replaceChildren();
-    if (cloud) {
-      cloudNote.append(icon("warning"), element("span", "", t("discussion.cloud_warning", { name: model.name })));
-    }
-  }
-
   async function refreshBase() {
     if (refreshing) return;
     refreshing = true;
@@ -195,13 +185,16 @@ export function mount(host) {
       // Défauts et bornes de la recherche : réglages de l'écran Base, relus à chaque rafraîchissement.
       // Sans eux (route en échec), aucun `top_k` n'est envoyé et le serveur applique le sien.
       api.ragSettings().then(
-        (settings) =>
+        (settings) => {
+          notes.verifyMin = settings.verify_min_params_b;
           advanced.configure({
             topK: settings.top_k,
             maxTopK: settings.limits?.top_k?.max,
             strategy: settings.strategy,
             reranker: settings.reranker,
-          }),
+          });
+          notes.update();
+        },
         () => {},
       );
       problem.error = null;
@@ -413,7 +406,7 @@ export function mount(host) {
     if (!(await showConversation(view))) return;
     if (view.model) {
       picker.value = view.model;
-      updateCloudNote(); // le setter n'émet pas `wl-model-change` : l'avertissement cloud (AD-9)
+      notes.update(); // le setter n'émet pas `wl-model-change` : les avertissements (AD-9)
     }
     if (view.active_run_id) follow(view.active_run_id);
     render();
@@ -525,15 +518,16 @@ export function mount(host) {
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
   // Garde-fou mémoire : le modèle proposé par le serveur est choisi, sans relancer.
-  onSmallerModel(host, (tag) => {
+  const unwatchSmaller = onSmallerModel(host, (tag) => {
     picker.value = tag;
-    updateCloudNote(); // l'affectation n'émet pas `wl-model-change` : avertissement cloud (AD-9)
+    notes.update(); // l'affectation n'émet pas `wl-model-change` : avertissements (AD-9)
     notice.textContent = t("discussion.model_changed", { model: picker.modelFor(tag)?.name ?? tag });
     notice.hidden = false;
     input.focus();
   });
-  picker.addEventListener("wl-model-change", updateCloudNote);
-  picker.addEventListener("wl-models-loaded", updateCloudNote);
+  picker.addEventListener("wl-model-change", notes.update);
+  picker.addEventListener("wl-models-loaded", notes.update);
+  advanced.node.addEventListener("change", notes.update); // la stratégie
 
   // --- Écran masqué puis revu ------------------------------------------------------------
   // Le routeur masque l'écran sans le démonter : on ferme le flux (le serveur continue), et au
@@ -554,7 +548,7 @@ export function mount(host) {
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   render();
-  updateCloudNote();
+  notes.update();
   // `data-restored` : la conversation d'avant a été relue (ou il n'y en avait pas).
   refreshBase()
     .then(restore)
@@ -562,6 +556,7 @@ export function mount(host) {
       host.dataset.restored = "";
     });
   return () => {
+    unwatchSmaller();
     visibility.disconnect();
     stream?.close();
     stream = null;

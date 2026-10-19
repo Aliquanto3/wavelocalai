@@ -30,6 +30,7 @@ SCREEN_FILES = (
     "screens/documents.js",
     "screens/documents-chat-settings.js",
     "screens/documents-citations.js",
+    "screens/documents-notes.js",
     "screens/documents-replay.js",
 )
 SCREEN = "\n".join(source(name) for name in SCREEN_FILES)

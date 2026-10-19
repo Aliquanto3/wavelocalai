@@ -4,9 +4,10 @@
 //   même `wl-confirm-dialog` : titre en question, conséquence chiffrée, focus sur « Annuler ».
 //   « Annuler » ne supprime rien et l'annonce ; confirmer appelle `DELETE`, puis le résultat est
 //   annoncé au même verbe (zone polie).
-// - Le front ne décide pas si l'action est permise : pendant un import ou une question, le serveur
-//   répond `409 base_in_use` et `wl-error` l'affiche (écart ouvert n° 13 de la proposition de
-//   changement du 19 octobre : variante du contrat, pas de boutons désactivés).
+// - Pendant un import (suivi ici, ou document `indexing` d'un autre onglet), « Supprimer » et
+//   « Vider » sont désactivés et leur raison est écrite à côté (`lockId`, décision n° 13 du 2026-10-19).
+//   Le serveur reste juge : il répond `409 base_in_use` (import ou question en cours) et `wl-error`
+//   l'affiche, par exemple pour une question posée depuis un autre onglet.
 // - « Vider » envoie `expected_count`, le nombre d'extraits que l'écran affichait : s'il a changé,
 //   le serveur répond `409 base_count_stale` sans rien supprimer, et l'écran relit la base.
 
@@ -15,7 +16,7 @@ import { element } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 import { plural } from "./documents-import-row.js";
 
-export function createManage({ dialog, problem, getData, refresh, fallbackFocus }) {
+export function createManage({ dialog, problem, getData, refresh, fallbackFocus, isLocked, lockId }) {
   const status = element("p", "docs-notice docs-manage-status");
   status.setAttribute("role", "status");
   status.hidden = true;
@@ -50,12 +51,16 @@ export function createManage({ dialog, problem, getData, refresh, fallbackFocus 
     button.type = "button";
     button.dataset.id = doc.id;
     button.setAttribute("aria-label", t("docs.delete_for", { name: doc.source }));
+    if (isLocked?.()) {
+      button.disabled = true;
+      button.setAttribute("aria-describedby", lockId);
+    }
     button.addEventListener("click", () => deleteDocument(doc));
     return button;
   }
 
   async function deleteDocument(doc) {
-    if (working) return;
+    if (working || isLocked?.()) return; // bouton désactivé pendant un import : le serveur reste juge
     working = true;
     problem.error = null;
     try {
@@ -92,7 +97,7 @@ export function createManage({ dialog, problem, getData, refresh, fallbackFocus 
   // Rend vrai si la base a été vidée.
   async function clearBase() {
     const data = getData();
-    if (working || !data) return false;
+    if (working || !data || isLocked?.()) return false; // pendant un import (décision n° 13)
     working = true;
     problem.error = null;
     try {

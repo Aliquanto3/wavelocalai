@@ -3,9 +3,9 @@ navigateur sur le vrai serveur (embedding `fake`, voir `test_documents.py`).
 
 Prouvés ici : `wl-confirm-dialog` (focus sur « Annuler », textes d'`epics.md`), « Annuler » qui ne
 supprime rien, les messages de résultat au même verbe, un document en échec supprimable, aucun
-bouton pour un document en cours d'indexation, le `409` affiché par `wl-error` pendant un import
-(écart ouvert n° 13), un `expected_count` périmé, les réglages (persistés, relus après un
-rechargement), le refus d'un changement d'embedding avec son bouton « Vider », axe-core clair et
+bouton pour un document en cours d'indexation, « Supprimer » et « Vider » désactivés avec leur raison
+pendant un import (décision n° 13 du 2026-10-19, le `409` reste côté serveur), un `expected_count`
+périmé, les réglages (persistés, relus après un rechargement), le refus d'un changement d'embedding avec son bouton « Vider », axe-core clair et
 sombre (dialogue ouvert compris) et 320 px.
 """
 
@@ -254,22 +254,31 @@ def test_a_stale_count_is_refused_and_the_base_is_read_again(base2_409):
     until(page, lambda: len(table_rows(page)) == 3)  # le tableau a été relu
 
 
-def test_clearing_during_an_import_shows_the_409_and_deletes_nothing(docs_409):
-    page, server = docs_409
+def test_delete_and_clear_are_disabled_with_their_reason_during_an_import(docs):
+    """Décision n° 13 (8.1) : pas de `409` à l'écran, la raison est écrite à côté des boutons ; le
+    `409 base_in_use` reste côté serveur (`tests/v2/web/test_rag_manage_api.py`)."""
+    page, server = docs
     import_files(page, txt("prete.txt", "Un texte court."), summary="1 extrait ajouté")
+    delete = page.get_by_role("button", name="Supprimer prete.txt")
+    clear = page.locator(".docs-clear")
+    reason = page.locator(".docs-lock-note")
+    assert delete.is_enabled() and clear.is_enabled() and reason.is_hidden()
     script_embedder(server, page, {"sleep_s": 2})
     choose(page, txt("lente.txt"))
     page.locator("wl-data-table .docs-status[data-status=indexing]").wait_for()
-    page.locator(".docs-clear").click()
-    page.locator(f"{DIALOG} .wl-dialog-confirm").click()
-    error = page.locator(".wl-error[data-code=base_in_use]")
-    error.wait_for()
-    assert error.locator(".wl-error-message").inner_text() == (
-        "Un import ou une question utilise la base documentaire : rien n'a été modifié."
+    reason.wait_for()
+    assert reason.inner_text() == (
+        f"«{NBSP}Supprimer{NBSP}» et «{NBSP}Vider{NBSP}» sont indisponibles pendant un import{NBSP}: "
+        "attendez sa fin ou annulez-le."
     )
-    assert error.locator(".wl-error-action").inner_text()
-    assert page.get_by_role("button", name="Supprimer prete.txt").is_visible()
+    assert delete.is_disabled() and clear.is_disabled()
+    assert delete.get_attribute("aria-describedby") == reason.get_attribute("id")
+    assert clear.get_attribute("aria-describedby") == reason.get_attribute("id")
+    assert page.locator(".wl-error[data-code=base_in_use]").count() == 0
     wait_summary(page, "5 extraits ajoutés")
+    reason.wait_for(state="hidden")
+    assert delete.is_enabled() and clear.is_enabled()
+    assert clear.get_attribute("aria-describedby") is None
     assert api_documents(page, server)["totals"]["documents"] == 2
 
 
@@ -382,6 +391,46 @@ def test_a_refused_embedding_change_says_to_clear_first_and_offers_the_button(ba
     )
     assert calls[0] == calls[1] == {"embedding_model": None}
     assert api_documents(page, server)["documents"] == []
+
+
+def test_the_settings_clear_button_is_disabled_too_during_an_import(docs_409):
+    """Le « Vider » offert après un changement d'embedding refusé suit le même verrou que celui du
+    tableau (décision n° 13) : désactivé pendant un import, avec la même raison."""
+    page, server = docs_409
+    import_files(page, txt("prete.txt", "Un texte court."), summary="1 extrait ajouté")
+    refused = {
+        "code": "embedding_change_needs_clear",
+        "message": "Changer de modèle d'embedding rendrait inutilisables les extraits déjà "
+        "indexés.",
+        "action": "Videz d'abord la base documentaire, puis enregistrez le nouveau modèle.",
+        "detail": {"technical": None, "current": "fake-embed:16", "requested": "autre:1"},
+    }
+    page.route(
+        "**/api/rag/settings",
+        lambda r: (
+            r.fulfill(status=409, content_type="application/json", body=json.dumps(refused))
+            if r.request.method == "PUT"
+            else r.continue_()
+        ),
+    )
+    open_settings(page)
+    page.get_by_label("Modèle de représentation").select_option("")
+    page.get_by_role("button", name="Enregistrer les réglages").click()
+    clear = page.locator("details.docs-settings").get_by_role(
+        "button", name="Vider la base documentaire"
+    )
+    clear.wait_for()
+    assert clear.is_enabled()
+    script_embedder(server, page, {"sleep_s": 2})
+    choose(page, txt("lente.txt"))
+    reason = page.locator(".docs-lock-note")
+    reason.wait_for()
+    assert clear.is_disabled()
+    assert clear.get_attribute("aria-describedby") == reason.get_attribute("id")
+    wait_summary(page, "5 extraits ajoutés")
+    reason.wait_for(state="hidden")
+    assert clear.is_enabled() and clear.get_attribute("aria-describedby") is None
+    assert api_documents(page, server)["totals"]["documents"] == 2
 
 
 # --- Charte et accessibilité --------------------------------------------------------------------

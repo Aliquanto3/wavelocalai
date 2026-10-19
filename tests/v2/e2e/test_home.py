@@ -17,6 +17,7 @@ from .test_shell import (
     assert_no_axe_violations,
     assert_no_horizontal_scroll,
     open_display_menu,
+    registry_modules,
     wait_for,
     wait_ready,
 )
@@ -295,18 +296,25 @@ def test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them(
 # --- Modules ----------------------------------------------------------------------------------
 
 
+def home_module_entries(page) -> list[str]:
+    """Les liens que l'Accueil doit montrer, lus dans le registre : le premier écran disponible de
+    chaque module, hors Accueil (décision du 2026-10-19 : aucun compte écrit en dur)."""
+    return [
+        f"#{module['entry']}"
+        for module in registry_modules(page)
+        if module["id"] != "home" and module["entry"] is not None
+    ]
+
+
 def test_planned_modules_have_no_card_on_the_home(home):
-    # L'Arène (story 2.2), la Base documentaire (story 4.2), Sobriété (story 5.1), les Modèles
-    # (story 5.3) et l'Agent seul (story 6.4) sont livrés : leurs liens seuls figurent ; les
-    # modules à venir n'en ont aucun.
-    assert home.locator(".home-module-link").count() == 5
-    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/sobriete"]').count() == 1
-    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/arene"]').count() == 1
-    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/documents"]').count() == 1
-    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/modeles"]').count() == 1
-    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/agents"]').count() == 1
-    # Plus aucun module à venir : la barre haute n'en montre aucun de désactivé.
-    assert "Pas encore disponible" not in home.locator("#module-list").inner_text()
+    # Chaque module qui a un écran disponible a son lien, un seul ; les modules à venir n'en ont
+    # aucun (la barre haute les montre désactivés, avec leur raison).
+    entries = home_module_entries(home)
+    assert home.locator(".home-module-link").count() == len(entries)
+    for href in entries:
+        assert home.locator(f'[data-screen="home"] a.home-module-link[href="{href}"]').count() == 1
+    planned = [m for m in registry_modules(home) if m["entry"] is None]
+    assert ("Pas encore disponible" in home.locator("#module-list").inner_text()) == bool(planned)
 
 
 def mount_second_home(page, every_module: bool = False) -> None:
@@ -333,15 +341,13 @@ def mount_second_home(page, every_module: bool = False) -> None:
 def test_an_available_module_gets_a_link_with_its_summary(home):
     mount_second_home(home)
     links = home.locator("#second-home .home-module-link")
-    # L'Arène, les Documents (Discussion, story 4.5), l'Agent seul (story 6.4), Sobriété (5.1),
-    # puis les Modèles (story 5.3).
-    assert links.count() == 5
-    assert links.nth(2).get_attribute("href") == "#/agents/seul"
-    assert links.nth(3).get_attribute("href") == "#/sobriete"
-    assert links.nth(1).get_attribute("href") == "#/documents"
-    assert links.nth(4).get_attribute("href") == "#/modeles"
+    # Un lien par module disponible, dans l'ordre de la navigation : celui du registre.
+    entries = home_module_entries(home)
+    assert links.count() == len(entries)
+    assert [links.nth(i).get_attribute("href") for i in range(len(entries))] == entries
+    documents = entries.index("#/documents")
     # Le résumé de la carte « Documents » est celui de la base (story 4.9) ; base vide ici.
-    summary = links.nth(1).locator(".home-module-summary")
+    summary = links.nth(documents).locator(".home-module-summary")
     wait_for(
         home,
         '() => document.querySelector(\'#second-home a[href="#/documents"] '
@@ -353,8 +359,10 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     assert "Comparer plusieurs petits modèles" in links.first.inner_text()
     assert f"question{NBSP}:" in links.first.inner_text()
     # D-10 : le nom court, le nom long et le résumé de chaque module disponible.
-    assert links.nth(1).locator(".home-module-name").inner_text() == "Documents"
-    assert links.nth(1).locator(".home-module-long").inner_text() == "Assistant documentaire"
+    assert links.nth(documents).locator(".home-module-name").inner_text() == "Documents"
+    assert (
+        links.nth(documents).locator(".home-module-long").inner_text() == "Assistant documentaire"
+    )
     assert links.first.locator(".home-module-name").inner_text() == "Arène"
     assert links.first.locator(".home-module-long").inner_text() == "Arène des modèles"
     # La carte « Démo recommandée » (story 3.6) n'est pas un lien de module : `test_home_demo.py`.
@@ -461,10 +469,10 @@ def test_an_available_module_gets_a_link_with_short_name_long_name_and_summary(h
     le `h1` reste « Accueil » (D-9)."""
     mount_second_home(home, every_module=True)
     links = home.locator("#second-home .home-module-link")
-    assert links.count() == len(MODULE_LINKS)
-    for index, (short, long, href) in enumerate(MODULE_LINKS):
-        link = links.nth(index)
-        assert link.get_attribute("href") == href
+    assert links.count() == len(home_module_entries(home))  # lu dans le registre
+    for short, long, href in MODULE_LINKS:
+        link = home.locator(f'#second-home .home-module-link[href="{href}"]')
+        assert link.count() == 1, href
         assert link.locator(".home-module-name").inner_text() == short
         assert link.locator(".home-module-long").inner_text() == long
         summary = link.locator(".home-module-summary").inner_text()

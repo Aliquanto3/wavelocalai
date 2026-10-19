@@ -85,3 +85,11 @@ def test_the_new_styles_use_design_tokens_only():
     css = source("components.css")
     block = css[css.index("/* Garde-fou mémoire") : css.index(".wl-error-details summary")]
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", block)
+
+
+def test_the_screens_that_listen_for_the_smaller_model_stop_listening_when_unmounted():
+    """Revue 7.3 (8.1) : `onSmallerModel` rend le retrait de l'écouteur, appelé au démontage."""
+    for name in ("screens/documents.js", "screens/documents-eval.js", "screens/agents-solo.js"):
+        code = source(name)
+        assert "const unwatchSmaller = onSmallerModel(host," in code, name
+        assert "unwatchSmaller();" in code[code.rindex("return () => {") :], name

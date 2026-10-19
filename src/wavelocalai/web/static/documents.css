@@ -183,7 +183,8 @@
 }
 
 /* Avertissement du cloud : icône et texte, jamais la couleur seule. */
-.docs-cloud-note {
+.docs-cloud-note,
+.docs-verify-note {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -196,7 +197,8 @@
   background: var(--color-surface-alt);
 }
 
-.docs-cloud-note[hidden] {
+.docs-cloud-note[hidden],
+.docs-verify-note[hidden] {
   display: none;
 }
 
