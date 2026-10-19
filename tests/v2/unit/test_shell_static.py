@@ -268,7 +268,6 @@ ROUTES = [
 # Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
 MOCKUP_ROUTES = {
     "/arene/references": None,
-    "/arene/references": None,
 }
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
