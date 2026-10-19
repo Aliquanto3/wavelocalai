@@ -193,3 +193,31 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 04:47 · run · report · `test_arena.py::test_the_panel_opens_and_works_from_the_keyboard` : « Browser.new_context: Response has been disposed » sous charge, 3 fois (8.1) · —
 - 2026-10-19 04:59 · 3.3 · fusion · PR #67 fusionnée · 2567e44
 - 2026-10-19 05:00 · 3.4 · dev · lancé (Sonnet high, worktree v2-3-4, depuis master 2567e44) · —
+- 2026-10-19 05:01 · 1.12 · fusion master · conflits `core/registry.js` (écrans Arène et Base disponibles + routes planned de la maquette) et `test_shell.py` ; contrôles lancés · e3f5886
+- 2026-10-19 05:23 · 4.3 · dev · fini, 971 v2, 41 E2E documents, integration verte ; résidu vectoriel : aucun (sqlite-vec 0.1.9) ; §7(d) n° 13 en variante contrat (409 affiché) · 974925c
+- 2026-10-19 05:23 · 4.3 · second-avis · lancé (Haiku) · —
+- 2026-10-19 05:24 · 4.8 · fusion master · conflits de fond (streaming, Arène, chat, app, faux Ollama) confiés au relecteur (Opus) · —
+- 2026-10-19 05:27 · 4.3 · second-avis · 3 medium (`chunk_size: null` en 500, embedding remis au .toml sans contrôle, résidu vec0 sans sqlite-vec), 3 low · —
+- 2026-10-19 05:27 · 4.3 · review · lancée (Opus) · —
+- 2026-10-19 05:28 · 1.12 · contrôles · 2 échecs statiques (8 icônes Material Icons de la 3.2 refusées par le test Rounded) + 1 E2E Accueil (écrans devenus disponibles) ; correctif lancé (Sonnet) · —
+- 2026-10-19 05:28 · run · décision · icônes : test strict gardé avec une liste nommée des 8 symboles Material Icons de la 3.2 en attente du sprite officiel (variante conservatrice, aucun téléchargement) · —
+- 2026-10-19 05:36 · 3.4 · dev · fini, 971 v2, 83 E2E Arène ; §7(d) n° 4 à 8 en variante actuelle (« le plus petit des trois » non livré) · ecf58f6
+- 2026-10-19 05:36 · 3.4 · second-avis · lancé (Haiku) · —
+- 2026-10-19 05:42 · 4.5 · dev · fini, 932 v2, E2E par lots verts (Discussion 17) ; §7(d) n° 12 en variante conservatrice · 90cfc80
+- 2026-10-19 05:42 · 4.5 · second-avis · lancé (Haiku) · —
+- 2026-10-19 05:45 · 3.4 · second-avis · 2 medium (étiquette longue hors du SVG, défilement du tableau remis à zéro), 1 medium rejeté (E2E hors CI), 2 low · —
+- 2026-10-19 05:45 · 3.4 · review · lancée (Opus) · —
+- 2026-10-19 05:50 · 1.12 · contrôles · correctifs (liste `PENDING_ROUNDED` de 8 symboles, test Accueil réaligné) : 971 v2, 188 E2E ; poussé · b80d0c2
+- 2026-10-19 05:50 · 4.3 · review · `null` des réglages rendu au .toml sans 500, embedding `null` contrôlé, vec0 sans module : refus `vector_tables_unreachable` avant écriture, délai client 300 s ; 975 v2, 49 E2E · 0829e07
+- 2026-10-19 05:51 · 4.3 · fusion master · 3.3 et 2.7 : conflit `fr.json` (clés `lane` et `confirm`) ; contrôles lancés · 9dc769d
+- 2026-10-19 05:51 · 4.5 · second-avis · 1 medium (avertissement cloud absent à la réouverture), 6 low · —
+- 2026-10-19 05:51 · 4.5 · review · lancée (Opus) · —
+- 2026-10-19 05:52 · 4.8 · fusion master · résolue par le relecteur (garde-fou dans chat, Arène, RAG et juge ; arguments par mot-clé) ; medium corrigé : juge local gardé ; 1009 v2, 149 E2E · 8e2f758
+- 2026-10-19 05:52 · run · report · E2E instables sous charge à stabiliser en 8.1 : axe-core du pied de message en sombre (1 fois sur 3) · —
+- 2026-10-19 06:03 · 3.4 · review · étiquettes longues coupées, défilement du tableau gardé, gel à `run_ended` gardé, largeur d'étiquette mesurée ; 971 v2, 28 E2E résultats · 02fdaef
+- 2026-10-19 06:03 · 3.4 · contrôles · lancés · 02fdaef
+- 2026-10-19 06:11 · 1.12 · CI · rouge sur un seul job (`test_read_budget` « / » 303 ms > 300 ms, Windows 3.11, minutage) ; job relancé · b80d0c2
+- 2026-10-19 06:11 · run · report · `test_read_budget` (budget 300 ms) instable sur les runners CI et sous charge locale : à stabiliser en 8.1 · —
+- 2026-10-19 06:16 · 4.5 · review · medium corrigé (avertissement cloud à la réouverture), rejeu limité à 3 flux, test de reprise déterministe, test run_busy stabilisé ; report : `conversation_id` dans le détail de `run_busy` (Chat et Discussion) · e6ab8a7
+- 2026-10-19 06:17 · 1.12 · fusion · PR #66 fusionnée · b90056e
+- 2026-10-19 06:39 · 4.3 · contrôles · verts (1017 v2, 298 E2E, 11 integration, 1286 v1) ; master (1.12) fusionné sans conflit de code, 1027 v2, 123 E2E ; PR ouverte · 55a8715
