@@ -102,6 +102,9 @@
     }
   },
   "components": {
+    "export_menu": {
+      "label": "Exporter"
+    },
     "badge": {
       "local": "Local",
       "cloud": "Cloud",
@@ -161,6 +164,7 @@
       "elapsed": "Temps écoulé",
       "stop": "Arrêter",
       "stop_hint": "ou touche Échap",
+      "first_load": "Le premier appel charge le modèle en mémoire : de 8 à 26 secondes.",
       "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
     },
     "thread": {
@@ -190,6 +194,10 @@
       "load": "Chargement",
       "total": "Durée totale",
       "first_token": "Premier token"
+    },
+    "table": {
+      "sorted_asc": "Trié par {column}, ordre croissant",
+      "sorted_desc": "Trié par {column}, ordre décroissant"
     },
     "lane": {
       "label": "Réponse de {model}",
@@ -225,6 +233,8 @@
     "lead": "Posez une question à un modèle de ce poste et lisez sa réponse au fil de sa rédaction.",
     "creativity": "Créativité",
     "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "creativity_default": "Valeur conseillée pour {model} : {value}.",
+    "creativity_default_fallback": "Valeur par défaut : 0,2 (ce modèle n'en conseille pas).",
     "message": "Écrivez votre message",
     "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
     "send": "Envoyer",
@@ -237,6 +247,69 @@
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
     "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
     "start_failed": "La demande n'a pas pu être envoyée."
+  },
+  "docs": {
+    "lead": "Importez vos documents pour les interroger ensuite. Ils sont découpés et indexés sur ce poste : aucun fichier ne quitte la machine.",
+    "drop_label": "Déposer des fichiers",
+    "drop_text": "Déposez des fichiers ici ou",
+    "choose": "Choisir des fichiers",
+    "formats": "PDF, TXT, MD, DOCX",
+    "limits": "{file} Mo au plus par fichier ; {files} fichiers et {total} Mo au plus par import.",
+    "busy": "Un import est en cours : attendez sa fin ou annulez-le pour en lancer un autre.",
+    "loading": "Chargement de la base documentaire…",
+    "empty_title": "Votre base documentaire est vide",
+    "empty_text": "Importez un PDF, un TXT, un MD ou un DOCX pour pouvoir l'interroger ensuite.",
+    "empty_action": "Importer des documents",
+    "imports_title": "Fichiers de cet import",
+    "table_title": "Documents de la base",
+    "table_caption": "Documents de la base documentaire",
+    "docs_one": "{n} document prêt",
+    "docs_other": "{n} documents prêts",
+    "chunks_one": "{n} extrait",
+    "chunks_other": "{n} extraits",
+    "col_name": "Nom",
+    "col_chunks": "Extraits",
+    "col_added": "Ajouté le",
+    "col_model": "Modèle de représentation",
+    "col_status": "Statut",
+    "status_ready": "Prêt",
+    "status_indexing": "Indexation en cours",
+    "status_failed": "Échec",
+    "chunks_pending": "en cours",
+    "chunks_none": "aucun",
+    "failed_with": "{message} : {reason}.",
+    "row_waiting": "En attente",
+    "row_sending": "Envoi {percent} %",
+    "row_sent": "Envoi 100 %",
+    "row_extract": "Lecture du fichier",
+    "row_split": "Découpage",
+    "row_embed": "Vectorisation {done}/{total} extraits",
+    "row_done_one": "{n} extrait ajouté",
+    "row_done_other": "{n} extraits ajoutés",
+    "row_duplicate": "Déjà indexé : ce contenu est déjà dans la base.",
+    "row_cancelled": "Annulé",
+    "row_interrupted": "Suivi interrompu",
+    "cancel_import": "Annuler l'import",
+    "added_one": "{n} extrait ajouté",
+    "added_other": "{n} extraits ajoutés",
+    "from_one": "depuis {n} document",
+    "from_other": "depuis {n} documents",
+    "duplicate_count_one": "{n} fichier était déjà dans la base.",
+    "duplicate_count_other": "{n} fichiers étaient déjà dans la base.",
+    "failed_count_one": "{n} fichier n'a pas pu être indexé.",
+    "failed_count_other": "{n} fichiers n'ont pas pu être indexés.",
+    "cancelled": "Import annulé. Les documents déjà indexés sont conservés.",
+    "interrupted": "L'import a été interrompu avant la fin.",
+    "joined": "Un import est déjà en cours : vous le suivez.",
+    "too_many": "Trop de fichiers : {max} au plus par import.",
+    "too_big": "Import trop volumineux : {max} Mo au plus par import.",
+    "limit_action": "Retirez des fichiers, puis recommencez l'import.",
+    "list_failed": "La liste des documents n'a pas pu être chargée.",
+    "list_failed_action": "Vérifiez que le serveur répond, puis rechargez la page.",
+    "upload_failed": "Les fichiers n'ont pas pu être envoyés.",
+    "upload_failed_action": "Vérifiez que le serveur répond, puis recommencez l'import.",
+    "row_progress": "Progression de {file}",
+    "failed_default": "Le fichier n'a pas pu être indexé"
   },
   "topbar": {
     "ollama": {

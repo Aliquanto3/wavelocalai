@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from wavelocalai.models.classify import base_tag, parse_params_b
+from wavelocalai.models.facts import MAX_TEMPERATURE
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -49,12 +50,20 @@ class CatalogEntry:
     measured_loaded_gb: float | None
     description: str | None
     moe: bool | None
+    default_temperature: float | None = None
 
 
 def _positive(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if value > 0 else None
+
+
+def _temperature(value: Any) -> float | None:
+    """Créativité par défaut du catalogue (champ facultatif) : de 0 à 2, sinon ignorée."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if 0 <= value <= MAX_TEMPERATURE else None
 
 
 def _entry(name: str, raw: dict[str, Any]) -> CatalogEntry | None:
@@ -79,6 +88,7 @@ def _entry(name: str, raw: dict[str, Any]) -> CatalogEntry | None:
         measured_loaded_gb=_positive(raw.get("measured_loaded_gb")),
         description=raw.get("desc") if isinstance(raw.get("desc"), str) else None,
         moe=raw.get("moe") if isinstance(raw.get("moe"), bool) else None,
+        default_temperature=_temperature(raw.get("default_temperature")),
     )
 
 

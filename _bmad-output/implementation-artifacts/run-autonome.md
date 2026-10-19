@@ -182,3 +182,7 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 03:57 · 4.8 · second-avis · 1 high (Arène : modèle de la lane précédente compté comme occupé, refus à tort), 4 medium, 3 low · —
 - 2026-10-19 03:57 · 4.8 · review · lancée (Opus, effort high) · —
 - 2026-10-19 04:05 · 3.3 · contrôles · verts (915 v2, E2E 228 + 1 erreur Playwright passagère, 229/229 relancés, 9 integration, 1286 v1) ; PR ouverte · c79c074
+- 2026-10-19 04:15 · 4.2 · contrôles · verts après fusions (920 v2, 256 E2E, 9 integration, 1286 v1) ; poussé · 5e1d995
+- 2026-10-19 04:17 · 4.8 · review · high corrigé (mémoire des modèles chargés inactifs comptée comme libre), modèle proposé plus petit, `required_gb` partagé sélecteur/refus, déchargement relit les runs actifs ; 921 v2, 108 E2E · 67fb239
+- 2026-10-19 04:17 · 4.8 · décision · pour Anaël : bouton « Décharger les modèles inactifs » gardé tel quel lors d'un refus (critère), à masquer ou non ; vérification Linux 16 Go (mmap) à faire · —
+- 2026-10-19 04:31 · 4.2 · fusion · PR #65 fusionnée · fff8faa

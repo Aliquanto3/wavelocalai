@@ -149,7 +149,13 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
         and arena.get_attribute("aria-disabled") is None
     )
 
-    for index in range(2, len(MODULES)):
+    documents = links.nth(2)  # Documents : disponible depuis la story 4.2 (Base documentaire)
+    assert (
+        documents.get_attribute("href") == "#/documents/base"
+        and documents.get_attribute("aria-disabled") is None
+    )
+
+    for index in range(3, len(MODULES)):
         link = links.nth(index)
         assert link.evaluate("el => el.tagName") == "A"
         assert link.get_attribute("href") is None
@@ -160,10 +166,10 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
             "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
         )
         assert reason == PLANNED_REASON
-    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 2
+    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 3
 
 
-@pytest.mark.parametrize("route", ["#/documents/base", "#/sobriete", "#/n-importe-quoi", "#main"])
+@pytest.mark.parametrize("route", ["#/arene/banc", "#/sobriete", "#/n-importe-quoi", "#main"])
 def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")
     wait_ready(page)

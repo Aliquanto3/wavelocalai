@@ -10,6 +10,8 @@ d'étapes, chacune un objet à une clé principale :
 - `{"fail": "<code d'errors.py>", "technical": "…"}` : une `ProviderError` ;
 - `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un).
 
+`POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
+
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
 `carbon_updated` comme le feront les services (AD-10).
@@ -35,7 +37,7 @@ from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.arena import ArenaCommand, ArenaService
 from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
 from wavelocalai.models.factory import ModelFactory
-from wavelocalai.models.fake import FakeChatModel, Sleep, Step
+from wavelocalai.models.fake import FakeChatModel, FakeEmbedder, Sleep, Step
 from wavelocalai.models.port import (
     ChatMessage,
     ChatRequest,
@@ -128,6 +130,25 @@ async def start_scripted_run(body: ScriptedRun, request: Request) -> Started:
     state.tasks.add(task)  # référence forte jusqu'à la fin
     task.add_done_callback(state.tasks.discard)
     return Started(run_id=handle.run_id, conversation_id=handle.conversation_id)
+
+
+class ScriptedEmbedder(BaseModel):
+    script: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/embedder")
+async def script_embedder(body: ScriptedEmbedder, request: Request) -> dict[str, int]:
+    """Script du `FakeEmbedder` : une étape par lot d'embedding, dans l'ordre, à partir du
+    prochain import (`{"sleep_s": 0.3}` ou `{"fail": "<code>"}`). Un script vide le rend instantané.
+    """
+    steps = parse_script(body.script)
+    if not all(isinstance(step, Sleep | ProviderError) for step in steps):
+        raise AppError("invalid_request", "script : seuls sleep_s et fail valent pour un embedder.")
+    for embedder in request.app.state.embedders.values():
+        if isinstance(embedder, FakeEmbedder):
+            embedder.script = list(steps)
+            embedder.calls = 0
+    return {"steps": len(steps)}
 
 
 class ScriptedLane(BaseModel):

@@ -12,9 +12,15 @@
 // - À l'ouverture, la dernière conversation de chat est relue au serveur (`GET /api/conversations`)
 //   et remontée telle qu'affichée ; son modèle et sa créativité sont ceux de son dernier run (rien
 //   n'est gardé dans le navigateur). Un run encore actif est suivi par son flux.
-// - « Télécharger » ouvre les exports du serveur (JSON, Markdown) ; « Effacer la conversation »,
+// - Créativité (D-12) : le curseur prend la `default_temperature` du modèle choisi (`GET
+//   /api/models`), ou 0,2 si elle est `null` ; changer de modèle le remet au défaut du nouveau
+//   tant que la personne ne l'a pas déplacé dans cette conversation. La valeur affichée est celle
+//   envoyée. Une conversation rouverte garde la créativité de son dernier run.
+// - « Télécharger » ouvre les exports du serveur (JSON, Markdown) : deux boutons dès 768 px, un
+//   menu « Exporter » en dessous (`components/export-menu.js`, D-3) ; « Effacer la conversation »,
 //   sans confirmation (UX-DR21), appelle `DELETE` : le texte disparaît de la base, pas le CO2.
 
+import { exportMenu } from "../components/export-menu.js";
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
@@ -25,7 +31,7 @@ import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
 
 const DRAFT = "chat";
-const DEFAULT_TEMPERATURE = 0.2;
+const FALLBACK_TEMPERATURE = 0.2; // le modèle n'en conseille pas (`default_temperature: null`)
 let counter = 0;
 
 function envelopeOf(error) {
@@ -45,19 +51,23 @@ export function mount(host) {
   slider.id = `${uid}-creativity`;
   slider.min = "0";
   slider.max = "2";
-  slider.step = "0.1";
-  slider.value = String(DEFAULT_TEMPERATURE);
+  // Pas de 0,05 : les valeurs publiées par les fabricants (0,15, 0,6, 0,7…) tombent sur la
+  // graduation ; avec un pas de 0,1, 0,15 serait arrondi par le navigateur et le curseur ne
+  // montrerait pas la valeur conseillée (D-12).
+  slider.step = "0.05";
+  slider.value = String(FALLBACK_TEMPERATURE);
   slider.setAttribute("aria-describedby", `${uid}-creativity-help`);
   const sliderLabel = element("label", "chat-slider-label", t("chat.creativity"));
   sliderLabel.htmlFor = slider.id;
-  const sliderValue = element("output", "chat-slider-value", formatNumber(DEFAULT_TEMPERATURE));
+  const sliderValue = element("output", "chat-slider-value", formatNumber(FALLBACK_TEMPERATURE));
   sliderValue.htmlFor = slider.id;
   const sliderHelp = element("p", "help", t("chat.creativity_help"));
   sliderHelp.id = `${uid}-creativity-help`;
   const creativity = element("div", "chat-creativity");
   const sliderRow = element("div", "chat-slider-row");
   sliderRow.append(slider, sliderValue);
-  creativity.append(sliderLabel, sliderRow, sliderHelp);
+  const sliderDefault = element("p", "help chat-creativity-default", t("chat.creativity_default_fallback"));
+  creativity.append(sliderLabel, sliderRow, sliderHelp, sliderDefault);
 
   const settings = element("div", "chat-settings");
   settings.append(picker, creativity);
@@ -83,14 +93,17 @@ export function mount(host) {
   keys.id = `${uid}-keys`;
   const send = element("button", "btn chat-send", t("chat.send"));
   send.type = "submit";
-  const downloadJson = element("button", "btn", t("chat.download_json"));
-  downloadJson.type = "button";
-  const downloadMarkdown = element("button", "btn", t("chat.download_markdown"));
-  downloadMarkdown.type = "button";
+  // Deux boutons dès 768 px, un menu « Exporter » en dessous : les routes d'export du serveur.
+  const exports = exportMenu({
+    items: [
+      { label: t("chat.download_json"), onClick: () => download("json") },
+      { label: t("chat.download_markdown"), onClick: () => download("md") },
+    ],
+  });
   const clear = element("button", "btn", t("chat.clear"));
   clear.type = "button";
   const actions = element("div", "chat-actions");
-  actions.append(send, downloadJson, downloadMarkdown, clear);
+  actions.append(send, exports.root, clear);
   const composer = element("form", "chat-composer");
   composer.append(inputLabel, input, keys, actions);
 
@@ -114,14 +127,31 @@ export function mount(host) {
   let answer = null;
   let wasHidden = host.hidden;
   let pending = false; // commande envoyée, réponse du serveur attendue
+  let creativityTouched = false; // curseur déplacé dans cette conversation : il ne suit plus le modèle
 
   const running = () => runId !== null;
 
   function render() {
     clear.disabled = running() || pending;
     send.disabled = running() || pending;
-    downloadJson.disabled = downloadMarkdown.disabled = conversationId === null || pending;
+    exports.setDisabled(conversationId === null || pending);
     empty.hidden = !thread.empty;
+  }
+
+  function setCreativity(value) {
+    slider.value = String(value);
+    sliderValue.textContent = formatNumber(Number(slider.value));
+  }
+
+  // Le défaut du modèle choisi, tant que la personne n'a pas déplacé le curseur (D-12).
+  function applyModelTemperature() {
+    const model = picker.selected;
+    const advised = typeof model?.default_temperature === "number" ? model.default_temperature : null;
+    sliderDefault.textContent =
+      advised === null || !model
+        ? t("chat.creativity_default_fallback")
+        : t("chat.creativity_default", { model: model.name, value: formatNumber(advised) });
+    if (!creativityTouched) setCreativity(advised ?? FALLBACK_TEMPERATURE);
   }
 
   function ensureAnswer(tag) {
@@ -237,9 +267,10 @@ export function mount(host) {
     showConversation(view);
     if (view.model) picker.value = view.model;
     if (typeof view.temperature === "number") {
-      slider.value = String(view.temperature);
-      sliderValue.textContent = formatNumber(view.temperature);
+      creativityTouched = true; // celle de la conversation, pas celle du modèle
+      setCreativity(view.temperature);
     }
+    applyModelTemperature(); // le texte d'aide dit le défaut du modèle ; le curseur ne bouge pas
     if (view.active_run_id) follow(view.active_run_id);
     render();
   }
@@ -327,6 +358,8 @@ export function mount(host) {
     thread.clear();
     status.runId = null;
     conversationId = null;
+    creativityTouched = false; // nouvelle conversation : le curseur reprend le défaut du modèle
+    applyModelTemperature();
     answer = null;
     notice.textContent = t("chat.cleared");
     notice.hidden = false;
@@ -346,11 +379,12 @@ export function mount(host) {
   });
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
-  downloadJson.addEventListener("click", () => download("json"));
-  downloadMarkdown.addEventListener("click", () => download("md"));
   slider.addEventListener("input", () => {
+    creativityTouched = true;
     sliderValue.textContent = formatNumber(Number(slider.value));
   });
+  picker.addEventListener("wl-model-change", applyModelTemperature);
+  picker.addEventListener("wl-models-loaded", applyModelTemperature);
 
   // --- Écran masqué puis revu ------------------------------------------------------------
   // Le routeur masque l'écran sans le démonter : on ferme le flux (le serveur continue la
@@ -370,6 +404,7 @@ export function mount(host) {
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   render();
+  applyModelTemperature();
   restore();
   return () => {
     visibility.disconnect();
