@@ -80,6 +80,7 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 - **Outils** : un outil dont l'exécution lève une exception ou dépasse `agents.tool_timeout_s` n'arrête pas la tâche : l'erreur en texte est le `tool_result` (`failed: true`) que l'agent lit et peut contourner ; un nom d'outil non proposé ou des arguments illisibles reçoivent aussi un `tool_result` d'erreur. Un outil `sensitive` n'est **jamais** exécuté en 6.1 : refus en `tool_result` ; l'approbation de l'utilisateur vient avec la story 6.3 (AD-9). Le résultat rendu au modèle est tronqué à `agents.result_chars` (marqueur « [résultat tronqué] ») ; les clés d'API sont masquées partout.
 - **Réglages** (`wavelocalai.toml`, `[agents]`) : `max_turns` (10), `tool_timeout_s` (60), `summary_chars` (500), `result_chars` (8000).
 - **Port** (AD-8, formats d'outils : spine §Deferred) : `ToolCall` porte en plus `error` (arguments illisibles, texte en français) ; Ollama, qui ne donne pas d'identifiant d'appel (comme un fragment Mistral à `id = "null"`), reçoit un `id` fabriqué unique de 9 caractères alphanumériques (seul format que Mistral accepte en retour). Les `arguments` d'une étape `tool_call` sont masqués comme son `summary`.
+
 ### Modèles : installation (story 5.3)
 
 Ajouts de la story 5.3 à ce fichier, dans leur propre sous-section (les autres stories des Modèles y ajoutent la leur).
