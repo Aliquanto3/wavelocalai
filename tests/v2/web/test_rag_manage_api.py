@@ -319,7 +319,7 @@ async def test_replayed_sources_of_a_deleted_document_have_no_text(served):
 
 
 async def test_the_settings_start_from_the_toml_defaults(served):
-    _, client = served
+    app, client = served
     body = (await client.get("/api/rag/settings")).json()
     assert body["chunk_size"] == 800 and body["chunk_overlap"] == 100
     assert body["top_k"] == 4 and body["strategy"] == "naive"
@@ -328,7 +328,8 @@ async def test_the_settings_start_from_the_toml_defaults(served):
     assert body["strategies"] == ["naive"]
     assert body["limits"]["chunk_size"] == {"min": 100, "max": 8000}
     assert body["limits"]["top_k"] == {"min": 1, "max": 20}
-    assert body["index"] == {"persistent": True}
+    # sqlite-vec chargé : index persistant ; sans l'extension (CI macOS), repli en mémoire.
+    assert body["index"] == {"persistent": app.state.store.vec_available}
     assert body["embedding_models"] == []  # Ollama injoignable : aucun modèle installé listé
 
 
