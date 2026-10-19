@@ -4,8 +4,9 @@ Copie adaptée du streaming de `src/core/providers/mistral_provider.py` (v1), sa
 `get_langchain_model` et sans importer la v1. Le SDK n'est importé que dans la fonction (AD-4) :
 `mistralai` 2.x et plus expose `Mistral` dans `mistralai.client`, 1.x dans `mistralai`.
 
-L'adaptateur émet des `TextDelta` (blocs de réflexion `thinking` sur le canal `thought`), puis un
-seul `Done` avec `tps_source = "wallclock"` ; l'usage de jetons vient du dernier événement du flux.
+L'adaptateur émet des `TextDelta` (blocs de réflexion `thinking` sur le canal `thought`), les
+`ToolCall` assemblés depuis `delta.tool_calls` (story 6.1, `models/tool_format.py`), puis un seul
+`Done` avec `tps_source = "wallclock"` ; l'usage de jetons vient du dernier événement du flux.
 Il ne calcule pas de CO2, n'écrit pas en base et ne lit pas `allow_cloud`. Flux et client sont
 fermés dans un `finally` (annulation comprise).
 """
@@ -20,7 +21,6 @@ from typing import Any
 from wavelocalai.models.cloud import (
     HttpClientFactory,
     WallClock,
-    chat_text_messages,
     close_quietly,
     key_missing,
     model_of,
@@ -28,6 +28,7 @@ from wavelocalai.models.cloud import (
 )
 from wavelocalai.models.port import ChatChunk, ChatRequest, Done, ModelRef, TextDelta
 from wavelocalai.models.structured import StructuredCheck
+from wavelocalai.models.tool_format import ToolCallDeltas, chat_messages, function_tools
 
 
 def _field(obj: Any, name: str) -> Any:
@@ -94,6 +95,8 @@ class MistralChatModel:
         options: dict[str, Any] = {"temperature": request.temperature}
         if request.max_tokens is not None:
             options["max_tokens"] = request.max_tokens
+        if request.tools:
+            options["tools"] = function_tools(request.tools)
         if request.response_schema is not None:
             options["response_format"] = {
                 "type": "json_schema",
@@ -104,6 +107,7 @@ class MistralChatModel:
                 },
             }
         structured = StructuredCheck(request.response_schema)
+        tool_deltas = ToolCallDeltas()
         upstream: Any = None
         fragments = 0
         finish: str | None = None
@@ -112,7 +116,7 @@ class MistralChatModel:
         try:
             upstream = await client.chat.stream_async(
                 model=model_of(self.ref.tag),
-                messages=chat_text_messages(request.messages),
+                messages=chat_messages(request.messages, tool_names=True),
                 **options,
             )
             async for event in upstream:
@@ -131,6 +135,15 @@ class MistralChatModel:
                     if channel == "answer":
                         structured.add(text)
                     yield TextDelta(text, channel)  # type: ignore[arg-type]
+                for call in _field(_field(choice, "delta"), "tool_calls") or ():
+                    function = _field(call, "function")
+                    tool_deltas.add(
+                        _field(call, "index"),
+                        _field(call, "id"),
+                        _field(function, "name"),
+                        _field(function, "arguments"),
+                    )
+                    fragments += 1
                 finish = _field(choice, "finish_reason") or finish
         except asyncio.CancelledError:
             raise
@@ -144,6 +157,8 @@ class MistralChatModel:
             await _close_client(client)
             await close_quietly(http)  # le SDK ne ferme pas un client HTTP qu'on lui a fourni
         structured.done()
+        for tool_call in tool_deltas.calls():
+            yield tool_call
         yield Done(
             clock.result(
                 finish_reason=finish, input_tokens=input_tokens, output_tokens=output_tokens

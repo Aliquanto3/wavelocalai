@@ -12,6 +12,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
+from dataclasses import dataclass, field
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
 from wavelocalai.greenops.local_meter import Footprint, LocalMeter, combine
@@ -24,6 +25,7 @@ from wavelocalai.models.port import (
     LoadState,
     ModelRef,
     TextDelta,
+    ToolCall,
 )
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import Co2, LeafResult
@@ -63,6 +65,22 @@ def _metrics(
     }
 
 
+@dataclass
+class Turn:
+    """Ce qu'un tour de modèle a produit, **gardé** au lieu d'être publié (boucle d'agent, story 6.1) :
+    le service ne sait qu'à la fin du flux si le texte est une réflexion (le tour appelle des
+    outils) ou la réponse finale. Vidé à chaque tentative (relance d'un flux coupé)."""
+
+    text: list[str] = field(default_factory=list)  # canal `answer`
+    thought: list[str] = field(default_factory=list)  # canal `thought`
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+    def reset(self) -> None:
+        self.text.clear()
+        self.thought.clear()
+        self.tool_calls.clear()
+
+
 PhaseCallback = Callable[[str], None]  # "loading" | "generating" (Arène : `lane_status`)
 # Garde-fou d'un appel local (story 4.8) : lève `ram_guard` si le modèle ne tient pas en mémoire.
 Guard = Callable[[ModelRef], Awaitable[None]]
@@ -80,6 +98,7 @@ async def _attempt(
     footprints: list[Footprint] | None = None,
     guard: Guard | None = None,
     capture: list[str] | None = None,
+    turn: Turn | None = None,
 ) -> ChatResult:
     """Un appel de modèle : place du sémaphore « Ollama local » prise pour cet appel seulement
     (AD-14), puis flux publié dans le hub sous le délai de lane. Le délai court depuis la prise de
@@ -105,7 +124,7 @@ async def _attempt(
             try:
                 async with deadline:
                     return await _consume(
-                        hub, run_id, lane, model.stream(request), on_phase, capture
+                        hub, run_id, lane, model.stream(request), on_phase, capture, turn
                     )
             except TimeoutError:
                 if not deadline.expired():
@@ -140,11 +159,17 @@ async def _consume(
     stream: AsyncIterator[ChatChunk],
     on_phase: PhaseCallback | None = None,
     capture: list[str] | None = None,
+    turn: Turn | None = None,
 ) -> ChatResult:
     result = ChatResult()
     try:
         async for chunk in stream:
-            if capture is not None:  # appel silencieux : le texte est gardé, rien n'est publié
+            if turn is not None and isinstance(chunk, (TextDelta, ToolCall)):
+                if isinstance(chunk, ToolCall):
+                    turn.tool_calls.append(chunk)
+                else:
+                    (turn.thought if chunk.channel == "thought" else turn.text).append(chunk.text)
+            elif capture is not None:  # appel silencieux : le texte est gardé, rien n'est publié
                 if isinstance(chunk, TextDelta) and chunk.channel == "answer":
                     capture.append(chunk.text)
                 elif isinstance(chunk, Done):
@@ -185,6 +210,7 @@ async def stream_into_run(
     metrics_extra: Mapping[str, object] | None = None,
     guard: Guard | None = None,
     publish_metrics: bool = False,
+    turn: Turn | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
     `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
@@ -196,8 +222,8 @@ async def stream_into_run(
 
     Termine par `hub.finish_leaf` : `ok` avec les métriques de `Done`, `error` avec l'enveloppe
     d'AD-18 si l'adaptateur lève une `ProviderError` (ou toute `AppError`) ; une annulation laisse
-    le hub fixer `cancelled` et garder le partiel. Les appels d'outils (`ToolCall`) attendent la
-    story des agents.
+    le hub fixer `cancelled` et garder le partiel. Les appels d'outils (`ToolCall`) ne sont plus
+    jetés : avec `turn`, ils sont rendus au service (story 6.1).
 
     `slot` : sémaphore local, pris par appel. `timeout_s` : délai de lane de chaque appel (`timeout`
     en cas de dépassement). `estimate_co2` : calcule le `co2` d'une réponse cloud réussie à partir
@@ -223,6 +249,10 @@ async def stream_into_run(
 
     `publish_metrics` : avec `capture`, publie quand même l'événement `metrics` de la feuille (une
     réponse évaluée, story 7.1 : texte gardé à part, débit et CO2 dans le flux, sans jetons).
+    `turn` : tour d'une boucle d'agent (story 6.1). Le texte (réponse et réflexion) et les
+    `ToolCall` sont **gardés** dans cet objet au lieu d'être publiés, comme avec `capture` ; mais le
+    chargement du modèle et les `metrics` de la feuille sont publiés (un `metrics` par appel de
+    modèle), et une relance après un flux coupé ne publie pas de `retry` (aucun texte n'est parti).
     """
     try:
         return await _play(
@@ -243,6 +273,7 @@ async def stream_into_run(
             metrics_extra=metrics_extra,
             guard=guard,
             publish_metrics=publish_metrics,
+            turn=turn,
         )
     finally:
         if on_leaf_closed is not None:
@@ -270,6 +301,7 @@ async def _play(
     metrics_extra: Mapping[str, object] | None = None,
     guard: Guard | None = None,
     publish_metrics: bool = False,
+    turn: Turn | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
@@ -280,6 +312,8 @@ async def _play(
     for attempt in range(1, attempts + 1):
         if capture is not None:
             capture.clear()
+        if turn is not None:
+            turn.reset()
         try:
             result = await _attempt(
                 hub,
@@ -293,6 +327,7 @@ async def _play(
                 footprints,
                 guard=guard,
                 capture=capture,
+                turn=turn,
             )
             break
         except asyncio.CancelledError:
@@ -307,7 +342,7 @@ async def _play(
                 and exc.code == "generation_interrupted"
             ):
                 logger.warning("Génération de %s interrompue : relance unique.", lane)
-                if capture is None:
+                if capture is None and turn is None:
                     hub.publish(
                         stream_id,
                         "retry",
