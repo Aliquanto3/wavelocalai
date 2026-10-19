@@ -129,6 +129,12 @@ _SPECS = (
         "Réessayez ; si cela se répète, redémarrez Ollama ou choisissez un modèle plus petit.",
     ),
     ErrorSpec(
+        "invalid_output",
+        502,
+        "Le modèle n'a pas rendu la sortie structurée demandée.",
+        "Réessayez, ou choisissez un autre modèle pour cet usage.",
+    ),
+    ErrorSpec(
         "ollama_error",
         502,
         "Ollama a refusé la requête.",
