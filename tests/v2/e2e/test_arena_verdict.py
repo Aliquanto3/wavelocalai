@@ -30,6 +30,7 @@ from .test_arena import (  # noqa: F401  (`cancel_leftover_runs` est une fixture
     verdict,
     wait_banner,
 )
+from .test_arena_results import wait_names
 from .test_shell import assert_no_axe_violations, assert_no_horizontal_scroll, wait_for, wait_ready
 
 PRICE_TABLE = """\
@@ -167,6 +168,8 @@ def test_the_verdict_is_read_from_the_snapshot_at_the_end_and_on_reopening(page,
     wait_ready(page)
     wait_banner(page, "Comparaison terminée")
     verdict_section(page).wait_for(state="visible")
+    # Les colonnes, puis le verdict, prennent leur nom d'affichage à l'arrivée de la liste des modèles.
+    wait_names(page)
     # Après un rechargement, l'interrupteur cloud est coupé (AD-20) : la liste n'a plus le modèle
     # cloud, que les colonnes (donc le verdict) nomment alors par son identifiant, comme depuis 3.2.
     reopened = {

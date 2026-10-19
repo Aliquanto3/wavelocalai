@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 12:06
+last_updated: 10-19-2026 16:33
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -81,30 +81,30 @@ development_status:
   4-9-jouer-le-flow-2-de-bout-en-bout-et-clore-le-mvp-préversion-2: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-0-découper-les-fichiers-partagés-du-front: backlog
-  5-1-l-écran-sobriété-montre-la-machine-et-la-session-en-direct: backlog
-  5-2-retrouver-l-historique-carbone-et-ouvrir-une-nouvelle-sessio: backlog
-  5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: backlog
-  5-4-décharger-supprimer-un-modèle-et-choisir-ses-défauts: backlog
+  epic-5: in-progress
+  5-0-découper-les-fichiers-partagés-du-front: done
+  5-1-l-écran-sobriété-montre-la-machine-et-la-session-en-direct: done
+  5-2-retrouver-l-historique-carbone-et-ouvrir-une-nouvelle-sessio: in-progress
+  5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: done
+  5-4-décharger-supprimer-un-modèle-et-choisir-ses-défauts: in-progress
   5-5-récupérer-le-reranker-depuis-l-écran-modèles: backlog
   5-6-la-fiche-modèle-explique-son-débit-et-ce-qu-il-donne-sur-d-a: backlog
   5-7-les-défauts-agent-et-rag-s-appuient-sur-le-banc: backlog
   5-8-quel-modèle-pour-quel-usage-préversion-2-0-0a5: backlog
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-un-agent-appelle-des-outils-et-publie-chaque-étape-serveur: backlog
-  6-2-l-agent-dispose-des-outils-de-la-v1-sans-chemin-libre: backlog
-  6-3-aucun-email-ne-part-sans-validation-explicite: backlog
+  epic-6: in-progress
+  6-1-un-agent-appelle-des-outils-et-publie-chaque-étape-serveur: done
+  6-2-l-agent-dispose-des-outils-de-la-v1-sans-chemin-libre: in-progress
+  6-3-aucun-email-ne-part-sans-validation-explicite: in-progress
   6-4-l-écran-agent-seul-montre-chaque-étape-et-demande-la-validat: backlog
   6-5-une-équipe-d-agents-mène-une-mission-l-un-après-l-autre-serv: backlog
   6-6-l-écran-équipe-d-agents-montre-le-schéma-la-trace-et-le-rapp: backlog
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-noter-la-fidélité-et-la-pertinence-d-une-réponse-serveur: backlog
-  7-2-un-jeu-fixe-de-cas-garde-le-juge-honnête: backlog
+  epic-7: in-progress
+  7-1-noter-la-fidélité-et-la-pertinence-d-une-réponse-serveur: done
+  7-2-un-jeu-fixe-de-cas-garde-le-juge-honnête: in-progress
   7-3-l-écran-évaluation-de-la-qualité-montre-les-étapes-et-garde: backlog
   7-4-le-banc-d-essai-dit-si-la-sortie-respecte-le-format-préversi: backlog
   epic-7-retrospective: optional

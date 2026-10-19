@@ -34,7 +34,6 @@ from wavelocalai.models.classify import base_tag
 from wavelocalai.models.ollama_metrics import chunk_field, ollama_result
 from wavelocalai.models.port import (
     ChatChunk,
-    ChatMessage,
     ChatRequest,
     Done,
     LoadState,
@@ -43,6 +42,7 @@ from wavelocalai.models.port import (
     ToolCall,
 )
 from wavelocalai.models.structured import StructuredCheck
+from wavelocalai.models.tool_format import function_tools, new_call_id, ollama_messages
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -72,13 +72,6 @@ async def close_client(client: AsyncClient) -> None:
     if http is not None:
         with contextlib.suppress(Exception):
             await http.aclose()
-
-
-def _wire_message(message: ChatMessage) -> dict[str, Any]:
-    wire: dict[str, Any] = {"role": message.role, "content": message.content}
-    if message.tool_calls:
-        wire["tool_calls"] = message.tool_calls
-    return wire
 
 
 class OllamaChatModel:
@@ -116,7 +109,7 @@ class OllamaChatModel:
             options["num_predict"] = request.max_tokens
         extra: dict[str, Any] = {}
         if request.tools:
-            extra["tools"] = request.tools
+            extra["tools"] = function_tools(request.tools)
         if request.response_schema is not None:
             extra["format"] = request.response_schema
         if request.think:  # `think` n'est pas passé sinon : le comportement d'Ollama est inchangé
@@ -131,12 +124,11 @@ class OllamaChatModel:
         text_chars = 0
         ttft_s: float | None = None
         final: Any = None
-        calls = 0
         structured = StructuredCheck(request.response_schema)
         try:
             upstream = await self._client.chat(
                 model=tag,
-                messages=[_wire_message(m) for m in request.messages],
+                messages=ollama_messages(request.messages),
                 stream=True,
                 options=options,
                 **extra,
@@ -160,9 +152,8 @@ class OllamaChatModel:
                     yield TextDelta(content, "answer")
                 for call in chunk_field(message, "tool_calls") or ():
                     function = chunk_field(call, "function")
-                    calls += 1
                     yield ToolCall(
-                        f"call_{calls}",
+                        new_call_id(),  # Ollama ne donne pas d'identifiant d'appel
                         str(chunk_field(function, "name") or ""),
                         dict(chunk_field(function, "arguments") or {}),
                     )
