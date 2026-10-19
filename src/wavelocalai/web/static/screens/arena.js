@@ -31,7 +31,7 @@ import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
 import { reuseConfig } from "./arena-actions.js";
-import { envelopeOf, launchReasonOf, noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { envelopeOf, forgetErased, launchReasonOf, noLocalNotice, scenarioFieldset } from "./arena-form.js";
 import { historyView } from "./arena-history.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
 import { reopenView } from "./arena-reopen.js";
@@ -551,8 +551,8 @@ export function mount(host, params = {}) {
   for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);
   picker.addEventListener("wl-models-loaded", () => (render(), history.render())); // un modèle local est-il prêt ?
   host.addEventListener("wl-arena-reuse", (event) => reuseConfig(event.detail, { question, picker, judging, launchReason, submit }));
-  host.addEventListener("wl-arena-erased", () => {
-    clearLanes(); // le texte effacé ne reste pas à l'écran
+  host.addEventListener("wl-arena-erased", (event) => {
+    clearLanes(); forgetErased(question, event.detail?.prompt); // ni à l'écran ni en brouillon
     renderBanner();
     history.refresh(t("arena.actions.erased"));
     focusAfter(null);

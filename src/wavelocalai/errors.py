@@ -199,8 +199,8 @@ _SPECS = (
     ErrorSpec(
         "arena_busy",
         409,
-        "Cette comparaison est encore en cours : elle ne peut pas être effacée maintenant.",
-        "Arrêtez-la (touche Échap), puis effacez-la.",
+        "Cette comparaison est encore en cours : elle ne peut être ni exportée ni effacée maintenant.",
+        "Attendez sa fin, ou arrêtez-la (touche Échap), puis recommencez.",
         ("run_id",),
     ),  # --- base documentaire (story 4.1) ---
     ErrorSpec(

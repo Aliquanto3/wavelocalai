@@ -37,7 +37,8 @@ export function reopenView(uid, follow) {
       let missing = null;
       try {
         const snapshot = await api.run(runId);
-        if (snapshot?.erased) missing = "erased";
+        if (snapshot && snapshot.kind !== "arena") missing = "unknown"; // un chat, un RAG : pas une comparaison
+        else if (snapshot?.erased) missing = "erased";
       } catch (failure) {
         if (failure instanceof ApiError && failure.envelope?.code === "run_not_found") missing = "unknown";
         // Autre échec : le flux réessaie et dit la connexion perdue.

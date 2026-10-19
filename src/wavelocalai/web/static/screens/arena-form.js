@@ -69,3 +69,11 @@ export function noLocalNotice() {
   el.append(icon("info"), text); // masqué ou non par l'écran, dès le montage
   return { el, text };
 }
+
+// Une comparaison effacée (AD-13) : sa question ne reste ni dans le champ ni dans le brouillon
+// (`localStorage`). Un autre texte, tapé depuis, est gardé.
+export function forgetErased(question, prompt) {
+  if (!prompt || question.value !== prompt) return;
+  question.value = "";
+  question.dispatchEvent(new Event("input")); // brouillon effacé, raison du lancement recalculée
+}

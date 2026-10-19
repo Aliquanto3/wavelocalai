@@ -234,7 +234,11 @@ def to_markdown(document: Mapping[str, Any]) -> str:
         "",
         "## Question",
         "",
-        *[f"> {line}" for line in (arena["question"] or "(effacée)").splitlines() or [""]],
+        *[
+            f"> {line}"
+            for line in (arena["question"] or "(question absente du journal du run)").splitlines()
+            or [""]
+        ],
         "",
         "## Résultats",
         "",

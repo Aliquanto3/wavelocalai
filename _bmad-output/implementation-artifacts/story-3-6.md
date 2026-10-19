@@ -107,3 +107,15 @@ Preuves : `tests/v2/web/test_arena_reopen_api.py` (routes, effacement, octets du
 - **Lecture de l'instantané** : `run_ended` est publié avant l'écriture du statut final (story 3.5) ; `readSettled` relit tant que le run est actif (20 fois, 150 ms), et sert au verdict, aux actions et au CO₂ complété.
 
 Tests : `tests/v2/unit` et `tests/v2/web` 1 119 réussis (2 échecs de `test_rag_api.py` sous charge du poste partagé, verts seuls : 11 sur 11) ; E2E sur Edge : `test_arena.py` 57, `test_arena_verdict.py` et `test_arena_results.py` 40, `test_arena_reopen.py` 17, `test_home_demo.py` 13, `test_flow1.py` 3, `test_home.py` 29, `test_components.py` et `test_chat.py` 43 ; contrôle rapide propre.
+
+## Revue
+
+Revue Opus (une passe) sur `1978ab7` + fusion `af15af8`, second avis Haiku repris point par point.
+
+- **medium**, revue : « Effacer » laissait la question effacée dans le champ du formulaire et dans le brouillon `localStorage` (après « Modifier la question », ou juste après la comparaison) : AD-13 côté navigateur. **Corrigé** : `wl-arena-erased` porte la question, `forgetErased` (`arena-form.js`) vide le champ et le brouillon s'ils la contiennent encore, un autre texte est gardé ; `arena.js` reste à 589 lignes. Preuve : `test_erasing_also_forgets_the_question_left_in_the_form_and_its_draft`.
+- **low**, second avis n° 2 : `#/arene/comparer/<id>` d'un run chat ou RAG suivait le flux et disait « Un autre calcul est en cours », faux pour un run terminé. **Corrigé** : un instantané d'un autre `kind` dit « Résultat introuvable » (phrase de l'identifiant inconnu), sans ouvrir le flux. Preuve : `test_an_id_that_is_not_a_comparison_says_result_not_found_without_following_it`.
+- **low**, second avis n° 3 : export d'une Arène sans événement `question` marqué « (effacée) » alors qu'une Arène effacée n'est jamais exportée (`404`). **Corrigé** : « (question absente du journal du run) ».
+- **low**, revue : `arena_busy` disait « ne peut pas être effacée » aussi pour l'export d'une Arène active. **Corrigé** : « ni exportée ni effacée », action « Attendez sa fin, ou arrêtez-la ».
+- **low**, second avis n° 1 : `run_not_found` (identifiant inconnu) et `not_found` (flux d'une feuille). **Rejeté** : le contrat le dit explicitement (`contrat-api.md`, instantané : « l'événement d'une feuille reste `404 not_found`, le parent publie seul ») ; l'élargir sort de la story.
+- **info**, second avis n° 4 : table de prix cloud dite vide. **Rejeté** : la spec de la 3.6 ne le dit nulle part (aucune mention des prix).
+- Vérifié sans constat : effacement (familles racine et feuilles, `runs.params` sans texte par AD-7, `detail.technical` retiré, purge `.db` et `-wal` testée par octets), export (fiche machine sans nom d'hôte ni chemin, secrets masqués, cellules `= + - @ \t \r` neutralisées, nom de pièce jointe tiré d'un identifiant présent en base), réouverture sans requête de modèle, carte démo (registre, D-11), version `2.0.0a3`, couches, i18n. Complexité : 0 constat (liste bornée par `LIMIT`, relecture de l'instantané bornée à 20, aucune structure parcourue à chaque événement).

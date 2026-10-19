@@ -274,6 +274,39 @@ def test_erasing_asks_first_then_empties_the_screen_and_keeps_only_the_carbon(pa
     assert page.locator("wl-arena-lane").count() == 0
 
 
+def test_erasing_also_forgets_the_question_left_in_the_form_and_its_draft(page, server):
+    run_id = post_run(
+        page, server, [ok_lane("fake:a"), ok_lane("fake:b")], prompt="Texte à oublier"
+    )
+    reopen(page, server, run_id)
+    actions(page).get_by_role("button", name="Modifier la question").click()
+    question = page.get_by_label("Question", exact=True)
+    assert question.input_value() == "Texte à oublier"
+    assert page.evaluate("localStorage.getItem('wavelocalai.draft.arena')") == "Texte à oublier"
+    actions(page).get_by_role("button", name="Effacer la comparaison").click()
+    page.get_by_role("dialog").get_by_role("button", name="Effacer", exact=True).click()
+    page.locator("wl-arena-lane").first.wait_for(state="detached")
+    assert question.input_value() == ""
+    assert page.evaluate("localStorage.getItem('wavelocalai.draft.arena')") is None
+
+
+def test_an_id_that_is_not_a_comparison_says_result_not_found_without_following_it(page, server):
+    install_models(page)
+    snapshot = {"run_id": "chat-1", "kind": "chat", "status": "ok", "children": [], "erased": False}
+    page.route(re.compile(r"/api/runs/chat-1$"), lambda route: route.fulfill(json=snapshot))
+    followed = []
+    page.on("request", lambda r: followed.append(r.url) if "/chat-1/events" in r.url else None)
+    page.goto(f"{server.base_url}/#/arene/comparer/chat-1")
+    wait_ready(page)
+    alert = page.get_by_role("alert").filter(has_text="Résultat introuvable")
+    alert.wait_for()
+    assert "aucune comparaison enregistrée" in alert.inner_text()
+    assert (
+        page.locator(".arena-notice, wl-arena-lane").filter(has_text="Un autre calcul").count() == 0
+    )
+    assert followed == []
+
+
 def test_the_history_lists_previous_comparisons_and_each_one_reopens(page, server):
     first = post_run(
         page, server, [ok_lane("fake:a", "Alpha"), ok_lane("fake:b")], prompt="Première"

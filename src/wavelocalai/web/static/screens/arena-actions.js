@@ -112,7 +112,7 @@ export function actionsView(uid) {
     sync();
     try {
       await api.deleteArenaRun(id);
-      el.dispatchEvent(new CustomEvent("wl-arena-erased", { bubbles: true, detail: { runId: id } }));
+      el.dispatchEvent(new CustomEvent("wl-arena-erased", { bubbles: true, detail: { runId: id, prompt: config?.prompt } }));
     } catch (failure) {
       say(failure instanceof ApiError && failure.envelope ? failure.envelope.message : t("arena.actions.erase_failed"));
     } finally {
