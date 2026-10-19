@@ -26,6 +26,7 @@ from typing import Any
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import AppError
+from wavelocalai.models.defaults import RAG_MIN_PARAMS_B
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.rag import repo
 from wavelocalai.rag.index import SqliteVecIndex, VectorIndex
@@ -276,6 +277,8 @@ async def _settings_view(
         "embedding_models": models,
         "strategies": list(STRATEGIES),
         "limits": _limits(),
+        # Paramètres actifs (milliards) sous lesquels la stratégie vérifiée (Self-RAG) est peu fiable.
+        "verify_min_params_b": RAG_MIN_PARAMS_B,
         "index": {"persistent": index.persistent if index is not None else True},
         # Reclassement par un reranker local (story 4.7) : `reason` dit pourquoi il est indisponible.
         "reranker": {

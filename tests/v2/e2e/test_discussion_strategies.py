@@ -15,17 +15,23 @@ au clic, réponse rouverte).
 
 from __future__ import annotations
 
+import json
 import re
 
 import pytest
 
+from .test_chat import MODEL, install_models
 from .test_discussion import (  # noqa: F401 - `docs` est une fixture
     ANSWER,
     CARS,
+    CATS,
+    NBSP,
     PASSAGE,
     ask,
     docs,
     field,
+    import_docs,
+    open_screen,
     plain,
     post,
     reload_screen,
@@ -33,6 +39,7 @@ from .test_discussion import (  # noqa: F401 - `docs` est une fixture
     source_of,
     sources,
     stage,
+    txt,
     wait_done,
 )
 from .test_shell import assert_no_axe_violations, wait_for
@@ -73,6 +80,59 @@ def wait_stage(page, text: str) -> None:
         page,
         f'() => document.querySelector("{SCREEN} .wl-run-stage")?.textContent === {text!r}',
     )
+
+
+def test_self_rag_with_a_small_or_unmeasured_model_warns_that_the_check_is_unreliable(
+    backend, page
+):
+    """8.1 (décision du 2026-10-19) : la stratégie vérifiée confie le contrôle des extraits au
+    modèle ; sous le seuil du serveur (`verify_min_params_b`) ou sans taille connue, l'avertissement
+    s'affiche, comme pour le juge de l'Arène. Rien de tel avec un modèle assez gros, ni sans Self-RAG.
+    """
+    server = backend.start()
+    install_models(page)
+    import_docs(page, server, **{"chats.txt": txt(CATS)})
+    small = {**MODEL, "tag": "petit:1b", "name": "Petit 1B", "params_active_b": 1.0}
+    big = {**MODEL, "tag": "grand:8b", "name": "Grand 8B", "params_active_b": 8.0}
+    page.route(
+        re.compile(r"/api/models\?"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "models": [MODEL, small, big],
+                    "ollama_up": True,
+                    "refreshed_at": "2026-10-19T10:00:00Z",
+                }
+            ),
+        ),
+    )
+    open_screen(page, server)
+    assert (
+        page.request.get(f"{server.base_url}/api/rag/settings").json()["verify_min_params_b"] == 3.0
+    )
+    note = page.locator(f"{SCREEN} .docs-verify-note")
+    pick = lambda name: (  # noqa: E731
+        page.locator(f"{SCREEN} .wl-picker-input").click(),
+        page.get_by_role("option", name=re.compile(name)).click(),
+    )
+    assert note.is_hidden()  # recherche directe : rien à vérifier
+    choose(page, "Recherche vérifiée")
+    note.wait_for()  # Factice 1B : taille inconnue
+    assert note.inner_text().strip() == (
+        f"Vérification peu fiable avec Factice 1B{NBSP}: la recherche vérifiée confie le contrôle "
+        "des extraits au modèle, et celui-ci a moins de 3 milliards de paramètres actifs (ou sa "
+        "taille est inconnue). Choisissez un modèle plus gros pour une vérification plus sûre."
+    )
+    pick("Petit 1B")
+    assert "Petit 1B" in note.inner_text()
+    pick("Grand 8B")
+    note.wait_for(state="hidden")
+    pick("Petit 1B")
+    note.wait_for()
+    choose(page, "Recherche directe")
+    note.wait_for(state="hidden")
 
 
 def markers(page):

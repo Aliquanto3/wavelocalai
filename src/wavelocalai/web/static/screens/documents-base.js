@@ -92,12 +92,16 @@ export function mount(host) {
   const count = element("p", "docs-count");
   const clearButton = element("button", "btn docs-clear", t("docs.clear"));
   clearButton.type = "button";
+  // Pendant un import, « Supprimer » et « Vider » sont désactivés : cette phrase dit pourquoi.
+  const lockNote = element("p", "help docs-lock-note", t("docs.lock_reason"));
+  lockNote.id = "docs-lock-reason";
+  lockNote.hidden = true;
   const tableHead = element("div", "docs-table-head");
   tableHead.append(count, clearButton);
   const table = document.createElement("wl-data-table");
   const tableSection = element("section", "docs-section");
   tableSection.hidden = true;
-  tableSection.append(tableTitle, tableHead, table);
+  tableSection.append(tableTitle, lockNote, tableHead, table);
 
   // Supprimer, vider, régler (story 4.3) : les fonctions lues plus bas ne servent qu'à l'usage.
   const dialog = document.createElement("wl-confirm-dialog");
@@ -107,6 +111,8 @@ export function mount(host) {
     getData: () => data,
     refresh: () => refresh(),
     fallbackFocus: () => choose,
+    isLocked: () => locked(),
+    lockId: lockNote.id,
   });
   const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
 
@@ -143,6 +149,8 @@ export function mount(host) {
   let refreshAgain = false;
 
   const busy = () => uploading !== null || runId !== null;
+  // Un import tourne ici, ou un document est encore `indexing` (lancé depuis un autre onglet).
+  const locked = () => busy() || (data?.documents ?? []).some((doc) => doc.status === "indexing");
 
   // --- Rendu -----------------------------------------------------------------------------
   function renderLimits() {
@@ -212,22 +220,27 @@ export function mount(host) {
   function render() {
     const documents = data?.documents ?? [];
     renderLimits();
-    const locked = busy();
-    choose.disabled = locked;
-    emptyAction.disabled = locked;
-    busyHelp.hidden = !locked;
+    const importing = busy();
+    const lockedNow = locked();
+    choose.disabled = importing;
+    emptyAction.disabled = importing;
+    busyHelp.hidden = !importing;
+    lockNote.hidden = !lockedNow;
+    clearButton.disabled = lockedNow;
+    if (lockedNow) clearButton.setAttribute("aria-describedby", lockNote.id);
+    else clearButton.removeAttribute("aria-describedby");
     loading.hidden = data !== null || listFailed;
-    empty.hidden = data === null || documents.length > 0 || locked;
+    empty.hidden = data === null || documents.length > 0 || importing;
     tableSection.hidden = listFailed || documents.length === 0; // jamais une liste périmée
-    imports.hidden = rows.size === 0 && !locked; // le bouton d'annulation dès que le run est connu
+    imports.hidden = rows.size === 0 && !importing; // le bouton d'annulation dès que le run est connu
     // Le lot fini, le bouton disparaît : le focus qu'il avait (ou qu'il a perdu en se désactivant)
     // passe à « Choisir des fichiers », pas à la page.
     const active = document.activeElement;
     const refocus =
-      !locked && !importCancel.hidden &&
+      !importing && !importCancel.hidden &&
       (active === importCancel || (cancelFocused && (active === document.body || active === null)));
-    importCancel.hidden = !locked;
-    if (!locked) {
+    importCancel.hidden = !importing;
+    if (!importing) {
       importCancel.disabled = false;
       cancelFocused = false;
     }

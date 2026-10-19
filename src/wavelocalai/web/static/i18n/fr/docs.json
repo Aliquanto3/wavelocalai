@@ -7,6 +7,7 @@
     "formats": "PDF, TXT, MD, DOCX",
     "limits": "{file} Mo au plus par fichier ; {files} fichiers et {total} Mo au plus par import.",
     "busy": "Un import est en cours : attendez sa fin ou annulez-le pour en lancer un autre.",
+    "lock_reason": "« Supprimer » et « Vider » sont indisponibles pendant un import : attendez sa fin ou annulez-le.",
     "loading": "Chargement de la base documentaire…",
     "empty_title": "Votre base documentaire est vide",
     "empty_text": "Importez un PDF, un TXT, un MD ou un DOCX pour pouvoir l'interroger ensuite.",
