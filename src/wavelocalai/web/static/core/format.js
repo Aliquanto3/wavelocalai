@@ -106,6 +106,16 @@ export function formatDuration(seconds) {
   return rest === 0 ? `${minutes}${NBSP}min` : `${minutes}${NBSP}min ${rest}${NBSP}s`;
 }
 
+// Chronomètre d'un bandeau : « 0:42 », « 12:05 », « 1:02:03 » (secondes entières).
+export function formatClock(seconds) {
+  if (!isMeasure(seconds) || seconds < 0) return formatUnknown();
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = String(total % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
+}
+
 // Date ISO -> « 18 oct. 2026 ».
 export function formatDate(iso) {
   const date = new Date(iso);

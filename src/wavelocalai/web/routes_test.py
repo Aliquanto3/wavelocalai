@@ -13,6 +13,9 @@ d'étapes, chacune un objet à une clé principale :
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
 `carbon_updated` comme le feront les services (AD-10).
+
+`POST /api/test/arena` lance une Arène dont chaque lane est un `fake` scripté (`tag`, `origin`,
+`script` comme ci-dessus), par le vrai service de l'Arène : sémaphore, délais, flux du parent.
 """
 
 from __future__ import annotations
@@ -26,7 +29,9 @@ from pydantic import BaseModel, Field
 
 from wavelocalai.errors import AppError, ProviderError
 from wavelocalai.greenops.session import announce_carbon_updated
+from wavelocalai.inference.arena import ArenaCommand, ArenaService
 from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
+from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.fake import FakeChatModel, Sleep, Step
 from wavelocalai.models.port import (
     ChatMessage,
@@ -34,8 +39,10 @@ from wavelocalai.models.port import (
     ChatResult,
     Done,
     LoadState,
+    ModelRef,
     TextDelta,
 )
+from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, Co2, RunHandle
 
 router = APIRouter(prefix="/api/test")
@@ -118,3 +125,50 @@ async def start_scripted_run(body: ScriptedRun, request: Request) -> Started:
     state.tasks.add(task)  # référence forte jusqu'à la fin
     task.add_done_callback(state.tasks.discard)
     return Started(run_id=handle.run_id, conversation_id=handle.conversation_id)
+
+
+class ScriptedLane(BaseModel):
+    tag: str
+    origin: Literal["local", "cloud"] = "local"
+    script: list[dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_SCRIPT))
+
+
+class ScriptedArena(BaseModel):
+    lanes: list[ScriptedLane]
+    prompt: str
+    criteria: list[str] = Field(default_factory=list)
+    allow_cloud: bool = True
+
+
+class ArenaStarted(BaseModel):
+    run_id: str
+
+
+@router.post("/arena")
+async def start_scripted_arena(body: ScriptedArena, request: Request) -> ArenaStarted:
+    """Une Arène dont chaque lane est un `fake` scripté, par le vrai service (hub, sémaphore, délais).
+
+    Les modèles de la requête ne vivent que dans un registre et une fabrique à part, sans compteur
+    CodeCarbon (le CO2 des lanes locales n'est pas mesuré) : l'application n'enregistre rien."""
+    state = request.app.state
+    fakes: dict[str, FakeChatModel] = {}
+    for lane in body.lanes:
+        ref = ModelRef(lane.tag, "fake", lane.origin, "chat")
+        fakes[lane.tag] = FakeChatModel(parse_script(lane.script), ref)
+    service = ArenaService(
+        state.hub,
+        ModelRegistry(state.settings, extra_refs={tag: model.ref for tag, model in fakes.items()}),
+        ModelFactory(state.ollama_client, fakes, state.settings),
+        state.local_slot,
+        state.settings,
+        bus=state.system_feed,
+    )
+    handle = await service.start(
+        ArenaCommand(
+            models=list(fakes),
+            prompt=body.prompt,
+            criteria=body.criteria,
+            allow_cloud=body.allow_cloud,
+        )
+    )
+    return ArenaStarted(run_id=handle.run_id)

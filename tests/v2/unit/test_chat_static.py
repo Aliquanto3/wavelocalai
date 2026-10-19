@@ -89,11 +89,10 @@ def test_new_front_files_stay_under_the_size_budget():
         assert len(source(name).splitlines()) <= 600, name
 
 
-def test_chat_css_is_linked_and_the_arena_tabs_are_disabled_with_their_reason():
+def test_chat_css_is_linked_and_the_bench_tab_is_disabled_with_its_reason():
     index = source("index.html")
     assert '<link rel="stylesheet" href="/static/chat.css">' in index
     tabs = source("core/screen-tabs.js")
     assert 'setAttribute("aria-disabled", "true")' in tabs and "aria-describedby" in tabs
     registry = source("core/registry.js")
-    for planned in ("arena-compare", "arena-bench"):
-        assert re.search(rf'id: "{planned}",[^}}]*status: "planned"', registry)
+    assert re.search(r'id: "arena-bench",[^}]*status: "planned"', registry)
