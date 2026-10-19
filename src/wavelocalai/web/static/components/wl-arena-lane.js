@@ -75,7 +75,10 @@ export class WlArenaLane extends HTMLElement {
 
   setup({ tag, name, origin }) {
     this.#info = { tag, name: name || tag, origin: origin || "unknown" };
-    if (this.#dom) this.#renderHead();
+    if (this.#dom) {
+      this.#renderHead();
+      this.dispatchEvent(new CustomEvent("wl-lane-rename", { bubbles: true })); // le classement relit le nom
+    }
   }
 
   get tag() {
