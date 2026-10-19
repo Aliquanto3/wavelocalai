@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import Any
 
 import httpx
@@ -295,3 +296,95 @@ def test_new_get_routes_enter_the_read_budget_and_the_stream_stays_out(tmp_path)
     found = discover_read_routes(create_app(make_settings(tmp_path)))
     assert "/api/system/identity" in found and "/api/carbon/session" in found
     assert "/api/system/stream" not in found  # flux SSE exclu du budget (AD-15)
+
+
+# --- « Réessayer » : sonde forcée (C8) -------------------------------------------------------
+
+
+async def test_recheck_forces_a_probe_and_answers_under_the_read_budget(tmp_path):
+    """Le cache des deux sondes est tout frais (Ollama « arrêté ») ; Ollama démarre ; « Réessayer »
+    le voit tout de suite, en moins de 300 ms, sans attendre l'échéance du cache."""
+    state = {"up": False}
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if not state["up"]:
+            raise httpx.ConnectError("refusé")
+        return httpx.Response(200, json={"version": "0.9.9"})
+
+    settings = make_settings(tmp_path, ollama={"probe_cache_s": 600})
+    probe = OllamaProbe(
+        settings.ollama.host, transport=httpx.MockTransport(handler), wait_s=1.0, cache_s=600
+    )
+    app = create_app(settings, probe)
+    transport_app = httpx.ASGITransport(app=app)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=transport_app, base_url=BASE) as client,
+    ):
+        assert (await client.get("/api/health")).json()["ollama"]["up"] is False
+        state["up"] = True
+        assert (await client.get("/api/health")).json()["ollama"]["up"] is False  # cache de 600 s
+        started = time.perf_counter()
+        response = await client.post("/api/system/ollama/recheck", headers={"Origin": BASE})
+        assert time.perf_counter() - started < 0.3
+        assert response.status_code == 200
+        assert response.json() == {
+            "up": True, "version": "0.9.9", "latency_ms": response.json()["latency_ms"],
+            "settled": True,
+        }  # fmt: skip
+        assert (await client.get("/api/health")).json()["ollama"]["up"] is True
+
+
+async def test_recheck_with_a_slow_probe_answers_in_time_then_publishes_the_state(tmp_path):
+    """Sonde lente : la réponse n'attend pas (`settled` faux), et le flux publie l'état dès que la
+    sonde a fini, sans attendre le tick de 2 s."""
+    state = {"up": False, "delay": 0.0}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": []})
+        await asyncio.sleep(state["delay"])
+        if not state["up"]:
+            raise httpx.ConnectError("refusé")
+        return httpx.Response(200, json={"version": "0.9.9"})
+
+    settings = make_settings(tmp_path)
+    transport = httpx.MockTransport(handler)
+    probe = OllamaProbe(settings.ollama.host, transport=transport, wait_s=1.0, cache_s=600)
+    app = create_app(settings, probe)
+    app.state.system_sampler._ps_transport = transport
+    transport_app = httpx.ASGITransport(app=app)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=transport_app, base_url=BASE) as client,
+    ):
+        stream = Stream(app, "/api/system/stream")
+        first = (await stream.frame())["data"]["data"]
+        assert first["ollama"]["up"] is False
+        state.update(up=True, delay=0.6)
+        started = time.perf_counter()
+        response = await client.post("/api/system/ollama/recheck", headers={"Origin": BASE})
+        assert time.perf_counter() - started < 0.3
+        assert response.json()["settled"] is False and response.json()["up"] is False
+        async with asyncio.timeout(3):  # le tick périodique est à 2 s : ceci est la publication
+            while True:
+                data = (await stream.frame())["data"]["data"]
+                if data["ollama"]["up"]:
+                    break
+        assert data["ollama"]["version"] == "0.9.9"
+        await stream.disconnect()
+
+
+async def test_recheck_needs_a_local_origin(tmp_path):
+    app = create_app(make_settings(tmp_path))
+    transport_app = httpx.ASGITransport(app=app)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=transport_app, base_url=BASE) as client,
+    ):
+        refused = await client.post(
+            "/api/system/ollama/recheck", headers={"Origin": "http://evil.example"}
+        )
+        assert refused.status_code == 403

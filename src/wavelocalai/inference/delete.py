@@ -2,8 +2,9 @@
 
 `DELETE /api/models/{tag}` appelle `delete_installed_model` : le tag doit être un modèle local connu
 du registre, qu'aucun run actif n'emploie (`409 model_in_use`, `detail.tag` et `detail.run_id`, y
-compris un run qui démarre pendant la suppression : le contrôle est refait juste avant l'appel
-d'Ollama). Le modèle est déchargé de la mémoire s'il l'était, Ollama le supprime
+compris un run en cours de création). Un verrou par modèle (`RunHub.deleting_model`) est tenu de
+ce contrôle à la fin de la suppression : un run qui voudrait démarrer sur ce modèle entre-temps est
+refusé (`model_not_found`), sans fenêtre entre le contrôle et l'appel d'Ollama. Le modèle est déchargé de la mémoire s'il l'était, Ollama le supprime
 (`DELETE /api/delete` ; un modèle qu'Ollama ne connaît déjà plus est une suppression réussie), ses
 lignes `model_facts` sont purgées et il quitte la liste (il ne réapparaît pas au démarrage à froid),
 et les usages dont il était le défaut choisi reviennent à la règle automatique (D-41).
@@ -13,7 +14,9 @@ C'est le seul chemin qui retire un modèle du poste : aucune route de lecture, a
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 
 import httpx
@@ -61,15 +64,35 @@ async def delete_installed_model(
     registry: ModelRegistry,
     defaults: ModelDefaults,
     active_models: Callable[[], dict[str, str]],
+    deleting: Callable[[str], AbstractContextManager[None]] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> DeleteReport:
     """Supprime le modèle du poste. `model_not_found` s'il n'est pas un modèle local de la liste,
     `model_in_use` si un run actif l'emploie, `ollama_down` si Ollama ne répond pas,
-    `model_delete_failed` si Ollama refuse."""
+    `model_delete_failed` si Ollama refuse.
+
+    `deleting` (`RunHub.deleting_model`) est le verrou par modèle : posé avant le contrôle d'usage
+    et tenu jusqu'à la fin de la suppression, il refuse tout run qui démarrerait sur ce modèle entre
+    « est-il employé ? » et l'appel d'Ollama (pas de course, story 8.1)."""
     listed = await registry.list_models(allow_cloud=True)
     model = next((m for m in listed.models if m.tag == tag and m.origin == "local"), None)
     if model is None:
         raise AppError("model_not_found", f"Modèle local inconnu : {tag}", tag=tag)
+    with deleting(tag) if deleting is not None else contextlib.nullcontext():
+        return await _delete_locked(
+            host, tag, model.size_gb, registry, defaults, active_models, transport
+        )
+
+
+async def _delete_locked(
+    host: str,
+    tag: str,
+    size_gb: float | None,
+    registry: ModelRegistry,
+    defaults: ModelDefaults,
+    active_models: Callable[[], dict[str, str]],
+    transport: httpx.AsyncBaseTransport | None,
+) -> DeleteReport:
     _refuse_if_busy(active_models, tag)
     # Déchargé seulement s'il est chargé : `keep_alive: 0` sur un modèle froid (`/api/embed` d'un
     # modèle d'embedding, ou un Ollama ancien) le chargerait avant de le décharger.
@@ -84,4 +107,4 @@ async def delete_installed_model(
     except DeleteError as exc:
         raise AppError("model_delete_failed", exc.technical, tag=tag) from exc
     await registry.forget(tag)
-    return DeleteReport(tag=tag, freed_gb=model.size_gb, reverted=defaults.forget_model(tag))
+    return DeleteReport(tag=tag, freed_gb=size_gb, reverted=defaults.forget_model(tag))

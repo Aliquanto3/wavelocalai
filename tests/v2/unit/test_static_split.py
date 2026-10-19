@@ -30,7 +30,8 @@ def test_two_text_files_never_declare_the_same_top_level_key():
         for key in json.loads(path.read_text(encoding="utf-8")):
             assert key not in keys, f"« {key} » : {keys[key]} et {path.name}"
             keys[key] = path.name
-    assert keys.keys() == catalog().keys()
+    # Le catalogue ajoute `errors`, généré depuis errors.py (jamais dans un fichier, C9).
+    assert keys.keys() | {"errors"} == catalog().keys()
 
 
 def test_the_duplicate_detector_fails_on_a_shared_key(monkeypatch, tmp_path):

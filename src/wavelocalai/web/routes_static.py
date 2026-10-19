@@ -20,6 +20,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from starlette.staticfiles import StaticFiles
 
+from wavelocalai.errors import error_texts
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # Windows lit les types dans le registre : un `.js` y est parfois `text/plain`, que le navigateur
@@ -74,7 +76,8 @@ _PRELOAD_RE = re.compile(r'<link rel="modulepreload" href="(/static/[^"]+)">')
 
 
 def text_catalog(static_dir: Path) -> dict[str, Any]:
-    """Les textes de `i18n/fr/*.json` en un seul document, sous les mêmes clés que le catalogue.
+    """Les textes de `i18n/fr/*.json` en un seul document, sous les mêmes clés que le catalogue,
+    plus la clé `errors`, générée depuis `errors.py` (`error_texts`).
 
     Les fichiers par écran restent la source ; une clé de premier niveau déclarée dans deux
     fichiers lève une erreur (jamais d'écrasement silencieux).
@@ -86,6 +89,10 @@ def text_catalog(static_dir: Path) -> dict[str, Any]:
             if key in merged:
                 raise ValueError(f"Clé de textes déclarée deux fois : {key} ({path.name}).")
             merged[key] = part[key]
+    # Les textes d'erreur n'ont qu'une source, `errors.py` (C9) : jamais recopiés dans un fichier.
+    if "errors" in merged:
+        raise ValueError("La clé `errors` est générée depuis errors.py : à retirer des fichiers.")
+    merged["errors"] = error_texts()
     return merged
 
 

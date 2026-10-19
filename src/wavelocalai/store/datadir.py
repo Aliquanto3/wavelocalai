@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import sys
 from pathlib import Path
 from typing import IO
@@ -9,8 +10,16 @@ from typing import IO
 LOCK_NAME = ".wavelocalai.lock"
 
 
-class DataDirLockedError(Exception):
+class DataDirLockError(Exception):
+    """Le verrou du dossier de données n'a pas pu être pris (la cause est dans le message)."""
+
+
+class DataDirLockedError(DataDirLockError):
     """Un autre serveur utilise déjà ce dossier de données."""
+
+
+# Codes d'un verrou déjà tenu (`msvcrt.locking` : EACCES ou EDEADLOCK ; `flock` : EAGAIN).
+_HELD = {errno.EACCES, errno.EAGAIN, errno.EDEADLK, getattr(errno, "EWOULDBLOCK", errno.EAGAIN)}
 
 
 def ensure_data_dir(path: Path) -> Path:
@@ -37,16 +46,29 @@ class DataDirLock:
         self._handle: IO[bytes] | None = None
 
     def acquire(self) -> None:
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.path.touch(exist_ok=True)
-        handle = self.path.open("r+b")
+        """Prend le verrou. `DataDirLockedError` si un serveur vivant le tient ; toute autre
+        cause (droits, disque plein, dossier absent) est dite telle quelle (`DataDirLockError`)."""
+        try:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            self.path.touch(exist_ok=True)
+            handle = self.path.open("r+b")
+        except OSError as exc:
+            raise DataDirLockError(
+                f"Impossible de créer le verrou {self.path} : {exc.strerror or exc}. "
+                "Vérifiez les droits et l'espace disque du dossier de données, ou choisissez un "
+                "autre dossier (--data-dir)."
+            ) from exc
         try:
             _lock(handle)
         except OSError as exc:
             handle.close()
-            raise DataDirLockedError(
-                f"Un autre wavelocalai-v2 utilise déjà le dossier de données {self.data_dir}. "
-                "Arrêtez-le, ou choisissez un autre dossier (--data-dir)."
+            if exc.errno in _HELD or getattr(exc, "winerror", None) in {33, 32}:
+                raise DataDirLockedError(
+                    f"Un autre wavelocalai-v2 utilise déjà le dossier de données {self.data_dir}. "
+                    "Arrêtez-le, ou choisissez un autre dossier (--data-dir)."
+                ) from exc
+            raise DataDirLockError(
+                f"Impossible de prendre le verrou {self.path} : {exc.strerror or exc}."
             ) from exc
         self._handle = handle
 

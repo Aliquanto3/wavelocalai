@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import signal
 import socket
 import sys
+import threading
+from collections.abc import Iterator
 
 import uvicorn
 from fastapi import FastAPI
@@ -61,6 +65,29 @@ class _Server(uvicorn.Server):
         await super().shutdown(sockets)
 
 
+@contextlib.contextmanager
+def _absorb_reraised_signals() -> Iterator[None]:
+    """uvicorn relève le signal d'arrêt à sa sortie, une fois ses gestionnaires retirés. Avec le
+    gestionnaire par défaut, Ctrl+Break (Windows) ou SIGTERM tuent alors le processus sans passer
+    par les `finally` du lanceur : base non fermée, verrou non relâché (C7). On pose donc avant
+    `run` un gestionnaire sans effet, que uvicorn rétablit puis relève : le lanceur reprend la
+    main et sort normalement."""
+    names = ("SIGINT", "SIGTERM", "SIGBREAK")
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    saved: dict[int, object] = {}
+    for name in names:
+        number = getattr(signal, name, None)
+        if number is not None:
+            saved[number] = signal.signal(number, lambda *_: None)
+    try:
+        yield
+    finally:
+        for number, handler in saved.items():
+            signal.signal(number, handler)  # type: ignore[arg-type]
+
+
 def serve(settings: Settings, sock: socket.socket, store: Store | None = None) -> None:
     """Sert l'application jusqu'à l'arrêt (Ctrl+C ou SIGTERM : arrêt propre d'uvicorn, qui
     annule les runs actifs). `store` : la base ouverte par le lanceur, qui la ferme ensuite."""
@@ -74,4 +101,5 @@ def serve(settings: Settings, sock: socket.socket, store: Store | None = None) -
         proxy_headers=False,
         timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
     )
-    _Server(config, app).run(sockets=[sock])
+    with _absorb_reraised_signals():
+        _Server(config, app).run(sockets=[sock])

@@ -2,12 +2,17 @@
 
 Au démarrage, chaque migration en attente est appliquée dans sa propre transaction, après une copie
 `wavelocalai.db.bak-<user_version>` de la base existante. La version vit dans `PRAGMA user_version`.
+Une seule copie est gardée : celle de la dernière migration ; les précédentes sont supprimées une
+fois la suivante réussie. Un effacement (AD-13) supprime aussi la copie (`remove_backups`), qui
+contient l'état d'avant la migration, texte effacé compris.
 Une base dont la version dépasse celle du code est refusée : un code trop ancien n'ouvre pas une
 base plus récente.
 """
 
 from __future__ import annotations
 
+import glob
+import logging
 import re
 import sqlite3
 from collections.abc import Iterator
@@ -15,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+logger = logging.getLogger(__name__)
 _NAME = re.compile(r"^(\d{4})_([a-z0-9_]+)\.sql$")
 
 
@@ -64,6 +70,26 @@ def backup_path(db_path: Path, version: int) -> Path:
     return db_path.with_name(f"{db_path.name}.bak-{version}")
 
 
+def backup_files(db_path: Path) -> list[Path]:
+    """Les copies `<base>.bak-<version>` présentes à côté de la base."""
+    return sorted(db_path.parent.glob(f"{glob.escape(db_path.name)}.bak-*"))
+
+
+def remove_backups(db_path: Path, keep: Path | None = None) -> bool:
+    """Supprime les copies de la base, sauf `keep`. Rend faux si l'une n'a pas pu l'être (fichier
+    tenu par un autre programme) : l'appelant le sait et réessaie plus tard."""
+    removed = True
+    for copy in backup_files(db_path):
+        if copy == keep:
+            continue
+        try:
+            copy.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("La copie %s de la base n'a pas pu être supprimée.", copy, exc_info=True)
+            removed = False
+    return removed
+
+
 def migrate(db_path: Path, directory: Path = MIGRATIONS_DIR, *, target: int | None = None) -> int:
     """Amène la base à `target` (la dernière migration par défaut) ; rend sa version.
 
@@ -89,11 +115,14 @@ def migrate(db_path: Path, directory: Path = MIGRATIONS_DIR, *, target: int | No
         if not pending:
             return current
         has_schema = existed and conn.execute("SELECT count(*) FROM sqlite_master").fetchone()[0]
-        if has_schema:
-            _backup(conn, backup_path(db_path, current))
+        copy = backup_path(db_path, current) if has_schema else None
+        if copy is not None:
+            _backup(conn, copy)
         for migration in pending:
             _apply(conn, migration, db_path, current)
             current = migration.version
+        # Migration réussie : la nouvelle copie est la seule gardée (les anciennes ne servent plus).
+        remove_backups(db_path, keep=copy)
         return current
     finally:
         conn.close()

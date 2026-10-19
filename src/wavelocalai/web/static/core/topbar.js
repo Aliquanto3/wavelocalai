@@ -74,7 +74,8 @@ function renderOllama(state, parts) {
     }),
   );
 
-  // Même enveloppe que l'API (AD-18) ; les textes sont ceux de `errors.py`, recopiés dans i18n/fr/shell.json.
+  // Même enveloppe que l'API (AD-18) ; les textes sont ceux de `errors.py`, que le serveur ajoute au
+  // catalogue sous la clé `errors` (source unique, C9).
   parts.error.error =
     key === "down"
       ? {

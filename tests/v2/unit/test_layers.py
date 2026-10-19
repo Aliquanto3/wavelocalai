@@ -75,7 +75,12 @@ def _is_type_checking(node: ast.If) -> bool:
 
 
 def _walk_imports(tree: ast.AST):
-    """Produit (noeud d'import, au_niveau_du_module). Ignore le code sous TYPE_CHECKING."""
+    """Produit (noeud, au_niveau_du_module) pour les imports, les appels et les accès d'attribut.
+
+    Ignore le code sous TYPE_CHECKING. Les `Call` et `Attribute` servent aux imports qui ne passent
+    pas par une instruction `import` (C1 : `importlib.import_module`, `__import__`, et
+    `import wavelocalai` suivi d'un accès d'attribut).
+    """
 
     def visit(node: ast.AST, module_level: bool):
         for child in ast.iter_child_nodes(node):
@@ -86,7 +91,7 @@ def _walk_imports(tree: ast.AST):
             yield from visit_one(child, module_level)
 
     def visit_one(node: ast.AST, module_level: bool):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
+        if isinstance(node, (ast.Import, ast.ImportFrom, ast.Call, ast.Attribute)):
             yield node, module_level
         inner = module_level and not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         yield from visit(node, inner)
@@ -109,6 +114,98 @@ def _imported(node: ast.Import | ast.ImportFrom, package: list[str]) -> list[lis
     return [base]
 
 
+def _package_aliases(tree: ast.AST) -> set[str]:
+    """Noms qui désignent le paquet racine (`import wavelocalai [as x]`, `import wavelocalai.y`)."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Import):
+            continue
+        for alias in node.names:
+            parts = alias.name.split(".")
+            if parts[0] != PACKAGE:
+                continue
+            if alias.asname is None:
+                names.add(PACKAGE)
+            elif len(parts) == 1:
+                names.add(alias.asname)
+    # `w = wavelocalai` (ou `w = wl`) : le nouveau nom désigne aussi le paquet.
+    assigns = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)]
+    grown = True
+    while grown:
+        grown = False
+        for node in assigns:
+            if isinstance(node.value, ast.Name) and node.value.id in names:
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id not in names:
+                        names.add(target.id)
+                        grown = True
+    return names
+
+
+_LOADERS = {"import_module", "__import__"}
+
+
+def _loader_aliases(tree: ast.AST) -> set[str]:
+    """Noms locaux d'`import_module` (`from importlib import import_module as im`)."""
+    names = set(_LOADERS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            names.update(a.asname or a.name for a in node.names if a.name == "import_module")
+    return names
+
+
+def _is_dynamic_import(call: ast.Call, loaders: set[str]) -> bool:
+    """Vrai pour `importlib.import_module(...)`, `import_module(...)` (alias compris) et
+    `__import__(...)`."""
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id in loaders
+    return isinstance(func, ast.Attribute) and func.attr in _LOADERS
+
+
+def _is_hidden_loader(call: ast.Call) -> bool:
+    """`getattr(importlib, "import_module")` ou `getattr(builtins, "__import__")` : chargeur
+    obtenu par son nom, dont l'appel n'est pas vérifiable."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "getattr" and len(call.args) >= 2):
+        return False
+    attr = call.args[1]
+    return isinstance(attr, ast.Constant) and attr.value in _LOADERS
+
+
+def _dynamic_target(call: ast.Call, package: list[str]) -> list[str]:
+    """Parties du module chargé par un appel dynamique ; `[]` si le nom n'est pas un littéral."""
+    first = call.args[0] if call.args else None
+    if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+        return []
+    name = first.value
+    dots = len(name) - len(name.lstrip("."))
+    if dots:  # relatif : au `package=` donné s'il est littéral, sinon au paquet du fichier
+        given = call.args[1] if len(call.args) > 1 else None
+        for keyword in call.keywords:
+            if keyword.arg == "package":
+                given = keyword.value
+        if isinstance(given, ast.Constant) and isinstance(given.value, str):
+            package = given.value.split(".")
+        elif given is not None:
+            return []  # `package=` calculé : la cible n'est pas vérifiable
+        base = package[: len(package) - (dots - 1)]
+        return [*base, *[part for part in name.lstrip(".").split(".") if part]]
+    return name.split(".")
+
+
+def _getattr_target(call: ast.Call, aliases: set[str]) -> str | None:
+    """`getattr(wavelocalai, "runs")` : rend « runs » ; `""` si le nom n'est pas un littéral
+    (non vérifiable) ; None pour un autre appel."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "getattr" and len(call.args) >= 2):
+        return None
+    obj, attr = call.args[0], call.args[1]
+    if not (isinstance(obj, ast.Name) and obj.id in aliases):
+        return None
+    if isinstance(attr, ast.Constant) and isinstance(attr.value, str):
+        return attr.value
+    return ""
+
+
 def check_package(root: Path) -> list[str]:
     """Liste les violations d'AD-4 / AD-2 / AD-21 dans l'arbre `root` (paquet `wavelocalai`)."""
     violations: list[str] = []
@@ -117,10 +214,39 @@ def check_package(root: Path) -> list[str]:
         component = path.relative_to(root).parts[0].removesuffix(".py")
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         package = _package_parts(root, path)
+        aliases = _package_aliases(tree)
+        loaders = _loader_aliases(tree)
         for node, module_level in _walk_imports(tree):
-            for parts in _imported(node, package):
+            where = f"{rel}:{node.lineno}"
+            if isinstance(node, ast.Attribute):
+                # `import wavelocalai` puis `wavelocalai.runs...` : la cible est l'attribut.
+                if isinstance(node.value, ast.Name) and node.value.id in aliases:
+                    violations.extend(_layer_violation(where, component, node.attr))
+                continue
+            if isinstance(node, ast.Call):
+                target = _getattr_target(node, aliases)
+                if target == "" or _is_hidden_loader(node):
+                    violations.append(
+                        f"{where} : import dynamique dont le nom n'est pas un littéral "
+                        "(non vérifiable)"
+                    )
+                    continue
+                if target is not None:
+                    violations.extend(_layer_violation(where, component, target))
+                if not _is_dynamic_import(node, loaders):
+                    continue
+                dynamic = _dynamic_target(node, package)
+                if not dynamic:
+                    violations.append(
+                        f"{where} : import dynamique dont le nom n'est pas un littéral "
+                        "(non vérifiable)"
+                    )
+                    continue
+                targets = [dynamic]
+            else:
+                targets = _imported(node, package)
+            for parts in targets:
                 top = parts[0] if parts else ""
-                where = f"{rel}:{node.lineno}"
                 if top == "src":
                     violations.append(f"{where} importe src.* (la v2 n'importe jamais la v1)")
                 if top in WEB_ONLY and component != "web":
@@ -130,8 +256,7 @@ def check_package(root: Path) -> list[str]:
                         f"{where} importe {top} au niveau du module (import paresseux)"
                     )
                 if top == PACKAGE and len(parts) > 1:
-                    target = parts[1]
-                    violations.extend(_layer_violation(where, component, target))
+                    violations.extend(_layer_violation(where, component, parts[1]))
     return violations
 
 
@@ -218,6 +343,77 @@ def _tree(tmp_path: Path, files: dict[str, str]) -> Path:
         ("models/trap.py", "import mistralai\n", "niveau du module"),
         ("greenops/trap.py", "from ecologits import tracers\n", "niveau du module"),
         ("cli.py", "from wavelocalai.runs import hub\n", "hors du Structural Seed"),
+        # C1 : imports qui ne passent pas par `from ... import`.
+        ("store/trap.py", "import wavelocalai\nx = wavelocalai.runs.hub\n", "contre le diagramme"),
+        ("store/trap.py", "import wavelocalai as wl\ny = wl.runs\n", "contre le diagramme"),
+        (
+            "runs/trap.py",
+            "import wavelocalai\ndef f():\n    return wavelocalai.web.app\n",
+            "importe web/",
+        ),
+        (
+            "store/trap.py",
+            "import wavelocalai\nz = getattr(wavelocalai, 'runs')\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\nm = importlib.import_module('wavelocalai.runs.hub')\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "from importlib import import_module\nm = import_module('wavelocalai.runs')\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\nm = importlib.import_module('.runs', package='wavelocalai')\n",
+            "contre le diagramme",
+        ),
+        ("store/trap.py", "m = __import__('wavelocalai.runs')\n", "contre le diagramme"),
+        ("runs/trap.py", "m = __import__('wavelocalai.web')\n", "importe web/"),
+        (
+            "rag/trap.py",
+            "import importlib\nm = importlib.import_module('fastapi')\n",
+            "hors de web/",
+        ),
+        (
+            "rag/trap.py",
+            "import importlib\nm = importlib.import_module('pypdf')\n",
+            "niveau du module",
+        ),
+        (
+            "runs/trap.py",
+            "import importlib\ndef f(name):\n    return importlib.import_module(name)\n",
+            "non vérifiable",
+        ),
+        # Revue : alias du chargeur, chargeur obtenu par `getattr`, paquet réaffecté, noms calculés.
+        (
+            "store/trap.py",
+            "from importlib import import_module as im\nm = im('wavelocalai.runs')\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\nm = getattr(importlib, 'import_module')('wavelocalai.runs')\n",
+            "non vérifiable",
+        ),
+        (
+            "store/trap.py",
+            "import wavelocalai\nw = wavelocalai\nx = w.runs\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import wavelocalai\ndef f(n):\n    return getattr(wavelocalai, n)\n",
+            "non vérifiable",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\ndef f(p):\n    return importlib.import_module('.runs', package=p)\n",
+            "non vérifiable",
+        ),
     ],
 )
 def test_trap_module_is_detected(tmp_path, rel, code, expected):
@@ -243,6 +439,13 @@ def test_trap_module_is_detected(tmp_path, rel, code, expected):
             "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import pypdf\n",
         ),
         ("__main__.py", "from wavelocalai.web import app\nfrom wavelocalai import config\n"),
+        ("store/ok.py", "import wavelocalai\nv = wavelocalai.config\n"),
+        ("rag/ok.py", "import importlib\nm = importlib.import_module('wavelocalai.inference')\n"),
+        (
+            "rag/ok.py",
+            "def f():\n    import importlib\n    return importlib.import_module('pypdf')\n",
+        ),
+        ("runs/ok.py", "import importlib.util\nspec = importlib.util.find_spec('fastembed')\n"),
     ],
 )
 def test_legitimate_imports_are_accepted(tmp_path, rel, code):

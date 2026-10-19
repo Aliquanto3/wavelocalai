@@ -20,7 +20,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, TypeVar
 
-from wavelocalai.store.migrate import MIGRATIONS_DIR, migrate
+from wavelocalai.store.migrate import MIGRATIONS_DIR, migrate, remove_backups
 from wavelocalai.store.vec import ensure_vec_table, load_vec
 
 DB_NAME = "wavelocalai.db"
@@ -74,9 +74,17 @@ class Store:
         self._thread: threading.Thread | None = None
         self._closed = False
         self._lock = threading.Lock()
-        # Purge (AD-13) restée incomplète : rejouée après chaque écriture et à la fermeture.
-        self.purge_pending = False
+        # Purge (AD-13) restée incomplète : rejouée après chaque écriture et à la fermeture. Deux
+        # temps suivis à part : l'espace libre (`VACUUM`, coûteux) et les copies `.bak-N` (une
+        # copie tenue par un autre programme ne relance pas `VACUUM` à chaque écriture).
+        self._space_pending = False
+        self._copies_pending = False
         self.vec_available = False  # sqlite-vec chargé par l'écrivain (AD-12)
+
+    @property
+    def purge_pending(self) -> bool:
+        """Vrai tant qu'un effacement validé n'est pas purgé (espace libre ou copie `.bak-N`)."""
+        return self._space_pending or self._copies_pending
 
     @classmethod
     def open(cls, path: Path, migrations_dir: Path = MIGRATIONS_DIR) -> Store:
@@ -127,7 +135,8 @@ class Store:
                 else:
                     # L'effacement est validé : une purge en échec ne le défait pas, elle est
                     # journalisée et rejouée (après la prochaine écriture, à la fermeture).
-                    self.purge_pending = self.purge_pending or purge
+                    if purge:
+                        self._space_pending = self._copies_pending = True
                     self._purge_if_pending(conn)
                     future.set_result(result)
             self._purge_if_pending(conn)
@@ -135,7 +144,15 @@ class Store:
             conn.close()
 
     def _purge_if_pending(self, conn: sqlite3.Connection) -> None:
-        if not self.purge_pending:
+        if self._copies_pending:
+            # La copie d'avant migration (`.bak-N`) porte le texte effacé : elle est supprimée aussi.
+            if remove_backups(self.path):
+                self._copies_pending = False
+            else:
+                logger.warning(
+                    "Copie de la base non supprimée (AD-13) : suppression rejouée plus tard."
+                )
+        if not self._space_pending:
             return
         try:
             done = purge_free_space(conn)
@@ -143,7 +160,7 @@ class Store:
             logger.warning("Purge de la base en échec (AD-13) : rejouée plus tard.", exc_info=True)
             return
         if done:
-            self.purge_pending = False
+            self._space_pending = False
         else:
             logger.warning(
                 "Journal WAL non vidé, un lecteur le tenait (AD-13) : purge rejouée plus tard."

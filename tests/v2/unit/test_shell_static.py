@@ -541,15 +541,6 @@ def flat_keys(value, prefix: str) -> list[str]:
     return [prefix]
 
 
-def test_the_ollama_down_text_mirrors_errors_py():
-    from wavelocalai.errors import ERRORS
-
-    spec = ERRORS["ollama_down"]
-    mirror = catalog()["errors"]["ollama_down"]
-    assert mirror["message"] == spec.message
-    assert mirror["action"] == spec.action.replace("`", "")  # le front n'affiche pas le Markdown
-
-
 def test_no_script_reads_or_writes_the_cloud_switch_in_storage():
     """AD-20 : la bascule cloud vit dans le store seulement. `theme.js` (thème et projection) et
     `drafts.js` (brouillons de saisie) sont les seuls modules qui touchent `localStorage`."""
