@@ -169,7 +169,7 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
     assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 3
 
 
-@pytest.mark.parametrize("route", ["#/documents/base", "#/sobriete", "#/n-importe-quoi", "#main"])
+@pytest.mark.parametrize("route", ["#/arene/banc", "#/sobriete", "#/n-importe-quoi", "#main"])
 def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")
     wait_ready(page)
