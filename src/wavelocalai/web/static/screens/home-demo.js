@@ -55,6 +55,15 @@ function modelLines(list, defaults, allowCloud) {
   return lines;
 }
 
+
+// Résolu une fois le repère `shell-ready` posé par `main.js` (coquille et écran courant rendus).
+function shellReady() {
+  return new Promise((resolve) => {
+    const check = () =>
+      performance.getEntriesByName("shell-ready").length > 0 ? resolve() : requestAnimationFrame(check);
+    check();
+  });
+}
 export function demoSection() {
   const arena = MODULES.find((module) => module.id === "arena");
   const compare = arena?.screens.find((screen) => screen.id === "arena-compare");
@@ -85,6 +94,7 @@ export function demoSection() {
   async function load(allowCloud, current) {
     let list = null;
     let defaults = null;
+    await shellReady(); // AD-15 : rien de `/api/` avant que la coquille soit rendue
     try {
       list = await api.models(allowCloud);
       // Sans modèle local prêt, le défaut `arena` n'a rien à dire (le serveur répondrait `no_model`) :
