@@ -116,6 +116,10 @@ export function formatClock(seconds) {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
+// Texte au pluriel du catalogue : `<base>_one` (0 et 1) ou `<base>_other`, `{n}` mis en forme.
+export const plural = (base, n, vars = {}) =>
+  t(`${base}_${n < 2 ? "one" : "other"}`, { n: formatInteger(n), ...vars });
+
 // Date ISO -> « 18 oct. 2026 ».
 export function formatDate(iso) {
   const date = new Date(iso);

@@ -3,13 +3,12 @@
 // L'annulation n'est pas ici : un seul « Annuler l'import » pour le lot, au-dessus des lignes (D-25).
 
 import { element } from "../core/dom.js";
-import { formatInteger } from "../core/format.js";
+import { formatInteger, plural } from "../core/format.js";
 import { t } from "../core/i18n.js";
 
 export const FINAL = new Set(["ready", "duplicate", "failed", "cancelled", "interrupted"]);
 
-export const plural = (base, n, vars = {}) =>
-  t(`${base}_${n < 2 ? "one" : "other"}`, { n: formatInteger(n), ...vars });
+export { plural };
 
 function failureMessage(error) {
   // « Le fichier n'a pas pu être indexé : <raison>. » (l'enveloppe fournit le message et la raison).

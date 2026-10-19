@@ -99,6 +99,10 @@ export const api = {
     ),
   // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
+  // Pose une question aux documents prêts ; `allow_cloud` vient du store, sur chaque commande (AD-9).
+  startRag: (body) => request("/api/rag/runs", { method: "POST", body }),
+  // Un extrait en entier (« Ouvrir l'extrait ») ; `404 chunk_not_found` s'il n'existe plus.
+  chunk: (id) => request(`/api/rag/chunks/${encodeURIComponent(id)}`),
   // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
   documents: () => request("/api/rag/documents"),
   // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).

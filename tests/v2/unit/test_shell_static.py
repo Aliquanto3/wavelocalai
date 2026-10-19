@@ -281,10 +281,11 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_arena_and_document_base_screens_are_available_so_far():
+def test_only_the_home_chat_arena_and_document_screens_are_available_so_far():
     text = registry_text()
-    assert text.count('status: "available"') == 4
-    assert text.count('status: "planned"') == len(ROUTES) - 4
+    assert text.count('status: "available"') == 5
+    assert text.count('status: "planned"') == len(ROUTES) - 5
+    assert re.search(r'id: "documents-chat",\s*path: "/documents",\s*status: "available"', text)
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
     assert re.search(
         r'id: "arena-compare",\s*path: "/arene/comparer",[^}]*status: "available"', text

@@ -11,6 +11,8 @@ d'étapes, chacune un objet à une clé principale :
 - `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un).
 
 `POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
+`POST /api/test/chat-model` fixe le script du `fake` pour les prochaines commandes réelles
+(`POST /api/rag/runs`, `POST /api/chat/runs`), jusqu'au prochain appel (story 4.5).
 
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
@@ -146,6 +148,22 @@ async def script_embedder(body: ScriptedEmbedder, request: Request) -> dict[str,
             embedder.script = list(steps)
             embedder.calls = 0
     return {"steps": len(steps)}
+
+
+class ScriptedChatModel(BaseModel):
+    model: str = "fake:1b"
+    script: list[dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_SCRIPT))
+
+
+@router.post("/chat-model")
+async def script_chat_model(body: ScriptedChatModel, request: Request) -> dict[str, int]:
+    """Script du `fake` que les commandes réelles interrogent (une réponse scriptée sans passer par
+    `/api/test/runs`, qui contourne la route testée)."""
+    model = request.app.state.models.get(body.model)
+    if not isinstance(model, FakeChatModel):
+        raise AppError("not_found", f"Modèle factice {body.model!r} inconnu.")
+    model.script = parse_script(body.script)
+    return {"steps": len(model.script)}
 
 
 class ScriptedLane(BaseModel):
