@@ -22,6 +22,7 @@ import urllib.request
 
 import pytest
 from axe_playwright_python.sync_playwright import Axe
+from playwright.sync_api import expect
 
 from .test_shell import assert_no_axe_violations, wait_for, wait_ready
 
@@ -368,12 +369,18 @@ def test_axe_finds_no_violation_on_the_footer_with_a_measured_and_an_unmeasurabl
     chat, server, theme
 ):
     chat.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
-    for co2, label in ((MEASURED, "mesuré"), (UNMEASURABLE, "non mesurable")):
+    for turn, (co2, label) in enumerate(((MEASURED, "mesuré"), (UNMEASURABLE, "non mesurable")), 1):
         scripted(chat, server, [{"text": "Bonjour"}, {"done": DONE}], co2=co2)
         ask(chat, f"Question {label}")
-        chat.locator(".wl-run-stage").filter(has_text="Terminé").wait_for()
-        foot = finished_foot(chat).last
+        # La conversation garde les réponses d'avant : on attend le pied définitif de CETTE
+        # réponse (« Durée totale » n'existe qu'au pied final), pas celui de la précédente, sinon
+        # le contrôle part pendant que la seconde réponse s'écrit (pied provisoire).
+        feet = chat.locator(".wl-msg-foot").filter(has_text="Durée totale")
+        expect(feet).to_have_count(turn)
+        foot = feet.last
+        expect(foot.locator("wl-metric[data-provisional=true]")).to_have_count(0)
         foot.locator("wl-metric", has_text="CO₂").get_by_role("button").click()
+        expect(foot.locator(".wl-metric-help:visible")).to_have_count(1)
         assert_no_axe_violations(chat, f"pied avec CO₂ {label}, thème {theme}")
 
 
