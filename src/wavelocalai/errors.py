@@ -199,8 +199,8 @@ _SPECS = (
         "run_not_found",
         404,
         "Ce résultat est introuvable : aucune exécution ne porte cet identifiant.",
-        "Lancez une nouvelle comparaison, ou rouvrez-en une depuis la liste des comparaisons "
-        "précédentes.",
+        "Relancez l'exécution, ou rouvrez un résultat depuis la liste des résultats précédents de "
+        "l'écran.",
         ("run_id",),
     ),
     ErrorSpec(

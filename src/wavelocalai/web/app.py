@@ -53,6 +53,7 @@ from wavelocalai.web import (
     routes_arena,
     routes_chat,
     routes_conversations,
+    routes_eval,
     routes_health,
     routes_models,
     routes_rag,
@@ -194,6 +195,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         hub, app.state.registry, settings, transport=app.state.ollama_transport
     )
     app.state.reranker_pull = RerankerPullService(hub, app.state.reranker, settings)
+    app.state.evaluation = routes_eval.build_service(app, hub, factory, index, guard)  # story 7.1
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
@@ -214,6 +216,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.ingest = None
         app.state.rag = None
         app.state.rag_base = None
+        app.state.evaluation = None
         app.state.arena = None
         app.state.pull = None
         app.state.reranker_pull = None
@@ -279,6 +282,7 @@ def create_app(
     app.state.arena = None  # service de l'Arène, idem
     app.state.pull = None  # service d'installation des modèles (run `pull`), idem
     app.state.reranker_pull = None  # installation du reranker (story 5.5, run `pull`), idem
+    app.state.evaluation = None  # service d'évaluation de la qualité, idem
     # Reranker local (story 4.7, AD-17) : ne charge ni n'importe rien tant qu'aucune question ne le
     # demande ; jamais de téléchargement.
     app.state.reranker = RerankerService(
@@ -365,6 +369,7 @@ def create_app(
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_rag_base.router)
+    app.include_router(routes_eval.router)
     app.include_router(routes_system.router)
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
