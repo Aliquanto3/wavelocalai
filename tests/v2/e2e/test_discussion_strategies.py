@@ -94,6 +94,13 @@ def test_self_rag_with_a_small_or_unmeasured_model_warns_that_the_check_is_unrel
     import_docs(page, server, **{"chats.txt": txt(CATS)})
     small = {**MODEL, "tag": "petit:1b", "name": "Petit 1B", "params_active_b": 1.0}
     big = {**MODEL, "tag": "grand:8b", "name": "Grand 8B", "params_active_b": 8.0}
+    odd = {  # local sans digest : origine inconnue, signalé comme un local (`is_weak_judge`)
+        **MODEL,
+        "tag": "inconnu:8b",
+        "name": "Inconnu 8B",
+        "origin": "unknown",
+        "params_active_b": None,
+    }
     page.route(
         re.compile(r"/api/models\?"),
         lambda route: route.fulfill(
@@ -101,7 +108,7 @@ def test_self_rag_with_a_small_or_unmeasured_model_warns_that_the_check_is_unrel
             content_type="application/json",
             body=json.dumps(
                 {
-                    "models": [MODEL, small, big],
+                    "models": [MODEL, small, big, odd],
                     "ollama_up": True,
                     "refreshed_at": "2026-10-19T10:00:00Z",
                 }
@@ -129,6 +136,9 @@ def test_self_rag_with_a_small_or_unmeasured_model_warns_that_the_check_is_unrel
     assert "Petit 1B" in note.inner_text()
     pick("Grand 8B")
     note.wait_for(state="hidden")
+    pick("Inconnu 8B")
+    note.wait_for()
+    assert "Inconnu 8B" in note.inner_text()
     pick("Petit 1B")
     note.wait_for()
     choose(page, "Recherche directe")

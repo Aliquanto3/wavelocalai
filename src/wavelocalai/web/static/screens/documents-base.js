@@ -229,6 +229,7 @@ export function mount(host) {
     clearButton.disabled = lockedNow;
     if (lockedNow) clearButton.setAttribute("aria-describedby", lockNote.id);
     else clearButton.removeAttribute("aria-describedby");
+    settings.setLocked(lockedNow, lockNote.id);
     loading.hidden = data !== null || listFailed;
     empty.hidden = data === null || documents.length > 0 || importing;
     tableSection.hidden = listFailed || documents.length === 0; // jamais une liste périmée

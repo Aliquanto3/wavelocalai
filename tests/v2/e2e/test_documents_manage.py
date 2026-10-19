@@ -393,6 +393,46 @@ def test_a_refused_embedding_change_says_to_clear_first_and_offers_the_button(ba
     assert api_documents(page, server)["documents"] == []
 
 
+def test_the_settings_clear_button_is_disabled_too_during_an_import(docs_409):
+    """Le « Vider » offert après un changement d'embedding refusé suit le même verrou que celui du
+    tableau (décision n° 13) : désactivé pendant un import, avec la même raison."""
+    page, server = docs_409
+    import_files(page, txt("prete.txt", "Un texte court."), summary="1 extrait ajouté")
+    refused = {
+        "code": "embedding_change_needs_clear",
+        "message": "Changer de modèle d'embedding rendrait inutilisables les extraits déjà "
+        "indexés.",
+        "action": "Videz d'abord la base documentaire, puis enregistrez le nouveau modèle.",
+        "detail": {"technical": None, "current": "fake-embed:16", "requested": "autre:1"},
+    }
+    page.route(
+        "**/api/rag/settings",
+        lambda r: (
+            r.fulfill(status=409, content_type="application/json", body=json.dumps(refused))
+            if r.request.method == "PUT"
+            else r.continue_()
+        ),
+    )
+    open_settings(page)
+    page.get_by_label("Modèle de représentation").select_option("")
+    page.get_by_role("button", name="Enregistrer les réglages").click()
+    clear = page.locator("details.docs-settings").get_by_role(
+        "button", name="Vider la base documentaire"
+    )
+    clear.wait_for()
+    assert clear.is_enabled()
+    script_embedder(server, page, {"sleep_s": 2})
+    choose(page, txt("lente.txt"))
+    reason = page.locator(".docs-lock-note")
+    reason.wait_for()
+    assert clear.is_disabled()
+    assert clear.get_attribute("aria-describedby") == reason.get_attribute("id")
+    wait_summary(page, "5 extraits ajoutés")
+    reason.wait_for(state="hidden")
+    assert clear.is_enabled() and clear.get_attribute("aria-describedby") is None
+    assert api_documents(page, server)["totals"]["documents"] == 2
+
+
 # --- Charte et accessibilité --------------------------------------------------------------------
 
 

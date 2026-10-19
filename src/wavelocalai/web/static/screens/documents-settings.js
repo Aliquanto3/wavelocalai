@@ -204,5 +204,13 @@ export function createSettings({ onClear, say }) {
     pending = null;
   });
 
-  return { el: root, load };
+  // Pendant un import, « Vider » est désactivé comme celui du tableau (décision n° 13) : la raison
+  // est la phrase `describedBy` de l'écran Base.
+  function setLocked(locked, describedBy) {
+    clear.disabled = locked;
+    if (locked) clear.setAttribute("aria-describedby", describedBy);
+    else clear.removeAttribute("aria-describedby");
+  }
+
+  return { el: root, load, setLocked };
 }

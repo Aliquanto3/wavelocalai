@@ -36,7 +36,8 @@ export function modelNotes({ picker, strategy }) {
       const weak =
         strategy() === "self_rag" &&
         Number.isFinite(min) &&
-        model?.origin === "local" &&
+        model != null &&
+        model.origin !== "cloud" && // local, ou d'origine inconnue : comme `is_weak_judge`
         (model.params_active_b == null || model.params_active_b < min);
       show(verify, weak ? t("discussion.verify_weak", { name: model.name, min: formatNumber(min) }) : null);
     },

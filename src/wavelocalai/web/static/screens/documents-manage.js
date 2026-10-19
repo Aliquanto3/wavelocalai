@@ -60,7 +60,7 @@ export function createManage({ dialog, problem, getData, refresh, fallbackFocus,
   }
 
   async function deleteDocument(doc) {
-    if (working) return;
+    if (working || isLocked?.()) return; // bouton désactivé pendant un import : le serveur reste juge
     working = true;
     problem.error = null;
     try {
@@ -97,7 +97,7 @@ export function createManage({ dialog, problem, getData, refresh, fallbackFocus,
   // Rend vrai si la base a été vidée.
   async function clearBase() {
     const data = getData();
-    if (working || !data) return false;
+    if (working || !data || isLocked?.()) return false; // pendant un import (décision n° 13)
     working = true;
     problem.error = null;
     try {
