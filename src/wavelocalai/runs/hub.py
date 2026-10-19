@@ -716,7 +716,9 @@ class RunHub:
         l'extrait n'existe plus (document supprimé)."""
         run = self._runs.get(run_id)
         if run is not None:
-            return [e.envelope(run_id) for e in run.events if e.seq > after]
+            # `seq` = rang + 1 (`_append`) : une tranche, pas un parcours de tout le run à chaque
+            # relecture (un `pull` de plusieurs heures garde des milliers de `pull_progress`).
+            return [e.envelope(run_id) for e in run.events[max(0, after) :]]
         rows = await self.store.aread(
             "SELECT seq, type, ts, data FROM run_events WHERE run_id = ? AND seq > ? ORDER BY seq",
             (run_id, after),

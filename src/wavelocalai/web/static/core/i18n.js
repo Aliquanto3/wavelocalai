@@ -23,6 +23,7 @@ export const TEXT_FILES = [
   "discussion",
   "docs",
   "arena",
+  "models",
   "sobriety",
 ];
 
