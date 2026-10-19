@@ -10,6 +10,12 @@ officiel, jamais redessiné à la main. tests/v2/unit/test_shell_static.py véri
 (grille de 960 unités, commune à Outlined, Rounded et Sharp) et l'empreinte de chaque tracé relu
 à l'import : la variante Rounded est attestée par cette relecture, pas prouvée par le test.
 
+Exception connue (story 3.2) : 8 symboles (i-hourglass-empty, i-sync, i-edit, i-gavel, i-timer,
+i-block, i-open-in-full, i-close-fullscreen) sont des Material Icons (Filled, viewBox 0 0 24 24,
+Apache 2.0), ajoutés faute de jeu Rounded hors ligne. Ils figurent dans PENDING_ROUNDED du test,
+avec leur empreinte, et sont à remplacer par le sprite officiel Material Symbols Rounded fourni
+par Anaël.
+
 
                                  Apache License
                            Version 2.0, January 2004

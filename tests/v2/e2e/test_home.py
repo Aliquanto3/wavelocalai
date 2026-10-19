@@ -338,9 +338,13 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     assert "Arène" in links.first.inner_text()
     assert "Comparer plusieurs petits modèles" in links.first.inner_text()
     assert f"question{NBSP}:" in links.first.inner_text()
-    # Pas de carte « Démo recommandée » ni « Assistant documentaire » avant les Epics 3 et 4.
+    # D-10 : le nom court, le nom long et le résumé de chaque module disponible.
+    assert links.nth(1).locator(".home-module-name").inner_text() == "Documents"
+    assert links.nth(1).locator(".home-module-long").inner_text() == "Assistant documentaire"
+    assert links.first.locator(".home-module-name").inner_text() == "Arène"
+    assert links.first.locator(".home-module-long").inner_text() == "Arène des modèles"
+    # Pas de carte « Démo recommandée » : l'Accueil ne propose que les liens de modules.
     assert home.get_by_text("Démo recommandée").count() == 0
-    assert home.get_by_text("Assistant documentaire").count() == 0
 
 
 # Nom court du menu, nom long (EXPERIENCE.md, D-10), lien (premier écran du module).
