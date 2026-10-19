@@ -46,6 +46,11 @@
       "unavailable": "La liste des modèles n'est pas disponible pour le moment.",
       "launch": "Lancer une comparaison"
     },
+    "references": {
+      "name": "Références",
+      "long": "Quel modèle pour quel usage ?",
+      "summary": "Part de réussite {score} : {model} ({usage}), d'après {source}."
+    },
     "modules_title": "Modules",
     "documents_indexed_one": "{n} document indexé",
     "documents_indexed_other": "{n} documents indexés",

@@ -18,6 +18,11 @@ export const arenaModule = {
       load: () => import("../../screens/arena.js"),
     },
     { id: "arena-bench", path: "/arene/banc", param: "run_id", status: "planned" },
-    { id: "arena-references", path: "/arene/references", status: "planned" },
+    {
+      id: "arena-references",
+      path: "/arene/references",
+      status: "available",
+      load: () => import("../../screens/references.js"),
+    },
   ],
 };

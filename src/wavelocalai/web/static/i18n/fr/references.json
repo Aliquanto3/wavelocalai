@@ -1,0 +1,60 @@
+{
+  "references": {
+    "lead": "Quel modèle pour quel usage ? Les mesures viennent du banc slm-quality-bench : rien n'est recalculé ni téléchargé ici.",
+    "title": "Quel modèle pour quel usage ?",
+    "source": "Source : {source} {version}, publiée le {date}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
+    "source_no_date": "Source : {source} {version}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
+    "no_reference_machine": "Source : {source} {version}. Le banc ne publie aucun poste de 16 Go sans carte graphique : les débits sont inconnus.",
+    "gpu_none": "sans carte graphique",
+    "memory_value": "{value} Go",
+    "segment_label": "Affichage des références",
+    "cards": "Cartes",
+    "table": "Tableau",
+    "loading": "Lecture des résultats du banc…",
+    "failed": "Les références n'ont pas pu être lues.",
+    "failed_action": "Rechargez la page ; si le problème persiste, signalez-le.",
+    "ollama_down": "Ollama ne répond pas : les marques « installé » et « autre version » ne sont pas affichées.",
+    "unavailable_title": "Références indisponibles",
+    "card": {
+      "best_group": "Groupe des meilleurs",
+      "best_one": "Meilleur modèle",
+      "tie": "À égalité statistique : aucun rang n'est donné dans ce groupe.",
+      "alone": "Seul modèle devant les autres, intervalle compris.",
+      "score": "Part de réussite {value}",
+      "interval": "intervalle : entre {low} et {high}",
+      "interval_unknown": "intervalle non publié",
+      "rate": "{rate} sur le poste de référence",
+      "rate_unknown": "débit inconnu sur le poste de référence",
+      "energy": "{value} Wh pour {count} tokens, mesurés",
+      "compare": "Comparer ces modèles",
+      "compare_hint": "Ouvre l'Arène avec {count}."
+    },
+    "mark": {
+      "installed": "installé",
+      "other_version": "autre version"
+    },
+    "col": {
+      "model": "Modèle",
+      "usage": "Usage",
+      "group": "Groupe",
+      "score": "Part de réussite",
+      "interval": "Intervalle",
+      "rate": "Débit (poste de référence)",
+      "energy": "Énergie (Wh pour 1 000 tokens)",
+      "here": "Sur ce poste"
+    },
+    "group": {
+      "best": "Meilleurs, à égalité",
+      "best_one": "Meilleur",
+      "other": "Hors du groupe",
+      "none": "non classé"
+    },
+    "unranked": "non classé",
+    "energy_none": "non mesurée",
+    "here_none": "non installé",
+    "here_unknown": "non vérifié",
+    "caption": "Résultats du banc par usage et par modèle",
+    "announce_table": "Affichage en tableau.",
+    "announce_cards": "Affichage en cartes."
+  }
+}

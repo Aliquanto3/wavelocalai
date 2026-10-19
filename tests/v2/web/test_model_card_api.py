@@ -45,9 +45,18 @@ TAGS = ["mid:7b", "small:1b", "other:4b"]
 
 
 @contextlib.asynccontextmanager
-async def card_app(tmp_path: Path, *, with_bench: bool = True, available_gb: float = 12.0, **fake):
+async def card_app(
+    tmp_path: Path,
+    *,
+    with_bench: bool = True,
+    bench_data: dict | None = None,
+    available_gb: float = 12.0,
+    **fake,
+):
     bench = tmp_path / "slm-quality-results.json"
-    if with_bench:
+    if bench_data is not None:  # un fichier de résultats propre au test (story 5.8)
+        bench.write_text(json.dumps(bench_data), encoding="utf-8")
+    elif with_bench:
         shutil.copy(FIXTURE, bench)
     catalog = tmp_path / "catalog.json"
     catalog.write_text(json.dumps(CATALOG), encoding="utf-8")

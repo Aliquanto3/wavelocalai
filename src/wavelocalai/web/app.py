@@ -58,6 +58,7 @@ from wavelocalai.web import (
     routes_models,
     routes_rag,
     routes_rag_base,
+    routes_references,
     routes_runs,
     routes_system,
     routes_test,
@@ -374,5 +375,6 @@ def create_app(
     if settings.testing:  # commande de test : jamais hors `WAVELOCALAI_TESTING`
         app.include_router(routes_test.router)
     app.include_router(routes_models.router)
+    app.include_router(routes_references.router)
     mount_shell(app)
     return app

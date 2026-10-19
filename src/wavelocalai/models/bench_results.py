@@ -191,6 +191,15 @@ class BenchMatch:
     results: tuple[BenchResult, ...]
 
 
+def usage_score(result: BenchResult, usage: str) -> QualityScope | None:
+    """La mesure d'un usage dans un résultat : `None` si le jeu ne le couvre pas, si le score est
+    `null` ou s'il est provisoire (`writing`) : un tel modèle est « non classé » pour cet usage."""
+    scope = result.quality.usages.get(usage)
+    if scope is None or scope.score is None or scope.status == "provisional":
+        return None
+    return scope
+
+
 def _order(track: str) -> int:
     return TRACK_ORDER.index(track) if track in TRACK_ORDER else len(TRACK_ORDER)
 
@@ -251,10 +260,17 @@ class LoadedBench:
         )
         return BenchMatch(model=model, version=version, results=results)
 
-    def best_result(self, match: BenchMatch, machine_id: str) -> BenchResult | None:
+    def best_result(
+        self, match: BenchMatch, machine_id: str, usage: str | None = None
+    ) -> BenchResult | None:
         """Le résultat à montrer pour un poste : piste sans raisonnement d'abord, puis complet, puis
-        la campagne la plus récente."""
-        rows = [r for r in match.results if r.machine == machine_id]
+        la campagne la plus récente. Avec `usage` : seulement les résultats qui ont un score publié
+        (et pas provisoire) pour cet usage."""
+        rows = [
+            r
+            for r in match.results
+            if r.machine == machine_id and (usage is None or usage_score(r, usage) is not None)
+        ]
         if not rows:
             return None
         return min(

@@ -267,7 +267,6 @@ ROUTES = [
 ]
 # Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
 MOCKUP_ROUTES = {
-    "/arene/references": None,
     "/arene/banc": "run_id",
     "/documents/evaluation": "run_id",
     "/agents/equipe": "run_id",
@@ -294,10 +293,10 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_arena_document_sobriety_and_models_screens_are_available_so_far():
+def test_only_the_home_chat_arena_references_document_sobriety_and_models_screens_are_available():
     text = registry_text()
-    assert text.count('status: "available"') == 7
-    assert text.count('status: "planned"') == len(ROUTES) - 7
+    assert text.count('status: "available"') == 8
+    assert text.count('status: "planned"') == len(ROUTES) - 8
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
     # `#/modeles/<tag>` (fiche d'un modèle, story 5.6) : l'écran Modèles a son `param` de chemin.
     assert re.search(
@@ -312,12 +311,15 @@ def test_only_the_home_chat_arena_document_sobriety_and_models_screens_are_avail
     assert re.search(
         r'id: "documents-base",\s*path: "/documents/base",\s*status: "available"', text
     )
+    assert re.search(
+        r'id: "arena-references",\s*path: "/arene/references",\s*status: "available"', text
+    )
 
 
 def test_the_mockup_routes_are_planned_with_their_path_parameter():
-    """D-8 : `#/arene/references`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`,
-    et `#/agents/equipe/<run_id>` existent, `planned`, sans écran ni `load` (`#/modeles/<tag>` :
-    story 5.6)."""
+    """D-8 : `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>` et `#/agents/equipe/<run_id>`
+    existent, `planned`, sans écran ni `load` (`#/modeles/<tag>` : story 5.6 ; `#/arene/references` :
+    story 5.8)."""
     text = registry_text()
     for path, param in MOCKUP_ROUTES.items():
         declaration = re.search(
@@ -372,8 +374,9 @@ def symbol_viewboxes(sprite: str) -> dict[str, str]:
     return dict(re.findall(r'<symbol id="(i-[\w-]+)" viewBox="([^"]+)"', sprite))
 
 
-# Exceptions connues : 8 symboles Material Icons (Filled, viewBox 0 0 24 24) ajoutés au sprite par la
-# story 3.2, faute de jeu Rounded hors ligne. À remplacer par le sprite officiel Material Symbols
+# Exceptions connues : 9 symboles Material Icons (Filled, viewBox 0 0 24 24) ajoutés au sprite par les
+# stories 3.2 (8) et 5.8 (`i-leaderboard`, l'icône de la carte Références), faute de jeu Rounded hors
+# ligne. À remplacer par le sprite officiel Material Symbols
 # Rounded fourni par Anaël ; la liste ne doit que se réduire (test_the_pending_list_does_not_grow).
 PENDING_ROUNDED = {
     "i-hourglass-empty": "6767bcdf2d5c3f8c",
@@ -384,6 +387,7 @@ PENDING_ROUNDED = {
     "i-block": "f5021ac956f4e62f",
     "i-open-in-full": "a4294de3eab5dbef",
     "i-close-fullscreen": "703592e1185ac599",
+    "i-leaderboard": "17096730aefe214b",
 }
 
 
@@ -410,7 +414,7 @@ def test_every_icon_the_front_uses_is_in_the_sprite_and_the_sprite_is_rounded_on
 
 def test_the_pending_list_does_not_grow():
     """Aucun symbole de plus n'entre dans les exceptions sans qu'on modifie ce test exprès."""
-    assert len(PENDING_ROUNDED) == 8
+    assert len(PENDING_ROUNDED) == 9
     assert all(name.startswith("i-") for name in PENDING_ROUNDED)
 
 
@@ -580,17 +584,21 @@ def test_the_front_computes_no_measure_and_names_no_host():
 def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_text_is_used():
     """Les cartes d'état de l'Accueil lisent le store rempli par le flux (AD-6) et ne calculent rien.
     `home.js` n'appelle que le résumé de la base documentaire (story 4.9) ; la carte « Démo
-    recommandée » (story 3.6, `home-demo.js`) ne lit que la liste des modèles et le défaut `arena`.
-    Les deux attendent le repère `shell-ready` avant d'appeler l'API (AD-15). Le catalogue ne garde
+    recommandée » (story 3.6, `home-demo.js`) ne lit que la liste des modèles et le défaut `arena`,
+    et la carte « Références » (story 5.8, `home-references.js`) que `GET /api/references`.
+    Les trois attendent le repère `shell-ready` avant d'appeler l'API (AD-15). Le catalogue ne garde
     aucun texte `home.*` qu'il n'affiche pas (un texte au pluriel compte par sa base)."""
     text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
     demo = (STATIC / "screens/home-demo.js").read_text(encoding="utf-8")
-    for source in (text, demo):
+    references = (STATIC / "screens/home-references.js").read_text(encoding="utf-8")
+    for source in (text, demo, references):
         assert "fetch(" not in source and "EventSource" not in source
         assert 'from "../core/shell-ready.js"' in source and "await shellReady()" in source
     assert re.findall(r"\bapi\.(?!js)(\w+)", text) == ["documents"]
     assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
-    text += demo
+    assert re.findall(r"\bapi\.(\w+)\(", references) == ["references"]
+    assert 'REFERENCES_ICON = "leaderboard"' in references and 'icon("swords")' not in references  # sa propre icône
+    text += demo + references
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
     literal = {key for key in named if "${" not in key}
