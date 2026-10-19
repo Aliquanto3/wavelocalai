@@ -13,6 +13,9 @@ d'étapes, chacune un objet à une clé principale :
 `POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
 `POST /api/test/chat-model` fixe le script du `fake` pour les prochaines commandes réelles
 (`POST /api/rag/runs`, `POST /api/chat/runs`), jusqu'au prochain appel (story 4.5).
+`POST /api/test/reranker` remplace le reranker de l'app par un `FakeReranker` (`lexical` ou
+`reverse`, `delay_s`), ou le déclare indisponible (`absent`, avec sa `reason`) ; `GET` rend les
+calculs qu'il a faits (story 4.7).
 
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
@@ -50,6 +53,7 @@ from wavelocalai.models.port import (
     TextDelta,
 )
 from wavelocalai.models.registry import ModelRegistry
+from wavelocalai.rag.rerank import FakeReranker
 from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, Co2, RunHandle
 
 router = APIRouter(prefix="/api/test")
@@ -172,6 +176,31 @@ async def script_chat_model(body: ScriptedChatModel, request: Request) -> dict[s
     model.scripts = [parse_script(script) for script in body.scripts]
     model.opened = 0  # les scripts par appel repartent du premier
     return {"steps": len(model.script)}
+
+
+class ScriptedReranker(BaseModel):
+    mode: Literal["lexical", "reverse", "absent"] = "lexical"
+    delay_s: float = Field(default=0.0, ge=0.0, le=MAX_SLEEP_S)
+    reason: str = "le modèle de test n'est pas dans le cache"  # pour `absent`
+
+
+@router.post("/reranker")
+async def script_reranker(body: ScriptedReranker, request: Request) -> dict[str, Any]:
+    """Un reranker factice pour les prochaines questions (aucun modèle, aucun réseau)."""
+    service = request.app.state.reranker
+    if body.mode == "absent":
+        service.preset(None, body.reason)
+    else:
+        service.preset(FakeReranker(body.mode, body.delay_s))
+    return {"available": service.status().available}
+
+
+@router.get("/reranker")
+async def reranker_calls(request: Request) -> dict[str, Any]:
+    """Les calculs du `FakeReranker` : `(question, nombre de textes)` de chacun, dans l'ordre."""
+    reranker = request.app.state.reranker.loaded
+    calls = reranker.calls if isinstance(reranker, FakeReranker) else []
+    return {"calls": [{"question": question, "texts": count} for question, count in calls]}
 
 
 class ScriptedLane(BaseModel):

@@ -57,6 +57,7 @@ export function createSettings({ onClear, say }) {
     field(topK.id, t("docs.top_k"), topK, t("docs.top_k_help")),
     field(strategy.id, t("docs.strategy"), strategy),
   );
+  const rerankLine = element("p", "docs-rerank");
   const volatile = element("p", "docs-notice", t("docs.index_volatile"));
   volatile.hidden = true;
   const problem = document.createElement("wl-error");
@@ -65,7 +66,7 @@ export function createSettings({ onClear, say }) {
   clear.hidden = true;
   const form = element("form", "docs-settings-form");
   form.noValidate = true;
-  form.append(fields, volatile, problem, clear, save);
+  form.append(fields, rerankLine, volatile, problem, clear, save);
 
   const summary = element("summary", "docs-settings-summary", t("docs.settings_loading"));
   const root = element("details", "docs-settings");
@@ -101,9 +102,16 @@ export function createSettings({ onClear, say }) {
     chunkSize.value = String(current.chunk_size);
     topK.value = String(current.top_k);
     volatile.hidden = current.index.persistent !== false;
+    // Reclassement par un reranker local (story 4.7) : l'état et la raison viennent du serveur.
+    const rerank = current.reranker;
+    rerankLine.textContent = rerank?.available
+      ? t("docs.rerank_line_on", { model: rerank.model })
+      : t("docs.rerank_line_off", { reason: rerank?.reason ?? "" });
+    rerankLine.hidden = !rerank;
     save.disabled = false;
     summary.textContent = t("docs.settings_summary", {
       embedding: shownModel ? nameOf(shownModel) : t("docs.embedding_default"),
+      rerank: t(`docs.rerank_${rerank?.available ? "on" : "off"}`),
       k: plural("docs.settings_extracts", current.top_k),
       strategy: t(`docs.strategy_${current.strategy}`),
     });

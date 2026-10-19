@@ -6,7 +6,8 @@
 // `first-stage="retrieving"`) ou, pour HyDE, par « Rédaction d'une réponse hypothétique… »
 // (`first-stage="hypothesizing"`), jusqu'à `sources` ; `retrieval_step`, publié à la fin de chaque
 // étape, dit la suivante : la recherche, et pour Self-RAG, après chaque recherche, « Vérification de
-// la pertinence… ». Le chronomètre est le seul chiffre calculé ici (AD-20) : il part de
+// la pertinence… ». Quand un reranker local est là, l'étape `search` porte `reranking: true` : le
+// serveur annonce ainsi que « Reclassement… » commence (le front ne devine rien). Le chronomètre est le seul chiffre calculé ici (AD-20) : il part de
 // l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
 // appellent `POST /api/runs/{id}/cancel` ; le run se termine par son propre `run_ended`.
 //
@@ -35,6 +36,7 @@ const STAGE_TEXT = {
   retrieving: "components.run_status.retrieving",
   hypothesizing: "components.run_status.hypothesizing",
   verifying: "components.run_status.verifying",
+  reranking: "components.run_status.reranking",
   loading: "components.run_status.loading",
   generating: "components.run_status.generating",
   stopping: "components.run_status.stopping",
@@ -49,8 +51,12 @@ const FIRST_STAGES = ["retrieving", "hypothesizing"]; // valeurs de l'attribut `
 // Étape qui suit une étape de recherche terminée : Self-RAG note les extraits après chaque
 // recherche, tout le reste continue de chercher (la réponse hypothétique de HyDE vient d'être
 // rédigée, la question reformulée ou vectorisée) jusqu'à `sources`.
+// Un reclassement annoncé (`search` avec `reranking`) se dit pendant qu'il tourne ; son étape
+// `rerank` terminée, la suite est celle de la stratégie.
 function stageAfter(step) {
-  return step?.strategy === "self_rag" && step.step === "search" ? "verifying" : "retrieving";
+  if (step?.step === "search" && step.reranking) return "reranking";
+  const searched = step?.step === "search" || step?.step === "rerank";
+  return step?.strategy === "self_rag" && searched ? "verifying" : "retrieving";
 }
 
 export class WlRunStatus extends HTMLElement {

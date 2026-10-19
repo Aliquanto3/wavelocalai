@@ -274,6 +274,21 @@ Certaines télémétries dépendent de plusieurs variables, dont chacune suffit 
 - CrewAI reste coupé tant que `CREWAI_DISABLE_TELEMETRY` ou `OTEL_SDK_DISABLED` vaut `true` : définir les deux (`CREWAI_DISABLE_TELEMETRY=false` et `OTEL_SDK_DISABLED=false`). `OTEL_SDK_DISABLED=false` réactive aussi tout autre SDK OpenTelemetry du processus.
 - Hugging Face lit aussi `DO_NOT_TRACK` : définir `HF_HUB_DISABLE_TELEMETRY=0` et `DO_NOT_TRACK=0`. `DO_NOT_TRACK=0` lève l'opt-out pour toutes les bibliothèques qui lisent cette convention, pas seulement pour Hugging Face.
 
+### Reranker local de la v2 (optionnel)
+
+La v2 (`wavelocalai-v2`, port 8502) peut reclasser les extraits trouvés avec un reranker local (fastembed, ONNX). **Elle ne télécharge jamais rien** : le reranker ne sert que s'il est déjà dans le dossier `data/models/fastembed` (sous le dossier de données de `wavelocalai.toml`). Sans lui, la recherche garde l'ordre des vecteurs, et « Réglages avancés » de la Discussion dit pourquoi (« Reclassement indisponible : … »).
+
+Pour l'activer, deux actions explicites de votre part, hors de l'application :
+
+```bash
+# 1. Installer l'extra (fastembed)
+uv sync --extra rerank
+# 2. Remplir le cache une fois (télécharge le modèle, environ 1 Go, avec accès au réseau)
+uv run --extra rerank python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='jinaai/jina-reranker-v2-base-multilingual', cache_dir='data/models/fastembed')"
+```
+
+Le modèle se règle dans `[rag] reranker_model` de `wavelocalai.toml` (multilingue par défaut, pour des documents en français) ; le nom donné au script ci-dessus doit être le même. La récupération depuis l'écran Modèles viendra avec l'Epic 5. Pour jouer le test d'intégration, qui saute sans le cache : `python -m pytest tests/v2/integration/test_rag_rerank_local.py`.
+
 ### Ajout d'un Nouveau Modèle
 
 Éditer `data/models.json` :

@@ -13,6 +13,12 @@ sources, `citations`. Chaque étape est publiée à sa **fin**, quand sa durée 
 partent donc avant le premier `token`. Étapes : `naive` = `embedding`, `search` ; `hyde` =
 `hypothesis`, `embedding`, `search` ; `self_rag` = par tour `embedding`, `search`, `grade`, puis
 `rewrite` si aucun extrait n'est pertinent et que la borne n'est pas atteinte (`rag/strategies.py`).
+Quand un reranker local est là (story 4.7, `rag/rerank.py`), chaque recherche prend plus de
+candidats que `top_k`, l'étape `search` porte `reranking: true` et une étape `rerank` (`candidates`,
+`kept`) suit : le reranker note les candidats contre la question et ne garde que les `top_k`
+meilleurs. Sans reranker (extra, modèle absent ou en échec) rien n'est publié de plus : la raison
+vient de `GET /api/rag/settings`. Le calcul du reclassement (CPU, thread) n'a pas de feuille : AD-10
+ne mesure que les `embedding` et `generation`.
 
 `sources` est persisté sans `text` ; le hub le réhydrate depuis `chunks` au rejeu (AD-7).
 `runs.params` ne reçoit ni la question ni les extraits (AD-7) : la question vit dans `messages`.
@@ -44,6 +50,7 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.embedding_leaf import embed_into_leaf, leaf_error
 from wavelocalai.rag.index import VectorIndex
 from wavelocalai.rag.passage import pick_passage, relevance_label, similarity
+from wavelocalai.rag.rerank import RerankerService
 from wavelocalai.rag.settings import effective
 from wavelocalai.rag.strategies import (
     MAX_TOP_K,
@@ -53,6 +60,8 @@ from wavelocalai.rag.strategies import (
     hyde_request,
     merge_best,
     parse_grade,
+    rerank_pool,
+    rerank_top,
     rewrite_request,
     verify_citations,
 )
@@ -103,10 +112,12 @@ class _Rag:
 def build_sources(
     found: list[dict[str, Any]], question: str, very_close: float, close: float
 ) -> list[dict[str, Any]]:
-    """Les sources de l'événement `sources` : numéro et rang (1 pour le plus proche), libellé de
-    pertinence, score brut (similarité cosinus, 4 décimales) et passage à surligner (D-21)."""
-    return [
-        {
+    """Les sources de l'événement `sources` : numéro et rang (1 pour le plus proche, ou le mieux
+    classé par le reranker), libellé de pertinence, score brut (similarité cosinus, 4 décimales) et
+    passage à surligner (D-21) ; `rerank_score` en plus quand un reranker a reclassé l'extrait."""
+    sources = []
+    for rank, item in enumerate(found, 1):
+        source = {
             "n": rank,
             "doc_id": item["doc_id"],
             "document": item["document"],
@@ -118,8 +129,10 @@ def build_sources(
             "raw_score": round(similarity(item["distance"]), 4),
             "passage": pick_passage(question, item["text"]),
         }
-        for rank, item in enumerate(found, 1)
-    ]
+        if "rerank_score" in item:
+            source["rerank_score"] = item["rerank_score"]
+        sources.append(source)
+    return sources
 
 
 def build_request(question: str, sources: list[dict[str, Any]]) -> ChatRequest:
@@ -148,6 +161,7 @@ class RagService:
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
         preferences: PreferenceStore | None = None,
+        reranker: RerankerService | None = None,
     ) -> None:
         self._hub = hub
         self._store: Store = hub.store
@@ -157,6 +171,7 @@ class RagService:
         self._settings = settings
         self._index = index
         self._preferences = preferences  # `top_k` choisi à l'écran (AD-15), prime sur le .toml
+        self._reranker = reranker  # sans reranker (ou indisponible), l'ordre des vecteurs reste
         self._meter = meter  # sans compteur, le CO2 d'une feuille locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
@@ -334,12 +349,48 @@ class RagService:
         )
         embedded = time.perf_counter()
         self._step(root, run.strategy, "embedding", embedded - started, round=round_)
+        reranking = self._reranker is not None and self._reranker.status().available
+        pool = rerank_pool(run.top_k) if reranking else run.top_k
         found = await self._store.aread_with(
-            lambda conn: repo.search_chunks(conn, self._index, vectors[0], run.top_k),
+            lambda conn: repo.search_chunks(conn, self._index, vectors[0], pool),
             vec=self._store.vec_available,
         )
-        self._step(root, run.strategy, "search", time.perf_counter() - embedded, round=round_)
-        return found
+        self._step(
+            root,
+            run.strategy,
+            "search",
+            time.perf_counter() - embedded,
+            round=round_,
+            reranking=True if reranking and len(found) > 1 else None,
+        )
+        if reranking and len(found) > 1:
+            found = await self._rerank(run, found, round_)
+        return found[: run.top_k]
+
+    async def _rerank(
+        self, run: _Rag, found: list[dict[str, Any]], round_: int | None
+    ) -> list[dict[str, Any]]:
+        """Le reclassement des candidats contre **la question** (pas l'hypothèse de HyDE ni une
+        reformulation) : les `top_k` mieux notés, étape `rerank`. Un reranker qui échoue en route
+        (chargement, calcul) laisse l'ordre des vecteurs, et l'étape le dit (`fallback`)."""
+        assert self._reranker is not None
+        started = time.perf_counter()
+        scores = await self._reranker.score(run.question, [item["text"] for item in found])
+        extra: dict[str, Any] = {"round": round_, "candidates": len(found)}
+        if scores is None:
+            extra["fallback"] = "unavailable"
+            kept = found[: run.top_k]
+        else:
+            kept = rerank_top(found, scores, run.top_k)
+        self._step(
+            run.handle.run_id,
+            run.strategy,
+            "rerank",
+            time.perf_counter() - started,
+            kept=len(kept),
+            **extra,
+        )
+        return kept
 
     async def _hyde(self, run: _Rag, secrets: Sequence[str]) -> list[dict[str, Any]]:
         """HyDE : le modèle rédige un passage hypothétique, la recherche s'appuie sur lui. Sans

@@ -35,6 +35,7 @@ from wavelocalai.rag.index import select_index
 from wavelocalai.rag.ingest import IngestService
 from wavelocalai.rag.manage import RagBaseService
 from wavelocalai.rag.query import RagService
+from wavelocalai.rag.rerank import RerankerService, cache_dir
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
@@ -149,6 +150,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         meter=app.state.meter,
         bus=app.state.system_feed,
         preferences=app.state.preferences,
+        reranker=app.state.reranker,
     )
     app.state.ingest = IngestService(
         hub,
@@ -163,7 +165,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         preferences=app.state.preferences,
     )
     app.state.rag_base = RagBaseService(
-        hub, app.state.registry, settings, index, app.state.preferences
+        hub, app.state.registry, settings, index, app.state.preferences, app.state.reranker
     )
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
@@ -237,6 +239,11 @@ def create_app(
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
     app.state.arena = None  # service de l'Arène, idem
+    # Reranker local (story 4.7, AD-17) : ne charge ni n'importe rien tant qu'aucune question ne le
+    # demande ; jamais de téléchargement.
+    app.state.reranker = RerankerService(
+        settings.rag.reranker_model, cache_dir(settings.data_dir), env_file=settings.env_file
+    )
     app.state.registry = registry or ModelRegistry(
         settings,
         extra_refs={

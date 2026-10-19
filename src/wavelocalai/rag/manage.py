@@ -28,6 +28,7 @@ from wavelocalai.errors import AppError
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.rag import repo
 from wavelocalai.rag.index import SqliteVecIndex, VectorIndex
+from wavelocalai.rag.rerank import RerankerService
 from wavelocalai.rag.settings import (
     CHUNK_SIZE_RANGE,
     PREF_KEY,
@@ -86,7 +87,9 @@ class RagBaseService:
         settings: Settings,
         index: VectorIndex,
         preferences: PreferenceStore,
+        reranker: RerankerService | None = None,
     ) -> None:
+        self._reranker = reranker  # son état figure dans les réglages (story 4.7)
         self._hub = hub
         self._store: Store = hub.store
         self._registry = registry
@@ -182,7 +185,12 @@ class RagBaseService:
 
     async def settings_view(self) -> dict[str, Any]:
         return await _settings_view(
-            self._settings, self._preferences, self._store, self._registry, self._index
+            self._settings,
+            self._preferences,
+            self._store,
+            self._registry,
+            self._index,
+            self._reranker,
         )
 
     def _toml_embedder(self) -> str | None:
@@ -240,8 +248,10 @@ async def _settings_view(
     store: Store | None,
     registry: ModelRegistry | None,
     index: VectorIndex | None,
+    reranker: RerankerService | None,
 ) -> dict[str, Any]:
     tun = effective(settings.rag, preferences)
+    rerank = reranker.status() if reranker is not None else None
     base: dict[str, Any] = {"embedding_model": None, "documents": 0, "chunks": 0}
     if store is not None:
         totals = (await store.aread(repo.TOTALS_SQL))[0]
@@ -266,11 +276,20 @@ async def _settings_view(
         "strategies": list(STRATEGIES),
         "limits": _limits(),
         "index": {"persistent": index.persistent if index is not None else True},
+        # Reclassement par un reranker local (story 4.7) : `reason` dit pourquoi il est indisponible.
+        "reranker": {
+            "model": settings.rag.reranker_model,
+            "available": rerank.available if rerank is not None else False,
+            "reason": rerank.reason if rerank is not None else "reranker non démarré",
+        },
     }
 
 
 async def offline_settings_view(
-    settings: Settings, preferences: PreferenceStore | None, registry: ModelRegistry | None
+    settings: Settings,
+    preferences: PreferenceStore | None,
+    registry: ModelRegistry | None,
+    reranker: RerankerService | None = None,
 ) -> dict[str, Any]:
     """La vue des réglages hors du cycle de vie de l'app (pas de store ni d'index)."""
-    return await _settings_view(settings, preferences, None, registry, None)
+    return await _settings_view(settings, preferences, None, registry, None, reranker)

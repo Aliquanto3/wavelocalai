@@ -72,7 +72,9 @@ async def get_settings(request: Request) -> dict[str, Any]:
     state = request.app.state
     service: RagBaseService | None = state.rag_base
     if service is None:  # hors du cycle de vie de l'app : les défauts du `.toml`
-        return await offline_settings_view(state.settings, state.preferences, state.registry)
+        return await offline_settings_view(
+            state.settings, state.preferences, state.registry, state.reranker
+        )
     return await service.settings_view()
 
 

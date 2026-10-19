@@ -68,5 +68,9 @@ top_k = 4
 # Self-RAG (story 4.6) : au plus `self_rag_max_iterations` reformulations de la question (donc au
 # plus 1 + n recherches) ; la borne atteinte, la réponse part avec les meilleurs extraits trouvés.
 self_rag_max_iterations = 2
+# Reranker local (story 4.7) : modèle fastembed lu dans `data/models/fastembed`, jamais téléchargé par
+# l'app. Absent (ou extra `rerank` non installé), la recherche se fait sans reclassement et l'écran
+# dit pourquoi. Remplir le cache : voir le README (« Reranker local »).
+reranker_model = "jinaai/jina-reranker-v2-base-multilingual"
 relevance_very_close = 0.70
 relevance_close = 0.60
