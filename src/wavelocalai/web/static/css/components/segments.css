@@ -1,0 +1,43 @@
+/* Groupe de segments (components/segments.js) : radiogroup, le choix porte l'icône check. Aplat
+   `primary-fill` sous texte blanc (A19). */
+.wl-seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+}
+
+.wl-seg-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-seg-button + .wl-seg-button {
+  border-inline-start: 1px solid var(--color-gray-graphic);
+}
+
+.wl-seg-button:hover {
+  background: var(--color-surface-alt);
+}
+
+.wl-seg-button .icon {
+  display: none;
+}
+
+.wl-seg-button[aria-checked="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.wl-seg-button[aria-checked="true"] .icon {
+  display: inline-block;
+}

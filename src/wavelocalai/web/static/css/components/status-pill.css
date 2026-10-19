@@ -1,0 +1,12 @@
+/* Pastilles d'état : le libellé dit l'état, l'icône et la couleur l'accompagnent seulement. */
+.status-btn[data-state="up"] .icon {
+  color: var(--color-chart-2);
+}
+
+.status-btn[data-state="down"] .icon {
+  color: var(--color-risk);
+}
+
+.status-value {
+  font-variant-numeric: tabular-nums;
+}

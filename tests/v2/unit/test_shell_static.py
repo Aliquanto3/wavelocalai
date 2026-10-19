@@ -12,6 +12,12 @@ from pathlib import Path
 import pytest
 import yaml
 
+from .static_files import catalog as merged_catalog
+from .static_files import (
+    components_css,
+)
+from .static_files import registry_text as merged_registry
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
 DESIGN = ROOT / "_bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md"
@@ -105,17 +111,15 @@ def test_the_drift_test_fails_when_a_token_is_missing():
 
 
 def test_css_outside_tokens_has_no_hard_coded_color():
-    for name in (
-        "base.css",
-        "components.css",
-        "screens.css",
-        "chat.css",
-        "arena.css",
-        "documents.css",
-    ):
-        css = (STATIC / name).read_text(encoding="utf-8")
-        assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css), f"{name} : couleur en dur"
-        assert not re.search(r"\b(rgb|hsl)a?\(", css), f"{name} : couleur en dur"
+    # Tous les fichiers CSS, ceux des composants (`css/components/`) et ceux à venir compris.
+    files = [path for path in sorted(STATIC.rglob("*.css")) if path.name != "tokens.css"]
+    assert {"base.css", "button.css", "screens.css", "chat.css", "arena.css"} <= {
+        path.name for path in files
+    }
+    for path in files:
+        css = path.read_text(encoding="utf-8")
+        assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css), f"{path.name} : couleur en dur"
+        assert not re.search(r"\b(rgb|hsl)a?\(", css), f"{path.name} : couleur en dur"
 
 
 # --- Aucun emoji, aucune ressource externe ----------------------------------------------------
@@ -204,7 +208,7 @@ def parse_index() -> _Index:
 
 
 def catalog() -> dict:
-    return json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
+    return merged_catalog()
 
 
 def lookup(key: str):
@@ -273,11 +277,11 @@ MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
 
 def registry_text() -> str:
-    return (STATIC / "core/registry.js").read_text(encoding="utf-8")
+    return merged_registry()
 
 
 def registry_modules() -> list[str]:
-    return re.findall(r"""^ {4}id:\s*"([\w-]+)",\s*\n {4}icon""", registry_text(), re.MULTILINE)
+    return re.findall(r"""^ {2}id:\s*"([\w-]+)",\s*\n {2}icon""", registry_text(), re.MULTILINE)
 
 
 def registry_screens() -> list[str]:
@@ -613,7 +617,7 @@ def test_every_checkbox_of_the_shell_is_a_wl_switch_with_the_check_in_its_thumb(
 
 
 def test_the_switch_css_follows_the_wl_switch_tokens_of_design_md():
-    css = (STATIC / "components.css").read_text(encoding="utf-8")
+    css = components_css()
 
     def rule(selector: str) -> str:
         found = re.search(re.escape(selector) + r"\s*\{(.*?)\}", css, re.DOTALL)

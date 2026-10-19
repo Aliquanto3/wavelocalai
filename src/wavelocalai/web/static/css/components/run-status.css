@@ -1,0 +1,25 @@
+/* wl-run-status : étape, chronomètre, Arrêter */
+.wl-run-status {
+  display: block;
+}
+
+.wl-run-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.wl-run-stage {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wl-run-timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-secondary);
+}
+
+.wl-run-hint {
+  margin: 0;
+}

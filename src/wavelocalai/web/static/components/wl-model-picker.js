@@ -24,30 +24,14 @@
 
 import { api, ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
-import { formatGb, formatNumber, formatRate } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
-import "./wl-badge.js";
+import { buildOption, matchesQuery } from "./model-picker-option.js";
 import "./wl-error.js";
 
 let counter = 0;
 
 const FITS_RANK = (model) => (model.fits === true ? 0 : model.fits == null ? 1 : 2);
-
-// Mots de la saisie : tous doivent figurer dans le nom, le tag, le fournisseur ou l'éditeur.
-function matches(model, query) {
-  const words = query.toLocaleLowerCase("fr-FR").split(/\s+/).filter(Boolean);
-  if (!words.length) return true;
-  const haystack = [model.name, model.tag, model.provider, model.editor]
-    .filter(Boolean)
-    .join(" ")
-    .toLocaleLowerCase("fr-FR");
-  return words.every((word) => haystack.includes(word));
-}
-
-function badgeKind(model) {
-  return ["local", "cloud"].includes(model.origin) ? model.origin : "unknown";
-}
 
 export class WlModelPicker extends HTMLElement {
   static observedAttributes = ["purpose", "label", "multi"];
@@ -327,7 +311,7 @@ export class WlModelPicker extends HTMLElement {
       Number(defaults.has(b.tag)) - Number(defaults.has(a.tag)) ||
       FITS_RANK(a) - FITS_RANK(b) ||
       a.name.localeCompare(b.name, "fr-FR");
-    const shown = this.#models.filter((model) => matches(model, this.#query));
+    const shown = this.#models.filter((model) => matchesQuery(model, this.#query));
     const local = shown.filter((model) => model.origin !== "cloud").sort(order);
     const cloud = store.get().allowCloud
       ? shown.filter((model) => model.origin === "cloud").sort(order)
@@ -474,7 +458,7 @@ export class WlModelPicker extends HTMLElement {
         section.append(
           title,
           ...group.models.map((model) =>
-            this.#option(model, index++, chosen.has(model.tag), defaults.has(model.tag)),
+            this.#optionRow(model, index++, chosen.has(model.tag), defaults.has(model.tag)),
           ),
         );
         return section;
@@ -494,75 +478,14 @@ export class WlModelPicker extends HTMLElement {
     );
   }
 
-  #unavailable(model) {
-    if (model.available) return null;
-    return t(
-      model.origin === "cloud"
-        ? "components.picker.unavailable_cloud"
-        : "components.picker.unavailable_local",
-    );
-  }
-
-  #option(model, index, selected, isDefault) {
-    const disabledReason = this.#unavailable(model);
-    const row = element("div", "wl-picker-option");
-    row.id = this.#optionId(index);
-    row.dataset.tag = model.tag;
-    row.setAttribute("role", "option");
-    row.setAttribute("aria-selected", String(selected));
-    if (disabledReason) row.setAttribute("aria-disabled", "true");
-    if (index === this.#active) row.classList.add("is-active");
-
-    const head = element("span", "wl-picker-option-head");
-    if (this.multi) {
-      const box = element("span", "wl-picker-check");
-      box.setAttribute("aria-hidden", "true");
-      if (selected) box.append(icon("check"));
-      head.append(box);
-    }
-    const badge = document.createElement("wl-badge");
-    badge.setAttribute("kind", badgeKind(model));
-    head.append(element("span", "wl-picker-option-name", model.name), badge);
-    if (isDefault) head.append(element("span", "wl-picker-pill", t("components.picker.default")));
-
-    const meta = element("span", "wl-picker-option-meta");
-    if (model.size_gb != null) meta.append(element("span", "", formatGb(model.size_gb)));
-    const memory = this.#memory(model);
-    if (memory) meta.append(memory);
-    if (model.throughput_tps != null) {
-      meta.append(
-        element("span", "", t("components.picker.throughput", { rate: formatRate(model.throughput_tps) })),
-      );
-    }
-    if (disabledReason) meta.append(element("span", "wl-picker-warning", disabledReason));
-
-    const pills = element("span", "wl-picker-option-pills");
-    if (model.tools_verified) pills.append(element("span", "wl-picker-pill", t("components.picker.tools")));
-    if (model.reasoning) pills.append(element("span", "wl-picker-pill", t("components.picker.reasoning")));
-    if (model.params_active_b != null && model.params_total_b != null && model.params_active_b < model.params_total_b) {
-      pills.append(
-        element("span", "wl-picker-pill", t("components.picker.moe", { active: formatNumber(model.params_active_b) })),
-      );
-    }
-    row.append(head, meta);
-    if (pills.children.length) row.append(pills);
-    return row;
-  }
-
-  // « Tient en mémoire », un avertissement, ou « à vérifier » : jamais un chiffre calculé ici.
-  #memory(model) {
-    if (model.origin === "cloud") return null;
-    if (model.fits === true) return element("span", "wl-picker-fits", t("components.picker.fits"));
-    if (model.fits === false) {
-      const text =
-        model.required_gb != null // le même chiffre que les « nécessaires » d'un refus ram_guard
-          ? t("components.picker.no_fit_need", { needed: formatGb(model.required_gb) })
-          : t("components.picker.no_fit");
-      const warning = element("span", "wl-picker-warning");
-      warning.append(icon("warning"), element("span", "", text));
-      return warning;
-    }
-    return element("span", "", t("components.picker.memory_unknown"));
+  #optionRow(model, index, selected, isDefault) {
+    return buildOption(model, {
+      id: this.#optionId(index),
+      multi: this.multi,
+      active: index === this.#active,
+      selected,
+      isDefault,
+    });
   }
 
   // --- Interaction ----------------------------------------------------------------------------

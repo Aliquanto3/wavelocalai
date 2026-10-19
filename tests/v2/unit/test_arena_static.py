@@ -10,9 +10,11 @@ from pathlib import Path
 
 from wavelocalai.inference.arena import LANE_STATUSES
 
+from .static_files import catalog, read_static
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
-CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
+CATALOG = catalog()
 NEW_SCRIPTS = [
     "screens/arena.js",
     "screens/arena-form.js",
@@ -32,7 +34,7 @@ NEW_SCRIPTS = [
 
 
 def source(name: str) -> str:
-    return (STATIC / name).read_text(encoding="utf-8")
+    return read_static(name)
 
 
 def test_every_arena_text_the_scripts_name_exists_in_the_catalog():

@@ -1,0 +1,15 @@
+/* Bandeaux sous la barre haute */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+}
+
+.banner-risk {
+  border-inline-start-color: var(--color-risk);
+}

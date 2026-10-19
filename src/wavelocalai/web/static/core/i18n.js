@@ -1,19 +1,49 @@
-// Textes de l'interface (AD-20) : static/i18n/fr.json, un seul catalogue. Le HTML garde son texte
-// français (la page se lit même si ce module échoue) ; `data-i18n`, `data-i18n-aria-label` et
-// `data-i18n-title` nomment la clé qui le remplace, et un test compare les deux.
+// Textes de l'interface (AD-20) : un fichier par domaine dans static/i18n/fr/, fusionnés ici sous
+// les mêmes clés qu'un catalogue unique (`t("home.lead")` ne dépend pas du fichier qui la porte).
+// Le HTML garde son texte français (la page se lit même si ce module échoue) ; `data-i18n`,
+// `data-i18n-aria-label` et `data-i18n-title` nomment la clé qui le remplace, et un test compare
+// les deux.
+//
+// Mode d'emploi : une story qui livre un écran écrit ses textes dans son propre fichier
+// (`i18n/fr/<écran>.json`, clé de premier niveau `<écran>`) et ajoute son nom à `TEXT_FILES`
+// ci-dessous, la seule liste. Deux fichiers qui portent la même clé de premier niveau font échouer
+// `tests/v2/unit/test_static_split.py` (jamais d'écrasement silencieux) ; le chargement échoue aussi.
 
 const ATTRIBUTES = [
   ["i18nAriaLabel", "aria-label"],
   ["i18nTitle", "title"],
 ];
 
+// Les fichiers de `static/i18n/fr/` (sans `.json`), chargés en parallèle.
+export const TEXT_FILES = [
+  "shell",
+  "home",
+  "components",
+  "chat",
+  "discussion",
+  "docs",
+  "arena",
+];
+
 let texts = {};
 const warned = new Set();
 
-export async function loadTexts(url = "/static/i18n/fr.json") {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Catalogue de textes indisponible (${response.status}).`);
-  texts = await response.json();
+export async function loadTexts(base = "/static/i18n/fr") {
+  const files = await Promise.all(
+    TEXT_FILES.map(async (name) => {
+      const response = await fetch(`${base}/${name}.json`);
+      if (!response.ok) throw new Error(`Catalogue de textes indisponible (${name}, ${response.status}).`);
+      return [name, await response.json()];
+    }),
+  );
+  const merged = {};
+  for (const [name, part] of files) {
+    for (const key of Object.keys(part)) {
+      if (key in merged) throw new Error(`Clé de textes déclarée deux fois : ${key} (${name}.json).`);
+      merged[key] = part[key];
+    }
+  }
+  texts = merged;
 }
 
 function lookup(key) {

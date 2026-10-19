@@ -43,7 +43,7 @@ def test_page_and_files_forbid_any_resource_outside_the_origin(client):
         ("/static/core/router.js", "text/javascript"),
         ("/static/tokens.css", "text/css"),
         ("/static/icons.svg", "image/svg+xml"),
-        ("/static/i18n/fr.json", "application/json"),
+        ("/static/i18n/fr/shell.json", "application/json"),
         ("/static/fonts/InterVariable.woff2", "font/woff2"),
     ],
 )

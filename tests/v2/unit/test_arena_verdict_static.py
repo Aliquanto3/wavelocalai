@@ -8,14 +8,16 @@ import json
 import re
 from pathlib import Path
 
+from .static_files import catalog, read_static
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
-CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
+CATALOG = catalog()
 NBSP = "\N{NO-BREAK SPACE}"
 
 
 def source(name: str) -> str:
-    return (STATIC / name).read_text(encoding="utf-8")
+    return read_static(name)
 
 
 def code_of(name: str) -> str:

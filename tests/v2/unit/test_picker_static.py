@@ -8,13 +8,15 @@ import json
 import re
 from pathlib import Path
 
+from .static_files import catalog, read_static
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
 SOURCES = {
-    "picker": (STATIC / "components/wl-model-picker.js").read_text(encoding="utf-8"),
+    "picker": read_static("components/wl-model-picker.js"),
     "run_status": (STATIC / "components/wl-run-status.js").read_text(encoding="utf-8"),
 }
-CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))["components"]
+CATALOG = catalog()["components"]
 
 
 def test_every_picker_and_run_status_text_is_used_by_its_component():

@@ -105,6 +105,43 @@ jobs:
     - name: Run v2 Tests
       run: uv run --locked python -m pytest tests/v2
 
+  # Parcours navigateur de la v2 (`tests/v2/e2e`, marqueur `e2e`) : Chromium de Playwright, dans la
+  # version verrouillée par uv.lock. Bloquant comme les autres jobs de tests. Les parcours qui
+  # exigent Ollama ou un vrai modèle sont `integration` et ne tournent pas ici.
+  # La suite dure ~25 min en un seul bloc (mesure locale, Windows) : trois morceaux par fichiers
+  # (un fichier sur trois, dans l'ordre alphabétique), sans dépendance de plus. Un nouveau fichier
+  # de tests tombe de lui-même dans un morceau.
+  test-v2-e2e:
+    name: E2E v2 (ubuntu-latest, Python 3.12, morceau ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v10.3.0
+      with:
+        python-version: '3.12'
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --locked
+
+    - name: Install Chromium (Playwright)
+      run: uv run --locked python -m playwright install --with-deps chromium
+
+    - name: Run v2 E2E Tests (morceau ${{ matrix.shard }}/3)
+      run: |
+        files=$(ls tests/v2/e2e/test_*.py | awk -v n=${{ matrix.shard }} 'NR % 3 == n')
+        echo "Fichiers : $files"
+        uv run --locked python -m pytest $files -m e2e
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
