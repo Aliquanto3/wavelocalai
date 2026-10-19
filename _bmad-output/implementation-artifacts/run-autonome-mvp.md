@@ -14,13 +14,17 @@ Démarré le 2026-10-18. Orchestrateur : session principale (Opus 5.5). Contrat 
 8. E2E : `$env:WAVELOCALAI_E2E_CHROMIUM = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. Tests : `$env:PYTHONUTF8 = "1"`. Ollama : `http://127.0.0.1:11434`, `qwen2.5:1.5b` installé.
 9. **Depuis le 2026-10-19 vers 8 h (accord d'Anaël, amélioration continue d'agent-cost-kit n° 1, 3, 4, 10, 16)** : la CI de branche (3 OS) joue `tests/v2` et la v1. En local, `checks.sh <wt>` lance le contrôle rapide, les **E2E ciblés** (`e2e_cibles.sh` : écrans touchés, composants et coquille si `core/`, `components/` ou CSS changent, fumée Accueil + coquille) et l'integration, et relance une fois seuls les tests en échec ; `checks.sh <wt> complet` pour tout. **Suite E2E complète sur master** après chaque lot de 3 à 4 fusions : `e2e_master.sh` (worktree `v2-master`) ; un échec y ouvre un correctif avant la fusion suivante. Un seul contrôle local à la fois ; au plus 5 agents actifs (dev + revue). Chaque prompt de dev et de revue cite la section « Contrats partagés en cours ». Second avis : comparer à `git merge-base HEAD origin/master` et signaler « base en retard de N fusions » ; le reviewer part d'une branche à jour de master (l'orchestrateur fusionne d'abord). Une décision qui revient à Anaël ne bloque que les stories qui en dépendent. Après la 5.0 : pile de branches revues fusionnée par lots (n° 3).
 
-## État courant (2026-10-19 vers 7 h)
+## État courant (2026-10-19, fin du run vers 12 h 30)
+
+- **MVP terminé** (Epics 1 à 4) : 4.9 fusionnée (#79, de1288c). Fusionnées depuis 7 h 30 : 4.3 (#68), 4.8 (#70), tests instables (#72), 4.5 (#73), 3.5 (#74), 3.6 (#76), 4.6 (#77), 4.7 (#78), 4.9 (#79). Epics 5 à 8 reportés (décision d'Anaël) ; plan V15 à V25 dans `run-autonome.md`. Ollama rendu à Anaël vers 11 h 50.
+
+## État précédent (2026-10-19 vers 7 h)
 
 - **Fusionnées cette nuit** : 3.1 (#59), 4.1 (#60), 3.2 (#62), 2.7 (#63), 4.4 (#64), 4.2 (#65), 1.12 (#66), 3.3 (#67), 3.4 (#69). Epics 1 et 2 de nouveau terminées (1.12, 2.7).
 - **En cours (pause demandée par Anaël vers 7 h 30 pour un /clear)** : PR #71 (état du run) fusionnée 644eb47. PR #68 (4.3) : CI rouge sur `test_read_budget` (minutage), job relancé ; fusionner si verte (`_outils/merge_queue.sh 68`). PR #70 (4.8) : CI rouge, car fusionnée avec la 3.4 `screens/arena.js` fait 606 lignes (> 600) : fusionner `origin/master` dans `feat/v2-garde-memoire` (worktree `v2-4-8`), sortir quelques lignes d'`arena.js` dans un module voisin, `checks.sh`, push. 4.5 : revue faite (e6ab8a7), reste master à fusionner (sans conflit attendu sur les fichiers d'état), `checks.sh`, `finalize.sh`, PR. 3.5 : dev fini (763a122, worktree `v2-3-5`, table de prix cloud vide à remplir par Anaël) ; reste second avis (Haiku), revue (Opus), `checks.sh`, `finalize.sh`, PR.
 - **Ensuite** : 4.6 et 4.7 (après fusion de 4.5 : leur écran vit dans la Discussion) ; 3.6 (+ 2.0.0a3) après 3.5 ; 4.9 (+ 2.0.0a4) ; puis 5.0 (découpage du front), Epics 5 à 8 (vagues par fichiers à écrire dans `run-autonome.md`). Au plus 3 stories en développement.
 - Outils : `_outils/finalize.sh <worktree> <branche> <préfixe> <libellé>`, `_outils/etat_pr.sh "<libellé>"`, `_outils/checks.sh <worktree>` (en arrière-plan, sortie dans le scratchpad), `keep_both.py <fichier> [séparateur]`.
-- Pièges vus : **`keep_both.py` sur un CSS peut couper une règle** (conflit au milieu d'un bloc) : vérifier les accolades (`test_every_stylesheet_has_balanced_braces`, ajouté par la 4.5) ou reconstruire « master + ajouts de la branche » ; « uvx black a échoué » sans détail = un fichier à reformater (`uvx --offline black@25.12.0 <fichier>`) ; `uv sync` dans un worktree après toute fusion qui change `uv.lock` ; un test E2E qui lance un run attend sa fin ; espaces insécables avant « : ; ! ? » dans `fr.json` ; sqlite-vec absent sur la CI macOS (tests `needs_vec`, valeurs qui suivent `store.vec_available`) ; tests instables sous charge (`test_read_budget` 300 ms, `test_topbar` serveur relancé, `test_arena` panneau au clavier « Response has been disposed », axe du pied de message en sombre) : relancer seul, à stabiliser en 8.1.
+- Pièges vus : **`git stash` est partagé entre worktrees** : aucun agent ne l'utilise (WIP commité ou copie) ; **`keep_both.py` sur un CSS peut couper une règle** (conflit au milieu d'un bloc) : vérifier les accolades (`test_every_stylesheet_has_balanced_braces`, ajouté par la 4.5) ou reconstruire « master + ajouts de la branche » ; « uvx black a échoué » sans détail = un fichier à reformater (`uvx --offline black@25.12.0 <fichier>`) ; `uv sync` dans un worktree après toute fusion qui change `uv.lock` ; un test E2E qui lance un run attend sa fin ; espaces insécables avant « : ; ! ? » dans `fr.json` ; sqlite-vec absent sur la CI macOS (tests `needs_vec`, valeurs qui suivent `store.vec_available`) ; tests instables sous charge (`test_read_budget` 300 ms, `test_topbar` serveur relancé, `test_arena` panneau au clavier « Response has been disposed », axe du pied de message en sombre) : relancer seul, à stabiliser en 8.1.
 - Worktrees : `C:/Users/Utilisateur/Documents/GitHub/wavelocalai-wt/<clé>`, chacun avec son `.venv` ; supprimer ceux des stories fusionnées. Spec de story : `_bmad-output/implementation-artifacts/story-<n>-<m>.md`.
 
 ## Fin du run du 2026-10-19 (décision d'Anaël vers 8 h 40)
@@ -69,7 +73,11 @@ Vagues prévues selon les dépendances, fusion dans l'ordre du sprint (fusionner
 | 4.4 | feat/v2-rag-question (depuis master bb272a5) | #64 | fusionnée ; dev 4191eef ; revue eea4abc (recherche filtrée sur les documents prêts, raison « non lancée », mots vides repliés) ; rapide OK, 862 v2, 172 E2E, 8 integration (`qwen2.5:1.5b`, `nomic-embed-text`), 1286 v1 | écarts à ratifier : `sources {strategy, sources}`, `retrieval_step {strategy, step, duration_s}`, `metrics.retrieval_s`, codes `rag_base_empty` (409) et `chunk_not_found` (404), réglages `rag.top_k` et `rag.relevance_*` ; §7(d) n° 12 en variante conservatrice (pas d'avertissement cloud serveur, pas d'export, consigne `[n]` dans `SYSTEM_PROMPT`, `retrieval_step` en fin d'étape) ; reports : message RAG sans métriques dans `GET /api/conversations/{id}` (4.5), positions de `passage` en points de code (emoji), `nomic-embed-text` sans préfixes de tâche, repli numpy perdu au redémarrage, `retrieval_s` inclut l'attente de la place, historique non repris |
 | 1.12 | feat/v2-coquille-maquette (depuis master bb272a5) | #66 | fusionnée ; dev 5382c7d ; revue 1cdca6a (empreintes des 19 symboles du sprite, CSS mort retiré) ; rapide OK, 821 v2, 196 E2E, 7 integration, 1286 v1 | §7(d) n° 3 (icône `swords`) et n° 9 (carte Mode sans compteur) en variante actuelle ; ressource à fournir par Anaël : sprite Material Symbols Rounded officiel (18 symboles de la maquette + build, psychology, output, pending_actions, leaderboard) ; reports : flash de thème hors Chromium (`blocking="render"`), noms longs « Arène des modèles » et « Installation et choix par usage » à confirmer |
 | 4.5 | feat/v2-rag-discussion | #73 | fusionnée (3e11106) ; dev 90cfc80 ; revue e6ab8a7 ; CSS reconstruit + test d'accolades (ad38c42) ; garde-fou branché (23357db) | §7(d) n° 12 en variante conservatrice ; report : `conversation_id` dans le détail de `run_busy` |
-| 3.5 | feat/v2-verdict | #74 | dev 763a122 ; revue ba68f14 ; prix relevés a9f0dab (8 modèles, USD) | table de prix : Groq llama et mistral-large-latest « inconnu » ; verdict non figé en base |
+| 3.5 | feat/v2-verdict | #74 | fusionnée (03243e5) ; dev 763a122 ; revue ba68f14 ; prix relevés a9f0dab (8 modèles, USD) | table de prix : Groq llama et mistral-large-latest « inconnu » ; verdict non figé en base |
+| 4.9 | feat/v2-flow2 | #79 | fusionnée (de1288c) ; dev c935eff ; fusions 4.7 et 3.6 + revue c82d742/50ef444 (Accueil après `shell-ready`, une lecture par affichage) ; complet : 459 E2E, 12 integration, 1238 v2, 1286 v1 | écart AD-6 (l'Accueil appelle `GET /api/rag/documents`) ; §7(d) n° 12, 13 conservateurs ; report : `wl-model-picker.js` 666 lignes |
+| 4.7 | feat/v2-rag-reranker | #78 | fusionnée (4fb98c8) ; dev 6d8ab31 ; revue 15d461e (chargement unique, test sur le vrai fastembed hors ligne) | écarts `reranker` dans `GET /api/rag/settings`, champs de `retrieval_step` ; reports : nom de cache vs dépôt source (5.5), énergie du reclassement (AD-10) |
+| 4.6 | feat/v2-rag-strategies | #77 | fusionnée (8d6210d) ; dev 94ec8bb ; fusion 4.3 2cc063f ; revue cb98d39 (notation Self-RAG, garde-fou sur les appels de stratégie) | écarts `strategy`/`top_k`, étapes de `retrieval_step`, `citations` (§7(d) n° 18) ; report : integration HyDE |
+| 3.6 | feat/v2-arene-reouvrir | #76 | fusionnée (360c6a4) ; dev 1978ab7 ; revue 0c907bc ; carte démo après `shell-ready` e96be54 | §7(d) n° 3, 7, 8 conservateurs ; préversion 2.0.0a3 |
 | 4.3 | feat/v2-rag-gestion (depuis master fff8faa, puis 2567e44 et b90056e) | #68 | fusionnée (f25f398) ; dev 974925c ; revue 0829e07 (`null` des réglages, embedding contrôlé, refus `vector_tables_unreachable` sans module vec0, délai client 300 s) ; rapide OK, 1017 v2, 298 E2E, 11 integration, 1286 v1 | écarts : quatre codes (`embedding_change_needs_clear`, `base_count_stale`, `base_in_use`, `vector_index_lost`) + `vector_tables_unreachable`, `GET /api/rag/settings` enrichi ; §7(d) n° 13 en variante contrat (409 affiché) ; pour Anaël : interprétation de « document visé » (refus si `indexing` ou run `rag` actif), import non refusé sans sqlite-vec ; résidu vectoriel : aucun avec sqlite-vec 0.1.9 ; reports : bornes d'API plus larges que la maquette, purge bloquée par un lecteur sans signal à l'écran |
 | 3.4 | feat/v2-classement (depuis master 2567e44, puis b90056e) | #69 | fusionnée ; dev ecf58f6 ; revue 02fdaef (étiquettes longues coupées, défilement du tableau gardé, gel à `run_ended`, largeur mesurée) ; rapide OK, 971 v2, 307 E2E, 10 integration, 1286 v1 | écarts : matrice et tableau dès la première lane mesurée, « Voir le tableau » en bouton ; §7(d) n° 4 à 8 en variante actuelle (« le plus petit des trois » non livré) ; reports : CO₂ d'une lane annulée « non mesuré » (3.6), `range_mg` non affichée, échelle linéaire du débit (log à décider), route de test sans script de juge ni `co2` par lane |
 | 4.8 | feat/v2-garde-memoire (depuis master 4635302, puis 2567e44 et b90056e) | #70 | fusionnée (3a36f55) ; dev b7f6fc6 ; revue 67fb239 (mémoire des modèles chargés inactifs comptée comme libre, modèle proposé plus petit, `required_gb` partagé, déchargement relit les runs actifs) ; fusion de master résolue 8e2f758 (garde-fou aussi pour le juge local) ; rapide OK, 1019 v2, 317 E2E, 10 integration, 1286 v1 | écarts à ratifier : `detail.needed_gb` = mémoire à avoir de libre (marge comprise), `ram_guard` en 503, `memory.available_gb` dans le flux système, `required_gb` dans `GET /api/models` ; §7(d) n° 13 : import non gardé ; pour Anaël : bouton « Décharger les modèles inactifs » lors d'un refus, vérification Linux 16 Go (mmap) ; reports : VRAM non comparée, cache de contexte ignoré |
@@ -193,3 +201,63 @@ Recette humaine à jouer (environ 15 min) :
 5. Recharger la page : la conversation revient telle qu'affichée ; Télécharger en JSON et en Markdown (pas de clé d'API dedans).
 6. Effacer la conversation : elle disparaît ; le CO₂ de session ne baisse pas. Pendant une réponse en cours, l'effacement est refusé avec son explication.
 7. Points à trancher en même temps : réponse pendant le préchauffage de CodeCarbon (3,8 à 14,5 s d'attente), `energy_wh` dans `metrics`, copies `.db.bak-N` qui gardent le texte effacé, zone de mix électrique du CO₂ cloud.
+
+### 2.0.0a3 (fin de l'Epic 3) — en attente d'Anaël
+
+Version `2.0.0a3` posée par la PR de la story 3.6 (#76, merge commit 360c6a4). **Tag `v2.0.0-alpha.3` et release GitHub non créés** : à faire par Anaël après la recette.
+
+Commandes (après recette) : `git tag -a v2.0.0-alpha.3 360c6a4 -m "wavelocalai 2.0.0a3 : l'Arène des modèles"`, `git push origin v2.0.0-alpha.3`, puis `gh release create v2.0.0-alpha.3 --prerelease --title "2.0.0a3 : l'Arène des modèles" --notes-file <notes ci-dessous>`.
+
+Brouillon des notes :
+
+> Troisième préversion de la v2 (`wavelocalai-v2`, port 8502 ; la v1 reste sur 8501). Elle apporte l'Arène des modèles : la même question posée à 2 à 4 modèles, côte à côte, notée, classée et chiffrée.
+>
+> - Colonnes qui se remplissent au fil du flux, avec le statut de chaque modèle en texte. Un modèle en échec ou en délai ne bloque pas les autres.
+> - Notation par un juge (local par défaut, cloud seulement si « Autoriser le cloud » est actif) sur des critères modifiables ; « non évalué » avec sa raison, jamais 0 ; avertissements « note peu fiable » et « un seul juge ».
+> - Classement, matrice note / débit / CO₂ (avec son tableau), verdict local contre cloud qui chiffre l'écart de note, le coût pour 1 000 requêtes (prix publics relevés le 2026-10-19, en USD ; « inconnu » pour les modèles sans prix public) et les données restées sur le poste.
+> - Garde-fou mémoire : le besoin d'un modèle est chiffré avant la génération, avec « Prendre un modèle plus petit ».
+> - Rouvrir une comparaison par son adresse ou la liste des comparaisons précédentes, sans relancer de modèle ; « Relancer » et « Modifier la question ».
+> - Export CSV ou Markdown avec la preuve de la mesure (fiche machine, version d'Ollama, digests, méthode du CO₂, juge et critères ; aucune clé d'API). Effacement d'une comparaison : le texte disparaît de la base et de son journal, le CO₂ reste au registre carbone.
+> - Accueil : carte « Démo recommandée » qui présélectionne les modèles prêts et lance l'Arène.
+
+Recette humaine (environ 15 min, Flow 1) :
+1. `uv sync` puis `uv run wavelocalai-v2`, ouvrir `http://127.0.0.1:8502` ; avec Ollama et au moins 3 petits modèles, l'Accueil dit « Disponible ».
+2. Carte « Démo recommandée » : modèles prêts avec badge Local ; Ollama arrêté : « Aucun modèle local disponible », « Lancer une comparaison » reste actif.
+3. Ollama relancé, « Lancer une comparaison » : modèles présélectionnés ; Lancer ; colonnes en flux, classement qui se fige, matrice et CO₂, sans rechargement.
+4. Avec « Autoriser le cloud » et une clé dans `.env` : un modèle local contre un cloud ; le verdict chiffre écart de note, coût (USD) et CO₂ (estimé pour le cloud).
+5. Pendant un run, Échap : « Comparaison arrêtée » ; CO₂ d'une colonne arrêtée affiché ou « non mesuré ».
+6. Recharger sur `#/arene/comparer/<run_id>` ou ouvrir une « Comparaison précédente » : tout se reconstruit sans relancer ; une adresse bidon dit « Résultat introuvable ».
+7. « Modifier la question » reprend question, modèles, juge et critères ; « Relancer » les relance.
+8. Exporter en CSV et en Markdown (sous 768 px : un seul menu « Exporter ») ; aucune clé dans les fichiers.
+9. « Effacer la comparaison » : confirmation sur « Annuler » par défaut ; le CO₂ de session ne baisse pas ; l'adresse dit ensuite que la comparaison est effacée.
+10. À trancher : §7(d) n° 7 (adresse non réécrite en fin de run) et n° 8 (résultat effacé : même titre « Résultat introuvable »), `date-released` de `CITATION.cff`, prix de `mistral-large-latest`.
+
+### 2.0.0a4 (fin de l'Epic 4, fin du MVP) — en attente d'Anaël
+
+Version `2.0.0a4` posée par la PR de la story 4.9 (#79, merge commit de1288c). **Tag `v2.0.0-alpha.4` et release GitHub non créés** : à faire par Anaël après la recette.
+
+Commandes (après recette) : `git tag -a v2.0.0-alpha.4 de1288c -m "wavelocalai 2.0.0a4 : MVP, atelier documentaire"`, `git push origin v2.0.0-alpha.4`, puis `gh release create v2.0.0-alpha.4 --prerelease --title "2.0.0a4 : MVP, atelier documentaire" --notes-file <notes ci-dessous>`.
+
+Brouillon des notes :
+
+> Quatrième préversion de la v2 (`wavelocalai-v2`, port 8502 ; la v1 reste sur 8501). Elle clôt le MVP : Arène des modèles et assistant documentaire, de bout en bout, sur le poste.
+>
+> - Arène : comparer 2 à 4 petits modèles sur une question, avec juge, matrice qualité/CO₂, verdict local/cloud chiffré, historique et exports (préversion a3).
+> - Base documentaire : importer PDF, TXT, MD ou DOCX avec suivi par fichier ; supprimer un document ou vider la base avec confirmation chiffrée ; réglages (embedding, découpe, extraits, stratégie).
+> - Discussion avec ses documents : sources avant la réponse, avec page, pertinence et extrait entier dont le passage qui répond est surligné ; stratégies directe, HyDE et vérifiée (Self-RAG) ; marqueurs [n] vérifiés et reliés aux sources ; reclassement par un reranker local s'il est déjà installé (sinon l'écran dit pourquoi ; aucun téléchargement).
+> - Garde-fou mémoire : la question reste, l'alerte chiffre le besoin et propose un modèle plus petit ou de décharger les modèles inactifs.
+> - Accueil : la carte « Documents » dit « N documents indexés · M extraits ».
+> - Aucune requête hors de la machine ; axe-core sans violation sur chaque écran, en clair et en sombre.
+>
+> Pas encore là : Sobriété, Modèles, Agents, Évaluation, Banc d'essai (préversions suivantes).
+
+Recette humaine (10 à 15 min, PC de 16 Go sans GPU) :
+1. `uv sync` puis `uv run wavelocalai-v2` ; l'Accueil dit « Disponible » ; carte « Documents » : « 0 document indexé · 0 extrait ».
+2. Flow 1 rapide (3 min) : Arène, 3 petits modèles locaux, une question, un juge ; matrice et chiffres lisibles du fond de la salle.
+3. Flow 2 : carte « Documents » → « Votre base documentaire est vide » ; importer un `.docx` ; la ligne suit le fichier, puis « N extraits ajoutés depuis 1 document » ; l'Accueil dit « 1 document indexé · N extraits ».
+4. Discussion : modèle local par défaut avec sa raison ; une question : « Chargement du modèle en mémoire… », puis réponse avec débit, CO₂, durée ; sources avant la réponse.
+5. « Ouvrir l'extrait » : paragraphe retrouvé mot pour mot, phrase qui répond surlignée ; essayer HyDE et « Recherche vérifiée » ; sans reranker : « Reclassement indisponible : <raison> ». Avec reranker (optionnel) : `uv sync --extra rerank`, modèle dans le cache, puis `tests/v2/integration/test_rag_rerank_local.py`.
+6. Base documentaire, « Vider la base documentaire » : le dialogue annonce le nombre d'extraits ; « Annuler » ne supprime rien.
+7. Garde-fou : modèle trop gros pour la mémoire libre : la question reste, « Mémoire insuffisante : X Go nécessaires, Y Go libres » ; « Prendre un modèle plus petit » sans relancer.
+8. Clavier seul et 320 px sans défilement horizontal ; panneau réseau : aucune requête hors de 127.0.0.1.
+9. À trancher : l'appel de l'Accueil (AD-6), écarts au contrat des 4.6/4.7 (`strategy`, `top_k`, `citations`, `reranker`, champs de `retrieval_step`), §7(d) n° 7, 8, 12, 13, 18, `date-released` de `CITATION.cff`.
