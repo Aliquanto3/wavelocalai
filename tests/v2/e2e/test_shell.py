@@ -179,7 +179,6 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
 MOCKUP_ROUTES = [
     "#/arene/references",
     "#/arene/banc/run-1",
-    "#/documents/evaluation/run-1",
     "#/agents/equipe/run-1",
     "#/modeles/qwen2.5%3A1.5b",
 ]
@@ -200,7 +199,7 @@ def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
 def test_a_planned_mockup_route_has_no_active_link_anywhere(shell):
     """D-8 : ni l'Accueil ni la barre haute n'ont de lien actif vers une route de la maquette ;
     les onglets de l'Arène (écrans à venir) sont des liens désactivés, sans `href`."""
-    for prefix in ("#/arene/references", "#/arene/banc", "#/documents/evaluation"):
+    for prefix in ("#/arene/references", "#/arene/banc"):
         assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
     for prefix in ("#/agents/equipe", "#/modeles"):
         assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
