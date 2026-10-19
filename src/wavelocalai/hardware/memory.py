@@ -32,13 +32,21 @@ class FitAssessment:
 
     needed_gb: float | None
     fits: bool | None
-    available_gb: float
+    available_gb: float  # mémoire libre comptée : la libre du poste, plus celle qu'on peut rendre
 
     @property
     def required_gb(self) -> float | None:
         """Mémoire à avoir de libre (`required_gb`, arrondie au dixième supérieur) : le chiffre
         « requis » du sélecteur, le même que les « nécessaires » d'un refus `ram_guard`."""
         return None if self.needed_gb is None else ceil_tenth(required_gb(self.needed_gb))
+
+    @property
+    def short_gb(self) -> float | None:
+        """Mémoire qui manque (« il manque 1,2 Go »), au dixième supérieur ; `None` quand le
+        modèle tient ou que son besoin est inconnu."""
+        if self.needed_gb is None or self.fits is not False:
+            return None
+        return ceil_tenth(required_gb(self.needed_gb) - self.available_gb)
 
 
 def read_memory() -> MemoryReading:
@@ -86,8 +94,11 @@ class MemoryAdvisor:
         measured_loaded_gb: float | None = None,
         download_gb: float | None = None,
         download_bytes: int | None = None,
+        reclaimable_gb: float = 0.0,
     ) -> FitAssessment:
-        available = self._reader().available_gb
+        """`reclaimable_gb` : mémoire de modèles chargés qu'Ollama décharge à la demande (comptée
+        comme libre, comme le fait le garde-fou, story 4.8) ; nulle par défaut."""
+        available = self._reader().available_gb + max(0.0, reclaimable_gb)
         needed = estimate_needed_gb(
             measured_loaded_gb=measured_loaded_gb,
             download_gb=download_gb,

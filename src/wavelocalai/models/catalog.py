@@ -104,6 +104,9 @@ class Catalog:
     def find(self, tag: str) -> CatalogEntry | None:
         return self._by_tag.get(base_tag(tag))
 
+    def entries(self) -> list[CatalogEntry]:
+        return list(self._by_tag.values())
+
 
 def load_catalog(path: Path) -> Catalog:
     try:

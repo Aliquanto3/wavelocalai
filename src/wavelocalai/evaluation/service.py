@@ -33,19 +33,20 @@ import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any, Protocol
 
 from wavelocalai.config import Settings
-from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
-from wavelocalai.evaluation import prompts, scoring
+from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.evaluation import metrics
 from wavelocalai.evaluation.judge import JudgeReply
+from wavelocalai.evaluation.metrics import Metric
 from wavelocalai.evaluation.repo import insert_evaluation
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.chat import cloud_estimator
 from wavelocalai.inference.judge_port import (
     NOT_EVALUATED_EMPTY,
-    NOT_EVALUATED_INVALID,
     NOT_EVALUATED_UNAVAILABLE,
 )
 from wavelocalai.inference.local_slot import LocalSlot
@@ -67,9 +68,6 @@ MAX_QUESTIONS = 20
 MAX_QUESTION_CHARS = 20_000
 STRATEGY = "naive"  # les extraits communs sont ceux de la stratégie la plus simple du RAG
 
-NOT_EVALUATED_NO_CLAIM = "non évalué : aucune affirmation à vérifier"
-NOT_EVALUATED_NO_QUESTION = "non évalué : aucune question retrouvée depuis la réponse"
-NOT_EVALUATED_EMBEDDING = "non évalué : modèle d'embedding indisponible"
 NOT_EVALUATED_TIMEOUT = "non évalué : délai dépassé"
 NOT_EVALUATED_FAILED = "non évalué : réponse en échec"
 
@@ -113,16 +111,6 @@ class EvalCommand:
     allow_cloud: bool = False
 
 
-@dataclass(frozen=True)
-class Metric:
-    """Une note calculée : `score` nul = non évalué, `reason` dit pourquoi ; `detail` : `verdicts`,
-    `questions` ou `useful` selon la métrique."""
-
-    score: int | None
-    reason: str
-    detail: dict[str, Any] | None = None
-
-
 @dataclass
 class _Lane:
     model: ChatModel
@@ -151,10 +139,6 @@ class _Eval:
 
 def _now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-
-
-def _plural(count: int, one: str, many: str) -> str:
-    return f"{count} {one if count < 2 else many}"
 
 
 class EvaluationService:
@@ -507,7 +491,7 @@ class EvaluationService:
             logger.exception("Notation en échec")
             return Metric(None, NOT_EVALUATED_UNAVAILABLE)
 
-    # --- les trois notes -----------------------------------------------------------------------
+    # --- les trois notes (`metrics.py`, rejouées par le jeu fixe de la story 7.2) ---------------
 
     async def _ask(self, ev: _Eval, request: ChatRequest) -> JudgeReply:
         if self._judge is None or ev.judge is None:
@@ -515,78 +499,18 @@ class EvaluationService:
         return await self._judge.ask(ev.run_id, ev.judge, request)
 
     async def _faithfulness(self, ev: _Eval, index: int, answer: str) -> Metric:
-        """Affirmations extraites (un appel), puis vérifiées une à une contre les extraits communs
-        (un appel chacune) ; la note est la part d'affirmations appuyées."""
-        question, sources = ev.questions[index], ev.sources[index]
-        reply = await self._ask(ev, prompts.claims_request(question, answer))
-        if reply.text is None:
-            return Metric(None, reply.reason)
-        try:
-            claims = prompts.parse_claims(reply.text)
-        except ProviderError:
-            return Metric(None, NOT_EVALUATED_INVALID)
-        if not claims:
-            return Metric(None, NOT_EVALUATED_NO_CLAIM)
-        verdicts: list[dict[str, Any]] = []
-        for claim in claims:
-            reply = await self._ask(ev, prompts.verdict_request(claim, sources))
-            if reply.text is None:
-                return Metric(None, reply.reason)
-            try:
-                verdicts.append({"claim": claim, **prompts.parse_verdict(reply.text, len(sources))})
-            except ProviderError:
-                return Metric(None, NOT_EVALUATED_INVALID)
-        supported = sum(1 for v in verdicts if v["verdict"] == prompts.SUPPORTED)
-        contradicted = sum(1 for v in verdicts if v["verdict"] == prompts.CONTRADICTED)
-        reason = f"{_plural(supported, 'affirmation', 'affirmations')} sur {len(verdicts)} "
-        reason += "appuyée par les extraits" if supported < 2 else "appuyées par les extraits"
-        if contradicted:
-            reason += f", {_plural(contradicted, 'contredite', 'contredites')}"
-        return Metric(scoring.faithfulness(verdicts), reason + ".", {"verdicts": verdicts})
+        return await metrics.faithfulness(
+            partial(self._ask, ev), ev.questions[index], answer, ev.sources[index]
+        )
 
     async def _relevance(self, ev: _Eval, index: int, answer: str) -> Metric:
-        """Questions retrouvées depuis la réponse (un appel du juge), puis cosinus moyen avec la
-        question posée, par l'`Embedder` de la base (une feuille `embedding`)."""
-        question = ev.questions[index]
-        reply = await self._ask(ev, prompts.questions_request(answer))
-        if reply.text is None:
-            return Metric(None, reply.reason)
-        try:
-            retrieved = prompts.parse_questions(reply.text)
-        except ProviderError:
-            return Metric(None, NOT_EVALUATED_INVALID)
-        if not retrieved:
-            return Metric(None, NOT_EVALUATED_NO_QUESTION)
-        try:
-            vectors = await self._base.embed(ev.run_id, ev.embedder, [question, *retrieved])
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - embedding en panne : note impossible, pas 0
-            logger.warning("Embedding de la pertinence en échec : %r", exc)
-            return Metric(None, NOT_EVALUATED_EMBEDDING)
-        score, mean = scoring.relevance(vectors[0], vectors[1:])
-        reason = (
-            f"Cosinus moyen de {f'{mean:.2f}'.replace('.', ',')} entre la question posée et "
-            f"{_plural(len(retrieved), 'question retrouvée', 'questions retrouvées')} "
-            "depuis la réponse."
-        )
-        return Metric(score, reason, {"questions": retrieved})
+        embed = partial(self._base.embed, ev.run_id, ev.embedder)  # une feuille `embedding`
+        return await metrics.relevance(partial(self._ask, ev), embed, ev.questions[index], answer)
 
     async def _precision(self, ev: _Eval, index: int, answer: str) -> Metric:
-        """Les extraits utiles à la réponse, désignés par le juge (un appel)."""
-        sources = ev.sources[index]
-        reply = await self._ask(ev, prompts.useful_request(ev.questions[index], answer, sources))
-        if reply.text is None:
-            return Metric(None, reply.reason)
-        try:
-            useful, why = prompts.parse_useful(reply.text, len(sources))
-        except ProviderError:
-            return Metric(None, NOT_EVALUATED_INVALID)
-        reason = why or (
-            f"{_plural(len(useful), 'extrait', 'extraits')} sur {len(sources)} "
-            f"{'sert' if len(useful) < 2 else 'servent'} à répondre."
+        return await metrics.context_precision(
+            partial(self._ask, ev), ev.questions[index], answer, ev.sources[index]
         )
-        return Metric(scoring.context_precision(useful, len(sources)), reason, {"useful": useful})
 
     # --- publication ---------------------------------------------------------------------------
 

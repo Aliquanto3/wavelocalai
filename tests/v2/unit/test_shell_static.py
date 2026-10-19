@@ -270,7 +270,6 @@ MOCKUP_ROUTES = {
     "/arene/references": None,
     "/arene/banc": "run_id",
     "/agents/equipe": "run_id",
-    "/modeles": "tag",
 }
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
@@ -294,11 +293,14 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_arena_document_evaluation_and_sobriety_screens_are_available_so_far():
+def test_only_the_home_chat_arena_document_evaluation_sobriety_and_models_screens_are_available_so_far():
     text = registry_text()
-    assert text.count('status: "available"') == 7
-    assert text.count('status: "planned"') == len(ROUTES) - 7
+    assert text.count('status: "available"') == 8
+    assert text.count('status: "planned"') == len(ROUTES) - 8
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
+    # `#/modeles/<tag>` (fiche, story 5.6) n'existe pas encore : l'écran n'a pas de `param`.
+    assert re.search(r'id: "models",\s*path: "/modeles",\s*status: "available"', text)
+    assert 'param: "tag"' not in text
     assert re.search(r'id: "documents-chat",\s*path: "/documents",\s*status: "available"', text)
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
     assert re.search(
@@ -314,8 +316,9 @@ def test_only_the_home_chat_arena_document_evaluation_and_sobriety_screens_are_a
 
 
 def test_the_mockup_routes_are_planned_with_their_path_parameter():
-    """D-8 : `#/arene/references`, `#/arene/banc/<run_id>`,
-    `#/agents/equipe/<run_id>` et `#/modeles/<tag>` existent, `planned`, sans écran ni `load`."""
+    """D-8 : `#/arene/references`, `#/arene/banc/<run_id>` et `#/agents/equipe/<run_id>` existent,
+    `planned`, sans écran ni `load` (`#/documents/evaluation/<run_id>` : story 7.3 ;
+    `#/modeles/<tag>` : story 5.6)."""
     text = registry_text()
     for path, param in MOCKUP_ROUTES.items():
         declaration = re.search(
