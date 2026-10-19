@@ -213,7 +213,8 @@ async def test_the_email_tool_only_prepares_a_draft_and_the_module_cannot_send(r
         await run(registry, "send_email", to="pas-une-adresse", subject="S", body="B")
     with pytest.raises(ToolError, match="Sujet manquant"):
         await run(registry, "send_email", to="a@b.c", subject="x" * 201, body="B")
-    # Aucun code d'envoi dans les outils : ni `smtplib`, ni socket, ni sous-processus (6.3 seulement).
+    # Aucun code d'envoi dans les outils : l'envoi vit dans `agents/outbox.py`, derrière la validation
+    # de l'utilisateur (story 6.3, `test_email_approval.py`).
     for module in (basic_module, builtin_module, files_module):
         assert not _imported_roots(module) & {"smtplib", "socket", "subprocess", "httpx", "os"}
 

@@ -291,6 +291,15 @@ _SPECS = (
         "Choisissez un modèle plus petit, ou déchargez les modèles inactifs, puis renvoyez votre "
         "question.",
         ("needed_gb", "free_gb", "suggested_model"),
+    ),  # --- validation d'une action sensible (story 6.3) ---
+    ErrorSpec(
+        "approval_not_pending",
+        409,
+        "Cette demande de validation n'est plus en attente : elle a déjà reçu une réponse, a "
+        "expiré, ou son exécution est terminée.",
+        "Rouvrez l'exécution pour voir sa décision ; l'email n'est envoyé que si elle porte "
+        "« approuvé ».",
+        ("run_id", "approval_id"),
     ),
     # --- gestion des modèles (story 5.4) ---
     ErrorSpec(
@@ -421,6 +430,11 @@ PULL_CAUSES = {
         "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
         "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le "
         "téléchargement déjà fait est repris. La liste des modèles est inchangée.",
+    ),
+    "reranker_failed": (
+        "Le reranker {tag} n'a pas pu être installé.",
+        "Vérifiez la connexion au réseau et l'espace disque, puis relancez l'installation. La "
+        "recherche reste sans reclassement en attendant.",
     ),
     "interrupted": (
         "L'installation de {tag} a été interrompue avant la fin.",

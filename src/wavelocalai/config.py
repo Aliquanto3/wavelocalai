@@ -144,13 +144,16 @@ class AgentSettings(_Section):
     result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
     # Outils d'un tour (story 6.2) : au-delà, l'appel n'est pas exécuté et l'agent reçoit le refus.
     max_tool_calls_per_turn: int = Field(8, ge=1, le=64)
+    memory_sample_s: float = Field(
+        1.0, gt=0
+    )  # relevé de la mémoire pendant une mission (story 6.5)
     max_input_mb: int = Field(20, ge=1)  # taille d'un fichier que les outils acceptent de lire
 
 
 class SmtpSettings(_Section):
     """SMTP de l'outil « Envoi d'email » (story 6.2), lu de `.env` ou de l'environnement : le mot de
-    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 ne s'en sert que pour dire si l'outil est
-    disponible ; l'envoi, après validation de l'utilisateur, est la story 6.3."""
+    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 s'en sert pour dire si l'outil est
+    disponible ; l'envoi, après validation de l'utilisateur, est `agents/outbox.py` (story 6.3)."""
 
     server: str = "smtp.gmail.com"
     port: int = Field(587, ge=1, le=65535)

@@ -19,6 +19,7 @@ FILES = (
     "screens/models-unload.js",
     "screens/models-delete.js",
     "screens/models-defaults.js",
+    "screens/models-rerank.js",
 )
 SCREEN = "\n".join(read_static(name) for name in FILES)
 CODE = "\n".join(line for line in SCREEN.splitlines() if not line.lstrip().startswith("//"))

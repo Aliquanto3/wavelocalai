@@ -102,3 +102,49 @@ async def test_real_ollama_calls_a_tool_and_publishes_every_step(real_settings, 
     assert all(c["metrics"]["co2"] is not None for c in leaves)
     answer = "".join(e["data"]["text"] for e in events if e["type"] == "token")
     assert answer.strip() and "42" in answer
+
+
+async def test_real_ollama_runs_a_two_agent_crew_one_after_the_other(real_settings, real_meter):
+    """Story 6.5 : deux agents en séquence sur le vrai modèle ; le second reçoit le travail du
+    premier, chaque étape porte son agent et la mission rend ses totaux."""
+    _require_model(real_settings.ollama.host)
+    app = create_app(real_settings, meter=real_meter)
+    async with app.router.lifespan_context(app):
+        await app.state.registry.refresh()
+        transport = httpx.ASGITransport(app=app)
+        base = f"http://127.0.0.1:{TEST_PORT}"
+        async with httpx.AsyncClient(transport=transport, base_url=base) as client:
+            agents = [
+                {"role": "Chercheur", "goal": "Donner deux faits courts sur le sujet", "tools": []},
+                {"role": "Rédacteur", "goal": "Résumer ces faits en une phrase", "tools": []},
+            ]
+            saved = await client.put(
+                "/api/agents/crews/etude_concurrentielle", json={"agents": agents}
+            )
+            assert saved.status_code == 200, saved.text
+            body = {
+                "mode": "crew",
+                "crew": "etude_concurrentielle",
+                "topic": "Les petits modèles de langage locaux",
+                "model": TAG,
+                "temperature": 0,
+            }
+            response = await client.post("/api/agents/runs", json=body)
+            assert response.status_code == 200, response.text
+            run_id = response.json()["run_id"]
+            async with asyncio.timeout(240):
+                while (await client.get(f"/api/runs/{run_id}")).json()["status"] == "running":
+                    await asyncio.sleep(0.2)
+            snapshot = (await client.get(f"/api/runs/{run_id}")).json()
+            events = [
+                f["data"]
+                for f in parse_sse((await client.get(f"/api/runs/{run_id}/events")).text)[0]
+            ]
+    assert snapshot["status"] == "ok", snapshot
+    answers = [e["data"] for e in events if e["type"] == "step" and e["data"]["kind"] == "answer"]
+    assert [a["agent"] for a in answers] == ["Chercheur", "Rédacteur"]
+    assert all(a["agent_totals"]["tools"] == 0 for a in answers)
+    report = "".join(e["data"]["text"] for e in events if e["type"] == "token")
+    assert report.strip()  # le rapport final est le seul texte publié en `token`
+    assert snapshot["mission"]["agents_done"] == 2 and snapshot["mission"]["duration_s"] > 0
+    assert len(snapshot["children"]) == 2

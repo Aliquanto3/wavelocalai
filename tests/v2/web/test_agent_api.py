@@ -402,7 +402,7 @@ async def test_a_request_with_an_unknown_or_unavailable_tool_is_refused_before_a
     assert app.state.hub.active_runs() == []
 
 
-async def test_invalid_bodies_are_422_and_crew_mode_is_not_taken_here(served):
+async def test_invalid_bodies_are_422(served):
     _, client = served
     for body in (
         {"mode": "crew", "model": FAKE_REF.tag, "prompt": "x", "tools": []},

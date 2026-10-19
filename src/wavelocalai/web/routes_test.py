@@ -17,6 +17,9 @@ d'étapes, chacune un objet à une clé principale :
 `POST /api/test/reranker` remplace le reranker de l'app par un `FakeReranker` (`lexical` ou
 `reverse`, `delay_s`), ou le déclare indisponible (`absent`, avec sa `reason`) ; `GET` rend les
 calculs qu'il a faits (story 4.7).
+`POST /api/test/reranker-install` remplace l'installation du reranker (écran Modèles, story 5.5) par une
+installation factice (`ok`, `fail`, `hang`, octets simulés) et règle la présence de l'extra « rerank » ;
+une fois installé, le reranker chargé est un `FakeReranker` : aucun réseau, aucun modèle.
 `POST /api/test/gpu` fixe l'état du GPU que le flux système publie (`gpu` : nom, mémoire, température,
 bridage thermique ; `null` : aucun GPU, le champ est absent), au lieu de la lecture NVML du poste (5.1).
 `POST /api/test/carbon-sessions` ajoute des sessions closes, datées dans le passé, à l'historique
@@ -36,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import shutil
 import sqlite3
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -61,7 +65,8 @@ from wavelocalai.models.port import (
     TextDelta,
 )
 from wavelocalai.models.registry import ModelRegistry
-from wavelocalai.rag.rerank import FakeReranker
+from wavelocalai.rag.rerank import FakeReranker, install_marker
+from wavelocalai.rag.rerank_pull import FakeFetcher, RerankerPullService, model_folder
 from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, Co2, RunHandle
 
 router = APIRouter(prefix="/api/test")
@@ -291,6 +296,55 @@ async def script_reranker(body: ScriptedReranker, request: Request) -> dict[str,
     else:
         service.preset(FakeReranker(body.mode, body.delay_s))
     return {"available": service.status().available}
+
+
+class ScriptedRerankerInstall(BaseModel):
+    extra: bool = True  # l'extra « rerank » est présent
+    mode: Literal["ok", "fail", "hang"] = "ok"
+    total_bytes: int = Field(default=1_000_000_000, ge=0)
+    steps: int = Field(default=4, ge=1, le=100)
+    step_delay_s: float = Field(default=0.0, ge=0.0, le=MAX_SLEEP_S)
+    interval_s: float = Field(default=0.05, gt=0.0, le=MAX_SLEEP_S)  # entre deux `pull_progress`
+    reason: str = "connexion refusée"
+
+
+@router.post("/reranker-install")
+async def script_reranker_install(
+    body: ScriptedRerankerInstall, request: Request
+) -> dict[str, Any]:
+    """Une installation du reranker factice : l'état du reranker repart de zéro (extra réglé, cache vide)."""
+    app = request.app
+    service = app.state.reranker
+    fake = FakeFetcher(
+        body.mode,
+        total_bytes=body.total_bytes,
+        steps=body.steps,
+        step_delay_s=body.step_delay_s,
+        reason=body.reason,
+    )
+    service.extra_override = body.extra
+    service.use_loader(lambda model, cache, env_file: FakeReranker())
+    service.refresh()
+    shutil.rmtree(model_folder(service.cache, service.model), ignore_errors=True)
+    install_marker(service.cache, service.model).unlink(missing_ok=True)
+    app.state.reranker_pull = RerankerPullService(
+        app.state.hub,
+        service,
+        app.state.settings,
+        fetch=fake.fetch,
+        expected=fake.expected,
+        measure=fake.measure,
+        interval_s=body.interval_s,
+    )
+    app.state.reranker_fetcher = fake
+    return {"available": service.status().available}
+
+
+@router.get("/reranker-install")
+async def reranker_install_calls(request: Request) -> dict[str, int]:
+    """Le nombre de téléchargements factices lancés (zéro : aucun n'a été tenté)."""
+    fake = getattr(request.app.state, "reranker_fetcher", None)
+    return {"downloads": fake.calls if fake is not None else 0}
 
 
 @router.get("/reranker")

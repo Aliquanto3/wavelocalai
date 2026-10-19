@@ -225,6 +225,12 @@ async def test_run_params_never_hold_typed_text(hub, store):
         with pytest.raises(ValueError):
             await hub.create_run("chat", params=refused, user_message=question)
     check_params({"temperature": 0.2, "models": ["a:1b"], "strategy": "hyde"})
+    # Un texte saisi court n'est pas cherché dans les identifiants (sujet « carbone », équipe
+    # `comparaison_carbone`) ; un texte distinctif l'est toujours.
+    check_params({"crew": "comparaison_carbone", "agents": [{"role": "Expert carbone"}]}, "carbone")
+    check_params({"tools": ["calculator"]}, "calculator")
+    with pytest.raises(ValueError):
+        check_params({"note": f"avant {question} après"}, question)
 
 
 # --- sources ------------------------------------------------------------------------------------

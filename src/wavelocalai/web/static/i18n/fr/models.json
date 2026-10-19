@@ -95,6 +95,28 @@
       "start_failed": "L'installation n'a pas pu démarrer.",
       "start_failed_action": "Vérifiez que l'application tourne, puis réessayez."
     },
+    "rerank": {
+      "name": "Reclassement des extraits",
+      "title": "Reclassement des extraits",
+      "lead": "Un petit modèle local relit les extraits trouvés et les remet dans l'ordre de leur pertinence avant la réponse. Il est facultatif : sans lui, la recherche garde l'ordre de la proximité.",
+      "status_on": "Installé",
+      "status_off": "Non installé",
+      "status_installing": "Installation en cours",
+      "status_unknown": "État indisponible",
+      "on_help": "Le reranker {model} reclasse les extraits de la recherche documentaire.",
+      "reason": "Raison : {reason}",
+      "unknown": "L'état du reclassement n'a pas pu être lu. Rechargez la page.",
+      "install": "Installer le reranker",
+      "install_aria": "Installer le reranker {model}",
+      "extra_missing": "Installez l'option de reclassement :",
+      "extra_command": "uv sync --extra rerank",
+      "busy": "Une installation est en cours ({tag}).",
+      "download_help": "Le téléchargement se fait une seule fois, à votre clic, dans le dossier de données de l'application.",
+      "done": "Reranker installé. La recherche documentaire reclasse désormais les extraits.",
+      "cancelled": "Installation du reranker annulée. Il reste non installé.",
+      "failed": "L'installation du reranker n'a pas abouti.",
+      "failed_action": "Vérifiez la connexion au réseau et l'espace disque, puis réessayez. La recherche reste sans reclassement."
+    },
     "delete": {
       "title": "Supprimer {tag} ?",
       "consequence": "{tag} sera supprimé de ce poste ({size} libérés).",
