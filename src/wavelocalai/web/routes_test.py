@@ -60,7 +60,7 @@ from wavelocalai.models.port import (
     TextDelta,
 )
 from wavelocalai.models.registry import ModelRegistry
-from wavelocalai.rag.rerank import FakeReranker
+from wavelocalai.rag.rerank import FakeReranker, install_marker
 from wavelocalai.rag.rerank_pull import FakeFetcher, RerankerPullService, model_folder
 from wavelocalai.runs.models import CONVERSATION_KINDS, ROOT_KINDS, Co2, RunHandle
 
@@ -257,6 +257,7 @@ async def script_reranker_install(
     service.use_loader(lambda model, cache, env_file: FakeReranker())
     service.refresh()
     shutil.rmtree(model_folder(service.cache, service.model), ignore_errors=True)
+    install_marker(service.cache, service.model).unlink(missing_ok=True)
     app.state.reranker_pull = RerankerPullService(
         app.state.hub,
         service,

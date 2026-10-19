@@ -99,10 +99,20 @@ def _extra_installed() -> bool:
     return importlib.util.find_spec("fastembed") is not None
 
 
+def install_marker(cache: Path, model: str) -> Path:
+    """Le témoin d'une installation en cours depuis l'écran Modèles (story 5.5), à côté du dossier du
+    modèle : écrit avant le téléchargement, retiré une fois le modèle vérifié. S'il reste (arrêt brutal
+    du serveur pendant l'installation), le dossier est partiel : le modèle n'est pas installé."""
+    return cache / f".models--{model.replace('/', '--')}.installing"
+
+
 def _model_in_cache(model: str, cache: Path) -> bool:
-    """Le cache a un dossier pour ce modèle (`models--<organisation>--<nom>` de Hugging Face).
-    Une présence ne prouve pas que le chargement réussira : le chargement tranche."""
+    """Le cache a un dossier pour ce modèle (`models--<organisation>--<nom>` de Hugging Face), sans
+    installation inachevée (`install_marker`). Une présence ne prouve pas que le chargement réussira :
+    le chargement tranche."""
     wanted = model.replace("/", "--").lower()
+    if install_marker(cache, model).exists():
+        return False
     try:
         return any(
             entry.is_dir() and entry.name.lower().endswith(wanted) for entry in cache.iterdir()

@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import socket
 
-from wavelocalai.rag import rerank_pull
+from wavelocalai.rag import rerank, rerank_pull
 
 from .conftest import parse_sse, served  # noqa: F401 - fixture
 
@@ -155,3 +155,45 @@ async def test_a_loading_failure_is_forgotten_once_the_model_is_installed(served
     run_id = (await client.post(URL)).json()["run_id"]
     assert (await _ended(client, run_id))["status"] == "ok"
     assert (await _reranker_settings(client))["available"] is True
+
+
+async def test_a_download_cut_by_a_hard_stop_is_not_installed_and_the_next_pull_starts_over(served):
+    """Arrêt brutal du serveur pendant l'installation : le dossier partiel et son témoin restent. Le
+    reranker n'est pas « installé », l'installation se relance et repart d'un dossier vide (revue 5.5)."""
+    app, client = served
+    await _install(client, total_bytes=1000, steps=2)
+    service = app.state.reranker
+    folder = rerank_pull.model_folder(service.cache, service.model)
+    (folder / "blobs").mkdir(parents=True)
+    (folder / "blobs" / "partiel.incomplete").write_bytes(b"x" * 10)
+    marker = rerank.install_marker(service.cache, service.model)
+    marker.write_text("run-precedent", encoding="utf-8")
+
+    missing = await _reranker_settings(client)
+    assert missing["available"] is False and "dossier de cache" in missing["reason"]
+    assert await service.score("chat", ["un chat"]) is None  # aucun chargement d'un dossier partiel
+
+    run_id = (await client.post(URL)).json()["run_id"]
+    assert (await _ended(client, run_id))["status"] == "ok"
+    assert not marker.exists()
+    assert not (folder / "blobs" / "partiel.incomplete").exists()  # reparti de zéro
+    assert (await _reranker_settings(client))["available"] is True
+
+
+async def test_the_marker_marks_an_installation_in_progress_and_goes_with_a_cancel(served):
+    app, client = served
+    await _install(client, mode="hang", step_delay_s=0.01)
+    service = app.state.reranker
+    marker = rerank.install_marker(service.cache, service.model)
+    folder = rerank_pull.model_folder(service.cache, service.model)
+    run_id = (await client.post(URL)).json()["run_id"]
+    async with asyncio.timeout(5):
+        while not folder.exists():
+            await asyncio.sleep(0.01)
+    assert marker.exists()  # pendant le téléchargement, le dossier ne vaut pas installation
+    assert (await _reranker_settings(client))["available"] is False
+    await client.post(f"/api/runs/{run_id}/cancel")
+    assert (await _ended(client, run_id))["status"] == "cancelled"
+    async with asyncio.timeout(5):
+        while marker.exists() or folder.exists():
+            await asyncio.sleep(0.01)

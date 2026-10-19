@@ -31,7 +31,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope, pull_failed_envelope
 from wavelocalai.inference.pull import PROGRESS_INTERVAL_S, ProgressThrottle, progress_data
 from wavelocalai.models.ollama_pull import PullUpdate
-from wavelocalai.rag.rerank import RerankerService, missing_extra_reason
+from wavelocalai.rag.rerank import RerankerService, install_marker, missing_extra_reason
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import RunHandle
 from wavelocalai.telemetry import disable_telemetry
@@ -154,6 +154,9 @@ class RerankerPullService:
     async def _run(self, handle: RunHandle) -> None:
         run_id, model, cache = handle.run_id, self._reranker.model, self._reranker.cache
         folder = model_folder(cache, model)
+        marker = install_marker(cache, model)
+        if marker.exists():  # installation coupée par un arrêt brutal : le dossier est partiel
+            shutil.rmtree(folder, ignore_errors=True)
         existed = folder.exists()
         secrets = self._settings.secret_values()
         done = False
@@ -164,6 +167,9 @@ class RerankerPullService:
 
         throttle = ProgressThrottle(publish, self._interval_s, self._clock)
         try:
+            if not existed:  # retiré une fois le modèle vérifié ; sinon « non installé » reste vrai
+                cache.mkdir(parents=True, exist_ok=True)
+                marker.write_text(run_id, encoding="utf-8")
             throttle.push(PullUpdate("preparing"), force=True)
             total = await asyncio.to_thread(self._expected, model, self._settings.env_file)
             fetching = asyncio.ensure_future(self._fetch(model, cache, self._settings.env_file))
@@ -187,6 +193,7 @@ class RerankerPullService:
             final = max(total, await asyncio.to_thread(self._measure, folder))
             throttle.push(PullUpdate("verifying", final, final, done=True), force=True)
             throttle.close()
+            marker.unlink(missing_ok=True)
             self._reranker.refresh()
             done = True
             await self._hub.finish_run(run_id, "ok")
@@ -206,6 +213,7 @@ class RerankerPullService:
             throttle.close()
             if not done and not existed:
                 shutil.rmtree(folder, ignore_errors=True)  # « non installé » reste vrai
+                marker.unlink(missing_ok=True)
 
 
 class FakeFetcher:
