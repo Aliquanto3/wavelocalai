@@ -94,6 +94,7 @@ def test_new_front_files_stay_under_the_size_budget():
         "screens/documents-import-row.js",
         "screens/documents-manage.js",
         "screens/documents-settings.js",
+        "screens/documents-chat-settings.js",
         "components/wl-data-table.js",
         "components/wl-confirm-dialog.js",
         "documents.css",

@@ -450,7 +450,8 @@ async def test_cancelling_during_the_answer_keeps_the_sources_and_the_partial_an
     [
         ({"question": "   "}, 422, "invalid_request"),
         ({"question": ""}, 422, "invalid_request"),
-        ({"strategy": "hyde"}, 422, "invalid_request"),
+        ({"strategy": "inconnue"}, 422, "invalid_request"),
+        ({"top_k": 0}, 422, "invalid_request"),
         ({"model": "inconnu:1b"}, 404, "model_not_found"),
         ({"model": FAKE_EMBED_REF.tag}, 422, "model_not_chat"),
     ],

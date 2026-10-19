@@ -683,6 +683,16 @@ class RunHub:
         run = self._runs.get(run_id)
         return None if run is None or run.parent_id is not None else run.signal
 
+    def answer_text(self, run_id: str) -> str | None:
+        """Texte de réponse reçu jusque-là par un run racine actif d'une conversation (les jetons en
+        attente y sont versés d'abord) ; `None` si le run n'est plus actif. Un service s'en sert pour
+        vérifier la réponse une fois le flux fini (`citations`, story 4.6)."""
+        run = self._runs.get(run_id)
+        if run is None or run.parent_id is not None:
+            return None
+        self._drain_tokens(run)
+        return "".join(run.answer)
+
     async def events_after(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         """Enveloppes d'AD-6 de `seq > after` : mémoire du hub si le run est actif, base sinon.
         Depuis la base, le texte des `sources` est réhydraté depuis `chunks` (AD-7) : `null` si

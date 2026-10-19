@@ -10,7 +10,8 @@ documents prêts et les plafonds de l'écran. Toute la logique est dans `rag/` (
 
 `POST /api/rag/runs` pose une question aux documents prêts (run `rag`) et rend `{run_id,
 conversation_id}` ; les sources, puis la réponse, se lisent par `GET /api/runs/{id}/events`.
-`GET /api/rag/chunks/{id}` rend un extrait en entier.
+`strategy` : `naive`, `hyde` ou `self_rag` ; `top_k` (1 à 20) règle le nombre d'extraits de la
+question (story 4.6). `GET /api/rag/chunks/{id}` rend un extrait en entier.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.ingest import IngestService
 from wavelocalai.rag.query import RagCommand, RagService, chunk_view
 from wavelocalai.rag.staging import StagedFile, discard_staging, new_staging_dir, stage_upload
+from wavelocalai.rag.strategies import MAX_TOP_K
 
 router = APIRouter(prefix="/api")
 
@@ -140,8 +142,10 @@ class RagBody(BaseModel):
     conversation_id: str | None = None
     question: str = Field(max_length=MAX_QUESTION_CHARS)
     model: str = Field(min_length=1)
-    strategy: Literal["naive"] = "naive"
+    strategy: Literal["naive", "hyde", "self_rag"] = "naive"
     allow_cloud: bool = False
+    # Absent : le réglage de l'écran Base, sinon `rag.top_k`.
+    top_k: int | None = Field(default=None, ge=1, le=MAX_TOP_K)
 
     @field_validator("question")
     @classmethod

@@ -1,6 +1,7 @@
-"""Écran Discussion et panneau des sources (story 4.5) : règles de structure et de textes, sans
-navigateur. Les parcours (étapes, sources avant la réponse, passage, « extrait supprimé »,
-« Afficher les sources », mise en page, reprise, axe) vivent dans `e2e/test_discussion.py`."""
+"""Écran Discussion et panneau des sources (stories 4.5 et 4.6) : règles de structure et de textes,
+sans navigateur. Les parcours (étapes, sources avant la réponse, passage, « extrait supprimé »,
+« Afficher les sources », mise en page, reprise, axe, stratégies, citations) vivent dans
+`e2e/test_discussion.py` et `e2e/test_discussion_strategies.py`."""
 
 from __future__ import annotations
 
@@ -23,7 +24,13 @@ def code(name: str) -> str:
     )
 
 
-SCREEN = source("screens/documents.js")
+SCREEN_FILES = (
+    "screens/documents.js",
+    "screens/documents-chat-settings.js",
+    "screens/documents-citations.js",
+    "screens/documents-replay.js",
+)
+SCREEN = "\n".join(source(name) for name in SCREEN_FILES)
 PANEL = source("components/wl-source-panel.js")
 
 
@@ -55,13 +62,16 @@ def test_every_source_panel_text_is_used_and_exists():
     thread_code = source("components/wl-chat-thread.js")
     thread = set(re.findall(r"""["']components\.thread\.(\w+)["']""", thread_code))
     assert thread == set(CATALOG["components"]["thread"])
-    assert "retrieving" in CATALOG["components"]["run_status"]
+    assert {"retrieving", "hypothesizing", "verifying"} <= set(CATALOG["components"]["run_status"])
 
 
 def test_the_screen_reads_the_stream_through_the_single_sse_client_and_resumes_by_after():
     text = code("screens/documents.js")
     assert "EventSource" not in text and "connectStream(" not in text
-    assert text.count("connectRun(") == 2  # le run suivi, et le rejeu d'une réponse déjà finie
+    assert text.count("connectRun(") == 1  # le run suivi
+    assert (
+        code("screens/documents-replay.js").count("connectRun(") == 1
+    )  # le rejeu d'une réponse finie
     assert "keepSeq: true" in text  # masqué : le dernier `seq` reste, la reprise est `?after=`
     assert "allow_cloud: store.get().allowCloud" in text  # AD-9, sur chaque commande
     assert 'status.setAttribute("driven", "")' in text
@@ -77,7 +87,7 @@ def test_the_documents_never_reach_the_dom_as_html():
         r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|createContextualFragment|"
         r"DOMParser|\beval\(|new Function|setAttribute\(\s*[\"']on|srcdoc"
     )
-    for name in ("screens/documents.js", "components/wl-source-panel.js"):
+    for name in (*SCREEN_FILES, "components/wl-source-panel.js"):
         assert not forbidden.search(code(name)), name
     assert "attachShadow" not in PANEL
 
@@ -121,7 +131,29 @@ def test_the_screen_is_registered_as_available_and_the_panel_is_a_shared_compone
 def test_no_download_and_no_citation_marker_is_invented():
     text = code("screens/documents.js")
     assert "conversationExportUrl" not in text and "exportMenu" not in text
-    assert "citations" not in text  # aucun événement `citations` avant la story 4.6
+    # Seuls les marqueurs que `citations` confirme deviennent des boutons : sans `citations`, rien.
+    citations = code("screens/documents-citations.js")
+    assert "if (!confirmed.size) return;" in citations
+    assert "record.citations" in citations and "citations: (data)" in text
+    assert "hooks.enter" in citations and "wl-source-link" in text
+    run_status = code("components/wl-run-status.js")
+    assert "hypothesizing" in run_status and "verifying" in run_status
+
+
+def test_the_technical_names_of_the_strategies_only_appear_in_help_texts():
+    discussion = CATALOG["discussion"]
+    labels = [v for k, v in discussion.items() if k.startswith("strategy_") and "_help" not in k]
+    labels += [discussion["strategy"], discussion["top_k"], discussion["advanced"]]
+    assert len(labels) >= 6
+    for label in labels:
+        assert not re.search(r"hyde|self-rag|top-k|naive|\brag\b", label, re.IGNORECASE), label
+    helps = " ".join(v for k, v in discussion.items() if "_help" in k)
+    assert "HyDE" in helps and "Self-RAG" in helps and "Top-K" in helps
+    settings = code("screens/documents-chat-settings.js")
+    assert 'export const STRATEGIES = ["naive", "hyde", "self_rag"];' in settings
+    # le défaut et le plafond viennent des réglages de la base (4.3), plus du palliatif de la liste
+    assert "api.ragSettings()" in code("screens/documents.js")
+    assert "base.search" not in code("screens/documents.js")
 
 
 def test_plural_texts_come_in_pairs():
@@ -132,5 +164,5 @@ def test_plural_texts_come_in_pairs():
 
 
 def test_new_front_files_stay_under_the_size_budget():
-    for name in ("screens/documents.js", "components/wl-source-panel.js", "documents.css"):
+    for name in (*SCREEN_FILES, "components/wl-source-panel.js", "documents.css"):
         assert len(source(name).splitlines()) <= 600, name

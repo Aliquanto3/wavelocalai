@@ -1,19 +1,23 @@
 """Service de question aux documents : une question, ses sources, puis la réponse (AD-5, AD-9, AD-14).
 
-Un run `rag` est composite (AD-5) : la racine publie seule le flux, et porte deux feuilles, un
-`embedding` (la question, mesurée comme un lot d'ingestion) et une `generation` (la réponse, comme le
-chat, `co2` cloud estimé par ecologits). Seuls les documents `ready` sont interrogés (AD-16).
+Un run `rag` est composite (AD-5) : la racine publie seule le flux, et porte des feuilles : un
+`embedding` par recherche (la question, ou la réponse hypothétique de HyDE, mesuré comme un lot
+d'ingestion), une `generation` par appel de modèle de la stratégie (réponse hypothétique, notation,
+reformulation : appels silencieux, `co2` cloud estimé par ecologits) et la `generation` de la
+réponse, comme le chat. Seuls les documents `ready` sont interrogés (AD-16).
 
-Ordre des événements, stratégie `naive` : `retrieval_step {strategy, step: "embedding", duration_s}`,
-`retrieval_step {strategy, step: "search", duration_s}`, `sources`, puis les `token` de la réponse
-et `metrics` (débit D3, `retrieval_s` à part, `co2` de la génération). Chaque étape est publiée à sa
-**fin**, quand sa durée est connue ; les sources partent donc avant le premier `token`.
+Ordre des événements : des `retrieval_step {strategy, step, duration_s}` (champs additifs `round`,
+`fallback` et, pour `grade`, `checked` et `relevant`), puis `sources`, puis les `token` de la réponse,
+`metrics` (débit D3, `retrieval_s` à part, `co2` de la génération) et, si la réponse cite des
+sources, `citations`. Chaque étape est publiée à sa **fin**, quand sa durée est connue ; les sources
+partent donc avant le premier `token`. Étapes : `naive` = `embedding`, `search` ; `hyde` =
+`hypothesis`, `embedding`, `search` ; `self_rag` = par tour `embedding`, `search`, `grade`, puis
+`rewrite` si aucun extrait n'est pertinent et que la borne n'est pas atteinte (`rag/strategies.py`).
 
 `sources` est persisté sans `text` ; le hub le réhydrate depuis `chunks` au rejeu (AD-7).
 `runs.params` ne reçoit ni la question ni les extraits (AD-7) : la question vit dans `messages`.
 
-Une question est indépendante : le prompt ne reprend pas l'historique de la conversation (une
-stratégie qui réécrit la question d'après l'historique viendra avec les stratégies suivantes).
+Une question est indépendante : le prompt ne reprend pas l'historique de la conversation.
 """
 
 from __future__ import annotations
@@ -40,7 +44,18 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.embedding_leaf import embed_into_leaf, leaf_error
 from wavelocalai.rag.index import VectorIndex
 from wavelocalai.rag.passage import pick_passage, relevance_label, similarity
-from wavelocalai.rag.settings import STRATEGIES, effective
+from wavelocalai.rag.settings import effective
+from wavelocalai.rag.strategies import (
+    MAX_TOP_K,
+    STRATEGIES,
+    clean_query,
+    grade_request,
+    hyde_request,
+    merge_best,
+    parse_grade,
+    rewrite_request,
+    verify_citations,
+)
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import Co2, RunHandle
 from wavelocalai.runs.system_bus import SystemBus
@@ -57,8 +72,8 @@ NOT_STARTED_CO2 = Co2(
 SYSTEM_PROMPT = (
     "Tu réponds en français à la question de l'utilisateur à partir des extraits de documents "
     "fournis, et d'eux seuls. Cite les extraits utilisés par leur numéro entre crochets, par "
-    "exemple [1]. Si les extraits ne permettent pas de répondre, dis-le franchement au lieu "
-    "d'inventer une réponse."
+    "exemple [1], sans jamais citer un numéro qui n'est pas dans la liste. Si les extraits ne "
+    "permettent pas de répondre, dis-le franchement au lieu d'inventer une réponse."
 )
 
 
@@ -69,6 +84,7 @@ class RagCommand:
     strategy: str = "naive"
     allow_cloud: bool = False
     conversation_id: str | None = None
+    top_k: int | None = None  # nombre d'extraits de cette question ; sinon `rag.top_k`
 
 
 @dataclass
@@ -81,6 +97,7 @@ class _Rag:
     question: str
     strategy: str
     top_k: int
+    embedding_used: bool = False  # la feuille créée au départ sert à la première recherche
 
 
 def build_sources(
@@ -157,6 +174,11 @@ class RagService:
             raise AppError(
                 "invalid_request", f"strategy : {command.strategy!r} n'est pas prise en charge."
             )
+        rag = self._settings.rag
+        # `top_k` de la question s'il est envoyé, sinon le réglage de l'écran Base (AD-15), sinon .toml.
+        top_k = effective(rag, self._preferences).top_k if command.top_k is None else command.top_k
+        if not 1 <= top_k <= MAX_TOP_K:
+            raise AppError("invalid_request", f"top_k : de 1 à {MAX_TOP_K} extraits.")
         ref = self._registry.resolve(command.model, command.allow_cloud)
         model = self._factory.chat_model(ref)
         base = await self._store.aread(repo.READY_BASE_SQL)
@@ -166,17 +188,19 @@ class RagService:
             self._registry.resolve_embedder(base[0]["embedding_model"])
         )
         await self._check_vectors(base[0]["chunks"])
-        top_k = effective(self._settings.rag, self._preferences).top_k
+        params: dict[str, Any] = {
+            "strategy": command.strategy,
+            "allow_cloud": command.allow_cloud,
+            "embedding_model": embedder.ref.tag,
+            "top_k": top_k,
+            "temperature": TEMPERATURE,
+        }
+        if command.strategy == "self_rag":
+            params["self_rag_max_iterations"] = rag.self_rag_max_iterations
         handle = await self._hub.create_run(
             "rag",
             models=[ref.tag],
-            params={
-                "strategy": command.strategy,
-                "allow_cloud": command.allow_cloud,
-                "embedding_model": embedder.ref.tag,
-                "top_k": top_k,
-                "temperature": TEMPERATURE,
-            },
+            params=params,
             user_message=command.question,
             conversation_id=command.conversation_id,
         )
@@ -258,6 +282,7 @@ class RagService:
                 guard=self._guard,
             )
             if leaf.status == "ok":
+                self._publish_citations(root, sources)
                 await self._hub.finish_run(root, "ok")
             else:
                 await self._hub.finish_run(root, "error", error=leaf.error)
@@ -272,15 +297,38 @@ class RagService:
     async def _retrieve(
         self, run: _Rag, secrets: Sequence[str]
     ) -> tuple[list[dict[str, Any]], float]:
-        """Embedding de la question, recherche, puis `sources` ; rend les sources et la durée de la
-        recherche (embedding compris). Lève `rag_base_empty` si rien n'est interrogeable."""
+        """La recherche de la stratégie, puis `sources` ; rend les sources et la durée de la
+        recherche (réponse hypothétique, embeddings et notations compris). Lève `rag_base_empty` si
+        rien n'est interrogeable."""
+        started = time.perf_counter()
+        if run.strategy == "hyde":
+            found = await self._hyde(run, secrets)
+        elif run.strategy == "self_rag":
+            found = await self._self_rag(run, secrets)
+        else:
+            found = await self._search(run, run.question, secrets)
+        if not found:  # base vidée entre-temps, ou index perdu (repli numpy après un redémarrage)
+            raise AppError("rag_base_empty", "La recherche n'a trouvé aucun extrait.")
+        rag = self._settings.rag
+        sources = build_sources(found, run.question, rag.relevance_very_close, rag.relevance_close)
+        self._hub.publish(
+            run.handle.run_id, "sources", {"strategy": run.strategy, "sources": sources}
+        )
+        return sources, round(time.perf_counter() - started, 6)
+
+    async def _search(
+        self, run: _Rag, text: str, secrets: Sequence[str], round_: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Embedding de `text` (une feuille `embedding`), puis les `top_k` extraits les plus proches
+        de documents `ready` : étapes `embedding` et `search`."""
         root = run.handle.run_id
+        leaf_id = await self._embedding_leaf(run)
         started = time.perf_counter()
         vectors = await embed_into_leaf(
             self._hub,
-            run.embedding_leaf_id,
+            leaf_id,
             run.embedder,
-            [run.question],
+            [text],
             slot=self._slot,
             meter=self._meter,
             timeout_s=self._settings.delays.lane_timeout_s,
@@ -288,26 +336,148 @@ class RagService:
             on_leaf_closed=self._announce_carbon,
         )
         embedded = time.perf_counter()
-        self._step(root, run.strategy, "embedding", embedded - started)
-        rag = self._settings.rag
+        self._step(root, run.strategy, "embedding", embedded - started, round=round_)
         found = await self._store.aread_with(
             lambda conn: repo.search_chunks(conn, self._index, vectors[0], run.top_k),
             vec=self._store.vec_available,
         )
-        searched = time.perf_counter()
-        self._step(root, run.strategy, "search", searched - embedded)
-        if not found:  # base vidée entre-temps, ou index perdu (repli numpy après un redémarrage)
-            raise AppError("rag_base_empty", "La recherche n'a trouvé aucun extrait.")
-        sources = build_sources(found, run.question, rag.relevance_very_close, rag.relevance_close)
-        self._hub.publish(root, "sources", {"strategy": run.strategy, "sources": sources})
-        return sources, round(searched - started, 6)
+        self._step(root, run.strategy, "search", time.perf_counter() - embedded, round=round_)
+        return found
 
-    def _step(self, run_id: str, strategy: str, step: str, duration_s: float) -> None:
-        self._hub.publish(
-            run_id,
-            "retrieval_step",
-            {"strategy": strategy, "step": step, "duration_s": round(duration_s, 6)},
+    async def _hyde(self, run: _Rag, secrets: Sequence[str]) -> list[dict[str, Any]]:
+        """HyDE : le modèle rédige un passage hypothétique, la recherche s'appuie sur lui. Sans
+        passage (appel en échec ou vide), elle retombe sur la question (`fallback`)."""
+        started = time.perf_counter()
+        hypothesis = await self._ask(run, hyde_request(run.question), secrets)
+        self._step(
+            run.handle.run_id,
+            run.strategy,
+            "hypothesis",
+            time.perf_counter() - started,
+            fallback=None if hypothesis else "question",
         )
+        return await self._search(run, hypothesis or run.question, secrets)
+
+    async def _self_rag(self, run: _Rag, secrets: Sequence[str]) -> list[dict[str, Any]]:
+        """Self-RAG : recherche, notation des extraits, reformulation tant qu'aucun n'est pertinent,
+        au plus `self_rag_max_iterations` fois ; la borne atteinte, les meilleurs extraits vus."""
+        root = run.handle.run_id
+        max_rewrites = self._settings.rag.self_rag_max_iterations
+        query = run.question
+        seen: list[list[dict[str, Any]]] = []
+        for round_ in range(max_rewrites + 1):
+            found = await self._search(run, query, secrets, round_)
+            if not found:
+                break
+            seen.append(found)
+            started = time.perf_counter()
+            verdicts = parse_grade(
+                await self._ask(run, grade_request(run.question, found), secrets) or ""
+            )
+            # Un extrait sans verdict lisible est gardé : le doute lui profite.
+            kept = [item for rank, item in enumerate(found, 1) if verdicts.get(rank, True)]
+            self._step(
+                root,
+                run.strategy,
+                "grade",
+                time.perf_counter() - started,
+                round=round_,
+                checked=len(found),
+                relevant=len(kept),
+                fallback=None if verdicts else "all",
+            )
+            if kept:
+                return kept
+            if round_ == max_rewrites:
+                break
+            started = time.perf_counter()
+            rewritten = clean_query(
+                await self._ask(run, rewrite_request(run.question, query), secrets) or ""
+            )
+            self._step(
+                root,
+                run.strategy,
+                "rewrite",
+                time.perf_counter() - started,
+                round=round_,
+                fallback=None if rewritten and rewritten != query else "stop",
+            )
+            if not rewritten or rewritten == query:
+                break  # rien de neuf à essayer
+            query = rewritten
+        return merge_best(seen, run.top_k)
+
+    async def _ask(self, run: _Rag, request: ChatRequest, secrets: Sequence[str]) -> str | None:
+        """Un appel de modèle de la stratégie, **silencieux** (rien n'est publié dans le flux) et en
+        feuille `generation` du run, mesurée comme les autres. Rend le texte, ou `None` si l'appel
+        échoue ou ne rend rien : la stratégie a alors son repli. Le garde-fou mémoire (story 4.8)
+        s'applique comme à la réponse : son refus `ram_guard` termine le run en erreur (le modèle
+        ne tiendrait pas plus pour la réponse), au lieu d'un repli silencieux."""
+        leaf_id = await self._leaf(run, "generation", run.model.ref.tag)
+        captured: list[str] = []
+        result = await stream_into_run(
+            self._hub,
+            leaf_id,
+            run.model,
+            request,
+            secrets=secrets,
+            estimate_co2=self._cloud_estimator(run.model),
+            slot=self._slot,
+            timeout_s=self._settings.delays.lane_timeout_s,
+            publish_to=run.handle.run_id,
+            meter=self._meter,
+            on_leaf_closed=self._announce_carbon,
+            capture=captured,
+            guard=self._guard,
+        )
+        if result.status != "ok":
+            error = result.error or {}
+            if error.get("code") == "ram_guard":
+                detail = {k: v for k, v in (error.get("detail") or {}).items() if k != "technical"}
+                raise AppError("ram_guard", (error.get("detail") or {}).get("technical"), **detail)
+            logger.warning(
+                "Appel de stratégie %s en échec (%s)",
+                run.strategy,
+                (result.error or {}).get("code"),
+            )
+            return None
+        return "".join(captured).strip() or None
+
+    async def _embedding_leaf(self, run: _Rag) -> str:
+        """La feuille `embedding` de la prochaine recherche : celle créée au départ pour la
+        première, une nouvelle ensuite (reformulations de Self-RAG)."""
+        if not run.embedding_used:
+            run.embedding_used = True
+            return run.embedding_leaf_id
+        return await self._leaf(run, "embedding", run.embedder.ref.tag)
+
+    async def _leaf(self, run: _Rag, kind: str, tag: str) -> str:
+        """Crée une feuille du run, annulée par défaut tant qu'elle n'est pas jouée (AD-10). Le
+        parent qui se clôt (annulation) interrompt la stratégie."""
+        try:
+            leaf = await self._hub.create_run(kind, models=[tag], parent_run_id=run.handle.run_id)
+        except ValueError:
+            raise asyncio.CancelledError from None
+        self._hub.declare_leaf(leaf.run_id, CANCELLED_CO2)
+        return leaf.run_id
+
+    def _step(self, run_id: str, strategy: str, step: str, duration_s: float, **extra: Any) -> None:
+        data: dict[str, Any] = {
+            "strategy": strategy,
+            "step": step,
+            "duration_s": round(duration_s, 6),
+        }
+        data.update({key: value for key, value in extra.items() if value is not None})
+        self._hub.publish(run_id, "retrieval_step", data)
+
+    def _publish_citations(self, run_id: str, sources: list[dict[str, Any]]) -> None:
+        """`citations` : les marqueurs `[n]` de la réponse qui désignent une source de `sources`
+        (`rag/strategies.py::verify_citations`). Rien n'est publié sans marqueur vérifié : le front
+        n'en fabrique alors aucun."""
+        answer = self._hub.answer_text(run_id) or ""
+        citations = verify_citations(answer, {source["n"] for source in sources})
+        if citations:
+            self._hub.publish(run_id, "citations", {"citations": citations})
 
     def _cloud_estimator(self, model: ChatModel) -> Callable[[ChatResult], Co2] | None:
         return cloud_estimator(model, self._settings)

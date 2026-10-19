@@ -175,3 +175,16 @@ def test_run_busy_envelope_and_no_error_code_reuses_a_status_name():
     assert envelope["code"] == "run_busy" and envelope["detail"]["run_id"] == "abc"
     assert ERRORS["run_busy"].status == 409
     assert not set(ERRORS) & set(STATUSES)  # AD-5 : aucun code ne reprend un nom de statut
+
+
+async def test_the_answer_text_gathers_the_tokens_of_an_active_conversation_run(hub):
+    handle = await hub.create_run("rag", models=["a:1b"], user_message="Question ?")
+    assert hub.answer_text(handle.run_id) == ""
+    hub.publish_token(handle.run_id, "a:1b", "Le chat ")
+    hub.publish_token(handle.run_id, "a:1b", "dort [1].")
+    assert hub.answer_text(handle.run_id) == "Le chat dort [1]."  # les jetons en attente comptent
+    hub.publish(handle.run_id, "retry", {"lane": "a:1b"})
+    assert hub.answer_text(handle.run_id) == ""  # une génération relancée repart de zéro
+    await hub.finish_run(handle.run_id, "ok")
+    assert hub.answer_text(handle.run_id) is None  # plus actif
+    assert hub.answer_text("inconnu") is None

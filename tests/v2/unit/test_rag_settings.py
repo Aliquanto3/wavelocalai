@@ -30,7 +30,7 @@ def test_a_preference_wins_key_by_key():
         {"chunk_size": True},
         {"top_k": 0},
         {"top_k": 99},
-        {"strategy": "hyde"},
+        {"strategy": "agentic"},
         {"embedding_model": "   "},
         {"embedding_model": 3},
         "pas un dictionnaire",
