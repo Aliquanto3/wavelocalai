@@ -5,9 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WaveLocalAI</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <!-- Feuilles de style, dans l'ordre de la cascade. Mode d'emploi : un composant a son fichier
+       css/components/<composant>.css, ajouté à la liste ci-dessous (et à celle de
+       tests/v2/e2e/fixtures/*.html, qu'un test compare) ; un écran a son fichier à la racine
+       (<écran>.css), lié après les composants. Aucune importation de feuille dans une feuille :
+       axe-core réinjecte la feuille importée dans la page, et la politique de contenu refuse
+       ce style. -->
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/base.css">
-  <link rel="stylesheet" href="/static/components.css">
+  <link rel="stylesheet" href="/static/css/components/accessibility.css">
+  <link rel="stylesheet" href="/static/css/components/button.css">
+  <link rel="stylesheet" href="/static/css/components/topbar.css">
+  <link rel="stylesheet" href="/static/css/components/status-pill.css">
+  <link rel="stylesheet" href="/static/css/components/switch.css">
+  <link rel="stylesheet" href="/static/css/components/banner.css">
+  <link rel="stylesheet" href="/static/css/components/badge.css">
+  <link rel="stylesheet" href="/static/css/components/metric.css">
+  <link rel="stylesheet" href="/static/css/components/error.css">
+  <link rel="stylesheet" href="/static/css/components/layout.css">
+  <link rel="stylesheet" href="/static/css/components/model-picker.css">
+  <link rel="stylesheet" href="/static/css/components/run-status.css">
+  <link rel="stylesheet" href="/static/css/components/export-menu.css">
+  <link rel="stylesheet" href="/static/css/components/data-table.css">
+  <link rel="stylesheet" href="/static/css/components/notice.css">
+  <link rel="stylesheet" href="/static/css/components/segments.css">
+  <link rel="stylesheet" href="/static/css/components/chart.css">
+  <link rel="stylesheet" href="/static/css/components/confirm-dialog.css">
+  <link rel="stylesheet" href="/static/css/components/source-panel.css">
   <link rel="stylesheet" href="/static/screens.css">
   <link rel="stylesheet" href="/static/chat.css">
   <link rel="stylesheet" href="/static/arena.css">

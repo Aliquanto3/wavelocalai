@@ -1,0 +1,84 @@
+/* wl-error : message, action, détails techniques repliés */
+.wl-error {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-risk);
+  border-radius: var(--radius);
+}
+
+.wl-error-message {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+
+.wl-error-action {
+  margin: 0 0 0.5rem;
+}
+
+/* Garde-fou mémoire (story 4.8) : les deux actions sous le message, puis l'aide et le résultat */
+.wl-error-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.wl-error-help,
+.wl-error-result {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-error-result {
+  color: var(--color-ink);
+}
+
+.wl-error-details summary {
+  cursor: pointer;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-error-technical {
+  margin: 0.5rem 0 0;
+  font-size: var(--text-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.display-panel fieldset {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.display-panel legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.choice input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-primary);
+}
+
+.help {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}

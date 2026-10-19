@@ -1,0 +1,77 @@
+/* Interrupteur en bascule `wl-switch` (D-6, DESIGN.md) : « Autoriser le cloud », « Mode projection ».
+   Piste bordée `ink-secondary` (3:1 au moins sur le fond) sur `surface-alt`, curseur `surface` ;
+   activé : piste `primary-fill` et icône `check` dans le curseur. Le libellé est toujours à côté :
+   l'état ne se lit jamais par la seule couleur. L'état indisponible de DESIGN.md (`aria-disabled`,
+   piste en pointillés `line`) arrivera avec son premier consommateur, qui devra aussi bloquer la
+   bascule : `aria-disabled` seul n'empêche pas de cocher. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.25rem;
+  cursor: pointer;
+}
+
+.switch-box {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 2.75rem;
+  height: 1.5rem;
+}
+
+.switch input {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 1px solid var(--color-ink-secondary);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.0625rem;
+  height: 1.0625rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-ink-secondary);
+  transition: transform 0.15s;
+}
+
+.switch input:checked {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+}
+
+.switch input:checked::before {
+  box-shadow: none;
+  transform: translateX(1.25rem);
+}
+
+/* Icône `check` dans le curseur : visible seulement activé (forme, pas couleur seule). */
+.switch-check {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.0625rem;
+  height: 1.0625rem;
+  padding: 0.0625rem;
+  box-sizing: border-box;
+  color: var(--color-primary-fill);
+  opacity: 0;
+  transform: translateX(1.25rem);
+  pointer-events: none;
+}
+
+.switch input:checked ~ .switch-check {
+  opacity: 1;
+}

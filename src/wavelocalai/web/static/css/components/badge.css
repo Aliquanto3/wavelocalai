@@ -1,0 +1,39 @@
+/* wl-badge : origine du modèle et étiquettes de fiabilité (toujours un texte) */
+.wl-badge {
+  --badge-tone: var(--color-gray-graphic);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem 0.125rem 0.375rem;
+  border: 1px solid var(--badge-tone);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--badge-tone) 12%, var(--color-surface));
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.wl-badge .icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--badge-tone);
+}
+
+.wl-badge-local {
+  --badge-tone: var(--color-chart-2);
+}
+
+.wl-badge-cloud {
+  --badge-tone: var(--color-chart-4);
+}
+
+.wl-badge-warning {
+  --badge-tone: var(--color-chart-4);
+}
+
+.wl-badge-label {
+  padding-inline-start: 0.625rem;
+}
