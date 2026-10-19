@@ -29,7 +29,7 @@ from wavelocalai.models.fake import (
 )
 from wavelocalai.models.port import ModelRef, TextDelta
 from wavelocalai.models.registry import ModelRegistry
-from wavelocalai.runs.eval_snapshot import METRICS, NOT_EVALUATED_STOPPED
+from wavelocalai.runs.eval_snapshot import METRICS, NOT_EVALUATED_STOPPED, measure_totals
 from wavelocalai.web.app import create_app
 
 from ..conftest import TEST_PORT, make_settings
@@ -303,6 +303,41 @@ async def test_a_set_of_questions_gives_a_mean_and_the_detail_by_question(tmp_pa
     assert snapshot["summary"]["fake:a"]["relevance"]["total"] == 2
     assert [r["question_index"] for r in snapshot["evaluations"]][:2] == [0, 0]
     assert snapshot["config"]["questions"] == QUESTIONS
+
+
+async def test_a_set_publishes_the_mean_rate_and_total_co2_of_each_model(tmp_path):
+    """Revue 7.3 (AD-20) : le débit moyen et le CO2 total d'un jeu viennent du serveur, au fil
+    des `metrics` (`lane_measures`) et dans l'instantané (`measures`), sans calcul à l'écran."""
+    a = local("fake:a", ANSWER)
+    async with eval_app(tmp_path, a, SchemaJudge()) as (_, client):
+        _, snapshot, events = await _run(client, ["fake:a"], QUESTIONS, judge="fake:j")
+    first, second = _of(events, "metrics", lane="fake:a")
+    assert first["lane_measures"]["answered"] == 1 and first["lane_measures"]["total"] == 2
+    final = second["lane_measures"]
+    assert final["answered"] == 2 and final["tps_measured"] == 2
+    assert final["tps"] == pytest.approx((first["tps"] + second["tps"]) / 2)
+    assert snapshot["measures"] == {"fake:a": final}
+
+
+def test_measure_totals_says_how_many_answers_were_measured():
+    events = [
+        {"tps": 30.0, "co2": {"mg": 1.5, "estimated": False}},
+        {"tps": 10.0, "co2": {"mg": None, "estimated": False}},
+        {"tps": None, "co2": {"mg": 2.0, "estimated": True}},
+    ]
+    assert measure_totals(events, 4) == {
+        "tps": 20.0,
+        "tps_measured": 2,
+        "co2": {"mg": 3.5, "measured": 2, "estimated": True, "unmeasurable": False},
+        "answered": 3,
+        "total": 4,
+    }
+    unmeasured = measure_totals([{"tps": None, "co2": {"mg": None}}], 1)
+    assert unmeasured["tps"] is None and unmeasured["co2"]["mg"] is None
+    assert unmeasured["co2"]["unmeasurable"] is True
+    assert measure_totals([], 2)["co2"] == {
+        "mg": None, "measured": 0, "estimated": False, "unmeasurable": False
+    }  # fmt: skip
 
 
 async def test_a_partly_unscored_set_says_how_many_questions_were_not_evaluated(tmp_path):

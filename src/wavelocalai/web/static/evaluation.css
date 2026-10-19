@@ -1,0 +1,479 @@
+/* Écran Évaluation de la qualité (story 7.3). Couleurs et rayon viennent de tokens.css seulement ;
+   aucune information ne tient à la couleur seule (état dit en texte, verdict en mot). */
+
+.eval-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 48rem;
+  margin-bottom: 1rem;
+}
+
+.eval-form[hidden] {
+  display: none;
+}
+
+.eval-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.eval-field[hidden] {
+  display: none;
+}
+
+.eval-form .help,
+.eval-reason {
+  margin: 0;
+}
+
+.eval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.eval-launch {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.eval-launch:hover {
+  background: var(--color-primary-fill);
+}
+
+.eval-launch:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.eval-cloud-note {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.eval-cloud-note[hidden] {
+  display: none;
+}
+
+/* Bandeau « Évaluation en cours · 0:42 » */
+.eval-banner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 1rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.eval-banner[hidden] {
+  display: none;
+}
+
+.eval-banner-text {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.eval-banner .help {
+  margin: 0;
+}
+
+.eval-asked {
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.eval-asked[hidden] {
+  display: none;
+}
+
+.eval-asked p,
+.eval-asked-list {
+  margin: 0;
+}
+
+.eval-judge-info {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.eval-judge-info[hidden] {
+  display: none;
+}
+
+.eval-judge-who,
+.eval-judge-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+/* Étapes : une liste ordonnée, l'état dit en texte. */
+.eval-steps {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: eval-step;
+}
+
+.eval-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  counter-increment: eval-step;
+}
+
+.eval-step-name {
+  font-weight: 600;
+}
+
+.eval-step-name::before {
+  content: counter(eval-step) ". ";
+  font-variant-numeric: tabular-nums;
+}
+
+.eval-step-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.eval-step-count {
+  margin: 0;
+}
+
+.eval-extracts,
+.eval-lanes {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.eval-extracts[hidden] {
+  display: none;
+}
+
+.eval-extracts-row {
+  margin: 0 0 0.5rem;
+}
+
+.eval-extracts-row[hidden] {
+  display: none;
+}
+
+.eval-lanes {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-lane {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+}
+
+.eval-lane wl-error {
+  flex-basis: 100%;
+}
+
+/* Résultats */
+.eval-run {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.eval-run[hidden] {
+  display: none;
+}
+
+.eval-results {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
+.eval-results[hidden] {
+  display: none;
+}
+
+.eval-results-title,
+.eval-steps-title,
+.eval-history-title {
+  margin: 0;
+}
+
+.eval-partial {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.eval-partial[hidden] {
+  display: none;
+}
+
+.eval-model {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.eval-model-name {
+  font-weight: 600;
+}
+
+.eval-cell {
+  display: inline-grid;
+  gap: 0.125rem;
+}
+
+.eval-cell-count {
+  margin: 0;
+}
+
+.eval-score {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-link);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.eval-score[aria-expanded="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+}
+
+.eval-unevaluated,
+.eval-progress {
+  color: var(--color-ink-secondary);
+}
+
+.eval-defs {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.eval-defs summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Détail d'une note */
+.eval-detail {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.eval-detail[hidden] {
+  display: none;
+}
+
+.eval-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.eval-detail-title {
+  margin: 0;
+}
+
+.eval-detail-body,
+.eval-detail-entry {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.eval-detail-score,
+.eval-claims-summary,
+.eval-detail-sub {
+  margin: 0;
+  font-weight: 600;
+}
+
+.eval-claims,
+.eval-useful,
+.eval-retrieved {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-claim-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+.eval-claim .help {
+  margin: 0.25rem 0 0;
+}
+
+.eval-support {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0.25rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.eval-support-text {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.eval-answer {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.eval-answer summary,
+.eval-detail-question summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.eval-answer-text {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.eval-detail-question {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+/* Évaluations passées */
+.eval-history {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.eval-history[hidden] {
+  display: none;
+}
+
+.eval-history-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eval-history-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  color: var(--color-link);
+  overflow-wrap: anywhere;
+}
+
+.eval-history-question {
+  flex-basis: 100%;
+  color: var(--color-ink);
+}
+
+/* Résultat introuvable */
+.eval-missing {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 42rem;
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-inline-start: 6px solid var(--color-risk);
+  border-radius: var(--radius);
+}
+
+.eval-missing[hidden] {
+  display: none;
+}
+
+.eval-missing h2,
+.eval-missing p {
+  margin: 0;
+}
+
+.eval-missing .btn {
+  justify-self: start;
+}
+
+/* Une colonne qui peut rétrécir : un tableau large défile dans son cadre, la page ne défile pas. */
+.eval-form,
+.eval-run,
+.eval-results,
+.eval-detail,
+.eval-detail-body,
+.eval-detail-entry,
+.eval-history,
+.eval-history-list,
+.eval-claims,
+.eval-useful,
+.eval-retrieved {
+  grid-template-columns: minmax(0, 1fr);
+}
