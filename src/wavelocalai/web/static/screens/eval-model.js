@@ -40,7 +40,7 @@ export function createModel() {
       answers: new Map(), // lane|qi -> { text, error }
       notes: new Map(), // lane|qi|metric -> note
       aggregates: new Map(), // lane|metric -> aggregate (le dernier publié)
-      measured: new Map(), // lane|qi -> événement `metrics`
+      measures: new Map(), // lane -> mesures cumulées du serveur (`lane_measures`, `measures`)
       judge: null,
       started: false,
       ended: null, // ok | cancelled | error | interrupted
@@ -75,7 +75,7 @@ export function createModel() {
       s.answers.set(key(data?.lane, data?.question_index ?? 0), { text: data?.text ?? null, error: data?.error ?? null });
     },
     metrics: (data) => {
-      if (data?.lane) s.measured.set(key(data.lane, data.question_index ?? 0), data);
+      if (data?.lane && data.lane_measures) s.measures.set(data.lane, data.lane_measures);
     },
     eval_metric: (data) => {
       if (!data?.lane || !METRICS.includes(data.metric)) return;
@@ -127,6 +127,9 @@ export function createModel() {
       }
       for (const [lane, byMetric] of Object.entries(snapshot.summary ?? {})) {
         for (const [metric, aggregate] of Object.entries(byMetric ?? {})) s.aggregates.set(key(lane, metric), aggregate);
+      }
+      for (const [lane, totals] of Object.entries(snapshot.measures ?? {})) {
+        if (totals) s.measures.set(lane, totals);
       }
       s.partial = snapshot.partial === true;
       for (const row of snapshot.missing ?? []) {
@@ -226,22 +229,19 @@ export function createModel() {
     },
 
     // --- Mesures du serveur ------------------------------------------------------------------
-    // Débit moyen et CO2 total des questions mesurées (mesures du serveur, pas des notes).
+    // Débit moyen et CO2 total d'un modèle, tels que le serveur les publie (AD-20 : aucun calcul
+    // ici) ; `rateOf` / `co2Of` : « n sur m » quand des réponses n'ont pas de mesure.
     measures(lane) {
-      const events = [];
-      for (let qi = 0; qi < count(); qi += 1) {
-        const event = s.measured.get(key(lane, qi));
-        if (event) events.push(event);
-      }
-      const rates = events.map((event) => event.tps).filter((value) => typeof value === "number");
-      const co2 = events.map((event) => event.co2).filter(Boolean);
-      const grams = co2.map((entry) => entry.mg).filter((value) => typeof value === "number");
+      const m = s.measures.get(lane) ?? null;
+      const co2 = m?.co2 ?? null;
+      const total = m?.total ?? count();
       return {
-        any: events.length > 0,
-        rate: rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null,
-        co2mg: grams.length ? grams.reduce((a, b) => a + b, 0) : null,
-        co2estimated: co2.some((entry) => entry.estimated === true),
-        co2unmeasurable: co2.length > 0 && grams.length === 0,
+        rate: typeof m?.tps === "number" ? m.tps : null,
+        co2mg: typeof co2?.mg === "number" ? co2.mg : null,
+        co2estimated: co2?.estimated === true,
+        co2unmeasurable: co2?.unmeasurable === true,
+        rateOf: m && typeof m.tps === "number" && m.tps_measured < total ? { n: m.tps_measured, total } : null,
+        co2Of: co2 && typeof co2.mg === "number" && co2.measured < total ? { n: co2.measured, total } : null,
       };
     },
   };

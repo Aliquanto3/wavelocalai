@@ -116,14 +116,16 @@
       "not_evaluated_count_one": "{n} non évaluée",
       "not_evaluated_count_other": "{n} non évaluées",
       "pending_count": "{n} en attente",
+      "measured_of_one": "{n} question mesurée sur {total}",
+      "measured_of_other": "{n} questions mesurées sur {total}",
       "open_detail": "{name}, {metric} : ouvrir le détail du score",
       "defs_title": "Définitions des notes",
       "def_faithfulness": "Part des affirmations de la réponse appuyées par les extraits.",
       "def_relevance": "Proximité entre la question posée et celles que la réponse permet de retrouver.",
       "def_context_precision": "Part des extraits fournis qui servent à répondre.",
       "method": "Méthode inspirée de Ragas, appliquée par un juge local ou cloud.",
-      "def_rate": "Vitesse de rédaction mesurée par le serveur. Pour un jeu de questions, moyenne des questions mesurées.",
-      "def_co2": "Émissions mesurées ou estimées par le serveur, dans une seule unité. Pour un jeu de questions, total des questions mesurées."
+      "def_rate": "Vitesse de rédaction mesurée par le serveur. Pour un jeu de questions, moyenne des questions mesurées, calculée par le serveur.",
+      "def_co2": "Émissions mesurées ou estimées par le serveur, dans une seule unité. Pour un jeu de questions, total des questions mesurées, calculé par le serveur."
     },
     "matrix": {
       "title": "Fidélité et débit",

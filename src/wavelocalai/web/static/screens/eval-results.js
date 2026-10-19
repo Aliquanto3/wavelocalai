@@ -112,13 +112,16 @@ export function resultsView(uid, { nameOf, originOf, onOpen }) {
     const group = co2Group(rows.map((row) => row.measures.co2mg).filter((mg) => typeof mg === "number"));
     const ended = model.ended !== null;
     const none = () => t(ended ? "evaluation.results.not_measured" : "evaluation.results.in_progress");
+    // « n sur m » une fois le run fini, quand des réponses n'ont pas de mesure (comptes du serveur).
+    const of = (counted) => (ended && counted ? ` (${plural("evaluation.results.measured_of", counted.n, { total: counted.total })})` : "");
     return {
       group,
-      rate: (row) => (typeof row.measures.rate === "number" ? formatRate(row.measures.rate) : none()),
+      rate: (row) => (typeof row.measures.rate === "number" ? formatRate(row.measures.rate) + of(row.measures.rateOf) : none()),
       co2: (row) => {
         if (typeof row.measures.co2mg === "number") {
           const value = group.format(row.measures.co2mg);
-          return row.measures.co2estimated ? t("components.thread.co2_estimated", { value }) : value;
+          const text = row.measures.co2estimated ? t("components.thread.co2_estimated", { value }) : value;
+          return text + of(row.measures.co2Of);
         }
         return row.measures.co2unmeasurable ? t("components.thread.co2_unmeasurable") : none();
       },

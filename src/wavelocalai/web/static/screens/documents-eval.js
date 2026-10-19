@@ -218,6 +218,7 @@ export function mount(host, params = {}) {
   }
 
   const clearRun = () => {
+    ticket += 1; // la lecture de l'instantané d'un run précédent ne s'applique plus (revue 7.3)
     cancelAnimationFrame(frame);
     frame = 0;
     model.reset();
@@ -439,7 +440,7 @@ export function mount(host, params = {}) {
     picker.addEventListener("wl-model-change", () => form.refresh());
     picker.addEventListener("wl-models-loaded", () => (form.refresh(), past.render(), schedule()));
   }
-  onSmallerModel(host, (tag, source) => {
+  const unwatchSmaller = onSmallerModel(host, (tag, source) => {
     const lane = source.closest("[data-lane]")?.dataset.lane;
     announce(t("evaluation.model_changed", swapModel(form.picker, lane, tag)));
     form.refresh(); // garde-fou mémoire : le modèle proposé remplace celui qui a échoué
@@ -464,8 +465,18 @@ export function mount(host, params = {}) {
   past.refresh();
   render();
   if (params.run_id) reopen.open(params.run_id);
+  else {
+    // Une évaluation en cours (flux système) est rejointe : quitter son adresse ne la perd pas.
+    const active = (store.get().runsActive ?? []).find((r) => r?.kind === "eval" && r.run_id);
+    if (active) {
+      notice.textContent = t("evaluation.joined");
+      notice.hidden = false;
+      follow(active.run_id);
+    }
+  }
   return () => {
     unwatchCloud();
+    unwatchSmaller();
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     cancelAnimationFrame(frame);

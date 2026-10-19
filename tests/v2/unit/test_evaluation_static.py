@@ -145,22 +145,22 @@ def test_the_screen_uses_the_shared_contracts_and_creates_none_of_them_again():
     assert 'setAttribute("purpose", "judge")' in code("screens/eval-form.js")
     assert "MAX_MODELS = 4" in code("screens/eval-form.js")
     for name in SCREEN_FILES:
-        assert not re.search(
-            r"function (nextTab|moveTab|screenTabs|isRamGuard)\b", code(name)
-        ), name
+        assert not re.search(r"function (nextTab|moveTab|screenTabs|isRamGuard)\b", code(name)), (
+            name
+        )
 
 
 def test_the_front_computes_no_note_and_no_default_score():
     # Les notes viennent du serveur (`eval_metric.score`, `aggregate`, `summary`) : aucune moyenne,
-    # aucun arrondi de note ni valeur de repli à 0 dans l'écran. Seules les mesures (débit, CO2) sont
-    # additionnées, dites dans l'aide.
+    # aucun arrondi de note ni valeur de repli à 0 dans l'écran. Le débit moyen et le CO2 total
+    # d'un jeu viennent aussi du serveur (`lane_measures`, `measures` ; revue 7.3, AD-20).
     for name in SCREEN_FILES:
         text = code(name)
         assert not re.search(
-            r"score\s*\?\?\s*0|score\s*\|\|\s*0|Math\.(round|floor|ceil)\(", text
+            r"score\s*\?\?\s*0|score\s*\|\|\s*0|Math\.(round|floor|ceil)\(|\.reduce\(", text
         ), name
     model = code("screens/eval-model.js")
-    assert model.count("reduce(") == 2  # débit moyen et CO2 total seulement
+    assert "data.lane_measures" in model and "snapshot.measures" in model
     assert 'typeof data.score === "number" ? data.score : null' in model  # un inconnu reste null
 
 

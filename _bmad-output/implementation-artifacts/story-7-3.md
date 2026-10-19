@@ -63,3 +63,18 @@ Ciblé (poste partagé : ni `tests/v2` complet ni les autres E2E). `tests/v2/e2e
 
 - Les E2E rejouent des flux et des instantanés fixés par le test (`page.route`) : la forme suit `contrat-api.md` § « Évaluation (story 7.1) », pas une évaluation réelle de bout en bout (un vrai juge ne rend pas des notes choisies). Seuls l'identifiant inconnu et la liste vide passent par le vrai serveur.
 - Le débit moyen et le CO2 total d'un jeu de questions sont additionnés côté front (mesures, pas notes) : si la revue y voit un calcul de trop, la 7.1 pourrait publier ces totaux.
+
+## Revue
+
+Revue Opus du 2026-10-19 (diff 9755e84..57e05f9, origin/master fusionné), avec le second avis Haiku.
+
+- **medium** · second avis n° 1 · **corrigé** : le débit moyen et le CO₂ total d'un jeu étaient calculés à l'écran (`reduce`), contre AD-20 (« le front ne calcule aucune mesure ») sans décision qui l'autorise. Le serveur les publie : `lane_measures` dans chaque `metrics` d'une évaluation (`metrics_extra` accepte une fonction, `streaming.py`) et `measures` `{lane: …}` dans l'instantané (`eval_snapshot.measure_totals`, une seule formule pour les deux) ; consigné dans `contrat-api.md`. L'écran les pose tels quels ; le test statique interdit désormais tout `.reduce(` dans les modules de l'écran. Tests : `test_eval_api.py::test_a_set_publishes_the_mean_rate_and_total_co2_of_each_model`, `::test_measure_totals_says_how_many_answers_were_measured` (valeurs écrites en dur), E2E `::test_a_set_says_how_many_answers_were_measured`, et le CO₂ total « 3,6 » du jeu de deux questions.
+- **low** · second avis n° 2 · **corrigé** (avec le n° 1) : le serveur compte les réponses mesurées (`tps_measured`, `co2.measured` sur `total`) ; l'écran ajoute « (1 question mesurée sur 2) » une fois le run fini quand une réponse n'a pas de mesure.
+- **low** · second avis n° 3 · **corrigé** : `clearRun` incrémente `ticket` ; une lecture de l'instantané d'un run précédent, encore en attente, ne s'applique plus au run suivant.
+- **low** · second avis n° 4 · **corrigé** : `onSmallerModel` (`core/ram-guard.js`) rend la fonction qui retire l'écouteur (changement additif, les autres écrans ignorent la valeur) ; l'écran la rappelle au démontage. Le nœud de l'écran est réutilisé quand `run_id` change : l'écouteur se cumulait. L'Arène, la Discussion et la Base documentaire ont le même motif, à reprendre hors de cette story.
+- **low** · second avis n° 5 · **corrigé** : sans `run_id`, le montage rejoint une évaluation active lue dans `runsActive` du flux système (bannière « déjà en cours : vous la suivez »). Vérifié par lecture : le flux système des E2E n'en publie pas, pas de test dédié.
+- **info** · revue · **accepté** : sélecteur non filtré par l'éligibilité (décision n° 17) : le point d'intégration existe, l'attribut `purpose` (`arena`, `judge`) des deux `wl-model-picker`, que la 5.4 filtrera sans toucher l'écran.
+- **info** · revue · **accepté** : détail sous le tableau au lieu d'un panneau latéral, variante conservatrice écrite plus haut (le critère dit « se déplie ») ; focus et retour de focus testés.
+- **info** · revue · **accepté** : icônes de verdict Material, toujours suivies du mot (`appuyée`, `non appuyée`, `contredite`) : le sens ne passe pas par la seule icône, charte respectée.
+- **Complexité** · revue · aucun constat : les structures croissent avec les questions (20 au plus) et les modèles (4 au plus) ; le calcul des mesures, qui reparcourait les questions à chaque rendu, est passé au serveur (O(questions) par réponse).
+- **Tests** · `test_real_shutdown.py` a échoué une fois sous la charge du poste partagé, vert seul : sans lien avec la story.

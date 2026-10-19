@@ -91,12 +91,14 @@ class Scenario:
     stop_after_phase: int | None = None  # le run s'arrête (annulé) après cette phase
     fail_lane: str | None = None  # ce modèle échoue dès la phase des extraits
     fail_error: dict | None = None
+    unmeasured: set = field(default_factory=set)  # (lane, question) sans débit ni CO2
     run_id: str = RUN
     phases: list[list[dict]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self._seq = 0
         self.rows: list[dict] = []
+        self.measures: dict[str, dict] = {}  # lane -> `lane_measures` du dernier `metrics`
         self.build()
 
     def event(self, kind: str, data: dict) -> dict:
@@ -195,15 +197,35 @@ class Scenario:
                         },
                     )
                 )
-                co2 = {"mg": 1.8 + lane_index, "estimated": False, "method": "codecarbon"}
+                gone = (lane, qi) in self.unmeasured
+                mg = None if gone else 1.8 + lane_index
+                rate = None if gone else 38.4 - 16 * lane_index
+                co2 = {"mg": mg, "estimated": False, "method": "codecarbon"}
+                # Les totaux que publierait le serveur (`lane_measures`, revue 7.3 : AD-20) :
+                # débit constant par modèle, CO2 additionné sur les questions mesurées.
+                n = sum(1 for q in range(qi + 1) if (lane, q) not in self.unmeasured)
+                totals = {
+                    "tps": (38.4 - 16 * lane_index) if n else None,
+                    "tps_measured": n,
+                    "co2": {
+                        "mg": round((1.8 + lane_index) * n, 6) if n else None,
+                        "measured": n,
+                        "estimated": False,
+                        "unmeasurable": False,
+                    },
+                    "answered": qi + 1,
+                    "total": self.total(),
+                }
+                self.measures[lane] = totals
                 phase.append(
                     e(
                         "metrics",
                         {
                             "lane": lane,
                             "question_index": qi,
-                            "tps": 38.4 - 16 * lane_index,
+                            "tps": rate,
                             "co2": co2,
+                            "lane_measures": totals,
                         },
                     )
                 )
@@ -284,6 +306,7 @@ class Scenario:
             "judge": self.phases[0][2]["data"],
             "evaluations": self.rows,
             "summary": summary,
+            "measures": self.measures,
             "missing": missing,
             "children": [],
         }
@@ -678,6 +701,7 @@ def test_a_set_of_questions_says_how_many_were_evaluated(page, server):
     assert cell_text(page, "Alpha 1B", 3).startswith("non évalué")
     assert page.locator(".eval-results thead th").nth(4).inner_text().strip() == "Débit moyen"
     assert page.locator(".eval-results thead th").nth(5).inner_text().strip() == "CO₂ total"
+    assert cell_text(page, "Alpha 1B", 5).startswith("3,6")  # total publié par le serveur
     # Détail par question : une section par question.
     page.locator(".eval-score[data-lane='fake:a'][data-metric=faithfulness]").click()
     sections = page.locator(".eval-detail-question")
@@ -689,6 +713,29 @@ def test_a_set_of_questions_says_how_many_were_evaluated(page, server):
     # Les extraits se lisent question par question.
     page.get_by_role("button", name="Voir les extraits").click()
     assert page.get_by_label("Extraits de la question").is_visible()
+
+
+def test_a_set_says_how_many_answers_were_measured(page, server):
+    """Revue 7.3 : le débit moyen et le CO2 total viennent du serveur, avec « n sur m » quand une
+    réponse n'a pas de mesure ; l'écran n'additionne rien."""
+    scores = {A: {m: [50, 50] for m in METRICS}, B: {m: [70, 70] for m in METRICS}}
+    scenario = Scenario(
+        questions=["Où dort le chat ?", "Que mange le chat ?"],
+        scores=scores,
+        unmeasured={(A, 1)},
+    )
+    wire = open_screen(page, server, scenario)
+    page.get_by_role("radio", name="Jeu de questions").click()
+    page.locator("textarea.eval-question").nth(1).fill("Où dort le chat ?\nQue mange le chat ?")
+    launch_button(page).click()
+    wait_post(wire)
+    wait_for(
+        page, "() => document.querySelector('.eval-banner-text')?.textContent.includes('terminée')"
+    )
+    assert cell_text(page, "Alpha 1B", 4) == f"38,4{NBSP}tokens/s (1 question mesurée sur 2)"
+    assert cell_text(page, "Alpha 1B", 5).startswith("1,8")
+    assert "(1 question mesurée sur 2)" in cell_text(page, "Alpha 1B", 5)
+    assert "mesurée" not in cell_text(page, "Bravo 2B", 4)
 
 
 # --- Matrice -------------------------------------------------------------------------------------
