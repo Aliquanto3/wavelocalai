@@ -10,7 +10,7 @@
 // - Un seul appel de lecture (`GET /api/references`), jamais avant le repère `shell-ready` (AD-6
 //   amendé), relu à chaque affichage de l'Accueil, jamais en boucle. Aucun calcul : `top` vient du
 //   serveur. Une panne laisse la carte masquée.
-// - Sa propre icône (`leaderboard`), jamais celle de l'Arène (`swords`).
+// - Sa propre icône (`help`, déjà au sprite Rounded), jamais celle de l'Arène (`swords`).
 
 import { api } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
@@ -19,7 +19,7 @@ import { t } from "../core/i18n.js";
 import { MODULES } from "../core/registry.js";
 import { shellReady } from "../core/shell-ready.js";
 
-export const REFERENCES_ICON = "leaderboard";
+export const REFERENCES_ICON = "help"; // `leaderboard` : avec le sprite Rounded officiel (8.1)
 
 export function referencesCard() {
   const arena = MODULES.find((module) => module.id === "arena");

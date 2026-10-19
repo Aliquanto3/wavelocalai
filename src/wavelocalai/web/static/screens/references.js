@@ -20,7 +20,8 @@ import { cardsView, tableView } from "./references-view.js";
 
 function sourceLine(references) {
   const machine = references.reference_machine;
-  const vars = { source: references.source, version: references.bench_version ?? "" };
+  const version = references.bench_version ? ` ${references.bench_version}` : ""; // sans espace orphelin
+  const vars = { source: references.source, version };
   if (!machine) return t("references.no_reference_machine", vars);
   const memory = machine.ram_gb === null ? "" : t("references.memory_value", { value: formatInteger(machine.ram_gb) });
   const details = {
@@ -130,7 +131,7 @@ export function mount(host) {
         if (alive && mine === reading && data === null) content.replaceChildren(failure(error));
       });
   }
-  load();
+  if (!host.hidden) load(); // monté masqué (routeur) : l'observateur lit au premier affichage
 
   let wasHidden = host.hidden;
   const visibility = new MutationObserver(() => {

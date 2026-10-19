@@ -374,9 +374,8 @@ def symbol_viewboxes(sprite: str) -> dict[str, str]:
     return dict(re.findall(r'<symbol id="(i-[\w-]+)" viewBox="([^"]+)"', sprite))
 
 
-# Exceptions connues : 9 symboles Material Icons (Filled, viewBox 0 0 24 24) ajoutés au sprite par les
-# stories 3.2 (8) et 5.8 (`i-leaderboard`, l'icône de la carte Références), faute de jeu Rounded hors
-# ligne. À remplacer par le sprite officiel Material Symbols
+# Exceptions connues : 8 symboles Material Icons (Filled, viewBox 0 0 24 24) ajoutés au sprite par la
+# story 3.2, faute de jeu Rounded hors ligne. À remplacer par le sprite officiel Material Symbols
 # Rounded fourni par Anaël ; la liste ne doit que se réduire (test_the_pending_list_does_not_grow).
 PENDING_ROUNDED = {
     "i-hourglass-empty": "6767bcdf2d5c3f8c",
@@ -387,7 +386,6 @@ PENDING_ROUNDED = {
     "i-block": "f5021ac956f4e62f",
     "i-open-in-full": "a4294de3eab5dbef",
     "i-close-fullscreen": "703592e1185ac599",
-    "i-leaderboard": "17096730aefe214b",
 }
 
 
@@ -414,7 +412,7 @@ def test_every_icon_the_front_uses_is_in_the_sprite_and_the_sprite_is_rounded_on
 
 def test_the_pending_list_does_not_grow():
     """Aucun symbole de plus n'entre dans les exceptions sans qu'on modifie ce test exprès."""
-    assert len(PENDING_ROUNDED) == 9
+    assert len(PENDING_ROUNDED) == 8
     assert all(name.startswith("i-") for name in PENDING_ROUNDED)
 
 
@@ -598,7 +596,7 @@ def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_tex
     assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
     assert re.findall(r"\bapi\.(\w+)\(", references) == ["references"]
     assert (
-        'REFERENCES_ICON = "leaderboard"' in references and 'icon("swords")' not in references
+        'REFERENCES_ICON = "help"' in references and 'icon("swords")' not in references
     )  # sa propre icône
     text += demo + references
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))

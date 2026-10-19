@@ -186,6 +186,63 @@ async def test_an_interval_missing_means_the_score_alone(tmp_path):
     assert tools["entries"][0]["ci_low"] is None
 
 
+def _groups(tools):
+    return {e["name"]: e["group"] for e in tools["entries"]}
+
+
+async def test_a_tie_at_the_best_score_takes_the_lowest_floor_whatever_the_names(tmp_path):
+    """Revue : à égalité au meilleur score, le plancher est la plus basse des bornes basses des ex
+    æquo ; échanger leurs intervalles (donc le nom qui départage) ne change pas le groupe."""
+    wide, narrow = scope(0.78, 0.70, 0.86), scope(0.78, 0.76, 0.80)
+    seen = []
+    for grand, mid in ((wide, narrow), (narrow, wide)):
+        data = bench_data(
+            {
+                ("grand:14b", "pc-pro", "think_off"): {"tools": grand},
+                ("mid:7b", "pc-pro", "think_off"): {"tools": mid},
+                ("other:4b", "portable", "think_off"): {"tools": scope(0.72, 0.68, 0.73)},
+            }
+        )
+        async with card_app(tmp_path, bench_data=data) as (_, client, _b):
+            seen.append(_groups(_usage(await _references(client), "tools")))
+    best = {"Grand 14B": "best", "Moyen 7B": "best", "Autre 4B": "best", "Petit 1B": None}
+    assert seen[0] == seen[1] == best
+
+
+async def test_a_null_score_on_the_reference_machine_is_unranked_not_replaced(tmp_path):
+    """Spec, décision 3 : un score `null` sur le poste de référence laisse le modèle « non classé »,
+    jamais remplacé par celui d'un autre poste ; un poste sans l'usage cède la place."""
+    data = bench_data(
+        {
+            ("mid:7b", "pc-pro", "think_off"): {"tools": scope(None)},
+            ("mid:7b", "portable", "think_off"): {"tools": scope(0.9, 0.85, 0.95)},
+            ("grand:14b", "pc-pro", "think_off"): {"tools": scope(0.78, 0.73, 0.83)},
+            ("other:4b", "portable", "think_off"): {"tools": scope(0.55, 0.5, 0.6)},
+        }
+    )
+    async with card_app(tmp_path, bench_data=data) as (_, client, _b):
+        tools = _usage(await _references(client), "tools")
+    groups = _groups(tools)
+    assert groups["Moyen 7B"] is None and groups["Autre 4B"] == "other"
+    moyen = next(e for e in tools["entries"] if e["name"] == "Moyen 7B")
+    assert moyen["score"] is None
+
+
+async def test_compare_leaves_out_another_version_of_a_best_model(tmp_path):
+    """Revue : « Comparer » n'ouvre l'Arène que sur les mêmes poids que ceux du banc."""
+    data = bench_data(
+        {
+            ("grand:14b", "pc-pro", "think_off"): {"tools": scope(0.6, 0.55, 0.65)},
+            ("mid:7b", "pc-pro", "think_off"): {"tools": scope(0.72, 0.67, 0.77)},
+            ("other:4b", "portable", "think_off"): {"tools": scope(0.74, 0.7, 0.78)},
+        }
+    )
+    async with card_app(tmp_path, bench_data=data) as (_, client, _b):
+        tools = _usage(await _references(client), "tools")
+    assert _groups(tools)["Autre 4B"] == "best"
+    assert tools["compare"] == {"tags": ["mid:7b"], "reason": None}
+
+
 async def test_the_best_score_of_all_cards_is_given_for_the_home_card(tmp_path):
     async with card_app(tmp_path, bench_data=bench_data()) as (_, client, _b):
         body = await _references(client)

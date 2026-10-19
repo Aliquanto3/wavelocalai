@@ -240,8 +240,9 @@ def _entry(
     order: list[str],
     reference_id: str | None,
 ) -> ReferenceEntry:
-    """La ligne d'un modèle pour un usage : score du premier poste (la référence d'abord) qui en
-    publie un, débit et énergie du poste de référence seulement."""
+    """La ligne d'un modèle pour un usage : score du premier poste (la référence d'abord) dont un
+    résultat couvre l'usage ; s'il y est `null` ou provisoire, le modèle est « non classé » (jamais
+    le score d'un autre poste). Débit et énergie du poste de référence seulement."""
     scope = None
     for machine_id in order:
         result = bench.best_result(candidate.match, machine_id, usage)
@@ -285,7 +286,8 @@ def _leader(ranked: list[ReferenceEntry]) -> ReferenceEntry:
 def _compare(group: list[ReferenceEntry], ollama_up: bool) -> CompareTarget:
     if not ollama_up:
         return CompareTarget(tags=[], reason=OLLAMA_DOWN)
-    tags = [e.installed_tag for e in group if e.installed_tag]
+    # Les mêmes poids que ceux du banc seulement : une « autre version » n'a pas ce score.
+    tags = [e.installed_tag for e in group if e.installed == "installed" and e.installed_tag]
     if not tags:
         return CompareTarget(tags=[], reason=NONE_INSTALLED)
     return CompareTarget(tags=tags[:COMPARE_MAX], reason=None)
@@ -305,7 +307,9 @@ def _usage(
     if not ranked:
         return None
     best = _leader(ranked)
-    floor = _interval(best)[0]
+    # Plancher : la plus basse des bornes basses des ex æquo au meilleur score, pour que le groupe ne
+    # dépende pas du nom retenu pour départager.
+    floor = min(_interval(e)[0] for e in ranked if e.score == best.score)
     for entry in ranked:
         entry.group = "best" if _interval(entry)[1] >= floor else "other"
     group = sorted((e for e in ranked if e.group == "best"), key=lambda e: e.name.casefold())
@@ -313,8 +317,9 @@ def _usage(
         (e for e in ranked if e.group == "other"),
         key=lambda e: (-(e.score or 0), e.name.casefold()),
     )
+    measured = _measured(candidates)  # une fois par usage, pas une fois par modèle
     unranked = sorted(
-        (e for e in entries if e.score is None and e.tag in _measured(candidates)),
+        (e for e in entries if e.score is None and e.tag in measured),
         key=lambda e: e.name.casefold(),
     )
     return UsageReference(

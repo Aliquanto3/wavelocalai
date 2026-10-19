@@ -309,7 +309,7 @@ def test_the_home_card_says_the_best_score_and_opens_the_references(page, refs_s
         f"Part de réussite 78{NBSP}%" in text and "Grand 14B" in text and "Appel d'outils" in text
     )
     icons = link.locator("use").evaluate("el => el.getAttribute('href')")
-    assert icons.endswith("#i-leaderboard")
+    assert icons.endswith("#i-help")
     arena_icon = page.locator('.home-module-link[href="#/arene/chat"] use').evaluate(
         "el => el.getAttribute('href')"
     )

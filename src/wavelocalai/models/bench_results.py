@@ -264,12 +264,13 @@ class LoadedBench:
         self, match: BenchMatch, machine_id: str, usage: str | None = None
     ) -> BenchResult | None:
         """Le résultat à montrer pour un poste : piste sans raisonnement d'abord, puis complet, puis
-        la campagne la plus récente. Avec `usage` : seulement les résultats qui ont un score publié
-        (et pas provisoire) pour cet usage."""
+        la campagne la plus récente. Avec `usage` : seulement les résultats dont le jeu couvre cet
+        usage ; un score `null` ou provisoire y reste (le modèle sera « non classé », story 5.8),
+        il ne cède pas la place au résultat d'une autre piste ou d'un autre poste."""
         rows = [
             r
             for r in match.results
-            if r.machine == machine_id and (usage is None or usage_score(r, usage) is not None)
+            if r.machine == machine_id and (usage is None or usage in r.quality.usages)
         ]
         if not rows:
             return None

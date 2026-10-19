@@ -2,9 +2,9 @@
   "references": {
     "lead": "Quel modèle pour quel usage ? Les mesures viennent du banc slm-quality-bench : rien n'est recalculé ni téléchargé ici.",
     "title": "Quel modèle pour quel usage ?",
-    "source": "Source : {source} {version}, publiée le {date}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
-    "source_no_date": "Source : {source} {version}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
-    "no_reference_machine": "Source : {source} {version}. Le banc ne publie aucun poste de 16 Go sans carte graphique : les débits sont inconnus.",
+    "source": "Source : {source}{version}, publiée le {date}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
+    "source_no_date": "Source : {source}{version}. Poste de référence : {machine}, {memory} de mémoire, {gpu}.",
+    "no_reference_machine": "Source : {source}{version}. Le banc ne publie aucun poste de 16 Go sans carte graphique : les débits sont inconnus.",
     "gpu_none": "sans carte graphique",
     "memory_value": "{value} Go",
     "segment_label": "Affichage des références",
