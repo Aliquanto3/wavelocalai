@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 04:05
+last_updated: 10-19-2026 05:00
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -64,7 +64,7 @@ development_status:
   3-1-l-arène-exécute-plusieurs-modèles-sur-une-même-question-serv: done
   3-2-l-écran-arène-affiche-les-colonnes-en-flux: done
   3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: done
-  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: backlog
+  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: in-progress
   3-5-le-verdict-local-cloud-est-chiffré: backlog
   3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: backlog
   epic-3-retrospective: optional
@@ -72,9 +72,9 @@ development_status:
   epic-4: in-progress
   4-1-indexer-un-document-dans-la-base-locale-serveur: done
   4-2-l-écran-base-documentaire-suit-chaque-fichier: done
-  4-3-supprimer-un-document-vider-la-base-changer-de-réglages: backlog
+  4-3-supprimer-un-document-vider-la-base-changer-de-réglages: in-progress
   4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: done
-  4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: backlog
+  4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: in-progress
   4-6-chercher-autrement-hyde-self-rag-et-citer-ses-sources: backlog
   4-7-reclasser-les-extraits-avec-un-reranker-local-s-il-est-là: backlog
   4-8-le-garde-fou-mémoire-chiffre-le-besoin-réel-et-garde-la-ques: in-progress
