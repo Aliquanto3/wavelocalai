@@ -665,7 +665,8 @@ class RunHub:
 
     async def events_after(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         """Enveloppes d'AD-6 de `seq > after` : mémoire du hub si le run est actif, base sinon.
-        (Le texte des sources n'est pas réhydraté ici : voir la story du RAG.)"""
+        Depuis la base, le texte des `sources` est réhydraté depuis `chunks` (AD-7) : `null` si
+        l'extrait n'existe plus (document supprimé)."""
         run = self._runs.get(run_id)
         if run is not None:
             return [e.envelope(run_id) for e in run.events if e.seq > after]
@@ -673,7 +674,7 @@ class RunHub:
             "SELECT seq, type, ts, data FROM run_events WHERE run_id = ? AND seq > ? ORDER BY seq",
             (run_id, after),
         )
-        return [
+        envelopes = [
             {
                 "seq": r["seq"],
                 "run_id": run_id,
@@ -683,3 +684,27 @@ class RunHub:
             }
             for r in rows
         ]
+        await self._rehydrate_sources(envelopes)
+        return envelopes
+
+    async def _rehydrate_sources(self, envelopes: list[dict[str, Any]]) -> None:
+        """Remet le `text` des sources persistées sans lui (AD-7), d'après `chunk_id` ; `None` si
+        l'extrait a été supprimé. Les positions de `passage` restent telles qu'écrites : le front
+        les ignore quand `text` est nul."""
+        sources = [
+            source
+            for envelope in envelopes
+            if envelope["type"] == "sources"
+            for source in envelope["data"].get("sources", [])
+        ]
+        ids = sorted({int(s["chunk_id"]) for s in sources if s.get("chunk_id") is not None})
+        texts: dict[int, str] = {}
+        for start in range(0, len(ids), 500):  # limite de variables de SQLite
+            part = ids[start : start + 500]
+            rows = await self.store.aread(
+                f"SELECT id, text FROM chunks WHERE id IN ({','.join('?' * len(part))})", part
+            )
+            texts.update({int(r["id"]): r["text"] for r in rows})
+        for source in sources:
+            chunk_id = source.get("chunk_id")
+            source["text"] = None if chunk_id is None else texts.get(int(chunk_id))

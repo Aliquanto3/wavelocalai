@@ -39,9 +39,16 @@ class VectorIndex(Protocol):
         ...
 
     def search(
-        self, conn: sqlite3.Connection, vector: Sequence[float], k: int
+        self,
+        conn: sqlite3.Connection,
+        vector: Sequence[float],
+        k: int,
+        *,
+        among: str | None = None,
     ) -> list[tuple[int, float]]:
-        """Les `k` extraits les plus proches : `(chunk_id, distance cosinus)`, du plus proche."""
+        """Les `k` extraits les plus proches : `(chunk_id, distance cosinus)`, du plus proche.
+        `among` : requête SQL (sans paramètre) qui rend les identifiants admis ; le filtre est
+        appliqué avant de prendre les `k` plus proches, jamais après."""
         ...
 
     def count(self, conn: sqlite3.Connection, dim: int | None = None) -> int:
@@ -84,13 +91,20 @@ class SqliteVecIndex:
                 conn.execute(f"DELETE FROM {table} WHERE rowid IN ({marks})", part)
 
     def search(
-        self, conn: sqlite3.Connection, vector: Sequence[float], k: int
+        self,
+        conn: sqlite3.Connection,
+        vector: Sequence[float],
+        k: int,
+        *,
+        among: str | None = None,
     ) -> list[tuple[int, float]]:
         table = vec_table(len(vector))
         if len(vector) not in vec_tables(conn):
             return []
+        # vec0 applique `rowid IN (...)` avant la sélection des `k` plus proches.
+        allowed = "" if among is None else f" AND rowid IN ({among})"
         rows = conn.execute(
-            f"SELECT rowid, distance FROM {table} WHERE embedding MATCH ? AND k = ? "
+            f"SELECT rowid, distance FROM {table} WHERE embedding MATCH ? AND k = ?{allowed} "
             "ORDER BY distance",
             (_blob(vector), int(k)),
         ).fetchall()
@@ -131,14 +145,20 @@ class NumpyIndex:
                 self._vectors.pop(int(chunk_id), None)
 
     def search(
-        self, conn: sqlite3.Connection, vector: Sequence[float], k: int
+        self,
+        conn: sqlite3.Connection,
+        vector: Sequence[float],
+        k: int,
+        *,
+        among: str | None = None,
     ) -> list[tuple[int, float]]:
         query = self._unit(vector)
+        allowed = None if among is None else {int(row[0]) for row in conn.execute(among)}
         with self._lock:
             scored = [
                 (chunk_id, 1.0 - float(query @ stored))  # type: ignore[operator]
                 for chunk_id, (dim, stored) in self._vectors.items()
-                if dim == len(vector)
+                if dim == len(vector) and (allowed is None or chunk_id in allowed)
             ]
         return sorted(scored, key=lambda item: (item[1], item[0]))[: int(k)]
 

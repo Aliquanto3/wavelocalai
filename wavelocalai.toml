@@ -56,3 +56,10 @@ chunk_size = 800
 chunk_overlap = 100
 embed_batch_size = 16
 max_file_mb = 50
+
+# Question (story 4.4) : `top_k` extraits cités par réponse ; seuils du libellé de pertinence sur la
+# similarité cosinus (1 - distance), calés sur nomic-embed-text : au moins `relevance_very_close`
+# = « très proche », au moins `relevance_close` = « proche », en dessous = « éloignée ».
+top_k = 4
+relevance_very_close = 0.70
+relevance_close = 0.60
