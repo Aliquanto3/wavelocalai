@@ -82,11 +82,13 @@ def test_shutdown_with_open_streams_ends_quickly_and_cancels_active_runs(tmp_pat
         started = time.monotonic()
         proc.send_signal(signal.CTRL_BREAK_EVENT if WINDOWS else signal.SIGINT)
         try:
-            proc.wait(timeout=20)
+            proc.wait(timeout=40)
         except subprocess.TimeoutExpired:
             pytest.fail("l'arrêt reste bloqué par les flux ouverts")
-        # Bien sous le filet de `GRACEFUL_SHUTDOWN_S` : les flux ont été fermés, pas coupés.
-        assert time.monotonic() - started < 4
+        # Les flux ont été fermés, pas coupés : le filet de `GRACEFUL_SHUTDOWN_S` n'a pas joué (voir
+        # le journal plus bas). Depuis C7 le lanceur sort normalement, donc attend aussi le
+        # préchauffage de CodeCarbon encore en cours (jusqu'à ~10 s sous Windows) : borne large.
+        assert time.monotonic() - started < 30
     finally:
         for sock in streams:
             sock.close()
@@ -100,3 +102,31 @@ def test_shutdown_with_open_streams_ends_quickly_and_cancels_active_runs(tmp_pat
     with contextlib.closing(sqlite3.connect(data / "wavelocalai.db")) as db:
         status = db.execute("SELECT status FROM runs WHERE id = ?", (run_id,)).fetchone()
     assert status == ("cancelled",)
+
+
+@pytest.mark.skipif(not WINDOWS, reason="Ctrl+Break : propre à Windows (SIGBREAK)")
+def test_ctrl_break_closes_the_store_and_releases_the_lock(tmp_path):
+    """C7 : uvicorn relève le signal d'arrêt à sa sortie ; sous Windows le gestionnaire par défaut
+    de `SIGBREAK` tue alors le processus sans passer par les `finally` du lanceur. Le test vérifie
+    en sous-processus : sortie 0, base fermée (plus de fichier WAL), verrou relâché."""
+    from wavelocalai.store.datadir import DataDirLock
+
+    port, data = closed_port(), tmp_path / "data"
+    proc = _launch(port, data, closed_port())
+    try:
+        _wait_ready(port, proc)
+        proc.send_signal(signal.CTRL_BREAK_EVENT)
+        try:
+            code = proc.wait(timeout=40)
+        except subprocess.TimeoutExpired:
+            pytest.fail("l'arrêt par Ctrl+Break ne se termine pas")
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+    assert code == 0
+    log = (data / "logs" / "wavelocalai.log").read_text(encoding="utf-8")
+    assert "base fermée, verrou relâché" in log
+    assert not (data / "wavelocalai.db-wal").exists()  # dernière connexion fermée : WAL retiré
+    with DataDirLock(data):  # le verrou est repris sans attente
+        pass

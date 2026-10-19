@@ -16,7 +16,7 @@ from pathlib import Path
 from wavelocalai.config import DEFAULT_PORT, ConfigError, load_settings
 from wavelocalai.store.datadir import (
     DataDirLock,
-    DataDirLockedError,
+    DataDirLockError,
     ensure_data_dir,
     is_under_onedrive,
 )
@@ -53,23 +53,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     disable_telemetry(settings.env_file)  # avant tout import de la pile web
-    data_dir = ensure_data_dir(settings.data_dir)
-    setup_logging(data_dir, secrets=tuple(settings.secret_values()))
     try:
-        if is_under_onedrive(data_dir):
-            logger.warning(
-                "Le dossier de données %s est sous OneDrive : la synchronisation peut corrompre "
-                "la base. Choisissez un dossier hors OneDrive (--data-dir).",
-                data_dir,
-            )
-        lock = DataDirLock(data_dir)
+        data_dir = ensure_data_dir(settings.data_dir)
+    except OSError as exc:
+        print(
+            f"wavelocalai-v2 : dossier de données {settings.data_dir} inutilisable : "
+            f"{exc.strerror or exc}",
+            file=sys.stderr,
+        )
+        return 1
+    # Le verrou d'abord, les journaux ensuite : un second lancement refusé n'écrit rien dans le
+    # journal du serveur vivant (C5). Ses refus vont sur la console seulement.
+    lock = DataDirLock(data_dir)
+    try:
+        lock.acquire()
+    except DataDirLockError as exc:
+        print(f"wavelocalai-v2 : {exc}", file=sys.stderr)
+        return 1
+    try:
+        setup_logging(data_dir, secrets=tuple(settings.secret_values()))
         try:
-            lock.acquire()
-        except DataDirLockedError as exc:
-            print(f"wavelocalai-v2 : {exc}", file=sys.stderr)
-            logger.error("%s", exc)
-            return 1
-        try:
+            if is_under_onedrive(data_dir):
+                logger.warning(
+                    "Le dossier de données %s est sous OneDrive : la synchronisation peut "
+                    "corrompre la base. Choisissez un dossier hors OneDrive (--data-dir).",
+                    data_dir,
+                )
             from wavelocalai.web.server import PortBusyError, bind_socket, serve
 
             try:
@@ -94,10 +103,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 serve(settings, sock, store)
             finally:
                 store.close()
+                lock.release()
+            logger.info("wavelocalai-v2 arrêté : base fermée, verrou relâché")
         finally:
-            lock.release()
+            close_logging()
     finally:
-        close_logging()
+        lock.release()  # idempotent : couvre toutes les sorties, exceptions comprises
     return 0
 
 

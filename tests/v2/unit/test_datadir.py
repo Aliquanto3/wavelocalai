@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import errno
 import logging
 
 import pytest
 
 from wavelocalai.store.datadir import (
+    LOCK_NAME,
     DataDirLock,
     DataDirLockedError,
+    DataDirLockError,
     ensure_data_dir,
     is_under_onedrive,
 )
@@ -26,6 +29,27 @@ def test_second_lock_on_same_data_dir_is_refused_until_release(tmp_path):
         first.release()
     with second:  # libéré : le suivant passe
         pass
+
+
+def test_lock_failure_other_than_a_live_server_says_the_real_cause(tmp_path, monkeypatch):
+    """C5 : droits ou disque ne sont pas « un autre serveur » (mauvais diagnostic sinon)."""
+    from wavelocalai.store import datadir
+
+    def refuse(handle):
+        raise OSError(errno.EIO, "Erreur d'entrée/sortie")
+
+    monkeypatch.setattr(datadir, "_lock", refuse)
+    with pytest.raises(DataDirLockError, match="Impossible de prendre le verrou") as raised:
+        DataDirLock(tmp_path).acquire()
+    assert not isinstance(raised.value, DataDirLockedError)
+    assert "autre wavelocalai-v2" not in str(raised.value)
+
+
+def test_lock_file_that_cannot_be_created_says_the_real_cause(tmp_path):
+    (tmp_path / LOCK_NAME).mkdir()  # un dossier à la place du fichier de verrou
+    with pytest.raises(DataDirLockError, match="Impossible de créer le verrou") as raised:
+        DataDirLock(tmp_path).acquire()
+    assert not isinstance(raised.value, DataDirLockedError)
 
 
 def test_other_data_dirs_do_not_conflict(tmp_path):
