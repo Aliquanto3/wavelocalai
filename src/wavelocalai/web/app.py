@@ -24,9 +24,11 @@ from wavelocalai.evaluation.judge import Judge
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading, read_memory
 from wavelocalai.inference.arena import ArenaService
+from wavelocalai.inference.bench import BenchService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.memory_guard import MemoryGuard
+from wavelocalai.inference.pull import PullService
 from wavelocalai.models.cloud import HttpClientFactory
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.factory import ModelFactory
@@ -41,6 +43,7 @@ from wavelocalai.rag.ingest import IngestService
 from wavelocalai.rag.manage import RagBaseService
 from wavelocalai.rag.query import RagService
 from wavelocalai.rag.rerank import RerankerService, cache_dir
+from wavelocalai.rag.rerank_pull import RerankerPullService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
@@ -50,6 +53,7 @@ from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
     routes_agents,
     routes_arena,
+    routes_bench,
     routes_chat,
     routes_conversations,
     routes_eval,
@@ -131,6 +135,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         bus=app.state.system_feed,
         guard=guard,
     )
+    app.state.bench = BenchService(  # Banc d'essai (story 7.4)
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+        guard=guard,
+    )
     app.state.arena = ArenaService(
         hub,
         app.state.registry,
@@ -191,6 +205,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.rag_base = RagBaseService(
         hub, app.state.registry, settings, index, app.state.preferences, app.state.reranker
     )
+    app.state.pull = PullService(
+        hub, app.state.registry, settings, transport=app.state.ollama_transport
+    )
+    app.state.reranker_pull = RerankerPullService(hub, app.state.reranker, settings)
     app.state.evaluation = routes_eval.build_service(app, hub, factory, index, guard)  # story 7.1
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
@@ -208,12 +226,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.registry.stop()
         await app.state.probe.aclose()
         app.state.chat = None
+        app.state.bench = None
         app.state.agents = None
         app.state.ingest = None
         app.state.rag = None
         app.state.rag_base = None
         app.state.evaluation = None
         app.state.arena = None
+        app.state.pull = None
+        app.state.reranker_pull = None
         if owned_client is not None:
             await close_client(owned_client)
             app.state.ollama_client = None
@@ -266,6 +287,7 @@ def create_app(
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
+    app.state.bench = None  # service du Banc d'essai (story 7.4), idem
     app.state.agents = None  # service de l'agent seul (story 6.1), idem
     # Outils des agents (story 6.2) : ceux de la v1, et le dossier de travail qu'ils partagent.
     app.state.agent_workspace = Workspace(settings.agent_work_dir)
@@ -274,6 +296,8 @@ def create_app(
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
     app.state.arena = None  # service de l'Arène, idem
+    app.state.pull = None  # service d'installation des modèles (run `pull`), idem
+    app.state.reranker_pull = None  # installation du reranker (story 5.5, run `pull`), idem
     app.state.evaluation = None  # service d'évaluation de la qualité, idem
     # Reranker local (story 4.7, AD-17) : ne charge ni n'importe rien tant qu'aucune question ne le
     # demande ; jamais de téléchargement.
@@ -365,6 +389,7 @@ def create_app(
     app.include_router(routes_chat.router)
     app.include_router(routes_agents.router)
     app.include_router(routes_arena.router)
+    app.include_router(routes_bench.router)
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_rag_base.router)

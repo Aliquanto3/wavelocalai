@@ -282,6 +282,8 @@ async def _settings_view(
             "model": settings.rag.reranker_model,
             "available": rerank.available if rerank is not None else False,
             "reason": rerank.reason if rerank is not None else "reranker non démarré",
+            # L'extra « rerank » est installé : l'écran Modèles peut proposer l'installation (5.5).
+            "extra_installed": rerank.extra_installed if rerank is not None else False,
         },
     }
 

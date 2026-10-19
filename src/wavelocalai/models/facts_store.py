@@ -18,6 +18,7 @@ from wavelocalai.models.facts import InMemoryFactsStore, ModelFacts
 from wavelocalai.store.db import Store
 
 logger = logging.getLogger("wavelocalai.models")
+WRITE_WAIT_S = 5.0  # attente de l'écrivain unique pour une purge
 
 _COLUMNS = (
     "tag, digest, size_bytes, family, parameter_size, quantization, context_length, capabilities,"
@@ -85,6 +86,25 @@ class SqliteFactsStore:
             store.write(write).add_done_callback(_log_failure)
         except RuntimeError:  # store fermé à l'arrêt : les faits se relisent au prochain démarrage
             logger.debug("Store fermé : faits de %s non écrits", facts.tag)
+
+    def delete_tag(self, tag: str) -> None:
+        """Purge les lignes du tag (toutes les empreintes) et attend l'écrivain unique : appelé hors
+        de la boucle (`asyncio.to_thread`), pour que la liste reconstruite au démarrage à froid ne
+        retrouve pas un modèle supprimé."""
+        self._recent.delete_tag(tag)
+        store = self._get_store()
+        if store is None:
+            return
+
+        def write(conn: sqlite3.Connection) -> None:
+            conn.execute("DELETE FROM model_facts WHERE tag = ?", (tag,))
+
+        try:
+            store.write(write).result(timeout=WRITE_WAIT_S)
+        except RuntimeError:  # store fermé à l'arrêt
+            logger.debug("Store fermé : faits de %s non purgés", tag)
+        except Exception:  # noqa: BLE001 - une purge ratée ne doit pas défaire la suppression
+            logger.warning("Purge des faits de %s échouée", tag, exc_info=True)
 
     def latest_per_tag(self) -> list[ModelFacts]:
         latest: dict[str, ModelFacts] = {f.tag: f for f in self._recent.latest_per_tag()}

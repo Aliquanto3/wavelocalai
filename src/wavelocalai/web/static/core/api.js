@@ -10,7 +10,9 @@
 
 import { agentsApi } from "./api/agents.js";
 import { arenaApi } from "./api/arena.js";
+import { benchApi } from "./api/bench.js";
 import { conversationsApi } from "./api/conversations.js";
+import { evaluationApi } from "./api/evaluation.js";
 import { modelsApi } from "./api/models.js";
 import { ragApi } from "./api/rag.js";
 import { runsApi } from "./api/runs.js";
@@ -106,6 +108,8 @@ export const api = {
   ...modelsApi(request),
   ...conversationsApi(request),
   ...arenaApi(request),
+  ...benchApi(request),
+  ...evaluationApi(request),
   ...ragApi(request),
   ...runsApi(request),
   ...agentsApi(request),

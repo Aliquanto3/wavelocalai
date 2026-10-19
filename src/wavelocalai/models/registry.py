@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import math
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -64,6 +65,7 @@ class MemoryAdvisorLike(Protocol):
         measured_loaded_gb: float | None = None,
         download_gb: float | None = None,
         download_bytes: int | None = None,
+        reclaimable_gb: float = 0.0,
     ) -> FitLike: ...
 
 
@@ -85,8 +87,14 @@ class ModelInfo(BaseModel):
     # Mémoire à avoir de libre (besoin × 1,1 + 0,5 Go, dixième supérieur) : « requis » du
     # sélecteur, même chiffre que `ram_guard.detail.needed_gb` (story 4.8) ; `null` si inconnue.
     required_gb: float | None = None
+    # Mémoire qui manque (Go, dixième supérieur) quand `fits` est faux : « Non : il manque 1,2 Go »
+    # (story 5.3) ; `null` s'il tient ou si le besoin est inconnu.
+    short_gb: float | None = None
     fits: bool | None = None  # `null` : taille inconnue ou modèle non local
     tools_verified: bool = False
+    # Le modèle peut imposer un format de sortie (`response_schema`, AD-8) : tout modèle de
+    # conversation, local (`format` d'Ollama) ou cloud ; jamais un embedder ni un reranker (story 7.4).
+    structured_output: bool = False
     reasoning: bool = False
     # Créativité conseillée pour le modèle (D-12) : paramètres publiés par Ollama, sinon catalogue ;
     # `null` si inconnue (le front replie alors à 0,2). Toujours `null` pour un modèle cloud.
@@ -101,6 +109,32 @@ class ModelList(BaseModel):
     models: list[ModelInfo]
     ollama_up: bool
     refreshed_at: str | None  # dernier rafraîchissement réussi (ISO 8601 UTC) ; `null` jamais
+
+
+class InstallableModel(BaseModel):
+    """Une entrée de `config/models_catalog.json` que ce poste n'a pas installée (story 5.3)."""
+
+    tag: str
+    name: str
+    editor: str | None = None
+    description: str | None = None
+    params_total_b: float | None = None
+    params_active_b: float | None = None
+    download_gb: float | None = None  # taille du téléchargement (catalogue)
+    needed_gb: float | None = None  # mémoire nécessaire une fois chargé ; `null` si inconnue
+    required_gb: float | None = None  # mémoire à avoir de libre (même chiffre que `ram_guard`)
+    short_gb: float | None = None  # mémoire qui manque quand `fits` est faux
+    fits: bool | None = None  # `null` : taille inconnue
+    tools_verified: bool = False
+    reasoning: bool = False
+
+
+class InstallableList(BaseModel):
+    models: list[InstallableModel]
+    ollama_up: bool
+    # Mémoire libre comptée par `fits` (libre du poste et modèles chargés inactifs), dixième
+    # inférieur : le « libres » de « 6,1 Go nécessaires, 4,8 Go libres » ; `null` sans conseiller.
+    free_gb: float | None = None
 
 
 @dataclass(frozen=True)
@@ -178,12 +212,22 @@ class ModelRegistry:
         self._attempted_at: float | None = None
         self._refreshed_at: str | None = None
         self._task: asyncio.Task[None] | None = None
+        # Modèles supprimés (story 5.4) : tag -> génération de la suppression. Un rafraîchissement
+        # parti avant (génération plus ancienne) a pu lire le modèle dans `/api/tags` : il ne le
+        # remet ni dans la liste ni dans `model_facts`. Une entrée par suppression, rien de plus.
+        self._forget_gen = 0
+        self._forgotten: dict[str, int] = {}
 
     # -- rafraîchissement en tâche de fond ---------------------------------------------------
 
     async def refresh(self) -> None:
         """Relit Ollama (liste, puis détails des modèles au digest inconnu). Ne lève jamais :
         Ollama indisponible laisse la dernière liste connue."""
+        started_gen = self._forget_gen
+
+        def stale(tag: str) -> bool:  # supprimé après le départ de ce rafraîchissement
+            return self._forgotten.get(tag, -1) > started_gen
+
         try:
             listed = await self._source.list_tags()
         except OllamaUnavailableError:
@@ -194,7 +238,7 @@ class ModelRegistry:
 
         async def one(item: dict) -> _Local | None:
             tag = str(item.get("model") or item.get("name") or "")
-            if not tag:
+            if not tag or stale(tag):
                 return None
             digest = str(item.get("digest") or "")
             cached = self._facts.get(tag, digest) if digest else None
@@ -207,6 +251,8 @@ class ModelRegistry:
             if show is None and cached is not None:  # ligne d'avant la migration 0005, Ollama muet
                 return _Local(cached, is_remote_tag(item))
             facts = facts_from_ollama(item, show)
+            if stale(tag):  # supprimé pendant la lecture des détails
+                return None
             if show is not None and digest:  # sans détails : pas de cache, on réessaiera
                 self._facts.put(facts)
             return _Local(facts, is_remote_tag(item))
@@ -217,7 +263,9 @@ class ModelRegistry:
             logger.warning("Rafraîchissement des modèles interrompu", exc_info=True)
             self._attempted_at = self._clock()
             return
-        self._local = {rec.facts.tag: rec for rec in records if rec is not None}
+        self._local = {
+            rec.facts.tag: rec for rec in records if rec is not None and not stale(rec.facts.tag)
+        }
         self._ollama_up = True
         self._attempted_at = self._clock()
         self._refreshed_at = utc_now_iso()
@@ -225,6 +273,20 @@ class ModelRegistry:
     def invalidate(self) -> None:
         """Force le prochain `list_models` à relire Ollama (après un `pull` ou une suppression)."""
         self._attempted_at = None
+
+    async def forget(self, tag: str, *, wait_s: float = 8.0) -> None:
+        """Un modèle supprimé du poste (story 5.4) : ses lignes `model_facts` sont purgées (il ne
+        réapparaît plus quand la liste est reconstruite sans Ollama), il quitte aussitôt la liste en
+        mémoire, puis Ollama est relu (au plus `wait_s`) pour que la liste soit juste à la réponse.
+        """
+        self._forget_gen += 1
+        self._forgotten[tag] = self._forget_gen
+        await asyncio.to_thread(self._facts.delete_tag, tag)
+        if self._local is not None:
+            self._local.pop(tag, None)
+        self.invalidate()
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self.refresh(), wait_s)
 
     def _ensure_task(self) -> asyncio.Task[None]:
         loop = asyncio.get_running_loop()
@@ -260,8 +322,14 @@ class ModelRegistry:
             self._catalog = load_catalog(self._catalog_path)
         return self._catalog.find(tag)
 
-    async def list_models(self, *, allow_cloud: bool = False) -> ModelList:
-        """Modèles disponibles ; ceux dont l'origine n'est pas `local` seulement si `allow_cloud`."""
+    @property
+    def ollama_up(self) -> bool:
+        """Ollama a répondu au dernier rafraîchissement."""
+        return self._ollama_up
+
+    async def _current(self) -> dict[str, _Local]:
+        """La dernière liste locale connue ; un cache périmé lance un rafraîchissement en tâche de
+        fond, et le tout premier appel l'attend `wait_s` au plus (AD-15)."""
         local = self._seed()
         first_call = self._attempted_at is None
         if first_call or self._clock() - (self._attempted_at or 0.0) >= self._cache_s:
@@ -270,6 +338,11 @@ class ModelRegistry:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(asyncio.shield(task), self._wait_s)
                 local = self._seed()
+        return local
+
+    async def list_models(self, *, allow_cloud: bool = False) -> ModelList:
+        """Modèles disponibles ; ceux dont l'origine n'est pas `local` seulement si `allow_cloud`."""
+        local = await self._current()
         medians = await asyncio.to_thread(self._run_stats.medians)  # lecture de `runs` hors boucle
         infos = [self._local_info(rec, medians) for rec in local.values()]
         infos += self._cloud_infos()
@@ -297,11 +370,12 @@ class ModelRegistry:
             active = None
         else:
             active = total
-        needed = fits = required = None
+        needed = fits = required = short = None
         if origin == "local" and self._advisor is not None:
             assessment = self._assess(facts, entry)
             needed, fits = assessment.needed_gb, assessment.fits
             required = getattr(assessment, "required_gb", None)
+            short = getattr(assessment, "short_gb", None)
         return ModelInfo(
             tag=facts.tag,
             name=entry.name if entry else facts.tag,
@@ -318,8 +392,10 @@ class ModelRegistry:
             context_length=facts.context_length or (entry.context_length if entry else None),
             needed_gb=_round(needed),
             required_gb=required,
+            short_gb=short,
             fits=fits,
             tools_verified=caps_tools,
+            structured_output=kind == "chat",
             reasoning=caps_thinking
             or is_dedicated_reasoning(facts.tag, entry.name if entry else None),
             default_temperature=_first_not_none(
@@ -336,6 +412,73 @@ class ModelRegistry:
             measured_loaded_gb=entry.measured_loaded_gb if entry else None,
             download_gb=entry.size_gb if entry else None,
             download_bytes=facts.size_bytes,
+        )
+
+    async def installable(self, *, reclaimable_gb: float = 0.0) -> InstallableList:
+        """Le catalogue installable : les entrées de `config/models_catalog.json` dont aucun modèle
+        installé ne porte le tag (un modèle supprimé du poste y revient), avec la mémoire
+        nécessaire et `fits` de `hardware/` ; la dernière liste connue (au plus `wait_s` d'attente
+        au tout premier appel, comme `list_models`). `reclaimable_gb` : mémoire
+        des modèles chargés, qu'Ollama décharge à la demande (comptée comme libre, comme le
+        garde-fou). Le front ne calcule rien (AD-20)."""
+        if self._catalog is None:
+            self._catalog = load_catalog(self._catalog_path)
+        installed = {base_tag(tag) for tag in await self._current()}
+        entries: list[InstallableModel] = []
+        free: float | None = None
+        for entry in self._catalog.entries():
+            if base_tag(entry.tag) in installed:
+                continue
+            needed = fits = required = short = None
+            if self._advisor is not None:
+                assessment = self._advisor.assess(
+                    measured_loaded_gb=entry.measured_loaded_gb,
+                    download_gb=entry.size_gb,
+                    reclaimable_gb=reclaimable_gb,
+                )
+                needed, fits = assessment.needed_gb, assessment.fits
+                required = getattr(assessment, "required_gb", None)
+                short = getattr(assessment, "short_gb", None)
+                free = getattr(assessment, "available_gb", free)
+            entries.append(
+                InstallableModel(
+                    tag=entry.tag,
+                    name=entry.name,
+                    editor=entry.editor,
+                    description=entry.description,
+                    params_total_b=_round(entry.params_total_b),
+                    params_active_b=_round(
+                        entry.params_active_b
+                        if entry.params_active_b is not None or entry.moe
+                        else entry.params_total_b
+                    ),
+                    download_gb=_round(entry.size_gb),
+                    needed_gb=_round(needed),
+                    required_gb=required,
+                    short_gb=short,
+                    fits=fits,
+                    tools_verified="tools" in entry.capabilities,
+                    reasoning="thinking" in entry.capabilities
+                    or is_dedicated_reasoning(entry.tag, entry.name),
+                )
+            )
+        if self._advisor is not None and free is None:  # aucune entrée : la mémoire reste dite
+            free = getattr(
+                self._advisor.assess(reclaimable_gb=reclaimable_gb), "available_gb", None
+            )
+        # Ordre initial (EXPERIENCE.md) : ceux qui tiennent d'abord, puis le besoin croissant.
+        entries.sort(
+            key=lambda item: (
+                item.fits is not True,
+                item.needed_gb if item.needed_gb is not None else float("inf"),
+                item.name.lower(),
+                item.tag,
+            )
+        )
+        return InstallableList(
+            models=entries,
+            ollama_up=self._ollama_up,
+            free_gb=None if free is None else math.floor(free * 10 + 1e-9) / 10,
         )
 
     def memory_needs(self) -> list[ModelNeed]:
@@ -367,6 +510,7 @@ class ModelRegistry:
                         origin="cloud",
                         kind="chat",
                         available=True,
+                        structured_output=True,
                         co2_method=self._cloud_co2_method(provider, model),
                     )
                 )

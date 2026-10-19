@@ -296,17 +296,17 @@ def test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them(
 
 
 def test_planned_modules_have_no_card_on_the_home(home):
-    # L'Arène (story 2.2), la Base documentaire (story 4.2), Sobriété (story 5.1) et l'Agent seul
-    # (story 6.4) sont livrés : leurs liens seuls figurent ; les modules à venir n'en ont aucun.
-    assert home.locator(".home-module-link").count() == 4
+    # L'Arène (story 2.2), la Base documentaire (story 4.2), Sobriété (story 5.1), les Modèles
+    # (story 5.3) et l'Agent seul (story 6.4) sont livrés : leurs liens seuls figurent ; les
+    # modules à venir n'en ont aucun.
+    assert home.locator(".home-module-link").count() == 5
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/sobriete"]').count() == 1
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/arene"]').count() == 1
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/documents"]').count() == 1
+    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/modeles"]').count() == 1
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/agents"]').count() == 1
-    # La barre haute les montre désactivés, avec leur raison.
-    assert (
-        "Pas encore disponible dans cette préversion" in home.locator("#module-list").inner_text()
-    )
+    # Plus aucun module à venir : la barre haute n'en montre aucun de désactivé.
+    assert "Pas encore disponible" not in home.locator("#module-list").inner_text()
 
 
 def mount_second_home(page, every_module: bool = False) -> None:
@@ -333,11 +333,13 @@ def mount_second_home(page, every_module: bool = False) -> None:
 def test_an_available_module_gets_a_link_with_its_summary(home):
     mount_second_home(home)
     links = home.locator("#second-home .home-module-link")
-    # L'Arène, les Documents (Discussion, story 4.5), l'Agent seul (story 6.4), puis Sobriété (5.1).
-    assert links.count() == 4
-    assert links.nth(3).get_attribute("href") == "#/sobriete"
+    # L'Arène, les Documents (Discussion, story 4.5), l'Agent seul (story 6.4), Sobriété (5.1),
+    # puis les Modèles (story 5.3).
+    assert links.count() == 5
     assert links.nth(2).get_attribute("href") == "#/agents/seul"
+    assert links.nth(3).get_attribute("href") == "#/sobriete"
     assert links.nth(1).get_attribute("href") == "#/documents"
+    assert links.nth(4).get_attribute("href") == "#/modeles"
     # Le résumé de la carte « Documents » est celui de la base (story 4.9) ; base vide ici.
     summary = links.nth(1).locator(".home-module-summary")
     wait_for(

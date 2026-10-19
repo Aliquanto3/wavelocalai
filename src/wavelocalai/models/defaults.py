@@ -30,6 +30,15 @@ Un défaut n'est jamais un modèle d'embedding ni un reranker, ni un modèle clo
 n'est pas autorisé. Une préférence enregistrée par l'UI (`preferences`, clé
 `default_model.<usage>`) prime sur la règle pour ce seul usage, à condition de viser des modèles
 encore disponibles (locaux seulement et au moins 2 pour `arena`, un seul tag ailleurs).
+
+Écriture (story 5.4) : `choose` enregistre le choix explicite de la personne (jamais retenu sans ce
+geste, décision Q2) après avoir contrôlé l'éligibilité du modèle à l'usage ; `clear` efface la
+préférence (retour à la règle) ; `forget_model` efface celles qui visent un modèle supprimé du poste.
+Éligibilité à l'usage (`is_eligible`, ce que le sélecteur propose) : `agent` demande des outils
+vérifiés et au moins `AGENT_MIN_PARAMS_B` milliards de paramètres actifs, `rag` au moins
+`RAG_MIN_PARAMS_B` ; les autres usages acceptent tout modèle de conversation. Un modèle cloud
+(taille inconnue) reste éligible, sauf pour l'Arène : seul le mode cloud l'autorise. La mémoire
+n'entre pas dans l'éligibilité : un modèle qui ne tient pas se choisit, et la raison le dit.
 """
 
 from __future__ import annotations
@@ -58,6 +67,7 @@ BENCH_MIN_SPEED_TPS = 10.0
 ARENA_MIN_MODELS = 2
 ARENA_MAX_MODELS = 3
 PREFERENCE_KEY = "default_model.{purpose}"
+CHOSEN_REASON = "Choisi par vous"
 
 # Juges cloud, du plus capable au moins capable (préfixes du nom de modèle, sans le fournisseur).
 # Opus 5.5 passe avant Fable 5.1 (environ 2,5 fois son prix) : le juge par défaut n'est pas le
@@ -87,6 +97,12 @@ class ModelDefault(BaseModel):
     tags: list[str]  # un seul tag sauf `arena`
     reason: str  # en français, affichée en aide
     source: Source  # `rule` ou `preference` (choix de l'UI)
+    # Modèles éligibles à l'usage, cloud compris seulement s'il est autorisé : ce que le sélecteur
+    # propose (story 5.4, décision du 2026-10-19). Rempli par `ModelDefaults.get`.
+    eligible: list[str] = []
+    # Choix enregistré mais inactif : un modèle cloud choisi tant que le cloud n'est pas autorisé
+    # (la règle s'applique en attendant). Rempli par `ModelDefaults.get`.
+    inactive: list[str] = []
 
 
 class ModelCatalogLike(Protocol):
@@ -119,6 +135,17 @@ class _Cand:
     def weak_judge(self) -> bool:
         """Juge local de moins de ~4B paramètres actifs, ou de taille inconnue."""
         return is_weak_judge(self.is_cloud, self.params_b)
+
+
+def is_eligible(info: ModelInfo, purpose: str) -> bool:
+    """Le modèle de conversation peut-il servir à cet usage ? Voir la docstring du module."""
+    if info.origin != "local":
+        return purpose != "arena"  # l'Arène ne compare que des modèles locaux
+    if purpose == "agent":
+        return info.tools_verified and (info.params_active_b or 0.0) >= AGENT_MIN_PARAMS_B
+    if purpose == "rag":
+        return (info.params_active_b or 0.0) >= RAG_MIN_PARAMS_B
+    return True
 
 
 def _candidates(models: Iterable[ModelInfo], allow_cloud: bool) -> list[_Cand]:
@@ -385,12 +412,18 @@ class ModelDefaults:
         self._preferences = preferences
 
     async def get(self, purpose: Purpose, allow_cloud: bool = False) -> ModelDefault:
-        listed = await self._registry.list_models(allow_cloud=allow_cloud)
+        # Cloud toujours lu (liste de `Settings`, aucun appel) : un choix cloud inactif se dit.
+        listed = await self._registry.list_models(allow_cloud=True)
         stored = _stored_tags(self._preferences.get(PREFERENCE_KEY.format(purpose=purpose)))
+        cands = _candidates(listed.models, allow_cloud)
+        if purpose == "arena":  # l'Arène ne compare que des modèles locaux
+            cands = [c for c in cands if not c.is_cloud]
+        eligible = [c.tag for c in cands if is_eligible(c.info, purpose)]
+        inactive: list[str] = []
+        if stored and not allow_cloud and purpose != "arena":
+            clouds = {m.tag for m in listed.models if m.origin != "local" and m.kind == "chat"}
+            inactive = [t for t in dict.fromkeys(stored) if t in clouds][:1]
         if stored:
-            cands = _candidates(listed.models, allow_cloud)
-            if purpose == "arena":  # l'Arène ne compare que des modèles locaux
-                cands = [c for c in cands if not c.is_cloud]
             allowed = {c.tag for c in cands}
             kept = list(dict.fromkeys(t for t in stored if t in allowed))
             if purpose == "arena":
@@ -401,7 +434,62 @@ class ModelDefaults:
                 return ModelDefault(
                     purpose=purpose,
                     tags=kept,
-                    reason="Votre choix enregistré pour cet usage.",
+                    reason=CHOSEN_REASON,
                     source="preference",
+                    eligible=eligible,
                 )
-        return choose_default(listed.models, purpose, allow_cloud)
+        chosen = choose_default(listed.models, purpose, allow_cloud)
+        return chosen.model_copy(update={"eligible": eligible, "inactive": inactive})
+
+    async def choose(
+        self, purpose: Purpose, tags: Sequence[str], allow_cloud: bool = False
+    ) -> ModelDefault:
+        """Enregistre le choix explicite de la personne pour un usage (un tag, 2 à 3 pour `arena`)
+        et rend le défaut qui en résulte. Refuse un modèle inconnu (`model_not_found`), cloud sans
+        accord (`cloud_not_allowed`), qui n'est pas de conversation ou pas éligible à l'usage
+        (`model_not_eligible`), ou un nombre de tags qui ne convient pas (`invalid_request`)."""
+        wanted = list(dict.fromkeys(tags))
+        low, high = (ARENA_MIN_MODELS, ARENA_MAX_MODELS) if purpose == "arena" else (1, 1)
+        if not low <= len(wanted) <= high:
+            expected = f"{low} à {high} modèles" if low != high else "un seul modèle"
+            raise AppError(
+                "invalid_request",
+                f"L'usage « {purpose} » demande {expected}, pas {len(wanted)}.",
+            )
+        listed = await self._registry.list_models(allow_cloud=True)
+        known = {m.tag: m for m in listed.models}
+        for tag in wanted:
+            model = known.get(tag)
+            if model is None:
+                raise AppError("model_not_found", f"Modèle inconnu : {tag}", tag=tag)
+            if model.origin != "local" and not allow_cloud:
+                raise AppError("cloud_not_allowed", f"{tag} est hébergé hors de ce poste.", tag=tag)
+            if model.kind != "chat" or not is_eligible(model, purpose):
+                raise AppError(
+                    "model_not_eligible",
+                    f"{tag} n'est pas éligible à l'usage « {purpose} ».",
+                    tag=tag,
+                    purpose=purpose,
+                )
+        self._preferences.put(PREFERENCE_KEY.format(purpose=purpose), {"tags": wanted})
+        return await self.get(purpose, allow_cloud)
+
+    def clear(self, purpose: Purpose) -> None:
+        """« Revenir au choix automatique » : efface la préférence de l'usage."""
+        self._preferences.delete(PREFERENCE_KEY.format(purpose=purpose))
+
+    def chosen_for(self, tag: str) -> list[str]:
+        """Usages dont le choix enregistré vise ce modèle."""
+        return [
+            purpose
+            for purpose in PURPOSES
+            if tag in _stored_tags(self._preferences.get(PREFERENCE_KEY.format(purpose=purpose)))
+        ]
+
+    def forget_model(self, tag: str) -> list[str]:
+        """Un modèle supprimé du poste : les usages qui le visaient reviennent à la règle (le
+        choix est effacé, il ne revient pas si le modèle est réinstallé). Rend ces usages."""
+        reverted = self.chosen_for(tag)
+        for purpose in reverted:
+            self._preferences.delete(PREFERENCE_KEY.format(purpose=purpose))
+        return reverted

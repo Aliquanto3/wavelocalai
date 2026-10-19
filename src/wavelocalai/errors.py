@@ -79,6 +79,13 @@ _SPECS = (
         ("run_id",),
     ),
     ErrorSpec(
+        "pull_failed",
+        502,
+        "Le modèle {tag} n'a pas pu être installé.",
+        "Réessayez. La liste des modèles est inchangée.",
+        ("tag", "cause"),
+    ),
+    ErrorSpec(
         "cloud_not_allowed",
         403,
         "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
@@ -294,6 +301,29 @@ _SPECS = (
         "« approuvé ».",
         ("run_id", "approval_id"),
     ),
+    # --- gestion des modèles (story 5.4) ---
+    ErrorSpec(
+        "model_in_use",
+        409,
+        "{tag} est employé par une réponse en cours : il n'a pas été supprimé.",
+        "Attendez la fin de la réponse (ou arrêtez-la), puis recommencez.",
+        ("tag", "run_id"),
+    ),
+    ErrorSpec(
+        "model_not_eligible",
+        422,
+        "{tag} ne peut pas servir à cet usage : le choix n'a pas été enregistré.",
+        "Choisissez un modèle de la liste proposée pour cet usage.",
+        ("tag", "purpose"),
+    ),
+    ErrorSpec(
+        "model_delete_failed",
+        502,
+        "Ollama n'a pas supprimé {tag}.",
+        "La liste des modèles est inchangée. Réessayez ; le détail technique dit ce qu'Ollama a "
+        "répondu.",
+        ("tag",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 
@@ -386,3 +416,55 @@ def build_envelope(
 class ProviderError(AppError):
     """Refus ou panne d'un fournisseur de modèle (AD-8) : un adaptateur la lève avec un code de
     la liste fermée ; le service la met en enveloppe dans `run_ended.data.error`."""
+
+
+# Textes de `pull_failed` selon `detail.cause` (story 5.3) : même code, trois situations. Le
+# `message` et l'`action` génériques de `ERRORS` valent pour une cause inconnue.
+PULL_CAUSES = {
+    "not_found": (
+        "Le modèle {tag} n'a pas pu être installé : ce nom n'existe pas dans le registre d'Ollama.",
+        "Vérifiez l'orthographe du nom (par exemple `qwen3.6:7b`), puis réessayez. La liste des "
+        "modèles est inchangée.",
+    ),
+    "ollama_down": (
+        "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
+        "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le "
+        "téléchargement déjà fait est repris. La liste des modèles est inchangée.",
+    ),
+    "reranker_failed": (
+        "Le reranker {tag} n'a pas pu être installé.",
+        "Vérifiez la connexion au réseau et l'espace disque, puis relancez l'installation. La "
+        "recherche reste sans reclassement en attendant.",
+    ),
+    "interrupted": (
+        "L'installation de {tag} a été interrompue avant la fin.",
+        "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. Si elle échoue "
+        "encore, le détail technique en donne la raison (disque plein, par exemple). La liste des "
+        "modèles est inchangée.",
+    ),
+}
+
+
+def pull_failed_envelope(
+    tag: str,
+    cause: str,
+    technical: str | None = None,
+    secrets: Iterable[str] = (),
+    *,
+    restarted: bool = False,
+) -> dict[str, Any]:
+    """Enveloppe `pull_failed` d'une installation de modèle, texte propre à la cause ;
+    `restarted` : run resté actif à l'arrêt du serveur, qui le dit."""
+    envelope = build_envelope("pull_failed", technical, secrets, tag=tag, cause=cause)
+    variant = PULL_CAUSES.get(cause)
+    if variant is not None:
+        envelope["message"] = _fill(variant[0], {"tag": tag})
+        envelope["action"] = _fill(variant[1], {"tag": tag})
+    if restarted:
+        envelope["message"] = _fill(PULL_RESTART_MESSAGE, {"tag": tag})
+    return envelope
+
+
+# Run `pull` resté actif à l'arrêt du serveur (`runs/repo.py::interrupt_orphans`) : même cause
+# `interrupted` qu'un refus d'Ollama, mais la raison est connue.
+PULL_RESTART_MESSAGE = "L'installation de {tag} a été interrompue par le redémarrage du serveur."
