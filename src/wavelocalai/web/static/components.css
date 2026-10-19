@@ -1090,6 +1090,12 @@
   overflow: visible;
 }
 
+/* Source mise en évidence par le marqueur [n] qu'on survole ou focalise (citations vérifiées). */
+.wl-source.is-linked {
+  border-color: var(--color-primary);
+  border-inline-start-width: 4px;
+}
+
 /* Passage surligné (D-21) : aplat violet sous texte blanc (A19), en plus du gras. */
 .wl-source-mark {
   padding: 0 0.125rem;

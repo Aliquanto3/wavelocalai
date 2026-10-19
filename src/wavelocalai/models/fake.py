@@ -3,7 +3,9 @@
 Il n'est enregistré que si `Settings.testing` est vrai (`fake_models`). Un script est une liste
 d'étapes : un `ChatChunk`, un `Sleep`, ou une exception à lever (par ex. `ProviderError`). Sans
 `Done` dans le script, l'adaptateur en émet un à la fin. Le flux se ferme dans un `finally`
-(`opened` / `closed` le montrent aux tests).
+(`opened` / `closed` le montrent aux tests). `scripts` donne un script par appel, dans l'ordre (le
+dernier se répète) : une stratégie de recherche qui appelle le modèle plusieurs fois (story 4.6)
+reçoit ainsi des réponses différentes ; sans `scripts`, `script` sert à chaque appel.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ class FakeChatModel:
     def __init__(self, script: Sequence[Step] = (), ref: ModelRef = FAKE_REF) -> None:
         self.ref = ref
         self.script = list(script)
+        self.scripts: list[list[Step]] = []
         self.opened = 0
         self.closed = 0
         self.requests: list[ChatRequest] = []
@@ -49,9 +52,12 @@ class FakeChatModel:
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         self.opened += 1
         self.requests.append(request)
+        script = (
+            self.scripts[min(self.opened, len(self.scripts)) - 1] if self.scripts else self.script
+        )
         try:
             done = False
-            for step in self.script:
+            for step in script:
                 if isinstance(step, Sleep):
                     await asyncio.sleep(step.seconds)
                 elif isinstance(step, BaseException):
@@ -60,7 +66,7 @@ class FakeChatModel:
                     done = done or isinstance(step, Done)
                     yield step
             if not done:
-                tokens = sum(len(s.text.split()) for s in self.script if isinstance(s, TextDelta))
+                tokens = sum(len(s.text.split()) for s in script if isinstance(s, TextDelta))
                 yield Done(
                     ChatResult(
                         input_tokens=4,

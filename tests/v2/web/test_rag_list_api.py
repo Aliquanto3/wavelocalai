@@ -42,6 +42,7 @@ async def test_an_empty_base_lists_nothing_and_states_the_limits(served):
         "documents": [],
         "totals": {"documents": 0, "chunks": 0},
         "limits": {"max_file_mb": 50, "max_files": 50, "max_import_mb": 500},
+        "search": {"top_k": 4, "max_top_k": 20},
     }
 
 

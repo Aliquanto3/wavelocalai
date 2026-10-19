@@ -163,6 +163,16 @@ def sources(page):
     return page.locator("[data-screen='documents-chat'] .wl-source")
 
 
+def plain(locator) -> str:
+    """Le texte d'une réponse sans le complément lu par les lecteurs d'écran : un marqueur [1] que le
+    serveur a vérifié devient un bouton dont le nom dit aussi la source (`.sr-only`)."""
+    return locator.evaluate(
+        "el => { const copy = el.cloneNode(true);"
+        " copy.querySelectorAll('.sr-only').forEach((node) => node.remove());"
+        " return copy.textContent.trim(); }"
+    )
+
+
 def metric(foot, label):
     return foot.locator("wl-metric").filter(
         has=foot.page.locator(".wl-metric-label", has_text=re.compile(f"^{label}$"))
@@ -209,8 +219,12 @@ def test_the_header_the_model_and_the_collapsed_settings(docs):
     assert advanced.get_attribute("open") is None
     advanced.locator("summary").click()
     options = advanced.locator("select option")
-    assert options.all_inner_texts() == ["Recherche directe"]
-    assert "naive" in advanced.locator(".help").inner_text()
+    assert options.all_inner_texts() == [
+        "Recherche directe",
+        "Réponse imaginée d'abord",
+        "Recherche vérifiée",
+    ]
+    assert "naive" in advanced.locator(".help").first.inner_text()
 
 
 def test_a_cloud_model_warns_that_the_extracts_leave_the_machine(backend, page):
@@ -322,8 +336,8 @@ def test_the_sources_fill_the_panel_before_the_answer_with_the_stages_the_passag
     assert page.locator(".wl-msg-assistant .wl-md").inner_text().strip() == ""
     wait_done(page)
 
-    assert page.locator(".wl-msg-assistant .wl-md").inner_text().strip() == (
-        "Le chat dort sur le canapé [1]."  # le marqueur reste du texte, tel que le modèle l'écrit
+    assert plain(page.locator(".wl-msg-assistant .wl-md")) == (
+        "Le chat dort sur le canapé [1]."  # le texte du modèle, tel qu'il l'a écrit
     )
     panel = page.locator("[data-screen='documents-chat'] wl-source-panel")
     assert panel.locator(".wl-sources-title").inner_text() == "3 sources utilisées"
@@ -420,7 +434,7 @@ def test_a_reopened_conversation_says_deleted_extract_for_a_document_deleted_sin
         "() => document.querySelectorAll(\"[data-screen='documents-chat'] .wl-source\").length === 2",
     )
     answer = page.locator("[data-screen='documents-chat'] .wl-msg-assistant")
-    assert answer.locator(".wl-md").inner_text().strip() == "Le chat dort sur le canapé [1]."
+    assert plain(answer.locator(".wl-md")) == "Le chat dort sur le canapé [1]."
     assert source_of(page, "chats.txt").locator(".wl-source-gone").inner_text().strip() == (
         "extrait supprimé"
     )

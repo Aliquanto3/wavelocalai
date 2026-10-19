@@ -4,6 +4,9 @@
 //                     passage}, …]      // la liste de l'événement `sources` (ou d'une réponse rouverte)
 //   panel.clear()                       // plus de source : « Les sources apparaissent ici… »
 //   panel.open(n)                       // ouvre l'extrait de la source n (comme « Ouvrir l'extrait »)
+//   panel.highlight(n)                  // met la source n en évidence (`null` : aucune), sans événement
+//   événement `wl-source-link` (`detail.n`, ou `null` à la sortie) : une source est survolée ou
+//   focalisée ; l'écran y met les marqueurs `[n]` de la réponse en évidence (citations vérifiées)
 //
 // Liste numérotée : document, page (si le document en a), libellé de pertinence (le score brut en
 // aide), puis l'extrait, replié à trois lignes. « Ouvrir l'extrait » relit l'extrait entier au
@@ -114,6 +117,12 @@ export class WlSourcePanel extends HTMLElement {
     this.sources = [];
   }
 
+  highlight(n) {
+    for (const item of this.#dom?.list.children ?? []) {
+      item.classList.toggle("is-linked", n !== null && Number(item.dataset.n) === n);
+    }
+  }
+
   open(n) {
     const toggle = this.#items.get(n)?.toggle;
     if (!toggle) return;
@@ -152,6 +161,11 @@ export class WlSourcePanel extends HTMLElement {
   #render(source) {
     const item = element("li", "wl-source");
     item.dataset.n = String(source.n);
+    const link = (n) => this.dispatchEvent(new CustomEvent("wl-source-link", { detail: { n } }));
+    item.addEventListener("pointerenter", () => link(source.n));
+    item.addEventListener("pointerleave", () => link(null));
+    item.addEventListener("focusin", () => link(source.n));
+    item.addEventListener("focusout", () => link(null));
     const head = element("p", "wl-source-head");
     head.append(
       element("span", "wl-source-num", `[${source.n}]`),

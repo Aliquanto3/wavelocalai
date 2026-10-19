@@ -157,3 +157,14 @@ async def test_an_error_with_an_undeclared_detail_key_still_ends_the_run(hub):
     error = (await hub.events_after(handle.run_id))[-1]["data"]["error"]
     assert error["code"] == "internal" and "boum" in error["detail"]["technical"]
     assert hub.active_root("chat") is None
+
+
+async def test_the_fake_plays_one_script_per_call_and_the_last_one_repeats():
+    model = FakeChatModel([TextDelta("défaut")])
+    model.scripts = [[TextDelta("un")], [TextDelta("deux")]]
+    texts = [
+        "".join(c.text for c in await _collect(model) if isinstance(c, TextDelta)) for _ in range(3)
+    ]
+    assert texts == ["un", "deux", "deux"]
+    model.scripts = []  # sans `scripts`, `script` sert de nouveau à chaque appel
+    assert [c.text for c in await _collect(model) if isinstance(c, TextDelta)] == ["défaut"]

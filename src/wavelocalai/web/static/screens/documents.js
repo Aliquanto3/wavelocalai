@@ -15,9 +15,13 @@
 // - À l'ouverture, la dernière conversation `rag` est relue au serveur ; les sources et les mesures
 //   de chaque réponse viennent de son flux rejoué (`connectRun`, run fini) : le message de
 //   conversation n'a ni sources ni mesures. Un document supprimé depuis rend « extrait supprimé ».
-// - Les marqueurs `[n]` du texte restent tels que le modèle les a écrits : aucun événement
-//   `citations` avant la story 4.6, le front n'en fabrique pas. Pas de « Télécharger » : aucune
+// - Les marqueurs `[n]` du texte restent tels que le modèle les a écrits ; seuls ceux que l'événement
+//   `citations` confirme (le serveur les a vérifiés contre les sources) deviennent des boutons
+//   (`documents-citations.js`) : survoler ou focaliser `[n]` met la source en évidence, et
+//   inversement. Sans `citations`, le front n'en fabrique aucun. Pas de « Télécharger » : aucune
 //   route d'export RAG (sprint-change-proposal 2026-10-19, §7 (d), point 12).
+// - « Réglages avancés » (`documents-settings.js`) : stratégie de recherche et nombre d'extraits,
+//   envoyés avec chaque question ; HyDE commence par « Rédaction d'une réponse hypothétique… ».
 // - Un modèle cloud reçoit les extraits retrouvés : l'avertissement le dit tant qu'il est choisi
 //   (AD-9). `allow_cloud` du store accompagne chaque commande.
 
@@ -30,64 +34,16 @@ import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
 import "../components/index.js";
+import { decorateCitations, linkMarkers } from "./documents-citations.js";
+import { replayAll } from "./documents-replay.js";
+import { advancedSettings, firstStage } from "./documents-settings.js";
 
 const DRAFT = "documents";
-const STRATEGIES = ["naive"]; // HyDE et Self-RAG arrivent avec la story 4.6
-const REPLAY_TIMEOUT_MS = 10_000;
-// Flux rejoués à la fois : sous la limite de connexions HTTP/1.1 du navigateur (6 par hôte), le
-// délai de chaque rejeu ne compte qu'à partir de sa propre connexion.
-const REPLAY_CONCURRENCY = 3;
 let counter = 0;
 
 function envelopeOf(error, message) {
   if (error instanceof ApiError && error.envelope) return error.envelope;
   return { code: "internal", message };
-}
-
-// Le flux d'un run fini, rejoué : ses sources et ses mesures (jamais d'erreur : sans flux lisible,
-// la réponse s'affiche sans sources).
-function replay(runId) {
-  return new Promise((resolve) => {
-    const found = { sources: [], metrics: null };
-    let stream = null;
-    const timer = setTimeout(() => {
-      stream?.close();
-      resolve(found);
-    }, REPLAY_TIMEOUT_MS);
-    const done = () => {
-      clearTimeout(timer);
-      resolve(found);
-    };
-    stream = connectRun(
-      runId,
-      {
-        sources: (data) => {
-          found.sources = Array.isArray(data?.sources) ? data.sources : [];
-        },
-        metrics: (data) => {
-          found.metrics = data ?? null;
-        },
-      },
-      ({ status }) => {
-        if (status === "closed" || status === "failed") done();
-      },
-      { maxAttempts: 2 },
-    );
-  });
-}
-
-// Les runs rejoués, au plus `REPLAY_CONCURRENCY` à la fois : Map run_id -> { sources, metrics }.
-async function replayAll(ids) {
-  const results = new Map();
-  const queue = [...ids];
-  const worker = async () => {
-    while (queue.length) {
-      const id = queue.shift();
-      results.set(id, await replay(id));
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(REPLAY_CONCURRENCY, queue.length) }, worker));
-  return results;
 }
 
 export function mount(host) {
@@ -119,24 +75,9 @@ export function mount(host) {
   const pickerColumn = element("div", "docs-chat-picker");
   pickerColumn.append(picker, cloudNote);
 
-  const strategy = element("select", "docs-select");
-  strategy.id = `${uid}-strategy`;
-  for (const key of STRATEGIES) {
-    const option = element("option", "", t(`discussion.strategy_${key}`));
-    option.value = key;
-    strategy.append(option);
-  }
-  const strategyLabel = element("label", "docs-field-label", t("discussion.strategy"));
-  strategyLabel.htmlFor = strategy.id;
-  const strategyHelp = element("p", "help", t("discussion.strategy_help"));
-  strategyHelp.id = `${uid}-strategy-help`;
-  strategy.setAttribute("aria-describedby", strategyHelp.id);
-  const advancedBody = element("div", "docs-advanced-body");
-  advancedBody.append(strategyLabel, strategy, strategyHelp);
-  const advanced = element("details", "docs-advanced");
-  advanced.append(element("summary", "", t("discussion.advanced")), advancedBody);
+  const advanced = advancedSettings(uid);
   const settings = element("div", "docs-chat-settings");
-  settings.append(pickerColumn, advanced);
+  settings.append(pickerColumn, advanced.node);
 
   const empty = element("p", "help chat-empty", t("discussion.empty_thread"));
   const thread = document.createElement("wl-chat-thread");
@@ -249,6 +190,7 @@ export function mount(host) {
     refreshing = true;
     try {
       base = await api.documents();
+      if (base.search) advanced.configure({ topK: base.search.top_k, maxTopK: base.search.max_top_k });
       problem.error = null;
     } catch (failure) {
       problem.error = envelopeOf(failure, t("docs.list_failed"));
@@ -278,12 +220,36 @@ export function mount(host) {
   }
 
   function showSources(record) {
+    if (displayed === record && panel.sources === record.sources) return refreshButtons();
     displayed = record;
     panel.sources = record.sources;
     refreshButtons();
   }
 
+  // Citations vérifiées : survoler ou focaliser `[n]` met la source n en évidence, et inversement.
+  const citeHooks = {
+    enter(record, n) {
+      showSources(record);
+      panel.highlight(n);
+      linkMarkers(record.node.body, n);
+    },
+    leave(record) {
+      panel.highlight(null);
+      linkMarkers(record.node.body, null);
+    },
+    click(record, n) {
+      showSources(record);
+      panel.open(n);
+    },
+  };
+  panel.addEventListener("wl-source-link", (event) => {
+    if (displayed?.node) linkMarkers(displayed.node.body, event.detail.n);
+  });
+
   function register(record) {
+    record.citations ??= [];
+    // Chaque rendu du texte (flux, fin, réponse rouverte) repasse par les citations confirmées.
+    record.node.decorator = (body) => decorateCitations(body, record, citeHooks);
     records.push(record);
     return record;
   }
@@ -316,6 +282,11 @@ export function mount(host) {
       forward(data, envelope);
     },
     retrieval_step: forward,
+    citations: (data) => {
+      if (!answer || !current) return;
+      current.citations = Array.isArray(data?.citations) ? data.citations : [];
+      answer.refresh(); // le texte est rendu de nouveau : les marqueurs confirmés deviennent des boutons
+    },
     sources: (data, envelope) => {
       ensureAnswer(null);
       current.sources = Array.isArray(data?.sources) ? data.sources : [];
@@ -356,15 +327,24 @@ export function mount(host) {
 
   // --- Conversation rouverte -------------------------------------------------------------
   function showReply(run, message, replayed) {
-    const node = thread.restoreAnswer({
+    const record = {
+      name: run?.model ?? "",
+      sources: replayed?.sources ?? [],
+      citations: replayed?.citations ?? [],
+      node: null,
+      button: null,
+    };
+    // Le décorateur est posé avant le rendu : une réponse rouverte a ses citations dès l'affichage.
+    record.node = thread.restoreAnswer({
       name: run?.model ?? "",
       origin: replayed?.metrics?.origin ?? "unknown",
       text: message?.content ?? "",
       thought: message?.reasoning ?? "",
       result: replayed?.metrics ?? null,
       status: run?.status ?? "ok",
+      decorator: (body) => decorateCitations(body, record, citeHooks),
     });
-    register({ name: run?.model ?? "", sources: replayed?.sources ?? [], node, button: null });
+    register(record);
   }
 
   async function showConversation(view) {
@@ -437,7 +417,8 @@ export function mount(host) {
         conversation_id: conversationId,
         question,
         model,
-        strategy: strategy.value,
+        strategy: advanced.strategy(),
+        ...(advanced.topK() === null ? {} : { top_k: advanced.topK() }),
         allow_cloud: store.get().allowCloud,
       });
       conversationId = started.conversation_id ?? conversationId;
@@ -453,6 +434,7 @@ export function mount(host) {
       displayed = null;
       panel.clear(); // les sources de la réponse d'avant ne sont pas celles de cette question
       refreshButtons(); // plus aucun « Afficher les sources » n'est enfoncé
+      status.setAttribute("first-stage", firstStage(advanced.strategy())); // HyDE rédige d'abord
       follow(started.run_id);
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;

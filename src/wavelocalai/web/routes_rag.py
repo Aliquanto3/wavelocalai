@@ -10,7 +10,8 @@ documents prêts et les plafonds de l'écran. Toute la logique est dans `rag/` (
 
 `POST /api/rag/runs` pose une question aux documents prêts (run `rag`) et rend `{run_id,
 conversation_id}` ; les sources, puis la réponse, se lisent par `GET /api/runs/{id}/events`.
-`GET /api/rag/chunks/{id}` rend un extrait en entier.
+`strategy` : `naive`, `hyde` ou `self_rag` ; `top_k` (1 à 20) règle le nombre d'extraits de la
+question (story 4.6). `GET /api/rag/chunks/{id}` rend un extrait en entier.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.ingest import IngestService
 from wavelocalai.rag.query import RagCommand, RagService, chunk_view
 from wavelocalai.rag.staging import StagedFile, discard_staging, new_staging_dir, stage_upload
+from wavelocalai.rag.strategies import MAX_TOP_K
 
 router = APIRouter(prefix="/api")
 
@@ -61,10 +63,16 @@ class Limits(BaseModel):
     max_import_mb: int
 
 
+class SearchDefaults(BaseModel):
+    top_k: int  # nombre d'extraits par défaut d'une question
+    max_top_k: int
+
+
 class DocumentList(BaseModel):
     documents: list[DocumentOut]
     totals: Totals  # documents `ready` seulement
     limits: Limits
+    search: SearchDefaults  # réglages de la recherche que l'écran Discussion propose
 
 
 @router.get("/rag/documents")
@@ -98,6 +106,7 @@ async def list_documents(request: Request) -> DocumentList:
         limits=Limits(
             max_file_mb=rag.max_file_mb, max_files=rag.max_files, max_import_mb=rag.max_import_mb
         ),
+        search=SearchDefaults(top_k=rag.top_k, max_top_k=MAX_TOP_K),
     )
 
 
@@ -140,8 +149,9 @@ class RagBody(BaseModel):
     conversation_id: str | None = None
     question: str = Field(max_length=MAX_QUESTION_CHARS)
     model: str = Field(min_length=1)
-    strategy: Literal["naive"] = "naive"
+    strategy: Literal["naive", "hyde", "self_rag"] = "naive"
     allow_cloud: bool = False
+    top_k: int | None = Field(default=None, ge=1, le=MAX_TOP_K)  # sinon `rag.top_k` du serveur
 
     @field_validator("question")
     @classmethod
