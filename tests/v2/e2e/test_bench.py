@@ -122,7 +122,9 @@ def verdict_text(page) -> str:
 def finish_leftover_runs(server):
     """Un seul essai à la fois : un test n'en laisse aucun en cours au suivant."""
     yield
-    with urllib.request.urlopen(f"{server.base_url}/api/bench/runs?limit=5", timeout=5) as reply:  # noqa: S310
+    with urllib.request.urlopen(
+        f"{server.base_url}/api/bench/runs?limit=5", timeout=5
+    ) as reply:  # noqa: S310
         listing = json.load(reply)["runs"]
     for item in listing:
         if item["status"] == "running":

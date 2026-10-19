@@ -122,7 +122,10 @@ async def test_violation_is_named_in_plain_french(tmp_path):
         snapshot = await _ended(client, (await _post(client)).json()["run_id"])
     verdict = snapshot["format_verdict"]
     assert snapshot["status"] == "ok" and verdict["ok"] is False
-    assert verdict["message"] == "« sentiment » : valeur hors de la liste permise (Positif, Neutre, Négatif)"
+    assert (
+        verdict["message"]
+        == "« sentiment » : valeur hors de la liste permise (Positif, Neutre, Négatif)"
+    )
     assert json.loads(verdict["formatted"])["sentiment"] == "Super"  # JSON lisible, mis en forme
 
 
