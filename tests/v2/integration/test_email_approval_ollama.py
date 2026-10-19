@@ -64,7 +64,9 @@ async def test_real_ollama_prepares_an_email_that_is_sent_only_once_approved(tmp
                     pytest.skip(f"{TAG} n'a pas appelé l'outil d'email à cette exécution")
                 assert smtp.connections == 0  # la demande est posée : rien n'est parti
                 required = found[0]["data"]
-                assert required["kind"] == "email" and required["destinataire"] == "client@example.org"
+                assert (
+                    required["kind"] == "email" and required["destinataire"] == "client@example.org"
+                )
                 snapshot = (await client.get(f"/api/runs/{run_id}")).json()
                 assert snapshot["status"] == "awaiting_approval"
 
