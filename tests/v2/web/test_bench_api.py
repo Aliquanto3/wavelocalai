@@ -62,7 +62,14 @@ async def test_scenarios_carry_instruction_and_schema_or_null(tmp_path):
     async with bench_app(tmp_path, FakeOllama()) as (_, client):
         body = (await client.get("/api/scenarios")).json()
     by_id = {s["id"]: s for s in body["scenarios"]}
-    assert list(by_id) == ["classification", "traduction", "extraction", "code", "raisonnement", "resume"]
+    assert list(by_id) == [
+        "classification",
+        "traduction",
+        "extraction",
+        "code",
+        "raisonnement",
+        "resume",
+    ]
     first = by_id["classification"]
     assert set(first) == {"id", "name", "instruction", "input", "schema"}
     assert first["name"] == "Classification (JSON)" and "sentiment" in first["instruction"]
@@ -85,7 +92,9 @@ async def test_run_streams_and_snapshot_reports_respected_format(tmp_path):
         assert started.status_code == 200 and set(started.json()) == {"run_id"}
         run_id = started.json()["run_id"]
         snapshot = await _ended(client, run_id)
-        events = [f["data"] for f in parse_sse((await client.get(f"/api/runs/{run_id}/events")).text)[0]]
+        events = [
+            f["data"] for f in parse_sse((await client.get(f"/api/runs/{run_id}/events")).text)[0]
+        ]
     assert snapshot["status"] == "ok" and snapshot["kind"] == "bench"
     verdict = snapshot["format_verdict"]
     assert verdict["ok"] is True and verdict["message"] == "Format respecté"

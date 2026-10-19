@@ -219,7 +219,9 @@ class BenchService:
         def verdict(_: Any) -> dict[str, Any]:
             if schema is None:
                 return {}
-            return {"format_verdict": format_verdict(model.text, schema, forced=command.force_format)}
+            return {
+                "format_verdict": format_verdict(model.text, schema, forced=command.force_format)
+            }
 
         try:
             await stream_into_run(

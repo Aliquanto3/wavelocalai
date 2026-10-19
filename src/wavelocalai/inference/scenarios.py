@@ -16,7 +16,9 @@ from dataclasses import dataclass
 from typing import Any
 
 # Consigne ajoutée à celle du scénario quand « Réponse concise » est activée.
-CONCISE_INSTRUCTION = "Réponse concise : va droit au but, sans introduction ni commentaire superflu."
+CONCISE_INSTRUCTION = (
+    "Réponse concise : va droit au but, sans introduction ni commentaire superflu."
+)
 
 
 @dataclass(frozen=True)
