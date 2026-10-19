@@ -175,3 +175,20 @@ async def test_a_restart_during_the_wait_interrupts_the_run_and_nothing_is_appro
         with contextlib.suppress(asyncio.CancelledError):
             await task
         await after.stop()
+
+
+async def test_an_answer_after_the_wait_was_interrupted_is_refused(hub, store):
+    # Revue : le délai (ou une annulation) interrompt l'attente ; une réponse arrivée avant que la
+    # tâche reprenne ne doit pas publier `approved`, puisque rien ne sera exécuté.
+    run = await hub.create_run("agent", models=["m"])
+    task = _ask(hub, run.run_id)
+    (data,) = await _pending(hub, run.run_id)
+    async with asyncio.timeout(2):  # la tâche attend la réponse (transition écrite)
+        while _status(store, run.run_id) != "awaiting_approval":
+            await asyncio.sleep(0.01)
+    await asyncio.sleep(0.01)
+    task.cancel()  # ce que fait le rappel d'`asyncio.timeout` à l'échéance
+    assert await hub.resolve_approval(run.run_id, data["approval_id"], "approved") is False
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    assert "approval_resolved" not in await _types(hub, run.run_id)

@@ -74,3 +74,16 @@ L'outil « Envoi d'email » prépare un email, le hub demande à l'utilisateur d
 
 - Tests : nouveaux, 7 (`test_approval_hub`), 22 (`test_email_approval`), 17 (`test_email_approval_api`) et 1 d'intégration, passé sur le vrai Ollama (`qwen2.5:1.5b`, SMTP factice). Régression ciblée (hub, runs, arène, chat, conversations, agents, outils, sécurité, config, erreurs, couches) : 239 passés, 5 sautés (liens symboliques non permis sur ce poste). Aucun E2E, aucune suite complète (poste partagé).
 - Contrôle rapide propre. Aucun email réel, aucune connexion hors `127.0.0.1`, `.env` jamais lu.
+
+## Revue
+
+Revue Opus du 2026-10-19 (diff `19a01bd..4b7702f`, puis fusion d'`origin/master` `aeb37a8`).
+
+- **Medium · second avis · corrigé** : course délai/réponse dans `RunHub.resolve_approval`. Le délai (ou une annulation de la tâche) annule l'attente ; une réponse reçue avant que la tâche reprenne publiait `approval_resolved {approved}` et la route rendait 200, alors que la boucle recevait `expired` et que rien ne partait (reproduit). La route rend désormais `409 approval_not_pending` quand l'attente est déjà interrompue, et seul `expired` est publié. Test : `test_approval_hub.py::test_an_answer_after_the_wait_was_interrupted_is_refused`.
+- **Medium · second avis · corrigé** : l'envoi approuvé était coupé par `agents.tool_timeout_s`. Le fil SMTP ne s'interrompt pas : un serveur lent (ou un `tool_timeout_s` réglé bas) faisait dire « l'action n'a pas abouti » d'un email parti quand même, et l'agent pouvait le redemander (doublon). L'exécution n'est plus bornée que par le délai SMTP de `outbox.py`. Test : `test_email_approval_api.py::test_a_slow_smtp_send_is_not_cut_by_the_tool_timeout` (faux SMTP lent, `greeting_delay_s`).
+- **Rejeté · revue** : approbation contournable. Seule la route appelle `resolve_approval` (test AST) ; `Host` limité à `127.0.0.1`/`localhost` et `Origin` étrangère refusée (AD-19) ; `approval_id` en uuid4, propre au run.
+- **Rejeté · revue** : envoi avant approbation. `tool.run` et `prepare` ne font que valider ; `execute` n'est appelé que sur `approved` ; aucune connexion SMTP avant (tests du faux serveur, `connections == 0`).
+- **Rejeté · revue** : rejeu d'une approbation. La demande est retirée à la première réponse ; une seconde réponse rend `409`.
+- **Rejeté · revue** : annulation pendant l'attente. `_close` publie `rejected` avant `run_ended` et la tâche reçoit `CancelledError` ; annulation pendant l'envoi : limite déjà reportée (front-matter).
+- **Rejeté · revue** : STARTTLS et masquage. Contexte TLS par défaut (certificat vérifié), serveur distant sans STARTTLS refusé, brouillon contenant un secret refusé avant la demande, résultats masqués par `done()`.
+- Complexité : 0 constat (`run.approvals` est un dictionnaire par run, vidé à chaque réponse ; aucun parcours du journal par événement ajouté).

@@ -42,6 +42,7 @@ class FakeSmtp:
     password: str = "pw-smtp-0123456789"
     starttls: bool = False
     refuse_recipients: tuple[str, ...] = ()
+    greeting_delay_s: float = 0.0  # serveur lent : attente avant le message d'accueil
     messages: list[Received] = field(default_factory=list)
     auth_attempts: list[tuple[str, str]] = field(
         default_factory=list
@@ -79,6 +80,7 @@ class FakeSmtp:
 
         sender, recipients, authed = "", [], False
         try:
+            await asyncio.sleep(self.greeting_delay_s)
             await say("220 fake ESMTP")
             while line := (await reader.readline()).decode(errors="replace").rstrip("\r\n"):
                 verb = line.split(" ", 1)[0].upper()

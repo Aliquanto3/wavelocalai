@@ -156,6 +156,21 @@ async def test_the_approval_wait_is_not_cut_by_the_tool_timeout(tmp_path):
     assert len(smtp.messages) == 1
 
 
+async def test_a_slow_smtp_send_is_not_cut_by_the_tool_timeout(tmp_path):
+    # Revue : l'envoi tourne dans un fil qu'on ne peut interrompre ; couper son attente au délai
+    # d'un outil disait « pas abouti » d'un email parti quand même.
+    async with (
+        FakeSmtp(greeting_delay_s=0.6) as slow,
+        mail_app(tmp_path, slow, agents={"tool_timeout_s": 0.2}) as (app, client, smtp),
+    ):
+        run_id, required, _ = await _propose(app, client)
+        await _answer(client, run_id, required["approval_id"], "approved")
+        assert (await _finished(client, run_id))["status"] == "ok"
+        result = _result(await _events(app, run_id))
+    assert result["summary"].startswith(SENT) and "failed" not in result
+    assert len(smtp.messages) == 1
+
+
 # --- refuser, expirer, annuler -------------------------------------------------------------------
 
 

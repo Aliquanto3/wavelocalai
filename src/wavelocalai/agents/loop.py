@@ -409,15 +409,13 @@ class AgentLoop:
         if decision != "approved":  # `expired`, ou toute décision inconnue : refus
             delay = f"{expiry_s / 60:g} min" if expiry_s >= 60 else f"{expiry_s:g} s"
             return done(APPROVAL_EXPIRED.format(tool=tool.id, delay=delay), True)
-        timeout_s = self._settings.agents.tool_timeout_s
-        deadline = asyncio.timeout(timeout_s)
+        # Pas de `tool_timeout_s` ici : l'envoi tourne dans un fil qu'on ne peut pas interrompre, et
+        # couper l'attente dirait « pas abouti » d'un email qui part quand même (l'agent le
+        # redemanderait). L'action borne elle-même sa durée (délai SMTP de `outbox.py`).
         try:
-            async with deadline:
-                return done(await pending.execute(), False)
+            return done(await pending.execute(), False)
         except ToolError as exc:
             return done(str(exc), True)
         except Exception as exc:  # noqa: BLE001 - l'erreur d'une action est son résultat
-            if isinstance(exc, TimeoutError) and deadline.expired():
-                return done(f"Délai dépassé ({timeout_s:g} s) : l'action n'a pas abouti.", True)
             logger.warning("Action %s en échec : %r", tool.id, exc)
             return done(f"{type(exc).__name__}: {exc}", True)

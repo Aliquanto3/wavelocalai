@@ -459,7 +459,10 @@ class RunHub:
         if decision not in ("approved", "rejected"):
             raise ValueError(f"décision inconnue : {decision!r}")
         run = self._runs.get(run_id)
-        if run is None or run.closing or approval_id not in run.approvals:
+        waiter = None if run is None else run.approvals.get(approval_id)
+        if run is None or run.closing or waiter is None or waiter.done():
+            # `done()` : l'attente vient d'être interrompue (délai atteint, tâche annulée) sans
+            # avoir encore repris ; publier `approved` mentirait, car rien ne sera exécuté.
             return False
         self._resolve(run, approval_id, decision)
         await self._leave_approval(run)
