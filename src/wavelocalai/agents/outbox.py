@@ -66,7 +66,14 @@ def deliver(smtp: SmtpSettings, to: str, subject: str, body: str) -> None:
             )
             encrypted = True
         else:
-            client = smtplib.SMTP(host, smtp.port, timeout=SMTP_TIMEOUT_S)
+            # Relais local : nom EHLO fixe, sans `socket.getfqdn()` (résolution inverse de plusieurs
+            # secondes sur les runners macOS) ; un vrai serveur garde le nom du poste.
+            client = smtplib.SMTP(
+                host,
+                smtp.port,
+                timeout=SMTP_TIMEOUT_S,
+                local_hostname="localhost" if loopback else None,
+            )
             encrypted = False
         with client:
             client.ehlo()
