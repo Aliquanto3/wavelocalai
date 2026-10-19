@@ -319,6 +319,7 @@
     "no_model": "Aucun modèle n'est choisi.",
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre question.",
     "joined": "Une réponse est déjà en cours : vous la suivez. Votre question est restée dans le champ.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ.",
     "cloud_warning": "{name} est un modèle cloud : les extraits retrouvés dans vos documents lui sont envoyés, hors de ce poste.",
     "show_sources": "Afficher les sources",
     "show_sources_for": "Afficher les sources de la réponse de {name}",

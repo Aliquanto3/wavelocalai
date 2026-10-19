@@ -608,3 +608,37 @@ def test_axe_finds_no_violation_with_sources_an_open_extract_and_the_source_dele
     page.set_viewport_size({"width": width, "height": 900})
     source_of(page, "voitures.txt").locator(".wl-source-gone").wait_for(state="attached")
     assert_no_axe_violations(page, f"extrait supprimé, {width} px, thème {theme}")
+
+
+# --- Garde-fou mémoire (story 4.8) ------------------------------------------------------------
+
+
+def test_a_memory_guard_refusal_keeps_the_question_and_take_a_smaller_model_does_not_relaunch(docs):
+    from .test_memory_guard import GUARD, SMALL, button, guard_alert
+
+    page, server, _ = docs
+    models = {"models": [MODEL, SMALL], "ollama_up": True, "refreshed_at": "2026-10-18T10:00:00Z"}
+    page.route(
+        re.compile(r"/api/models\?"),
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps(models)
+        ),
+    )
+    reload_screen(page)
+    commands: list[dict] = []
+    page.route(
+        re.compile(r"/api/rag/runs$"),
+        lambda route: (commands.append(json.loads(route.request.post_data)), route.continue_())[1],
+    )
+    script_model(page, server, GUARD)
+    ask(page)
+    alert = guard_alert(page)
+    alert.wait_for()
+    assert field(page).input_value() == QUESTION  # prête à être renvoyée
+    button(alert, "Prendre un modèle plus petit").click()
+    wait_for(page, "() => document.querySelector('wl-model-picker').value === 'fake:small'")
+    assert page.locator("[data-screen='documents-chat'] .chat-notice").inner_text() == (
+        f"Modèle choisi{NBSP}: Petit 0,5B. Renvoyez votre question, elle est restée dans le champ."
+    )
+    assert len(commands) == 1  # aucune relance
+    assert field(page).input_value() == QUESTION

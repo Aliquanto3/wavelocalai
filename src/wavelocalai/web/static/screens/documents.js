@@ -26,6 +26,7 @@ import { element, icon } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { plural } from "../core/format.js";
 import { t } from "../core/i18n.js";
+import { isRamGuard, onSmallerModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
@@ -197,6 +198,7 @@ export function mount(host) {
   let displayed = null; // l'enregistrement dont le panneau montre les sources
   const records = [];
   let wasHidden = host.hidden;
+  let lastQuestion = ""; // la dernière question envoyée, rendue au champ après un `ram_guard`
   let pending = false; // commande envoyée, réponse du serveur attendue
   let refreshing = false;
 
@@ -333,8 +335,19 @@ export function mount(host) {
     run_ended: (data, envelope) => {
       forward(data, envelope);
       finish(data?.status ?? "error");
+      keepQuestion(data);
     },
   };
+
+  // Garde-fou mémoire (`ram_guard`, story 4.8) : la question reste dans l'historique du fil (le
+  // serveur l'a gardée) et revient dans le champ, sauf si la personne a déjà tapé autre chose.
+  function keepQuestion(data) {
+    if (data?.status !== "error" || !isRamGuard(data.error)) return;
+    if (lastQuestion && !input.value.trim()) {
+      input.value = lastQuestion;
+      saveDraft(DRAFT, lastQuestion);
+    }
+  }
 
   function openStream(id) {
     stream?.close({ keepSeq: true });
@@ -441,6 +454,7 @@ export function mount(host) {
         allow_cloud: store.get().allowCloud,
       });
       conversationId = started.conversation_id ?? conversationId;
+      lastQuestion = question;
       thread.addUserMessage(question);
       if (input.value === question) {
         // Un texte tapé pendant la requête reste dans le champ.
@@ -517,6 +531,14 @@ export function mount(host) {
   });
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
+  // Garde-fou mémoire : le modèle proposé par le serveur est choisi, sans relancer.
+  onSmallerModel(host, (tag) => {
+    picker.value = tag;
+    updateCloudNote(); // l'affectation n'émet pas `wl-model-change` : avertissement cloud (AD-9)
+    notice.textContent = t("discussion.model_changed", { model: picker.modelFor(tag)?.name ?? tag });
+    notice.hidden = false;
+    input.focus();
+  });
   picker.addEventListener("wl-model-change", updateCloudNote);
   picker.addEventListener("wl-models-loaded", updateCloudNote);
 
