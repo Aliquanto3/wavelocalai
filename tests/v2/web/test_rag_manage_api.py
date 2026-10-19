@@ -476,3 +476,110 @@ async def test_a_base_whose_vectors_were_lost_is_refused_with_its_own_message(
         )
         assert ok.status_code == 200
         await _ended(client, ok.json()["run_id"])
+
+
+# --- Revue : `null` sur la découpe, retour au `.toml`, vecteurs vec0 laissés au repli -----------
+
+
+async def test_a_null_chunk_size_or_overlap_gives_the_choice_back_to_the_toml(served):
+    app, client = served
+    await client.put("/api/rag/settings", json={"chunk_size": 300, "chunk_overlap": 50})
+    response = await client.put("/api/rag/settings", json={"chunk_size": None})
+    assert response.status_code == 200, response.text
+    assert (response.json()["chunk_size"], response.json()["chunk_overlap"]) == (800, 50)
+    response = await client.put("/api/rag/settings", json={"chunk_overlap": None})
+    assert response.status_code == 200, response.text
+    assert response.json()["chunk_overlap"] == 100
+    stored = app.state.preferences.get("rag.settings")
+    assert "chunk_size" not in stored and "chunk_overlap" not in stored
+
+
+async def test_going_back_to_another_toml_embedding_on_a_non_empty_base_must_clear_first(tmp_path):
+    """`null` rend le choix au `.toml` : s'il nomme un autre modèle que celui de la base, c'est un
+    changement de modèle comme un autre (AD-16)."""
+    async with rag_app(tmp_path, rag={"embedding_model": OTHER.tag}) as (app, client):
+        chosen = await client.put("/api/rag/settings", json={"embedding_model": FAKE_EMBED_REF.tag})
+        assert chosen.status_code == 200  # base vide : libre
+        await _import(client, **{"chats.txt": CATS})  # indexé avec le modèle choisi
+        response = await client.put("/api/rag/settings", json={"embedding_model": None})
+        assert response.status_code == 409, response.text
+        envelope = response.json()
+        assert envelope["code"] == "embedding_change_needs_clear"
+        assert envelope["detail"] == {
+            **envelope["detail"],
+            "current": FAKE_EMBED_REF.tag,
+            "requested": OTHER.tag,
+        }
+        stored = app.state.preferences.get("rag.settings")
+        assert stored["embedding_model"] == FAKE_EMBED_REF.tag  # rien n'a changé
+
+
+async def test_without_a_toml_embedding_a_null_is_accepted_on_a_non_empty_base(served):
+    _, client = served
+    await _import(client, **{"chats.txt": CATS})
+    response = await client.put("/api/rag/settings", json={"embedding_model": None})
+    assert response.status_code == 200, response.text
+
+
+def _stray_vec_table(app, chunk_ids: list[int]) -> None:
+    """Une table vec0 écrite un jour avec sqlite-vec, que l'index de repli ignore."""
+    from wavelocalai.rag.index import SqliteVecIndex
+
+    app.state.store.write(
+        lambda conn: SqliteVecIndex().add(conn, chunk_ids, [fake_vector("x", 8)] * len(chunk_ids))
+    ).result()
+
+
+@needs_vec
+async def test_the_fallback_index_still_erases_vectors_left_in_vec0_tables(tmp_path, monkeypatch):
+    monkeypatch.setattr("wavelocalai.web.app.select_index", lambda available: NumpyIndex())
+    async with rag_app(tmp_path) as (app, client):
+        await _import(client, **{"secret.txt": SECRET, "autre.txt": SECOND})
+        ids = [r["id"] for r in app.state.store.read("SELECT id FROM chunks ORDER BY id")]
+        _stray_vec_table(app, ids)
+        assert _vec_rows_in_files(app) == 2
+        doc = _documents(app)["secret.txt"]["id"]
+        assert (await client.delete(f"/api/rag/documents/{doc}")).status_code == 200
+        assert _vec_rows_in_files(app) == 1  # la ligne du document supprimé est partie
+        cleared = await client.delete("/api/rag/base", params={"expected_count": 1})
+        assert cleared.status_code == 200, cleared.text
+        assert _vec_rows_in_files(app) == 0
+
+
+def _vec_rows_in_files(app) -> int:
+    store = app.state.store
+    names = store.read(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name GLOB 'chunks_vec_[0-9]*'"
+    )
+    return sum(
+        store.read(f"SELECT count(*) AS n FROM {n['name']}", vec=True)[0]["n"]  # noqa: S608
+        for n in names
+        if n["name"].removeprefix("chunks_vec_").isdigit()
+    )
+
+
+@needs_vec
+def test_vectors_that_cannot_be_erased_without_sqlite_vec_refuse_the_deletion(tmp_path):
+    """Sans le module vec0, une table vec0 ne se vide ni ne se supprime : refus, rien n'est perdu
+    en mémoire ni dans le fichier."""
+    import sqlite3
+
+    from wavelocalai.errors import AppError
+    from wavelocalai.rag.index import SqliteVecIndex
+    from wavelocalai.rag.manage import _erase_stray_vectors
+    from wavelocalai.store.vec import load_vec
+
+    path = tmp_path / "base.db"
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        assert load_vec(conn)
+        SqliteVecIndex().add(conn, [1, 2], [fake_vector("a", 8), fake_vector("b", 8)])
+        conn.commit()
+    index = NumpyIndex()
+    index.add(None, [1], [fake_vector("a", 8)])
+    with contextlib.closing(sqlite3.connect(path)) as conn:  # sans l'extension
+        for ids in ([1], None):
+            with pytest.raises(AppError) as refused:
+                _erase_stray_vectors(conn, index, ids)
+            assert refused.value.code == "vector_tables_unreachable"
+        _erase_stray_vectors(conn, index, [])  # aucun extrait : rien à effacer, pas de refus
+    assert index.count(None) == 1

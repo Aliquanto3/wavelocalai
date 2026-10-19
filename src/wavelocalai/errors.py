@@ -248,6 +248,14 @@ _SPECS = (
         "Videz la base documentaire et réimportez vos documents, ou utilisez une version de "
         "Python qui charge sqlite-vec pour que la base survive aux redémarrages.",
     ),
+    ErrorSpec(
+        "vector_tables_unreachable",
+        409,
+        "Cette base garde des vecteurs écrits avec sqlite-vec, qui n'est pas chargé sur ce poste : "
+        "ils ne peuvent pas être effacés, donc rien n'a été supprimé.",
+        "Relancez l'application avec une version de Python qui charge sqlite-vec, puis "
+        "recommencez.",
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 

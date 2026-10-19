@@ -27,7 +27,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import AppError
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.rag import repo
-from wavelocalai.rag.index import VectorIndex
+from wavelocalai.rag.index import SqliteVecIndex, VectorIndex
 from wavelocalai.rag.settings import (
     CHUNK_SIZE_RANGE,
     PREF_KEY,
@@ -39,6 +39,7 @@ from wavelocalai.rag.settings import (
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.store.db import Store
 from wavelocalai.store.preferences import PreferenceStore
+from wavelocalai.store.vec import vec_tables
 
 BASE_COUNT_SQL = "SELECT count(*) AS n FROM chunks"
 DOC_COUNT_SQL = "SELECT count(*) AS n FROM documents"
@@ -50,6 +51,31 @@ def _limits() -> dict[str, dict[str, int]]:
         "chunk_size": {"min": CHUNK_SIZE_RANGE[0], "max": CHUNK_SIZE_RANGE[1]},
         "top_k": {"min": TOP_K_RANGE[0], "max": TOP_K_RANGE[1]},
     }
+
+
+def _erase_stray_vectors(
+    conn: sqlite3.Connection, index: VectorIndex, ids: list[int] | None
+) -> None:
+    """Repli numpy sur un fichier qui garde des tables vec0 (écrites un jour avec sqlite-vec) :
+    l'index en mémoire ne les touche pas, mais leurs vecteurs restent dans le fichier (AD-13). On
+    les efface par `rowid` (`ids`) ou en recréant les tables (`None`, « Vider ») si la connexion
+    connaît vec0 ; sinon (« no such module: vec0 ») on refuse, rien n'est supprimé, plutôt que de
+    laisser un résidu. À appeler avant toute autre écriture (l'index en mémoire n'est pas
+    transactionnel)."""
+    if index.persistent or not vec_tables(conn):
+        return
+    try:
+        if ids is None:
+            SqliteVecIndex().clear(conn)
+        elif ids:
+            SqliteVecIndex().remove(conn, ids)
+    except sqlite3.OperationalError as exc:
+        if "no such module" not in str(exc):
+            raise
+        raise AppError(
+            "vector_tables_unreachable",
+            "Tables vec0 présentes dans le fichier, extension sqlite-vec non chargée.",
+        ) from exc
 
 
 class RagBaseService:
@@ -107,6 +133,11 @@ class RagBaseService:
                     run_id=row[2] or self._hub.active_root("ingest"),
                     kind="ingest",
                 )
+            ids = [
+                int(r[0])
+                for r in conn.execute("SELECT id FROM chunks WHERE document_id = ?", (doc_id,))
+            ]
+            _erase_stray_vectors(conn, index, ids)
             removed = repo.delete_chunks(conn, index, doc_id)
             conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
             return {
@@ -137,6 +168,7 @@ class RagBaseService:
                     actual=chunks,
                 )
             documents = int(conn.execute(DOC_COUNT_SQL).fetchone()[0])
+            _erase_stray_vectors(conn, index, None)
             conn.execute("DELETE FROM chunks")
             conn.execute("DELETE FROM documents")
             index.clear(conn)  # en dernier : l'index en mémoire n'est pas transactionnel
@@ -153,6 +185,16 @@ class RagBaseService:
             self._settings, self._preferences, self._store, self._registry, self._index
         )
 
+    def _toml_embedder(self) -> str | None:
+        """Le modèle d'embedding du `.toml` (étiquette résolue si elle est installée)."""
+        tag = self._settings.rag.embedding_model
+        if tag is None:
+            return None
+        try:
+            return self._registry.resolve_embedder(tag).tag
+        except AppError:
+            return tag
+
     async def update_settings(self, update: dict[str, Any]) -> dict[str, Any]:
         """Enregistre les réglages donnés (les autres restent) dans `preferences` ; une valeur
         `None` retire le choix et revient au `.toml`. Changer d'embedding alors que la base n'est
@@ -163,21 +205,25 @@ class RagBaseService:
             requested = update["embedding_model"]
             if requested is not None:
                 requested = self._registry.resolve_embedder(requested).tag  # local, embedding
+            # `null` rend le choix au `.toml` : c'est son modèle qui servira, s'il en nomme un.
+            target = requested if requested is not None else self._toml_embedder()
             rows = await self._store.aread(repo.BASE_MODEL_SQL)
             current = rows[0]["embedding_model"] if rows else None
-            if requested is not None and requested != current:
+            if target is not None and target != current:
                 self._refuse_if_busy()  # un import ou une question en cours : 409 d'abord (AD-16)
                 if current is not None:
                     raise AppError(
                         "embedding_change_needs_clear",
                         f"La base utilise {current}, le réglage demande {requested}.",
                         current=current,
-                        requested=requested,
+                        requested=target,
                     )
             update = {**update, "embedding_model": requested}
         merged = {**overrides, **update}
-        size = merged.get("chunk_size", self._settings.rag.chunk_size)
-        overlap = merged.get("chunk_overlap", self._settings.rag.chunk_overlap)
+        size = merged.get("chunk_size")  # absent ou `null` : le `.toml`
+        size = self._settings.rag.chunk_size if size is None else size
+        overlap = merged.get("chunk_overlap")
+        overlap = self._settings.rag.chunk_overlap if overlap is None else overlap
         if overlap >= size:
             raise AppError(
                 "invalid_request",
