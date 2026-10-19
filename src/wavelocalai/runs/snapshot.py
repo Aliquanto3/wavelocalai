@@ -5,8 +5,9 @@ sur les feuilles. Un run composite rend ses feuilles dans `children`. Ce qui se 
 terminé y figure aussi, pas dans le flux : le `verdict` local/cloud d'une Arène (story 3.5), sa
 `config` (de quoi la relancer ou la modifier) et `erased` (story 3.6). Une évaluation (story 7.1)
 porte ses notes, leur résumé et `partial` (`runs/eval_snapshot.py`) ; un banc d'essai (story 7.4)
-son entrée, sa sortie et son `format_verdict` (`runs/bench_snapshot.py`). La liste des Arènes
-(`GET /api/arena/runs`) est lue ici aussi.
+son entrée, sa sortie et son `format_verdict` (`runs/bench_snapshot.py`). Un run `agent` porte
+`totals` (story 6.4 : tours, étapes, durée et CO2 de la tâche, additionnés ici et non à l'écran,
+AD-20) et `mission` (story 6.5). La liste des Arènes (`GET /api/arena/runs`) est lue ici aussi.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import sqlite3
 from typing import Any
 
 from wavelocalai.config import PriceTable
+from wavelocalai.runs.agent_totals import agent_totals
 from wavelocalai.runs.bench_snapshot import bench_snapshot_fields
 from wavelocalai.runs.eval_snapshot import eval_snapshot_fields
 from wavelocalai.runs.verdict import build_verdict
@@ -152,6 +154,10 @@ async def run_snapshot(
             else None
         )
     elif snapshot["kind"] == "agent":
+        rows = await store.aread(
+            "SELECT count(*) AS n FROM run_events WHERE run_id = ? AND type = 'step'", (run_id,)
+        )
+        snapshot["totals"] = agent_totals(snapshot, rows[0]["n"])
         snapshot["mission"] = await mission_totals(store, run_id)
     elif snapshot["kind"] == "eval":  # notes, résumé et partiel d'une évaluation (story 7.1)
         snapshot.update(await eval_snapshot_fields(store, snapshot))

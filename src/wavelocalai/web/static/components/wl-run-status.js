@@ -11,6 +11,12 @@
 // l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
 // appellent `POST /api/runs/{id}/cancel` ; le run se termine par son propre `run_ended`.
 //
+// Run d'agent (attribut `first-stage="thinking"`, story 6.4) : « Réflexion… » dès le lancement et après
+// chaque `tool_result` (un appel de modèle est en cours, sa nature n'est connue qu'à sa fin), « Appel de
+// l'outil <libellé>… » entre `tool_call` et `tool_result` (`el.toolLabel = (id) => libellé`), « En
+// attente de votre validation » entre `approval_required` et `approval_resolved`, « Génération… » à
+// l'étape `answer` (la réponse suit en un bloc).
+//
 // Événement : `wl-run-ended` (`detail.status`, `detail.error`). Un flux n'est ouvert que pour le
 // run suivi et se ferme au retrait du composant de la page. Sans Shadow DOM.
 //
@@ -33,6 +39,9 @@ import "./wl-error.js";
 
 const STAGE_TEXT = {
   starting: "components.run_status.starting",
+  thinking: "components.run_status.thinking",
+  tool: "components.run_status.tool",
+  approval: "components.run_status.approval",
   retrieving: "components.run_status.retrieving",
   hypothesizing: "components.run_status.hypothesizing",
   verifying: "components.run_status.verifying",
@@ -46,7 +55,7 @@ const STAGE_TEXT = {
   interrupted: "components.run_status.interrupted",
 };
 const TICK_MS = 250;
-const FIRST_STAGES = ["retrieving", "hypothesizing"]; // valeurs de l'attribut `first-stage`
+const FIRST_STAGES = ["retrieving", "hypothesizing", "thinking"]; // valeurs de `first-stage`
 
 // Étape qui suit une étape de recherche terminée : Self-RAG note les extraits après chaque
 // recherche, tout le reste continue de chercher (la réponse hypothétique de HyDE vient d'être
@@ -65,6 +74,7 @@ export class WlRunStatus extends HTMLElement {
   #runId = null;
   #stream = null;
   #stage = "starting";
+  #tool = null; // outil de l'étape « tool » (run d'agent)
   #final = null; // { status, error } une fois le run terminé
   #startMs = null;
   #endMs = null;
@@ -72,6 +82,8 @@ export class WlRunStatus extends HTMLElement {
   #cancelling = false;
   #dom = null;
   #onKeydown = (event) => {
+    // Un dialogue modal ouvert (validation d'un email, story 6.4) prend Échap : c'est son « Annuler ».
+    if (document.querySelector("dialog[open]")) return;
     if (event.key === "Escape" && !event.defaultPrevented && this.running && !this.closest("[hidden]")) {
       event.preventDefault();
       this.cancel();
@@ -143,6 +155,7 @@ export class WlRunStatus extends HTMLElement {
     const first = this.getAttribute("first-stage");
     this.#stage = FIRST_STAGES.includes(first) ? first : "starting";
     this.#final = null;
+    this.#tool = null;
     this.#startMs = null;
     this.#endMs = null;
     this.#cancelling = false;
@@ -167,10 +180,27 @@ export class WlRunStatus extends HTMLElement {
     retrieval_step: (data) => this.#setStage(stageAfter(data)),
     sources: () => this.#setStage("generating"),
     model_loading: () => this.#setStage("loading"),
-    model_loaded: () => this.#setStage("generating"),
+    model_loaded: () => this.#setStage(this.#agent ? "thinking" : "generating"),
     token: () => this.#setStage("generating"),
+    step: (data) => this.#onStep(data),
+    approval_required: () => this.#setStage("approval", this.#tool),
+    approval_resolved: () => this.#setStage("tool", this.#tool),
     run_ended: (data, envelope) => this.#end(data ?? {}, envelope),
   };
+
+  get #agent() {
+    return this.getAttribute("first-stage") === "thinking";
+  }
+
+  // Le libellé d'un outil à dire (« Calculatrice ») : l'écran le donne, sinon l'identifiant.
+  toolLabel = (id) => id;
+
+  #onStep(data) {
+    if (!this.#agent) return;
+    if (data?.kind === "tool_call") this.#setStage("tool", data.tool ?? null);
+    else if (data?.kind === "tool_result") this.#setStage("thinking");
+    else if (data?.kind === "answer") this.#setStage("generating");
+  }
 
   get driven() {
     return this.hasAttribute("driven");
@@ -196,9 +226,10 @@ export class WlRunStatus extends HTMLElement {
     });
   }
 
-  #setStage(stage) {
-    if (this.#final || this.#cancelling || this.#stage === stage) return;
+  #setStage(stage, tool = null) {
+    if (this.#final || this.#cancelling || (this.#stage === stage && this.#tool === tool)) return;
     this.#stage = stage;
+    this.#tool = tool;
     this.#render();
   }
 
@@ -224,6 +255,7 @@ export class WlRunStatus extends HTMLElement {
     if (!this.running || this.#cancelling) return;
     const runId = this.#runId;
     this.#cancelling = true;
+    const before = { stage: this.#stage, tool: this.#tool };
     this.#stage = "stopping";
     // Le bouton passe en `disabled` : le focus va sur l'étape au lieu de se perdre.
     if (document.activeElement === this.#dom.stop) this.#dom.stage.focus();
@@ -233,7 +265,8 @@ export class WlRunStatus extends HTMLElement {
     } catch (error) {
       if (runId !== this.#runId || this.#final) return;
       this.#cancelling = false;
-      this.#stage = "generating";
+      this.#stage = this.#agent ? before.stage : "generating"; // l'agent reprend son étape
+      this.#tool = before.tool;
       this.#dom.error.error =
         error instanceof ApiError && error.envelope
           ? error.envelope
@@ -257,7 +290,9 @@ export class WlRunStatus extends HTMLElement {
     this.hidden = this.#runId === null;
     // L'étape est une région `status` : une réécriture du même texte serait annoncée de nouveau.
     stage.setAttribute("aria-live", this.driven && this.#final ? "off" : "polite");
-    const text = t(STAGE_TEXT[this.#stage]);
+    const text = t(STAGE_TEXT[this.#stage], {
+      tool: this.#tool ? this.toolLabel(this.#tool) : "",
+    });
     if (stage.textContent !== text) stage.textContent = text;
     this.dataset.stage = this.#stage;
     this.#renderTimer();

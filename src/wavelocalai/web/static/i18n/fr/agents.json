@@ -1,0 +1,57 @@
+{
+  "agents": {
+    "lead": "Confiez une tâche à un agent : il choisit lui-même ses outils et vous suivez chaque étape. Rien ne part par email sans votre validation.",
+    "settings": {
+      "tools_legend": "Outils de l'agent",
+      "tools_failed": "La liste des outils n'a pas pu être lue.",
+      "tools_failed_action": "Rechargez la page ou relancez l'application, puis réessayez.",
+      "tools_loading": "Chargement des outils…",
+      "model_required": "Choisissez un modèle avec outils vérifiés.",
+      "tools_unverified": "Ce modèle n'a pas d'outils vérifiés : l'agent risque de mal appeler ses outils. Préférez un modèle marqué « Outils vérifiés »."
+    },
+    "welcome": {
+      "title": "Bonjour !",
+      "text": "L'agent est prêt. Choisissez une action rapide ou tapez votre demande.",
+      "audit_title": "Audit du système",
+      "audit_button": "Lancer l'audit",
+      "audit_prompt": "Vérifie l'état du système (CPU/RAM) et fais un résumé.",
+      "data_title": "Analyse de données",
+      "data_button": "Analyser les données",
+      "data_prompt": "Analyse le fichier ventes.csv et donne les tendances.",
+      "sobriety_title": "Sobriété",
+      "sobriety_text": "Les requêtes locales émettent moins de CO₂."
+    },
+    "block_notice": "La réponse de l'agent s'affiche d'un bloc, à la fin de sa dernière étape.",
+    "task": "Décrivez la tâche à confier à l'agent",
+    "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
+    "send": "Envoyer",
+    "clear": "Effacer la conversation",
+    "download": "Télécharger",
+    "cleared": "Conversation effacée de ce poste. Le CO₂ déjà compté reste dans le total de la session.",
+    "no_model": "Aucun modèle n'est choisi.",
+    "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre tâche.",
+    "joined": "Une tâche est déjà en cours : vous la suivez. Votre texte est resté dans le champ.",
+    "start_failed": "La tâche n'a pas pu être lancée.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre tâche, elle est restée dans le champ.",
+    "steps": {
+      "title": "Étapes",
+      "empty": "Les étapes de l'agent apparaissent ici, une par une."
+    },
+    "approval": {
+      "title": "Envoyer cet email ?",
+      "to": "Destinataire",
+      "subject": "Objet",
+      "body": "Corps",
+      "note": "Sans réponse dans {delay}, l'envoi est refusé.",
+      "minutes": "{n} min",
+      "seconds": "{n} s",
+      "confirm": "Envoyer l'email",
+      "sent": "Email envoyé.",
+      "send_failed": "L'email n'a pas été envoyé : voir le résultat de l'étape.",
+      "refused": "Envoi annulé : l'agent en est informé.",
+      "expired": "Validation expirée : email non envoyé.",
+      "late": "Cette validation n'est plus attendue : votre réponse n'a pas été prise en compte.",
+      "answer_failed": "Votre réponse n'a pas pu être envoyée. Le dialogue reste ouvert : réessayez."
+    }
+  }
+}

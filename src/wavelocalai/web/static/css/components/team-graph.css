@@ -1,0 +1,64 @@
+/* wl-team-graph : le schéma d'une équipe (story 6.6). Couleurs : tokens.css. */
+.wl-team-graph {
+  display: block;
+  padding: 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-team-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.wl-team-box {
+  fill: var(--color-surface);
+  stroke: var(--color-ink-secondary);
+  stroke-width: 1.5;
+}
+
+.wl-team-node[data-report] .wl-team-box {
+  fill: var(--color-surface-alt);
+}
+
+/* L'agent en cours : contour épais et libellé « en cours » (jamais la couleur seule). */
+.wl-team-node[data-state="current"] .wl-team-box {
+  stroke: var(--color-primary);
+  stroke-width: 3;
+}
+
+.wl-team-node[data-state="notrun"] .wl-team-box {
+  stroke-dasharray: 4 3;
+}
+
+.wl-team-name {
+  fill: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wl-team-state {
+  fill: var(--color-ink-secondary);
+  font-size: 13px;
+}
+
+.wl-team-node[data-state="current"] .wl-team-state {
+  fill: var(--color-primary);
+  font-weight: 600;
+}
+
+.wl-team-check {
+  fill: var(--color-ink-secondary);
+}
+
+.wl-team-arrow {
+  stroke: var(--color-gray-graphic);
+  stroke-width: 2;
+}
+
+.wl-team-head {
+  fill: var(--color-gray-graphic);
+}

@@ -265,10 +265,6 @@ ROUTES = [
     "/sobriete",
     "/modeles",
 ]
-# Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
-MOCKUP_ROUTES = {
-    "/agents/equipe": "run_id",
-}
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
 
@@ -291,10 +287,19 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_available_screens_are_declared_so_far():
+def test_every_screen_of_the_registry_is_available():
     text = registry_text()
-    assert text.count('status: "available"') == 10
-    assert text.count('status: "planned"') == len(ROUTES) - 10
+    assert text.count('status: "available"') == len(ROUTES)
+    assert text.count('status: "planned"') == 0
+    assert re.search(r'id: "agents-solo",\s*path: "/agents/seul",\s*status: "available"', text)
+    assert re.search(
+        r'id: "agents-crew",\s*path: "/agents/equipe",\s*param: "run_id",\s*status: "available"',
+        text,
+    )
+    assert re.search(
+        r'id: "arena-bench",\s*path: "/arene/banc",\s*param: "run_id",\s*status: "available"',
+        text,
+    )
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
     # `#/modeles/<tag>` (fiche d'un modèle, story 5.6) : l'écran Modèles a son `param` de chemin.
     assert re.search(
@@ -310,32 +315,15 @@ def test_only_the_available_screens_are_declared_so_far():
         r'id: "documents-base",\s*path: "/documents/base",\s*status: "available"', text
     )
     assert re.search(
-        r'id: "arena-references",\s*path: "/arene/references",\s*status: "available"', text
-    )
-    assert re.search(
         r'id: "arena-bench",\s*path: "/arene/banc",\s*param: "run_id",\s*status: "available"', text
     )
     assert re.search(
         r'id: "documents-evaluation",\s*path: "/documents/evaluation",\s*param: "run_id",\s*status: "available"',
         text,
     )
-
-
-def test_the_mockup_routes_are_planned_with_their_path_parameter():
-    """D-8 : `#/agents/equipe/<run_id>` existe, `planned`, sans écran ni `load` (les autres routes de la
-    maquette sont livrées : `#/arene/banc/<run_id>` 7.4, `#/documents/evaluation/<run_id>` 7.3,
-    `#/modeles/<tag>` 5.6, `#/arene/references` 5.8)."""
-    text = registry_text()
-    for path, param in MOCKUP_ROUTES.items():
-        declaration = re.search(
-            r"\{\s*id:\s*\"[\w-]+\",\s*path:\s*\"" + re.escape(path) + r"\",(.*?)\}",
-            text,
-            re.DOTALL,
-        )
-        assert declaration, path
-        body = declaration.group(1)
-        assert 'status: "planned"' in body and "load" not in body, path
-        assert (f'param: "{param}"' in body) == (param is not None), path
+    assert re.search(
+        r'id: "arena-references",\s*path: "/arene/references",\s*status: "available"', text
+    )
 
 
 # --- Icônes (UX-DR3) --------------------------------------------------------------------------

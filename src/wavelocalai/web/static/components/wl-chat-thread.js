@@ -12,6 +12,9 @@
 //                                       // transforme des marqueurs en boutons (citations vérifiées) ;
 //                                       // restoreAnswer({ …, decorator }) l'applique à une réponse rouverte
 //   answer.refresh()                    // rend la réponse de nouveau (le décorateur a de nouvelles données)
+//   thread.beginAnswer({ name, origin, reduced: true })   // pied réduit (agents, D-31) : ni débit, ni
+//   answer.summarize({ co2, steps, duration_s, peak_memory_gb? })  // tokens, ni chargement ; totaux du
+//                                                      // serveur, pic de mémoire d'une mission d'équipe
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -21,7 +24,7 @@
 // à `metrics`, les mesures du serveur. Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
-import { formatCo2, formatDuration, formatInteger, formatRate } from "../core/format.js";
+import { formatCo2, formatDuration, formatGb, formatInteger, formatRate } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { renderMarkdown, tailHost } from "../core/markdown.js";
 import "./wl-badge.js";
@@ -80,8 +83,10 @@ function setValue(node, value) {
 }
 
 class ChatAnswer {
-  constructor(thread, { name, origin, firstToken = false, restored = false }) {
+  constructor(thread, { name, origin, firstToken = false, restored = false, reduced = false }) {
     this.showFirstToken = firstToken; // colonne de l'Arène : le pied dit aussi le premier token
+    this.reduced = reduced; // agents : pied réduit aux totaux de la tâche (D-31)
+    this.totals = null;
     this.thread = thread;
     this.restored = restored;
     this.name = name;
@@ -122,11 +127,12 @@ class ChatAnswer {
     this.rate = metric(t("components.thread.rate"), formatRate(null), { provisional: true });
     this.duration = metric(t("components.thread.duration"), formatDuration(0));
     this.tokens = metric(t("components.thread.tokens"), formatInteger(0));
-    this.foot.append(this.rate, this.tokens, this.duration);
+    if (reduced) this.foot.hidden = true; // les totaux du serveur le remplissent à la fin
+    else this.foot.append(this.rate, this.tokens, this.duration);
 
     this.root = element("div", "wl-msg wl-msg-assistant");
     this.root.append(who, this.thought, this.body, this.note, this.flag, this.foot, this.actions);
-    this.ticker = setInterval(() => this.#tick(), TICK_MS);
+    this.ticker = reduced ? null : setInterval(() => this.#tick(), TICK_MS);
   }
 
   token(text, channel = "answer") {
@@ -158,7 +164,14 @@ class ChatAnswer {
     this.thread._changed();
   }
 
+  // Pied réduit : CO2, étapes et durée de la tâche, additionnés par le serveur (AD-20).
+  summarize(totals) {
+    this.totals = totals ?? null;
+    if (this.ended) this.#finalFoot();
+  }
+
   metrics(data) {
+    if (this.reduced) return; // un appel de modèle parmi d'autres : le pied dit la tâche entière
     this.result = data ?? null;
     if (this.ended) this.#finalFoot(); // mesures complétées après l'arrêt (Arène rouverte, story 3.6)
   }
@@ -254,6 +267,7 @@ class ChatAnswer {
   // Pied définitif : les mesures du serveur. Sans `metrics` (arrêt, échec), le pied reste celui
   // du navigateur, figé et toujours dit « provisoire ».
   #finalFoot() {
+    if (this.reduced) return this.#reducedFoot();
     const result = this.result;
     if (!result) {
       if (this.restored) this.foot.remove();
@@ -290,6 +304,27 @@ class ChatAnswer {
       const estimated = document.createElement("wl-badge");
       estimated.setAttribute("kind", "estimated");
       parts.unshift(estimated);
+    }
+    this.foot.replaceChildren(...parts);
+  }
+
+  #reducedFoot() {
+    const totals = this.totals;
+    this.foot.hidden = !totals;
+    if (!totals) return;
+    const parts = [];
+    if (totals.co2) parts.push(co2Metric(totals.co2));
+    parts.push(
+      metric(t("components.thread.steps"), formatInteger(totals.steps)),
+      metric(t("components.thread.duration"), formatDuration(totals.duration_s)),
+    );
+    if ("peak_memory_gb" in totals) {
+      // Mission d'équipe : pic de mémoire du poste, lu du serveur ; inconnu = « inconnu », jamais 0.
+      parts.push(
+        metric(t("components.thread.peak_memory"), formatGb(totals.peak_memory_gb), {
+          help: t("components.thread.peak_memory_help"),
+        }),
+      );
     }
     this.foot.replaceChildren(...parts);
   }
@@ -352,8 +387,8 @@ export class WlChatThread extends HTMLElement {
     this.scrollToEnd();
   }
 
-  beginAnswer({ name, origin, firstToken = false }) {
-    const answer = new ChatAnswer(this, { name, origin, firstToken });
+  beginAnswer({ name, origin, firstToken = false, reduced = false }) {
+    const answer = new ChatAnswer(this, { name, origin, firstToken, reduced });
     this.#answers.add(answer);
     this.#dom.log.append(answer.root);
     this.scrollToEnd();

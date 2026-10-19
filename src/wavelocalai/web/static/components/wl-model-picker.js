@@ -361,6 +361,8 @@ export class WlModelPicker extends HTMLElement {
     if (first && this.#defaults.reason) {
       const names = this.#defaults.tags.map((tag) => this.#name(tag)).join(", ");
       parts.push(t("components.picker.default_help", { name: names, reason: this.#defaults.reason }));
+    } else if (!first && this.#defaults?.reason) {
+      parts.push(this.#defaults.reason); // sans défaut (Agent, story 6.4) : la raison dit pourquoi
     }
     if (!this.#loaded && !this.#error) parts.push(t("components.picker.loading"));
     if (this.#loaded && !this.#ollamaUp && this.#models.some((m) => m.origin !== "cloud")) {

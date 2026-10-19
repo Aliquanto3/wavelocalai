@@ -96,5 +96,6 @@ def test_chat_css_is_linked_and_a_planned_tab_is_disabled_with_its_reason():
     assert '<link rel="stylesheet" href="/static/chat.css">' in index
     tabs = source("core/screen-tabs.js")
     assert 'setAttribute("aria-disabled", "true")' in tabs and "aria-describedby" in tabs
-    registry = source("core/registry.js")
-    assert re.search(r'id: "agents-crew",[^}]*status: "planned"', registry)
+    # Tous les écrans de l'Arène sont livrés : le registre n'en déclare plus `planned`, mais le
+    # composant garde le comportement d'un onglet à venir.
+    assert 'status: "planned"' not in source("core/routes/arena.js")

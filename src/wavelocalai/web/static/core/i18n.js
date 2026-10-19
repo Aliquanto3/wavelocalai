@@ -28,6 +28,8 @@ export const TEXT_FILES = [
   "sobriety",
   "evaluation",
   "bench",
+  "agents",
+  "crew",
 ];
 
 let texts = {};

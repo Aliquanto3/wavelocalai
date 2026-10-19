@@ -519,3 +519,51 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 19:00 · correctif · fusion · PR #97 fusionnée (budget de la coquille) · b105f54
 - 2026-10-19 19:00 · 5.2 · fusion · PR #94 fusionnée (job E2E relancé) · ef1c5ff
 - 2026-10-19 19:00 · 5.3 · fusion master · conflit `web/app.py` (pull + evaluation de la 7.1) ; poussé sur #89 · 69f0324
+- 2026-10-19 19:09 · 5.6 · review · 3 medium corrigés (bouton Fiche suit un choix fait par le code, débit à 3 chiffres significatifs, plus de `/api/ps` avant réponse : dernier échantillon du flux système), 5 low corrigés, 1 reporté · 37aa9f0
+- 2026-10-19 19:10 · 5.8 · dev · lancé (Sonnet high, worktree `v2-5-8`, `feat/v2-usages` empilée sur la 5.6 revue ; sans résultats du banc, Q7 ; version a5 posée par l'orchestrateur) · 37aa9f0
+- 2026-10-19 19:11 · 6.6 · dev · fini (fusion de la 6.5 résolue ; approbation d'email cassée pour un agent d'équipe, corrigée 7a83bf6 ; écran avec schéma SVG, trace `wl-step-trace`, configuration, mission rouverte ; 16 E2E) · f265e92
+- 2026-10-19 19:11 · 6.6 · second-avis · lancé (Haiku) · —
+- 2026-10-19 19:12 · 7.4 · contrôles · verts (313 E2E ciblés, 16 integration) ; 2 tests reformatés (black) · 6659952
+- 2026-10-19 19:12 · 6.3 · CI · rouge sur macOS seulement (8 tests d'approbation par le faux SMTP en délai dépassé), relance rouge aussi ; correctif confié à un agent (Sonnet) · —
+- 2026-10-19 19:14 · 6.3 · correctif CI macOS · `smtplib` résolvait le nom d'hôte (`getfqdn`, lent sur macOS) : EHLO fixe pour un relais en boucle locale ; poussé sur #95 · 82298a7
+- 2026-10-19 19:15 · 6.6 · second-avis · fusion de la 6.5 sans perte ; 1 medium (rejoindre un Agent seul actif comme une mission) ; 3 low (prototype dans `wl-team-graph`, `MIN_TYPED_MATCH`, « introuvable » sur toute erreur) · —
+- 2026-10-19 19:15 · 6.6, 6.4 · fusion 6.3 corrigée et master · sans conflit · —
+- 2026-10-19 19:15 · 6.6 · review · lancée (Opus) · —
+- 2026-10-19 19:17 · 6.5 · fusion master · conflit `runs/snapshot.py` (`mission` 6.5 + évaluation 7.1) ; poussé sur #96 · f6652b2
+- 2026-10-19 19:27 · 5.3 · fusion · PR #89 fusionnée · 671bd3d
+- 2026-10-19 19:27 · 7.2 · fusion · PR #98 fusionnée · 7bd178b
+- 2026-10-19 19:27 · état · fusion · PR #101 fusionnée · 4364e7c
+- 2026-10-19 19:27 · 7.3 · fusion master · conflits `index.html` (deux CSS) et `test_shell_static.py` (8 écrans) ; poussé sur #99 · ceb613b
+- 2026-10-19 19:27 · 5.4 · fusion master · sans conflit · —
+- 2026-10-19 19:27 · 5.4 · PR · #102 ouverte · —
+- 2026-10-19 19:29 · CI · fusion · PR #100 fusionnée (CI allégée) · 959057e
+- 2026-10-19 19:31 · 5.7 · décision · Anaël : pas de release de slm-quality-bench avant la fin des développements (Ollama requis sur ce poste) ; 5.7 reportée après le run ; une version de WaveLocalAI sans les chiffres du banc est acceptée ; prévenir Anaël quand le run n'a plus besoin d'Ollama · —
+- 2026-10-19 19:33 · 6.6 · review · medium corrigé (`joinBusy` : un Agent seul actif n'est plus rejoint comme mission), 3 low corrigés (`Object.hasOwn`, « introuvable » sur `run_not_found` seulement, `warm_up` du test de l'Agent seul) ; défaut inverse dans `agents-solo.js` → 8.1 · 88d53e4
+- 2026-10-19 19:39 · 6.3 · CI · verte sur les 3 OS après le correctif macOS ; PR en conflit après les fusions · —
+- 2026-10-19 19:39 · 6.3 · fusion master · conflit `contrat-api.md` (sections 6.3 et 5.3 gardées) ; poussé sur #95 · 7122bc2
+- 2026-10-19 19:45 · 5.8 · dev · fini (`GET /api/references`, `models/usage_references.py`, écran Références et carte de l'Accueil, « Comparer ces modèles » vers l'Arène ; 19 E2E ; icône `leaderboard` provisoire, à remplacer par le sprite d'Anaël) · 1f94396
+- 2026-10-19 19:45 · 5.8 · second-avis · lancé (Haiku) · —
+- 2026-10-19 19:49 · master · E2E complet · vert (515 E2E, master ef1c5ff) · ef1c5ff
+- 2026-10-19 19:49 · 6.4 · contrôles · lancés · —
+- 2026-10-19 19:50 · 5.8 · second-avis · 1 medium (plancher du groupe des meilleurs dépend du nom à égalité) ; 7 low dont l'icône `leaderboard` dessinée de mémoire (exception du sprite étendue) · —
+- 2026-10-19 19:50 · 5.8 · review · lancée (Opus) ; fusion de master en cours (`app.py`, `routes_test.py`) confiée en étape 1 ; icône : variante conservatrice demandée (icône existante du sprite) · —
+- 2026-10-19 19:52 · 6.5 · fusion master · conflit `contrat-api.md` (Équipe 6.5 + Modèles 5.3) ; poussé sur #96 · c5996e4
+- 2026-10-19 19:58 · 7.3 · fusion · PR #99 fusionnée · c10b5c4
+- 2026-10-19 19:58 · 5.4 · fusion · PR #102 fusionnée · 95e32c7
+- 2026-10-19 19:58 · 5.5 · fusion master · conflit `web/app.py` (reranker_pull + evaluation) · —
+- 2026-10-19 19:58 · 5.5 · PR · #103 ouverte · —
+- 2026-10-19 19:58 · 7.4 · fusion master · conflits contrat et `test_shell_static.py` (9 écrans `available`) · —
+- 2026-10-19 19:58 · 7.4 · PR · #104 ouverte (a7 posée plus tard, après a5 et a6) · —
+- 2026-10-19 19:58 · 6.3 · fusion · PR #95 fusionnée · 733ce1c
+- 2026-10-19 19:58 · 6.4 · contrôles · verts (177 E2E ciblés, 16 integration) · —
+- 2026-10-19 19:58 · 6.4 · fusion master · 5 conflits (contrat, `i18n.js`, comptes d'écrans de 3 tests) confiés à un agent (Sonnet) · —
+- 2026-10-19 20:05 · 5.8 · review · medium corrigé (plancher = min des ex æquo), 4 low corrigés (non classé sans repli, Comparer sur mêmes poids, une lecture au montage, source), icône `leaderboard` retirée : `help` provisoire jusqu'au sprite d'Anaël ; master fusionné · ed2ab1b
+- 2026-10-19 20:05 · 5.6 · contrôles · lancés · 37aa9f0
+- 2026-10-19 20:06 · 6.4 · fusion master · résolue par l'agent (9 écrans `available`, `TEXT_FILES`, contrat) · 043954f
+- 2026-10-19 20:06 · 6.4 · PR · #105 ouverte · 043954f
+- 2026-10-19 20:06 · 8.1 · intégration · worktree `v2-8-1` (`feat/v2-dette` depuis master + 6.4, 6.6, 5.8, 7.4 revues) ; conflits confiés à un agent (Sonnet) · —
+- 2026-10-19 20:14 · 5.6 · contrôles · verts (211 E2E ciblés, 16 integration) ; PR après #103 · 37aa9f0
+- 2026-10-19 20:14 · 6.6 · contrôles · lancés · 88d53e4
+- 2026-10-19 20:19 · 6.5 · fusion master · conflits avec la 6.3 (`service.py`, `routes_agents.py` rejoués par rerere, contrat) ; 90 tests agents verts ; poussé sur #96 · 6d220a9
+- 2026-10-19 20:24 · 8.1 · intégration · faite (6.4, 6.6, 5.8, 7.4 sur master ; 12 écrans `available`, plus aucune route `planned` ; 1853 unit+web, 166/167 E2E) ; **régression cumulée : la coquille dépasse 300 ms (`ready` 335-370 ms, 14 fichiers de textes et ~50 feuilles de style au démarrage), à traiter en premier dans la 8.1** · 33d97a1
+- 2026-10-19 20:25 · run · état · fichiers d'état à jour pour un /clear avant l'Epic 8 ; outils `queue2.sh`, `contrat_both.sh`, `pull_etat.sh` copiés dans `_outils` · —

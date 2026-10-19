@@ -92,12 +92,19 @@ class Backend:
     Données en dossier temporaire, route de test et modèle `fake` actifs (`WAVELOCALAI_TESTING`),
     aucune clé cloud. `ollama_port` : où le serveur cherche Ollama (par défaut un port fermé).
     `config` : un `.toml` de réglages (`--config`), par exemple une table de prix cloud de test.
+    `env` : variables d'environnement en plus (le faux SMTP des tests de l'agent, story 6.4). Sans
+    `SMTP_USER` ni `SMTP_PASSWORD` de ce dictionnaire, le SMTP est toujours vide : aucun email réel.
     """
 
     def __init__(
-        self, data_dir: Path, ollama_port: int | None = None, config: Path | None = None
+        self,
+        data_dir: Path,
+        ollama_port: int | None = None,
+        config: Path | None = None,
+        env: dict[str, str] | None = None,
     ) -> None:
         self.config = config
+        self.env = env or {}
         self.data_dir = data_dir
         self.port = closed_port()
         self.ollama_port = ollama_port or closed_port()
@@ -111,6 +118,9 @@ class Backend:
             "WAVELOCALAI_OLLAMA_HOST": f"http://127.0.0.1:{self.ollama_port}",
             "WAVELOCALAI_TESTING": "1",
             **dict.fromkeys(CLOUD_KEY_VARS, ""),
+            "SMTP_USER": "",
+            "SMTP_PASSWORD": "",
+            **self.env,
         }
         # Sorties dans un fichier, jamais un tube : un tube non lu se remplit et bloque le serveur.
         log_path = self.data_dir / "server-output.log"
