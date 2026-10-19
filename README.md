@@ -10,7 +10,52 @@
 
 > 💡 *Démonstration interactive des Small Language Models (SLM) pour Wavestone : Performance, Green IT et Souveraineté des Données.*
 
-![Démonstration de WaveLocalAI : accueil, chat dans l'Arène des modèles, agent qui audite la machine, page Sobriété et matériel](docs/assets/demo.gif)
+![Démonstration de la v2 de WaveLocalAI : accueil, Arène des modèles, Discussion avec sources, Agent seul, Sobriété et matériel](docs/assets/v2-demo.gif)
+
+*La v2, en cinq captures à la suite : l'accueil et sa démo recommandée, l'Arène des modèles et son classement, la Discussion avec le passage source surligné, un agent qui appelle un outil, puis la Sobriété et matériel. Les captures viennent de doublures (modèles et réponses simulés, document fictif, aucune donnée réelle) : voir [Captures](#captures-de-la-v2).*
+
+---
+
+## La v2 (préversion)
+
+La v2 est une application web locale (serveur FastAPI, interface sans compilation ni CDN) construite dans ce dépôt à côté de la v1 (Streamlit), qui reste livrée jusqu'à la bascule (story 8.4). Elle ouvre une coquille unique à six modules (Accueil, Arène, Documents, Agents, Sobriété, Modèles) et garde tout sur le poste. La liste de ce que la v1 faisait et de ce qu'il en advient : [`docs/parite-v1-v2.md`](docs/parite-v1-v2.md).
+
+### Installation et lancement de la v2
+
+Même installation que la v1 (voir [Installation](#installation-5-min) pour installer uv et Ollama), puis :
+
+```powershell
+git clone https://github.com/Aliquanto3/wavelocalai.git
+cd wavelocalai
+
+# Crée .venv et installe les dépendances aux versions figées de uv.lock (installation éditable)
+uv sync
+
+# Lance la v2 (la v1 se lance toujours par `uv run wavelocalai`)
+uv run wavelocalai-v2
+```
+
+L'interface s'ouvre sur http://127.0.0.1:8502 (le port 8501 reste à la v1) : le serveur n'écoute que sur la machine locale. Options : `--port`, `--data-dir` (dossier des données, `data/` par défaut) et `--config` (un fichier `wavelocalai.toml`). Un modèle local reste à télécharger (`ollama pull qwen2.5:1.5b`) ; l'écran Modèles sait aussi les installer.
+
+Tests de la v2 : `uv run python -m pytest tests/v2` (sans Ollama) ; les parcours dans un navigateur (`tests/v2/e2e`, marqueur `e2e`) se lancent avec `-m e2e` et tournent chaque nuit sur Linux dans la CI (voir `AGENTS.md`).
+
+### Captures de la v2
+
+| | |
+|---|---|
+| ![Accueil de la v2 : état du poste, démo recommandée, modules](docs/assets/v2-accueil.png) | ![Arène des modèles : trois colonnes de réponses, note du juge, « non évalué » avec sa raison](docs/assets/v2-arene.png) |
+| ![Discussion : réponse du modèle, source citée avec le passage surligné](docs/assets/v2-documents.png) | ![Agent seul : outils en interrupteurs, étapes dépliables, réponse](docs/assets/v2-agents.png) |
+| ![Sobriété et matériel : santé du poste en direct, empreinte carbone de la session](docs/assets/v2-sobriete.png) | |
+
+Ces images sont produites par [`scripts/readme_captures_v2.py`](scripts/readme_captures_v2.py) (Playwright, doublures des tests : modèles `fake`, faux Ollama, document fictif, dossier de données temporaire, aucune requête hors de 127.0.0.1). Aucun document ni extrait réel n'y figure ; le matériel affiché (processeur, mémoire, accélérateur) est fictif, jamais celui du poste qui a fait la capture.
+
+---
+
+## La v1 (Streamlit)
+
+La v1 reste la version livrée tant que la v2 ne l'a pas remplacée ; sa documentation suit.
+
+![Démonstration de la v1 de WaveLocalAI : accueil, chat dans l'Arène des modèles, agent qui audite la machine, page Sobriété et matériel](docs/assets/demo.gif)
 
 *En 40 secondes : on pose une question à un modèle et on voit sa vitesse et son CO₂, un agent outillé audite la machine, puis la page Sobriété suit la charge et les émissions. Vidéo source : [`docs/assets/demo.mp4`](docs/assets/demo.mp4). Cette capture utilise un modèle cloud ; l'usage visé reste un petit modèle local via Ollama.*
 
