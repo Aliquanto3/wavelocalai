@@ -22,8 +22,23 @@ export function pathFromHash(hash) {
   return path.length > 1 ? path.replace(/\/+$/, "") || HOME : HOME;
 }
 
+let adopt = () => {}; // posée par `createRouter`
+
+// Réécrit l'adresse sans entrée d'historique ni `hashchange` (`history.replaceState`) et y accorde
+// la clé de l'écran monté : un retour par l'historique sur cette adresse ne le remonte pas (revue 8.1b).
+export function replaceAddress(hash) {
+  history.replaceState(null, "", hash);
+  adopt(hash);
+}
+
 export function createRouter({ main, announcer, onRoute = () => {} }) {
   const entries = new Map(); // id d'écran -> { host, module, mounted, key, unmount }
+  adopt = (hash) => {
+    const path = pathFromHash(hash);
+    const found = path === null ? null : findScreen(path);
+    const entry = found && entries.get(found.screen.id);
+    if (entry?.mounted) entry.key = JSON.stringify(found.params);
+  };
   let token = 0;
   let first = true;
 

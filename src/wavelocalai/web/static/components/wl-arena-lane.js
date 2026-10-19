@@ -21,7 +21,7 @@
 // de réponse. Le chiffre affiché est celui du serveur (AD-20). Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
-import { formatNumber } from "../core/format.js";
+import { formatDelay } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import "./wl-badge.js";
 import "./wl-chat-thread.js";
@@ -259,7 +259,7 @@ export class WlArenaLane extends HTMLElement {
       const seconds = error?.detail?.timeout_s;
       note.textContent =
         typeof seconds === "number" && Number.isFinite(seconds)
-          ? t("components.lane.timeout_note_delay", { seconds: formatNumber(seconds) })
+          ? t("components.lane.timeout_note_delay", { seconds: formatDelay(seconds) })
           : t("components.lane.timeout_note");
       note.hidden = false;
       errorBox.error = null;

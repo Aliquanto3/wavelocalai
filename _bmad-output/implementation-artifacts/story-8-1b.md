@@ -2,7 +2,7 @@
 title: 'Dette de l''Epic 8, lot b : Arène et délais'
 type: 'fix'
 created: '2026-10-19'
-status: 'review'
+status: 'done'
 baseline_commit: 'ce1aac9'
 context:
   - '{project-root}/AGENTS.md'
@@ -45,3 +45,22 @@ pour faire la place.
 - `tests/v2/web/test_{bench,chat,arena}_api.py` : le message cite le délai réel.
 - E2E : `tests/v2/e2e/test_arena_address.py` (adresse, pas de réécriture en cours de run, chronomètre,
   « un seul juge » en direct et rouvert) ; `test_arena.py` (note de délai de la colonne).
+
+## Revue
+
+Revue Opus, une passe, sur 141a89c (base ce1aac9, à jour de `master`), avec le second avis Haiku.
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| medium | second avis | `replaceState` laissait la clé du routeur à l'ancienne adresse : après un run fini (adresse `…/R1`, clé `{}`), relancer, aller à l'Accueil puis revenir par l'historique démontait l'Arène et son run en cours (reproduit par E2E) | Corrigé : `replaceAddress` (`core/router.js`) réécrit l'adresse et accorde la clé de l'écran monté ; E2E `test_a_return_by_history_to_the_rewritten_address_keeps_the_screen_mounted` |
+| low | second avis | `formatNumber` (3 chiffres significatifs) arrondissait le délai cité (1234 s → « 1 230 s ») dans la colonne de l'Arène et le Banc | Corrigé : `formatDelay` (`core/format.js`), exact, écrit comme le serveur |
+| low | second avis | Émetteur sans `timeout_s` : « Délai dépassé (timeout_s s) » | Corrigé : repli « Délai dépassé : le modèle n'a pas fini de répondre. » (`errors.py`), test unitaire ; les émetteurs réels (`streaming.py`, `embedding_leaf.py`) posent toujours le délai |
+| low | second avis | Message et action de `timeout` peu adaptés à un embedding | Rejeté : l'action (`lane_timeout_s`) n'a pas changé dans ce lot, et le message parle du « modèle », ce qui reste vrai pour un modèle d'embedding |
+| low | second avis | `run_ended` part avant l'écriture en base : un rechargement immédiat peut ne pas trouver le résultat | Rejeté : fenêtre de quelques millisecondes (une seule transaction après `_wake`), hors de portée d'un rechargement humain ; conception du hub antérieure au lot |
+| low | second avis | Pendant un run relancé depuis une comparaison rouverte, l'adresse reste l'ancienne jusqu'à la fin | Rejeté : comportement voulu par l'écart n° 7 (réécriture à la fin seulement) ; la clé du routeur est désormais cohérente, aucun remontage |
+| low | second avis | Regex du chronomètre sur `innerText` fragile | Rejeté : ancrée sur la fin du texte du bandeau, que le lot définit ; elle a passé en direct et en fin de run |
+| low | revue | `agents-crew.js` réécrit son adresse par `history.replaceState` direct, avec le même défaut de clé | Reporté au lot de l'écran Agents : y appeler `replaceAddress` (son test statique compte les `history.replaceState(`) |
+
+Complexité : 0 constat (aucune structure qui grossit n'est parcourue à chaque événement par ce lot).
+
+Tests de la revue : `tests/v2/unit/test_errors.py`, `test_arena_static.py`, `test_bench_static.py`, `test_layers.py`, `tests/v2/web/test_{arena,bench,chat,agent}_api.py`, `test_static.py` (176 passés) ; E2E `test_arena_address.py`, `test_arena.py`, `test_arena_reopen.py`, `test_bench.py` (délai), `test_shell.py`, `test_core.py`, `test_flow1.py` (tous passés).

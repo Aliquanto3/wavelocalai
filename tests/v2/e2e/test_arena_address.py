@@ -68,3 +68,25 @@ def test_one_judge_is_said_with_every_score_live_and_when_reopened(arena, server
         score = lane(arena, tag).locator(".wl-lane-score")
         assert score.locator(".wl-score-line").inner_text() == "70/100"
         assert score.locator("wl-badge[kind=single-judge]").inner_text().strip() == "un seul juge"
+
+
+def test_a_return_by_history_to_the_rewritten_address_keeps_the_screen_mounted(arena, server):
+    # Revue 8.1b : après `replaceState`, la clé du routeur doit suivre l'adresse, sinon un retour par
+    # l'historique sur cette adresse démonte l'Arène (et son run en cours).
+    scripts = {}
+    scripted(arena, server, scripts)
+    launch(arena)
+    wait_banner(arena, "Comparaison terminée")
+    first = STARTED[-1][1]
+    wait_for(arena, f"() => location.hash === '#/arene/comparer/{first}'")
+    scripts["fake:a"] = [{"text": "Début"}, {"sleep_s": 30}]
+    launch(arena)
+    wait_banner(arena, "Comparaison en cours")
+    arena.evaluate("document.querySelector('.arena-banner-text').dataset.probe = 'live'")
+    arena.evaluate("location.hash = '#/'")
+    wait_for(arena, "() => !document.querySelector('[data-screen=arena-compare]').offsetParent")
+    arena.go_back()
+    wait_for(arena, f"() => location.hash === '#/arene/comparer/{first}'")
+    wait_for(arena, "() => !!document.querySelector('[data-screen=arena-compare]').offsetParent")
+    assert arena.locator(".arena-banner-text[data-probe=live]").count() == 1  # pas remonté
+    wait_banner(arena, "Comparaison en cours")

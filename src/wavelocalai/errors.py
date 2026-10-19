@@ -346,6 +346,9 @@ class _Fill(dict[str, Any]):
         return "le fournisseur" if key == "provider_name" else key
 
 
+_TIMEOUT_WITHOUT_DELAY = "Délai dépassé : le modèle n'a pas fini de répondre."
+
+
 def _shown(key: str, value: Any) -> Any:
     """Valeur d'un `{clé}` à l'écran : décimal à la française (`5,2`) ; un délai entier s'écrit
     sans décimale (`120`, pas `120,0`)."""
@@ -412,9 +415,14 @@ def build_envelope(
     if unknown:
         raise ValueError(f"Clés de detail non déclarées pour {code} : {sorted(unknown)}")
     body = {"technical": technical, **detail}
+    message = (
+        _TIMEOUT_WITHOUT_DELAY  # émetteur sans délai connu : pas de « (timeout_s s) » à l'écran
+        if code == "timeout" and not isinstance(detail.get("timeout_s"), int | float)
+        else _fill(spec.message, detail)
+    )
     return {
         "code": spec.code,
-        "message": _fill(spec.message, detail),
+        "message": message,
         "action": _fill(spec.action, detail),
         "detail": _mask_value(body, tuple(secrets)),
     }

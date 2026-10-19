@@ -94,6 +94,13 @@ def test_timeout_message_names_the_real_delay():
     assert build_envelope("timeout", None, timeout_s=0.3)["message"].startswith(
         "Délai dépassé (0,3 s)"
     )
+    # Revue 8.1b : sans délai connu, jamais « (timeout_s s) ».
+    assert build_envelope("timeout", None)["message"] == (
+        "Délai dépassé : le modèle n'a pas fini de répondre."
+    )
+    assert build_envelope("timeout", None, timeout_s=1234)["message"].startswith(
+        "Délai dépassé (1234 s)"
+    )
 
 
 def test_cloud_codes_name_the_provider_and_the_key_variable():

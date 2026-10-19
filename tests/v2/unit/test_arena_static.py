@@ -124,7 +124,9 @@ def test_the_screen_reads_the_run_stream_once_and_resumes_by_after():
     assert (
         "unwatchSmaller()" in screen
     )  # écart 8.1b : l'écouteur du garde-fou est retiré au démontage
-    assert "history.replaceState" in source("screens/arena-run.js")  # écart n° 7
+    assert "replaceAddress(target)" in source("screens/arena-run.js")  # écart n° 7
+    # Revue 8.1b : la réécriture accorde la clé du routeur (pas de remontage au retour).
+    assert "export function replaceAddress" in source("core/router.js")
     assert len(screen.splitlines()) <= 600
     assert "grid-auto-columns" in source("arena.css")  # deux colonnes visibles, défilement
 

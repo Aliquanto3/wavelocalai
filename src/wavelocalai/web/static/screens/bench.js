@@ -17,7 +17,7 @@
 
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
-import { formatNumber } from "../core/format.js";
+import { formatDelay } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { onSmallerModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
@@ -42,7 +42,7 @@ function withDelay(error) {
   if (error?.code !== "timeout") return error;
   const seconds = error.detail?.timeout_s;
   if (typeof seconds !== "number" || !Number.isFinite(seconds)) return error;
-  return { ...error, message: t("bench.timeout", { seconds: formatNumber(seconds) }) };
+  return { ...error, message: t("bench.timeout", { seconds: formatDelay(seconds) }) };
 }
 
 export function mount(host, params = {}) {

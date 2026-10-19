@@ -8,6 +8,7 @@
 
 import { api, ApiError } from "../core/api.js";
 import { t } from "../core/i18n.js";
+import { replaceAddress } from "../core/router.js";
 
 const BASE = "#/arene/comparer";
 
@@ -17,7 +18,7 @@ export function showRunAddress(runId) {
   const target = `${BASE}/${encodeURIComponent(runId)}`;
   const here = location.hash;
   if (here === target || (here !== BASE && !here.startsWith(`${BASE}/`))) return;
-  history.replaceState(null, "", target); // pas de `hashchange` : le routeur ne remonte rien
+  replaceAddress(target); // `history.replaceState`, clé du routeur accordée : rien n'est remonté
 }
 
 export async function stopFailure(id) {
