@@ -51,8 +51,16 @@ export function mount(host) {
     if (state.carbon !== previousCarbon) {
       previousCarbon = state.carbon;
       details.carbonChanged(host.hidden);
-      if (!host.hidden) history.refresh(); // une réponse de plus, ou une remise à zéro
+      if (!host.hidden && historyStarted) history.refresh(); // une réponse de plus, ou une remise à zéro
     }
+  }
+
+  // Premier chargement de l'historique : jamais onglet masqué ; il attend alors le retour.
+  let historyStarted = false;
+  function startHistory() {
+    if (historyStarted || document.hidden) return;
+    historyStarted = true;
+    history.start();
   }
 
   let unsubscribe = null;
@@ -71,7 +79,10 @@ export function mount(host) {
   }
   function onVisibility() {
     if (document.hidden) pause();
-    else resume();
+    else {
+      resume();
+      startHistory();
+    }
   }
 
   // L'écran redevient visible (le routeur lève `hidden`) : panneaux ouverts relus.
@@ -81,7 +92,8 @@ export function mount(host) {
     wasHidden = host.hidden;
     if (!wasHidden) {
       details.shown();
-      history.refresh();
+      if (historyStarted) history.refresh();
+      else startHistory();
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -89,7 +101,7 @@ export function mount(host) {
   document.addEventListener("visibilitychange", onVisibility);
   if (document.hidden) pause();
   else resume();
-  history.start();
+  startHistory();
 
   return () => {
     visibility.disconnect();

@@ -375,6 +375,25 @@ def test_a_hidden_tab_does_not_read_the_history_and_the_return_does(backend, pag
     assert reads() > before
 
 
+def test_a_screen_opened_in_a_hidden_tab_reads_the_history_only_once_shown(backend, page, traffic):
+    server = backend.start()
+    set_gpu(page, server, GPU)
+    seed(page, server, WEEK)
+    page.add_init_script(
+        "Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });"
+        "Object.defineProperty(document, 'visibilityState',"
+        " { configurable: true, get: () => 'hidden' });"
+    )
+    page.goto(f"{server.base_url}/#/sobriete")
+    wait_ready(page)
+    page.wait_for_timeout(1000)
+    reads = lambda: sum(1 for url in traffic.urls if "/api/carbon/history" in url)  # noqa: E731
+    assert reads() == 0  # onglet masqué dès l'ouverture : rien n'est lu
+    set_tab_hidden(page, False)
+    wait_history(page)
+    assert reads() == 1 and bars(page) == 1
+
+
 def test_the_history_never_leaves_127_0_0_1(backend, page, traffic):
     server = open_history(backend, page, WEEK, MONTH)
     run_scripted(page, server, kind="chat", origin="local", co2=LOCAL_CO2)
