@@ -74,3 +74,17 @@ Sur `#/modeles`, un consultant voit ce qui est installé sur son poste, ce qui t
 - Réaligné dans le même commit : `test_shell_static.py` (6 écrans disponibles, `/modeles` sans `param`), `e2e/test_shell.py` (lien actif du module Modèles, une raison « pas disponible » de moins), `e2e/test_home.py` (trois cartes de module au lieu de deux).
 - Découvert en route : la première version de la progression perdait la dernière mise à jour quand Ollama se taisait après une rafale (le groupage à 4 par seconde jetait l'état en attente) : `_Throttle` la garde et la publie à l'échéance (test `test_the_last_progress_is_never_lost_when_ollama_goes_quiet`). L'écran relit ses listes une fois de plus si une relecture est déjà en vol quand une installation finit (sinon la ligne installée restait au catalogue).
 - Aucune dépendance nouvelle, aucun fichier d'état touché. Contrôle rapide propre (ruff, black, isort).
+
+## Revue
+
+Une passe (Opus), base `13bcd36`, sur `665ba74`. Aucun vrai `pull` joué.
+
+- medium · reviewer · corrigé : un refus d'Ollama (disque plein, 5xx) finissait en `interrupted` avec le message « interrompue par le redémarrage du serveur » (prouvé par `pull_failed_envelope`). Texte de `interrupted` rendu neutre (« interrompue avant la fin », l'action renvoie au détail technique) ; seul le run rejoué après un arrêt du serveur dit le redémarrage (`pull_failed_envelope(restarted=True)` dans `runs/repo.py`). Test renforcé (`redémarrage` absent pour un refus d'Ollama), contrat mis à jour.
+- medium · second avis n° 1 · reporté (décision d'Anaël, déjà au premier report) : ni VRAM ni cache KV dans `fits`. L'écart est bien écrit ; l'écran ne promet rien de faux (« Tient en mémoire », « Mémoire libre : X sur Y », « Ne tient pas : N nécessaires, L libres » parlent de la mémoire vive, ce que calculent `fits` et le garde-fou ; l'erreur va dans le sens prudent avec un GPU).
+- low · second avis n° 2 · rejeté : garder `param: "tag"` sur l'écran `available` monterait la liste des modèles pour `#/modeles/<tag>` (une seconde instance, la clé du routeur étant les paramètres), et une seconde entrée `planned` au même chemin casserait l'unicité des écrans du registre ; aujourd'hui l'adresse renvoie à l'Accueil, comme une route `planned`. La 5.6 rétablit le paramètre et la ligne de `MOCKUP_ROUTES`.
+- low · second avis n° 3 · corrigé · Complexité : `pull_progress` passe à un par seconde au plus (le contrat en permet quatre) : ~3 600 événements par heure au lieu de ~14 400, rejeu sans perte inchangé ; docstring corrigée. Et `RunHub.events_after` parcourait tous les événements du run à chaque relecture (O(n) par réveil, O(n²) sur un long `pull`) : tranche par `seq` (rang + 1).
+- low · second avis n° 4 · rejeté : un 5xx d'Ollama veut dire qu'Ollama répond ; `ollama_down` (« ne répond plus ») serait faux. Il reste `interrupted`, dont le message est désormais neutre (constat medium ci-dessus).
+- low · second avis n° 5 · corrigé : docstring de `ModelRegistry.installable` (attente `wait_s` au tout premier appel).
+- low · second avis n° 6 · reporté à la recette d'Anaël : l'annulation ferme le flux httpx (prouvé contre le faux Ollama) ; vérifier sur le vrai Ollama que le téléchargement s'arrête bien (débit réseau à zéro, `ollama ps` / fichiers partiels qui ne grossissent plus) et qu'une nouvelle installation reprend les couches reçues.
+
+Joué : `tests/v2/unit` et `tests/v2/web` (1 301 réussis, 1 sauté) ; E2E `test_models_install.py` et `test_shell.py` (61 réussis).

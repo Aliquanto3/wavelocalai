@@ -9,9 +9,10 @@ aucun modèle et ne doit pas bloquer une réponse.
 Événement publié (en plus de ceux du hub), ajout à `contrat-api.md` :
 - `pull_progress {tag, received_bytes, total_bytes, percent, phase}` ; `phase` : `preparing`,
   `downloading`, `verifying` ; `percent` entier de 0 à 100, `null` tant que le total est inconnu.
-  Au plus quatre par seconde (les lignes d'Ollama arrivent bien plus vite) : un changement de
-  phase part toujours, et la dernière mise à jour n'est jamais perdue (elle part à l'échéance si
-  Ollama se tait). Un téléchargement de plusieurs minutes ne remplit ni la mémoire ni la base.
+  Au plus un par seconde (les lignes d'Ollama arrivent bien plus vite ; le contrat en permet
+  quatre) : un changement de phase part toujours, et la dernière mise à jour n'est jamais perdue
+  (elle part à l'échéance si Ollama se tait). Le hub garde chaque événement du run (mémoire, puis
+  `run_events`) : environ 3 600 lignes par heure de téléchargement, pas une par ligne d'Ollama.
 
 Fin du run : `ok` quand Ollama dit `success` (le registre est relu avant `run_ended`, la liste
 des modèles est donc à jour quand l'écran la relit), `cancelled` à l'annulation (Ollama garde les
@@ -40,7 +41,9 @@ from wavelocalai.runs.models import RunHandle
 
 logger = logging.getLogger("wavelocalai.inference")
 
-PROGRESS_INTERVAL_S = 0.25  # au plus quatre `pull_progress` par seconde
+# Au plus un `pull_progress` par seconde (et donc au plus quatre, la limite du contrat) : le run
+# garde tous ses événements, en mémoire puis en base (~3 600 lignes pour une heure de téléchargement).
+PROGRESS_INTERVAL_S = 1.0
 REFRESH_WAIT_S = 8.0  # attente du registre avant la fin du run (liste, puis détails du modèle)
 # Nom d'Ollama : `qwen3.6:7b`, `hf.co/utilisateur/depot:Q4_K_M`, `registre/nom:variante`.
 TAG_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-/:@]{0,199}$")

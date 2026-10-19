@@ -287,6 +287,7 @@ async def test_a_failed_pull_ends_in_error_with_pull_failed_and_leaves_the_list(
         assert ended["status"] == "error" and error["code"] == "pull_failed"
         assert error["detail"]["tag"] == "granite4.1:8b" and error["detail"]["cause"] == cause
         assert needle in error["message"] and "granite4.1:8b" in error["message"]
+        assert "redémarrage" not in error["message"]  # seul un arrêt du serveur le dit (revue)
         assert "La liste des modèles est inchangée." in error["action"]
         after = [m["tag"] for m in (await client.get("/api/models")).json()["models"]]
         assert after == before

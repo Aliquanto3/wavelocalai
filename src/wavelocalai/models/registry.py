@@ -385,7 +385,8 @@ class ModelRegistry:
     async def installable(self, *, reclaimable_gb: float = 0.0) -> InstallableList:
         """Le catalogue installable : les entrées de `config/models_catalog.json` dont aucun modèle
         installé ne porte le tag (un modèle supprimé du poste y revient), avec la mémoire
-        nécessaire et `fits` de `hardware/` ; jamais d'attente d'Ollama. `reclaimable_gb` : mémoire
+        nécessaire et `fits` de `hardware/` ; la dernière liste connue (au plus `wait_s` d'attente
+        au tout premier appel, comme `list_models`). `reclaimable_gb` : mémoire
         des modèles chargés, qu'Ollama décharge à la demande (comptée comme libre, comme le
         garde-fou). Le front ne calcule rien (AD-20)."""
         if self._catalog is None:

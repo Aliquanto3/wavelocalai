@@ -400,20 +400,34 @@ PULL_CAUSES = {
         "téléchargement déjà fait est repris. La liste des modèles est inchangée.",
     ),
     "interrupted": (
-        "L'installation de {tag} a été interrompue par le redémarrage du serveur.",
-        "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. La liste des "
+        "L'installation de {tag} a été interrompue avant la fin.",
+        "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. Si elle échoue "
+        "encore, le détail technique en donne la raison (disque plein, par exemple). La liste des "
         "modèles est inchangée.",
     ),
 }
 
 
 def pull_failed_envelope(
-    tag: str, cause: str, technical: str | None = None, secrets: Iterable[str] = ()
+    tag: str,
+    cause: str,
+    technical: str | None = None,
+    secrets: Iterable[str] = (),
+    *,
+    restarted: bool = False,
 ) -> dict[str, Any]:
-    """Enveloppe `pull_failed` d'une installation de modèle, texte propre à la cause."""
+    """Enveloppe `pull_failed` d'une installation de modèle, texte propre à la cause ;
+    `restarted` : run resté actif à l'arrêt du serveur, qui le dit."""
     envelope = build_envelope("pull_failed", technical, secrets, tag=tag, cause=cause)
     variant = PULL_CAUSES.get(cause)
     if variant is not None:
         envelope["message"] = _fill(variant[0], {"tag": tag})
         envelope["action"] = _fill(variant[1], {"tag": tag})
+    if restarted:
+        envelope["message"] = _fill(PULL_RESTART_MESSAGE, {"tag": tag})
     return envelope
+
+
+# Run `pull` resté actif à l'arrêt du serveur (`runs/repo.py::interrupt_orphans`) : même cause
+# `interrupted` qu'un refus d'Ollama, mais la raison est connue.
+PULL_RESTART_MESSAGE = "L'installation de {tag} a été interrompue par le redémarrage du serveur."

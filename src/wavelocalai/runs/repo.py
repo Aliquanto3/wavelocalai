@@ -287,7 +287,10 @@ def _interruption_error(kind: str, params: str | None) -> dict[str, Any] | None:
     except ValueError:
         tag = ""
     return pull_failed_envelope(
-        tag or "ce modèle", "interrupted", "run interrompu : serveur arrêté avant run_ended"
+        tag or "ce modèle",
+        "interrupted",
+        "run interrompu : serveur arrêté avant run_ended",
+        restarted=True,
     )
 
 
