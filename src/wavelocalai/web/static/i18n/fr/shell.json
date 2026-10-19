@@ -53,12 +53,6 @@
     "not_evaluated": "non évalué",
     "money_below": "moins de {value}"
   },
-  "errors": {
-    "ollama_down": {
-      "message": "Ollama ne répond pas sur ce poste.",
-      "action": "Lancez Ollama (application ou ollama serve), puis réessayez."
-    }
-  },
   "tabs": {
     "label": "Écrans du module {module}"
   },

@@ -9,6 +9,10 @@ sonde finit son travail pour l'appel suivant.
 vivant mais lent à répondre (démarrage à froid) n'est donc pas annoncé arrêté à la première
 lecture. Une fois l'état connu, un cache échu rend l'état précédent pendant que la sonde suivante
 tourne : seul un échec de sonde fait passer à `up=False`.
+
+`recheck()` (« Réessayer » du panneau Ollama, C8) force une sonde neuve sans attendre l'échéance du
+cache et n'en attend le résultat que `wait_s` (le budget de 300 ms tient) ; `settled` dit si elle a
+fini, `wait_settled()` l'attend pour publier l'état dès qu'il est connu.
 """
 
 from __future__ import annotations
@@ -52,6 +56,7 @@ class OllamaProbe:
         self._state: OllamaStatus | None = None
         self._checked_at = 0.0
         self._task: asyncio.Task[None] | None = None
+        self._generation = 0  # une sonde forcée rend caduque celle qui tournait (état plus ancien)
 
     async def status(self) -> OllamaStatus:
         """État d'Ollama, rendu en `wait_s` au plus."""
@@ -60,6 +65,28 @@ class OllamaProbe:
         task = self._ensure_task()
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(asyncio.shield(task), self._wait_s)
+        return self._state or DOWN
+
+    async def recheck(self, wait_s: float = 0.25) -> OllamaStatus:
+        """Sonde neuve, lancée tout de suite quel que soit l'âge du cache ; rend l'état connu après
+        `wait_s` au plus (le nouvel état s'il est arrivé, sinon le précédent : voir `settled`). Une
+        sonde déjà en cours est laissée finir sans écrire : son résultat date d'avant le clic."""
+        self._generation += 1
+        task = self._task = asyncio.get_running_loop().create_task(self._refresh(self._generation))
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(asyncio.shield(task), wait_s)
+        return self._state or DOWN
+
+    @property
+    def settled(self) -> bool:
+        """Vrai quand aucune sonde n'est en cours (le dernier état est à jour)."""
+        return self._task is None or self._task.done()
+
+    async def wait_settled(self) -> OllamaStatus:
+        """Attend la sonde en cours (aucune : rend l'état tout de suite)."""
+        task = self._task
+        if task is not None and not task.done():
+            await asyncio.shield(task)
         return self._state or DOWN
 
     @property
@@ -84,11 +111,13 @@ class OllamaProbe:
         loop = asyncio.get_running_loop()
         task = self._task
         if task is None or task.done() or task.get_loop() is not loop:
-            task = self._task = loop.create_task(self._refresh())
+            task = self._task = loop.create_task(self._refresh(self._generation))
         return task
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, generation: int) -> None:
         state = await self._probe()
+        if generation != self._generation:
+            return  # une sonde forcée est partie depuis : ce résultat est plus ancien
         self._state = state
         self._checked_at = self._clock()
 

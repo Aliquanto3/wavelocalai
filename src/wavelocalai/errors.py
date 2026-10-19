@@ -391,6 +391,31 @@ class AppError(Exception):
         self.detail = detail
 
 
+_HIGH_PUNCTUATION = re.compile(r" (?=[;:!?»])|(?<=«) ")
+
+
+def _french_spaces(text: str) -> str:
+    """Espace insécable avant « ; : ! ? » » et après « « » : la règle typographique des textes
+    d'interface (EXPERIENCE.md), appliquée aux textes générés comme à ceux des fichiers."""
+    return _HIGH_PUNCTUATION.sub(" ", text)
+
+
+def error_texts() -> dict[str, dict[str, str]]:
+    """Catalogue des textes d'erreur pour le front, **généré** depuis `ERRORS` : `{code: {message,
+    action}}`. Source unique des textes (C9) : le serveur l'ajoute au catalogue de textes sous la clé
+    `errors`, et le front les lit par `t("errors.<code>.message")` ; aucun fichier `i18n/fr/*.json`
+    ne les recopie. Les `{marqueurs}` restent à remplir par le front ; le Markdown (accents graves
+    des commandes) est retiré, le front n'affiche pas de Markdown ; les espaces avant la
+    ponctuation haute sont insécables."""
+    return {
+        code: {
+            "message": _french_spaces(spec.message),
+            "action": _french_spaces(spec.action.replace("`", "")),
+        }
+        for code, spec in ERRORS.items()
+    }
+
+
 def build_envelope(
     code: str,
     technical: str | None = None,

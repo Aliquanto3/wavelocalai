@@ -9,11 +9,14 @@ elle, et la mesure s'arrête avec le dernier client.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from fastapi.sse import EventSourceResponse, ServerSentEvent
+from pydantic import BaseModel
 
 from wavelocalai.greenops.equivalence import car_equivalence
 from wavelocalai.greenops.history import carbon_history
@@ -22,6 +25,21 @@ from wavelocalai.runs.system_bus import SystemFeed
 from wavelocalai.web.system_state import SystemSampler
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger("wavelocalai.web")
+
+# Tâches de publication lancées après un « Réessayer » : tenues ici pour que rien ne les ramasse.
+_ANNOUNCEMENTS: set[asyncio.Task[None]] = set()
+
+
+class OllamaRecheck(BaseModel):
+    """Réponse de « Réessayer » : l'état connu après au plus 250 ms. `settled` faux : la sonde
+    n'a pas fini (Ollama arrêté met ~1 s à refuser) ; le flux système publie l'état dès qu'elle
+    finit."""
+
+    up: bool
+    version: str | None
+    latency_ms: int | None
+    settled: bool
 
 
 @router.get("/system/stream", response_class=EventSourceResponse)
@@ -33,6 +51,39 @@ async def system_stream(request: Request) -> AsyncIterator[ServerSentEvent]:
             if envelope is None:  # arrêt du serveur
                 return
             yield ServerSentEvent(data=envelope)  # ni `id:` ni `event:`
+
+
+@router.post("/system/ollama/recheck")
+async def ollama_recheck(request: Request) -> OllamaRecheck:
+    """« Réessayer » du panneau Ollama (C8) : une sonde forcée, sans attendre l'échéance du cache de
+    5 s ; rend en moins de 300 ms (AD-15) l'état connu, et publie un `system_state` dès que la
+    sonde a fini si elle dépasse ce délai."""
+    state = request.app.state
+    # Deux sondes : celle des routes de lecture (cache de 5 s) et celle du flux (cache de 1 s) ; une
+    # sonde injectée par les tests est la même pour les deux.
+    probes = list({id(p): p for p in (state.probe, state.system_sampler.probe)}.values())
+    statuses = await asyncio.gather(*(p.recheck() for p in probes))
+    status = statuses[0]
+    settled = all(p.settled for p in probes)
+    if not settled:
+        task = asyncio.get_running_loop().create_task(
+            _announce_when_settled(state), name="wavelocalai-ollama-recheck"
+        )
+        _ANNOUNCEMENTS.add(task)
+        task.add_done_callback(_ANNOUNCEMENTS.discard)
+    return OllamaRecheck(
+        up=status.up, version=status.version, latency_ms=status.latency_ms, settled=settled
+    )
+
+
+async def _announce_when_settled(state: Any) -> None:
+    try:
+        await asyncio.gather(state.probe.wait_settled(), state.system_sampler.probe.wait_settled())
+        state.system_feed.publish("system_state", await state.system_sampler.sample())
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("« Réessayer » : l'état d'Ollama n'a pas pu être publié")
 
 
 @router.get("/system/identity")

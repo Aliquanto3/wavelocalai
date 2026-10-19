@@ -148,9 +148,11 @@ async def test_failed_close_purges_the_run_frees_its_kind_and_interrupts_at_next
         raise sqlite3.OperationalError("database or disk is full")
 
     monkeypatch.setattr(repo, "finish_run_row", full_disk)
-    with caplog.at_level(logging.ERROR, logger="wavelocalai.runs.hub"):
-        with pytest.raises(sqlite3.OperationalError, match="disk is full"):
-            await hub.finish_run(parent.run_id)
+    with (
+        caplog.at_level(logging.ERROR, logger="wavelocalai.runs.hub"),
+        pytest.raises(sqlite3.OperationalError, match="disk is full"),
+    ):
+        await hub.finish_run(parent.run_id)
     assert f"Le run {parent.run_id} n'a pas pu être clos en base" in caplog.text
     assert hub.active_runs() == [] and hub.active_root("arena") is None
     assert hub.watch(parent.run_id) is None and hub._runs == {}  # rien ne reste en mémoire

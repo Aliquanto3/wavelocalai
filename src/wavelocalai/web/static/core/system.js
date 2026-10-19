@@ -132,11 +132,20 @@ export function startSystem() {
   readCarbon();
 
   const system = {
-    // « Réessayer » (panneau Ollama) : reconnecte tout de suite si le flux est perdu, sinon attend
-    // le prochain état du flux (au plus 2 s) ; l'état d'attente tombe de lui-même.
+    // « Réessayer » (panneau Ollama) : reconnecte tout de suite si le flux est perdu, et force une
+    // sonde côté serveur sans attendre l'échéance de son cache (C8) : l'état s'affiche dès la
+    // réponse, ou dès que le flux le publie si la sonde n'a pas fini. L'état d'attente tombe de
+    // lui-même au bout de `CHECK_TIMEOUT_MS`.
     recheck() {
       store.set({ ollamaChecking: true });
       stream?.retryNow();
+      api
+        .recheckOllama()
+        .then((answer) => {
+          if (!answer.settled) return; // le flux publiera l'état dès que la sonde aura fini
+          store.set({ ollama: applyOllama(answer), ollamaChecking: false });
+        })
+        .catch(() => {}); // serveur injoignable : le bandeau de connexion le dit, le délai ci-dessous clôt
       setTimeout(() => store.set({ ollamaChecking: false }), CHECK_TIMEOUT_MS);
     },
     close() {

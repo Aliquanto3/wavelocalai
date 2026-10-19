@@ -68,6 +68,12 @@ class SystemSampler:
         self._loaded_gb = 0.0  # mémoire des modèles chargés au dernier échantillon (`/api/ps`)
 
     @property
+    def probe(self) -> OllamaProbe:
+        """La sonde du flux (cache plus court que celle des routes de lecture) : « Réessayer » la
+        force aussi, pour que le prochain état publié soit à jour (C8)."""
+        return self._probe
+
+    @property
     def last_gpu(self) -> GpuState | None:
         """Dernière lecture réussie du GPU, sans attendre ni lancer de lecture (la fiche d'un modèle,
         story 5.6) ; `None` sans GPU ou avant la première lecture."""
