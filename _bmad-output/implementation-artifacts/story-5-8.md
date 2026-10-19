@@ -40,8 +40,35 @@ Variante conservatrice pour tout ce que les décisions du 2026-10-19 ne tranchen
 
 ## Critères d'acceptation et preuves
 
-Remplis en fin de story (voir « Rapport de dev »).
+1. **Cartes par usage** : une carte par usage publié, groupe des meilleurs désigné par le serveur (intervalle, aucun rang, tri par nom), « Part de réussite » en pourcentage, débit du poste de référence, marques « installé » et « autre version » ; segment « Cartes · Tableau ». Preuve : `web/test_references_api.py::test_a_card_per_published_usage_*`, `::test_the_reference_machine_*`, `::test_marks_say_*`, `::test_an_interval_missing_*`, `e2e/test_references.py::test_one_card_per_usage_*`, `::test_the_table_is_the_same_content_*`.
+2. **Indisponible, Ollama arrêté** : la raison s'affiche sans carte vide ; Ollama arrêté, références lisibles, marques retirées et message. Preuve : `web/test_references_api.py::test_without_the_results_file_*`, `::test_a_file_of_another_schema_*`, `::test_a_file_without_any_ranked_model_*`, `::test_references_stay_readable_with_ollama_down_*` (moins de 300 ms), `e2e::test_without_the_results_file_*`, `::test_a_file_with_no_ranked_model_*`, `::test_with_ollama_down_*`.
+3. **Décision n° 11** : ni « Autres modèles mesurés », ni lien vers le tableau du banc, ni légende. Preuve : `e2e::test_marks_say_installed_or_nothing_without_legend_*`.
+4. **Comparer ces modèles** : l'Arène s'ouvre présélectionnée sur les modèles du groupe installés ; sans modèle installé, bouton désactivé (`aria-disabled`, focalisable) avec sa raison. Preuve : `web::test_compare_*`, `e2e::test_compare_opens_the_arena_*`, `::test_compare_is_disabled_*`.
+5. **Accueil** : carte « Références » (nom long « Quel modèle pour quel usage ? »), meilleur score « Part de réussite 78 % », absente sans références, un seul appel après `shell-ready`, icône `leaderboard` propre. Preuve : `web::test_the_best_score_of_all_cards_*`, `e2e::test_the_home_card_*`, `unit/test_shell_static.py::test_the_home_screen_*`.
+6. **Parcours** : Sobriété (métriques sans clic), Modèles (installation simulée jusqu'à « Installé »), fiche, Références, aucune requête hors de 127.0.0.1 (garde-fou de `e2e/conftest.py`), axe-core sans violation (clair et sombre : cartes, tableau, indisponible, Ollama arrêté). Preuve : `e2e::test_journey_*`, `::test_axe_*`, `::test_the_screen_never_scrolls_horizontally`.
+7. **Structure** : aucun JS au-delà de 600 lignes (`arena.js` intact), couches respectées, `GET /api/references` sous le budget de lecture. Preuve : `unit/test_static_split.py`, `unit/test_layers.py`, `web/test_read_budget.py`.
+8. **Version** : inchangée (2.0.0a5 posée par l'orchestrateur) ; tag et release : orchestrateur.
 
 ## Hors périmètre
 
 Les défauts `agent` et `rag` calés sur le banc (5.7), toute création sous `benchmarks/`, la version, la release.
+
+## Notes de développement
+
+- Serveur : `models/usage_references.py` (`build_usage_references`), `models/bench_results.py` (`usage_score`, `best_result(…, usage)`), `web/routes_references.py`, `web/app.py`. Contrat : sous-section « Références (story 5.8) » de `contrat-api.md`.
+- Front : `screens/references.js` (écran, relu à chaque retour), `references-view.js` (cartes, tableau), `references-compare.js` (présélection de l'Arène sans toucher `arena.js`), `home-references.js` (carte de l'Accueil), `core/api/references.js`, `i18n/fr/references.json`, `references.css`, icône `i-leaderboard`.
+- Tests réalignés : `unit/test_shell_static.py` (8 écrans disponibles, 9 symboles en exception, la route Références n'est plus « planned », la carte lit un seul appel), `e2e/test_shell.py` (Références n'est plus une route de la maquette). `web/test_model_card_api.py::card_app` accepte `bench_data` (fichier de résultats propre au test).
+
+## Écarts et reports
+
+- **Icône** : `leaderboard` est un tracé Material Icons (Filled), de mémoire, ajouté sous `PENDING_ROUNDED` (9 symboles) : le sprite officiel Material Symbols Rounded n'est pas disponible hors ligne. À remplacer par le sprite d'Anaël (8.1).
+- **Schéma réel non synchronisé** : aucun `qb.results/1` réel sur `master` ; l'écran se teste avec la fixture réécrite. Les libellés des sept usages (`reasoning`, `instructions`, `tools`, `extraction`, `rag`, `abstention`, `writing`) sont ceux du schéma publié ; la décision Q7 disait que le banc ne publie pas « Réponse sur documents », mais le schéma a la clé `rag` : elle s'affiche si le banc la publie.
+- **« Non classés pour cet usage »** de la maquette : abandonné sur les cartes (proche du bloc « Autres modèles mesurés » retiré par la décision n° 11) ; ces modèles figurent seulement dans le tableau (« non classé »).
+- **« Comparer »** : quatre modèles au plus (limite de l'Arène) ; avec un seul modèle installé, l'Arène le présélectionne et dit elle-même qu'il en faut deux. Un run en cours dans l'Arène garde son résumé (le choix est posé dans le formulaire caché).
+- **Relecture** : l'écran relit `GET /api/references` à chaque retour dessus ; le registre rafraîchit en tâche de fond (AD-15), donc une marque « installé » peut avoir un retour de retard.
+- **Conflit attendu** : `test_shell_static.py` (compte des écrans `available`) avec la 7.4.
+
+## Rapport de dev
+
+- Joué (poste partagé) : `tests/v2/unit` en entier, `tests/v2/web` (`test_references_api`, `test_model_card_api`, `test_read_budget`), E2E Edge `test_references` (19), `test_home`, `test_shell`, `test_home_demo`. Contrôle rapide du projet propre.
+- Aucune dépendance nouvelle, aucun fichier d'état ni de `benchmarks/` touché.

@@ -80,7 +80,7 @@ USAGES: tuple[tuple[str, str, str, str], ...] = (
 
 NO_USAGE_REASON = "Le banc n'a classé aucun modèle pour aucun usage dans les résultats publiés."
 NONE_INSTALLED = "Aucun modèle de ce groupe n'est installé sur ce poste."
-OLLAMA_DOWN = "Modèles installés non vérifiés : Ollama ne répond pas."
+OLLAMA_DOWN = "Modèles installés non vérifiés\u00a0: Ollama ne répond pas."
 
 Mark = Literal["installed", "other_version"]
 
@@ -105,7 +105,9 @@ class ReferenceEntry(BaseModel):
     tag: str  # tag du banc
     name: str
     params_active_b: float | None
-    score: float | None  # fraction de 0 à 1 (le front l'affiche en pourcentage) ; `null` : non classé
+    score: (
+        float | None
+    )  # fraction de 0 à 1 (le front l'affiche en pourcentage) ; `null` : non classé
     ci_low: float | None
     ci_high: float | None
     group: Literal["best", "other"] | None  # `null` : non classé
@@ -308,7 +310,8 @@ def _usage(
         entry.group = "best" if _interval(entry)[1] >= floor else "other"
     group = sorted((e for e in ranked if e.group == "best"), key=lambda e: e.name.casefold())
     others = sorted(
-        (e for e in ranked if e.group == "other"), key=lambda e: (-(e.score or 0), e.name.casefold())
+        (e for e in ranked if e.group == "other"),
+        key=lambda e: (-(e.score or 0), e.name.casefold()),
     )
     unranked = sorted(
         (e for e in entries if e.score is None and e.tag in _measured(candidates)),

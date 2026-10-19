@@ -102,7 +102,11 @@ async def test_energy_is_given_only_when_measured(tmp_path):
     for result in data["results"]:
         if result["model"] == "mid:7b" and result["machine"] == "pc-pro":
             status = "measured" if result["track"] == "think_off" else "unvalidated"
-            result["energy"] = {"status": status, "gpu_power_avg_w": 30, "gpu_wh_per_1k_tokens": 0.4}
+            result["energy"] = {
+                "status": status,
+                "gpu_power_avg_w": 30,
+                "gpu_wh_per_1k_tokens": 0.4,
+            }
         if result["model"] == "grand:14b" and result["machine"] == "pc-pro":
             result["energy"] = {
                 "status": "unvalidated",
@@ -204,7 +208,11 @@ async def test_without_the_results_file_the_reason_is_given_and_no_card(tmp_path
 
 
 async def test_a_file_of_another_schema_is_unavailable_not_an_error(tmp_path):
-    async with card_app(tmp_path, bench_data={**bench_data(), "schema": "qb.results/2"}) as (_, client, _b):
+    async with card_app(tmp_path, bench_data={**bench_data(), "schema": "qb.results/2"}) as (
+        _,
+        client,
+        _b,
+    ):
         body = await _references(client)
     assert body["available"] is False and body["reason_code"] == "schema"
 
@@ -251,4 +259,7 @@ def test_references_stay_readable_with_ollama_down_and_without_marks_in_under_30
     tools = _usage(body, "tools")
     assert all(e["installed"] is None for e in tools["entries"])
     assert tools["compare"] == {"tags": [], "reason": OLLAMA_DOWN}
-    assert [e["name"] for e in tools["entries"] if e["group"] == "best"] == ["Grand 14B", "Moyen 7B"]
+    assert [e["name"] for e in tools["entries"] if e["group"] == "best"] == [
+        "Grand 14B",
+        "Moyen 7B",
+    ]

@@ -4,8 +4,9 @@
 //
 //   const card = referencesCard();   card?.el  card?.refresh()  card?.dispose()
 //
-// - Elle n'existe que si l'écran Références est disponible (registre) ; elle reste masquée tant que le
-//   serveur n'a pas dit `available` : sans références publiées, elle n'apparaît pas.
+// - Elle n'existe que si l'écran Références est disponible (registre) ; elle reste masquée et vide
+//   (aucun lien dans la page) tant que le serveur n'a pas dit `available` : sans références publiées,
+//   elle n'apparaît pas.
 // - Un seul appel de lecture (`GET /api/references`), jamais avant le repère `shell-ready` (AD-6
 //   amendé), relu à chaque affichage de l'Accueil, jamais en boucle. Aucun calcul : `top` vient du
 //   serveur. Une panne laisse la carte masquée.
@@ -35,9 +36,7 @@ export function referencesCard() {
     summary,
   );
   const el = element("li", "home-module home-references");
-  el.dataset.card = "references";
-  el.hidden = true;
-  el.append(link);
+  el.hidden = true; // et vide : sans références, aucun lien n'existe sur l'Accueil
 
   let alive = true;
   let reading = 0;
@@ -59,9 +58,13 @@ export function referencesCard() {
             source: references.source,
           });
         }
+        el.replaceChildren(...(top ? [link] : []));
         el.hidden = !top;
       } catch {
-        if (alive && mine === reading) el.hidden = true;
+        if (alive && mine === reading) {
+          el.replaceChildren();
+          el.hidden = true;
+        }
       }
     },
     dispose() {

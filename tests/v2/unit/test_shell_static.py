@@ -597,7 +597,9 @@ def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_tex
     assert re.findall(r"\bapi\.(?!js)(\w+)", text) == ["documents"]
     assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
     assert re.findall(r"\bapi\.(\w+)\(", references) == ["references"]
-    assert 'REFERENCES_ICON = "leaderboard"' in references and 'icon("swords")' not in references  # sa propre icône
+    assert (
+        'REFERENCES_ICON = "leaderboard"' in references and 'icon("swords")' not in references
+    )  # sa propre icône
     text += demo + references
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
