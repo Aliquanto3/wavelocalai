@@ -81,6 +81,7 @@ class FakeOllama:
     unload_fails: bool = False  # `/api/generate` et `/api/embed` refusent le déchargement
     generate_refuses: set[str] = field(default_factory=set)  # modèles d'embedding : 400 au generate
     unloaded: list[str] = field(default_factory=list)  # modèles déchargés (`keep_alive: 0`)
+    parameters: dict[str, str] = field(default_factory=dict)  # tag -> `parameters` de `/api/show`
     chat_requests: list[dict[str, Any]] = field(default_factory=list)
     opened: int = 0
     closed: int = 0
@@ -130,7 +131,11 @@ class FakeOllama:
                 json={"models": [_listed(t, self.sizes.get(t, 1_000_000_000)) for t in self.tags]},
             )
         if path == "/api/show":
-            return httpx.Response(200, json={"capabilities": ["completion"], "model_info": {}})
+            tag = json.loads(request.content).get("model")
+            shown: dict[str, Any] = {"capabilities": ["completion"], "model_info": {}}
+            if tag in self.parameters:
+                shown["parameters"] = self.parameters[tag]
+            return httpx.Response(200, json=shown)
         assert path == "/api/chat", path
         self.chat_requests.append(json.loads(request.content))
         plan = self.plans.pop(0) if self.plans else Plan([part("ok"), final()])

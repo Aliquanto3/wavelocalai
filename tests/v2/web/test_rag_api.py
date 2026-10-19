@@ -149,6 +149,10 @@ async def test_cancelling_the_run_keeps_ready_documents_and_drops_the_one_in_pro
     cancelled = await client.post(f"/api/runs/{run_id}/cancel")
     assert cancelled.json()["cancelled"] is True
     assert (await _ended(client, run_id))["status"] == "cancelled"
+    # `cancelled` est fixé par le hub avant que la tâche d'import ne retire le document en cours :
+    # attendre la fin réelle de la tâche (course vue sur la CI macOS).
+    if tasks := set(app.state.ingest._tasks):
+        await asyncio.wait(tasks, timeout=5)
     assert set(_docs(app)) == {"a.txt"} and _docs(app)["a.txt"]["status"] == "ready"
     chunks = app.state.store.read("SELECT count(*) AS n FROM chunks")[0]["n"]
     assert chunks == 1

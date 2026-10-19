@@ -88,6 +88,9 @@ class ModelInfo(BaseModel):
     fits: bool | None = None  # `null` : taille inconnue ou modèle non local
     tools_verified: bool = False
     reasoning: bool = False
+    # Créativité conseillée pour le modèle (D-12) : paramètres publiés par Ollama, sinon catalogue ;
+    # `null` si inconnue (le front replie alors à 0,2). Toujours `null` pour un modèle cloud.
+    default_temperature: float | None = None
     throughput_tps: float | None = None  # médiane mesurée sur ce poste ; `null` sans run
     accuracy: float | None = None  # `qb.results/1` dès l'étape 5 ; `null` avant
     co2_method: CO2Method
@@ -195,12 +198,14 @@ class ModelRegistry:
                 return None
             digest = str(item.get("digest") or "")
             cached = self._facts.get(tag, digest) if digest else None
-            if cached is not None:
+            if cached is not None and cached.parameters is not None:
                 return _Local(cached, is_remote_tag(item))
             show = None
             with contextlib.suppress(OllamaUnavailableError):
                 async with gate:
                     show = await self._source.show(tag)
+            if show is None and cached is not None:  # ligne d'avant la migration 0005, Ollama muet
+                return _Local(cached, is_remote_tag(item))
             facts = facts_from_ollama(item, show)
             if show is not None and digest:  # sans détails : pas de cache, on réessaiera
                 self._facts.put(facts)
@@ -317,6 +322,9 @@ class ModelRegistry:
             tools_verified=caps_tools,
             reasoning=caps_thinking
             or is_dedicated_reasoning(facts.tag, entry.name if entry else None),
+            default_temperature=_first_not_none(
+                facts.default_temperature, entry.default_temperature if entry else None
+            ),
             throughput_tps=medians.get(facts.tag),
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
@@ -417,6 +425,10 @@ class ModelRegistry:
                 "model_not_embedding", f"{tag} est de type {ref.kind}.", tag=ref.tag, kind=ref.kind
             )
         return ref
+
+
+def _first_not_none(*values: float | None) -> float | None:
+    return next((value for value in values if value is not None), None)
 
 
 def _round(value: float | None) -> float | None:

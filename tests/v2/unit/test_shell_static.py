@@ -104,7 +104,14 @@ def test_the_drift_test_fails_when_a_token_is_missing():
 
 
 def test_css_outside_tokens_has_no_hard_coded_color():
-    for name in ("base.css", "components.css", "screens.css", "chat.css", "arena.css"):
+    for name in (
+        "base.css",
+        "components.css",
+        "screens.css",
+        "chat.css",
+        "arena.css",
+        "documents.css",
+    ):
         css = (STATIC / name).read_text(encoding="utf-8")
         assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css), f"{name} : couleur en dur"
         assert not re.search(r"\b(rgb|hsl)a?\(", css), f"{name} : couleur en dur"
@@ -274,13 +281,16 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_and_arena_screens_are_available_in_this_story():
+def test_only_the_home_chat_arena_and_document_base_screens_are_available_so_far():
     text = registry_text()
-    assert text.count('status: "available"') == 3
-    assert text.count('status: "planned"') == len(ROUTES) - 3
+    assert text.count('status: "available"') == 4
+    assert text.count('status: "planned"') == len(ROUTES) - 4
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
     assert re.search(
         r'id: "arena-compare",\s*path: "/arene/comparer",[^}]*status: "available"', text
+    )
+    assert re.search(
+        r'id: "documents-base",\s*path: "/documents/base",\s*status: "available"', text
     )
 
 

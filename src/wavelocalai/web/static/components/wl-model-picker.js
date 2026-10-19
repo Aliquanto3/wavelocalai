@@ -18,8 +18,9 @@
 // Attributs : `purpose` (défaut `chat`), `multi`, `label`. Propriétés : `values` (liste choisie),
 // `value` (premier choix, ou ""), `loaded` (la liste est arrivée), `ollamaUp`, `localReadyCount`
 // (modèles locaux listés et disponibles, `null` avant la première liste). Événements :
-// `wl-model-change` (`detail.values`), `wl-models-loaded` (après chaque rechargement de la liste).
-// Sans Shadow DOM.
+// `wl-model-change` (`detail.values`, le choix change) et `wl-models-loaded` (après chaque
+// rechargement de la liste : `selected` peut avoir changé de fiche, par exemple sa créativité par
+// défaut). Sans Shadow DOM.
 
 import { api, ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";

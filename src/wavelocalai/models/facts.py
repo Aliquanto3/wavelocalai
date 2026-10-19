@@ -6,6 +6,7 @@ tests et d'ici au branchement sur le store SQLite (migration `0002_model_facts.s
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -30,6 +31,12 @@ class ModelFacts:
     expert_count: int | None
     expert_used_count: int | None
     fetched_at: str  # ISO 8601 UTC avec `Z`
+    parameters: str | None = None  # `parameters` de `/api/show` ; `None` : détails non lus
+
+    @property
+    def default_temperature(self) -> float | None:
+        """Créativité conseillée par le fabricant (ligne `temperature` des paramètres), sinon `None`."""
+        return parse_temperature(self.parameters)
 
 
 class FactsStore(Protocol):
@@ -61,6 +68,23 @@ class InMemoryFactsStore:
         return list(latest.values())
 
 
+_TEMPERATURE = re.compile(r"^\s*temperature\s+(\S+)\s*$", re.MULTILINE)
+MAX_TEMPERATURE = 2.0  # borne du curseur « Créativité » ; au-delà, la valeur est ignorée
+
+
+def parse_temperature(parameters: str | None) -> float | None:
+    """Valeur de `temperature` dans le texte des paramètres d'Ollama ; `None` si absente ou hors
+    de 0 à 2 (le curseur ne la représenterait pas)."""
+    match = _TEMPERATURE.search(parameters or "")
+    if match is None:
+        return None
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    return value if 0.0 <= value <= MAX_TEMPERATURE else None
+
+
 def _int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
@@ -79,6 +103,7 @@ def facts_from_ollama(
     info: Mapping[str, Any] = raw_info if isinstance(raw_info, Mapping) else {}
     arch = info.get("general.architecture")
     capabilities = (show or {}).get("capabilities")
+    raw_parameters = (show or {}).get("parameters")
     count = info.get("general.parameter_count")
     total_b = float(count) * 1e-9 if isinstance(count, (int, float)) and count > 0 else None
     parameter_size = details.get("parameter_size")
@@ -102,4 +127,7 @@ def facts_from_ollama(
         expert_count=_int(info.get(f"{arch}.expert_count")) if arch else None,
         expert_used_count=_int(info.get(f"{arch}.expert_used_count")) if arch else None,
         fetched_at=utc_now_iso() if now is None else now,
+        parameters=(
+            raw_parameters if isinstance(raw_parameters, str) else "" if show is not None else None
+        ),
     )
