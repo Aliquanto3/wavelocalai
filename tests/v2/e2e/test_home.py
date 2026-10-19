@@ -343,8 +343,8 @@ def test_an_available_module_gets_a_link_with_its_summary(home):
     assert links.nth(1).locator(".home-module-long").inner_text() == "Assistant documentaire"
     assert links.first.locator(".home-module-name").inner_text() == "Arène"
     assert links.first.locator(".home-module-long").inner_text() == "Arène des modèles"
-    # Pas de carte « Démo recommandée » : l'Accueil ne propose que les liens de modules.
-    assert home.get_by_text("Démo recommandée").count() == 0
+    # La carte « Démo recommandée » (story 3.6) n'est pas un lien de module : `test_home_demo.py`.
+    assert home.locator("#second-home [data-demo]").count() == 1
 
 
 # Nom court du menu, nom long (EXPERIENCE.md, D-10), lien (premier écran du module).

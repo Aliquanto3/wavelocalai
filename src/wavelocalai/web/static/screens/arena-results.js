@@ -11,8 +11,10 @@
 //
 // - Classement : lanes notées par note décroissante (rang à égalité), avec badge d'origine, note,
 //   débit et CO2 ; « non évalué » est listé sous elles avec sa raison, sans rang (jamais 0).
-// - Verdict local/cloud (story 3.5, `arena-verdict.js`) : lu dans l'instantané du run à `run_ended`
-//   d'une comparaison terminée normalement, jamais calculé ici.
+// - Instantané du run (`arena-snapshot.js`), lu une fois à `run_ended` : le verdict local/cloud
+//   (story 3.5, `arena-verdict.js`) d'une comparaison terminée normalement, jamais calculé ici ; le CO2
+//   que le serveur a complété pour une lane arrêtée ; la configuration des actions « Relancer »,
+//   « Modifier la question », « Exporter » et « Effacer » (story 3.6, `arena-actions.js`).
 // - Matrice (segments « Matrice · Tableau », Matrice par défaut, D-14) : `wl-chart-svg` ; le tableau
 //   (`wl-data-table`) est derrière « Voir le tableau » ou le segment « Tableau ». Une seule unité de
 //   CO2 pour toute la comparaison.
@@ -23,6 +25,8 @@ import { segments } from "../components/segments.js";
 import "../components/wl-badge.js";
 import "../components/wl-chart-svg.js";
 import "../components/wl-data-table.js";
+import { actionsView } from "./arena-actions.js";
+import { applyLateMeasures, readSettled } from "./arena-snapshot.js";
 import { verdictView } from "./arena-verdict.js";
 import {
   co2GroupOf,
@@ -92,12 +96,14 @@ export function resultsView(uid, lanesEl) {
   });
   chartBox.append(chartTitle, seg.root, body, defs);
   const verdict = verdictView(uid, (tag) => lanes().find((lane) => lane.tag === tag)?.name);
-  el.append(rankingBox, chartBox, verdict.el);
+  const actions = actionsView(uid);
+  el.append(actions.el, rankingBox, chartBox, verdict.el);
 
   let ended = false;
   let finalState = null;
   let group = null; // l'unité commune du CO2, lue par les cellules du tableau
   let frame = 0;
+  let ticket = 0; // une lecture tardive d'une comparaison précédente n'écrase pas la courante
   let chartEl = null;
   let tableEl = null;
   const emptyEl = element("p", "help arena-chart-empty");
@@ -255,20 +261,35 @@ export function resultsView(uid, lanesEl) {
     }
   }
 
+  // L'instantané du run terminé : verdict, CO2 complété d'une lane arrêtée, actions.
+  async function settle(runId, state) {
+    const mine = ++ticket;
+    const snapshot = await readSettled(runId, () => mine === ticket);
+    if (mine !== ticket) return;
+    if (state === "ok") {
+      if (snapshot) verdict.show(snapshot);
+      else verdict.fail();
+    }
+    if (snapshot && applyLateMeasures(lanesEl, snapshot)) draw();
+    actions.ready(runId, snapshot);
+  }
+
   lanesEl.addEventListener("wl-lane-change", schedule);
   return {
     el,
-    // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted) et le
-    // verdict d'une comparaison finie normalement est lu dans l'instantané du run.
+    // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted) ; l'instantané
+    // du run donne le verdict d'une comparaison finie normalement et arme les actions.
     end(state, runId) {
       ended = true;
       finalState = state;
       cancelAnimationFrame(frame);
       frame = 0;
       draw();
-      if (state === "ok" && runId) verdict.load(runId);
+      if (runId) settle(runId, state);
     },
     reset() {
+      ticket += 1;
+      actions.reset();
       verdict.reset();
       ended = false;
       finalState = null;

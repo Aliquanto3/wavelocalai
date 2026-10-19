@@ -567,10 +567,16 @@ def test_the_front_computes_no_measure_and_names_no_host():
 
 
 def test_the_home_screen_reads_the_store_only_and_every_home_text_is_used():
-    """L'Accueil n'appelle pas l'API (AD-6 : les cartes lisent le store rempli par le flux), ne
-    calcule rien, et le catalogue ne garde aucun texte `home.*` qu'il n'affiche pas."""
+    """Les cartes d'état de l'Accueil n'appellent pas l'API (AD-6 : elles lisent le store rempli par
+    le flux), ne calculent rien, et le catalogue ne garde aucun texte `home.*` qu'il n'affiche pas.
+    La carte « Démo recommandée » (story 3.6, `home-demo.js`) lit seule la liste des modèles et le
+    défaut `arena` du serveur."""
     text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
     assert "fetch(" not in text and "api." not in text and "EventSource" not in text
+    demo = (STATIC / "screens/home-demo.js").read_text(encoding="utf-8")
+    assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
+    assert "fetch(" not in demo and "EventSource" not in demo
+    text += demo
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
     literal = {key for key in named if "${" not in key}

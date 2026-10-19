@@ -1104,8 +1104,9 @@ def test_a_running_arena_is_joined_on_run_busy_and_by_its_url(arena_lenient, ser
 def test_an_unknown_run_in_the_url_is_said(page_tolerating_failed_requests, server):
     page = page_tolerating_failed_requests
     open_arena(page, server, "#/arene/comparer/inconnu")
-    page.get_by_text("Cette comparaison est introuvable.").wait_for()
+    page.get_by_role("heading", name="Résultat introuvable").wait_for()
     assert page.locator("wl-arena-lane").count() == 0
+    assert page.locator("a", has_text="Lancer une nouvelle comparaison").is_visible()
 
 
 def test_an_orchestration_failure_is_said_with_its_cause(page, server):
@@ -1140,6 +1141,21 @@ def test_an_orchestration_failure_is_said_with_its_cause(page, server):
     page.route(
         re.compile(r"/api/runs/casse/events"),
         lambda route: route.fulfill(status=200, content_type="text/event-stream", body=body),
+    )
+    snapshot = {  # l'instantané que l'écran lit avant de suivre le flux, puis à `run_ended`
+        "run_id": "casse",
+        "kind": "arena",
+        "status": "error",
+        "children": [],
+        "config": None,
+        "erased": False,
+        "verdict": None,
+    }
+    page.route(
+        re.compile(r"/api/runs/casse$"),
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps(snapshot)
+        ),
     )
     open_arena(page, server, "#/arene/comparer/casse")
     wait_banner(page, "Comparaison en échec")

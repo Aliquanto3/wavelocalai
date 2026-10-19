@@ -187,6 +187,21 @@ _SPECS = (
         "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
         "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
         ("run_id",),
+    ),
+    ErrorSpec(
+        "run_not_found",
+        404,
+        "Ce résultat est introuvable : aucune exécution ne porte cet identifiant.",
+        "Lancez une nouvelle comparaison, ou rouvrez-en une depuis la liste des comparaisons "
+        "précédentes.",
+        ("run_id",),
+    ),
+    ErrorSpec(
+        "arena_busy",
+        409,
+        "Cette comparaison est encore en cours : elle ne peut pas être effacée maintenant.",
+        "Arrêtez-la (touche Échap), puis effacez-la.",
+        ("run_id",),
     ),  # --- base documentaire (story 4.1) ---
     ErrorSpec(
         "ingest_failed",

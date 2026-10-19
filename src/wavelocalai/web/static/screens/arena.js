@@ -7,11 +7,15 @@
 // - L'écran reste en mémoire quand on va ailleurs (le routeur le masque) : masqué, il ferme son flux
 //   en gardant le dernier `seq` ; de retour, il rouvre par `?after=<seq>`, sans perte ni doublon.
 // - `409 run_busy` : le run actif est rejoint (rejoué depuis le début) s'il est une Arène.
-//   `#/arene/comparer/<run_id>` suit de même un run existant.
+//   `#/arene/comparer/<run_id>` suit de même un run existant, ou dit « Résultat introuvable »
+//   (`arena-reopen.js`) ; la liste des comparaisons précédentes est `arena-history.js`.
 // - Notation (story 3.3) : le panneau « Critères de notation » (`arena-judge.js`) envoie `judge` et
 //   `criteria` ; sans juge, Lancer est désactivé (« Choisissez un juge ») et le résumé dit le juge
 //   (`arena-summary.js`). L'événement `judge` dit sa fiabilité, `judge_score` pose la note /100 (ou
 //   « Non évalué » et sa raison) dans la colonne. Classement, matrice, tableau : `arena-results.js`.
+// - Actions d'une comparaison terminée (story 3.6, `arena-actions.js`) : « Relancer » et « Modifier la
+//   question » reprennent sa configuration dans le formulaire (`wl-arena-reuse`), « Effacer » vide
+//   l'écran (`wl-arena-erased`).
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
 //   horizontal et en-têtes collants, et un mode focus par colonne.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
@@ -26,24 +30,20 @@ import { onSmallerModel, swapModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
-import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { reuseConfig } from "./arena-actions.js";
+import { envelopeOf, launchReasonOf, noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { historyView } from "./arena-history.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";
 import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
 import { moveTab } from "./arena-tabs.js";
 
 const DRAFT = "arena";
-const MIN_MODELS = 2;
-const MAX_MODELS = 4;
 const TERMINAL = new Set(["done", "timeout", "failed", "cancelled", "interrupted"]);
 const NARROW = "(max-width: 767px)";
 const TICK_MS = 250;
 let counter = 0;
-
-function envelopeOf(error) {
-  if (error instanceof ApiError && error.envelope) return error.envelope;
-  return { code: "internal", message: t("arena.start_failed") };
-}
 
 export function mount(host, params = {}) {
   const uid = `arena-${++counter}`;
@@ -109,7 +109,9 @@ export function mount(host, params = {}) {
   lanesEl.setAttribute("aria-label", t("arena.lanes"));
   lanesEl.tabIndex = 0; // une zone qui défile se lit au clavier
   lanesEl.hidden = true;
-  const results = resultsView(uid, lanesEl); // classement, matrice et tableau (story 3.4)
+  const results = resultsView(uid, lanesEl); // classement, matrice, tableau, verdict et actions
+  const history = historyView(uid, (tag) => picker.modelFor(tag)?.name);
+  const reopen = reopenView(uid, (id) => follow(id));
   const live = element("div", "sr-only");
   live.setAttribute("role", "status");
   live.setAttribute("aria-live", "polite");
@@ -120,6 +122,7 @@ export function mount(host, params = {}) {
     element("h1", "", t("screens.arena-compare")),
     screenTabs("arena", "arena-compare"),
     element("p", "lead", t("arena.lead")),
+    reopen.el,
     noLocal.el,
     form,
     summary.el,
@@ -131,6 +134,7 @@ export function mount(host, params = {}) {
     tabs,
     lanesEl,
     results.el,
+    history.el,
     live,
     scoreLive.el,
   );
@@ -169,29 +173,7 @@ export function mount(host, params = {}) {
 
   // Aucun modèle local prêt (Ollama arrêté compris : les modèles connus sont listés indisponibles).
   const noLocalReady = () => picker.localReadyCount === 0;
-  const availableChoices = () =>
-    picker.values.filter((tag) => picker.modelFor(tag)?.available !== false).length;
-
-  // Prérequis du lancement, la première raison l'emporte.
-  const launchChecks = [
-    () => (running() || pending ? t("arena.busy") : ""),
-    () =>
-      noLocalReady() && !store.get().allowCloud && availableChoices() < MIN_MODELS
-        ? t("arena.no_local_reason")
-        : "",
-    () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
-    () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
-    () => (question.value.trim() ? "" : t("arena.need_question")),
-    () => (judging.ready() ? "" : t("arena.judge.need_judge")),
-  ];
-
-  function launchReason() {
-    for (const check of launchChecks) {
-      const why = check();
-      if (why) return why;
-    }
-    return "";
-  }
+  const launchReason = launchReasonOf({ busy: () => running() || pending, picker, question, judging });
 
   // Les lignes du résumé affiché pendant l'exécution : question, modèles, juge (D-16).
   const summaryRows = [
@@ -368,7 +350,8 @@ export function mount(host, params = {}) {
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
-    results.end(state, runId); // le classement se fige, le verdict est lu
+    results.end(state, runId); // le classement se fige, l'instantané est lu
+    history.refresh();
     runId = null;
     stream = null;
     stopping = false;
@@ -566,7 +549,14 @@ export function mount(host, params = {}) {
   });
   picker.addEventListener("wl-model-change", render);
   for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);
-  picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
+  picker.addEventListener("wl-models-loaded", () => (render(), history.render())); // un modèle local est-il prêt ?
+  host.addEventListener("wl-arena-reuse", (event) => reuseConfig(event.detail, { question, picker, judging, launchReason, submit }));
+  host.addEventListener("wl-arena-erased", () => {
+    clearLanes(); // le texte effacé ne reste pas à l'écran
+    renderBanner();
+    history.refresh(t("arena.actions.erased"));
+    focusAfter(null);
+  });
   narrow.addEventListener("change", layout);
 
   // --- Écran masqué puis revu ------------------------------------------------------------
@@ -585,7 +575,8 @@ export function mount(host, params = {}) {
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   const unwatchCloud = store.select((state) => state.allowCloud, render); // rend tout de suite
-  if (params.run_id) follow(params.run_id);
+  history.refresh();
+  if (params.run_id) reopen.open(params.run_id);
   return () => {
     unwatchCloud();
     visibility.disconnect();

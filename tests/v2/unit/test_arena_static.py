@@ -22,6 +22,11 @@ NEW_SCRIPTS = [
     "screens/arena-results-data.js",
     "screens/arena-tabs.js",
     "screens/arena-verdict.js",
+    "screens/arena-snapshot.js",
+    "screens/arena-actions.js",
+    "screens/arena-history.js",
+    "screens/arena-reopen.js",
+    "screens/home-demo.js",
     "components/wl-arena-lane.js",
 ]
 
@@ -209,7 +214,11 @@ def test_a_launch_without_a_judge_says_so_and_the_summary_shows_the_judge():
     assert CATALOG["arena"]["summary"]["judge"] == "Juge"
     assert CATALOG["arena"]["summary"]["no_judge"]
     screen = source("screens/arena.js")
-    assert 't("arena.judge.need_judge")' in screen and "judging.ready()" in screen
+    form = source(
+        "screens/arena-form.js"
+    )  # les prérequis du lancement (story 3.6 : sortis d'arena.js)
+    assert 't("arena.judge.need_judge")' in form and "judging.ready()" in form
+    assert "launchReasonOf(" in screen
     assert '["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener' in screen
     assert (
         "store.select((state) => state.allowCloud, render)" in screen and "unwatchCloud()" in screen
