@@ -6,7 +6,44 @@ on:
   pull_request:
     branches: [ master ]
 
+# Un nouveau push sur une PR annule le run précédent de la même PR, devenu inutile ; les runs de
+# master ne s'annulent jamais (chaque fusion garde le sien).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Ce que la PR touche, pour ne lancer que les jobs utiles (CI allégée, accord d'Anaël du
+  # 2026-10-19) : la v1, en correctifs seulement, n'est testée que si une PR la touche, et une PR
+  # qui ne modifie que `_bmad-output/` (fichiers d'état du run, specs) ne lance aucun test. Sur
+  # master, tout tourne toujours.
+  changes:
+    name: Fichiers touchés
+    runs-on: ubuntu-latest
+    outputs:
+      v1: ${{ steps.diff.outputs.v1 }}
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Comparer à la base
+      id: diff
+      run: |
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo "v1=true" >> "$GITHUB_OUTPUT"; echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+        echo "$files"
+        # Tout ce qui n'est pas dans `_bmad-output/` est du code ou de la configuration.
+        if echo "$files" | grep -qv '^_bmad-output/'; then code=true; else code=false; fi
+        # Ce que lit la v1 : `src/` hors `src/wavelocalai/`, ses tests, ses dépendances, sa
+        # configuration, les scripts, et la CI elle-même.
+        if echo "$files" | grep -qE '^(src/(app|core)/|src/[^/]+$|tests/(unit|app|integration)/|tests/[^/]+$|requirements\.txt|constraints\.txt|pyproject\.toml|pytest\.ini|config/|scripts/|\.github/)'; then v1=true; else v1=false; fi
+        echo "code=$code" >> "$GITHUB_OUTPUT"; echo "v1=$v1" >> "$GITHUB_OUTPUT"
+        echo "code=$code v1=$v1"
+
   lint:
     name: Code Quality (Linting)
     runs-on: ubuntu-latest
@@ -39,6 +76,8 @@ jobs:
 
   test:
     name: Unit & App Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.v1 == 'true'
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -81,6 +120,8 @@ jobs:
 
   test-v2:
     name: Tests v2 (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -113,6 +154,8 @@ jobs:
   # de tests tombe de lui-même dans un morceau.
   test-v2-e2e:
     name: E2E v2 (ubuntu-latest, Python 3.12, morceau ${{ matrix.shard }}/3)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

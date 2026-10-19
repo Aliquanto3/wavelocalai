@@ -84,6 +84,8 @@ class Turn:
 PhaseCallback = Callable[[str], None]  # "loading" | "generating" (Arène : `lane_status`)
 # Garde-fou d'un appel local (story 4.8) : lève `ram_guard` si le modèle ne tient pas en mémoire.
 Guard = Callable[[ModelRef], Awaitable[None]]
+# Champs ajoutés à `metrics` : fixes, ou rendus par une fonction qui reçoit l'événement.
+MetricsExtra = Mapping[str, object] | Callable[[Mapping[str, object]], Mapping[str, object]]
 
 
 async def _attempt(
@@ -207,8 +209,9 @@ async def stream_into_run(
     meter: LocalMeter | None = None,
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
     capture: list[str] | None = None,
-    metrics_extra: Mapping[str, object] | None = None,
+    metrics_extra: MetricsExtra | None = None,
     guard: Guard | None = None,
+    publish_metrics: bool = False,
     turn: Turn | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
@@ -241,11 +244,15 @@ async def stream_into_run(
     ni chargement, ni `metrics`, ni `retry`. La feuille reste mesurée et close comme les autres.
 
     `metrics_extra` : champs ajoutés à l'événement `metrics` de la feuille (le RAG y met la durée de
-    la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux.
+    la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux. Une fonction reçoit
+    l'événement avant publication et rend ces champs (l'évaluation y ajoute les mesures cumulées
+    du modèle, revue 7.3 : AD-20).
 
     `guard` : garde-fou mémoire d'un appel local (story 4.8), appelé dans la place avant le modèle ;
     son `ram_guard` met la feuille en `error` avec son enveloppe, sans relance ni mesure.
 
+    `publish_metrics` : avec `capture`, publie quand même l'événement `metrics` de la feuille (une
+    réponse évaluée, story 7.1 : texte gardé à part, débit et CO2 dans le flux, sans jetons).
     `turn` : tour d'une boucle d'agent (story 6.1). Le texte (réponse et réflexion) et les
     `ToolCall` sont **gardés** dans cet objet au lieu d'être publiés, comme avec `capture` ; mais le
     chargement du modèle et les `metrics` de la feuille sont publiés (un `metrics` par appel de
@@ -269,6 +276,7 @@ async def stream_into_run(
             capture=capture,
             metrics_extra=metrics_extra,
             guard=guard,
+            publish_metrics=publish_metrics,
             turn=turn,
         )
     finally:
@@ -294,8 +302,9 @@ async def _play(
     meter: LocalMeter | None,
     on_phase: PhaseCallback | None,
     capture: list[str] | None = None,
-    metrics_extra: Mapping[str, object] | None = None,
+    metrics_extra: MetricsExtra | None = None,
     guard: Guard | None = None,
+    publish_metrics: bool = False,
     turn: Turn | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
@@ -366,9 +375,10 @@ async def _play(
         except Exception as exc:  # noqa: BLE001 - aucune mesure n'interrompt un run (AD-11)
             logger.warning("Estimation du CO2 impossible : %r", exc)
             co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
-    if capture is None:
+    if capture is None or publish_metrics:
         metrics = _metrics(lane, result, origin, co2, footprint)
-        metrics.update({k: v for k, v in (metrics_extra or {}).items() if k not in metrics})
+        extra = metrics_extra(metrics) if callable(metrics_extra) else metrics_extra
+        metrics.update({k: v for k, v in (extra or {}).items() if k not in metrics})
         hub.publish(stream_id, "metrics", metrics)
     leaf = LeafResult(
         origin=origin,

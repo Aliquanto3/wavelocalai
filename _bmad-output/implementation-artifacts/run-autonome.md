@@ -419,3 +419,103 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 16:45 · 7.2 · review · lancée (Opus) après fusion de la 7.1 à jour de master · —
 - 2026-10-19 16:48 · 5.3 · fusion master · conflits avec la 5.1 résolus (les deux écrans gardés, comptes recalculés, 145 E2E) ; E2E rouge de #89 = défaut de master corrigé par #91 ; poussé · 3bf7ff2
 - 2026-10-19 16:49 · run · état · fichiers d'état mis à jour (contexte de l'orchestrateur proche de 200 k) ; PR d'état · —
+- 2026-10-19 16:50 · correctif · fusion · PR #91 fusionnée (verdict de l'Arène rouverte, budget de la température) · c889381
+- 2026-10-19 16:52 · 7.2 · review · medium corrigé (« juge non informatif » si pas mieux que le juge trivial, avertissement sauf `WAVELOCALAI_JUDGE_STRICT=1`), garde de relecture par cas et date ; 3 low écartés ; aucun verdict validé ; PR après la fusion de la 7.1 (#90) · 5da70b5
+- 2026-10-19 16:53 · 7.2 · contrôles · lancés · 5da70b5
+- 2026-10-19 16:55 · 6.3 · dev · fini (`approval_required`, `POST /api/runs/{id}/approvals/{approval_id}`, expiration 600 s, envoi seulement après approbation dans `agents/outbox.py`, STARTTLS exigé ; SMTP factice local, aucun email réel ; integration Ollama) · 4b7702f
+- 2026-10-19 16:55 · 6.3 · second-avis · lancé (Haiku) · —
+- 2026-10-19 16:56 · 5.4 · dev · fini (décharger, supprimer par faux Ollama, défauts par usage `PUT /api/models/defaults/{purpose}`, éligibilité n° 17 côté serveur, `models_in_use` dans le flux système ; 16 E2E) ; à vérifier en recette : `/api/delete` réel sur un modèle jetable · 744529e
+- 2026-10-19 16:56 · 5.4 · second-avis · lancé (Haiku) · —
+- 2026-10-19 16:57 · 6.1 · fusion · PR #87 fusionnée · 1dd8a9e
+- 2026-10-19 16:57 · 7.1 · fusion master · conflits avec la 6.1 (`streaming.py` : `Turn` + `publish_metrics`, contrat) confiés à un agent (Sonnet), qui fusionne aussi master dans la 6.2 · —
+- 2026-10-19 16:58 · 6.3 · second-avis · aucun envoi sans approbation ; 2 low (course délai/approbation : journal « approved » mais rien envoyé ; `tool_timeout_s` < 30 s pendant l'envoi SMTP) ; revue Opus à lancer après fusion de master (6.1, 6.2) dans la branche · —
+- 2026-10-19 16:59 · 5.2 · review · 1 low réel corrigé (historique lu onglet masqué, E2E rouge puis vert), 5 rejetés (requête mesurée 9-21 ms à 10 000 runs), 1 reporté ; correctif du hub confirmé neutre · a3e424d
+- 2026-10-19 16:59 · 7.2 · contrôles · verts (73 E2E ciblés, 14 integration) ; PR après la fusion de la 7.1 (#90) · 5da70b5
+- 2026-10-19 16:59 · 5.2 · contrôles · lancés · a3e424d
+- 2026-10-19 17:00 · 5.4 · second-avis · 2 medium (course refresh/suppression : le modèle supprimé revient dans le registre et les faits ; `keep_alive: 0` charge un modèle froid avant de le supprimer) ; 3 low (fenêtre après le second contrôle d'usage, délais serveur 38 s > client 30 s, choix Arène entier effacé) ; revue Opus à lancer après fusion de #89 (5.3) dans la branche · —
+- 2026-10-19 17:06 · 7.1 · fusion master · conflits avec la 6.1 résolus (`streaming.py` : `turn` et `publish_metrics` gardés ; contrat) ; 1366 unit + web, integration verts ; poussé sur #90 · 9755e84
+- 2026-10-19 17:06 · 6.2 · PR · ouverte (master avec la 6.1 fusionné sans conflit, 1411 unit + web) · 8339d2c
+- 2026-10-19 17:06 · run · pause · arrêt demandé par Anaël pour un /clear ; état à jour dans `run-autonome-mvp.md` · —
+- 2026-10-19 17:11 · run · reprise · après /clear ; #92 (état) : Tests v2 Windows 3.11 rouge, à diagnostiquer ; #90, #93 CI en cours ; #89 en conflit · —
+- 2026-10-19 17:11 · 5.3 · fusion master · conflit `contrat-api.md` (sections Agents 6.1 et Modèles 5.3 gardées) ; poussé sur #89 · e1f56bd
+- 2026-10-19 17:11 · 5.2 · contrôles · relancés · a3e424d
+- 2026-10-19 17:11 · 6.3 · fusion master · 6.1 fusionnée sans conflit · aeb37a8
+- 2026-10-19 17:11 · 5.4 · fusion 5.3 · `store.js`, `system.js` résolus (`modelsInUse` et `gpu`) ; contrat confié au reviewer (étape 1) · —
+- 2026-10-19 17:11 · 5.4 · review · lancée (Opus, liste du second avis) · —
+- 2026-10-19 17:11 · 6.3 · review · lancée (Opus, liste du second avis) · aeb37a8
+- 2026-10-19 17:12 · 6.5 · dev · lancé (Sonnet high, worktree `v2-6-5`, `feat/v2-equipe-serveur` empilée sur la 6.2 revue) · 8339d2c
+- 2026-10-19 17:12 · 7.3 · dev · lancé (Sonnet high, worktree `v2-7-3`, `feat/v2-evaluation-ecran` empilée sur la 7.1 revue) · 9755e84
+- 2026-10-19 17:17 · 5.4 · review · 2 medium corrigés (course refresh/suppression par numéro de suppression, `/api/ps` lu avant `keep_alive: 0`), délai client 60 s ; 1 low reporté (verrou par modèle), 1 rejeté (D-41) ; contrat fusionné avec la 5.3 · 853957f
+- 2026-10-19 17:17 · 5.5 · dev · lancé (Sonnet high, worktree `v2-5-5`, `feat/v2-reranker-ecran` empilée sur la 5.4 revue ; aucun vrai téléchargement) · 853957f
+- 2026-10-19 17:17 · 6.3 · review · 2 low du second avis requalifiés medium et corrigés (réponse après expiration refusée en 409, envoi approuvé non coupé par `tool_timeout_s`) ; 5 points rejetés ; integration verte (SMTP factice) · 7db423c
+- 2026-10-19 17:24 · état · fusion · PR #92 fusionnée (job Windows 3.11 relancé : minutage 331 ms) · 26c7e0d
+- 2026-10-19 17:24 · 6.5 · dev · fini (équipes sans CrewAI, enchaînement par la boucle 6.1, `PUT`/`DELETE /api/agents/crews/{id}` ajoutées, `mission_totals`, rapport partiel à l'annulation ; 123 tests ciblés, integration Ollama) · 2203147
+- 2026-10-19 17:24 · 6.5 · second-avis · lancé (Haiku) · —
+- 2026-10-19 17:24 · 5.2 · contrôles · verts (206 E2E ciblés, `test_topbar` instable vert en relance, 12 integration) ; master fusionné sans conflit · 83df161
+- 2026-10-19 17:24 · 5.2 · PR · #94 ouverte · 83df161
+- 2026-10-19 17:25 · 6.4 · dev · lancé (Sonnet high, worktree `v2-6-4`, `feat/v2-agent-ecran` empilée sur la 6.3 revue ; SMTP factice) · 7db423c
+- 2026-10-19 17:25 · 5.4 · contrôles · lancés · 853957f
+- 2026-10-19 17:29 · 6.5 · second-avis · 1 medium (AD-7 : `check_params` refuse un sujet contenu dans un rôle, un id d'équipe ou un tag → 500) ; 2 low (lane du rapport partiel = agent courant, test integration qui se saute) · —
+- 2026-10-19 17:29 · 6.5 · fusion master · sans conflit · 1513fc0
+- 2026-10-19 17:29 · 6.5 · review · lancée (Opus, liste du second avis) · 1513fc0
+- 2026-10-19 17:35 · 6.2 · fusion · PR #93 fusionnée · 4c8f8ae
+- 2026-10-19 17:35 · 7.1 · CI · rouge (E2E `test_shell` 300 ms, minutage) ; job relancé · —
+- 2026-10-19 17:35 · 5.4 · contrôles · verts (185 E2E ciblés, 14 integration) ; PR après la fusion de #89 · 853957f
+- 2026-10-19 17:36 · 6.5 · review · medium corrigé (AD-7 : texte saisi cherché dans les params à partir de 20 caractères ; défaut aussi présent pour l'agent seul), lane du rapport partiel corrigée ; 2 low rejetés (`PUT`/`DELETE` des équipes gardées : Q3) · 798f503
+- 2026-10-19 17:36 · 6.3 · fusion master · 6.2 fusionnée, sans conflit · 69787ad
+- 2026-10-19 17:36 · 5.3 · fusion master · conflit `contrat-api.md` avec la 6.2 (sections gardées) ; poussé sur #89 · 0370325
+- 2026-10-19 17:36 · 5.4 · fusion 5.3 · sans conflit · —
+- 2026-10-19 17:36 · 6.3 · contrôles · lancés · 69787ad
+- 2026-10-19 17:37 · 7.3 · dev · fini (écran en 8 modules, tableau sans « Global », Matrice, rouvrir et partiel, liste des évaluations ; 23 E2E de l'écran ; écarts : sélecteur non filtré (n° 17 à brancher), débit moyen et CO₂ total faits au front, détail sous le tableau) · 57e05f9
+- 2026-10-19 17:37 · 7.3 · second-avis · lancé (Haiku) · —
+- 2026-10-19 17:37 · 5.7 · attente humaine · aucun `qb.results/1` réel dans `benchmarks/slm-quality/` sur master (README seul) : la story attend une release de slm-quality-bench synchronisée (Q7) ; 5.6 puis 5.8 et a5 partent sans elle · —
+- 2026-10-19 17:40 · 5.5 · dev · fini (`POST /api/models/reranker/pull`, téléchargement en processus à part tué à l'annulation, dossier partiel retiré, `reranker.extra_installed` ; 43 E2E Modèles ; recette réelle ~1,1 Go pour Anaël) · f631ee2
+- 2026-10-19 17:40 · 5.5 · second-avis · lancé (Haiku) · —
+- 2026-10-19 17:42 · 6.3 · contrôles · verts (73 E2E ciblés, 15 integration, SMTP factice) · 69787ad
+- 2026-10-19 17:42 · 6.3 · PR · #95 ouverte · —
+- 2026-10-19 17:42 · 6.5 · contrôles · lancés · 798f503
+- 2026-10-19 17:43 · 7.3 · second-avis · 1 medium (AD-20 : débit moyen et CO₂ total calculés au front) ; 4 low (CO₂ total sans « n sur m », course `finish`/relance, écouteur `wl-use-model` non retiré, bannière perdue en changeant de route) · —
+- 2026-10-19 17:43 · 5.5 · second-avis · 1 medium (dossier partiel après arrêt brutal vu « Installé ») ; 3 low (import fastembed dans le serveur, course `refresh`/`_load_once`, processus orphelin à l'arrêt) · —
+- 2026-10-19 17:43 · 7.3 · review · lancée (Opus) après fusion de master · —
+- 2026-10-19 17:43 · 5.5 · review · lancée (Opus) après fusion de la 5.4 à jour de master · —
+- 2026-10-19 17:47 · 6.5 · contrôles · verts (73 E2E ciblés, 15 integration) · 798f503
+- 2026-10-19 17:47 · 6.5 · PR · #96 ouverte · —
+- 2026-10-19 17:47 · 5.5 · review · medium corrigé (témoin `.installing` : dossier partiel non installé, nettoyé au pull suivant), low n° 3 couvert par le même témoin ; n° 2 et 4 rejetés (télémétrie coupée avant import ; arrêt normal attend les tâches) · 7dd7620
+- 2026-10-19 17:48 · 5.6 · dev · lancé (Sonnet high, worktree `v2-5-6`, `feat/v2-fiche-modele` empilée sur la 5.5 revue ; sans résultats du banc, Q7) · 7dd7620
+- 2026-10-19 17:48 · 5.5 · contrôles · lancés · 7dd7620
+- 2026-10-19 17:58 · 7.3 · review · medium AD-20 corrigé (`lane_measures` et `measures` publiés par le serveur, « n questions mesurées sur m »), 4 low corrigés (`ticket`, écouteur retiré par `onSmallerModel`, run actif rejoint) ; même fuite d'écouteur dans Arène, Discussion, Base → 8.1 · 304eca3
+- 2026-10-19 17:58 · 7.4 · dev · worktree `v2-7-4` (`feat/v2-banc-format` : 7.3 revue + 7.2 revue fusionnées) · 3caae87
+- 2026-10-19 18:02 · 5.5 · contrôles · verts (193 E2E ciblés, 15 integration) ; un test reformaté (black) · c5c9210
+- 2026-10-19 18:02 · 5.2 · CI · rouge (E2E `test_shell` 300 ms, médiane 335 ms sur Ubuntu) · —
+- 2026-10-19 18:02 · correctif · PR · #97 ouverte (budget de la coquille au deuxième meilleur de 5 chargements : instable une PR sur deux ; décision prise seul, budget 300 ms inchangé) · 8d52235
+- 2026-10-19 18:02 · run · file · `queue2.sh` (scratchpad : relance une fois les jobs en échec) sur #97, #94, #89, #95, #96 ; #90 dans `merge_queue.sh` · —
+- 2026-10-19 18:11 · 6.4 · dev · fini (écran, `wl-step-trace` générique pour la 6.6, validation de l'email, `totals` serveur d'un run agent ; 24 E2E de l'écran, faux SMTP ; réponse en un bloc gardée, à confirmer par Anaël) · 804ec72
+- 2026-10-19 18:11 · 6.4 · second-avis · lancé (Haiku) · —
+- 2026-10-19 18:17 · 7.1 · fusion · PR #90 fusionnée · 4cd7977
+- 2026-10-19 18:17 · 7.2 · fusion master · sans conflit · b8a4c9f
+- 2026-10-19 18:17 · 7.2 · PR · #98 ouverte (verdicts à relire par Anaël) · b8a4c9f
+- 2026-10-19 18:21 · 6.4 · second-avis · aucun high/medium ; 6 low (raison du sélecteur visible dans l'Arène, garde Échap globale, dialogue rouvert après réponse, Envoyer actif sans outils chargés, `artifact_url` sans `safeHref`, texte du 409) · —
+- 2026-10-19 18:21 · 6.4 · fusion 6.3 et master · conflit `runs/snapshot.py` (`totals` agent + champs d'évaluation 7.1) résolu, 60 tests verts · ff0ce9e
+- 2026-10-19 18:21 · 6.4 · review · lancée (Opus) · ff0ce9e
+- 2026-10-19 18:27 · 7.4 · dev · fini (scénarios D-17/D-18, `POST /api/bench/runs`, `format_verdict`, `structured_output`, écran et liste des essais ; 18 E2E ; version non posée) · ffddd32
+- 2026-10-19 18:27 · 7.4 · second-avis · lancé (Haiku) · —
+- 2026-10-19 18:31 · 5.6 · dev · fini (`GET /api/models/card/{tag}`, `models/bench_results.py` réutilisable par 5.7 et 5.8, « Références indisponibles » sans résultats réels, bouton « Fiche du modèle » à côté des sélecteurs, hook `update` du routeur ; 18 E2E) · 8113003
+- 2026-10-19 18:31 · 5.6 · second-avis · lancé (Haiku) · —
+- 2026-10-19 18:32 · 7.4 · second-avis · 1 medium (conflits avec master : faux, master fusionné sans conflit) ; 4 low (insécable, message après clôture, délai formé au front, `enum` sans valeurs) · —
+- 2026-10-19 18:32 · 7.4 · fusion master · sans conflit · —
+- 2026-10-19 18:32 · 7.4 · review · lancée (Opus) · —
+- 2026-10-19 18:37 · 7.3 · contrôles · 264 E2E ciblés, 1 vrai échec (test de la Base qui attendait l'onglet Évaluation désactivé : mis à jour), black corrigé, 15 integration ; master fusionné · 183bc47
+- 2026-10-19 18:37 · 7.3 · PR · #99 ouverte · —
+- 2026-10-19 18:37 · 6.4 · review · 0 high/medium ; 4 low corrigés (validation répondue non redemandée, Envoyer bloqué sans outils, lien du même site seulement, texte du 409), 2 rejetés ; complexité de la trace corrigée ; un fichier vide laissé par l'agent dans le dépôt principal supprimé · c5ca237
+- 2026-10-19 18:37 · 5.6 · second-avis · 3 medium (bouton Fiche non relu après un changement programmatique, débit arrondi à l'unité, `/api/ps` lu avant de répondre pour un modèle du catalogue) ; 4 low · —
+- 2026-10-19 18:37 · 5.6 · fusion 5.5 et master · conflit `web/app.py` (pull, reranker_pull, evaluation) · f095fea
+- 2026-10-19 18:37 · 5.6 · review · lancée (Opus) · f095fea
+- 2026-10-19 18:37 · 6.6 · dev · lancé (Sonnet high, worktree `v2-6-6` sur la 6.4 revue ; fusion de la 6.5 en cours, 4 conflits confiés à l'agent en étape 1) · c5ca237
+- 2026-10-19 18:39 · 7.4 · review · 0 high ; 4 low corrigés (texte autour d'un bloc JSON dit en clair, `enum` avec ses valeurs, NaN/Infinity refusés, exemples du contrat) ; 4 écartés (délai : le front met en forme `detail.timeout_s` du serveur, 8.1) · da45907
+- 2026-10-19 18:39 · 7.4 · fusion 7.3 finale · sans conflit · —
+- 2026-10-19 18:39 · 7.4 · contrôles · lancés · —
+- 2026-10-19 18:59 · run · décision · Anaël accepte les leviers CI à faible risque (v1 seulement si touchée, PR d'état sans tests, annulation du run précédent d'une PR) ; matrice réduite et PR par pile non retenues · —
+- 2026-10-19 18:59 · CI · PR · #100 ouverte (job « Fichiers touchés ») ; `merge_queue.sh` et `queue2.sh` ignorent les jobs sautés · —
+- 2026-10-19 19:00 · correctif · fusion · PR #97 fusionnée (budget de la coquille) · b105f54
+- 2026-10-19 19:00 · 5.2 · fusion · PR #94 fusionnée (job E2E relancé) · ef1c5ff
+- 2026-10-19 19:00 · 5.3 · fusion master · conflit `web/app.py` (pull + evaluation de la 7.1) ; poussé sur #89 · 69f0324
