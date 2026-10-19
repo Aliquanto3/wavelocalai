@@ -1,7 +1,8 @@
 """Reranker local (story 4.7) : règles de reclassement, chargement hors ligne, état et repli.
 
 Aucun modèle n'est présent, aucun téléchargement n'est tenté : `fastembed` est remplacé par un faux
-module, et une garde coupe toute connexion réseau.
+module, et une garde coupe toute connexion réseau ; seul
+`test_the_real_fastembed_never_reaches_the_network_...` passe par le vrai fastembed, s'il est installé.
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ import ast
 import asyncio
 import socket
 import sys
+import threading
 import types
 from pathlib import Path
 
@@ -133,6 +135,43 @@ def test_a_value_error_at_load_is_an_unavailable_reranker_with_its_reason(
     assert MODEL in reason and "Could not load model" in reason and "suite" not in reason
 
 
+def test_the_real_fastembed_never_reaches_the_network_with_an_empty_or_partial_cache(
+    monkeypatch, tmp_path
+):
+    """Le chemin réel de fastembed (extra `rerank`) : cache vide, puis dossier du modèle présent mais
+    incomplet. Aucune connexion hors de la machine (le bouclage local d'asyncio reste permis) ;
+    l'échec est une indisponibilité avec sa raison. Saute sans l'extra (CI, `uv sync` par défaut).
+    """
+    pytest.importorskip("fastembed")
+    attempts = []
+    connect, getaddrinfo = socket.socket.connect, socket.getaddrinfo
+    local = ("127.0.0.1", "::1", "localhost")
+
+    def guarded_connect(sock, address, *args):
+        if isinstance(address, tuple) and address[0] in local:
+            return connect(sock, address, *args)
+        attempts.append(address)
+        raise OSError("réseau coupé par le test")
+
+    def guarded_getaddrinfo(host, *args, **kwargs):
+        if host in local:
+            return getaddrinfo(host, *args, **kwargs)
+        attempts.append(host)
+        raise OSError("réseau coupé par le test")
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
+    cache = tmp_path / "cache"
+    with pytest.raises(RerankerUnavailableError, match="n'a pas pu être chargé"):
+        load_fastembed(MODEL, cache)
+    snapshot = cache / "models--jinaai--jina-reranker-v2-base-multilingual" / "snapshots" / "abc"
+    snapshot.mkdir(parents=True)
+    (snapshot / "config.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(RerankerUnavailableError, match="n'a pas pu être chargé"):
+        load_fastembed(MODEL, cache)
+    assert attempts == []
+
+
 def test_a_missing_extra_is_an_unavailable_reranker(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "fastembed", None)  # `import` lève ImportError
     monkeypatch.setitem(sys.modules, "fastembed.rerank.cross_encoder", None)
@@ -216,6 +255,35 @@ async def test_a_load_failure_is_kept_and_never_retried(monkeypatch, tmp_path):
     status = svc.status()
     assert status.available is False
     assert status.reason == "chargement impossible (fichier ONNX illisible)"
+
+
+async def test_a_question_cancelled_during_the_first_load_does_not_start_a_second_one(
+    monkeypatch, tmp_path
+):
+    # Revue 4.7 : le chargement (~1 Go) est partagé ; l'annulation de la question qui l'a lancé
+    # ne l'interrompt pas, et la question suivante l'attend au lieu d'en lancer un second.
+    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
+    monkeypatch.setattr(rerank, "_model_in_cache", lambda model, cache: True)
+    loads = []
+    release = threading.Event()
+
+    def loader(*args):
+        loads.append(args)
+        release.wait(5)
+        return FakeReranker("reverse")
+
+    svc = service(tmp_path, loader=loader)
+    first = asyncio.create_task(svc.score("q", ["a", "b"]))
+    while not loads:
+        await asyncio.sleep(0.01)
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    second = asyncio.create_task(svc.score("q", ["a", "b"]))
+    await asyncio.sleep(0.05)
+    release.set()
+    assert await second == [0.0, 1.0]
+    assert len(loads) == 1
 
 
 async def test_a_scoring_failure_or_a_wrong_count_gives_none_without_losing_the_reranker():
