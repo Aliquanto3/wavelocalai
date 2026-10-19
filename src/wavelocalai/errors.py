@@ -422,6 +422,11 @@ PULL_CAUSES = {
         "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le "
         "téléchargement déjà fait est repris. La liste des modèles est inchangée.",
     ),
+    "reranker_failed": (
+        "Le reranker {tag} n'a pas pu être installé.",
+        "Vérifiez la connexion au réseau et l'espace disque, puis relancez l'installation. La "
+        "recherche reste sans reclassement en attendant.",
+    ),
     "interrupted": (
         "L'installation de {tag} a été interrompue avant la fin.",
         "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. Si elle échoue "

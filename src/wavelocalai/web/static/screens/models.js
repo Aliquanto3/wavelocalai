@@ -4,9 +4,9 @@
 // Story 5.3 : la barre « Installer un modèle par son nom », « Sur ce poste » et le « Catalogue
 // installable ». Story 5.4 : « Décharger les modèles inactifs », « Supprimer » (dialogue de
 // confirmation) et « Modèles proposés par défaut ». Les suivantes ajoutent chacune leur section :
-// le reranker (5.5), la fiche d'un modèle (5.6). Un fichier par bloc : `models-installed.js`,
-// `models-catalog.js`, `models-pull.js`, `models-unload.js`, `models-delete.js`,
-// `models-defaults.js`.
+// la fiche d'un modèle (5.6). Story 5.5 : « Reclassement des extraits », l'installation du reranker
+// local (même run `pull`). Un fichier par bloc : `models-installed.js`, `models-catalog.js`,
+// `models-pull.js`, `models-unload.js`, `models-delete.js`, `models-defaults.js`, `models-rerank.js`.
 //
 // - Aucun appel d'API avant le repère `shell-ready` (AD-15) ; la page se construit avant.
 // - Le front ne calcule rien (AD-20) : `fits`, la mémoire nécessaire et celle qui manque viennent
@@ -27,6 +27,7 @@ import { createDefaults } from "./models-defaults.js";
 import { createDeleter } from "./models-delete.js";
 import { createInstalled } from "./models-installed.js";
 import { createPull } from "./models-pull.js";
+import { createRerank } from "./models-rerank.js";
 import { createUnload } from "./models-unload.js";
 
 const baseTag = (tag) => tag.replace(/:latest$/, "");
@@ -81,6 +82,7 @@ export function mount(host) {
   let installedModels = [];
   let ollamaUp = true;
   let catalog = null; // créé après `pull` (le tableau lit l'installation en cours)
+  let rerank = null; // idem : la section du reranker lit l'installation en cours
 
   const defaults = createDefaults({ say, allowCloud: () => store.get().allowCloud });
   const unload = createUnload({ say, onProblem: setProblem, nameOf });
@@ -120,6 +122,13 @@ export function mount(host) {
     ollamaUp: () => ollamaUp,
     onInstall: (tag) => install(tag),
   });
+  rerank = createRerank({
+    pull,
+    onInstall: (model) => {
+      problem.error = null;
+      pull.start(model, { reranker: true });
+    },
+  });
 
   // Pourquoi « Installer » est désactivé : une installation en cours, ou Ollama muet.
   function blockedReason() {
@@ -128,17 +137,20 @@ export function mount(host) {
   }
 
   function onChange() {
-    if (catalog === null) return; // le flux système peut rejoindre une installation dès la création
+    // Le flux système peut rejoindre une installation dès la création.
+    if (catalog === null || rerank === null) return;
     catalog.render();
+    rerank.render();
     const tag = pull.activeTag;
     if (pull.busy) inCatalogWhileBusy = tag !== null && catalog.find(tag) !== null;
-    // Hors du catalogue (nom saisi), la progression, l'échec ou « Installé » sont sous la barre.
+    // Hors du catalogue (nom saisi), la progression, l'échec ou « Installé » sont sous la barre ; ceux du
+    // reranker sont dans sa section.
     const parts = [];
     if (pull.busy) {
-      if (!inCatalogWhileBusy) parts.push(pull.progress.el);
-    } else if (pull.failedTag !== null && !catalog.find(pull.failedTag)) {
+      if (!inCatalogWhileBusy && !pull.activeReranker) parts.push(pull.progress.el);
+    } else if (pull.failedTag !== null && !pull.failedReranker && !catalog.find(pull.failedTag)) {
       parts.push(pull.failureNode);
-    } else if (pull.doneTag !== null && !inCatalogWhileBusy) {
+    } else if (pull.doneTag !== null && !pull.doneReranker && !inCatalogWhileBusy) {
       parts.push(pull.doneNode);
     }
     panel.replaceChildren(...parts);
@@ -193,6 +205,18 @@ export function mount(host) {
     return reading;
   }
 
+  // L'état du reranker vient des réglages de la base documentaire ; son échec ne casse pas les listes.
+  let rerankReads = 0;
+  async function readRerank() {
+    const mine = ++rerankReads; // la dernière lecture lancée gagne
+    try {
+      const value = (await api.ragSettings()).reranker ?? null;
+      if (mine === rerankReads) rerank.setSettings(value);
+    } catch {
+      if (mine === rerankReads) rerank.setUnknown();
+    }
+  }
+
   async function read() {
     await shellReady(); // AD-15 : rien de `/api/` avant que la coquille soit rendue
     try {
@@ -209,6 +233,7 @@ export function mount(host) {
       installed.setModels(installedModels);
       catalog.setData(installable);
       await defaults.load(list.models);
+      readRerank(); // hors de la lecture des listes : sa lenteur ne les retient pas
     } catch (failure) {
       problem.error =
         failure instanceof ApiError && failure.envelope
@@ -264,6 +289,7 @@ export function mount(host) {
     loading,
     installed.el,
     defaults.el,
+    rerank.el,
     catalog.el,
     deleter.el,
   );

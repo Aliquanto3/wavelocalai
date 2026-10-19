@@ -5,7 +5,8 @@ Ollama n'a pas d'API de reranking : le reranker est un modèle ONNX que fastembe
 `local_files_only=True`, depuis le `cache_dir` du dossier de données (`<données>/models/fastembed`).
 Extra absent, modèle absent du cache ou `ValueError` au chargement : la recherche se fait sans
 reclassement, et `RerankerService.status()` dit pourquoi (« Reclassement indisponible : <raison> »).
-Remplir le cache est une action explicite hors de l'app (README) jusqu'à l'écran Modèles (Epic 5).
+Remplir le cache est une action explicite : le bouton « Installer le reranker » de l'écran Modèles
+(run `pull`, `rag/rerank_pull.py`, story 5.5), seul téléchargement du reranker.
 
 Copié puis adapté de `src/core/rag/models_factory.py` de la v1 (un `CrossEncoder` de
 sentence-transformers, chargé hors ligne d'abord puis, en repli, depuis le Hub : la v2 n'a pas ce
@@ -56,6 +57,7 @@ class RerankerStatus:
     model: str
     available: bool
     reason: str | None  # présent quand `available` est faux
+    extra_installed: bool = True  # l'extra « rerank » est là : le modèle peut être installé
 
 
 class _Fastembed:
@@ -132,6 +134,9 @@ class RerankerService:
         self._reranker: Reranker | None = None
         self._failure: str | None = None
         self._loading: asyncio.Task[None] | None = None  # le chargement unique, partagé
+        self.extra_override: bool | None = (
+            None  # tests seulement : l'extra « rerank » présent ou non
+        )
 
     def preset(self, reranker: Reranker | None = None, reason: str | None = None) -> None:
         """Tests seulement : un reranker déjà chargé, ou une indisponibilité fixée par `reason`."""
@@ -144,16 +149,28 @@ class RerankerService:
         return self._reranker
 
     def status(self) -> RerankerStatus:
+        extra = _extra_installed() if self.extra_override is None else self.extra_override
         if self._reranker is not None:
-            return RerankerStatus(self.model, True, None)
+            return RerankerStatus(self.model, True, None, extra)
         if self._failure is not None:
-            return RerankerStatus(self.model, False, self._failure)
-        if not _extra_installed():
-            return RerankerStatus(self.model, False, missing_extra_reason())
+            return RerankerStatus(self.model, False, self._failure, extra)
+        if not extra:
+            return RerankerStatus(self.model, False, missing_extra_reason(), False)
         if not _model_in_cache(self.model, self.cache):
             reason = f"le modèle {self.model} n'est pas dans le dossier de cache {self.cache}"
-            return RerankerStatus(self.model, False, reason)
-        return RerankerStatus(self.model, True, None)
+            return RerankerStatus(self.model, False, reason, True)
+        return RerankerStatus(self.model, True, None, True)
+
+    def use_loader(self, loader: Loader) -> None:
+        """Tests seulement : un autre chargeur (un faux reranker au lieu de fastembed)."""
+        self._loader = loader
+
+    def refresh(self) -> None:
+        """Oublie un chargement échoué ou en cours : après l'installation du modèle, l'état se relit du
+        cache et la recherche suivante le charge, sans redémarrage (story 5.5)."""
+        self._reranker = None
+        self._failure = None
+        self._loading = None
 
     async def _load(self) -> Reranker | None:
         """Le reranker, chargé au premier appel. Le chargement est une tâche unique, partagée et

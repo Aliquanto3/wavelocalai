@@ -14,6 +14,7 @@ from wavelocalai.inference.unload import unload_idle_models
 from wavelocalai.models.defaults import ModelDefault, Purpose
 from wavelocalai.models.ollama_ps import loaded_models
 from wavelocalai.models.registry import InstallableList, ModelList
+from wavelocalai.rag.rerank_pull import RerankerPullService
 from wavelocalai.runs.system_bus import STATE_EVENT
 
 router = APIRouter(prefix="/api")
@@ -135,6 +136,20 @@ async def pull_model(body: PullBody, request: Request) -> PullStarted:
     if service is None:  # hors du cycle de vie de l'app
         raise AppError("internal", "Le service d'installation n'est pas démarré.")
     handle = await service.start(body.tag)
+    return PullStarted(run_id=handle.run_id)
+
+
+@router.post("/models/reranker/pull")
+async def pull_reranker(request: Request) -> PullStarted:
+    """Installe le reranker local (modèle fastembed dans le `cache_dir` du dossier de données) : run
+    racine `pull`, `{run_id}` aussitôt (story 5.5, AD-17). Le même `pull_progress` que pour un modèle
+    d'Ollama, avec `reranker: true`. `409 run_busy` si une installation tourne (modèle ou reranker),
+    `422 invalid_request` si l'extra « rerank » manque (rien n'est tenté) ou si le modèle est déjà là.
+    Déclarée avant `DELETE /models/{tag}` sans conflit : méthodes différentes."""
+    service: RerankerPullService | None = request.app.state.reranker_pull
+    if service is None:  # hors du cycle de vie de l'app
+        raise AppError("internal", "Le service d'installation n'est pas démarré.")
+    handle = await service.start()
     return PullStarted(run_id=handle.run_id)
 
 

@@ -151,7 +151,8 @@ def test_each_cause_has_its_own_message_and_action_and_the_tag_in_the_detail(cau
         "cause": cause,
     }
     assert "granite4.1:8b" in envelope["message"] and "{" not in envelope["message"]
-    assert "La liste des modèles est inchangée." in envelope["action"]
+    if cause != "reranker_failed":  # le reranker n'est pas dans la liste des modèles d'Ollama
+        assert "La liste des modèles est inchangée." in envelope["action"]
     assert envelope["message"] != pull_failed_envelope("granite4.1:8b", "autre")["message"]
 
 
