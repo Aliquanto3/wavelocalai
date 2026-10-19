@@ -1,0 +1,1031 @@
+// Agent seul, `#/agents/seul` (UX-DR28, stories 6.1 à 6.4) : écran à l'état livré.
+//
+// - Réglages : `wl-model-picker` sur le défaut `agent` (avec sa raison), neuf outils à cocher (« Envoi
+//   d'email » décoché ; un outil indisponible n'est pas cochable et garde sa raison en aide).
+// - Fil : accueil « Bonjour ! L'agent est prêt. » et actions rapides, puis `wl-chat-thread` pour la
+//   réponse finale, qui arrive en flux avec son pied (CO₂, débit, durées) complété de « N étapes » et de
+//   « Télécharger ».
+// - Panneau « Étapes » : chronomètre, ligne d'état (« Réflexion… », « Appel de l'outil … »,
+//   « En attente de votre validation »), puis la trace (liste ordonnée d'étapes dépliables).
+// - Validation d'email (D2) : `approval_required` ouvre `ctx.states.confirmEmail` ; la décision est
+//   publiée par `approval_resolved`, puis le run reprend (rien ne part sans « Envoyer l'email »).
+// - Masqué (on change d'écran), l'écran détache son flux ; au retour il reprend après le dernier `seq`.
+//
+// Ce module exporte aussi les pièces que partage l'écran Équipe d'agents : trace d'étapes, ligne d'état,
+// icônes (voir « Pièces communes »). Elles vivent ici parce que la
+// maquette ne permet pas d'ajouter de composant commun (voir notes/agent-seul.md).
+
+import { closeDialog } from "../components/states.js";
+import { createStepTrace } from "../components/step-trace.js";
+import { element, icon } from "../core/dom.js";
+import { errorEnvelope } from "../core/errors.js";
+import { formatDuration } from "../core/format.js";
+import { loadScreenTexts, plural, t } from "../core/i18n.js";
+import { setMaquette, store } from "../core/store.js";
+import { findModel, modelDefaults } from "../sim/modeles.js";
+import { sim } from "../sim/sim.js";
+import { setOllamaDown } from "../sim/systeme.js";
+
+// =============================================================================================
+// Pièces communes (réutilisées par equipe-agents.js)
+// =============================================================================================
+
+const speedOf = () => store.get().maquette.speed || 1;
+
+let textsPromise = null;
+// Les textes de la trace sont dans i18n/screens/agent-seul.fr.json, aussi pour l'écran Équipe.
+export function loadAgentTexts() {
+  textsPromise ??= loadScreenTexts("agent-seul");
+  return textsPromise;
+}
+
+export function waitUntil(condition, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const started = performance.now();
+    const check = () => {
+      if (condition()) return resolve();
+      if (performance.now() - started > timeoutMs) return reject(new Error("Scénario : état jamais atteint"));
+      setTimeout(check, 30);
+    };
+    check();
+  });
+}
+
+export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms / speedOf()));
+
+// Événements d'un script prêts à jouer : `sim.prepare` (pause de décision : `{pause: true}` puis
+// `run.resume(…)`, voir js/sim/sim.js).
+export const prepareEvents = (events, vars = {}) => sim.prepare(events, vars);
+
+// --- Dialogue de validation ------------------------------------------------------------------------
+export function dialogElement() {
+  return document.querySelector("#main > wl-confirm-dialog dialog[open]");
+}
+
+export const closeApprovalDialog = closeDialog;
+
+// Clique « Envoyer l'email » (true) ou « Annuler » (false) dans le dialogue ouvert (scénarios).
+export function decideInDialog(approve) {
+  const dialog = dialogElement();
+  if (!dialog) return false;
+  const buttons = dialog.querySelectorAll(".wl-dialog-actions .btn");
+  (approve ? buttons[1] : buttons[0])?.click();
+  return true;
+}
+
+// --- Fichiers produits par les outils ------------------------------------------------------------------
+// Le vrai front lit `GET /api/outputs/{name}` ; la maquette fabrique un petit fichier fictif.
+export function openOutput(name) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120"><title>${name.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)}</title><rect x="20" y="60" width="24" height="40" fill="#451DC7"/><rect x="60" y="45" width="24" height="55" fill="#451DC7"/><rect x="100" y="35" width="24" height="65" fill="#451DC7"/><rect x="140" y="20" width="24" height="80" fill="#451DC7"/></svg>`;
+  const blob = new Blob([name.endsWith(".svg") ? svg : "Fichier fictif de la maquette.\n"], {
+    type: name.endsWith(".svg") ? "image/svg+xml" : "text/plain",
+  });
+  const link = element("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+// --- Ligne d'état d'un run d'agent --------------------------------------------------------------------
+// `wl-run-status` piloté (« Réflexion… », « Appel de l'outil … », « En attente de votre validation »,
+// préfixe d'agent pour l'équipe) derrière la petite interface qu'utilisent les deux écrans d'agents.
+
+export function createAgentStatus({ stoppable = false, onStop = () => {} } = {}) {
+  const root = document.createElement("wl-run-status");
+  root.setAttribute("driven", "");
+  if (stoppable) root.onStop = onStop;
+  else root.setAttribute("no-stop", "");
+  root.hidden = true;
+  return {
+    root,
+    get running() {
+      return root.running;
+    },
+    get stage() {
+      return root.stage;
+    },
+    start: (ts) => root.begin(ts),
+    set: (next, vars = {}) => root.setStage(next, vars),
+    stopping: () => root.markStopping(),
+    end: (finalStatus) => root.finish(finalStatus),
+    reset: () => root.reset(),
+    dispose() {},
+  };
+}
+
+// =============================================================================================
+// Écran Agent seul
+// =============================================================================================
+
+let counter = 0;
+let view = null; // l'instance montée, pour les scénarios
+
+export async function mount(host, ctx) {
+  const uid = `agent-${++counter}`;
+  const data = await ctx.data("agent-seul.json");
+  let disposed = false;
+
+  // --- État des outils -------------------------------------------------------------------------------
+  const toolsState = structuredClone(data.tools).map((tool) => ({ ...tool, checked: tool.default_checked }));
+  const toolLabel = (id) => toolsState.find((tool) => tool.id === id)?.label ?? id;
+
+  // --- Structure -------------------------------------------------------------------------------------
+  const guard = ctx.states.ollamaGuard();
+  const picker = document.createElement("wl-model-picker");
+  picker.setAttribute("purpose", "agent");
+  const modelWarning = element("p", "help agent-model-warning");
+  modelWarning.hidden = true;
+  const settings = element("div", "agent-settings");
+  settings.append(picker, modelWarning);
+
+  const toolsGroup = element("fieldset", "agent-tools");
+  toolsGroup.append(element("legend", "", t("agent.tools.legend")), element("p", "help", t("agent.tools.intro")));
+  const toolList = element("ul", "agent-tool-list");
+  toolsGroup.append(toolList);
+
+  const hello = ctx.states.emptyState({ title: t("agent.hello.title"), text: t("agent.hello.text"), level: 2 });
+  hello.classList.add("agent-hello");
+  const quickTitle = element("h3", "agent-quick-title", t("agent.hello.quick"));
+  const quickList = element("ul", "agent-quick");
+  for (const action of data.quick_actions) {
+    const item = element("li");
+    const button = element("button", "btn agent-quick-button");
+    button.type = "button";
+    button.dataset.action = action.id;
+    button.append(element("span", "agent-quick-label", action.label), element("span", "help", action.description));
+    button.addEventListener("click", () => {
+      input.value = action.prompt;
+      input.focus();
+      if (action.needs_tool && !toolsState.find((tool) => tool.id === action.needs_tool)?.checked) {
+        say(t("agent.hello.tool_off", { tool: toolLabel(action.needs_tool) }));
+      }
+    });
+    item.append(button);
+    quickList.append(item);
+  }
+  hello.append(quickTitle, quickList);
+
+  const thread = document.createElement("wl-chat-thread");
+  const firstLoad = element("p", "help agent-first-load", t("agent.first_load"));
+  firstLoad.hidden = true;
+  const notices = element("div", "agent-notices");
+  const error = document.createElement("wl-error");
+  error.setAttribute("alert", "");
+  const conversation = element("div", "agent-conversation");
+  conversation.append(hello, thread, firstLoad, notices, error);
+
+  const stepsTitle = element("h2", "agent-steps-title", t("agent.steps.title"));
+  const status = createAgentStatus();
+  const trace = createStepTrace({ label: t("agent.steps.label"), toolLabel, openFile: openOutput });
+  const stepsEmpty = element("p", "help agent-steps-empty", t("agent.steps.empty"));
+  const approvalNote = element("p", "help agent-approval-note", t("states.email.expiry", { minutes: data.approval_expiry_min }));
+  approvalNote.hidden = true;
+  const steps = element("section", "agent-steps");
+  steps.setAttribute("aria-labelledby", `${uid}-steps-title`);
+  stepsTitle.id = `${uid}-steps-title`;
+  steps.append(stepsTitle, status.root, approvalNote, stepsEmpty, trace.root);
+
+  const input = element("textarea", "agent-input");
+  input.id = `${uid}-task`;
+  input.rows = 3;
+  input.setAttribute("aria-describedby", `${uid}-keys`);
+  const inputLabel = element("label", "agent-input-label", t("agent.task"));
+  inputLabel.htmlFor = input.id;
+  const keys = element("p", "help", t("agent.keys"));
+  keys.id = `${uid}-keys`;
+  const send = element("button", "btn btn-primary", t("agent.send"));
+  send.type = "submit";
+  const stopButton = element("button", "btn", t("agent.stop"));
+  stopButton.type = "button";
+  stopButton.setAttribute("aria-keyshortcuts", "Escape");
+  const clear = element("button", "btn", t("agent.clear"));
+  clear.type = "button";
+  const actions = element("div", "agent-actions");
+  actions.append(send, stopButton, clear);
+  const reason = element("p", "help agent-reason");
+  reason.id = `${uid}-reason`;
+  send.setAttribute("aria-describedby", reason.id);
+  const composer = element("form", "agent-composer");
+  composer.append(inputLabel, input, keys, actions, reason);
+
+  const layout = element("div", "agent-layout");
+  conversation.classList.add("agent-area-thread");
+  steps.classList.add("agent-area-steps");
+  composer.classList.add("agent-area-composer");
+  layout.append(conversation, steps, composer);
+
+  host.replaceChildren(
+    element("h1", "", ctx.route.title),
+    ctx.tabs(),
+    element("p", "lead", t("agent.lead")),
+    guard,
+    settings,
+    toolsGroup,
+    layout,
+  );
+
+  // --- Outils --------------------------------------------------------------------------------------
+  function renderTools() {
+    toolList.replaceChildren(
+      ...toolsState.map((tool) => {
+        const id = `${uid}-tool-${tool.id}`;
+        const item = element("li", "agent-tool");
+        item.dataset.available = String(tool.available);
+        const box = element("input", "wl-switch-input");
+        box.type = "checkbox";
+        box.setAttribute("role", "switch");
+        box.id = id;
+        box.checked = tool.checked && tool.available;
+        box.setAttribute("aria-describedby", `${id}-help`);
+        if (!tool.available) box.setAttribute("aria-disabled", "true");
+        box.addEventListener("click", (event) => {
+          if (!tool.available) event.preventDefault(); // non cochable, mais focalisable
+        });
+        box.addEventListener("change", () => {
+          tool.checked = box.checked;
+        });
+        const label = element("label", "agent-tool-name", tool.label);
+        label.htmlFor = id;
+        const head = element("div", "agent-tool-head");
+        head.append(box, label);
+        const help = element("p", "help agent-tool-help");
+        help.id = `${id}-help`;
+        help.append(document.createTextNode(tool.description));
+        if (tool.sensitive) help.append(document.createTextNode(` ${t("agent.tools.sensitive")}`));
+        item.append(head, help);
+        if (!tool.available) {
+          const why = element("p", "agent-tool-reason", tool.reason);
+          why.id = `${id}-reason`;
+          box.setAttribute("aria-describedby", `${id}-help ${why.id}`);
+          item.append(why);
+        }
+        return item;
+      }),
+    );
+  }
+  renderTools();
+
+  const selectedTools = () => toolsState.filter((tool) => tool.checked && tool.available).map((tool) => tool.id);
+  const emailOn = () => selectedTools().includes("envoi_email");
+
+  // --- État du run -----------------------------------------------------------------------------------
+  let run = null;
+  let attachment = null;
+  let lastSeq = 0;
+  let answer = null;
+  let current = null; // { tag, name, origin, text, vars, metrics }
+  let lastMessage = "";
+  let approvalOpen = false;
+  let expiring = false;
+  let stopping = false;
+  const transcript = [];
+  const loaded = new Set();
+  let wasHidden = host.hidden;
+  const running = () => run !== null;
+
+  function say(text, tone = "info") {
+    notices.replaceChildren(ctx.states.notice(text, { tone }));
+  }
+
+  function render() {
+    const busy = running();
+    const noModel = !picker.selected;
+    send.disabled = busy || noModel;
+    stopButton.hidden = !busy;
+    stopButton.disabled = stopping;
+    clear.hidden = thread.empty;
+    clear.disabled = busy;
+    hello.hidden = !thread.empty;
+    reason.textContent = busy ? t("agent.busy_reason") : noModel ? t("agent.no_model") : "";
+    reason.hidden = !reason.textContent;
+    stepsEmpty.hidden = trace.count > 0 || status.running;
+    const model = picker.selected;
+    const warn = Boolean(model && model.tools_verified === false);
+    modelWarning.hidden = !warn;
+    if (warn) modelWarning.textContent = t("agent.model_warning");
+  }
+
+  function ensureAnswer() {
+    if (!answer) answer = thread.beginAnswer({ name: current.name, origin: current.origin, compact: true });
+    return answer;
+  }
+
+  function resultText(decision) {
+    return data.results[decision] ?? "";
+  }
+
+  // --- Étapes et validation --------------------------------------------------------------------------
+  function onStep(step) {
+    trace.apply(step);
+    const open = step.duration_s === null || step.duration_s === undefined;
+    if (open) {
+      if (step.kind === "think") status.set("thinking");
+      else if (step.kind === "tool_call") status.set("tool", { tool: toolLabel(step.tool) });
+      else if (step.kind === "answer") status.set("generating");
+    }
+    render();
+  }
+
+  async function onApproval(approval) {
+    const thisRun = run;
+    if (!thisRun) return;
+    trace.waitOnLast();
+    status.set("waiting");
+    approvalNote.hidden = false;
+    ctx.announce(t("components.run_status.waiting"));
+    approvalOpen = true;
+    let approved = false;
+    try {
+      approved = await ctx.states.confirmEmail({ to: approval.to, subject: approval.subject, body: approval.body });
+    } finally {
+      approvalOpen = false;
+      approvalNote.hidden = true;
+    }
+    if (disposed || thisRun !== run || thisRun.ended) return; // le run s'est terminé pendant l'attente : rien n'est envoyé
+    const decision = expiring ? "expired" : approved ? "approved" : "rejected";
+    expiring = false;
+    const script = await ctx.data("flux/agent-seul-email-suite.json");
+    if (disposed || thisRun !== run || thisRun.ended) return;
+    const answers = { approved: "email_envoye", rejected: "email_refuse", expired: "email_expire" };
+    const vars = {
+      ...current.vars,
+      decision,
+      result_text: resultText(decision),
+      approval_s: { approved: 6.4, rejected: 4.8, expired: 600 }[decision],
+      reflection:
+        decision === "approved"
+          ? "L'email est parti. Je le confirme à l'utilisateur."
+          : "Rien n'est parti. Je l'annonce à l'utilisateur.",
+      answer: data.answers[answers[decision]],
+    };
+    thisRun.resume(sim.prepare(script.events, vars));
+  }
+
+  function finish(finalStatus, payload = {}) {
+    closeApprovalDialog();
+    approvalNote.hidden = true;
+    const bubble = ensureAnswer();
+    bubble.end({ status: finalStatus });
+    if (finalStatus === "ok") addFootExtras(bubble);
+    trace.finish(finalStatus);
+    status.end(finalStatus);
+    firstLoad.hidden = true;
+    if (payload.error) error.error = payload.error;
+    transcript.push({ role: "assistant", name: current.name, origin: current.origin, text: current.text, status: finalStatus });
+    attachment?.close();
+    run = null;
+    attachment = null;
+    answer = null;
+    stopping = false;
+    render();
+  }
+
+  function markdownOf() {
+    const lines = transcript.map((message) =>
+      message.role === "user" ? `**Vous** : ${message.text}` : `**${message.name}** (${message.origin}) : ${message.text}`,
+    );
+    const stepLines = trace.entries().map((row) => `${row.n}. ${row.node.label.textContent} : ${row.node.state.textContent}`);
+    return `# Tâche confiée à l'agent\n\n${lines.join("\n\n")}\n\n## Étapes\n\n${stepLines.join("\n")}\n`;
+  }
+
+  function addFootExtras(bubble) {
+    const metric = document.createElement("wl-metric");
+    metric.setAttribute("label", t("agent.foot.steps"));
+    metric.setAttribute("value", plural("agent.steps_count", trace.count));
+    const download = element("button", "btn agent-download", t("agent.download"));
+    download.type = "button";
+    download.addEventListener("click", () => {
+      const blob = new Blob([markdownOf()], { type: "text/markdown" });
+      const link = element("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "tache-agent.md";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+    // Pied réduit (décision 31) : badge (en tête de la réponse), CO₂, étapes, durée ; puis Télécharger.
+    const duration = bubble.foot.querySelector("wl-metric:last-of-type");
+    if (duration && duration !== bubble.foot.firstElementChild) bubble.foot.insertBefore(metric, duration);
+    else bubble.foot.append(metric);
+    bubble.foot.append(download);
+  }
+
+  // --- Flux ------------------------------------------------------------------------------------------
+  const handlers = {
+    "*": (_data, envelope) => {
+      lastSeq = envelope.seq;
+    },
+    run_started: (_data, envelope) => {
+      status.start(envelope.ts);
+      render();
+    },
+    model_loading: () => {
+      firstLoad.hidden = false;
+      status.set("loading");
+    },
+    model_loaded: (payload) => {
+      firstLoad.hidden = true;
+      loaded.add(payload.tag);
+      status.set("thinking");
+    },
+    step: (payload) => onStep(payload),
+    token: (payload) => {
+      const bubble = ensureAnswer();
+      bubble.token(payload?.text, payload?.channel);
+      if (payload?.channel !== "thought") current.text += payload.text;
+      status.set("generating");
+    },
+    approval_required: (payload) => {
+      onApproval(payload).catch((failure) => console.error(failure));
+    },
+    approval_resolved: (payload) => {
+      ctx.announce(resultText(payload.decision));
+      if (run && !run.ended) status.set("thinking");
+    },
+    retry: (payload) => {
+      ensureAnswer().retry(payload?.reason);
+      current.text = "";
+    },
+    metrics: (payload) => {
+      ensureAnswer().metrics(payload);
+      current.metrics = payload;
+    },
+    run_ended: (payload) => finish(payload?.status ?? "error", payload ?? {}),
+  };
+
+  function follow(simRun, { after = 0 } = {}) {
+    run = simRun;
+    lastSeq = after;
+    attachment = simRun.attach(handlers, { after });
+    render();
+  }
+
+  // --- Actions ---------------------------------------------------------------------------------------
+  function pickScript(message) {
+    if (/e-?mail|courriel/i.test(message)) {
+      return emailOn() ? { script: "agent-seul-email", answer: "analyse" } : { script: "agent-seul-analyse", answer: "sans_email" };
+    }
+    if (/poste|processeur|m[ée]moire/i.test(message)) return { script: "agent-seul-poste", answer: "poste" };
+    if (/marge|devis|calcul/i.test(message)) return { script: "agent-seul-devis", answer: "devis" };
+    return { script: "agent-seul-analyse", answer: "analyse" };
+  }
+
+  function varsFor(model, message, answerKey) {
+    const metrics = { lane: model.tag, ...(data.metrics[model.tag] ?? data.metrics.default_local) };
+    return {
+      tag: model.tag,
+      tools: selectedTools(),
+      loading: model.origin === "local" && !loaded.has(model.tag),
+      load_s: metrics.load_s,
+      tps: metrics.tps,
+      metrics,
+      answer: data.answers[answerKey] ?? "",
+      prompt: message,
+      email_to: data.email.to,
+      email_subject: data.email.subject,
+      email_body: data.email.body,
+    };
+  }
+
+  // `options` : { script, answer, errorCode, errorAfter, errorDetail } choisis par un scénario.
+  async function submit(options = {}) {
+    if (running()) return null;
+    const message = input.value;
+    if (!message.trim()) {
+      input.focus();
+      return null;
+    }
+    error.error = null;
+    notices.replaceChildren();
+    const model = picker.selected;
+    if (!model) {
+      error.error = errorEnvelope("no_model", { detail: { purpose: "agent" } });
+      return null;
+    }
+    // Ce que `POST /api/agents/runs` refuserait avant de créer le run.
+    let refused = sim.precheck({ origin: model.origin, kind: "agent", model });
+    if (refused?.code === "run_busy") {
+      const other = sim.get(refused.detail.run_id);
+      if (other.options.vars?.mode === "crew") {
+        const link = element("a", "btn", t("agent.busy_crew_link"));
+        link.href = "#/agents/equipe";
+        notices.replaceChildren(ctx.states.notice(t("agent.busy_crew"), { tone: "warning" }), link);
+        return null;
+      }
+      const joined = (await findModel(other.options.vars?.tag)) ?? model;
+      current = { tag: joined.tag, name: joined.name, origin: joined.origin, text: "", vars: other.options.vars ?? {} };
+      trace.clear();
+      thread.addUserMessage(other.options.vars?.prompt ?? "");
+      say(t("agent.joined"));
+      follow(other);
+      return run;
+    }
+    if (refused?.code === "ram_guard") {
+      refused = errorEnvelope("ram_guard", {
+        detail: {
+          technical: "hardware.fits : besoin estimé 5,2 Go (poids 4,7 Go + contexte 0,5 Go), libre 2,8 Go",
+          needed_gb: 5.2,
+          free_gb: 2.8,
+          suggested_model: "qwen3.5:2b",
+        },
+      });
+    }
+    if (refused) {
+      error.error = refused; // la tâche reste dans le champ
+      return null;
+    }
+    lastMessage = message;
+    thread.addUserMessage(message);
+    transcript.push({ role: "user", text: message });
+    input.value = "";
+    const picked = options.script ? { script: options.script, answer: options.answer ?? "analyse" } : pickScript(message);
+    const vars = varsFor(model, message, picked.answer);
+    current = { tag: model.tag, name: model.name, origin: model.origin, text: "", vars };
+    trace.clear();
+    const simRun = sim.play(picked.script, null, {
+      vars: { ...vars, mode: "solo" },
+      kind: "agent",
+      origin: model.origin,
+      module: "agent",
+      error: options.errorCode ?? undefined,
+      errorAfter: options.errorAfter,
+      errorDetail: model.provider_name ? { provider: model.provider, provider_name: model.provider_name } : undefined,
+    });
+    follow(simRun);
+    return simRun;
+  }
+
+  function requestStop() {
+    if (!running() || stopping) return;
+    stopping = true;
+    status.stopping();
+    render();
+    sim.cancel(run.id);
+  }
+
+  function clearConversation() {
+    if (running()) return;
+    thread.clear();
+    transcript.length = 0;
+    trace.clear();
+    status.reset();
+    error.error = null;
+    say(t("agent.cleared"), "success");
+    render();
+    input.focus();
+  }
+
+  composer.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submit();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      submit();
+    }
+  });
+  stopButton.addEventListener("click", requestStop);
+  clear.addEventListener("click", clearConversation);
+  picker.addEventListener("wl-model-change", render);
+  const onKeydown = (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented && running() && !host.hidden) {
+      event.preventDefault();
+      requestStop();
+    }
+  };
+  document.addEventListener("keydown", onKeydown);
+
+  // Boutons d'action des erreurs (AD-18 : tirés du code et de `detail`).
+  error.addEventListener("wl-error-action", async (event) => {
+    const id = event.detail.id;
+    if (id === "retry") {
+      error.error = null;
+      if (!input.value) input.value = lastMessage;
+      submit();
+    } else if (id === "allow_cloud") {
+      store.set({ allowCloud: true });
+      error.error = null;
+    } else if (id === "use_local" || id === "choose_other") {
+      const defaults = await modelDefaults("agent", false).catch(() => ({ tags: [] }));
+      if (defaults.tags[0]) picker.value = defaults.tags[0];
+      error.error = null;
+    } else if (id === "smaller") {
+      const suggested = error.error?.detail?.suggested_model;
+      const model = suggested ? await findModel(suggested) : null;
+      if (model) picker.value = model.tag;
+      setMaquette({ ramGuard: false });
+      error.error = null;
+      say(t("agent.smaller", { name: model?.name ?? suggested ?? "" }), "success");
+    } else if (id === "unload") {
+      setMaquette({ ramGuard: false });
+      error.error = null;
+      say(t("agent.unloaded"), "success");
+    }
+    render();
+  });
+
+  // --- Écran masqué puis revu (reprise par `?after=<seq>`) -------------------------------------------
+  const visibility = new MutationObserver(() => {
+    if (host.hidden === wasHidden) return;
+    wasHidden = host.hidden;
+    if (wasHidden) {
+      thread.suspend();
+      attachment?.close();
+      attachment = null;
+    } else {
+      thread.resume();
+      if (running()) attachment = run.attach(handlers, { after: lastSeq });
+    }
+  });
+  visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
+
+  view = {
+    host,
+    picker,
+    input,
+    thread,
+    trace,
+    status,
+    submit,
+    get run() {
+      return run;
+    },
+    get answerText() {
+      return current?.text ?? "";
+    },
+    get approvalOpen() {
+      return approvalOpen;
+    },
+    get steps() {
+      return trace.count;
+    },
+    whenPickerReady: () => waitUntil(() => picker.selected !== null || picker.querySelector("wl-error:not([hidden])"), 5000),
+    stop: requestStop,
+    refresh: render,
+    setTool(id, checked) {
+      const tool = toolsState.find((candidate) => candidate.id === id);
+      if (tool && tool.available) tool.checked = checked;
+      renderTools();
+    },
+    // SMTP absent : « Envoi d'email » indisponible, décoché, avec sa raison.
+    setSmtp(present) {
+      const tool = toolsState.find((candidate) => candidate.id === "envoi_email");
+      tool.available = present;
+      tool.reason = present ? null : data.smtp_reason;
+      if (!present) tool.checked = false;
+      renderTools();
+    },
+    // Aucune réponse en 10 min : le dialogue se ferme et l'envoi est refusé (`expired`).
+    expireApproval() {
+      expiring = true;
+      closeApprovalDialog();
+    },
+  };
+
+  render();
+  return () => {
+    disposed = true;
+    view = null;
+    visibility.disconnect();
+    document.removeEventListener("keydown", onKeydown);
+    guard.dispose?.();
+    closeApprovalDialog();
+    attachment?.close();
+    status.dispose();
+  };
+}
+
+// =============================================================================================
+// Scénarios
+// =============================================================================================
+
+// Repart de l'état d'ouverture, attend le sélecteur, puis applique `setup` (états globaux).
+async function fresh(ctx, setup = () => {}) {
+  await ctx.reset();
+  setup();
+  await waitUntil(() => view !== null);
+  await view.whenPickerReady();
+}
+
+async function choose(tag) {
+  await waitUntil(() => view.picker.knows(tag), 5000);
+  view.picker.value = tag;
+}
+
+async function ask(ctx, { model, prompt, ...options } = {}) {
+  if (model) await choose(model);
+  const data = await ctx.data("agent-seul.json");
+  view.input.value = prompt ?? data.quick_actions[0].prompt;
+  return view.submit(options);
+}
+
+const untilDone = (simRun) => simRun?.done ?? Promise.resolve();
+const untilSteps = (count) => waitUntil(() => view.steps >= count);
+
+async function emailRun(ctx, options = {}) {
+  const data = await ctx.data("agent-seul.json");
+  view.setTool("envoi_email", true);
+  return ask(ctx, { prompt: data.prompts.email, ...options });
+}
+
+export const scenarios = [
+  {
+    id: "vide",
+    label: "Accueil de l'agent : « Bonjour ! », actions rapides, outils",
+    run: (ctx) => fresh(ctx),
+  },
+  {
+    id: "outil-indisponible",
+    label: "Envoi d'email indisponible (SMTP absent) : pastille non cochable avec sa raison",
+    async run(ctx) {
+      await fresh(ctx);
+      view.setSmtp(false);
+    },
+  },
+  {
+    id: "aucun-modele",
+    label: "Aucun modèle avec défaut : « Choisissez un modèle avec outils vérifiés », lancement désactivé",
+    run: (ctx) => fresh(ctx, () => setMaquette({ noLocalModel: true })),
+  },
+  {
+    id: "modele-sans-outils",
+    label: "Modèle sans outils vérifiés : avertissement",
+    async run(ctx) {
+      await fresh(ctx);
+      await choose("gemma4:1b");
+      await waitUntil(() => !view.host.querySelector(".agent-model-warning").hidden);
+    },
+  },
+  {
+    id: "etapes-en-cours",
+    label: "Le panneau « Étapes » se remplit pendant la tâche",
+    async run(ctx) {
+      await fresh(ctx);
+      await ask(ctx);
+      await untilSteps(3);
+    },
+  },
+  {
+    id: "tache-terminee",
+    label: "Tâche terminée : quatre étapes, réponse, CO₂ mesuré, Télécharger",
+    async run(ctx) {
+      await fresh(ctx);
+      await untilDone(await ask(ctx));
+    },
+  },
+  {
+    id: "etape-depliee",
+    label: "Une étape dépliée : arguments, résultat, « Ouvrir le fichier »",
+    async run(ctx) {
+      await fresh(ctx);
+      await untilDone(await ask(ctx));
+      view.trace.expand("s3");
+    },
+  },
+  {
+    id: "erreur-outil",
+    label: "Un outil échoue : « Résultat : erreur », l'agent poursuit",
+    async run(ctx) {
+      await fresh(ctx);
+      const data = await ctx.data("agent-seul.json");
+      await untilDone(await ask(ctx, { prompt: data.prompts.erreur_outil, script: "agent-seul-erreur-outil", answer: "erreur_outil" }));
+      view.trace.expand("s2");
+    },
+  },
+  {
+    id: "bornes-atteintes",
+    label: "Borne de tours : « Arrêt : nombre d'étapes maximal atteint (12) »",
+    async run(ctx) {
+      await fresh(ctx);
+      const data = await ctx.data("agent-seul.json");
+      await untilDone(await ask(ctx, { prompt: data.prompts.bornes, script: "agent-seul-bornes", answer: "bornes" }));
+    },
+  },
+  {
+    id: "validation-email",
+    label: "« Rien ne part sans moi » : dialogue de validation de l'email",
+    async run(ctx) {
+      await fresh(ctx);
+      await emailRun(ctx);
+      await waitUntil(() => view.approvalOpen);
+    },
+  },
+  {
+    id: "email-envoye",
+    label: "Email approuvé : « Email envoyé. » dans la trace, l'agent conclut",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await emailRun(ctx);
+      await waitUntil(() => view.approvalOpen);
+      decideInDialog(true);
+      await untilDone(simRun);
+      view.trace.expand("s4");
+    },
+  },
+  {
+    id: "email-annule",
+    label: "Email refusé : « Envoi annulé : l'agent en est informé. »",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await emailRun(ctx);
+      await waitUntil(() => view.approvalOpen);
+      decideInDialog(false);
+      await untilDone(simRun);
+      view.trace.expand("s4");
+    },
+  },
+  {
+    id: "validation-expiree",
+    label: "Sans réponse en 10 min : « Validation expirée : email non envoyé. »",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await emailRun(ctx);
+      await waitUntil(() => view.approvalOpen);
+      view.expireApproval();
+      await untilDone(simRun);
+    },
+  },
+  {
+    id: "email-non-coche",
+    label: "Demande d'email avec l'outil décoché : l'agent le dit et ne prépare rien",
+    async run(ctx) {
+      await fresh(ctx);
+      const data = await ctx.data("agent-seul.json");
+      await untilDone(await ask(ctx, { prompt: data.prompts.email }));
+    },
+  },
+  {
+    id: "arret",
+    label: "Arrêter pendant la tâche : étapes et partiel gardés, « Arrêté »",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await ask(ctx);
+      await untilSteps(3);
+      view.stop();
+      await untilDone(simRun);
+    },
+  },
+  {
+    id: "premier-chargement-lent",
+    label: "Premier chargement lent du modèle (8 à 26 s)",
+    async run(ctx) {
+      await fresh(ctx, () => setMaquette({ slowLoad: true }));
+      await ask(ctx);
+      await waitUntil(() => view.status.stage === "loading");
+    },
+  },
+  {
+    id: "reponse-cloud-estimee",
+    label: "Modèle cloud : CO₂ « estimé »",
+    async run(ctx) {
+      await fresh(ctx, () => ctx.store.set({ allowCloud: true }));
+      await untilDone(await ask(ctx, { model: "gpt-5-mini" }));
+    },
+  },
+  {
+    id: "reponse-cloud-non-mesurable",
+    label: "Modèle cloud : CO₂ « non mesurable » avec sa raison",
+    async run(ctx) {
+      await fresh(ctx, () => ctx.store.set({ allowCloud: true }));
+      await untilDone(await ask(ctx, { model: "claude-haiku-4-5" }));
+    },
+  },
+  {
+    id: "rejoint-409",
+    label: "Une tâche tourne déjà (autre onglet) : 409 rejoint, étapes rejouées",
+    async run(ctx) {
+      await fresh(ctx);
+      const data = await ctx.data("agent-seul.json");
+      const model = await findModel("qwen3.6:7b");
+      const metrics = { lane: model.tag, ...data.metrics[model.tag] };
+      sim.play("agent-seul-poste", null, {
+        kind: "agent",
+        module: "agent",
+        vars: { tag: model.tag, tools: [], loading: false, load_s: null, tps: 18, metrics, answer: data.answers.poste, prompt: "Donne-moi l'état du poste.", mode: "solo" },
+      });
+      await pause(400);
+      await ask(ctx);
+      await untilSteps(2);
+    },
+  },
+  {
+    id: "reprise-au-retour",
+    label: "Aller sur l'Accueil pendant la tâche, puis revenir : reprise sans perte",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await ask(ctx);
+      await untilSteps(2);
+      await ctx.navigate("/");
+      await pause(1500);
+      await ctx.navigate("/agents/seul");
+      await untilDone(simRun);
+    },
+  },
+  {
+    id: "connexion-perdue",
+    label: "Connexion perdue pendant la tâche, puis reprise sans doublon",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await ask(ctx);
+      await untilSteps(2);
+      simRun.cut(4000);
+      await pause(1500);
+      await untilDone(simRun);
+      await waitUntil(() => ctx.store.get().connection.status === "open");
+    },
+  },
+  {
+    id: "serveur-redemarre",
+    label: "Le serveur redémarre pendant la tâche : « Interrompu »",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await ask(ctx);
+      await untilSteps(2);
+      sim.restartServer();
+      await untilDone(simRun);
+    },
+  },
+  {
+    id: "serveur-redemarre-en-attente",
+    label: "Le serveur redémarre pendant la validation : « Interrompu », l'email n'est jamais envoyé",
+    async run(ctx) {
+      await fresh(ctx);
+      const simRun = await emailRun(ctx);
+      await waitUntil(() => view.approvalOpen);
+      sim.restartServer();
+      await untilDone(simRun);
+    },
+  },
+  {
+    id: "erreur-interrompue",
+    label: "Erreur « interrupted » : Ollama arrête la génération, la trace est gardée",
+    async run(ctx) {
+      await fresh(ctx);
+      await untilDone(await ask(ctx, { errorCode: "interrupted", errorAfter: 6 }));
+    },
+  },
+  {
+    id: "erreur-delai",
+    label: "Erreur « timeout » : délai dépassé",
+    async run(ctx) {
+      await fresh(ctx);
+      await untilDone(await ask(ctx, { errorCode: "timeout", errorAfter: 5 }));
+    },
+  },
+  {
+    id: "erreur-ollama-arrete",
+    label: "Ollama arrêté : bandeau et erreur à l'envoi",
+    async run(ctx) {
+      await fresh(ctx, () => setOllamaDown(true));
+      await ask(ctx, { model: "qwen3.6:7b" });
+    },
+  },
+  {
+    id: "erreur-cloud-injoignable",
+    label: "Fournisseur cloud injoignable",
+    async run(ctx) {
+      await fresh(ctx, () => ctx.store.set({ allowCloud: true }));
+      await untilDone(await ask(ctx, { model: "claude-haiku-4-5", errorCode: "cloud_unreachable", errorAfter: 3 }));
+    },
+  },
+  {
+    id: "erreur-cle-absente",
+    label: "Clé d'API absente (Mistral)",
+    async run(ctx) {
+      await fresh(ctx, () => ctx.store.set({ allowCloud: true }));
+      await ask(ctx, { model: "mistral-small-latest" });
+    },
+  },
+  {
+    id: "cloud-non-autorise",
+    label: "Modèle cloud choisi, cloud désactivé : « Autoriser le cloud »",
+    async run(ctx) {
+      await fresh(ctx);
+      ctx.store.set({ allowCloud: true });
+      await choose("gpt-5-mini");
+      const data = await ctx.data("agent-seul.json");
+      view.input.value = data.quick_actions[0].prompt;
+      ctx.store.set({ allowCloud: false });
+      await view.submit();
+    },
+  },
+  {
+    id: "cloud-retire",
+    label: "Cloud désactivé pendant qu'un modèle cloud est choisi",
+    async run(ctx) {
+      await fresh(ctx, () => ctx.store.set({ allowCloud: true }));
+      await choose("gpt-5-mini");
+      ctx.store.set({ allowCloud: false });
+      await waitUntil(() => !view.picker.querySelector(".wl-picker-notice").hidden);
+    },
+  },
+  {
+    id: "garde-fou-memoire",
+    label: "Garde-fou mémoire : tâche gardée, deux issues",
+    async run(ctx) {
+      await fresh(ctx, () => setMaquette({ ramGuard: true }));
+      await ask(ctx, { model: "qwen3.6:7b" });
+    },
+  },
+];

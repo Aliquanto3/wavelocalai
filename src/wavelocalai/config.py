@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TOML = PROJECT_ROOT / "wavelocalai.toml"
@@ -83,6 +83,22 @@ class DelaySettings(_Section):
     approval_expiry_s: float = Field(600.0, gt=0)
 
 
+class RagSettings(_Section):
+    """Base documentaire : découpe, lots d'embedding et plafond d'un fichier (story 4.1)."""
+
+    chunk_size: int = Field(800, ge=100, le=8000)  # caractères par extrait
+    chunk_overlap: int = Field(100, ge=0)
+    embed_batch_size: int = Field(16, ge=1, le=256)  # extraits par lot, une feuille `embedding`
+    max_file_mb: int = Field(50, ge=1)
+    embedding_model: str | None = None  # défaut de la base ; sinon le premier installé
+
+    @model_validator(mode="after")
+    def _overlap_below_size(self) -> RagSettings:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap doit rester inférieur à chunk_size")
+        return self
+
+
 class Settings(BaseModel):
     """Réglages du serveur ; immuables une fois chargés."""
 
@@ -94,6 +110,7 @@ class Settings(BaseModel):
     carbon: CarbonSettings = CarbonSettings()
     cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
+    rag: RagSettings = RagSettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
     base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)

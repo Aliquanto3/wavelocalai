@@ -1,0 +1,95 @@
+/* Module Documents, parties communes (js/screens/documents-commun.js) : champs et tableaux. Le
+   panneau de sources et l'aide en bouton sont dans css/components.css. Jetons de tokens.css seulement. */
+
+/* Champs de formulaire communs aux écrans du module */
+.docs-field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.docs-select,
+.docs-number {
+  display: block;
+  width: 100%;
+  max-width: 24rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.docs-number {
+  max-width: 8rem;
+}
+
+.docs-input-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.docs-input {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  max-height: 14rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  resize: vertical;
+}
+
+.docs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+
+/* Tableaux (documents, résultats) : conteneur qui défile seul, jamais la page */
+.docs-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.docs-table th,
+.docs-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.docs-table thead th {
+  background: var(--color-surface-alt);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.docs-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.docs-table tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.docs-table .is-numeric {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+

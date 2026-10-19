@@ -8,10 +8,10 @@
 //   en gardant le dernier `seq` ; de retour, il rouvre par `?after=<seq>`, sans perte ni doublon.
 // - `409 run_busy` : le run actif est rejoint (rejoué depuis le début) s'il est une Arène.
 //   `#/arene/comparer/<run_id>` suit de même un run existant.
-// - Notation (story 3.3) : le panneau replié « Critères de notation » (`arena-judge.js`) envoie
-//   `judge` et `criteria` avec la commande ; l'événement `judge` dit le juge retenu et sa fiabilité,
-//   `judge_score` pose la note /100 (ou « Non évalué » et sa raison) dans la colonne et l'annonce
-//   poliment. Le classement est la story 3.4.
+// - Notation (story 3.3) : le panneau « Critères de notation » (`arena-judge.js`) envoie `judge` et
+//   `criteria` ; sans juge, Lancer est désactivé (« Choisissez un juge ») et le résumé dit le juge
+//   (`arena-summary.js`). L'événement `judge` dit sa fiabilité, `judge_score` pose la note /100 (ou
+//   « Non évalué » et sa raison) dans la colonne et l'annonce poliment. Classement : story 3.4.
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
 //   horizontal et en-têtes collants, et un mode focus par colonne.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
@@ -25,13 +25,13 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
-import { judgeInfo, judgePanel } from "./arena-judge.js";
-import { reasonText } from "../components/wl-arena-lane.js";
+import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { modelsRow, summaryView } from "./arena-summary.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
 const MAX_MODELS = 4;
-const SCENARIOS = ["popularize", "extract", "summarize", "translate"];
 const TERMINAL = new Set(["done", "timeout", "failed", "cancelled", "interrupted"]);
 const NARROW = "(max-width: 767px)";
 const TICK_MS = 250;
@@ -53,21 +53,7 @@ export function mount(host, params = {}) {
   questionLabel.htmlFor = question.id;
   question.value = loadDraft(DRAFT) || t("arena.scenario.popularize.prompt");
 
-  const scenarios = element("fieldset", "arena-scenarios");
-  scenarios.append(element("legend", "", t("arena.scenarios")));
-  const scenarioRow = element("div", "arena-scenario-row");
-  for (const id of SCENARIOS) {
-    const button = element("button", "btn", t(`arena.scenario.${id}.label`));
-    button.type = "button";
-    button.addEventListener("click", () => {
-      question.value = t(`arena.scenario.${id}.prompt`);
-      saveDraft(DRAFT, question.value);
-      render();
-      question.focus();
-    });
-    scenarioRow.append(button);
-  }
-  scenarios.append(scenarioRow, element("p", "help", t("arena.scenarios_help")));
+  const scenarios = scenarioFieldset(question, DRAFT, () => render());
 
   const picker = document.createElement("wl-model-picker");
   picker.setAttribute("purpose", "arena");
@@ -86,6 +72,11 @@ export function mount(host, params = {}) {
   const form = element("form", "arena-form");
   form.append(questionLabel, question, scenarios, picker, execution, judging.el, actions);
 
+  const noLocal = noLocalNotice();
+
+  // Pendant l'exécution, la configuration est remplacée par ce résumé (D-16), jusqu'à `run_ended`.
+  const summary = summaryView(uid);
+
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
   notice.hidden = true;
@@ -94,6 +85,7 @@ export function mount(host, params = {}) {
 
   // --- Bandeau, question posée, colonnes -----------------------------------------------
   const bannerText = element("p", "arena-banner-text");
+  bannerText.tabIndex = -1; // reçoit le focus quand Arrêter ou le résumé se retire à la fin
   const stop = element("button", "btn arena-stop", t("components.run_status.stop"));
   stop.type = "button";
   stop.setAttribute("aria-keyshortcuts", "Escape");
@@ -118,17 +110,15 @@ export function mount(host, params = {}) {
   live.setAttribute("role", "status");
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
-  // Les notes arrivent l'une après l'autre : chacune est ajoutée (annonce polie), aucune n'écrase l'autre.
-  const scoreLive = element("div", "sr-only");
-  scoreLive.setAttribute("role", "status");
-  scoreLive.setAttribute("aria-live", "polite");
-  scoreLive.setAttribute("aria-atomic", "false");
+  const scoreLive = scoreAnnouncer();
 
   host.replaceChildren(
     element("h1", "", t("screens.arena-compare")),
     screenTabs("arena", "arena-compare"),
     element("p", "lead", t("arena.lead")),
+    noLocal.el,
     form,
+    summary.el,
     notice,
     error,
     banner,
@@ -137,7 +127,7 @@ export function mount(host, params = {}) {
     tabs,
     lanesEl,
     live,
-    scoreLive,
+    scoreLive.el,
   );
 
   // --- État ------------------------------------------------------------------------------
@@ -151,9 +141,12 @@ export function mount(host, params = {}) {
   let ticker = null;
   let finalState = null; // ok | cancelled | error | interrupted une fois le run terminé
   let stopping = false;
+  let stopHadFocus = false; // Arrêter avait le focus avant d'être désactivé (il le perd alors)
   let wasHidden = host.hidden;
+  let askedText = ""; // la question du run suivi (événement `question`), pour le résumé
   let askedCriteria = []; // les critères de la question (vide : ceux du serveur)
   let judgeFlags = { single_judge: false, unreliable: false }; // fiabilité des notes (`judge`)
+  let runJudge = null; // le juge du run suivi : { name, origin }, ou { none: true } (résumé)
   const narrow = window.matchMedia(NARROW);
 
   const running = () => runId !== null;
@@ -169,13 +162,59 @@ export function mount(host, params = {}) {
     });
   }
 
+  // Aucun modèle local prêt (Ollama arrêté compris : les modèles connus sont listés indisponibles).
+  const noLocalReady = () => picker.localReadyCount === 0;
+  const availableChoices = () =>
+    picker.values.filter((tag) => picker.modelFor(tag)?.available !== false).length;
+
+  // Prérequis du lancement, la première raison l'emporte.
+  const launchChecks = [
+    () => (running() || pending ? t("arena.busy") : ""),
+    () =>
+      noLocalReady() && !store.get().allowCloud && availableChoices() < MIN_MODELS
+        ? t("arena.no_local_reason")
+        : "",
+    () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
+    () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
+    () => (question.value.trim() ? "" : t("arena.need_question")),
+  ];
+
   function launchReason() {
-    if (running() || pending) return t("arena.busy");
-    const n = picker.values.length;
-    if (n < MIN_MODELS) return t("arena.need_models");
-    if (n > MAX_MODELS) return t("arena.too_many");
-    if (!question.value.trim()) return t("arena.need_question");
+    for (const check of launchChecks) {
+      const why = check();
+      if (why) return why;
+    }
     return "";
+  }
+
+  // Les lignes du résumé affiché pendant l'exécution : question, modèles, juge (D-16).
+  const summaryRows = [
+    () => [t("arena.summary.question"), askedText],
+    () => modelsRow(lanes),
+  ];
+
+  // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16). Le focus suit
+  // la partie qui se retire : titre du résumé, ou bandeau (à défaut la question) au retour.
+  function renderMode() {
+    const showSummary = running();
+    const leaving = showSummary ? form : summary.el;
+    const lost = !leaving.hidden && leaving.contains(document.activeElement);
+    form.hidden = showSummary;
+    summary.el.hidden = !showSummary;
+    asked.hidden = showSummary || askedText === "";
+    info.hold(showSummary);
+    if (showSummary) summary.render(summaryRows);
+    if (lost) focusAfter(showSummary ? summary.title : null);
+  }
+
+  const focusAfter = (target) => (target ?? (banner.hidden ? question : bannerText)).focus();
+
+  // Ollama arrêté garde le message du sélecteur ; pendant un run, le résumé a la place.
+  function renderNoLocal() {
+    const missing = noLocalReady() && picker.ollamaUp && !running();
+    noLocal.el.hidden = !missing;
+    const cloud = store.get().allowCloud ? "on" : "off";
+    if (missing) noLocal.text.textContent = t(`arena.no_local_cloud_${cloud}`);
   }
 
   function render() {
@@ -183,6 +222,8 @@ export function mount(host, params = {}) {
     launch.disabled = why !== "";
     reason.textContent = why;
     reason.hidden = why === "";
+    renderNoLocal();
+    renderMode();
   }
 
   function elapsed() {
@@ -217,11 +258,19 @@ export function mount(host, params = {}) {
     lanesEl.hidden = true;
     delete lanesEl.dataset.focus;
     asked.hidden = true;
+    askedText = "";
     activeTab = null;
     askedCriteria = [];
     judgeFlags = { single_judge: false, unreliable: false };
+    runJudge = null;
     info.clear();
-    scoreLive.replaceChildren();
+    scoreLive.clear();
+  }
+
+  function setAsked(text) {
+    askedText = text;
+    asked.replaceChildren(element("strong", "", `${t("arena.asked")}\u00a0: `), text);
+    renderMode();
   }
 
   function tabLabel(tag) {
@@ -242,7 +291,7 @@ export function mount(host, params = {}) {
     tab.setAttribute("aria-controls", el.id);
     tab.addEventListener("click", () => selectTab(tag, true));
     tab.addEventListener("keydown", (event) => onTabKey(event, tag));
-    lanes.set(tag, { el, tab, name: fiche?.name ?? tag });
+    lanes.set(tag, { el, tab, name: fiche?.name ?? tag, origin: fiche?.origin ?? "unknown" });
     lanesEl.append(el);
     tabs.append(tab);
   }
@@ -320,6 +369,7 @@ export function mount(host, params = {}) {
   const laneOf = (data) => lanes.get(data?.lane)?.el ?? null;
 
   function finish(state) {
+    const stopFocused = stopHadFocus || stop === document.activeElement; // Arrêter va se masquer
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
@@ -329,6 +379,7 @@ export function mount(host, params = {}) {
     stopTicker();
     renderBanner();
     render();
+    if (stopFocused) focusAfter(null);
     const { done, total } = count();
     announce(t(`arena.announce.${state}`, { done, total }));
   }
@@ -352,10 +403,10 @@ export function mount(host, params = {}) {
       startMs = Number.isNaN(started) ? Date.now() : Math.min(started, Date.now());
       startTicker();
       renderBanner();
+      renderMode();
     },
     question: (data) => {
-      asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), data?.text ?? "");
-      asked.hidden = false;
+      setAsked(data?.text ?? "");
       askedCriteria = Array.isArray(data?.criteria) ? data.criteria : [];
     },
     judge: (data) => {
@@ -364,22 +415,15 @@ export function mount(host, params = {}) {
       const name = data?.model
         ? (judging.picker.modelFor(data.model)?.name ?? picker.modelFor(data.model)?.name ?? data.model)
         : "";
+      runJudge = data?.model ? { name, origin: data.origin } : { none: true };
       info.show(data, { name, criteria: askedCriteria });
+      renderMode();
     },
     judge_score: (data) => {
       const entry = lanes.get(data?.lane);
       if (!entry) return;
       entry.el.setScore(data);
-      const { score, reason } = entry.el.score;
-      const line =
-        score === null
-          ? t("arena.announce.not_evaluated", { name: entry.name, reason: reasonText(reason).toLocaleLowerCase("fr-FR") })
-          : t(judgeFlags.unreliable ? "arena.announce.score_unreliable" : "arena.announce.score", {
-              name: entry.name,
-              score,
-            });
-      scoreLive.append(element("p", "", line));
-      while (scoreLive.children.length > MAX_MODELS) scoreLive.firstElementChild.remove();
+      scoreLive.add(entry.name, entry.el.score, judgeFlags.unreliable);
     },
     lane_status: (data) => {
       const el = laneOf(data);
@@ -428,6 +472,7 @@ export function mount(host, params = {}) {
     endMs = null;
     finalState = null;
     stopping = false;
+    stopHadFocus = false;
     if (!host.hidden) openStream(id); // masqué : le flux s'ouvrira au retour (AD-6)
     render();
     renderBanner();
@@ -439,6 +484,7 @@ export function mount(host, params = {}) {
     const models = picker.values;
     notice.hidden = true;
     error.error = null;
+    const refocus = document.activeElement === launch; // désactivé pendant la requête, il le perd
     pending = true; // pas de second envoi (bouton ni Entrée) pendant la requête
     render();
     try {
@@ -453,8 +499,7 @@ export function mount(host, params = {}) {
       const started = await api.startArena(command);
       buildLanes(models);
       lanesEl.hidden = false;
-      asked.replaceChildren(element("strong", "", `${t("arena.asked")} : `), question.value);
-      asked.hidden = false;
+      setAsked(question.value);
       follow(started.run_id);
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
@@ -471,12 +516,15 @@ export function mount(host, params = {}) {
     } finally {
       pending = false;
       render();
+      if (running()) summary.title.focus(); // Lancer s'est retiré avec le formulaire
+      else if (refocus) launch.focus();
     }
   }
 
   async function cancel() {
     if (!running() || stopping) return;
     const id = runId;
+    stopHadFocus = stop === document.activeElement;
     stopping = true;
     stop.disabled = true;
     renderBanner();
@@ -485,6 +533,8 @@ export function mount(host, params = {}) {
     } catch (failure) {
       if (id !== runId) return;
       stopping = false;
+      const refocus = stopHadFocus;
+      stopHadFocus = false;
       error.error = {
         code: "internal",
         message:
@@ -493,6 +543,7 @@ export function mount(host, params = {}) {
             : t("components.run_status.cancel_failed"),
       };
       renderBanner();
+      if (refocus) stop.focus(); // de nouveau actif : il reprend le focus
     }
   }
 
@@ -513,6 +564,7 @@ export function mount(host, params = {}) {
     render();
   });
   picker.addEventListener("wl-model-change", render);
+  picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
   narrow.addEventListener("change", layout);
 
   // --- Écran masqué puis revu ------------------------------------------------------------

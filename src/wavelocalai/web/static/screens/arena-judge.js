@@ -9,9 +9,11 @@
 
 import { element, icon } from "../core/dom.js";
 import { t } from "../core/i18n.js";
+import { reasonText } from "../components/wl-arena-lane.js";
 
 export const MAX_CRITERIA = 8;
 export const MAX_CRITERION_CHARS = 64;
+const MAX_ANNOUNCED = 4; // une note par colonne au plus : les plus anciennes sortent
 const DEFAULT_KEYS = ["accuracy", "relevance", "clarity"];
 
 const defaultCriteria = () => DEFAULT_KEYS.map((key) => t(`arena.judge.defaults.${key}`));
@@ -153,6 +155,11 @@ export function judgePanel(uid) {
     el,
     picker,
     judge: () => picker.value,
+    // Le juge choisi : { name, origin }, ou `null` (le résumé le dit avant l'événement `judge`).
+    chosen() {
+      const fiche = picker.value ? picker.modelFor(picker.value) : null;
+      return picker.value ? { name: fiche?.name ?? picker.value, origin: fiche?.origin } : null;
+    },
     criteria: () => cleanCriteria(items),
   };
 }
@@ -161,6 +168,11 @@ export function judgePanel(uid) {
 export function judgeInfo() {
   const el = element("div", "arena-judge-info");
   el.hidden = true;
+  let shown = false;
+  let held = false; // le résumé de la comparaison en cours dit déjà le juge (D-16)
+  const sync = () => {
+    el.hidden = held || !shown;
+  };
 
   function alertLine(iconName, text) {
     const line = element("p", "arena-judge-alert");
@@ -172,8 +184,14 @@ export function judgeInfo() {
   return {
     el,
     clear() {
-      el.hidden = true;
+      shown = false;
+      sync();
       el.replaceChildren();
+    },
+    // Masqué tant que le résumé est affiché, revu à la fin du run.
+    hold(on) {
+      held = on;
+      sync();
     },
     // `data` : l'événement `judge` ; `name` : le nom du juge ; `criteria` : ceux de la question.
     show(data, { name, criteria }) {
@@ -193,7 +211,33 @@ export function judgeInfo() {
         if (data.unreliable) parts.push(alertLine("warning", t("arena.judge.unreliable_alert")));
       }
       el.replaceChildren(...parts);
-      el.hidden = false;
+      shown = true;
+      sync();
+    },
+  };
+}
+
+// Les notes arrivent l'une après l'autre : chacune est ajoutée à une zone d'annonce polie
+// (`aria-atomic=false`), aucune n'écrase l'autre.
+export function scoreAnnouncer() {
+  const el = element("div", "sr-only");
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  el.setAttribute("aria-atomic", "false");
+  return {
+    el,
+    clear: () => el.replaceChildren(),
+    // `result` : { score, reason } de la colonne ; `unreliable` : la note vient d'un petit juge.
+    add(name, { score, reason }, unreliable) {
+      const line =
+        score === null
+          ? t("arena.announce.not_evaluated", {
+              name,
+              reason: reasonText(reason).toLocaleLowerCase("fr-FR"),
+            })
+          : t(unreliable ? "arena.announce.score_unreliable" : "arena.announce.score", { name, score });
+      el.append(element("p", "", line));
+      while (el.children.length > MAX_ANNOUNCED) el.firstElementChild.remove();
     },
   };
 }

@@ -1,0 +1,15 @@
+{
+  "id": "chat-libre-reponse",
+  "kind": "chat",
+  "label": "Réponse complète d'un modèle (local ou cloud), raisonnement facultatif",
+  "_doc": "vars : tag, temperature, loading (bool), load_s, thought, answer, tps, metrics (objet de l'événement metrics).",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "chat", "models": ["{{tag}}"], "params": { "temperature": "{{temperature}}" } } },
+    { "wait": 150, "when": "{{loading}}", "type": "model_loading", "data": { "tag": "{{tag}}" } },
+    { "wait": 3200, "slow_wait": 14000, "when": "{{loading}}", "type": "model_loaded", "data": { "tag": "{{tag}}", "duration_s": "{{load_s}}" } },
+    { "wait": 400, "tokens": { "lane": "{{tag}}", "channel": "thought", "text": "{{thought}}", "tps": "{{tps}}" } },
+    { "wait": 250, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{answer}}", "tps": "{{tps}}" } },
+    { "wait": 120, "type": "metrics", "data": "{{metrics}}" },
+    { "wait": 40, "type": "run_ended", "data": { "status": "ok", "error": null } }
+  ]
+}

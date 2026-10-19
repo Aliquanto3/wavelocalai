@@ -13,7 +13,13 @@ from wavelocalai.inference.arena import LANE_STATUSES
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
 CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
-NEW_SCRIPTS = ["screens/arena.js", "screens/arena-judge.js", "components/wl-arena-lane.js"]
+NEW_SCRIPTS = [
+    "screens/arena.js",
+    "screens/arena-form.js",
+    "screens/arena-judge.js",
+    "screens/arena-summary.js",
+    "components/wl-arena-lane.js",
+]
 
 
 def source(name: str) -> str:
@@ -34,8 +40,8 @@ def test_every_arena_text_the_scripts_name_exists_in_the_catalog():
 
 
 def test_the_dynamic_text_families_match_the_catalog():
-    screen = source("screens/arena.js")
-    scenarios = re.search(r"const SCENARIOS = \[(.*?)\];", screen, re.DOTALL)
+    form = source("screens/arena-form.js")
+    scenarios = re.search(r"const SCENARIOS = \[(.*?)\];", form, re.DOTALL)
     assert scenarios
     assert re.findall(r'"(\w+)"', scenarios.group(1)) == list(CATALOG["arena"]["scenario"])
     for scenario in CATALOG["arena"]["scenario"].values():
@@ -156,3 +162,39 @@ def test_the_screen_sends_judge_and_criteria_and_never_a_cloud_default_of_its_ow
     judge = source("screens/arena-judge.js")
     assert 'setAttribute("purpose", "judge")' in judge  # le défaut `judge` du serveur
     assert "aria-live" in screen  # les notes sont annoncées poliment
+
+
+def test_the_launch_legends_the_summary_and_the_no_local_alert_have_their_texts():
+    arena = CATALOG["arena"]
+    assert arena["need_models"] == "Choisissez au moins 2 modèles"
+    assert arena["too_many"] == "Choisissez 4 modèles au plus"
+    assert arena["need_question"] == "Saisissez une question"
+    assert {"title", "question", "models", "judge"} <= set(arena["summary"])
+    for key in ("no_local_reason", "no_local_cloud_off", "no_local_cloud_on"):
+        assert arena[key]
+    # Elle dit quoi faire : installer un modèle depuis Modèles, ou autoriser le cloud.
+    assert "écran Modèles" in arena["no_local_cloud_off"]
+    assert "Autoriser le cloud" in arena["no_local_cloud_off"].replace(" ", " ")
+    assert "écran Modèles" in arena["no_local_cloud_on"]
+
+
+def test_the_four_lines_fold_and_the_summary_are_styled_from_tokens_only():
+    css = source("arena.css")
+    fold = re.search(
+        r"@media \(min-width: 1440px\) \{\s*\.arena-lanes\[data-count=\"4\"\](.*?)\n\}",
+        css,
+        re.DOTALL,
+    )
+    assert fold and "4lh" in fold.group(0)
+    assert "[data-focus]" in fold.group(0)  # le mode focus lève le repli
+    assert ".is-expanded" in fold.group(0)  # « Afficher toute la réponse » aussi
+    assert ".arena-summary" in css
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)  # aucune couleur en dur
+    assert ".wl-notice" in source("components.css")
+
+
+def test_the_screen_swaps_the_form_for_a_summary_while_a_run_is_followed():
+    screen = source("screens/arena.js")
+    assert "const showSummary = running();" in screen and "form.hidden = showSummary" in screen
+    assert "wl-models-loaded" in screen and "localReadyCount" in screen
+    assert "wl-models-loaded" in source("components/wl-model-picker.js")

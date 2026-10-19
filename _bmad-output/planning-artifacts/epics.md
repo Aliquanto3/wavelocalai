@@ -9,8 +9,9 @@ inputDocuments:
   - docs/audits/refonte-2026-10/03-ux-front.md (§3 seul contractuel)
   - _bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/EXPERIENCE.md
+  - docs/maquette-v2/README.md (maquette validée, décisions D-1 à D-43 du 2026-10-18, reportées par sprint-change-proposal-2026-10-19.md)
 scope: 'MVP (étapes 1 à 4, CAP-1 à CAP-9) et après le MVP (étapes 5 à 8, CAP-10 à CAP-14) détaillés ; reports du MVP intégrés depuis reports-v2-inventaire.md'
-updated: '2026-10-18'
+updated: '2026-10-19'
 ---
 
 # wavelocalai v2 - Découpage en epics et stories
@@ -32,7 +33,7 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 - FR5 : `GET /api/system/identity` rend la fiche machine.
 - FR6 : La bascule cloud est désactivée à chaque chargement de page, conservée d'un écran à l'autre ; le serveur refuse tout modèle `origin != "local"` sans `allow_cloud` (`cloud_not_allowed`), `allow_cloud` absent valant faux (CAP-2, D1).
 - FR7 : Un badge Local / Cloud / Origine inconnue accompagne chaque modèle et chaque réponse, dérivé du fournisseur réel (CAP-2).
-- FR8 : `GET /api/models?allow_cloud=` rend la liste unifiée depuis le cache (`tag`, nom, fournisseur, `origin`, `kind`, paramètres totaux et actifs, taille, mémoire nécessaire, `fits`, débit mesuré, outils vérifiés, raisonnement, méthode CO₂) (CAP-3).
+- FR8 : `GET /api/models?allow_cloud=` rend la liste unifiée depuis le cache (`tag`, nom, fournisseur, `origin`, `kind`, paramètres totaux et actifs, taille, mémoire nécessaire, `fits`, débit mesuré, outils vérifiés, raisonnement, `default_temperature`, méthode CO₂) (CAP-3).
 - FR9 : `GET /api/models/defaults?purpose=chat|arena|judge|agent|rag` rend des tags et la raison de chaque défaut (CAP-3).
 - FR10 : Le `model-picker` groupe Local et Cloud (Cloud seulement si autorisé), se filtre au clavier, n'offre aucun modèle d'embedding ni reranker pour générer, affiche la pastille MoE (« MoE 3B actifs ») et la raison du défaut ; un modèle qui ne tient pas reste choisissable avec avertissement ; mode multi pour l'Arène (CAP-3).
 - FR11 : Toute génération est un run créé par `POST /api/<module>/runs` qui rend `{run_id}` (et `conversation_id`), suivi par `GET /api/runs/{id}/events`, annulable par `POST /api/runs/{id}/cancel`, avec instantané `GET /api/runs/{id}` (CAP-4).
@@ -57,7 +58,7 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 - FR24 : `POST /api/arena/runs {models, prompt, judge, criteria, allow_cloud}` lance un run composite (un enfant par modèle et par notation) ; 2 à 4 colonnes en flux, locaux en séquence (sémaphore), cloud en parallèle.
 - FR25 : Statuts de lane (`waiting`, `loading`, `generating`, `judging`, `done`, `timeout`, `failed`, `cancelled`) avec texte et icône ; un délai dépassé ou un échec n'arrête pas les autres lanes.
 - FR26 : Un juge note chaque réponse (/100) avec raison ; « non évalué » (avec raison) jamais 0 ; défaut juge = plus gros modèle local qui tient, alerte « note peu fiable » sous ~4B actifs.
-- FR27 : Classement construit au fil des résultats, matrice qualité/CO₂ (SVG, légende de taille) et vue tableau.
+- FR27 : Classement construit au fil des résultats, matrice qualité/CO₂ (SVG, légende de taille) affichée d'abord et vue tableau derrière « Voir le tableau » (D-14).
 - FR28 : Verdict local/cloud chiffré : écart de note, coût pour 1 000 requêtes (table de prix datée de `wavelocalai.toml`), CO₂, données restées sur le poste.
 - FR29 : Résultat conservé côté serveur, rouvrable par URL `#/arene/comparer/<run_id>`, liste `GET /api/arena/runs`, export CSV et Markdown avec preuve (fiche machine, version d'Ollama, digests, méthode CO₂, juge).
 - FR30 : Scénarios prédéfinis de question (Vulgarisation, Extraction JSON, Résumé, Traduction) et critères de notation repliés.
@@ -65,12 +66,12 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 **Étape 4 — Assistant documentaire (CAP-8, CAP-9)**
 
 - FR31 : Zone de dépôt visible sans aller-retour serveur (PDF, TXT, MD, DOCX) ; `POST /api/rag/documents` (multipart) crée un run `ingest` (CAP-8).
-- FR32 : Progression par fichier en deux temps (envoi navigateur, puis `ingest_progress` : `extract`, `split`, `embed`) ; annulation possible (CAP-8).
+- FR32 : Progression par fichier en deux temps (envoi navigateur, puis `ingest_progress` : `extract`, `split`, `embed`) ; annulation du lot par un seul « Annuler l'import » (D-25) (CAP-8).
 - FR33 : Un échec d'ingestion affiche sa raison par fichier et laisse le compteur inchangé ; succès = « N extraits ajoutés depuis M documents » (CAP-8).
-- FR34 : Liste des documents (`GET /api/rag/documents`, `status` `indexing`/`ready`/`failed`), suppression d'un document seul (CAP-8).
+- FR34 : Liste des documents (`GET /api/rag/documents`, `status` `indexing`/`ready`/`failed`, un document en échec listé avec sa raison, D-26), suppression d'un document seul après confirmation (D-24) (CAP-8).
 - FR35 : « Vider la base documentaire » ouvre `confirm-dialog` annonçant le nombre d'extraits et de documents ; « Annuler » ne supprime rien ; `DELETE /api/rag/base?expected_count=` (CAP-8).
 - FR36 : Réglages (`GET`/`PUT /api/rag/settings`) : modèle d'embedding (changer impose « Vider »), stratégie, nombre d'extraits, reranker, en volet replié.
-- FR37 : Discussion : `POST /api/rag/runs {conversation_id?, question, model, strategy, allow_cloud}` ; les sources (document, page, extrait entier, rang, libellé de pertinence, score brut en aide) arrivent avant la réponse (CAP-9).
+- FR37 : Discussion : `POST /api/rag/runs {conversation_id?, question, model, strategy, allow_cloud}` ; les sources (document, page, extrait entier, passage à surligner désigné par le serveur, rang, libellé de pertinence, score brut en aide) arrivent avant la réponse (CAP-9, D-21).
 - FR38 : Stratégies naïve, HyDE et Self-RAG disponibles, chacune avec ses étapes nommées (`retrieval_step`) (CAP-9).
 - FR39 : Citations [n] seulement si le back les fournit (`citations`) ; survol ou focus [n] ↔ source mise en évidence ; `GET /api/rag/chunks/{id}` ouvre l'extrait.
 - FR40 : Garde-fou mémoire : question gardée, besoin et mémoire libre chiffrés par `hardware/` (vrais avec un modèle déjà chargé), modèle plus petit proposé et « Décharger les modèles inactifs » (CAP-9).
@@ -79,11 +80,11 @@ Ce document découpe la spec `spec-wavelocalai-v2` (qui tient lieu de PRD), la s
 
 **Après le MVP (détaillé par les Epics 5 à 8)**
 
-- FR43 : Sobriété : métriques en direct sans clic arrêtées onglet masqué, historique carbone, bridage thermique (NVML), remise à zéro de session (CAP-10).
-- FR44 : Écran `#/modeles` : compatibilité mémoire avant installation, run `pull` chiffré, décharger, supprimer, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes » (CAP-10).
+- FR43 : Sobriété : métriques en direct sans clic arrêtées onglet masqué, historique carbone (sessions closes, D-37), bridage thermique (NVML), remise à zéro de session, équivalence parlante dans le panneau de méthode seulement (D-38) (CAP-10).
+- FR44 : Écran `#/modeles` : compatibilité mémoire avant installation (« Installer quand même » si le modèle ne tient pas, D-42), run `pull` chiffré, décharger, supprimer, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes » (CAP-10).
 - FR45 : Agent seul : étapes en direct dépliables, outils, email validé (D2), garde-fou mémoire ; Équipe séquentielle : schéma SVG, trace par agent, arrêt, rapport ; parité v1 (CAP-11).
-- FR46 : Évaluation : fidélité (verdict par affirmation) et pertinence au fil de l'eau, juge indisponible = « non évalué » ; Banc d'essai : validité du format, « format imposé », « réponse concise » (CAP-12).
-- FR47 : Références `#/arene/references` et carte d'Accueil depuis `qb.results/1` (CAP-13).
+- FR46 : Évaluation : fidélité (verdict par affirmation) et pertinence au fil de l'eau, juge indisponible = « non évalué », résultat partiel d'une évaluation arrêtée conservé (D-28) ; Banc d'essai : validité du format, « format imposé », « réponse concise », consigne du scénario dans un bloc replié (D-18) (CAP-12).
+- FR47 : Références `#/arene/references` (quatrième onglet de l'Arène) et carte d'Accueil depuis `qb.results/1`, scores en pourcentage « Part de … » (D-5), « Comparer ces modèles » vers l'Arène (D-19) (CAP-13).
 - FR48 : Bascule : axe-core partout, RGAA 4.1, 200 % et 320 px, projection réelle, parité page par page, v1 archivée, 2.0.0 publiée (CAP-14).
 
 ### NonFunctional Requirements
@@ -136,37 +137,37 @@ Issus de la spine d'architecture (AD-n) et de la pile technique. **Pas de starte
 ### UX Design Requirements
 
 - UX-DR1 : `static/tokens.css` miroir des jetons de `DESIGN.md` (couleurs clair/sombre dont `primary #451DC7` / `#7E65E9`, `surface`, `surface-alt`, `ink`, `ink-secondary`, `line`, `link`, `accent-green`, `risk`, `chart-1…4`, rayon 12 px, typographie `metric-value`, `heading`, `caption`, `body`) et un test de dérive qui les compare.
-- UX-DR2 : `base.css` : reset, pile Aptos (par `local()`) → Inter servie depuis `static/fonts/` avec licence → `sans-serif`, `:focus-visible` à 3:1, `prefers-reduced-motion`, mode projection (rampe typographique ×9/7, métriques agrandies, pied masqué) ; thème clair par défaut, sombre disponible.
-- UX-DR3 : sprite `icons.svg` (sous-ensemble Material Symbols), icône propre à chaque module, aucun emoji (test sur `static/`).
-- UX-DR4 : coquille `index.html` : `lang="fr"`, repères `header`/`nav`/`main`, lien d'évitement « Aller au contenu », routeur par `hash` (`#/`, `#/arene/chat`, `#/arene/comparer[/<run_id>]`, `#/arene/banc`, `#/documents`, `#/documents/base`, `#/documents/evaluation`, `#/agents/seul`, `#/agents/equipe`, `#/sobriete`, `#/modeles`), écran gardé en mémoire après la première visite, `document.title` « <Écran> · WaveLocalAI », focus sur le `h1` et annonce polie à chaque route, un `h1` par écran.
+- UX-DR2 : `base.css` : reset, pile Aptos (par `local()`) → Inter servie depuis `static/fonts/` avec licence → `sans-serif`, `:focus-visible` à 3:1, `prefers-reduced-motion`, mode projection (rampe typographique ×9/7, métriques agrandies, pied masqué) ; thème « Clair » par défaut, « Sombre » et « Système » (suit `prefers-color-scheme`) (D-7) ; mode projection en interrupteur (D-6).
+- UX-DR3 : sprite `icons.svg` (sous-ensemble des Material Symbols Rounded officiels, avec licence, D-2), icône propre à chaque module, aucun emoji (test sur `static/`).
+- UX-DR4 : coquille `index.html` : `lang="fr"`, repères `header`/`nav`/`main`, lien d'évitement « Aller au contenu », routeur par `hash` (`#/`, `#/arene/chat`, `#/arene/comparer[/<run_id>]`, `#/arene/banc[/<run_id>]`, `#/arene/references`, `#/documents`, `#/documents/base`, `#/documents/evaluation[/<run_id>]`, `#/agents/seul`, `#/agents/equipe[/<run_id>]`, `#/sobriete`, `#/modeles[/<tag>]` ; D-8), écran gardé en mémoire après la première visite, `document.title` « <Écran> · WaveLocalAI », focus sur le `h1` et annonce polie à chaque route, un `h1` par écran.
 - UX-DR5 : barre haute (FR2) : menu des modules, pastille Ollama avec libellé et panneau, interrupteur « Autoriser le cloud » avec son aide (« Désactivé à chaque ouverture de la page. Activé, les données envoyées aux modèles cloud quittent la machine. »), CO₂ session et son panneau (total, Local/Cloud, non mesurables, lien Sobriété), menu Affichage (thème, projection) ; menu repliable sous 1 024 px ; bandeau « Connexion au serveur perdue, nouvelle tentative… » après 3 essais.
 - UX-DR6 : `wl-badge` : Local (vert, `computer`), Cloud (orange, `cloud`), Origine inconnue (gris, `help`), toujours un texte ; étiquettes « indicatif », « un seul juge », « estimé », « non mesurable ».
 - UX-DR7 : `wl-metric` : libellé, valeur avec unité en `metric-value`, aide par `<button aria-describedby>`, état « provisoire » en italique.
 - UX-DR8 : `wl-run-status` : étape nommée (« Chargement du modèle en mémoire… », « Recherche des extraits… », « Génération… »…), chronomètre local, bouton Arrêter, touche Échap.
 - UX-DR9 : `wl-model-picker` : combobox ARIA APG avec listbox, saisie pour filtrer, groupes « Sur cette machine » / « Cloud », ligne par modèle (nom, badge, taille, « tient en mémoire », débit mesuré, pastilles outils/raisonnement/MoE), avertissement si ne tient pas, défaut et raison en aide, mode multi (cases et pastilles retirables) ; tri local d'abord par règle explicite.
 - UX-DR10 : `wl-chat-thread` : `role="log"`, tokens ajoutés à un nœud tampon, Markdown rendu au plus toutes les 150 ms et à la fin (`core/markdown.js`), raisonnement replié, pied de réponse (badge, CO₂, débit, chargement, durée), défilement qui suit seulement si l'utilisateur est en bas + « Aller à la fin », annonce `aria-live="polite"` à la fin seulement (« Réponse de … terminée, N tokens. »).
-- UX-DR11 : `wl-source-panel` : liste numérotée, document, page, pertinence normalisée (rang + « très proche »/« proche »/« éloignée », score brut en aide), extrait entier avec passage surligné, « Ouvrir l'extrait », « extrait supprimé » si `text: null` ; à droite ≥ 1 024 px, dessous et replié en deçà.
-- UX-DR12 : `wl-confirm-dialog` : `<dialog>` natif, titre en question, conséquence chiffrée, focus sur « Annuler », confirmation soldée par un message au même verbe.
+- UX-DR11 : `wl-source-panel` : liste numérotée, document, page, pertinence normalisée (rang + « très proche »/« proche »/« éloignée », score brut en aide), extrait entier avec passage surligné (`passage {start, end}` fourni par le serveur, D-21), « Ouvrir l'extrait », « extrait supprimé » si `text: null` ; à droite ≥ 1 024 px et toujours ouvert, sans repli (D-22), dessous et replié en deçà ; un seul panneau pour plusieurs réponses, « Afficher les sources » par réponse dès la deuxième (D-23).
+- UX-DR12 : `wl-confirm-dialog` : `<dialog>` natif, titre en question, conséquence chiffrée, focus sur « Annuler », confirmation soldée par un message au même verbe ; sert à « Vider », à l'email, à « Supprimer » un document (D-24) et un modèle.
 - UX-DR13 : `wl-data-table` : `<table>` sémantique, en-têtes `scope`, tri au clavier ; alternative obligatoire à chaque graphique.
 - UX-DR14 : `wl-chart-svg` : nuage de points (qualité, débit, CO₂ en taille, légende de taille) en SVG fait main sur `chart-*`, `<title>` et `<desc>`, lien « Voir le tableau », points étiquetés (`chart-4` jamais seul).
-- UX-DR15 : `core/format.js` : formats `fr-FR` par `Intl` (virgule, espace fine insécable, ≤ 3 chiffres significatifs), CO₂ mg/g/kg une seule unité par comparaison, Go, durées « 1 min 12 s », dates « 18 oct. 2026 », scores /100, « non évalué »/« inconnu » jamais 0.
-- UX-DR16 : affichage d'erreur unique : message, action (boutons d'action quand prévus), « Détails techniques » replié ; codes `ollama_down`, `no_model`, `model_not_chat`, `ram_guard`, `cloud_not_allowed`, `cloud_unreachable`, `cloud_key_missing`, `timeout`, `interrupted`, `not_evaluated`, `ingest_failed`, `run_busy`.
+- UX-DR15 : `core/format.js` : formats `fr-FR` par `Intl` (virgule, espace fine insécable, ≤ 3 chiffres significatifs), CO₂ mg/g/kg une seule unité par comparaison, Go, durées « 1 min 12 s », dates « 18 oct. 2026 », notes de juge /100, références du banc en pourcentage avec le libellé « Part de … » (D-5), « non évalué »/« inconnu » jamais 0.
+- UX-DR16 : affichage d'erreur unique : message, action (boutons d'action quand prévus, déduits du code et de `detail` par le front, D-4), « Détails techniques » replié ; codes `ollama_down`, `no_model`, `model_not_chat`, `ram_guard`, `cloud_not_allowed`, `cloud_unreachable`, `cloud_key_missing`, `timeout`, `generation_interrupted` (code livré par 2.1 : AD-5 interdit un code qui reprend un statut), `not_evaluated`, `ingest_failed`, `run_busy`, puis `run_not_found`, `pull_failed`, `model_in_use` (stories qui les introduisent).
 - UX-DR17 : états vides et de chargement d'`EXPERIENCE.md` (base vide, aucun message, moins de 2 modèles, aucun modèle installé, premier chargement lent 8 à 26 s, délai dépassé, évaluation impossible, service indisponible, fournisseur cloud injoignable) ; squelettes dans les cartes, jamais d'écran blanc.
 - UX-DR18 : microcopie et lexique d'`EXPERIENCE.md` (Voice and Tone) : casse de phrase, guillemets « », espaces insécables, infinitif + objet sur les boutons, pluriels accordés, noms techniques en aide seulement.
 - UX-DR19 : responsive : ≥ 1 440 px Arène 3-4 colonnes et panneaux à droite ; 1 024-1 439 px 2 colonnes visibles et défilement ; 768-1 023 px panneaux dessous repliés, menu ; < 768 px une colonne, Arène en onglets par modèle, saisie collante ; lisible à 200 % et 320 px sans défilement horizontal (hors tableaux larges).
-- UX-DR20 : Arène : colonnes à en-têtes collants, mode focus d'une colonne, « Afficher toute la réponse », bandeau « Comparaison en cours · 2 sur 3 · 0:42 » + Arrêter, classement « Matrice / Tableau », phrase d'exécution (« les modèles locaux passent l'un après l'autre… »), bouton désactivé « Choisissez au moins 2 modèles », actions Relancer / Modifier la question / Exporter.
-- UX-DR21 : Chat libre : saisie Entrée / Maj+Entrée / Échap documentés, curseur « Créativité » (température), « Effacer la conversation » sans confirmation, Télécharger (JSON, Markdown).
-- UX-DR22 : Base documentaire : zone de dépôt + « Choisir des fichiers », ligne de progression par fichier (« Envoi 100 % · Découpage · Vectorisation 18/40 extraits » + Annuler), échec avec « Détails techniques », tableau des documents (nom, extraits, date, modèle de représentation, Supprimer), ligne de réglages, état vide « Votre base documentaire est vide » + « Importer des documents ».
+- UX-DR20 : Arène : colonnes à en-têtes collants, mode focus d'une colonne, « Afficher toute la réponse » (dès 1 440 px à 4 modèles, réponse repliée sur 4 lignes, D-15), configuration remplacée par un résumé pendant l'exécution (D-16), bandeau « Comparaison en cours · 2 sur 3 · 0:42 » + Arrêter, classement « Matrice / Tableau » avec la matrice d'abord (D-14), phrase d'exécution (« les modèles locaux passent l'un après l'autre… »), bouton désactivé avec sa raison (« Choisissez au moins 2 modèles », « Choisissez 4 modèles au plus », « Saisissez une question », « Choisissez un juge »), actions Relancer / Modifier la question / Exporter (deux boutons CSV et Markdown, menu « Exporter » sous 768 px, D-3).
+- UX-DR21 : Chat libre : saisie Entrée / Maj+Entrée / Échap documentés, curseur « Créativité » (température, défaut = `default_temperature` du modèle, repli 0,2, D-12), « Effacer la conversation » sans confirmation, « Télécharger en JSON » et « Télécharger en Markdown » (menu « Exporter » sous 768 px, D-3), 409 rejoint sans perdre le message tapé (D-13).
+- UX-DR22 : Base documentaire : zone de dépôt + « Choisir des fichiers », ligne de progression par fichier (« Envoi 100 % · Découpage · Vectorisation 18/40 extraits »), un seul « Annuler l'import » au-dessus des lignes (D-25), échec avec « Détails techniques », tableau des documents (nom, extraits, date, modèle de représentation, statut dont « Échec » avec sa raison, D-26, Supprimer confirmé par `wl-confirm-dialog`, D-24), ligne de réglages, état vide « Votre base documentaire est vide » + « Importer des documents ».
 - UX-DR23 : Discussion : en-tête « N documents · M extraits · Modèle », « Réglages avancés » repliés, étapes du `run-status` par stratégie (« Rédaction d'une réponse hypothétique… », « Vérification de la pertinence… », « Reclassement… »), pied avec « Recherche 0,06 s · Génération 5,8 s ».
-- UX-DR24 : Accueil : titre et accroche, quatre cartes d'état en direct (pause sur `visibilitychange`), carte « Démo recommandée » Arène avec modèles prêts et « Lancer une comparaison », liens de modules avec résumé ; Ollama absent = « Indisponible » + marche à suivre, liens actifs, « Aucun modèle local disponible ».
+- UX-DR24 : Accueil : `h1` « Accueil » (D-9) et accroche, quatre cartes d'état en direct (pause sur `visibilitychange`), carte « Démo recommandée » Arène avec modèles prêts et « Lancer une comparaison » toujours actif (D-11), liens de modules avec nom court en titre, nom long en sous-titre et résumé (D-10), carte Références en pourcentage (D-5, D-8) ; Ollama absent = « Indisponible » + marche à suivre, liens actifs, « Aucun modèle local disponible ».
 - UX-DR25 : vérification axe-core en E2E sur chaque écran livré, clair et sombre, zéro violation sans exclusion ; vérification E2E qu'aucune requête ne sort de `127.0.0.1`.
 
 Après le MVP (`03-ux-front.md` §3.4 et §3.5, à préciser par la mise à jour `bmad-ux` d'avant l'Epic 5) :
 
-- UX-DR26 : Sobriété : « Santé du système » en direct (pause onglet masqué), « Empreinte carbone de cette session » (total, par module, Local/Cloud, non-mesurables), historique 7 jours / 30 jours / Tout en barres par session et tableau, carte d'identité et méthode repliées.
-- UX-DR27 : Modèles : tableau des installés et du catalogue installable (mémoire nécessaire, « tient en mémoire »), installer avec progression chiffrée, décharger, supprimer avec confirmation, reranker, fiche modèle, « Pourquoi ce débit ? », « Sur d'autres postes ».
-- UX-DR28 : Agents : `wl-step-trace` (liste ordonnée d'étapes dépliables pendant le flux, icône et libellé par type, durée, agent courant), pastilles d'outils (email décoché, indisponible non sélectionnable avec aide), validation d'email par `wl-confirm-dialog`, schéma d'équipe en SVG avec agent actif marqué par contour et libellé.
-- UX-DR29 : Évaluation et Banc d'essai : étapes nommées, scores /100 et verdicts par affirmation dépliables, « non évalué » avec raison, verdict de format en clair, interrupteurs « Format imposé » et « Réponse concise » avec aide.
+- UX-DR26 : Sobriété : « Santé du système » en direct (pause onglet masqué), « Empreinte carbone de cette session » (total, par module, Local/Cloud, non-mesurables), historique 7 jours / 30 jours / Tout en barres par session et tableau (sessions closes seulement, D-37 ; tableau par défaut sous 640 px, D-39), carte d'identité et méthode repliées, équivalence parlante seulement dans la méthode avec la source du facteur (D-38).
+- UX-DR27 : Modèles : tableau des installés (Usage et Origine repliées sous 1 024 px, D-43) et du catalogue installable (mémoire nécessaire, « tient en mémoire », « Installer quand même » pour un modèle qui ne tient pas, D-42), installer avec progression chiffrée, décharger, supprimer avec confirmation (défaut choisi signalé dans le dialogue, D-41), reranker, fiche modèle (à droite dès 1 120 px, au-dessus de la liste en deçà, D-40), « Pourquoi ce débit ? », « Sur d'autres postes ».
+- UX-DR28 : Agents : `wl-step-trace` (liste ordonnée d'étapes dépliables pendant le flux, icône et libellé par type, durée, agent courant ; panneau « Étapes » toujours déplié, D-30), interrupteurs d'outils (D-6 ; email désactivé par défaut, indisponible non activable avec aide), avertissement sans bloquer pour un modèle sans outils vérifiés (D-32), pied de réponse réduit (badge, CO₂, étapes, durée, D-31), validation d'email par `wl-confirm-dialog`, schéma d'équipe en SVG avec agent actif marqué par contour et libellé, « Non lancé » (D-34), journal brut en lignes horaires (D-33), « Configurer » en volet non modal (D-35), 5 agents au plus (D-36), mission rouvrable par `#/agents/equipe/<run_id>` (D-8).
+- UX-DR29 : Évaluation et Banc d'essai : étapes nommées, scores /100 et verdicts par affirmation dépliables, « non évalué » avec raison, modèles évalués présélectionnés sur le défaut `arena` (D-27), résultat partiel conservé (D-28), question vide = lancement désactivé avec sa raison (D-29) ; verdict de format en clair, consigne du scénario repliée (D-18), scénario sans format = « Format imposé » désactivé avec raison et sans verdict (D-17), interrupteurs en bascule « Format imposé » et « Réponse concise » avec aide (D-6).
 
 ### FR Coverage Map
 
@@ -180,6 +181,7 @@ FR24 à FR30 : Epic 3 - Arène, juge, classement, verdict, export
 FR31 à FR36 : Epic 4 - base documentaire
 FR37 à FR41 : Epic 4 - Discussion, stratégies, citations, garde-fou, reranker
 FR42 : Epics 1, 3 et 4 - Accueil livré par morceaux : cartes d'état (Epic 1), « Démo recommandée » (Epic 3), résumé de la base (Epic 4)
+FR2, FR6, FR42 (décisions de la maquette D-2, D-6, D-7, D-10) : story de suite 1.12 ; FR8, FR16, FR19 (D-3, D-12) : story de suite 2.7
 FR43 : Epic 5 - Sobriété en direct (5.1), historique et remise à zéro (5.2)
 FR44 : Epic 5 - écran Modèles : installer (5.3), décharger, supprimer, défauts (5.4), reranker (5.5), fiche modèle (5.6) ; défauts calés sur le banc (5.7)
 FR47 : Epic 5 - références par usage (5.8)
@@ -195,6 +197,7 @@ Décisions de structure (party mode du 2026-10-18) :
 - Chaque carte de l'Accueil arrive avec son écran. Les modules non livrés restent visibles dans la barre haute, désactivés, avec une raison en texte visible (« Pas encore disponible dans cette préversion ») ; même règle pour les onglets de sous-écran ; registre d'écrans `available` / `planned`.
 - Les stories des Epics 5 à 8 sont écrites (2026-10-18) avec les reports du MVP (`reports-v2-inventaire.md`) ; elles se relisent avant chaque étape avec le retour de recette, les décisions Q1 à Q7 d'Anaël (2026-10-18) y sont reportées.
 - Préversions après le MVP : `2.0.0a5` (Epic 5), `a6` (Epic 6), `a7` (Epic 7), `2.0.0` à la bascule (Epic 8, AD-3).
+- Correct course du 2026-10-19 (`sprint-change-proposal-2026-10-19.md`) : la maquette validée `docs/maquette-v2/` et les décisions D-1 à D-43 d'Anaël sont reportées dans les UX-DR et les critères des stories non livrées ; deux stories de suite, 1.12 et 2.7, appliquent les décisions qui touchent les Epics 1 et 2 déjà livrées. La maquette est la référence visuelle des écrans ; les documents de contrat priment sur elle. Le registre `available` / `planned` reste en place jusqu'à la livraison de chaque écran ; après l'Epic 7, aucun lien « Pas encore disponible » ne subsiste (comme dans la maquette).
 
 ### Epic 1 : Une coquille rapide qui montre l'état du poste et protège les données
 L'utilisateur ouvre l'app, même Ollama arrêté, voit tout de suite l'état d'Ollama, du processeur et de la mémoire et le CO₂ de session, garde la main sur le cloud et dispose d'un sélecteur de modèle qui dit l'origine et la raison du défaut. Côté serveur, toute exécution est un run annulable et rejouable.
@@ -567,6 +570,38 @@ So that je sais en 5 secondes si la démo peut partir, et quoi faire sinon.
 **When** on publie
 **Then** `version = "2.0.0a1"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.1`, release GitHub avec notes ; la recette humaine ouvre la coquille Ollama arrêté puis démarré
 
+### Story 1.12 : La coquille et l'Accueil suivent la maquette validée (suite, correct course)
+
+As a consultant qui présente la v2,
+I want une coquille et un Accueil conformes à la maquette validée : thème qui suit le système, interrupteurs en bascule, icônes officielles, modules nommés comme dans le menu,
+So that la v2 livrée ressemble à ce qui a été validé et que les écrans suivants s'y branchent sans retouche.
+
+**Gouverné par :** AD-20 ; AR18 ; UX-DR2, UX-DR3, UX-DR4, UX-DR24, UX-DR25 ; décisions D-2, D-6, D-7, D-8, D-9, D-10 (`sprint-change-proposal-2026-10-19.md`). **Dépend de :** `master` (Epics 1 et 2 fusionnées) ; à fusionner avant 3.6 et 4.9, qui ajoutent des cartes à l'Accueil. Pas de version propre : elle part dans la préversion suivante.
+
+**Acceptance Criteria:**
+
+**Given** le menu Affichage
+**When** on choisit « Système »
+**Then** le thème appliqué suit `prefers-color-scheme`, y compris quand le réglage du système change pendant que la page est ouverte ; « Clair » reste le défaut ; le choix est gardé dans `localStorage` (E2E avec émulation du schéma de couleurs)
+**And** axe-core ne relève aucune violation sur la coquille et l'Accueil en « Système » clair et sombre
+
+**Given** le menu Affichage et la barre haute
+**When** on les affiche
+**Then** « Mode projection » est un interrupteur en bascule (`<input type="checkbox" role="switch">`, rendu `wl-switch` de `DESIGN.md`), comme « Autoriser le cloud », qui adopte le même rendu ; l'état se lit dans le libellé et la forme, jamais par la seule couleur (D-6)
+
+**Given** le sprite `icons.svg`
+**When** le test des icônes s'exécute
+**Then** chaque symbole utilisé par le front existe dans le sprite et provient des Material Symbols Rounded officiels, provenance et licence notées dans `icons.LICENSE.txt` ; aucun tracé Material Icons (Filled) n'y entre (D-2)
+
+**Given** l'Accueil
+**When** il liste les modules disponibles
+**Then** chaque lien porte le nom court du menu en titre (« Documents »), le nom long en sous-titre (« Assistant documentaire ») et sa phrase de résumé ; le `h1` reste « Accueil » (D-9, D-10 ; test E2E)
+
+**Given** le registre d'écrans du routeur
+**When** on y déclare les routes de la maquette
+**Then** `#/arene/references`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`, `#/agents/equipe/<run_id>` et `#/modeles/<tag>` existent en `planned` (D-8), sans écran ni lien actif, et une route `planned` tapée à la main renvoie toujours à l'Accueil ; la story qui livre l'écran n'a plus qu'à la passer à `available`
+**And** axe-core sans violation, clair et sombre, projection comprise ; 320 px sans défilement horizontal
+
 ## Epic 2 : Converser avec un modèle et voir ce que la réponse coûte
 
 L'utilisateur converse en flux avec un modèle local ou cloud, arrête quand il veut, voit le débit D3, le chargement et un CO₂ honnête sur sa méthode, retrouve, exporte ou efface sa conversation. Premier vrai consommateur du hub ; se termine par la préversion `2.0.0a2`.
@@ -597,7 +632,7 @@ So that la démo montre la vraie vitesse du poste, comparable au banc.
 
 **Given** Ollama qui coupe la génération avant la fin
 **When** l'adaptateur le détecte
-**Then** le service relance une fois (événement `retry` avec la raison, logique de `retry_interrupted` copiée) puis termine en `error` avec le code `interrupted`
+**Then** le service relance une fois (événement `retry` avec la raison, logique de `retry_interrupted` copiée) puis termine en `error` avec le code `generation_interrupted` (nom du code livré)
 **And** Ollama arrêté donne `ollama_down` ; un délai dépassé donne `timeout` avec le délai de `Settings` ; un test `integration` vérifie le flux réel sur `qwen2.5:1.5b`
 
 ### Story 2.2 : L'écran Chat libre affiche la réponse en flux et la reprend au retour
@@ -744,6 +779,39 @@ So that je garde une trace de la démo ou n'en laisse aucune sur le poste.
 **When** on publie
 **Then** `version = "2.0.0a2"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0-alpha.2`, release GitHub avec notes ; la recette humaine joue un chat local et un chat cloud sur une démo réelle
 
+### Story 2.7 : Le Chat prend la créativité du modèle et s'exporte sur écran étroit (suite, correct course)
+
+As a consultant,
+I want que la créativité par défaut soit celle que le modèle recommande, et pouvoir exporter la conversation sur un écran étroit,
+So that chaque modèle répond dans ses conditions prévues et que l'export reste accessible partout.
+
+**Gouverné par :** AD-15, AD-20 ; AR13, AR18 ; FR8, FR16, FR19 ; UX-DR17, UX-DR21 ; décisions D-3, D-12, D-13 (`sprint-change-proposal-2026-10-19.md`). **Dépend de :** `master` (Epic 2 fusionnée) ; à fusionner avant 3.6, qui réutilise le menu « Exporter ». Pas de version propre : elle part dans la préversion suivante.
+
+**Acceptance Criteria:**
+
+**Given** `GET /api/models`
+**When** on l'appelle
+**Then** chaque modèle de conversation porte `default_temperature` (`float | null`) : la valeur des paramètres publiés par Ollama pour ce modèle (lus avec les faits du modèle, en cache `model_facts`) ou celle du catalogue, sinon `null` ; la route reste servie depuis le cache, sous le budget de 300 ms Ollama arrêté (test)
+**And** `contrat-api.md` (Modèles) le décrit déjà (correct course) ; le fichier `wavelocalai.toml` est inchangé après le choix d'un modèle (test : empreinte avant et après)
+
+**Given** l'écran Chat libre
+**When** on choisit un modèle
+**Then** le curseur « Créativité » prend sa `default_temperature`, ou 0,2 si elle est `null` (D-12) ; changer de modèle remet le curseur au défaut du nouveau modèle tant que la personne ne l'a pas déplacé dans cette conversation ; la valeur affichée est celle envoyée dans `POST /api/chat/runs`
+
+**Given** une largeur sous 768 px
+**When** la conversation a au moins un échange
+**Then** les deux boutons « Télécharger en JSON » et « Télécharger en Markdown » cèdent la place à un bouton « Exporter » qui ouvre un menu des deux formats (clavier : flèches, Entrée, Échap qui ferme et rend le focus au bouton) ; chaque entrée suit la route d'export du serveur, sans `blob:` (D-3) ; dès 768 px, les deux boutons restent
+**And** le menu est un composant ou un utilitaire partagé, que l'Arène (3.6) réutilise pour CSV et Markdown
+
+**Given** l'état « Premier chargement lent » d'UX-DR17 (déclenchement sur `model_loading` déjà couvert par les stories 2.1 et 2.2)
+**When** `wl-run-status` l'affiche
+**Then** seul le message « Le premier appel charge le modèle en mémoire : de 8 à 26 secondes. » est nouveau ici
+
+**Given** un `409 run_busy` rejoint
+**When** le run actif est suivi
+**Then** le message tapé reste dans le champ (D-13, déjà livré : un test E2E le garde)
+**And** axe-core sans violation, clair et sombre, projection comprise ; 320 px sans défilement horizontal
+
 ## Epic 3 : Comparer des modèles côte à côte et conclure chiffres à l'appui
 
 L'utilisateur lance l'Arène sur 2 à 4 modèles : colonnes en flux, notation par un juge, classement, matrice qualité/CO₂, verdict local/cloud chiffré, résultat rouvrable par URL et exportable avec preuve. C'est l'écran du Flow 1, lisible du fond d'une salle.
@@ -804,6 +872,24 @@ So that la salle comprend ce qui se passe à chaque instant, y compris pendant l
 **Then** 2 colonnes restent visibles avec défilement horizontal et en-têtes collants, puis l'Arène passe en onglets par modèle ; le mode focus agrandit une colonne
 **And** quitter l'écran pendant la comparaison puis revenir reprend le flux par `?after=` sans perte ni doublon ; axe-core sans violation, clair et sombre, en mode projection compris
 
+*Ajouts du correct course (2026-10-19), maquette validée :*
+
+**Given** 4 modèles et une largeur d'au moins 1 440 px
+**When** les colonnes s'affichent
+**Then** les 4 colonnes sont visibles, la réponse de chacune est repliée sur 4 lignes et se déplie par « Afficher toute la réponse » (D-15)
+
+**Given** une comparaison lancée
+**When** elle s'exécute
+**Then** la configuration est remplacée par un résumé (question, modèles, juge) jusqu'à `run_ended` (D-16)
+
+**Given** la configuration
+**When** un prérequis manque
+**Then** « Lancer la comparaison » est désactivé avec la raison visible : « Choisissez au moins 2 modèles », « Choisissez 4 modèles au plus » ou « Saisissez une question »
+
+**Given** aucun modèle local prêt (par exemple en arrivant depuis l'Accueil, dont le bouton reste actif, D-11)
+**When** l'Arène s'ouvre
+**Then** un `alert-info` dit quoi faire (installer un modèle depuis Modèles, ou autoriser le cloud) et le lancement reste désactivé avec sa raison
+
 ### Story 3.3 : Un juge note chaque réponse, et « non évalué » n'est jamais 0
 
 As a consultant,
@@ -830,6 +916,7 @@ So that je conclus sur la qualité sans tromper la salle.
 **Given** l'écran Arène
 **When** on ouvre « Critères de notation » (replié)
 **Then** on peut ajuster les critères envoyés au juge ; le juge porte son badge Local ou Cloud et le cloud n'est jamais choisi comme juge sans `allow_cloud`
+**And** sans juge choisi (aucun modèle éligible, ou juge retiré), « Lancer la comparaison » est désactivé avec la raison visible « Choisissez un juge » (correct course, maquette validée) ; les notes restent sur /100 (D-5)
 
 ### Story 3.4 : Le classement, la matrice qualité/CO₂ et le tableau se construisent au fil des résultats
 
@@ -846,8 +933,8 @@ So that la salle voit d'un coup d'œil que le plus petit modèle peut gagner.
 **Then** le classement se met à jour (note, badge, débit, CO₂) et se fige à `run_ended` ; une lane « non évalué » est listée avec sa raison sous les lanes notées, sans rang de podium
 
 **Given** `wl-chart-svg`
-**When** on choisit « Matrice »
-**Then** un nuage de points SVG fait main place la qualité (/100) et le débit, le CO₂ en taille avec une légende de taille, noms complets en étiquette, couleurs `chart-*` ; `<title>` et `<desc>` décrivent le graphique, et un lien « Voir le tableau » y mène
+**When** la comparaison est finie (segments « Matrice · Tableau », Matrice choisie par défaut, D-14)
+**Then** la matrice s'affiche d'abord, le tableau derrière « Voir le tableau » ; un nuage de points SVG fait main place la qualité (/100) et le débit, le CO₂ en taille avec une légende de taille, noms complets en étiquette, couleurs `chart-*` ; `<title>` et `<desc>` décrivent le graphique, et un lien « Voir le tableau » y mène
 **And** aucun axe n'est resserré sur un seul point, aucune couleur ne porte seule une information
 
 **Given** `wl-data-table`
@@ -892,9 +979,10 @@ So that je peux rejouer le Flow 1 de bout en bout et laisser une trace vérifiab
 **Given** une Arène terminée
 **When** on ouvre `#/arene/comparer/<run_id>` ou la liste `GET /api/arena/runs`
 **Then** l'écran se reconstruit depuis la base (colonnes, notes, classement, matrice, verdict) sans relancer de modèle ; « Relancer » et « Modifier la question » reprennent la configuration
+**And** un identifiant inconnu rend `404 run_not_found` (code ajouté à `errors.py`, `detail.run_id`) et l'écran affiche « Résultat introuvable » avec un lien vers une nouvelle comparaison (correct course) ; l'affichage d'un résultat effacé reste à trancher (écart ouvert de `contrat-api.md`), seul l'identifiant inconnu rend `run_not_found`
 
 **Given** une Arène terminée
-**When** on appelle `GET /api/arena/runs/{id}.csv` ou `.md` (bouton « Exporter (CSV, Markdown) »)
+**When** on appelle `GET /api/arena/runs/{id}.csv` ou `.md` (boutons « Exporter en CSV » et « Exporter en Markdown » ; sous 768 px, un seul « Exporter » qui ouvre le menu des formats livré par 2.7, D-3)
 **Then** l'export contient, par modèle, note et raison, débit D3 et `tps_source`, CO₂ avec méthode, chargement, durée, et la preuve : fiche machine, version d'Ollama, digests des modèles, méthode CO₂, juge et ses critères ; aucune clé d'API
 
 **Given** une Arène sans run actif
@@ -903,7 +991,8 @@ So that je peux rejouer le Flow 1 de bout en bout et laisser une trace vérifiab
 
 **Given** l'Accueil
 **When** l'Arène est `available`
-**Then** la carte « Démo recommandée » montre « Arène des modèles », sa phrase, les modèles prêts du défaut `arena` avec leur badge et « Lancer une comparaison » qui ouvre l'Arène présélectionnée ; sans modèle local, « Aucun modèle local disponible » et, si le cloud est autorisé, des modèles cloud proposés
+**Then** la carte « Démo recommandée » montre « Arène » en titre et « Arène des modèles » en sous-titre (D-10), sa phrase, les modèles prêts du défaut `arena` avec leur badge et « Lancer une comparaison » qui ouvre l'Arène présélectionnée ; sans modèle local, « Aucun modèle local disponible » et, si le cloud est autorisé, des modèles cloud proposés
+**And** « Lancer une comparaison » reste actif même sans modèle local prêt : l'Arène dit alors quoi faire (D-11, critère de 3.2)
 
 **Given** le Flow 1 d'`EXPERIENCE.md`
 **When** le test E2E le joue avec trois modèles simulés (`fake`, dont un en délai dépassé et un « non évalué »)
@@ -949,6 +1038,13 @@ So that ma base documentaire se construit sans rien envoyer hors du poste.
 **Then** l'annulation laisse les documents déjà `ready` intacts et retire les extraits du document en cours ; le chat et l'ingestion s'intercalent par le sémaphore pris par appel
 **And** un document déjà présent (même empreinte) n'est pas indexé deux fois
 
+*Ajouts du correct course (2026-10-19), maquette validée :*
+
+**Given** un document en échec
+**When** on appelle `GET /api/rag/documents`
+**Then** il figure avec `status: "failed"` et sa raison (message d'`ingest_failed`), et n'entre pas dans le nombre de documents prêts (D-26, test)
+**And** la façon dont l'échec ou le doublon d'un fichier voyage dans le flux du run `ingest` (champ de `ingest_progress` ou autre) est consignée dans `contrat-api.md` (Événements) par la PR de la story
+
 ### Story 4.2 : L'écran Base documentaire suit chaque fichier
 
 As a consultante en atelier,
@@ -966,12 +1062,12 @@ So that je sais quand ma base est prête et pourquoi un fichier a échoué.
 
 **Given** des fichiers déposés
 **When** l'envoi puis l'indexation avancent
-**Then** chaque fichier a sa ligne : progression d'envoi du navigateur, puis « Découpage · Vectorisation 18/40 extraits » depuis `ingest_progress`, et Annuler
+**Then** chaque fichier a sa ligne : progression d'envoi du navigateur, puis « Découpage · Vectorisation 18/40 extraits » depuis `ingest_progress` ; un seul bouton « Annuler l'import », au-dessus des lignes, annule le lot entier (le run `ingest`, ou l'envoi s'il n'est pas fini), les documents déjà prêts restant (D-25 : remplace l'« Annuler » par ligne)
 **And** un échec affiche « Le fichier n'a pas pu être indexé : <raison>. » avec « Détails techniques » replié ; un succès affiche « N extraits ajoutés depuis M documents » (pluriels accordés)
 
 **Given** `GET /api/rag/documents`
 **When** la liste s'affiche
-**Then** `wl-data-table` montre nom, extraits, date d'ajout (`fr-FR`), modèle de représentation et statut ; un document `indexing` n'est pas présenté comme prêt
+**Then** `wl-data-table` montre nom, extraits, date d'ajout (`fr-FR`), modèle de représentation et statut ; un document `indexing` n'est pas présenté comme prêt ; un document `failed` figure aussi, statut « Échec » avec sa raison, sans compter dans « N documents indexés », et survit au rechargement (D-26, correct course ; son « Supprimer » arrive avec 4.3)
 **And** quitter l'écran pendant une ingestion puis revenir reprend la progression par `?after=` ; axe-core sans violation, clair et sombre
 
 ### Story 4.3 : Supprimer un document, vider la base, changer de réglages
@@ -984,8 +1080,12 @@ So that je maîtrise ce que contient ma base et qu'une erreur de clic ne détrui
 
 **Acceptance Criteria:**
 
-**Given** un document `ready` sans run actif
-**When** on clique Supprimer ou appelle `DELETE /api/rag/documents/{id}`
+**Given** un document `ready` ou `failed` sans run actif
+**When** on clique Supprimer
+**Then** `wl-confirm-dialog` s'ouvre comme pour « Vider » (D-24) : « Supprimer « note-cadrage.docx » ? », « 14 extraits seront retirés de la base. Cette action est irréversible. » (document en échec : « Ce document n'a pas été indexé : aucun extrait n'est retiré. »), focus sur « Annuler » ; « Annuler » ne supprime rien et annonce « Suppression annulée » ; confirmer appelle `DELETE /api/rag/documents/{id}` et se solde par « Document supprimé : note-cadrage.docx. 14 extraits retirés de la base. »
+
+**Given** `DELETE /api/rag/documents/{id}` sur un document sans run actif
+**When** on l'appelle
 **Then** ses `chunks` et, dans la même transaction, leurs lignes vec0 par `rowid` sont supprimés, puis `DELETE`, `wal_checkpoint(TRUNCATE)`, `VACUUM`, `wal_checkpoint(TRUNCATE)` passent dans la file de l'écrivain
 **And** un test vérifie l'absence du texte du document dans les octets du `.db` et du `-wal`, et consigne l'état du résidu vectoriel dans le blob vec0 (point différé de la spine)
 
@@ -1001,6 +1101,7 @@ So that je maîtrise ce que contient ma base et qu'une erreur de clic ne détrui
 **Given** un run `ingest` ou `rag` actif
 **When** on demande de supprimer un document visé, de vider ou de changer d'embedding
 **Then** la réponse est `409` avec son message et son action
+**And** ces refus (changement d'embedding sur une base non vide, `expected_count` périmé, document visé par un run actif) ont chacun leur code dans `errors.py` (AD-18), que le front affiche par `wl-error`
 
 ### Story 4.4 : Poser une question à ses documents et recevoir les sources d'abord (serveur)
 
@@ -1019,8 +1120,9 @@ So that je peux vérifier la réponse pendant qu'elle s'écrit.
 
 **Given** l'événement `sources`
 **When** il est publié
-**Then** chaque source porte `{n, doc_id, document, page, chunk_id, text, rank, relevance_label, raw_score}`, `relevance_label` parmi « très proche », « proche », « éloignée » selon une règle de normalisation testée, et l'extrait entier
-**And** il est persisté **sans `text`** ; au rejeu, le hub le réhydrate depuis `chunks`, avec `text: null` si le document a été supprimé (test)
+**Then** chaque source porte `{n, doc_id, document, page, chunk_id, text, rank, relevance_label, raw_score, passage}`, `relevance_label` parmi « très proche », « proche », « éloignée » selon une règle de normalisation testée, et l'extrait entier
+**And** `passage` vaut `{start, end}` (positions en caractères dans `text`) du passage que le serveur désigne pour le surlignage, selon une règle écrite dans la story et testée (par exemple la phrase de l'extrait la plus proche de la question), ou `null` (D-21, correct course) ; `null` signifie « pas de surlignage » : l'extrait s'affiche entier, sans passage mis en valeur (comme `contrat-api.md` et EXPERIENCE.md)
+**And** il est persisté **sans `text`** (les positions de `passage` sont persistées) ; au rejeu, le hub le réhydrate depuis `chunks`, avec `text: null` si le document a été supprimé (test)
 
 **Given** `GET /api/rag/chunks/{id}`
 **When** on ouvre un extrait
@@ -1047,7 +1149,12 @@ So that je retrouve mot pour mot le paragraphe de mon document qui fonde la rép
 
 **Given** une question envoyée
 **When** le run avance
-**Then** `wl-run-status` affiche « Recherche des extraits… » puis « Génération… », `wl-source-panel` se remplit avant la réponse (liste numérotée, document, page, libellé de pertinence, score brut en aide, extrait entier, « Ouvrir l'extrait »), puis `wl-chat-thread` affiche la réponse et son pied (badge, CO₂, débit, « Recherche 0,06 s · Génération 5,8 s »)
+**Then** `wl-run-status` affiche « Recherche des extraits… » puis « Génération… », `wl-source-panel` se remplit avant la réponse (liste numérotée, document, page, libellé de pertinence, score brut en aide, extrait entier avec le passage `passage` surligné quand il est fourni, D-21, « Ouvrir l'extrait »), puis `wl-chat-thread` affiche la réponse et son pied (badge, CO₂, débit, « Recherche 0,06 s · Génération 5,8 s »)
+**And** dès 1 024 px, le panneau des sources est toujours ouvert, sans bouton de repli (D-22)
+
+**Given** une conversation de plusieurs réponses
+**When** la deuxième réponse arrive
+**Then** chaque réponse porte « Afficher les sources », qui charge ses sources dans l'unique panneau ; le panneau montre par défaut celles de la dernière réponse (D-23)
 
 **Given** une conversation rouverte dont un document a été supprimé
 **When** les sources sont rejouées
@@ -1123,6 +1230,7 @@ So that la démo ne gèle jamais le poste et que je ne perds pas ma question.
 **Then** il se termine en `error` avec `ram_guard` : « Mémoire insuffisante : 5,2 Go nécessaires, 2,8 Go libres. », et deux actions : « Prendre un modèle plus petit » (le plus gros modèle local qui tient, proposé par le serveur) et « Décharger les modèles inactifs »
 **And** `detail` porte `needed_gb`, `free_gb` et `suggested_model` (clés déclarées avec `ram_guard` dans `errors.py`, AD-18), dont le front tire ses deux boutons
 **And** la question reste dans le champ et dans l'historique ; le front ne calcule rien
+**And** « Prendre un modèle plus petit » sélectionne `detail.suggested_model` dans `wl-model-picker` sans relancer : la personne renvoie sa question (précision du correct course)
 
 **Given** « Décharger les modèles inactifs »
 **When** on clique
@@ -1140,11 +1248,11 @@ So that l'atelier documentaire se déroule sans incident.
 
 **Given** l'Accueil
 **When** l'Assistant documentaire est `available`
-**Then** sa carte montre « N documents indexés · M extraits » (résumé de la base) et ouvre le module
+**Then** sa carte montre « Documents » en titre, « Assistant documentaire » en sous-titre (D-10) et « N documents indexés · M extraits » (résumé de la base), et ouvre le module
 
 **Given** le Flow 2 d'`EXPERIENCE.md`
 **When** le test E2E le joue sur une base de test en dossier temporaire (jamais `data/`) avec un `.docx` de test et un modèle simulé
-**Then** base vide affichée, import suivi par fichier, « 14 extraits ajoutés depuis 1 document », question posée, sources avant la réponse, extrait retrouvé mot pour mot ; puis « Vider » cliqué par erreur, « Annuler » ne supprime rien ; puis garde-fou simulé : la question reste et l'alerte chiffre le besoin
+**Then** base vide affichée, import suivi par fichier, « 14 extraits ajoutés depuis 1 document », question posée, sources avant la réponse, extrait retrouvé mot pour mot avec son passage surligné (D-21) ; puis « Vider » cliqué par erreur, « Annuler » ne supprime rien ; puis garde-fou simulé : la question reste et l'alerte chiffre le besoin
 **And** aucune requête du navigateur ne sort de `127.0.0.1` pendant le Flow 2 ; axe-core sans violation sur tous les écrans du MVP, clair et sombre
 
 **Given** les Epics 1 à 4 terminés et `tests/v2` vert
@@ -1184,6 +1292,11 @@ So that je relie la charge du poste aux réponses qui l'ont produite, sans cliqu
 **Then** elle montre le total, la part par module (chat, arène, rag, agent, ingest), Local et Cloud « (estimé) », et le nombre de réponses non mesurables à part, depuis `GET /api/carbon/session` puis `carbon_updated` ; « Comment ces chiffres sont calculés », replié, cite CodeCarbon, ecologits et le D3
 **And** axe-core sans violation, clair et sombre ; formats `fr-FR` ; aucune couleur par seuil de CO₂
 
+**Given** le panneau « Comment ces chiffres sont calculés » (D-38, correct course)
+**When** on l'ouvre
+**Then** il donne l'équivalence parlante du CO₂ de la session en distance parcourue en voiture, avec le facteur (g de CO₂ par km), sa source publique et sa date ; facteur et valeur viennent du serveur (réglage daté de `wavelocalai.toml`, source vérifiée et citée par la story), jamais d'une constante du front
+**And** l'équivalence n'apparaît nulle part ailleurs (ni section session, ni barre haute, ni Accueil)
+
 ### Story 5.2 : Retrouver l'historique carbone et ouvrir une nouvelle session
 
 As a consultant,
@@ -1196,13 +1309,14 @@ So that je montre l'empreinte cumulée d'un atelier et repars d'un compteur prop
 
 **Given** `GET /api/carbon/history?window=7d|30d|all`
 **When** on l'appelle
-**Then** il rend une ligne par `app_session` de la fenêtre (début, fin, total en mg, Local, Cloud, nombre de non-mesurables), calculée depuis les feuilles de `runs`, conversations effacées comprises (AD-13 : le registre carbone ne baisse pas)
+**Then** il rend une ligne par `app_session` **close** de la fenêtre (début, fin, total en mg, Local, Cloud, nombre de non-mesurables), calculée depuis les feuilles de `runs`, conversations effacées comprises (AD-13 : le registre carbone ne baisse pas) ; la session en cours n'y figure qu'une fois close, et une phrase le dit sous le graphique : « La session en cours n'apparaît qu'une fois close. » (D-37)
 **And** la route entre dans le test de budget de lecture (< 300 ms Ollama arrêté, base de 1 000 runs de test)
 
 **Given** l'historique
 **When** on choisit « Graphique » puis « Tableau »
 **Then** `wl-chart-svg` trace des barres par session titrées « Émissions par session » (mg, une seule unité, trous de mesure visibles, aucune donnée tracée entre deux mesures) avec `<title>`, `<desc>` et « Voir le tableau » ; `wl-data-table` donne le même contenu, triable au clavier
 **And** sans historique : « Aucune session mesurée pour l'instant. », sans graphique vide
+**And** sous 640 px, « Tableau » est choisi par défaut (D-39)
 
 **Given** `POST /api/carbon/session/reset` (écriture, `Origin` contrôlée)
 **When** on clique « Remettre le compteur à zéro »
@@ -1221,17 +1335,18 @@ So that je n'installe pas un modèle inutilisable et sais quand il sera prêt.
 
 **Given** l'écran `screens/models.js` sur `#/modeles` (module Modèles passé à `available`)
 **When** on l'ouvre
-**Then** `wl-data-table` liste les modèles installés (nom, badge, type, paramètres totaux et actifs, taille, « tient en mémoire », débit mesuré sur ce poste) depuis `GET /api/models`, et le catalogue installable (`config/models_catalog.json`, lecture seule) avec la mémoire nécessaire et `fits`
+**Then** `wl-data-table` liste les modèles installés (nom, badge, type, paramètres totaux et actifs, taille, « tient en mémoire », débit mesuré sur ce poste) depuis `GET /api/models`, et le catalogue installable (`config/models_catalog.json`, lecture seule, moins les modèles installés : un modèle supprimé y revient) avec la mémoire nécessaire et `fits`
+**And** sous 1 024 px, les colonnes Usage et Origine de « Sur ce poste » sont repliées et un bouton au-dessus du tableau les affiche (D-43)
 **And** `hardware/` calcule `fits` avec la RAM libre, la VRAM (NVML) quand un GPU est présent, la mémoire des modèles déjà chargés et une marge de contexte (taille du cache KV au contexte par défaut, formule testée) ; le front ne calcule rien
 
 **Given** `POST /api/models/pull {tag}` (écriture, `Origin` contrôlée)
 **When** on clique « Installer » sur un modèle du catalogue ou un tag saisi
 **Then** un run racine `pull` démarre (`409 run_busy` si un autre `pull` tourne, que l'écran rejoint), publie `pull_progress {tag, octets reçus, octets totaux, phase}` depuis `/api/pull` d'Ollama, et la ligne affiche « Téléchargement 1,2 Go sur 4,7 Go » puis « Installé »
-**And** un modèle qui ne tient pas reste installable avec l'avertissement chiffré ; l'installation est la seule action qui télécharge (AD-17) et part d'un clic
+**And** un modèle qui ne tient pas reste installable avec l'avertissement chiffré, par un bouton libellé « Installer quand même » (nom accessible « Installer <tag> quand même : il ne tient pas dans la mémoire libre »), dans le catalogue comme dans la fiche (D-42) ; l'installation est la seule action qui télécharge (AD-17) et part d'un clic
 
 **Given** une installation en cours
 **When** on l'annule, qu'Ollama s'arrête ou que le tag n'existe pas
-**Then** le run finit `cancelled` ou `error` avec un code de la liste fermée (`pull_failed` ajouté à `errors.py`, message et action), la liste des modèles reste inchangée, et le registre se rafraîchit en tâche de fond après un succès
+**Then** le run finit `cancelled` ou `error` avec un code de la liste fermée (`pull_failed` ajouté à `errors.py`, message et action, `detail.tag` et `detail.cause` parmi `not_found`, `ollama_down`, `interrupted`), la liste des modèles reste inchangée, et le registre se rafraîchit en tâche de fond après un succès
 **And** quitter l'écran puis revenir reprend la progression par `?after=` ; axe-core sans violation, clair et sombre
 
 ### Story 5.4 : Décharger, supprimer un modèle et choisir ses défauts
@@ -1251,7 +1366,8 @@ So that je libère la mémoire avant une démo et retrouve mes choix d'une séan
 **Given** un modèle installé sans run actif
 **When** on clique « Supprimer » puis confirme dans `wl-confirm-dialog` (« qwen3.5:2b sera supprimé de ce poste (2,7 Go libérés). », focus sur « Annuler ») ou appelle `DELETE /api/models/{tag}`
 **Then** Ollama supprime le modèle, ses lignes `model_facts` sont purgées (le modèle ne réapparaît plus au démarrage à froid, test), et le résultat se solde par « Modèle supprimé » ; « Annuler » ne supprime rien
-**And** un modèle utilisé par un run actif rend `409` avec son message et son action
+**And** si le modèle est un défaut choisi pour un ou plusieurs usages, le dialogue le dit avant la confirmation : « C'est le modèle par défaut pour : Agent. Ces usages reviendront à la règle automatique. » (D-41)
+**And** un modèle utilisé par un run actif rend `409 model_in_use` (code ajouté à `errors.py`, `detail.tag`) avec son message et son action ; à l'écran, « Supprimer » est désactivé avec « Utilisé par une réponse en cours »
 
 **Given** le bouton « Définir par défaut » sur l'écran Modèles (décision Q2 : choix explicite, jamais retenu sans geste)
 **When** on choisit un modèle comme défaut d'un usage (`chat`, `arena`, `judge`, `agent`, `rag`) par `PUT /api/models/defaults/{purpose}` (écriture, `Origin` contrôlée)
@@ -1299,6 +1415,7 @@ So that j'explique la vitesse observée et ce qu'elle serait sur un PC pro de 16
 **Given** un clic sur un modèle de l'écran Modèles ou de `wl-model-picker`
 **When** la fiche s'ouvre
 **Then** elle montre dense ou MoE, paramètres totaux et actifs, quantification, licence, contexte, outils et raisonnement vérifiés (`/api/show` en cache `model_facts`, catalogue), avec « inconnu » pour une valeur absente, jamais 0
+**And** le panneau est à droite dès 1 120 px, au-dessus de la liste en deçà, et `#/modeles/<tag>` l'ouvre directement (D-40, D-8) ; la fiche d'un modèle non installé qui ne tient pas porte « Installer quand même » (D-42)
 
 **Given** « Pourquoi ce débit ? »
 **When** on l'ouvre
@@ -1341,12 +1458,16 @@ So that je réponds à « lequel prendre pour mon cas ? » sans relancer de comp
 
 **Given** le sous-écran `#/arene/references` (onglet « Références » de l'Arène passé à `available`)
 **When** on l'ouvre
-**Then** une carte par usage publié dans `qb.results/1` montre le groupe des meilleurs (intervalle, sans rang inventé dans un groupe à égalité), le débit sur la machine de référence et la marque « installé » ou « autre version » pour les modèles du poste ; un tableau équivalent est disponible
-**And** références indisponibles : la raison s'affiche, sans carte vide
+**Then** une carte par usage publié dans `qb.results/1` montre le groupe des meilleurs (désigné par le serveur ; intervalle, sans rang inventé dans un groupe à égalité, tri par nom), le score en pourcentage de réussite avec le libellé « Part de … » en tête (D-5), le débit sur la machine de référence et la marque « installé » ou « autre version » pour les modèles du poste ; les cartes sont la vue par défaut, un segment « Cartes · Tableau » donne le tableau équivalent (D-20)
+**And** références indisponibles : la raison s'affiche, sans carte vide ; Ollama arrêté : les références restent lisibles, les marques « installé » sont retirées avec un message
+
+**Given** une carte d'usage
+**When** on clique « Comparer ces modèles »
+**Then** l'Arène s'ouvre présélectionnée sur les modèles du groupe installés sur ce poste ; sans modèle installé du groupe, le bouton est désactivé avec la raison visible (D-19)
 
 **Given** l'Accueil
 **When** les références sont disponibles
-**Then** une carte « Quel modèle pour quel usage ? » ouvre `#/arene/references` ; sinon elle n'apparaît pas
+**Then** une carte « Références » (nom long « Quel modèle pour quel usage ? », D-10) affiche le meilleur score en pourcentage « Part de … » (D-5) et ouvre `#/arene/references` ; sinon elle n'apparaît pas
 
 **Given** le parcours Sobriété puis Modèles
 **When** le test E2E le joue (Ollama simulé, fichier `qb.results/1` de test)
@@ -1446,12 +1567,14 @@ So that la salle voit le raisonnement outillé et que je garde la main sur ce qu
 
 **Given** l'écran `screens/agents-solo.js` sur `#/agents/seul` (module Agents passé à `available`, onglet « Équipe d'agents » désactivé avec sa raison)
 **When** on l'ouvre
-**Then** `wl-model-picker` est sur le défaut `agent` avec sa raison (sans défaut : la raison et un choix demandé, lancement désactivé), les neuf pastilles d'outils sont visibles, toutes cochées sauf « Envoi d'email », une pastille indisponible est non sélectionnable avec son aide, et l'accueil dit « Bonjour ! L'agent est prêt. » avec des actions rapides
+**Then** `wl-model-picker` est sur le défaut `agent` avec sa raison (sans défaut : la raison et un choix demandé, lancement désactivé), les neuf outils sont visibles en interrupteurs en bascule (D-6), tous activés sauf « Envoi d'email », un outil indisponible est non activable (`aria-disabled`, focalisable) avec son aide, et l'accueil dit « Bonjour ! L'agent est prêt. » avec des actions rapides
+**And** un modèle choisi sans outils vérifiés affiche l'avertissement « Ce modèle n'a pas d'outils vérifiés : l'agent risque de mal appeler ses outils. Préférez un modèle marqué « Outils vérifiés ». » et le lancement reste permis (D-32)
+**And** le panneau « Étapes » est à droite dès 1 024 px ; en deçà, sous la réponse et toujours déplié, sans bouton de repli (D-30)
 
 **Given** une tâche lancée
 **When** les `step` arrivent
 **Then** `wl-step-trace` (liste ordonnée, motif APG) ajoute chaque étape avec icône, libellé, durée et agent ; on peut en déplier une pendant que les suivantes arrivent sans perdre le focus ; `wl-run-status` dit « Réflexion… », « Appel de l'outil <libellé>… », « En attente de votre validation », « Génération… »
-**And** la réponse finale arrive en flux dans `wl-chat-thread` avec son pied (badge, CO₂, nombre d'étapes, durée, Télécharger) et un Markdown rendu sans astérisques visibles (test sur une réponse réelle de la v1 : gras, séparateur, italique)
+**And** la réponse finale arrive en flux dans `wl-chat-thread` avec un pied réduit (badge, CO₂, nombre d'étapes, durée ; ni débit, ni tokens, ni chargement, D-31), suivi de « Télécharger » (route d'export du serveur, sans `blob:`), et un Markdown rendu sans astérisques visibles (test sur une réponse réelle de la v1 : gras, séparateur, italique)
 
 **Given** `approval_required`
 **When** il arrive
@@ -1474,11 +1597,12 @@ So that je montre une collaboration d'agents sans CrewAI, avec un rapport conser
 
 **Given** la bibliothèque d'équipes (décision Q3 : équipes de la v1 dans un fichier versionné en lecture seule, modifications de l'utilisateur dans `preferences`, « Revenir à l'équipe d'origine » efface la modification)
 **When** on appelle `GET /api/agents/crews` et `POST /api/agents/crews/validate`
-**Then** chaque équipe rend ses agents (rôle, objectif, outils, modèle) et ses tâches ordonnées ; `validate` rejette une équipe sans agent, un outil inconnu ou un modèle cloud sans `allow_cloud`, avec un message par champ
+**Then** chaque équipe rend ses agents (rôle, objectif, outils, modèle) et ses tâches ordonnées ; `validate` rejette une équipe sans agent, de plus de 5 agents (D-36), un outil inconnu ou un modèle cloud sans `allow_cloud`, avec un message par champ
 
 **Given** `POST /api/agents/runs {mode: "crew", crew, topic, allow_cloud}`
 **When** la mission s'exécute
 **Then** un run racine `agent` enchaîne les agents en séquence (la sortie d'un agent est l'entrée du suivant), chaque agent réutilise la boucle de 6.1 et publie ses `step` avec `agent` renseigné, et chaque appel de modèle est une feuille avec son `co2`
+**And** l'étape `answer` qui clôt un agent porte `agent_totals {tools, duration_s}` (ligne « Terminé · 3 outils · 41 s », D-34) ; un agent que la mission n'atteint pas (arrêt, erreur) ne publie aucune étape, ce que l'écran affiche « Non lancé »
 **And** un outil sensible dans une équipe suit l'approbation de 6.3 (aucun email sans validation)
 
 **Given** une mission en cours
@@ -1498,11 +1622,13 @@ So that la mission se lit d'un coup d'œil et laisse une trace, à parité avec 
 
 **Given** l'écran `screens/agents-crew.js` sur `#/agents/equipe` (onglet passé à `available`)
 **When** on charge une équipe
-**Then** un schéma SVG fait main relie les agents puis le rapport (`<title>`, `<desc>`), l'agent actif est marqué par un contour et le libellé « en cours », jamais par la couleur seule ; « Configurer » ouvre les agents (rôle, objectif, outils, modèle) et enregistre la modification dans `preferences` (décision Q3) ; sans agent, « Lancer la mission » est désactivé avec « Ajoutez au moins un agent »
+**Then** un schéma SVG fait main relie les agents puis le rapport (`<title>`, `<desc>`), horizontal dès 768 px jusqu'à 4 agents, vertical en deçà ou à 5 agents ; l'agent actif est marqué par un contour et le libellé « en cours », jamais par la couleur seule ; « Configurer » ouvre un volet **non modal** qui laisse le schéma visible (colonne de droite dès 1 024 px, sous le schéma en deçà, D-35) avec les agents (rôle, objectif, outils en interrupteurs, modèle) et enregistre la modification dans `preferences` (décision Q3) ; sans agent, « Lancer la mission » est désactivé avec « Ajoutez au moins un agent »
+**And** à 5 agents, « Ajouter un agent » est désactivé avec la raison visible, reliée au bouton : « Une équipe compte 5 agents au plus : retirez un agent pour en ajouter un autre. » (D-36)
 
 **Given** une mission lancée
 **When** les `step` arrivent
-**Then** une ligne par agent dit son statut (En attente, En cours avec l'étape, Terminé avec outils et durée) et se déplie sur sa trace ; le journal brut est replié ; Arrêter (et Échap) annule
+**Then** une ligne par agent dit son statut (En attente, En cours avec l'étape, Terminé avec outils et durée lus dans `agent_totals`, Arrêté, Non lancé pour un agent que la mission n'a pas atteint, D-34) et se déplie sur sa trace ; le journal brut est replié, en lignes horaires lisibles, jamais en JSON (D-33) ; Arrêter (et Échap) annule
+**And** une mission terminée ou arrêtée se rouvre par `#/agents/equipe/<run_id>` (route passée à `available`, D-8) ; un identifiant inconnu affiche `run_not_found`
 **And** le rapport s'affiche avec son pied (badge, CO₂, pic de mémoire, durée, Télécharger en Markdown par la route d'export, sans `blob:`)
 
 **Given** l'agent seul et l'équipe de la v1
@@ -1540,7 +1666,12 @@ So that je sais si un modèle invente, affirmation par affirmation.
 **Given** le flux
 **When** chaque métrique est prête
 **Then** `eval_metric {lane, métrique, score|null, raison, verdicts}` est publié au fil de l'eau ; juge indisponible, sortie invalide ou réponse vide donnent `score: null` et `not_evaluated` avec la raison, jamais 0
+**And** pour un jeu de questions, `eval_metric` porte de quoi afficher « sur 8 questions (1 non évaluée) » et le détail par question (noms de champs fixés par la story et consignés dans `contrat-api.md`)
 **And** effacer l'évaluation supprime ses `evaluations` et `run_events` et garde ses `runs` (AD-13)
+
+**Given** une évaluation annulée ou interrompue par un redémarrage (D-28, correct course)
+**When** le run se termine `cancelled` ou `interrupted`
+**Then** les métriques déjà notées restent dans `evaluations`, l'instantané `GET /api/runs/{id}` porte `partial: true`, et les métriques non notées sont « non évaluées (évaluation arrêtée) », jamais 0 (test)
 
 ### Story 7.2 : Un jeu fixe de cas garde le juge honnête
 
@@ -1572,7 +1703,8 @@ So that je compare la fiabilité des modèles sur mes documents et retrouve le r
 
 **Given** l'écran `screens/documents-eval.js` sur `#/documents/evaluation` (onglet passé à `available`)
 **When** on l'ouvre
-**Then** il propose Question ou Jeu de questions, `wl-model-picker` en mode multi, le juge sur le défaut `judge` avec sa raison et l'avertissement « note peu fiable » sous ~4B actifs, et la phrase « Les mêmes extraits sont fournis à tous les modèles. »
+**Then** il propose Question ou Jeu de questions, `wl-model-picker` en mode multi présélectionné sur le défaut `arena` (les trois petits modèles locaux de l'Arène, D-27), le juge sur le défaut `judge` avec sa raison et l'avertissement « note peu fiable » sous ~4B actifs, et la phrase « Les mêmes extraits sont fournis à tous les modèles. »
+**And** question vide : « Lancer l'évaluation » est désactivé avec la raison visible « Saisissez une question » (D-29)
 
 **Given** une évaluation lancée
 **When** les événements arrivent
@@ -1582,6 +1714,7 @@ So that je compare la fiabilité des modèles sur mes documents et retrouve le r
 **Given** une évaluation terminée
 **When** on revient sur l'écran ou ouvre son URL `#/documents/evaluation/<run_id>`
 **Then** le résultat se reconstruit depuis la base sans relancer de modèle ; « Matrice » et « Tableau » sont proposés comme dans l'Arène
+**And** un résultat partiel (instantané `partial: true`) se rouvre titré « Résultat partiel conservé », ses cellules non notées en « non évalué (évaluation arrêtée) » (D-28) ; un identifiant inconnu affiche `run_not_found`
 **And** axe-core sans violation, clair et sombre
 
 ### Story 7.4 : Le Banc d'essai dit si la sortie respecte le format (préversion 2.0.0a7)
@@ -1596,15 +1729,16 @@ So that je montre qu'un petit modèle sait produire un JSON exploitable.
 
 **Given** `GET /api/scenarios`
 **When** on l'appelle
-**Then** il rend les scénarios de la v1 (`USE_CASES` de `lab.py`, consignes séparées du format) avec leur format attendu en schéma JSON
+**Then** il rend les scénarios de la v1 (`USE_CASES` de `lab.py`, consignes séparées du format) avec leur consigne système (`instruction`, D-18) et leur format attendu en schéma JSON, ou `null` pour un scénario sans format (D-17)
 
 **Given** `POST /api/bench/runs {scenario, model, input, force_format, concise, allow_cloud}`
 **When** le run `bench` se termine
-**Then** le serveur dit si la sortie respecte le schéma (« Format respecté » ou la première violation en clair) ; `force_format` passe le schéma par `response_schema` (`format` d'Ollama), `concise` ajoute la consigne de réponse concise ; débit D3, CO₂ et durée accompagnent le résultat
+**Then** le serveur dit si la sortie respecte le schéma (« Format respecté » ou la première violation en clair) dans l'instantané `GET /api/runs/{id}` (`format_verdict`, absent pour un scénario sans format) ; `force_format` passe le schéma par `response_schema` (`format` d'Ollama), `concise` ajoute la consigne de réponse concise ; débit D3, CO₂ et durée accompagnent le résultat
 
 **Given** l'écran `screens/bench.js` sur `#/arene/banc` (onglet passé à `available`)
 **When** on lance un scénario
-**Then** la réponse arrive en flux, le verdict de format s'affiche à `run_ended` avec la sortie mise en forme, et les interrupteurs « Format imposé » et « Réponse concise » ont leur aide ; le résultat est conservé et rouvrable
+**Then** la réponse arrive en flux, le verdict de format s'affiche à `run_ended` avec la sortie mise en forme, et les interrupteurs en bascule (D-6) « Format imposé » et « Réponse concise » ont leur aide ; le résultat est conservé et rouvrable par `#/arene/banc/<run_id>` (identifiant inconnu : `run_not_found`)
+**And** la consigne système du scénario est dans un bloc « Consigne » replié (D-18) ; un scénario sans format n'a pas de « Format attendu », « Format imposé » est désactivé avec la raison visible, et aucun verdict n'est affiché (D-17)
 **And** un délai dépassé affiche « Délai dépassé » avec le délai ; axe-core sans violation, clair et sombre
 
 **Given** les parcours Évaluation et Banc d'essai
@@ -1662,9 +1796,9 @@ So that la v2 remplace la v1 sans exclure personne.
 
 **Acceptance Criteria:**
 
-**Given** les onze routes du registre, toutes `available`
+**Given** toutes les routes du registre (UX-DR4, routes de la maquette comprises), toutes `available`
 **When** les E2E d'accessibilité tournent
-**Then** axe-core ne relève aucune violation, sans exclusion, sur chaque écran en clair, en sombre et en mode projection, panneaux et dialogues ouverts compris
+**Then** axe-core ne relève aucune violation, sans exclusion, sur chaque écran en clair, en sombre (thème « Système » compris, qui applique l'un ou l'autre) et en mode projection, panneaux et dialogues ouverts compris
 **And** aucun défilement horizontal à 320 px CSS et à 200 % de zoom (hors tableaux larges qui défilent dans leur conteneur)
 
 **Given** la grille RGAA 4.1

@@ -1,0 +1,14 @@
+{
+  "docs": {
+    "documents_one": "1 document",
+    "documents_many": "{count} documents",
+    "chunks_one": "1 extrait",
+    "chunks_many": "{count} extraits",
+    "extracts": {
+      "summary_empty": "Extraits communs",
+      "summary_one": "1 extrait commun",
+      "summary_many": "{count} extraits communs",
+      "empty": "Les extraits communs apparaissent après la recherche."
+    }
+  }
+}
