@@ -8,6 +8,7 @@ que le code rend les notes attendues, pas que les verdicts attendus sont justes.
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import pytest
 
@@ -71,6 +72,10 @@ def test_the_review_state_is_declared_and_never_claims_a_human_review_nobody_mad
         assert review["reviewed_by"] and review["reviewed_on"]
     if not review["reviewed_by"]:
         assert states == {"proposed"} and review["status"] == "proposed"
+        assert not review["reviewed_on"]
+    else:  # relecture signée : datée (AAAA-MM-JJ), fichier et cas tous relus
+        date.fromisoformat(review["reviewed_on"])
+        assert review["status"] != "proposed" and "proposed" not in states
 
 
 def test_the_minimum_agreement_is_a_share_between_zero_and_one():
@@ -214,6 +219,8 @@ async def test_a_judge_that_agrees_with_the_set_scores_full_agreement():
     assert agreement.verdict_rate == agreement.useful_rate == 1.0
     assert agreement.verdicts_invalid == 0 and agreement.faithfulness_gap == 0
     assert agreement.support_same == agreement.support_total > 0
+    assert agreement.shortfalls(DOC["minimum_agreement"]) == []
+    assert "non informatif" not in agreement.summary(0, len(DOC["cases"]))
 
 
 async def test_a_lenient_judge_agrees_only_on_the_supported_claims():
@@ -230,10 +237,33 @@ async def test_a_lenient_judge_agrees_only_on_the_supported_claims():
         if claim["verdict"] == "appuyée"
     )
     assert agreement.verdicts_same == supported < agreement.verdicts_total
+    # toujours « appuyée » : exactement le juge trivial, donc non informatif même au-dessus du seuil
+    assert agreement.majority_verdict == "appuyée"
+    assert agreement.verdicts_same == agreement.verdicts_majority
+    assert not agreement.verdicts_informative
+    assert any(
+        "juge non informatif sur les verdicts" in s
+        for s in agreement.shortfalls({"verdict": 0.0, "useful": 0.0})
+    )
     assert any("attendu contredite, rendu appuyée" in line for line in agreement.lines)
     assert "non relus par Anaël" in agreement.summary(
         fixed.unreviewed_cases(DOC), len(DOC["cases"])
     )
+
+
+async def test_a_judge_that_calls_every_extract_useful_is_not_informative():
+    async def all_useful(request: ChatRequest) -> JudgeReply:
+        if request.response_schema is prompts.USEFUL_SCHEMA:
+            last = request.messages[-1].content
+            case = next(c for c in DOC["cases"] if c["answer"] in last and c["question"] in last)
+            useful = [s["n"] for s in case["sources"]]
+            return JudgeReply(json.dumps({"useful": useful, "reason": "Tous."}), "")
+        return await fixed.ReplayJudge(REPLAY).ask(request)
+
+    agreement = await fixed.measure(DOC, all_useful)
+    useful = sum(len(c["useful"]) for c in DOC["cases"])
+    assert agreement.extracts_same == useful <= agreement.extracts_majority
+    assert not agreement.extracts_informative and agreement.verdicts_informative
 
 
 async def test_an_unusable_judge_output_is_never_an_agreement():
@@ -243,6 +273,7 @@ async def test_an_unusable_judge_output_is_never_an_agreement():
     agreement = await fixed.measure(DOC, broken)
     assert agreement.verdicts_same == 0 and agreement.verdicts_invalid == agreement.verdicts_total
     assert agreement.extracts_same == 0 and agreement.faithfulness_gap is None
+    assert len(agreement.shortfalls(DOC["minimum_agreement"])) == 4
 
 
 class _Streaming:

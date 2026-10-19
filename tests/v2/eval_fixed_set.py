@@ -248,6 +248,9 @@ class Agreement:
     support_total: int = 0
     extracts_same: int = 0
     extracts_total: int = 0
+    extracts_majority: int = 0  # extraits bien classés par un juge qui dirait toujours « tous
+    # utiles » ou toujours « aucun utile » (le meilleur des deux) : le repère des extraits utiles
+    majority_verdict: str = ""
     faithfulness_gaps: list[int] = field(default_factory=list)
     faithfulness_unscored: int = 0
     lines: list[str] = field(default_factory=list)
@@ -261,6 +264,38 @@ class Agreement:
         return self.extracts_same / self.extracts_total if self.extracts_total else 0.0
 
     @property
+    def verdicts_informative(self) -> bool:
+        """Faux si le juge ne fait pas mieux qu'un juge qui rendrait toujours le même verdict."""
+        return self.verdicts_same > self.verdicts_majority
+
+    @property
+    def extracts_informative(self) -> bool:
+        """Faux si le juge ne fait pas mieux que « tous utiles » ou « aucun utile »."""
+        return self.extracts_same > self.extracts_majority
+
+    def shortfalls(self, minimum: dict[str, float]) -> list[str]:
+        """Ce qui ne passe pas la garde du jeu fixe : un accord sous `minimum_agreement`, ou un
+        juge non informatif (pas meilleur que le juge trivial). Liste vide : la garde passe."""
+        out = [
+            f"{name} {100 * rate:.0f} % < {100 * minimum[name]:.0f} %"
+            for name, rate in (("verdict", self.verdict_rate), ("useful", self.useful_rate))
+            if rate < minimum[name]
+        ]
+        if self.verdicts_total and not self.verdicts_informative:
+            out.append(
+                f"juge non informatif sur les verdicts ({self.verdicts_same}/{self.verdicts_total}"
+                f", pas mieux que toujours « {self.majority_verdict} » : "
+                f"{self.verdicts_majority}/{self.verdicts_total})"
+            )
+        if self.extracts_total and not self.extracts_informative:
+            out.append(
+                f"juge non informatif sur les extraits utiles ({self.extracts_same}/"
+                f"{self.extracts_total}, pas mieux que « tous utiles » ou « aucun utile » : "
+                f"{self.extracts_majority}/{self.extracts_total})"
+            )
+        return out
+
+    @property
     def faithfulness_gap(self) -> float | None:
         gaps = self.faithfulness_gaps
         return sum(gaps) / len(gaps) if gaps else None
@@ -271,10 +306,16 @@ class Agreement:
             f"accord du juge sur le jeu fixe ({cases} cas, {unreviewed} non relus par Anaël) : "
             f"verdicts identiques {self.verdicts_same}/{self.verdicts_total} "
             f"({100 * self.verdict_rate:.0f} %, dont {self.verdicts_invalid} sorties invalides ; "
-            f"un juge qui répondrait toujours pareil : {self.verdicts_majority}/{self.verdicts_total}) ; "
+            f"un juge qui répondrait toujours « {self.majority_verdict} » : "
+            f"{self.verdicts_majority}/{self.verdicts_total}"
+            + ("" if self.verdicts_informative else ", juge non informatif")
+            + ") ; "
             f"extrait d'appui identique {self.support_same}/{self.support_total} ; "
             f"extraits utiles identiques {self.extracts_same}/{self.extracts_total} "
-            f"({100 * self.useful_rate:.0f} %) ; "
+            f"({100 * self.useful_rate:.0f} %, « tous utiles » ou « aucun utile » : "
+            f"{self.extracts_majority}/{self.extracts_total}"
+            + ("" if self.extracts_informative else ", juge non informatif")
+            + ") ; "
             + (
                 f"écart moyen de fidélité de bout en bout {gap:.0f} points"
                 f" ({len(self.faithfulness_gaps)} cas notés, {self.faithfulness_unscored} non "
@@ -297,7 +338,11 @@ async def measure(doc: dict[str, Any], ask: Ask) -> Agreement:
     ici."""
     result = Agreement()
     expected = [c["verdict"] for case in doc["cases"] for c in verified_claims(case)]
-    result.verdicts_majority = max(expected.count(v) for v in prompts.VERDICTS)
+    result.majority_verdict = max(prompts.VERDICTS, key=expected.count)
+    result.verdicts_majority = expected.count(result.majority_verdict)
+    useful = sum(len(case["useful"]) for case in doc["cases"])
+    every = sum(len(case["sources"]) for case in doc["cases"])
+    result.extracts_majority = max(useful, every - useful)
     for case in doc["cases"]:
         sources = case["sources"]
         for claim in verified_claims(case):
@@ -356,6 +401,8 @@ async def _main(args: argparse.Namespace) -> int:
     print(agreement.summary(unreviewed_cases(doc), len(doc["cases"])))
     for line in agreement.lines:
         print(" -", line)
+    for shortfall in agreement.shortfalls(doc["minimum_agreement"]):
+        print("Garde du jeu fixe non passée :", shortfall)
     return 0
 
 

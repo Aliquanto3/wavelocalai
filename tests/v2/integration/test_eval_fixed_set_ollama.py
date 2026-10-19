@@ -4,9 +4,10 @@
 `tests/v2/fixtures/eval/` : la part de verdicts identiques aux verdicts attendus, celle des extraits
 utiles identiques et l'écart de fidélité de bout en bout sont **rapportés** (sortie du test avec
 `-s`, et `record_property`). Un juge de 1,5 milliard de paramètres est peu fiable : le test
-n'échoue pas sous le seuil `minimum_agreement` de `cases.json`, il émet un avertissement
-(`WAVELOCALAI_JUDGE_STRICT=1` le rend bloquant, pour une campagne de mesure ou un changement du
-juge). Les verdicts attendus étant proposés et non relus (`review`), l'accord mesuré est indicatif.
+n'échoue pas sous le seuil `minimum_agreement` de `cases.json`, ni s'il ne fait pas mieux qu'un
+juge trivial (toujours le verdict le plus fréquent, ou « tous utiles » / « aucun utile ») : il émet
+un avertissement « juge non informatif » (`WAVELOCALAI_JUDGE_STRICT=1` le rend bloquant, pour une
+campagne de mesure ou un changement du juge). Les verdicts attendus étant proposés et non relus (`review`), l'accord mesuré est indicatif.
 
 La même mesure en ligne de commande : `python -m tests.v2.eval_fixed_set measure --model <tag>`.
 Saute avec sa raison si Ollama ne répond pas ou si le modèle manque.
@@ -50,15 +51,8 @@ async def test_the_real_judge_is_measured_against_the_fixed_set(record_property,
     assert agreement.verdicts_total == expected > 0
     assert 0.0 <= agreement.verdict_rate <= 1.0 and 0.0 <= agreement.useful_rate <= 1.0
 
-    minimum = doc["minimum_agreement"]
-    below = [
-        f"{name} {100 * rate:.0f} % < {100 * minimum[name]:.0f} %"
-        for name, rate in (("verdict", agreement.verdict_rate), ("useful", agreement.useful_rate))
-        if rate < minimum[name]
-    ]
+    below = agreement.shortfalls(doc["minimum_agreement"])
     if below:
-        message = (
-            f"Accord du juge sous le seuil minimal du jeu fixe ({', '.join(below)}). {summary}"
-        )
+        message = f"Garde du jeu fixe non passée ({' ; '.join(below)}). {summary}"
         assert os.environ.get("WAVELOCALAI_JUDGE_STRICT") != "1", message
         warnings.warn(message, stacklevel=1)

@@ -84,6 +84,32 @@ Les verdicts les plus discutables : `sauvegarde-frequence`, `jardin-partage`, `f
 
 Ciblé (poste partagé : ni `tests/v2` complet ni E2E). `test_eval_fixed_set.py` : 28 verts ; `test_eval_scoring.py` et `test_eval_api.py` : 51 verts après la refactorisation (inchangés) ; `test_layers.py` verts. Intégration sur le vrai Ollama (`qwen2.5:1.5b` juge, 12 cas, 40 verdicts) : verdicts identiques 29 à 30 sur 40 (72 à 75 %), contre 31/40 pour un juge qui répondrait toujours « appuyée » ; extraits d'appui identiques 26 à 28 sur 36 ; extraits utiles identiques 23 sur 31 (74 %) ; écart moyen de fidélité de bout en bout 18 à 21 points (11 cas notés) ; aucune sortie invalide. Tous les écarts de verdict vont vers « contredite ». Contrôle rapide propre.
 
+## Point pour Anaël : juge par défaut non informatif (à trancher, non tranché par la revue)
+
+Le juge par défaut `qwen2.5:1.5b` est **non informatif sur ce jeu** : 29 à 30 verdicts identiques sur 40 (72 à 75 %, trois mesures dont celle de la revue), contre 31/40 (78 %) pour un juge qui répondrait toujours « appuyée ». Ses écarts vont tous vers « contredite ». Sur les extraits utiles, il fait mieux que le juge trivial (23/31 contre 16/31). La mesure l'écrit désormais (« juge non informatif ») et le test `integration` avertit (échoue avec `WAVELOCALAI_JUDGE_STRICT=1`).
+
+Décisions à prendre : (a) garder `qwen2.5:1.5b` comme juge par défaut avec l'avertissement « note peu fiable » (D-27), ou en proposer un plus gros mesuré ; (b) règle de la garde : variante conservatrice écrite ici, **avertir par défaut, échouer en mode strict**, la garde exigeant un accord ≥ `minimum_agreement` **et** strictement meilleur que le juge trivial ; à durcir (échec par défaut) si le test `integration` entre un jour dans une campagne de mesure ; (c) réviser `minimum_agreement` (0,65) après relecture des verdicts.
+
+Mesurer un autre juge (installé, rien n'est téléchargé) :
+
+```
+$env:PYTHONUTF8 = "1"
+.venv\Scripts\python -m tests.v2.eval_fixed_set measure --model <tag> [--host http://127.0.0.1:11434]
+```
+
+ou, pour le juge du test : `.venv\Scripts\python -m pytest tests/v2/integration/test_eval_fixed_set_ollama.py -m integration -s` (ajouter `$env:WAVELOCALAI_JUDGE_STRICT = "1"` pour rendre la garde bloquante).
+
+## Revue
+
+Revue Opus (une passe), sur la base `origin/feat/v2-evaluation-serveur` fusionnée. Branchement vérifié : le service appelle `metrics.faithfulness`, `relevance` et `context_precision` (rien d'autre n'importait les noms déplacés), les phrases de troncature passent par le vrai service. Aucun appel réseau hors du test `integration` ; CI inchangée (le test `integration` n'y est pas joué).
+
+- medium · second avis 1 · **corrigé** · seuil 0,65 sous le repère « toujours appuyée » (78 %) : la garde comparait l'accord à un seuil absolu seulement. Ajout de `Agreement.shortfalls` (seuil **et** juge trivial : verdict le plus fréquent, « tous utiles » / « aucun utile »), « juge non informatif » dans le résumé et la sortie de `measure`, test `integration` qui avertit ou échoue en strict ; règle écrite pour Anaël ci-dessus. Mesure réelle rejouée : 30/40 contre 31/40, avertissement « non informatif » émis. Tests unitaires ajoutés (juge d'accord, juge indulgent = juge trivial, juge « tous utiles », sorties invalides).
+- low · second avis 2 · **rejeté** · `expected_precision` et `expected_faithfulness` passent par `scoring` : les formules ont leurs tests à valeurs littérales dans `test_eval_scoring.py` (un mutant de `percent` ou `context_precision` y échoue), et le jeu porte des littéraux (0, 80, 89, 100) ; des notes littérales dans `cases.json` seraient à recalculer à la main à chaque relecture des verdicts.
+- low · second avis 3 · **corrigé** · garde de relecture : `reviewed_on` vide sans relecteur, date ISO (AAAA-MM-JJ) sinon, et plus aucun cas ni statut `proposed` une fois la relecture signée.
+- low · second avis 4 · **rejeté** · la coupe d'une affirmation à 400 caractères et l'écart des questions au-delà des trois demandées ne réduisent pas ce que le juge voit de la réponse (l'invite demande trois questions ; une affirmation de plus de 400 caractères est anormale) : rien à dire dans `reason`.
+- low · second avis 5 · **rejeté** · `OllamaChatModel` traduit toute panne du client (dont httpx) en `ProviderError` (`_translate`), et le vrai `JudgeGateway` ne rattrape lui aussi que `ProviderError` : une autre exception est un défaut à laisser remonter.
+- Complexité : 0 constat (structures bornées par la taille du jeu fixe).
+
 ## Journal
 
 - 2026-10-19 · dev : spec, `metrics.py` extrait du service, phrases de troncature, jeu fixe (12 cas), outil de rejeu et de mesure, tests, contrat.

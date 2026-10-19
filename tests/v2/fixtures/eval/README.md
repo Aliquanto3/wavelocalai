@@ -25,6 +25,10 @@ assistant, ses affirmations avec le **verdict attendu** et l'extrait d'appui, et
 5. Mesurer l'accord du juge : `.venv\Scripts\python -m tests.v2.eval_fixed_set measure --model qwen2.5:1.5b`
    (ou `pytest tests/v2/integration/test_eval_fixed_set_ollama.py -s`). Réviser au besoin
    `minimum_agreement` (`verdict`, `useful`) à la lumière d'une mesure sur des verdicts relus.
+   La garde ne passe pas si l'accord est sous `minimum_agreement` **ou** si le juge ne fait pas
+   mieux qu'un juge trivial (toujours le verdict le plus fréquent du jeu ; « tous utiles » ou
+   « aucun utile » pour les extraits) : la mesure le dit (« juge non informatif »). Avertissement
+   par défaut, échec avec `WAVELOCALAI_JUDGE_STRICT=1`.
 
 Cas à regarder de près (verdicts les plus discutables) : `sauvegarde-frequence` (affirmations
 impliquées, non dites), `jardin-partage` (« finance » pour « prend en charge »), `frais-repas-negation`
