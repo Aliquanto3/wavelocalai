@@ -150,6 +150,139 @@
   color: var(--color-ink-secondary);
 }
 
+/* Discussion (story 4.5) : en-tête de la base, réglages, fil et sources côte à côte. Couleurs et
+   rayon viennent de tokens.css seulement. */
+.docs-chat-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+
+.docs-chat-indexing {
+  margin: 0 0 0.75rem;
+}
+
+.docs-chat-settings {
+  display: grid;
+  gap: 1rem 2rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  .docs-chat-settings {
+    grid-template-columns: minmax(0, 42rem) minmax(0, 24rem);
+    align-items: start;
+  }
+}
+
+/* Avertissement du cloud : icône et texte, jamais la couleur seule. */
+.docs-cloud-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 42rem;
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.docs-cloud-note[hidden] {
+  display: none;
+}
+
+.docs-advanced {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.docs-advanced > summary {
+  min-height: 2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.docs-advanced-body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.docs-field-label {
+  font-weight: 600;
+}
+
+.docs-select {
+  max-width: 24rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Fil à gauche, sources à droite dès 1 024 px ; sous la réponse et repliées en deçà (UX-DR19). */
+.docs-chat-layout {
+  display: grid;
+  gap: 0.75rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.docs-chat-main {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.docs-chat-main > * {
+  min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.docs-chat-layout > * {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .docs-chat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+
+  .docs-chat-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .docs-chat-layout > .docs-chat-sources {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .docs-chat-layout > .chat-composer {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+
+.docs-show-sources {
+  min-height: 2rem;
+  padding-block: 0.125rem;
+}
+
+.docs-show-sources[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* Supprimer, vider, régler (story 4.3). */
 .docs-table-head {
   display: flex;

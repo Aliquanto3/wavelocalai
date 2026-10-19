@@ -108,13 +108,13 @@ def test_the_module_tabs_name_the_screen_and_disable_the_others_with_their_reaso
     assert (
         tabs.get_by_role("link", name="Base documentaire").get_attribute("aria-current") == "page"
     )
-    for name in ("Discussion", "Évaluation de la qualité"):
-        link = tabs.get_by_role("link", name=name)
-        assert link.get_attribute("aria-disabled") == "true" and link.get_attribute("href") is None
-        reason = link.evaluate(
-            "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
-        )
-        assert reason == "Pas encore disponible dans cette préversion"
+    assert tabs.get_by_role("link", name="Discussion").get_attribute("href") == "#/documents"
+    link = tabs.get_by_role("link", name="Évaluation de la qualité")
+    assert link.get_attribute("aria-disabled") == "true" and link.get_attribute("href") is None
+    reason = link.evaluate(
+        "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
+    )
+    assert reason == "Pas encore disponible dans cette préversion"
 
 
 def test_both_import_buttons_open_the_file_chooser(docs):

@@ -2,8 +2,9 @@
 //
 // `el.runId = "<id>"` (ou l'attribut `run-id`) suit un run par le client SSE unique : « Chargement
 // du modèle en mémoire… » (`model_loading`), « Génération… » (`model_loaded`, puis `token`), puis
-// l'état final (`run_ended`). Le chronomètre est le seul chiffre calculé ici (AD-20) : il part de
-// l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
+// l'état final (`run_ended`). Un run de RAG commence par « Recherche des extraits… » (attribut
+// `first-stage="retrieving"`), jusqu'à `sources` ; `retrieval_step` y ramène aussi l'étape. Le
+// chronomètre est le seul chiffre calculé ici (AD-20) : il part de l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
 // appellent `POST /api/runs/{id}/cancel` ; le run se termine par son propre `run_ended`.
 //
 // Événement : `wl-run-ended` (`detail.status`, `detail.error`). Un flux n'est ouvert que pour le
@@ -28,6 +29,7 @@ import "./wl-error.js";
 
 const STAGE_TEXT = {
   starting: "components.run_status.starting",
+  retrieving: "components.run_status.retrieving",
   loading: "components.run_status.loading",
   generating: "components.run_status.generating",
   stopping: "components.run_status.stopping",
@@ -117,7 +119,9 @@ export class WlRunStatus extends HTMLElement {
   }
 
   #reset() {
-    this.#stage = "starting";
+    // `first-stage="retrieving"` : un run qui cherche d'abord (RAG) dit « Recherche des extraits… »
+    // dès son démarrage, jusqu'à l'événement `sources`.
+    this.#stage = this.getAttribute("first-stage") === "retrieving" ? "retrieving" : "starting";
     this.#final = null;
     this.#startMs = null;
     this.#endMs = null;
@@ -140,6 +144,8 @@ export class WlRunStatus extends HTMLElement {
       this.#timer ??= setInterval(() => this.#renderTimer(), TICK_MS);
       this.#render();
     },
+    retrieval_step: () => this.#setStage("retrieving"),
+    sources: () => this.#setStage("generating"),
     model_loading: () => this.#setStage("loading"),
     model_loaded: () => this.#setStage("generating"),
     token: () => this.#setStage("generating"),
