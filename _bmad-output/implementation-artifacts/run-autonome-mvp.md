@@ -14,7 +14,18 @@ Démarré le 2026-10-18. Orchestrateur : session principale (Opus 5.5). Contrat 
 8. E2E : `$env:WAVELOCALAI_E2E_CHROMIUM = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. Tests : `$env:PYTHONUTF8 = "1"`. Ollama : `http://127.0.0.1:11434`, `qwen2.5:1.5b` installé.
 9. **Depuis le 2026-10-19 vers 8 h (accord d'Anaël, amélioration continue d'agent-cost-kit n° 1, 3, 4, 10, 16)** : la CI de branche (3 OS) joue `tests/v2` et la v1. En local, `checks.sh <wt>` lance le contrôle rapide, les **E2E ciblés** (`e2e_cibles.sh` : écrans touchés, composants et coquille si `core/`, `components/` ou CSS changent, fumée Accueil + coquille) et l'integration, et relance une fois seuls les tests en échec ; `checks.sh <wt> complet` pour tout. **Suite E2E complète sur master** après chaque lot de 3 à 4 fusions : `e2e_master.sh` (worktree `v2-master`) ; un échec y ouvre un correctif avant la fusion suivante. Un seul contrôle local à la fois ; au plus 5 agents actifs (dev + revue). Chaque prompt de dev et de revue cite la section « Contrats partagés en cours ». Second avis : comparer à `git merge-base HEAD origin/master` et signaler « base en retard de N fusions » ; le reviewer part d'une branche à jour de master (l'orchestrateur fusionne d'abord). Une décision qui revient à Anaël ne bloque que les stories qui en dépendent. Après la 5.0 : pile de branches revues fusionnée par lots (n° 3).
 
-## État courant (2026-10-19, fin du run vers 12 h 30)
+## État courant (2026-10-19 vers 16 h 50, reprise des Epics 5 à 8)
+
+- **Fusionnées** : report au contrat (#85, f783ae9), 5.0 (#86, d51572e : E2E en CI, job bloquant en 3 morceaux ; `e2e_master.sh` n'est plus utile), 5.1 (#88, 75ea21e).
+- **En file de fusion** (`merge_queue.sh 91 87 90` lancé) : #91 correctif (verdict de l'Arène rouverte non renommé + budget température au meilleur de 3 ; à fusionner en premier, il rend vertes les autres CI), #87 (6.1, conflit contrat résolu 096863e), #90 (7.1). Puis **#89 (5.3)** : conflits avec la 5.1 résolus (3bf7ff2, poussé) ; relancer `merge_queue.sh 89` (et relancer ses jobs si rouge sur `test_arena_verdict` avant #91).
+- **Revues faites, PR à ouvrir après fusion de la base** : 6.2 (worktree `v2-6-2`, 19a01bd, contrôles verts ; PR après #87 : fusionner `origin/master`, `finalize.sh v2-6-2 feat/v2-agent-outils 6-2 6.2`).
+- **En revue (Opus)** : 5.2 (`v2-5-2`, master fusionné a96b9a9), 7.2 (`v2-7-2`, base 7.1 fusionnée 7152483 ; story mixte : relecture des verdicts par Anaël, juge 1,5 B non informatif).
+- **En développement (Sonnet)** : 5.4 (`v2-5-4`, empilée sur la 5.3 2dbb19d), 6.3 (`v2-6-3`, empilée sur la 6.2 19a01bd ; SMTP factice).
+- **Suite** : 5.5 ← 5.4 ; 5.7 (mixte) ← 5.4 ; 5.6 ← 5.5 ; 6.4 ← 6.3 (écran Agent seul ; consigne de la revue 6.1 : réponse finale en un seul `token`) ; 6.5 ← 6.1 ; 7.3 ← 7.1 (route `GET /api/rag/eval/runs` livrée) ; 5.8 (a5), 6.6 (a6), 7.4 (a7), 8.1 à 8.3. Au plus 3 stories en dev, 5 agents.
+- Méthode éprouvée : spec de story rédigée par l'agent de dev depuis epics.md ; branches empilées sur la story précédente revue ; master fusionné dans la branche avant la revue et avant la PR ; un conflit sémantique confié à un agent Sonnet.
+- **Pour Anaël** : facteur voiture 142 g/km (5.1) ; `fits` sans VRAM ni cache KV (5.3) ; recette du vrai `pull` (annulation, reprise) ; réponse de l'agent en un bloc (6.1, à confirmer en 6.4) ; relecture du jeu fixe `tests/v2/fixtures/eval/cases.json` (7.2, ~30 min) et choix d'un juge plus gros ; écarts Q4 (pas de verdicts cloud) ; limite de 4 modèles aussi côté serveur (PR #85).
+
+## État précédent (2026-10-19, fin du run vers 12 h 30)
 
 - **MVP terminé** (Epics 1 à 4) : 4.9 fusionnée (#79, de1288c). Fusionnées depuis 7 h 30 : 4.3 (#68), 4.8 (#70), tests instables (#72), 4.5 (#73), 3.5 (#74), 3.6 (#76), 4.6 (#77), 4.7 (#78), 4.9 (#79). Epics 5 à 8 reportés (décision d'Anaël) ; plan V15 à V25 dans `run-autonome.md`. Ollama rendu à Anaël vers 11 h 50.
 

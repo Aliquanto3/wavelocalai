@@ -45,6 +45,12 @@ LAZY_ONLY = {
     "openai",
     "anthropic",
     "mistralai",
+    # Outils des agents (story 6.2) : importés dans les fonctions seulement.
+    "pandas",
+    "matplotlib",
+    "numexpr",
+    "func_timeout",
+    "psutil",
 }
 
 
