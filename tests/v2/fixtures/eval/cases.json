@@ -1,0 +1,643 @@
+{
+  "version": 1,
+  "language": "fr",
+  "origin": "Jeu fixe de la story 7.2. Tous les textes (documents, questions, réponses) sont inventés pour le dépôt, qui est public : aucun document client, aucun extrait de réponse RAG réel, rien de data/.",
+  "review": {
+    "status": "proposed",
+    "note": "Les verdicts attendus (claims[].verdict et claims[].support), les extraits utiles (useful) sont des PROPOSITIONS de la story 7.2, à relire par Anaël (décision Q4, voir README.md). Aucune validation humaine n'est enregistrée tant que reviewed_by est vide.",
+    "reviewed_by": null,
+    "reviewed_on": null
+  },
+  "minimum_agreement": {
+    "verdict": 0.65,
+    "useful": 0.65
+  },
+  "cases": [
+    {
+      "id": "mediatheque-pret",
+      "covers": "toutes les affirmations appuyées, un extrait hors sujet",
+      "question": "Combien de documents peut-on emprunter à la fois, et pour combien de temps ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "reglement-mediatheque.txt",
+          "page": 1,
+          "text": "Chaque abonné peut emprunter six documents à la fois : quatre livres et deux disques ou films. La durée du prêt est de trois semaines."
+        },
+        {
+          "n": 2,
+          "document": "reglement-mediatheque.txt",
+          "page": 2,
+          "text": "Un prêt peut être prolongé une fois, de deux semaines, à condition que le document ne soit pas réservé par un autre abonné."
+        },
+        {
+          "n": 3,
+          "document": "reglement-mediatheque.txt",
+          "page": 4,
+          "text": "Les ordinateurs de la salle multimédia sont accessibles sur réservation, par séances d'une heure."
+        }
+      ],
+      "answer": "Un abonné peut emprunter six documents à la fois, soit quatre livres et deux disques ou films [1]. Le prêt dure trois semaines [1]. Il peut être prolongé une fois de deux semaines, sauf si un autre abonné a réservé le document [2].",
+      "claims": [
+        {
+          "claim": "Un abonné peut emprunter six documents à la fois.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "Les six documents se répartissent en quatre livres et deux disques ou films.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La durée du prêt est de trois semaines.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "Un prêt peut être prolongé une fois de deux semaines.",
+          "verdict": "appuyée",
+          "support": 2
+        },
+        {
+          "claim": "La prolongation est impossible si un autre abonné a réservé le document.",
+          "verdict": "appuyée",
+          "support": 2
+        }
+      ],
+      "useful": [
+        1,
+        2
+      ],
+      "relevance_questions": [
+        "Combien de documents un abonné peut-il emprunter en même temps ?",
+        "Quelle est la durée d'un prêt à la médiathèque ?",
+        "Peut-on prolonger un prêt et de combien de temps ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "mediatheque-films",
+      "covers": "un chiffre faux : l'affirmation est contredite par l'extrait",
+      "question": "Combien de temps un film est-il prêté ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "reglement-mediatheque.txt",
+          "page": 3,
+          "text": "Les disques et les films sont prêtés pour une durée de deux semaines, contre trois semaines pour les livres."
+        },
+        {
+          "n": 2,
+          "document": "reglement-mediatheque.txt",
+          "page": 3,
+          "text": "Un retard suspend le droit d'emprunt pendant un nombre de jours égal au nombre de jours de retard."
+        }
+      ],
+      "answer": "Les films sont prêtés pour trois semaines [1]. En cas de retard, le droit d'emprunt est suspendu pendant autant de jours que le retard [2].",
+      "claims": [
+        {
+          "claim": "Les films sont prêtés pour trois semaines.",
+          "verdict": "contredite",
+          "support": 1
+        },
+        {
+          "claim": "En cas de retard, le droit d'emprunt est suspendu pendant autant de jours que le retard.",
+          "verdict": "appuyée",
+          "support": 2
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Quelle est la durée de prêt d'un film ?",
+        "Que se passe-t-il en cas de retard de retour ?",
+        "Pendant combien de temps le droit d'emprunt est-il suspendu ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "teletravail-ordinateur",
+      "covers": "une affirmation plausible mais absente des extraits : non appuyée",
+      "question": "Quelles sont les règles du télétravail ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "guide-teletravail.txt",
+          "page": 1,
+          "text": "Les salariés éligibles peuvent télétravailler jusqu'à deux jours par semaine ; les jours sont fixés avec le responsable d'équipe."
+        },
+        {
+          "n": 2,
+          "document": "guide-teletravail.txt",
+          "page": 2,
+          "text": "Une indemnité forfaitaire de dix euros par mois couvre les frais liés au télétravail."
+        }
+      ],
+      "answer": "Le télétravail est possible jusqu'à deux jours par semaine [1]. L'indemnité forfaitaire est de dix euros par mois [2]. L'entreprise fournit aussi un ordinateur portable à chaque télétravailleur.",
+      "claims": [
+        {
+          "claim": "Le télétravail est possible jusqu'à deux jours par semaine.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'indemnité forfaitaire de télétravail est de dix euros par mois.",
+          "verdict": "appuyée",
+          "support": 2
+        },
+        {
+          "claim": "L'entreprise fournit un ordinateur portable à chaque télétravailleur.",
+          "verdict": "non appuyée",
+          "support": null
+        }
+      ],
+      "useful": [
+        1,
+        2
+      ],
+      "relevance_questions": [
+        "Combien de jours par semaine peut-on télétravailler ?",
+        "Quelle indemnité reçoit un télétravailleur ?",
+        "Quelles sont les conditions du télétravail dans l'entreprise ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "velo-batterie",
+      "covers": "mélange : deux affirmations appuyées, une contredite, une non appuyée, une appuyée de plus",
+      "question": "Que dit la notice sur la batterie et l'assistance du Brise 3 ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "notice-brise3.pdf",
+          "page": 5,
+          "text": "La batterie du Brise 3 a une capacité de 400 Wh. Une charge complète dure environ cinq heures."
+        },
+        {
+          "n": 2,
+          "document": "notice-brise3.pdf",
+          "page": 6,
+          "text": "L'assistance électrique se coupe automatiquement à 25 km/h, conformément à la réglementation européenne."
+        },
+        {
+          "n": 3,
+          "document": "notice-brise3.pdf",
+          "page": 9,
+          "text": "Ne jamais laver le vélo au jet haute pression : l'eau peut endommager le moteur et les connecteurs."
+        },
+        {
+          "n": 4,
+          "document": "notice-brise3.pdf",
+          "page": 12,
+          "text": "La garantie couvre le cadre pendant cinq ans et la batterie pendant deux ans."
+        }
+      ],
+      "answer": "La batterie du Brise 3 fait 400 Wh [1] et se recharge complètement en environ trois heures [1]. L'assistance se coupe à 25 km/h [2]. La batterie est garantie deux ans [4] et elle est fabriquée en France.",
+      "claims": [
+        {
+          "claim": "La batterie du Brise 3 a une capacité de 400 Wh.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La batterie se recharge complètement en environ trois heures.",
+          "verdict": "contredite",
+          "support": 1
+        },
+        {
+          "claim": "L'assistance électrique se coupe à 25 km/h.",
+          "verdict": "appuyée",
+          "support": 2
+        },
+        {
+          "claim": "La batterie est garantie deux ans.",
+          "verdict": "appuyée",
+          "support": 4
+        },
+        {
+          "claim": "La batterie est fabriquée en France.",
+          "verdict": "non appuyée",
+          "support": null
+        }
+      ],
+      "useful": [
+        1,
+        2,
+        4
+      ],
+      "relevance_questions": [
+        "Quelle est la capacité de la batterie du Brise 3 ?",
+        "À quelle vitesse l'assistance électrique se coupe-t-elle ?",
+        "Quelle est la garantie de la batterie ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "frais-repas-negation",
+      "covers": "une négation inversée : « ne sont pas remboursés » devient « sont remboursés »",
+      "question": "Les repas sont-ils remboursés en déplacement ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "procedure-frais.txt",
+          "page": 1,
+          "text": "Les frais de repas ne sont pas remboursés lors d'un déplacement de moins de quatre heures. Au-delà, le plafond est de vingt-cinq euros par repas."
+        },
+        {
+          "n": 2,
+          "document": "procedure-frais.txt",
+          "page": 2,
+          "text": "Les billets de train sont remboursés en seconde classe, sauf autorisation écrite du directeur."
+        },
+        {
+          "n": 3,
+          "document": "procedure-frais.txt",
+          "page": 3,
+          "text": "Les demandes de remboursement sont à déposer dans les trente jours suivant le déplacement."
+        }
+      ],
+      "answer": "Les repas sont remboursés pour tout déplacement, quelle que soit sa durée [1]. Le plafond est de vingt-cinq euros par repas [1].",
+      "claims": [
+        {
+          "claim": "Les repas sont remboursés pour tout déplacement, quelle que soit sa durée.",
+          "verdict": "contredite",
+          "support": 1
+        },
+        {
+          "claim": "Le plafond de remboursement est de vingt-cinq euros par repas.",
+          "verdict": "appuyée",
+          "support": 1
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Les frais de repas sont-ils remboursés lors d'un déplacement ?",
+        "Quel est le plafond de remboursement d'un repas ?",
+        "Dans quels cas les repas d'un déplacement sont-ils pris en charge ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "prime-naissance-sans-reponse",
+      "covers": "une réponse qui dit ne pas savoir : aucune affirmation à vérifier, donc aucune note de fidélité (jamais 0) ; aucun extrait utile (0, une vraie note)",
+      "question": "Quel est le montant de la prime de naissance ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "procedure-frais.txt",
+          "page": 2,
+          "text": "Les billets de train sont remboursés en seconde classe, sauf autorisation écrite du directeur."
+        },
+        {
+          "n": 2,
+          "document": "procedure-frais.txt",
+          "page": 3,
+          "text": "Les demandes de remboursement sont à déposer dans les trente jours suivant le déplacement."
+        }
+      ],
+      "answer": "Les documents fournis ne donnent pas cette information.",
+      "claims": [],
+      "useful": [],
+      "relevance_questions": [
+        "Le montant de la prime de naissance est-il indiqué dans les documents ?",
+        "Les documents précisent-ils une prime de naissance ?",
+        "Quelle information les documents donnent-ils sur les primes ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "jardin-partage",
+      "covers": "marqueurs de citation [1] [2] dans la réponse, verbe voisin (« prend en charge » = « financera »), un extrait hors sujet",
+      "question": "Qu'a décidé le comité de quartier au sujet du jardin ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "compte-rendu-comite.txt",
+          "page": 1,
+          "text": "Le comité a voté à l'unanimité la création d'un jardin partagé sur la parcelle située derrière l'école des Tilleuls."
+        },
+        {
+          "n": 2,
+          "document": "compte-rendu-comite.txt",
+          "page": 2,
+          "text": "Les travaux débuteront au printemps ; la mairie prend en charge la clôture et l'arrivée d'eau, l'association s'occupe des plantations."
+        },
+        {
+          "n": 3,
+          "document": "compte-rendu-comite.txt",
+          "page": 3,
+          "text": "La prochaine réunion du comité aura lieu le premier mardi de novembre, à 18 h 30, à la salle des fêtes."
+        }
+      ],
+      "answer": "Un jardin partagé sera créé derrière l'école des Tilleuls [1]. Le vote a été unanime [1]. La mairie finance la clôture et l'arrivée d'eau [2], tandis que l'association réalise les plantations [2].",
+      "claims": [
+        {
+          "claim": "Un jardin partagé sera créé derrière l'école des Tilleuls.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "Le vote de création du jardin a été unanime.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La mairie finance la clôture et l'arrivée d'eau.",
+          "verdict": "appuyée",
+          "support": 2
+        },
+        {
+          "claim": "L'association réalise les plantations.",
+          "verdict": "appuyée",
+          "support": 2
+        }
+      ],
+      "useful": [
+        1,
+        2
+      ],
+      "relevance_questions": [
+        "Quel projet de jardin le comité de quartier a-t-il voté ?",
+        "Qui finance les travaux du jardin partagé ?",
+        "Où sera créé le jardin partagé ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "chantier-fin-de-journee",
+      "covers": "plus de 10 affirmations : seules les 10 premières sont vérifiées (la 9e est non appuyée, la 10e contredite) et la raison le dit",
+      "question": "Que faut-il faire avant de quitter le chantier ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "consignes-chantier.txt",
+          "page": 1,
+          "text": "Avant de quitter le chantier, l'équipe doit : couper l'alimentation électrique, fermer l'arrivée d'eau, ranger les outils dans le fourgon, balayer la zone de travail, verrouiller le portail, vérifier l'extinction des lampes, relever le compteur d'eau, fermer les fenêtres, éteindre le chauffage provisoire, photographier l'avancement, signer la fiche de fin de journée et prévenir le chef de chantier."
+        },
+        {
+          "n": 2,
+          "document": "consignes-chantier.txt",
+          "page": 2,
+          "text": "Les déchets de chantier sont triés dans trois bennes : gravats, bois et métaux."
+        }
+      ],
+      "answer": "Avant de partir, l'équipe coupe l'alimentation électrique [1]. Elle ferme l'arrivée d'eau [1]. Elle range les outils dans le fourgon [1]. Elle balaie la zone de travail [1]. Elle verrouille le portail [1]. Elle vérifie que les lampes sont éteintes [1]. Elle relève le compteur d'eau [1]. Elle ferme les fenêtres [1]. Elle arrose les plantes du chantier. Elle laisse le chauffage provisoire allumé. Elle photographie l'avancement [1]. Elle signe la fiche de fin de journée [1].",
+      "claims": [
+        {
+          "claim": "L'équipe coupe l'alimentation électrique avant de quitter le chantier.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe ferme l'arrivée d'eau.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe range les outils dans le fourgon.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe balaie la zone de travail.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe verrouille le portail.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe vérifie que les lampes sont éteintes.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe relève le compteur d'eau.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe ferme les fenêtres.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe arrose les plantes du chantier.",
+          "verdict": "non appuyée",
+          "support": null
+        },
+        {
+          "claim": "L'équipe laisse le chauffage provisoire allumé.",
+          "verdict": "contredite",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe photographie l'avancement.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "L'équipe signe la fiche de fin de journée.",
+          "verdict": "appuyée",
+          "support": 1
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Quelles consignes faut-il suivre en fin de journée sur un chantier ?",
+        "Que doit faire l'équipe avant de quitter le chantier ?",
+        "Quelles vérifications sont demandées avant de fermer un chantier ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "sauvegarde-frequence",
+      "covers": "affirmations appuyées par implication (« une fois par semaine » pour « chaque dimanche », « seules les modifications » pour « incrémentales »)",
+      "question": "À quelle fréquence sauvegarde-t-on les données ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "charte-sauvegarde.txt",
+          "page": 1,
+          "text": "Les sauvegardes complètes sont réalisées chaque dimanche à 2 h. Les sauvegardes incrémentales ont lieu chaque nuit, du lundi au samedi."
+        },
+        {
+          "n": 2,
+          "document": "charte-sauvegarde.txt",
+          "page": 2,
+          "text": "Les sauvegardes sont conservées trente jours sur un disque externe rangé dans un coffre ignifugé."
+        }
+      ],
+      "answer": "Une sauvegarde complète a lieu une fois par semaine, le dimanche [1]. Les autres nuits de la semaine, seules les modifications du jour sont sauvegardées [1].",
+      "claims": [
+        {
+          "claim": "Une sauvegarde complète a lieu une fois par semaine.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La sauvegarde complète a lieu le dimanche.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "Du lundi au samedi, seules les modifications du jour sont sauvegardées.",
+          "verdict": "appuyée",
+          "support": 1
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Quand les sauvegardes complètes sont-elles réalisées ?",
+        "À quel rythme les données sont-elles sauvegardées ?",
+        "Que sauvegarde-t-on les autres nuits de la semaine ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "preavis-cadre",
+      "covers": "une seule affirmation, contredite : la note vaut 0, une vraie note (jamais confondue avec « non évalué »)",
+      "question": "Quel est le préavis de démission d'un cadre ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "accord-argelis.txt",
+          "page": 4,
+          "text": "Dans la société Argelis, le préavis de démission est de deux mois pour les cadres et d'un mois pour les autres salariés."
+        },
+        {
+          "n": 2,
+          "document": "accord-argelis.txt",
+          "page": 5,
+          "text": "Les congés non pris sont indemnisés au départ du salarié."
+        }
+      ],
+      "answer": "Le préavis de démission d'un cadre est d'un mois [1].",
+      "claims": [
+        {
+          "claim": "Le préavis de démission d'un cadre est d'un mois.",
+          "verdict": "contredite",
+          "support": 1
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Quelle est la durée du préavis de démission d'un cadre ?",
+        "Combien de temps dure le préavis d'un cadre qui démissionne ?",
+        "Quel préavis un cadre doit-il respecter ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "piscine-vidange",
+      "covers": "précision du contexte faible : un seul extrait sur quatre sert à répondre",
+      "question": "Quand le bassin est-il vidangé ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "plan-entretien-piscine.txt",
+          "page": 1,
+          "text": "Le bassin est vidangé et nettoyé en entier chaque année, durant la première quinzaine de septembre."
+        },
+        {
+          "n": 2,
+          "document": "plan-entretien-piscine.txt",
+          "page": 2,
+          "text": "Les horaires d'ouverture au public sont de 9 h à 20 h en semaine."
+        },
+        {
+          "n": 3,
+          "document": "plan-entretien-piscine.txt",
+          "page": 3,
+          "text": "Les vestiaires sont équipés de casiers à pièce rendue."
+        },
+        {
+          "n": 4,
+          "document": "plan-entretien-piscine.txt",
+          "page": 4,
+          "text": "Un maître-nageur est présent en permanence pendant les heures d'ouverture."
+        }
+      ],
+      "answer": "Le bassin est vidangé et nettoyé en entier une fois par an [1], pendant la première quinzaine de septembre [1].",
+      "claims": [
+        {
+          "claim": "Le bassin est vidangé et nettoyé en entier une fois par an.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La vidange a lieu pendant la première quinzaine de septembre.",
+          "verdict": "appuyée",
+          "support": 1
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "À quelle période le bassin est-il vidangé ?",
+        "Combien de fois par an le bassin est-il nettoyé ?",
+        "Quand a lieu l'entretien annuel de la piscine ?"
+      ],
+      "review": "proposed"
+    },
+    {
+      "id": "mediatheque-fermeture",
+      "covers": "une connaissance générale vraie ou plausible mais absente des extraits : non appuyée (le juge ne doit pas répondre d'après ses connaissances)",
+      "question": "Quand la médiathèque est-elle fermée ?",
+      "sources": [
+        {
+          "n": 1,
+          "document": "reglement-mediatheque.txt",
+          "page": 1,
+          "text": "La médiathèque est fermée le lundi et les jours fériés."
+        },
+        {
+          "n": 2,
+          "document": "reglement-mediatheque.txt",
+          "page": 1,
+          "text": "Le prêt de documents est gratuit pour les habitants de la commune."
+        }
+      ],
+      "answer": "La médiathèque est fermée le lundi [1] et les jours fériés [1]. La plupart des médiathèques de France sont d'ailleurs fermées le lundi.",
+      "claims": [
+        {
+          "claim": "La médiathèque est fermée le lundi.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La médiathèque est fermée les jours fériés.",
+          "verdict": "appuyée",
+          "support": 1
+        },
+        {
+          "claim": "La plupart des médiathèques de France sont fermées le lundi.",
+          "verdict": "non appuyée",
+          "support": null
+        }
+      ],
+      "useful": [
+        1
+      ],
+      "relevance_questions": [
+        "Quels sont les jours de fermeture de la médiathèque ?",
+        "La médiathèque ouvre-t-elle le lundi ?",
+        "Quand la médiathèque est-elle fermée au public ?"
+      ],
+      "review": "proposed"
+    }
+  ]
+}
