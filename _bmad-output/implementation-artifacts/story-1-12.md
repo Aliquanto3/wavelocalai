@@ -64,3 +64,15 @@ Story de suite du correct course du 2026-10-19 : appliquer à la coquille (1.8, 
 ## Reports
 
 Voir l'en-tête `deferred` : sprite officiel complet (à fournir), écarts n° 3 et n° 9, noms longs d'Arène et de Modèles. Les stories 3.6 et 4.9 retouchent `screens/home.js` ensuite (cartes « Démo recommandée » et « Assistant documentaire »).
+
+## Revue
+
+Revue Opus (une passe) du 2026-10-19, avec la liste du second avis (Haiku).
+
+- medium · second avis · rejeté · E2E hors CI : règle du dépôt, les E2E se jouent en local sur Edge avant chaque PR (joués à cette revue).
+- medium · second avis · corrigé · le test « Rounded only » ne contrôlait que le `viewBox`, commun à Outlined, Rounded et Sharp. Ajout d'une empreinte SHA-256 par symbole, relevée sur le sprite importé en 5990111 (`test_every_sprite_symbol_matches_its_reviewed_rounded_fingerprint`, et son témoin) : tout tracé ajouté ou retouché échoue tant que son empreinte n'est pas ajoutée en connaissance de cause. `icons.LICENSE.txt` dit honnêtement que la variante Rounded est attestée par la relecture et non prouvée par le test. Le sprite officiel complet reste à fournir (report `deferred`).
+- low · second avis · rejeté · `home.js` sans le filtre `entry.param` : le paramètre de chemin est toujours facultatif (`findScreen` accepte le chemin nu, et l'écran monte avec `params = {}`), et l'Accueil lie toujours le chemin nu. Le lien ne peut donc pas mener à une route invalide. Contrat écrit dans l'en-tête de `core/registry.js`.
+- low · second avis · corrigé · règles `aria-disabled` du `wl-switch` sans consommateur, et non exigées par epics.md : CSS retiré, avec sa ligne de test. L'en-tête de `components.css` note qu'un premier consommateur devra aussi bloquer la bascule, car `aria-disabled` seul n'empêche pas de cocher.
+- low · second avis · rejeté · `systemMedia()?.addEventListener` sans garde : les navigateurs privés de `MediaQueryList.addEventListener` (Safari avant 14) n'ont pas non plus `:has()` ni les champs privés, que le front utilise déjà, et `core/shell.js` appelle déjà `addEventListener` sur un `MediaQueryList`. Une garde ici ne rendrait aucun navigateur utilisable.
+- low · revue · reporté · flash de thème : `blocking="render"` sur `theme.js` (module, car `shell.js` l'importe) n'est honoré que par Chromium. Sous Firefox et Safari, un choix « Sombre » ou « Système » en sombre peut afficher un premier rendu clair. La CSP (`script-src 'self'`) interdit un script en ligne. Piste : un petit script classique non module, servi par `/static`, qui ne pose que `data-theme`. À vérifier : charger `#/` sous Firefox avec `wl.theme=dark` et observer le premier rendu. Hérité de la story 1.8.
+- Complexité : 0 constat (aucune structure qui grossit pendant l'exécution dans ce diff).

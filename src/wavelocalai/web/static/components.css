@@ -280,8 +280,9 @@
 /* Interrupteur en bascule `wl-switch` (D-6, DESIGN.md) : « Autoriser le cloud », « Mode projection ».
    Piste bordée `ink-secondary` (3:1 au moins sur le fond) sur `surface-alt`, curseur `surface` ;
    activé : piste `primary-fill` et icône `check` dans le curseur. Le libellé est toujours à côté :
-   l'état ne se lit jamais par la seule couleur. Indisponible (`aria-disabled`) : piste en pointillés
-   `line`, libellé `ink-secondary`, raison en légende. */
+   l'état ne se lit jamais par la seule couleur. L'état indisponible de DESIGN.md (`aria-disabled`,
+   piste en pointillés `line`) arrivera avec son premier consommateur, qui devra aussi bloquer la
+   bascule : `aria-disabled` seul n'empêche pas de cocher. */
 .switch {
   display: inline-flex;
   align-items: center;
@@ -352,17 +353,6 @@
 
 .switch input:checked ~ .switch-check {
   opacity: 1;
-}
-
-.switch:has(input[aria-disabled="true"]) {
-  color: var(--color-ink-secondary);
-  cursor: not-allowed;
-}
-
-.switch input[aria-disabled="true"] {
-  border-style: dashed;
-  border-color: var(--color-line);
-  cursor: not-allowed;
 }
 
 /* Bandeaux sous la barre haute */

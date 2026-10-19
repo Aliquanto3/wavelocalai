@@ -3,7 +3,9 @@
 // qui livre un écran passe son `status` à "available" et lui donne son `load`.
 // `param` : nom du paramètre de chemin (`#/arene/comparer/<run_id>`, `#/modeles/<tag>`). Les routes
 // de la maquette (D-8) y sont déclarées `planned` : la story qui livre un écran n'a plus qu'à le
-// passer à `available` et à lui donner son `load`.
+// passer à `available` et à lui donner son `load`. Le paramètre est toujours facultatif :
+// `findScreen` accepte le chemin nu, que l'écran monte avec `params = {}` (nouvelle comparaison,
+// liste des modèles), et c'est ce chemin nu que l'Accueil et le menu lient.
 
 export const MODULES = [
   {

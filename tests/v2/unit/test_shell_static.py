@@ -3,6 +3,7 @@ textes, routes et icônes. Aucun navigateur : les parcours vivent dans `tests/v2
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from html.parser import HTMLParser
@@ -376,6 +377,55 @@ def test_the_icon_check_sees_a_filled_symbol_and_a_missing_one():
     assert "i-hourglass utilisé mais absent du sprite" in problems
 
 
+# Empreinte (SHA-256, 16 premiers caractères) du contenu de chaque symbole, relevée sur le sprite
+# importé avec la coquille (5990111) depuis le jeu Rounded officiel. Le `viewBox` seul ne distingue
+# pas Rounded d'Outlined ou de Sharp (même grille) : l'empreinte fige les tracés relus, et tout
+# symbole ajouté ou retouché fait échouer le test tant que son empreinte n'est pas ajoutée ici, avec
+# sa provenance (jeu Rounded officiel, jamais redessiné à la main) dans le message de commit.
+ROUNDED_FINGERPRINTS = {
+    "i-home": "8011eaf63beeb77e",
+    "i-swords": "896d66cbff1e56a8",
+    "i-description": "5d922af9fa65834a",
+    "i-smart-toy": "c602ac3f494d956b",
+    "i-eco": "75d8e21877b60ddc",
+    "i-deployed-code": "62bac9fc448fbaf5",
+    "i-menu": "fbeaa0c7baea715d",
+    "i-close": "2a69e4a659d670be",
+    "i-palette": "ca2b014aecd55a94",
+    "i-expand-more": "442351dfefd1f8da",
+    "i-computer": "50f05750f97d3a78",
+    "i-cloud": "39125432fa536bc9",
+    "i-help": "7dc8a6c3bb8032d5",
+    "i-dark-mode": "76cfeeaa4e1d0ead",
+    "i-light-mode": "3fe46ba9ad3dd7b7",
+    "i-check": "1619ea10ae9d3506",
+    "i-info": "7d70043c7e03bb0e",
+    "i-warning": "0198206a704fb1e8",
+    "i-error": "725321bbd8fbf4d8",
+}
+
+
+def symbol_fingerprints(sprite: str) -> dict[str, str]:
+    return {
+        name: hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+        for name, body in re.findall(r'<symbol id="(i-[\w-]+)"[^>]*>(.*?)</symbol>', sprite, re.S)
+    }
+
+
+def test_every_sprite_symbol_matches_its_reviewed_rounded_fingerprint():
+    """D-2 : le `viewBox` ne prouve pas la variante Rounded ; chaque tracé doit être l'un de ceux
+    relus à l'import. Un symbole nouveau ou modifié exige d'ajouter son empreinte en connaissance
+    de cause (le sprite officiel complet reste à fournir, voir story 1.12)."""
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    assert symbol_fingerprints(sprite) == ROUNDED_FINGERPRINTS
+
+
+def test_the_fingerprint_check_sees_a_retouched_symbol():
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    retouched = sprite.replace('d="M', 'd="M1 ', 1)
+    assert symbol_fingerprints(retouched) != ROUNDED_FINGERPRINTS
+
+
 def test_icons_license_names_the_provenance():
     license_text = (STATIC / "icons.LICENSE.txt").read_text(encoding="utf-8")
     assert "Material Symbols" in license_text and "Rounded" in license_text
@@ -530,7 +580,6 @@ def test_the_switch_css_follows_the_wl_switch_tokens_of_design_md():
     assert "var(--radius-full)" in track
     assert "var(--color-primary-fill)" in rule(".switch input:checked")
     assert "var(--color-surface)" in rule(".switch input::before")
-    assert "var(--color-line)" in rule('.switch input[aria-disabled="true"]')
 
 
 def test_the_theme_module_offers_light_dark_and_system_with_light_as_the_default():
