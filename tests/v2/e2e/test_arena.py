@@ -105,7 +105,8 @@ def install_models(
     cloud=(),
 ):
     """Simule la liste des modèles (`cloud` : seulement avec `allow_cloud=true`, comme le serveur)
-    et les défauts : `arena` (`defaults`) et `judge` (`judge_tags` : vide quand aucun juge ne convient)."""
+    et les défauts : `arena` (`defaults`) et `judge` (`judge_tags` : vide quand aucun juge ne convient).
+    """
     listed = MODELS if models is None else models
 
     def on_models(route):
@@ -282,6 +283,90 @@ def test_under_two_models_the_launch_is_disabled_with_a_visible_reason(arena):
     assert arena.get_by_text("Saisissez une question").is_visible() and button.is_disabled()
 
 
+def open_without_judge(page, server):
+    """L'Arène sans défaut `judge` (aucun modèle éligible) : le juge est à choisir."""
+    install_models(page, judge_tags=())
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
+    wait_for(page, "() => document.querySelector('wl-model-picker[purpose=judge]')?.loaded")
+
+
+def pick_judge(page, name):
+    if panel(page).get_attribute("open") is None:
+        open_panel(page)
+    judge = panel(page).locator("wl-model-picker[purpose=judge]")
+    judge.get_by_role("combobox").click()
+    judge.locator("[role=option]", has_text=name).click()
+
+
+def test_without_a_judge_the_launch_is_disabled_with_choose_a_judge(page, server):
+    open_without_judge(page, server)
+    button = page.get_by_role("button", name="Lancer la comparaison")
+    reason = page.locator(".arena-reason")
+    reason.filter(has_text="Choisissez un juge").wait_for()
+    assert button.is_disabled()
+    assert button.get_attribute("aria-describedby") == reason.get_attribute("id")
+    assert_no_axe_violations(page, "Arène sans juge choisi")
+    pick_judge(page, "Echo 5B")  # le juge choisi dans le panneau lève la raison
+    assert button.is_enabled()
+    assert page.locator(".arena-reason").is_hidden()
+
+
+def test_a_judge_removed_by_the_cloud_switch_brings_back_choose_a_judge(page, server):
+    nuage = {**BASE_MODEL, "tag": "fake:nuage", "name": "Nuage 70B", "origin": "cloud"}
+    install_models(page, cloud=[nuage])
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    wait_for(
+        page, "() => document.querySelector('wl-model-picker[purpose=judge]')?.value === 'fake:d'"
+    )
+    page.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: true });
+        }"""
+    )
+    pick_judge(page, "Nuage 70B")
+    button = page.get_by_role("button", name="Lancer la comparaison")
+    assert button.is_enabled()
+    page.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: false });
+        }"""
+    )  # le juge cloud est retiré avec le cloud
+    page.locator(".arena-reason").filter(has_text="Choisissez un juge").wait_for()
+    assert button.is_disabled()
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("width", [320, 1440])
+def test_axe_finds_no_violation_without_a_judge_and_with_the_judge_in_the_summary(
+    page, server, theme, width
+):
+    page.set_viewport_size({"width": width, "height": 900})
+    open_without_judge(page, server)
+    page.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
+    page.locator(".arena-reason").filter(has_text="Choisissez un juge").wait_for()
+    assert_no_axe_violations(page, f"sans juge, {width} px, thème {theme}")
+    assert_no_horizontal_scroll(page)
+    pick_judge(page, "Echo 5B")
+    slow = [
+        {"text": "A"},
+        {"sleep_s": 3},
+        {"done": DONE},
+    ]  # le résumé reste affiché le temps du contrôle
+    scripted(page, server, {"fake:a": slow}, judge={"script": verdict(64), "origin": "local"})
+    launch(page)
+    summary = page.locator(".arena-summary")
+    summary.wait_for(state="visible")
+    summary.locator(".arena-summary-judge").wait_for()
+    assert_no_axe_violations(page, f"résumé avec le juge, {width} px, thème {theme}")
+    assert_no_horizontal_scroll(page)
+    wait_banner(page, "Comparaison terminée")
+
+
 def test_without_a_ready_local_model_an_info_alert_says_what_to_do_and_the_launch_stays_disabled(
     page, server
 ):
@@ -363,6 +448,36 @@ def test_the_configuration_is_replaced_by_a_summary_until_the_run_ends(arena, se
     assert question.input_value() == asked
     assert arena.get_by_role("list", name="Modèles choisis").inner_text().count("Charlie 3B") == 1
     assert arena.get_by_role("button", name="Lancer la comparaison").is_enabled()
+
+
+def test_the_summary_shows_the_judge_with_its_badge_and_the_end_gives_the_form_back(arena, server):
+    scripted(
+        arena,
+        server,
+        {"fake:a": [{"text": "A"}, {"sleep_s": 1.0}, {"done": DONE}]},
+        judge={"script": verdict(77), "origin": "local"},
+    )
+    launch(arena)
+    summary = arena.locator(".arena-summary")
+    summary.wait_for(state="visible")
+    row = summary.locator(".arena-summary-row").filter(has_text="Juge")
+    row.locator(".arena-summary-judge").wait_for()
+    assert row.locator("dt").inner_text() == "Juge"
+    assert "Delta 4B" in row.locator("dd").inner_text()  # le défaut `judge`
+    assert row.locator("wl-badge[kind=local]").count() == 1
+    assert arena.locator(".arena-judge-info").is_hidden()  # le résumé le dit déjà
+    wait_banner(arena, "Comparaison terminée")
+    summary.wait_for(state="hidden")
+    assert "Delta 4B" in arena.locator(".arena-judge-info").inner_text()  # revu à la fin
+
+
+def test_the_summary_says_no_judge_when_the_server_kept_none(arena, server):
+    scripted(arena, server, {"fake:a": [{"text": "A"}, {"sleep_s": 1.0}, {"done": DONE}]})
+    launch(arena)  # aucun juge câblé côté serveur de test : l'événement `judge` dit « aucun »
+    row = arena.locator(".arena-summary-row").filter(has_text="Juge")
+    row.locator('.arena-summary-judge[data-judge="none"]').wait_for()
+    assert "Aucun juge" in row.locator("dd").inner_text()
+    wait_banner(arena, "Comparaison terminée")
 
 
 # --- Colonnes en flux ---------------------------------------------------------------------------------
@@ -738,16 +853,13 @@ def test_an_unavailable_or_invalid_judge_gives_not_evaluated_with_the_reason(
         assert status_of(arena, tag) == "Terminé"  # la lane finit : seule la note manque
 
 
-def test_without_any_judge_the_screen_says_so_and_scores_are_not_evaluated(page, server):
-    commands: list[dict] = []
+def test_a_run_without_any_judge_says_so_and_its_scores_are_not_evaluated(page, server):
+    # Lancer exige un juge : un run sans juge vient d'ailleurs (autre session), on le rouvre par son URL.
     install_models(page, judge_tags=())
-    page.goto(f"{server.base_url}/#/arene/comparer")
+    run_id = start_run(page, server, {})
+    page.goto(f"{server.base_url}/#/arene/comparer/{run_id}")
     wait_ready(page)
-    wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
-    scripted(page, server, {}, commands)
-    launch(page)
     wait_banner(page, "Comparaison terminée")
-    assert "judge" not in commands[0]  # le serveur décide : ici, aucun juge
     info = page.locator(".arena-judge-info")
     assert "Aucun juge n'est disponible" in info.inner_text()
     assert "ne vaut jamais 0" in info.inner_text()

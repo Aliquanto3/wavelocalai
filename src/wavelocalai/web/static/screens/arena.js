@@ -27,7 +27,7 @@ import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
 import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
-import { modelsRow, summaryView } from "./arena-summary.js";
+import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
@@ -177,6 +177,7 @@ export function mount(host, params = {}) {
     () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
     () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
     () => (question.value.trim() ? "" : t("arena.need_question")),
+    () => (judging.judge() ? "" : t("arena.judge.need_judge")),
   ];
 
   function launchReason() {
@@ -191,6 +192,7 @@ export function mount(host, params = {}) {
   const summaryRows = [
     () => [t("arena.summary.question"), askedText],
     () => modelsRow(lanes),
+    () => judgeRow(runJudge),
   ];
 
   // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16). Le focus suit
@@ -500,6 +502,7 @@ export function mount(host, params = {}) {
       buildLanes(models);
       lanesEl.hidden = false;
       setAsked(question.value);
+      runJudge = judging.chosen(); // le résumé le dit jusqu'à l'événement `judge`
       follow(started.run_id);
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
@@ -564,6 +567,8 @@ export function mount(host, params = {}) {
     render();
   });
   picker.addEventListener("wl-model-change", render);
+  judging.picker.addEventListener("wl-model-change", render); // sans juge, Lancer est désactivé
+  judging.picker.addEventListener("wl-models-loaded", render);
   picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
   narrow.addEventListener("change", layout);
 

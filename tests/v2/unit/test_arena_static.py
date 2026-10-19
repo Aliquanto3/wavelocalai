@@ -198,3 +198,15 @@ def test_the_screen_swaps_the_form_for_a_summary_while_a_run_is_followed():
     assert "const showSummary = running();" in screen and "form.hidden = showSummary" in screen
     assert "wl-models-loaded" in screen and "localReadyCount" in screen
     assert "wl-models-loaded" in source("components/wl-model-picker.js")
+
+
+def test_a_launch_without_a_judge_says_so_and_the_summary_shows_the_judge():
+    assert CATALOG["arena"]["judge"]["need_judge"] == "Choisissez un juge"
+    assert CATALOG["arena"]["summary"]["judge"] == "Juge"
+    assert CATALOG["arena"]["summary"]["no_judge"]
+    screen = source("screens/arena.js")
+    assert 't("arena.judge.need_judge")' in screen and "judging.judge()" in screen
+    assert 'judging.picker.addEventListener("wl-model-change", render)' in screen
+    assert "judgeRow(runJudge)" in screen and "info.hold(showSummary)" in screen
+    summary = source("screens/arena-summary.js")
+    assert 't("arena.summary.judge")' in summary and "dataset.judge" in summary

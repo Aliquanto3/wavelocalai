@@ -120,3 +120,25 @@ Revue Opus du 2026-10-18 (une passe, diff `0dce811..2a8f225`). Complexité : 0 c
 - low, second avis 4 — `routes_test.py` : un `judge.tag` égal au tag d'une lane remplace son script. Rejeté : route de test seulement, aucun test ne le fait ; un juge qui se note lui-même reste possible en production.
 - low, second avis 5 — icône `warning` en `--color-chart-4` (≈ 2,9:1 sur fond clair). Rejeté : l'icône double un texte qui porte le sens (« note peu fiable »), WCAG 1.4.11 ne s'applique pas ; même jeton que les badges et alertes déjà validés par axe-core.
 - low, second avis 6 — fixture `cancel_leftover_runs` : `sleep(0,2 s)` sans attendre la fin du run. Corrigé : elle attend que `GET /api/runs/{id}` ne soit plus `running` (10 s au plus).
+
+## Fusion de la 3.2 ajustée et correct course
+
+Fusion de `origin/master` (PR #62 : la 3.2 avec les ajustements du correct course du 2026-10-19) dans `feat/v2-juge`, puis ajustement §7(a) de la 3.3 (`sprint-change-proposal-2026-10-19.md`).
+
+**Résolution des conflits** (les deux apports gardés) :
+
+- `contrat-api.md` : événements `judge` et `judge_score` de la branche, `sources` (avec `passage`) de master ; tableau « Par écran » de master, sauf la ligne Arène de la branche (`judge` absent = défaut du serveur, critères par défaut, bornes).
+- `arena.css` : version de master, puis le bloc « Notation » de la branche à la suite (panneau, juge retenu, note par colonne) ; repli à 4 lignes dès 1 440 px et résumé de master intacts.
+- `screens/arena.js` : état des deux côtés (`askedText` de master, `askedCriteria` et `judgeFlags` de la branche) ; le gestionnaire `question` pose le texte par `setAsked` (qui montre ou cache selon le résumé) et garde les critères ; `judge` et `judge_score` repris. Le fichier dépassait 600 lignes : le formulaire (`arena-form.js` : scénarios, alerte sans modèle local), le résumé (`arena-summary.js`) et l'annonce des notes (`scoreAnnouncer` dans `arena-judge.js`) en sortent, sans changer de comportement.
+- `test_arena_static.py` : les tests des deux côtés ; `NEW_SCRIPTS` compte les trois nouveaux modules, et les scénarios se lisent dans `arena-form.js`.
+- `test_arena.py` : `install_models(page, models, defaults, ollama_up, judge_tags, cloud)` réunit les paramètres des deux côtés.
+
+**Ajustement livré** :
+
+- Sans juge choisi (aucun défaut `judge`, ou juge cloud retiré avec « Autoriser le cloud »), « Lancer la comparaison » est désactivé avec la raison « Choisissez un juge » (dernière ligne de `launchChecks`, `aria-describedby` du bouton). La raison revient aussi quand le sélecteur du juge change ou finit de charger.
+- Le résumé (D-16) a une ligne « Juge » : nom et badge Local ou Cloud, d'abord le juge choisi dans le panneau, puis celui de l'événement `judge` ; « Aucun juge » si le serveur n'en a retenu aucun (`data-judge="none"`). Le bloc « Juge retenu » sous la question est masqué tant que le résumé est affiché (il le dit déjà), et revu à `run_ended`.
+- « un seul juge » : critère inchangé (écart ouvert §7(d) n° 5, non tranché). Notes toujours sur 100.
+- Textes dans `fr.json` : `arena.judge.need_judge`, `arena.summary.no_judge`.
+
+**Tests** : E2E Arène (Edge) pour « Choisissez un juge » (désactivé, `aria-describedby`, levé par le choix du juge, revenu quand le cloud retire le juge), pour le juge dans le résumé et « Aucun juge », axe-core clair et sombre à 320 px et 1 440 px (sans juge, puis résumé avec le juge). Le test « sans juge » rouvre désormais un run par son URL : on ne peut plus lancer sans juge.
+
