@@ -44,25 +44,26 @@ Fichier : `tests/v2/e2e/test_accessibilite.py` (axe-core réinjecté tel quel : 
 
 | Sigle | Test | Ce qu'il prouve |
 |---|---|---|
-| T1 | `test_axe_finds_no_violation_on_any_route_in_any_display_mode` | Zéro violation axe, chaque route, dans six affichages (Clair, Sombre, Système avec un système clair et avec un système sombre, projection en clair et en sombre) : au repos, liste des modèles ouverte, fiche d'un modèle, panneaux dépliés, dialogue de confirmation (avec et sans détail à valider), chat avec réflexion et aide ouvertes, Arène rouverte et son dialogue d'effacement, fiche et suppression d'un modèle, Sobriété avec son historique. Il vérifie aussi que ces états ont bien été atteints. |
+| T1 | `test_axe_finds_no_violation_on_any_route_in_any_display_mode` | Zéro violation axe, chaque route, dans six affichages (Clair, Sombre, Système avec un système clair et avec un système sombre, projection en clair et en sombre) : au repos, liste des modèles ouverte, fiche d'un modèle, panneaux dépliés, dialogue de confirmation (avec et sans détail à valider), chat avec réflexion et aide ouvertes, Arène rouverte et son dialogue d'effacement, fiche et suppression d'un modèle, Sobriété avec son historique. Les contrastes qu'axe laisse « incomplets » (texte des SVG, texte d'un caractère, fond recouvert par une liste ou un dialogue) sont calculés par le test (`OWN_CONTRAST`, oracle vérifié par T12). Il vérifie aussi, écran par écran (`EXPECTED_BY_ROUTE`), que chaque état attendu a été atteint. |
 | T2 | `test_axe_finds_no_violation_on_the_topbar_panels_in_any_display_mode` | Les quatre panneaux de la barre haute (Ollama, aide du cloud, CO₂, Affichage), sur chaque route, dans les six affichages. |
-| T3 | `test_no_horizontal_scroll_on_any_route` | Aucun défilement horizontal de la page, ni débordement hors d'un conteneur qui défile : 320 px, zoom à 200 % (640 px), texte à 200 %, en clair et en projection sombre, mêmes états que T1 et panneaux de la barre haute. |
+| T3 | `test_no_horizontal_scroll_on_any_route` | Aucun défilement horizontal de la page, ni débordement hors d'un conteneur qui défile, ni contenu coupé par un ancêtre `overflow: hidden` ou `clip` : 320 px, zoom à 200 % (640 px), texte à 200 %, en clair et en projection sombre, mêmes états que T1 et panneaux de la barre haute. |
 | T4 | `test_axe_finds_no_violation_on_any_route_when_reflowed` | axe à 320 px et à 640 px, mêmes états. |
 | T5 | `test_text_spacing_overrides_clip_no_text_and_cause_no_horizontal_scroll` | Espacement du texte de WCAG 1.4.12 (interligne 1,5, lettres 0,12 em, mots 0,16 em, paragraphes 2 em) : aucun texte coupé, aucun défilement horizontal, à 1 440 et 320 px. |
 | T6 | `test_keyboard_reaches_every_stop_with_a_visible_focus_and_never_gets_trapped` | En tabulant (40 arrêts au plus par écran), chaque arrêt porte un contour ou une ombre de focus, et le parcours avance. |
 | T7 | `test_every_screen_has_one_h1_a_distinct_title_and_the_french_language` | `lang="fr"`, un `h1` et un titre de page distinct par écran. |
 | T8 | `test_no_positive_tabindex_and_no_new_window_without_a_warning` | Aucun `tabindex` positif ; tout lien `target="_blank"` annonce la nouvelle fenêtre. |
-| T9 | `test_interface_component_tokens_keep_three_to_one_on_both_surfaces` | Bordures des champs, contour de focus et liseré des interrupteurs à 3:1 au moins sur les deux fonds, clair et sombre. |
-| T10 | `test_projection_scales_the_smallest_text_of_every_route_by_the_ramp` | Le plus petit texte de chaque écran grandit du rapport 9/7 en projection (texte des SVG compris), et reste à 15 px au moins. |
-| T11 | `test_first_load_leaves_the_focus_at_the_top_so_the_skip_link_is_the_first_stop` et `test_a_route_change_moves_the_focus_to_the_h1_of_the_screen` | Décision B16 (focus au premier chargement) et focus sur le `h1` à chaque changement d'écran. |
+| T9 | `test_interface_component_tokens_keep_three_to_one_on_both_surfaces` | Les jetons des bordures de champs, du contour de focus et du liseré des interrupteurs tiennent 3:1 sur les deux fonds, clair et sombre. Il prouve les valeurs des jetons, pas leur emploi par chaque composant (relecture du CSS, R3). |
+| T10 | `test_projection_scales_the_smallest_text_of_every_route_by_the_ramp` | Le plus petit texte de chaque écran grandit du rapport 9/7 en projection (texte des SVG compris), et reste à 15 px au moins ; un écran sans texte mesuré échoue. |
+| T11 | `test_first_load_moves_the_focus_to_the_h1_and_keeps_the_skip_link_reachable` et `test_a_route_change_moves_the_focus_to_the_h1_of_the_screen` | Décision B16 : focus sur le `h1` au premier chargement (lien profond compris) et à chaque changement d'écran ; le lien d'évitement reste le premier élément focalisable et mène à `main`. |
+| T12 | `test_own_contrast_reads_the_shape_under_a_svg_text_and_the_html_background` | L'oracle des contrastes incomplets de T1, T2 et T4, sur des valeurs écrites à la main (#aaa sur blanc 2,32:1, #777 sur #888 1,26:1). |
 
 ## Focus au premier chargement (B16)
 
-**Décision : au premier chargement de la page, le focus n'est pas déplacé sur le `h1`.** Il reste en tête du document : le premier Tab atteint le lien d'évitement « Aller au contenu » (RGAA 12.7, WCAG 2.4.1), puis la navigation. Le lien d'évitement place le focus sur `main` sans changer la route. Le titre de la page (`<Écran> · WaveLocalAI`) et l'annonce polie (« Écran … ») sont posés dès le premier rendu. À chaque changement d'écran ensuite, le focus va sur le `h1` (déjà livré en 1.8, inchangé).
+**Décision (revue 8.2) : à chaque route, premier chargement compris, le focus va sur le `h1` de l'écran**, comme l'écrit le critère de la story 1.8 (« à chaque route, le focus va sur le h1 »). Le titre de la page (`<Écran> · WaveLocalAI`) et l'annonce polie (« Écran … ») sont posés au même moment. Le lien d'évitement « Aller au contenu » reste le premier élément focalisable du document (RGAA 12.7) : Maj+Tab depuis le `h1` le rejoint en remontant la barre haute, et il place toujours le focus sur `main` sans changer la route.
 
-Pourquoi : la spec ne tranche pas (le critère de l'epic 1.8 dit « à chaque route » et la story 1.8 l'a lu « à chaque changement d'écran »). La variante conservatrice garde le comportement livré, qui est celui des pages ordinaires : un lecteur d'écran lit le titre à l'ouverture, et déplacer le focus au chargement ferait sauter la barre haute à un utilisateur du clavier. Si la recette R2 montre qu'un utilisateur de NVDA ne repère pas l'écran au premier chargement, la variante inverse tient en trois lignes du routeur.
+Pourquoi : la première version de la story gardait le focus en tête au chargement (variante des pages ordinaires) ; l'AC 8.2 demandait de trancher B16 et le seul critère écrit est celui de la 1.8. Aucun critère RGAA ne l'interdit : 12.7 porte sur la présence, la position et le fonctionnement du lien d'évitement, tous conservés. Le coût : au chargement, un utilisateur du clavier qui veut la navigation remonte par Maj+Tab au lieu de descendre par Tab. Les recettes R1 (clavier seul) et R2 (NVDA) le jugent ; l'inverse tient en une ligne du routeur (`focus` au premier passage).
 
-Appliqué : `core/router.js` (commentaire daté), test T11 (jamais le `h1` au premier chargement, `Tab` puis `Entrée` sur le lien d'évitement, focus sur `main`, adresse inchangée).
+Appliqué : `core/router.js`, test T11, `test_shell.py` (lien d'évitement atteint par Maj+Tab depuis le `h1`).
 
 ## Grille des 106 critères
 
@@ -92,8 +93,8 @@ Appliqué : `core/router.js` (commentaire daté), test T11 (jamais le `h1` au pr
 | Critère | Intitulé | Statut | Preuve ou action |
 |---|---|---|---|
 | 3.1 | Information jamais donnée par la couleur seule | À vérifier par Anaël (recette manuelle) | Conçu ainsi (badges en texte et icône, points nommés avec contour d'encre, états écrits) ; R3 le confirme en niveaux de gris. |
-| 3.2 | Contraste du texte | Conforme | T1, T2, T4 : règle `color-contrast` d'axe dans les six affichages, dont la projection. |
-| 3.3 | Contraste des composants d'interface et des éléments graphiques | À vérifier par Anaël (recette manuelle) | T9 prouve 3:1 pour les bordures de champs, le focus et les interrupteurs ; reste le point `chart-4` (2,95:1 sur blanc, contour d'encre) : R3. |
+| 3.2 | Contraste du texte | Conforme | T1, T2, T4 : règle `color-contrast` d'axe dans les six affichages, dont la projection ; ses résultats « incomplets » (texte des SVG, d'un seul caractère, fond recouvert) sont calculés par le test (T12). |
+| 3.3 | Contraste des composants d'interface et des éléments graphiques | À vérifier par Anaël (recette manuelle) | T9 prouve 3:1 pour les jetons des bordures de champs, du focus et des interrupteurs ; leur emploi par chaque composant est vu à la relecture du CSS ; reste le point `chart-4` (2,95:1 sur blanc, contour d'encre) : R3. |
 
 ### 4. Multimédia
 
@@ -189,7 +190,7 @@ Appliqué : `core/router.js` (commentaire daté), test T11 (jamais le `h1` au pr
 | 11.9 | Intitulé de bouton pertinent | À vérifier par Anaël (recette manuelle) | R2 ; T1 (`button-name`). |
 | 11.10 | Contrôle de saisie pertinent | À vérifier par Anaël (recette manuelle) | Raison des boutons désactivés écrite en clair (« Choisissez au moins 2 modèles ») ; R2 la lecture des erreurs. |
 | 11.11 | Suggestions d'aide à la saisie | Non applicable | Aucune saisie à format strict à corriger par suggestion ; les erreurs disent l'action à faire (`wl-error`). |
-| 11.12 | Saisies à enjeu : modifiables, vérifiables, confirmées | Conforme | Suppression d'un document, d'un modèle, vidage de la base, effacement d'une comparaison, envoi d'un email : `wl-confirm-dialog` avec « Annuler » comme focus initial ; T1. |
+| 11.12 | Saisies à enjeu : modifiables, vérifiables, confirmées | Conforme | Suppression d'un document, d'un modèle, vidage de la base, effacement d'une comparaison, envoi d'un email : `wl-confirm-dialog` ; T1 (dialogues ouverts). « Annuler » est le focus initial : `test_agents_solo.py` (dialogue d'email) et `test_arena_reopen.py` (effacement d'une comparaison). |
 | 11.13 | Finalité d'un champ de données personnelles | Non applicable | Aucun champ de données personnelles de la personne (nom, adresse, etc.). |
 
 ### 12. Navigation
@@ -202,7 +203,7 @@ Appliqué : `core/router.js` (commentaire daté), test T11 (jamais le `h1` au pr
 | 12.4 | Page « plan du site » atteignable de manière identique | Non applicable | Idem. |
 | 12.5 | Moteur de recherche atteignable de manière identique | Non applicable | Aucun moteur de recherche. |
 | 12.6 | Zones de regroupement atteignables ou évitables | Conforme | `header`, `nav`, `main`, `footer`, lien d'évitement ; T1 (`region`, `bypass`). |
-| 12.7 | Lien d'évitement ou d'accès rapide au contenu | Conforme | « Aller au contenu », premier arrêt de Tab, focus sur `main` ; T11. |
+| 12.7 | Lien d'évitement ou d'accès rapide au contenu | Conforme | « Aller au contenu », premier élément focalisable du document ; au chargement le focus est sur le `h1` (B16) et Maj+Tab rejoint le lien ; focus sur `main` ; T11, `test_shell.py`. |
 | 12.8 | Ordre de tabulation cohérent | À vérifier par Anaël (recette manuelle) | T8 : aucun `tabindex` positif ; l'ordre suit le DOM, qui suit la lecture. R1. |
 | 12.9 | Aucun piège au clavier | À vérifier par Anaël (recette manuelle) | T6 : le parcours avance sur chaque écran ; dialogues modaux fermés par Échap et « Annuler ». R1. |
 | 12.10 | Raccourcis à une seule touche contrôlables | Non applicable | Aucun raccourci à touche seule : flèches, Entrée et Échap n'agissent que dans un composant qui a le focus. |
@@ -229,7 +230,7 @@ Appliqué : `core/router.js` (commentaire daté), test T11 (jamais le `h1` au pr
 
 | Réf. | Écart | Décision | Suite |
 |---|---|---|---|
-| E1 | Focus au premier chargement (B16) | Variante conservatrice : le focus reste en tête ; titre et annonce posés au premier rendu (voir plus haut). | Rouvrir si R2 montre un défaut. |
+| E1 | Focus au premier chargement (B16) | Tranché en revue 8.2 : focus sur le `h1` au premier chargement aussi (critère de la 1.8) ; lien d'évitement premier focalisable (voir plus haut). | R1 et R2 le jugent ; rouvrir si un défaut apparaît. |
 | E2 | 8.7 : réponses de modèles en langue libre, non balisées | Non corrigé : le client ne connaît pas la langue d'un texte généré, et un balisage faux est pire que l'absence. | Décision d'Anaël (R7) ; piste : un réglage « langue des réponses » dans le chat. Story de correctif à créer après la 8.4. |
 | E3 | 12.1 : pas de second système de navigation (ni plan ni recherche) | Non corrigé : douze écrans, un menu des modules, des onglets d'écran et un Accueil qui lie chaque module. | À trancher avec la 8.4 ; piste : une page « Plan de l'application » ou un champ « Aller à… » sous l'Accueil. Story de correctif à créer. |
 | E4 | Points `chart-4` à 2,95:1 sur blanc | Gardés : le contour d'encre porte la lisibilité (3.3). | R3 ; si la recette conclut non, assombrir `chart-4` dans `DESIGN.md` et `tokens.css` (test de dérive à réaligner). |

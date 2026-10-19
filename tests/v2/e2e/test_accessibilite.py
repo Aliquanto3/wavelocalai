@@ -77,6 +77,25 @@ EXPECTED_SCENES = {
     "modèles : dialogue de suppression",
     "sobriété, détails dépliés",
 }
+# Revue 8.2 : ce que chaque écran doit ouvrir, route par route (l'union sur toutes les routes laissait
+# passer en silence un écran qui perd sa liste ou son dialogue). Un écran ajouté au registre sans
+# ligne ici est vérifié au repos ; une ligne sans écran fait échouer le test.
+PICKER = {"liste des modèles ouverte", "fiche du modèle ouverte"}
+DIALOGS = {"dialogue de confirmation", "dialogue avec le détail à valider"}
+EXPECTED_BY_ROUTE = {
+    "/": set(),
+    "/arene/chat": PICKER | {"panneaux dépliés"},
+    "/arene/comparer": PICKER,
+    "/arene/banc": PICKER,
+    "/arene/references": set(),
+    "/documents": set(),
+    "/documents/base": DIALOGS,
+    "/documents/evaluation": PICKER,
+    "/agents/seul": PICKER | DIALOGS,
+    "/agents/equipe": PICKER | DIALOGS | {"panneaux dépliés"},
+    "/sobriete": {"panneaux dépliés"},
+    "/modeles": DIALOGS,
+}
 PANELS = ["ollama-button", "cloud-help-button", "co2-button", "display-button"]
 
 CONFIRM_DIALOG = """(long) => {
@@ -255,6 +274,125 @@ def scenes(page):
         close_dialog(page)
 
 
+def route_scenes(page, path: str, missing: list[str]):
+    """`scenes` de l'écran `path` ; chaque état attendu pour cet écran et non atteint est ajouté à
+    `missing`."""
+    reached = set()
+    for scene in scenes(page):
+        reached.add(scene)
+        yield scene
+    expected = {"au repos"} | EXPECTED_BY_ROUTE.get(path, set())
+    if expected - reached:
+        missing.append(f"{path} : {sorted(expected - reached)}")
+
+
+def assert_expectations_match_the_registry(routes: list[str]) -> None:
+    stale = set(EXPECTED_BY_ROUTE) - set(routes)
+    assert not stale, f"états attendus pour des écrans absents du registre : {sorted(stale)}"
+
+
+# axe rend aussi des résultats « incomplets » : pour `color-contrast`, des textes dont il ne calcule
+# pas le fond (texte d'un SVG, texte d'un seul caractère, fond recouvert par une liste ou un dialogue
+# ouvert, coin arrondi). Revue 8.2 : le test calcule lui-même leur contraste, d'après la couleur du
+# texte (`fill` dans un SVG) et le fond peint sous lui (formes du SVG placées dessous, sur le premier
+# fond opaque des ancêtres) ; un fond non calculable (image, dégradé, couleur inconnue) échoue.
+AXE_OPTIONS = {"resultTypes": ["violations", "incomplete"]}
+
+OWN_CONTRAST = r"""(targets) => {
+    const parse = (value) => {
+        let m = value.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/);
+        if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+        m = value.match(/^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.]+))?\)$/);
+        if (m) return [m[1] * 255, m[2] * 255, m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+        return null;
+    };
+    const over = (top, under) => top.slice(0, 3).map((c, i) => c * top[3] + under[i] * (1 - top[3]));
+    const lum = (rgb) => {
+        const [r, g, b] = rgb.map((c) => {
+            c /= 255;
+            return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const htmlBackground = (node) => {
+        const layers = [];
+        for (let up = node; up; up = up.parentElement) {
+            const style = getComputedStyle(up);
+            if (style.backgroundImage !== 'none') return null;
+            const color = parse(style.backgroundColor);
+            if (color === null) return null;
+            if (color[3] > 0) layers.push(color);
+            if (color[3] >= 1) break;
+        }
+        return layers.reduceRight((under, top) => over(top, under), [255, 255, 255]);
+    };
+    const svgBackground = (el) => {
+        const svg = el.closest('svg');
+        const box = el.getBoundingClientRect();
+        const [x, y] = [box.left + box.width / 2, box.top + box.height / 2];
+        let base = htmlBackground(svg);
+        if (base === null) return null;
+        for (const shape of svg.querySelectorAll('rect, circle, ellipse, polygon, path')) {
+            if (!(shape.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+            if (shape.closest('marker, defs')) continue;
+            const r = shape.getBoundingClientRect();
+            if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+            const style = getComputedStyle(shape);
+            if (style.fill === 'none') continue;
+            const fill = parse(style.fill);
+            if (fill === null) return null;
+            fill[3] *= parseFloat(style.fillOpacity) * parseFloat(style.opacity);
+            base = over(fill, base);
+        }
+        return base;
+    };
+    return targets.map((target) => {
+        const el = document.querySelector(target);
+        if (!el) return { target, problem: 'introuvable' };
+        // Sans texte propre (axe signale parfois `:root` pendant l'ouverture d'un panneau) : rien à lire.
+        const own = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+        if (!own) return null;
+        const style = getComputedStyle(el);
+        const inSvg = el instanceof SVGElement;
+        const fg = parse(inSvg ? style.fill : style.color);
+        const bg = inSvg ? svgBackground(el) : htmlBackground(el);
+        if (fg === null || bg === null) {
+            return { target, problem: `non calculable (${inSvg ? style.fill : style.color})` };
+        }
+        const shown = over(fg, bg);
+        const [light, dark] = [lum(shown), lum(bg)].sort((p, q) => q - p);
+        const ratio = (light + 0.05) / (dark + 0.05);
+        const scale = inSvg ? el.closest('svg').getScreenCTM()?.a ?? 1 : 1;
+        const size = parseFloat(style.fontSize) * scale;
+        const large = size >= 24 || (size >= 18.66 && parseInt(style.fontWeight, 10) >= 700);
+        const need = large ? 3 : 4.5;
+        return ratio + 0.005 >= need ? null : { target, problem: `${ratio.toFixed(2)}:1 < ${need}:1` };
+    }).filter(Boolean);
+}"""
+
+
+def axe_problems(page, where: str) -> list[str]:
+    """Violations axe, et contrastes qu'axe laisse « incomplets » et qui ne tiennent pas une fois
+    calculés par `OWN_CONTRAST`."""
+    results = Axe().run(page, options=AXE_OPTIONS)
+    problems = []
+    if results.violations_count:
+        problems.append(f"{where} :\n{results.generate_report()}")
+    targets = []
+    for rule in results.response["incomplete"]:
+        if rule["id"] != "color-contrast":
+            continue
+        for node in rule["nodes"]:
+            if len(node["target"]) != 1:  # dans un shadow DOM : aucun ici, le dire s'il en vient
+                problems.append(f"{where} : contraste non vérifié dans {node['target']}")
+            else:
+                targets.append(node["target"][0])
+    unresolved = page.evaluate(OWN_CONTRAST, targets) if targets else []
+    if unresolved:
+        problems.append(f"{where} : contraste calculé insuffisant {unresolved}")
+    return problems
+
+
 def prepare_rich(page, server) -> str:
     """Une comparaison de l'Arène terminée (quatre colonnes : notées, en délai, sans réponse) et un
     échange de chat fini, que les écrans rouvrent ; rend l'identifiant de la comparaison."""
@@ -353,23 +491,49 @@ def test_every_screen_of_the_registry_is_available(app):
 def test_axe_finds_no_violation_on_any_route_in_any_display_mode(app, server, mode):
     run_id = prepare_rich(app, server)
     apply_mode(app, mode)
-    failures = []
+    failures, missing = [], []
     seen = set()
-    for path in registry_routes(app):
+    routes = registry_routes(app)
+    assert_expectations_match_the_registry(routes)
+    for path in routes:
         go(app, path)
-        for scene in scenes(app):
+        for scene in route_scenes(app, path, missing):
             seen.add(scene)
-            results = Axe().run(app)
-            if results.violations_count:
-                failures.append(f"{path} · {scene} :\n{results.generate_report()}")
+            failures += axe_problems(app, f"{path} · {scene}")
     for scene in rich_scenes(app, run_id):
         seen.add(scene)
-        results = Axe().run(app)
-        if results.violations_count:
-            failures.append(f"{scene} :\n{results.generate_report()}")
+        failures += axe_problems(app, scene)
     assert not failures, f"{mode} :\n" + "\n".join(failures)
-    # Les états qui font la valeur du test ont bien été atteints, pas sautés en silence.
+    # Les états qui font la valeur du test ont bien été atteints, écran par écran.
+    assert not missing, f"{mode} : états non atteints :\n" + "\n".join(missing)
     assert seen >= EXPECTED_SCENES, EXPECTED_SCENES - seen
+
+
+def test_own_contrast_reads_the_shape_under_a_svg_text_and_the_html_background(app):
+    """L'oracle des contrastes « incomplets » d'axe (`OWN_CONTRAST`) : valeurs attendues écrites à la
+    main (WCAG : #767676 sur blanc = 4,54:1, #aaa sur blanc = 2,32:1, #777 sur #888 = 1,26:1)."""
+    app.evaluate(
+        """() => {
+            const box = document.createElement('div');
+            box.id = 'probe';
+            box.style.background = '#ffffff';  // CSSOM : la politique de contenu refuse `style=""`
+            box.innerHTML = `<p id="ok">Lisible</p><p id="weak">Pâle</p>
+                <svg width="200" height="40" viewBox="0 0 200 40">
+                  <rect x="0" y="0" width="200" height="40" fill="#888888"></rect>
+                  <text id="svg-weak" x="10" y="25" fill="#777777" font-size="16">Sur la forme</text>
+                </svg>
+                <svg width="200" height="40" viewBox="0 0 200 40">
+                  <text id="svg-ok" x="10" y="25" fill="#000000" font-size="16">Sur le fond</text>
+                </svg>`;
+            document.body.prepend(box);
+            box.querySelector('#ok').style.color = '#767676';
+            box.querySelector('#weak').style.color = '#aaaaaa';
+        }"""
+    )
+    found = app.evaluate(OWN_CONTRAST, ["#ok", "#weak", "#svg-weak", "#svg-ok"])
+    assert [item["target"] for item in found] == ["#weak", "#svg-weak"], found
+    assert found[0]["problem"].startswith("2.32:1")
+    assert found[1]["problem"].startswith("1.26:1")
 
 
 @pytest.mark.parametrize("mode", list(MODES))
@@ -379,9 +543,7 @@ def test_axe_finds_no_violation_on_the_topbar_panels_in_any_display_mode(app, mo
     for path in registry_routes(app):
         go(app, path)
         for button_id in open_topbar_panels(app):
-            results = Axe().run(app)
-            if results.violations_count:
-                failures.append(f"{path} · {button_id} :\n{results.generate_report()}")
+            failures += axe_problems(app, f"{path} · {button_id}")
     assert not failures, f"{mode} :\n" + "\n".join(failures)
 
 
@@ -396,13 +558,20 @@ def overflow(page) -> dict:
                 const box = node.getBoundingClientRect();
                 if (box.width === 0 || box.right <= root.clientWidth + 1) return false;
                 if (getComputedStyle(node).visibility === 'hidden') return false;
-                // Un tableau large défile dans son conteneur : tout ancêtre qui défile le contient.
+                // Un tableau large défile dans son conteneur : un ancêtre qui défile le contient. Un
+                // ancêtre qui masque son trop-plein (`hidden`, `clip`) coupe le contenu : signalé
+                // (revue 8.2), comme une racine qui masque le défilement de la page.
                 for (let up = node.parentElement; up && up !== document.body; up = up.parentElement) {
-                    if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(up).overflowX)) return false;
+                    const x = getComputedStyle(up).overflowX;
+                    if (/(auto|scroll)/.test(x)) return false;
+                    if (/(hidden|clip)/.test(x)) return true;
                 }
                 return true;
             }).slice(0, 5).map((node) => node.localName + '.' + node.className);
-            return { page: root.scrollWidth - root.clientWidth, wide };
+            const masked = [root, document.body]
+                .filter((node) => /(hidden|clip)/.test(getComputedStyle(node).overflowX))
+                .map((node) => node.localName + ' masque le défilement');
+            return { page: root.scrollWidth - root.clientWidth, wide: [...masked, ...wide] };
         }"""
     )
 
@@ -416,10 +585,10 @@ def test_no_horizontal_scroll_on_any_route(app, server, mode, reflow):
     apply_mode(app, mode)
     if text:
         app.evaluate("(size) => { document.documentElement.style.fontSize = size; }", text)
-    failures = []
+    failures, missing = [], []
     for path in registry_routes(app):
         go(app, path)
-        for scene in scenes(app):
+        for scene in route_scenes(app, path, missing):
             measured = overflow(app)
             if measured["page"] > 0 or measured["wide"]:
                 failures.append(f"{path} · {scene} : {measured}")
@@ -432,6 +601,7 @@ def test_no_horizontal_scroll_on_any_route(app, server, mode, reflow):
         if measured["page"] > 0 or measured["wide"]:
             failures.append(f"{scene} : {measured}")
     assert not failures, f"{mode}, {reflow} :\n" + "\n".join(failures)
+    assert not missing, f"{mode}, {reflow} : états non atteints :\n" + "\n".join(missing)
 
 
 @pytest.mark.parametrize("reflow", ["320 px", "zoom 200 %"])
@@ -439,18 +609,15 @@ def test_axe_finds_no_violation_on_any_route_when_reflowed(app, server, reflow):
     run_id = prepare_rich(app, server)
     width, height, _ = REFLOW[reflow]
     app.set_viewport_size({"width": width, "height": height})
-    failures = []
+    failures, missing = [], []
     for path in registry_routes(app):
         go(app, path)
-        for scene in scenes(app):
-            results = Axe().run(app)
-            if results.violations_count:
-                failures.append(f"{path} · {scene} :\n{results.generate_report()}")
+        for scene in route_scenes(app, path, missing):
+            failures += axe_problems(app, f"{path} · {scene}")
     for scene in rich_scenes(app, run_id):
-        results = Axe().run(app)
-        if results.violations_count:
-            failures.append(f"{scene} :\n{results.generate_report()}")
+        failures += axe_problems(app, scene)
     assert not failures, f"{reflow} :\n" + "\n".join(failures)
+    assert not missing, f"{reflow} : états non atteints :\n" + "\n".join(missing)
 
 
 # --- Lisibilité en projection (UX-DR2) ---------------------------------------------------------
@@ -490,6 +657,9 @@ def test_projection_scales_the_smallest_text_of_every_route_by_the_ramp(app, ser
             if path.startswith("/arene/comparer/"):
                 wait_banner(app, "Comparaison terminée")
             smallest[mode, path] = app.evaluate(SMALLEST_TEXT)
+    # Revue 8.2 : un écran dont aucun texte n'est mesuré (taille infinie) ne passe pas sans mesure.
+    unmeasured = [key for key, value in smallest.items() if value[0] == float("inf")]
+    assert not unmeasured, f"aucun texte mesuré : {unmeasured}"
     too_small = [
         f"{path} : {smallest['clair', path]} -> {smallest['projection-clair', path]}"
         for path in routes
@@ -504,23 +674,35 @@ def test_projection_scales_the_smallest_text_of_every_route_by_the_ramp(app, ser
 # --- Focus au premier chargement (B16, RGAA 12.7) ----------------------------------------------
 
 
-def test_first_load_leaves_the_focus_at_the_top_so_the_skip_link_is_the_first_stop(
+def shift_tab_to_skip_link(page, limit: int = 60) -> int:
+    """Remonte par Maj+Tab jusqu'au lien d'évitement ; rend le nombre d'appuis (échec au-delà)."""
+    for presses in range(1, limit + 1):
+        page.keyboard.press("Shift+Tab")
+        if page.evaluate("document.activeElement.id") == "skip-link":
+            return presses
+    raise AssertionError(f"lien d'évitement non atteint en {limit} Maj+Tab")
+
+
+def test_first_load_moves_the_focus_to_the_h1_and_keeps_the_skip_link_reachable(
     page_tolerating_failed_requests, server
 ):
-    """Décision B16 : au premier chargement, le focus n'est pas déplacé sur le `h1` ; le premier Tab
-    atteint le lien d'évitement (RGAA 12.7, WCAG 2.4.1), puis la navigation. Le titre de la page et
-    l'annonce polie sont posés dès le premier rendu."""
+    """Décision B16 (revue 8.2) : le critère de la story 1.8 (« à chaque route, le focus va sur le
+    `h1` ») vaut aussi au premier chargement, lien profond compris. Le lien d'évitement reste le
+    premier élément focalisable du document (RGAA 12.7) : Maj+Tab depuis le `h1` le rejoint, et il
+    mène toujours à `main` sans changer la route."""
     page = page_tolerating_failed_requests
     install_models(page)
     page.goto(f"{server.base_url}/#/arene/chat")
     wait_ready(page)
-    assert page.evaluate("document.activeElement === document.body")
+    wait_for(page, "() => document.activeElement.localName === 'h1'")
+    assert page.evaluate("document.activeElement.closest('.screen').dataset.screen")
     assert page.title().startswith("Chat libre")
-    page.keyboard.press("Tab")
-    assert page.evaluate("document.activeElement.id") == "skip-link"
-    page.keyboard.press("Tab")
-    assert page.evaluate("document.activeElement.closest('header') !== null")
-    page.keyboard.press("Shift+Tab")
+    first_focusable = page.evaluate(
+        """() => [...document.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
+            .find((node) => node.tabIndex >= 0 && !node.disabled).id"""
+    )
+    assert first_focusable == "skip-link"
+    shift_tab_to_skip_link(page)
     page.keyboard.press("Enter")
     assert page.evaluate("document.activeElement.id") == "main"
     assert page.evaluate("location.hash") == "#/arene/chat"

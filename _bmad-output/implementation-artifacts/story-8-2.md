@@ -40,6 +40,8 @@ Routes lues dans `core/registry.js` (`SCREENS`, statut `available`) ; un test v�
 - **Projection** : le plus petit texte de chaque écran (SVG compris, à l'échelle de sa `viewBox`) grandit du rapport 9/7 et reste à 15 px au moins.
 - **Contrastes des jetons** de composants (3:1) sur les deux fonds, clair et sombre.
 - **B16** : voir ci-dessous.
+- **États attendus écran par écran** (revue) : `EXPECTED_BY_ROUTE` ; un écran qui perd sa liste ou son dialogue fait échouer T1, T3 et T4.
+- **Contrastes « incomplets » d'axe** (revue) : calculés par le test (`OWN_CONTRAST`), oracle vérifié sur des valeurs écrites à la main.
 
 ## Écarts trouvés et corrigés
 
@@ -54,11 +56,11 @@ Les autres écrans, les composants et leurs panneaux et dialogues n'ont donné a
 
 ## B16 : focus au premier chargement
 
-La spec ne dit rien de plus que « à chaque route » (lu en 1.8 comme « à chaque changement d'écran »). Variante conservatrice : au premier chargement le focus reste en tête (le premier Tab atteint « Aller au contenu », RGAA 12.7), le titre de la page et l'annonce polie sont posés dès le premier rendu ; à chaque changement d'écran, le focus va sur le `h1`. C'était le comportement livré ; la story l'écrit (`router.js`), le teste et le consigne dans la grille. Si la recette NVDA le met en défaut, l'inverse tient en quelques lignes du routeur.
+Tranché en revue : le critère écrit de la story 1.8 (« à chaque route, le focus va sur le `h1` ») s'applique aussi au premier chargement, lien profond compris (`router.js`). Le lien d'évitement reste le premier élément focalisable du document (RGAA 12.7 : présence, position, fonctionnement conservés) et se rejoint par Maj+Tab depuis le `h1`. Aucune contre-indication RGAA ; le coût (au chargement, la navigation se rejoint en remontant) est à juger par Anaël en recette R1 et R2 (NVDA). La première version gardait le focus en tête au chargement.
 
 ## Écarts
 
-- E1 : B16, ci-dessus.
+- E1 : B16, ci-dessus (tranché en revue, à confirmer en recette NVDA).
 - Recette du mode projection : non simulée ; la liste des points à vérifier est dans la grille (R8).
 - La grille classe 8.7 (langue des réponses) et 12.1 (second système de navigation) « non conforme, reporté » : stories de correctif à créer après la 8.4. Les points chart-4 (2,95:1) sont gardés, contour d'encre (R3).
 - Le serveur de test est celui des autres E2E (Ollama arrêté) : les états « remplis » viennent de réponses simulées et de la route de test des runs.
@@ -72,3 +74,22 @@ La spec ne dit rien de plus que « à chaque route » (lu en 1.8 comme « à cha
 ## Tests exécutés
 
 `tests/v2/e2e/test_accessibilite.py` (31 tests, 6 min sur ce poste chargé) ; `test_models_card.py`, `test_agents_crew.py`, `test_models_manage.py`, `test_components.py`, `test_chat.py` (axe et Markdown) ; `tests/v2/unit/test_shell_static.py`, `test_static_split.py`, `test_chat_static.py`, `test_layers.py`, `tests/v2/web/test_static.py`, `test_models_static.py`. Pas de suite complète (poste partagé, consigne de l'orchestrateur).
+
+## Revue
+
+Revue Opus, une passe, sur `feat/v2-accessibilite` à jour de `feat/v2-dette` (fusion 24afe7b) ; second avis Haiku repris point par point.
+
+| Sévérité | Source | Constat | Suite | Motif |
+|---|---|---|---|---|
+| medium | second avis 1 | `Axe().run` sans options : les résultats `incomplete` de `color-contrast` (texte des SVG de l'équipe et des graphiques, texte d'un caractère, fond recouvert par la liste ou la fiche ouverte, coin arrondi du dialogue) jamais examinés, alors que la grille dit 3.2 conforme. | Corrigé | Sondés sur toutes les routes (quatre causes seulement : `bgOverlap`, `imgNode`, `shortTextContent`, `elmPartiallyObscuring`) ; `axe_problems` calcule leur contraste (`OWN_CONTRAST` : couleur ou `fill`, formes du SVG dessous, fonds des ancêtres ; non calculable = échec), oracle T12 sur valeurs écrites à la main. Tous tiennent. |
+| medium | second avis 2 | États vérifiés en union sur toutes les routes : un écran qui perd son dialogue passait en silence. | Corrigé | `EXPECTED_BY_ROUTE` (états mesurés écran par écran), contrôlé dans T1, T3 et T4 ; une ligne sans écran du registre échoue, un écran nouveau est vérifié au repos. |
+| medium | second avis 3 | `overflow()` tenait un ancêtre `overflow: hidden/clip` pour un conteneur qui défile : contenu coupé à 320 px ou 200 % non vu. | Corrigé | Seuls `auto`/`scroll` excusent ; `hidden`/`clip` signalés, comme une racine ou un `body` qui masque le défilement. T3 et T5 passent. |
+| medium | second avis 4, orchestrateur | B16 gardait le focus en tête au premier chargement, contre le critère écrit de la 1.8. | Corrigé | Focus sur le `h1` au premier chargement (`router.js`) ; lien d'évitement premier focalisable, atteint par Maj+Tab ; T11 réécrit, `test_shell.py` réaligné, grille (B16, 12.7, E1). À confirmer par Anaël (NVDA). |
+| low | second avis 5 | Attentes fixes et `prepare_rich` rejoué par paramètre : environ 6 min dans un seul morceau de CI. | Reporté | Sous le délai de 30 min du morceau ; les remplacer par des attentes d'état demande de connaître chaque lecture de chaque écran : à reprendre si le morceau approche du délai. |
+| low | second avis 6 | T9 ne prouve que les ratios des jetons. | Corrigé (grille) | Grille T9 et 3.3 réécrites : jetons prouvés, emploi vu à la relecture, 3.3 reste à vérifier par Anaël. |
+| low | second avis 7 | Grille 11.12 citait T1 pour « Annuler » en focus initial. | Corrigé (grille) | Preuves réelles citées : `test_agents_solo.py`, `test_arena_reopen.py`. |
+| low | second avis 8 | `SMALLEST_TEXT` à l'infini pour un écran sans texte : T10 passait sans mesure. | Corrigé | T10 échoue si un écran n'a aucun texte mesuré. |
+| low | revue | axe signale parfois `:root` en contraste incomplet pendant l'ouverture d'un panneau (Système sombre). | Corrigé | Un élément sans texte propre est ignoré par `OWN_CONTRAST`. |
+| — | revue | Complexité : 0 constat (aucune structure qui grossit à l'exécution dans le diff ; les boucles du test sont bornées par routes et scènes). | — | — |
+
+Tests de la revue : `test_accessibilite.py` (32), `test_shell.py`, `test_core.py`, `test_home.py`, et les E2E qui tabulent ou tapent au clavier (agents, Arène, banc, chat, composants, documents, évaluation, fiche, sélecteur, sobriété, barre haute).
