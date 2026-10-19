@@ -156,7 +156,7 @@ def test_the_unreliable_badge_is_a_text_with_an_icon_of_the_sprite():
 
 def test_the_screen_sends_judge_and_criteria_and_never_a_cloud_default_of_its_own():
     screen = source("screens/arena.js")
-    assert "criteria: judging.criteria()" in screen and "command.judge = judge" in screen
+    assert "criteria: judging.criteria()" in screen and "command.judge = chosenJudge.tag" in screen
     assert "allow_cloud: store.get().allowCloud" in screen  # le cloud ne vient que du store (AD-9)
     assert "judge_score:" in screen and "judge: (data)" in screen
     judge = source("screens/arena-judge.js")
@@ -205,8 +205,13 @@ def test_a_launch_without_a_judge_says_so_and_the_summary_shows_the_judge():
     assert CATALOG["arena"]["summary"]["judge"] == "Juge"
     assert CATALOG["arena"]["summary"]["no_judge"]
     screen = source("screens/arena.js")
-    assert 't("arena.judge.need_judge")' in screen and "judging.judge()" in screen
-    assert 'judging.picker.addEventListener("wl-model-change", render)' in screen
+    assert 't("arena.judge.need_judge")' in screen and "judging.ready()" in screen
+    assert '["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener' in screen
+    assert (
+        "store.select((state) => state.allowCloud, render)" in screen and "unwatchCloud()" in screen
+    )
+    judge = source("screens/arena-judge.js")  # juge indisponible ou cloud coupé : pas prêt
+    assert "fiche?.available === false" in judge and "store.get().allowCloud" in judge
     assert "judgeRow(runJudge)" in screen and "info.hold(showSummary)" in screen
     summary = source("screens/arena-summary.js")
     assert 't("arena.summary.judge")' in summary and "dataset.judge" in summary

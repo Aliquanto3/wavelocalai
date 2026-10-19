@@ -9,6 +9,7 @@
 
 import { element, icon } from "../core/dom.js";
 import { t } from "../core/i18n.js";
+import { store } from "../core/store.js";
 import { reasonText } from "../components/wl-arena-lane.js";
 
 export const MAX_CRITERIA = 8;
@@ -155,10 +156,18 @@ export function judgePanel(uid) {
     el,
     picker,
     judge: () => picker.value,
-    // Le juge choisi : { name, origin }, ou `null` (le résumé le dit avant l'événement `judge`).
+    // Un juge utilisable : choisi, disponible (Ollama arrêté : un juge local ne l'est pas), et pas
+    // cloud quand le cloud vient d'être coupé (le sélecteur ne le retire qu'après son rechargement).
+    ready() {
+      const fiche = picker.value ? picker.modelFor(picker.value) : null;
+      if (!picker.value || fiche?.available === false) return false;
+      return fiche?.origin !== "cloud" || store.get().allowCloud;
+    },
+    // Le juge choisi : { tag, name, origin }, ou `null` (le résumé le dit avant l'événement `judge`).
     chosen() {
       const fiche = picker.value ? picker.modelFor(picker.value) : null;
-      return picker.value ? { name: fiche?.name ?? picker.value, origin: fiche?.origin } : null;
+      const origin = fiche?.origin;
+      return picker.value ? { tag: picker.value, name: fiche?.name ?? picker.value, origin } : null;
     },
     criteria: () => cleanCriteria(items),
   };

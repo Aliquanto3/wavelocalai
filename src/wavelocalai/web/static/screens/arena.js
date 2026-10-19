@@ -177,7 +177,7 @@ export function mount(host, params = {}) {
     () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
     () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
     () => (question.value.trim() ? "" : t("arena.need_question")),
-    () => (judging.judge() ? "" : t("arena.judge.need_judge")),
+    () => (judging.ready() ? "" : t("arena.judge.need_judge")),
   ];
 
   function launchReason() {
@@ -496,13 +496,13 @@ export function mount(host, params = {}) {
         criteria: judging.criteria(),
         allow_cloud: store.get().allowCloud,
       };
-      const judge = judging.judge(); // absent : le défaut `judge` du serveur
-      if (judge) command.judge = judge;
+      const chosenJudge = judging.chosen(); // lu avant l'envoi ; absent : le défaut du serveur
+      if (chosenJudge) command.judge = chosenJudge.tag;
       const started = await api.startArena(command);
       buildLanes(models);
       lanesEl.hidden = false;
       setAsked(question.value);
-      runJudge = judging.chosen(); // le résumé le dit jusqu'à l'événement `judge`
+      runJudge = chosenJudge; // le résumé le dit jusqu'à l'événement `judge`
       follow(started.run_id);
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
@@ -567,8 +567,7 @@ export function mount(host, params = {}) {
     render();
   });
   picker.addEventListener("wl-model-change", render);
-  judging.picker.addEventListener("wl-model-change", render); // sans juge, Lancer est désactivé
-  judging.picker.addEventListener("wl-models-loaded", render);
+  for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);
   picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
   narrow.addEventListener("change", layout);
 
@@ -587,9 +586,10 @@ export function mount(host, params = {}) {
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
-  render();
+  const unwatchCloud = store.select((state) => state.allowCloud, render); // rend tout de suite
   if (params.run_id) follow(params.run_id);
   return () => {
+    unwatchCloud();
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     narrow.removeEventListener("change", layout);

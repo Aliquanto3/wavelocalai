@@ -142,3 +142,18 @@ Fusion de `origin/master` (PR #62 : la 3.2 avec les ajustements du correct cours
 
 **Tests** : E2E Arène (Edge) pour « Choisissez un juge » (désactivé, `aria-describedby`, levé par le choix du juge, revenu quand le cloud retire le juge), pour le juge dans le résumé et « Aucun juge », axe-core clair et sombre à 320 px et 1 440 px (sans juge, puis résumé avec le juge). Le test « sans juge » rouvre désormais un run par son URL : on ne peut plus lancer sans juge.
 
+
+### Revue de la fusion et de l'ajustement
+
+Fusion vérifiée : aucune clé de `fr.json` perdue (seule `arena.too_many` change, voulu par le correct course), CSS des deux côtés gardée, scénarios déplacés dans `arena-form.js`, tests des deux côtés présents.
+
+| Sévérité | Source | Constat | Suite | Motif |
+|---|---|---|---|---|
+| low | second avis | Juge local indisponible (Ollama arrêté, cloud autorisé) : Lancer actif, toutes les notes « juge indisponible » | corrigé | `judging.ready()` : un juge indisponible ramène « Choisissez un juge », comme `availableChoices()` pour les modèles ; E2E `test_an_unavailable_judge_brings_back_choose_a_judge` |
+| low | second avis | « Choisissez un juge » un instant avant `wl-models-loaded` | rejeté | Raison exacte (aucun juge encore choisi), même comportement que les autres raisons pendant le chargement ; Lancer actif sans juge enverrait un run sans juge choisi |
+| low | second avis | `runJudge = judging.chosen()` lu après `await api.startArena` | corrigé | Juge lu une fois avant l'envoi (`chosenJudge`) : la commande et le résumé disent le même ; badge « unknown » si `modelFor` est nul = repli voulu de `originBadge` |
+| low | second avis | Focus au titre du résumé après Lancer plus explicite | rejeté | `summary.title.focus()` est toujours dans le `finally` de `submit` ; E2E clavier vert sur Edge |
+| low | second avis | Juge cloud encore sélectionné pendant le rechargement après coupure du cloud → `cloud_not_allowed` | corrigé | L'écran suit `allowCloud` (`store.select`) et `ready()` refuse un juge cloud sans cloud ; E2E `test_a_cloud_judge_blocks_the_launch_as_soon_as_the_cloud_is_cut` (Lancer désactivé avant le rechargement) |
+| low | revue | Même course pour des modèles cloud choisis dans l'Arène | reporté | Comportement de la 3.2, hors périmètre ; le serveur refuse avec un message visible |
+
+Complexité : 0 constat (aucune structure qui grossit n'est parcourue à chaque événement par ce diff).

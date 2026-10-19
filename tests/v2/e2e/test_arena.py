@@ -340,6 +340,58 @@ def test_a_judge_removed_by_the_cloud_switch_brings_back_choose_a_judge(page, se
     assert button.is_disabled()
 
 
+def test_a_cloud_judge_blocks_the_launch_as_soon_as_the_cloud_is_cut(page, server):
+    nuage = {**BASE_MODEL, "tag": "fake:nuage", "name": "Nuage 70B", "origin": "cloud"}
+    install_models(page, cloud=[nuage])
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    page.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: true });
+        }"""
+    )
+    pick_judge(page, "Nuage 70B")
+    assert page.get_by_role("button", name="Lancer la comparaison").is_enabled()
+    # Avant même le rechargement du sélecteur, Lancer n'enverrait plus un juge cloud refusé.
+    disabled = page.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: false });
+            return document.querySelector('.arena-launch').disabled;
+        }"""
+    )
+    assert disabled is True
+
+
+def test_an_unavailable_judge_brings_back_choose_a_judge(page, server):
+    # Ollama arrêté, cloud autorisé : le juge local proposé par défaut ne répondrait pas.
+    local = [{**model, "available": False} for model in MODELS]
+    cloud = [
+        {**BASE_MODEL, "tag": f"fake:n{i}", "name": f"Nuage {i}", "origin": "cloud"} for i in (1, 2)
+    ]
+    install_models(
+        page, models=local, defaults=("fake:n1", "fake:n2"), ollama_up=False, cloud=cloud
+    )
+    page.goto(f"{server.base_url}/#/arene/comparer")
+    wait_ready(page)
+    page.evaluate(
+        """async () => {
+            const { store } = await import('/static/core/store.js');
+            store.set({ allowCloud: true });
+        }"""
+    )
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.values.length === 2")
+    wait_for(
+        page, "() => document.querySelector('wl-model-picker[purpose=judge]')?.value === 'fake:d'"
+    )
+    button = page.get_by_role("button", name="Lancer la comparaison")
+    page.locator(".arena-reason").filter(has_text="Choisissez un juge").wait_for()
+    assert button.is_disabled()
+    pick_judge(page, "Nuage 1")
+    assert button.is_enabled()
+
+
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("width", [320, 1440])
 def test_axe_finds_no_violation_without_a_judge_and_with_the_judge_in_the_summary(
