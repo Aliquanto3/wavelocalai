@@ -23,6 +23,7 @@ from wavelocalai.evaluation.judge import Judge
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading, read_memory
 from wavelocalai.inference.arena import ArenaService
+from wavelocalai.inference.bench import BenchService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.memory_guard import MemoryGuard
@@ -49,6 +50,7 @@ from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
     routes_agents,
     routes_arena,
+    routes_bench,
     routes_chat,
     routes_conversations,
     routes_eval,
@@ -121,6 +123,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     guard: MemoryGuard = app.state.memory_guard
     app.state.chat = ChatService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+        guard=guard,
+    )
+    app.state.bench = BenchService(  # Banc d'essai (story 7.4)
         hub,
         app.state.registry,
         factory,
@@ -206,6 +218,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.registry.stop()
         await app.state.probe.aclose()
         app.state.chat = None
+        app.state.bench = None
         app.state.agents = None
         app.state.ingest = None
         app.state.rag = None
@@ -264,6 +277,7 @@ def create_app(
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
+    app.state.bench = None  # service du Banc d'essai (story 7.4), idem
     app.state.agents = None  # service de l'agent seul (story 6.1), idem
     # Outils des agents (story 6.2) : ceux de la v1, et le dossier de travail qu'ils partagent.
     app.state.agent_workspace = Workspace(settings.agent_work_dir)
@@ -356,6 +370,7 @@ def create_app(
     app.include_router(routes_chat.router)
     app.include_router(routes_agents.router)
     app.include_router(routes_arena.router)
+    app.include_router(routes_bench.router)
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)
     app.include_router(routes_rag_base.router)

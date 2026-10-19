@@ -72,13 +72,18 @@ def schema_errors(value: Any, schema: dict[str, Any], path: str = "$") -> list[s
     return errors
 
 
+def strip_fence(text: str) -> str:
+    """`text` sans espaces autour ni clôture Markdown autour du JSON (tolérée par les adaptateurs
+    et par le verdict du Banc d'essai, story 7.4)."""
+    body = text.strip()
+    fenced = _FENCE.match(body)
+    return fenced.group(1).strip() if fenced else body
+
+
 def parse_structured(text: str, schema: dict[str, Any]) -> Any:
     """JSON de `text` validé par `schema`. Lève `ProviderError("invalid_output")`. Une clôture
     Markdown autour du JSON est tolérée."""
-    body = text.strip()
-    fenced = _FENCE.match(body)
-    if fenced:
-        body = fenced.group(1).strip()
+    body = strip_fence(text)
     try:
         value = json.loads(body)
     except json.JSONDecodeError as exc:
