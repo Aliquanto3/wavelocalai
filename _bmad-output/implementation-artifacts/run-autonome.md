@@ -111,3 +111,49 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 00:25 · 3.2 · contrôles · verts (677 v2, 195 E2E, 6 integration, 1286 v1) ; finalisation et PR · 74286f2
 - 2026-10-19 00:42 · run · décision · second message de wavelocalai-d7 appliqué : #58 et #61 fusionnées, garde-fou Epic 5 levé, 1.12 et 2.7 ajoutées, ajustements 3.2/3.3/4.1/4.2 avant PR, écarts §7(d) en variante conservatrice · 72137a4
 - 2026-10-19 00:42 · run · report · incident b7703cd (fichiers d'état poussés sur master par l'autre session) : version locale gardée, aucune ligne perdue ; annulation à décider par Anaël · b7703cd
+- 2026-10-19 00:44 · 4.1 · fusion master · correct course fusionné ; ajustement §7(a) : `ingest_progress` et `ingest_file_done` consignés dans `contrat-api.md` ; 805 tests v2 unit+web ; poussé · 6d17a04
+- 2026-10-19 00:45 · 3.2 · fusion master · correct course fusionné ; PR #62 retenue pour les ajustements §7(a) · 02f092b
+- 2026-10-19 00:45 · 3.2 · dev · lancé, ajustements du correct course (Sonnet high) · —
+- 2026-10-19 00:45 · 2.7 · dev · lancé (Sonnet high, worktree v2-2-7, depuis master 72137a4) · —
+- 2026-10-19 00:57 · 4.1 · fusion · PR #60 fusionnée · bb272a5
+- 2026-10-19 00:58 · 4.4 · dev · lancé (Sonnet high, worktree v2-4-4, depuis master bb272a5) · —
+- 2026-10-19 00:59 · 4.2 · fusion master · 4.1 et correct course fusionnés (conflit `contrat-api.md` : ligne Base documentaire avec D-26) ; ajustements §7(a) à lancer au prochain créneau · 48bc374
+- 2026-10-19 01:05 · 3.2 · dev · fini, ajustements D-15, D-16, légendes, D-11 ; écarts §7(d) n° 1, 4, 7 en variante actuelle ; 680 v2, 204 E2E · 142b9c7
+- 2026-10-19 01:05 · 3.2 · second-avis · lancé (Haiku), ajustements · —
+- 2026-10-19 01:05 · 4.2 · dev · lancé, ajustements du correct course (Sonnet high) · —
+- 2026-10-19 01:09 · 2.7 · dev · fini, 694 v2, 104 E2E ciblés, 3 integration · 6904013
+- 2026-10-19 01:09 · 2.7 · fusion master · migration renumérotée 0005 (0004 prise par la 4.1), `schema_v5.sql` · 8f5efd7
+- 2026-10-19 01:09 · 2.7 · second-avis · lancé (Haiku) · —
+- 2026-10-19 01:09 · 1.12 · dev · lancé (Sonnet high, worktree v2-1-12, depuis master bb272a5) · —
+- 2026-10-19 01:11 · 3.2 · second-avis · 3 medium (focus à la fin, D-11 avec Ollama arrêté, « Modifier la question »), 5 low · —
+- 2026-10-19 01:11 · 3.2 · review · lancée (Opus), ajustements · —
+- 2026-10-19 01:12 · 2.7 · second-avis · 1 medium rejeté (E2E hors CI = règle du dépôt), 5 low · —
+- 2026-10-19 01:12 · 2.7 · review · lancée (Opus) · —
+- 2026-10-19 01:18 · 4.2 · dev · fini, ajustements D-25 (un seul « Annuler l'import ») et D-26 (échecs dans le tableau, hors compte) ; écart §7(d) n° 13 en variante actuelle ; 832 v2, 27 E2E écran · 214c206
+- 2026-10-19 01:18 · 4.2 · second-avis · lancé (Haiku), ajustements · —
+- 2026-10-19 01:21 · 4.2 · second-avis · 3 medium (focus à la fin du lot, E2E trivial, annulation perdue sur échec d'envoi), 1 low · —
+- 2026-10-19 01:21 · 4.2 · review · lancée (Opus), ajustements · —
+- 2026-10-19 01:22 · 4.4 · dev · fini, 859 v2, integration verte (`qwen2.5:1.5b`, `nomic-embed-text`) ; écarts §7(d) n° 12 en variante conservatrice · 9bacb17
+- 2026-10-19 01:22 · 4.4 · second-avis · lancé (Haiku) · —
+- 2026-10-19 01:24 · 2.7 · review · pas du curseur à 0,05 (défaut publié envoyé tel quel), spec réalignée ; 838 v2, 95 E2E · f424965
+- 2026-10-19 01:24 · 2.7 · contrôles · lancés · f424965
+- 2026-10-19 01:29 · 3.2 · review · focus rendu partout, D-11 avec Ollama arrêté, repli `6em`, jeton primary ; « Modifier la question » rejeté (3.6) ; lien vers Modèles reporté (écran planned) · f983f4b
+- 2026-10-19 01:29 · 3.2 · contrôles · lancés · f983f4b
+- 2026-10-19 01:29 · 4.4 · second-avis · 1 medium (KNN plafonné quand beaucoup d'extraits en indexation), 4 low · —
+- 2026-10-19 01:29 · 4.4 · review · lancée (Opus) · —
+- 2026-10-19 01:38 · 4.2 · review · 3 medium et 1 low corrigés (focus clavier après annulation, E2E réels, run rejoint après réponse d'envoi perdue, bouton visible au rechargement) ; 30 E2E écran · 7e5a119
+- 2026-10-19 01:39 · 4.4 · review · medium corrigé (recherche filtrée sur les documents prêts, plus de plafond 4096), 2 low corrigés ; 862 v2, integration verte · eea4abc
+- 2026-10-19 01:43 · 1.12 · dev · fini, 819 v2, 196 E2E ; écarts §7(d) n° 3 et 9 en variante actuelle · 5382c7d
+- 2026-10-19 01:43 · 1.12 · attente humaine · sprite Material Symbols Rounded officiel (18 symboles de la maquette + 5 de DESIGN.md) à fournir par Anaël ; aucun téléchargement fait · —
+- 2026-10-19 01:43 · 1.12 · second-avis · lancé (Haiku) · —
+- 2026-10-19 01:44 · 2.7 · contrôles · verts (838 v2, 192 E2E, 8 integration, 1286 v1) ; PR ouverte, fusion après 3.2 · f424965
+- 2026-10-19 01:47 · 1.12 · second-avis · 2 medium (dont 1 rejeté : E2E hors CI), 3 low · —
+- 2026-10-19 01:47 · 1.12 · review · lancée (Opus) · —
+- 2026-10-19 01:48 · 3.2 · contrôles · verts après ajustements (680 v2, 206 E2E, 6 integration, 1286 v1) ; PR #62 mise à jour · f983f4b
+- 2026-10-19 02:01 · 1.12 · review · empreintes des 19 symboles du sprite, CSS `aria-disabled` mort retiré ; flash de thème hors Chromium reporté ; 821 v2 · 1cdca6a
+- 2026-10-19 02:01 · run · report · `test_topbar.py::test_a_restarted_server_is_announced_with_a_reload_button` instable sous charge (4 fois cette nuit, vert seul) : à stabiliser en 8.1 · —
+- 2026-10-19 02:04 · 4.4 · contrôles · verts (862 v2, 172 E2E, 8 integration, 1286 v1) ; PR ouverte · eea4abc
+- 2026-10-19 02:21 · 4.2 · contrôles · verts (832 v2, 202 E2E, 7 integration, 1286 v1) ; PR ouverte · 7e5a119
+- 2026-10-19 02:41 · 3.2 · fusion master · master (4.1) fusionné, fichiers d'état en conflit seulement ; 824 v2, 36 E2E Arène ; poussé · 5f90bc7
+- 2026-10-19 02:41 · 4.2 · CI · rouge macOS (test d'annulation web de la 4.1, même course) ; test corrigé et poussé · daa31c6
+- 2026-10-19 02:41 · 1.12 · contrôles · verts (821 v2, 196 E2E, 7 integration, 1286 v1) · 1cdca6a

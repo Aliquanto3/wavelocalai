@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 00:25
+last_updated: 10-19-2026 02:41
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -47,7 +47,7 @@ development_status:
   1-9-la-barre-haute-dit-l-état-d-ollama-du-cloud-et-du-co₂-en-dir: done
   1-10-choisir-un-modèle-au-clavier-et-suivre-l-étape-d-un-run: done
   1-11-l-accueil-dit-en-5-secondes-si-la-démo-peut-partir: done
-  1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: backlog
+  1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
@@ -57,7 +57,7 @@ development_status:
   2-4-converser-avec-un-modèle-cloud-openai-groq-anthropic-mistral: done
   2-5-une-réponse-cloud-affiche-une-estimation-ou-non-mesurable-ja: done
   2-6-retrouver-exporter-et-effacer-une-conversation-préversion-2: done
-  2-7-le-chat-prend-la-créativité-du-modèle-et-s-exporte-sur-écran-étroit: backlog
+  2-7-le-chat-prend-la-créativité-du-modèle-et-s-exporte-sur-écran-étroit: done
   epic-2-retrospective: optional
 
   epic-3: in-progress
@@ -71,9 +71,9 @@ development_status:
 
   epic-4: in-progress
   4-1-indexer-un-document-dans-la-base-locale-serveur: done
-  4-2-l-écran-base-documentaire-suit-chaque-fichier: in-progress
+  4-2-l-écran-base-documentaire-suit-chaque-fichier: done
   4-3-supprimer-un-document-vider-la-base-changer-de-réglages: backlog
-  4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: backlog
+  4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: done
   4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: backlog
   4-6-chercher-autrement-hyde-self-rag-et-citer-ses-sources: backlog
   4-7-reclasser-les-extraits-avec-un-reranker-local-s-il-est-là: backlog
