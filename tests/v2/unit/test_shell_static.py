@@ -627,3 +627,11 @@ def test_the_theme_module_offers_light_dark_and_system_with_light_as_the_default
     # Aucun troisième jeu de jetons : `tokens.css` n'a que `:root` et `data-theme="dark"`.
     tokens = (STATIC / "tokens.css").read_text(encoding="utf-8")
     assert 'data-theme="system"' not in tokens and "prefers-color-scheme" not in tokens
+
+
+def test_every_stylesheet_has_balanced_braces():
+    # Une fusion qui coupe une règle (« garder les deux côtés » au milieu d'un bloc) laisse une
+    # accolade ouverte : le navigateur ignore alors silencieusement toutes les règles suivantes.
+    for css in sorted(STATIC.rglob("*.css")):
+        text = css.read_text(encoding="utf-8")
+        assert text.count("{") == text.count("}"), f"{css.name} : accolades déséquilibrées"

@@ -989,6 +989,147 @@
 }
 
 .wl-seg-button[aria-checked="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.wl-seg-button[aria-checked="true"] .icon {
+  display: inline-block;
+}
+
+/* wl-chart-svg : nuage de points accessible (components/wl-chart-svg.js). Couleurs : jetons seulement. */
+.wl-chart {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 1rem;
+}
+
+.wl-chart-plot {
+  width: 100%;
+  max-width: 46rem;
+  min-width: 0;
+}
+
+.wl-chart-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-chart-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.wl-chart-axis {
+  stroke: var(--color-ink-secondary);
+  stroke-width: 1.5;
+}
+
+.wl-chart-tick,
+.wl-chart-axis-title,
+.wl-chart-label {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 0.75rem; /* 12 px ; suit le mode projection */
+}
+
+.wl-chart-axis-title,
+.wl-chart-label {
+  font-weight: 600;
+}
+
+/* Le nom d'un point est cerné de la couleur du fond : il reste lisible sur la grille et les points. */
+.wl-chart-label {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+.wl-chart-dot {
+  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+/* CO2 non mesurable : contour en pointillés, sans remplissage (la légende le dit en texte). */
+.wl-chart-dot.is-unknown {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.wl-chart-legend {
+  max-width: 46rem;
+}
+
+.wl-chart-legend-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.wl-chart-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-chart-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wl-chart-size-dot {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.wl-chart-missing {
+  margin: 0;
+}
+/* wl-confirm-dialog : <dialog> natif (UX-DR12) */
+.wl-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.25rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+}
+
+.wl-dialog-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+}
+
+.wl-dialog-consequence {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 /* wl-source-panel : les sources d'une réponse sur documents (UX-DR11, D-21, D-22) */
 .wl-sources {
   min-width: 0;
@@ -1099,80 +1240,6 @@
   font-weight: 600;
 }
 
-.wl-seg-button[aria-checked="true"] .icon {
-  display: inline-block;
-}
-
-/* wl-chart-svg : nuage de points accessible (components/wl-chart-svg.js). Couleurs : jetons seulement. */
-.wl-chart {
-  display: grid;
-  min-width: 0;
-  justify-items: start;
-  gap: 1rem;
-}
-
-.wl-chart-plot {
-  width: 100%;
-  max-width: 46rem;
-  min-width: 0;
-}
-
-.wl-chart-svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-}
-
-.wl-chart-grid {
-  stroke: var(--color-line);
-  stroke-width: 1;
-}
-
-.wl-chart-axis {
-  stroke: var(--color-ink-secondary);
-  stroke-width: 1.5;
-}
-
-.wl-chart-tick,
-.wl-chart-axis-title,
-.wl-chart-label {
-  fill: var(--color-ink);
-  font-family: var(--font-caption);
-  font-size: 0.75rem; /* 12 px ; suit le mode projection */
-}
-
-.wl-chart-axis-title,
-.wl-chart-label {
-  font-weight: 600;
-}
-
-/* Le nom d'un point est cerné de la couleur du fond : il reste lisible sur la grille et les points. */
-.wl-chart-label {
-  paint-order: stroke;
-  stroke: var(--color-surface);
-  stroke-width: 3px;
-}
-
-.wl-chart-dot {
-  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
-  stroke: var(--color-ink);
-  stroke-width: 1.5;
-}
-
-/* CO2 non mesurable : contour en pointillés, sans remplissage (la légende le dit en texte). */
-.wl-chart-dot.is-unknown {
-  fill: none;
-  stroke-dasharray: 4 3;
-}
-
-.wl-chart-legend {
-  max-width: 46rem;
-}
-
-.wl-chart-legend-title {
 .wl-source-gone {
   display: flex;
   align-items: center;
@@ -1181,28 +1248,6 @@
   font-weight: 600;
 }
 
-.wl-chart-sizes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.5rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.wl-chart-size {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.wl-chart-size-dot {
-  width: 2.75rem;
-  height: 2.75rem;
-}
-
-.wl-chart-missing {
-  margin: 0;
 .wl-source-gone .icon {
   width: 1.25rem;
   height: 1.25rem;
@@ -1234,38 +1279,4 @@
 
 .wl-msg-actions {
   margin-top: 0.5rem;
-}
-/* wl-confirm-dialog : <dialog> natif (UX-DR12) */
-.wl-dialog {
-  width: min(32rem, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-  padding: 1.25rem;
-  border: 1px solid var(--color-gray-graphic);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
-
-.wl-dialog::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
-}
-
-.wl-dialog-title {
-  margin: 0 0 0.75rem;
-  font-size: 1.25rem;
-}
-
-.wl-dialog-consequence {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border-inline-start: 6px solid var(--color-chart-4);
-  border-radius: var(--radius);
-  background: var(--color-surface-alt);
-}
-
-.wl-dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
 }
