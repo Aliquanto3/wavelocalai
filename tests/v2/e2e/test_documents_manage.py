@@ -289,9 +289,13 @@ def test_the_settings_summary_and_form_come_from_the_server(docs):
     until(page, lambda: "Réglages" in summary.inner_text())
     assert summary.inner_text() == (
         f"Réglages{NBSP}: représentation Par défaut (le premier modèle installé) · "
-        "4 extraits lus · Recherche directe"
+        "reclassement indisponible · 4 extraits lus · Recherche directe"
     )
     open_settings(page)
+    # Sans reranker local : la raison vient du serveur, et aucune récupération n'est proposée ici.
+    line = page.locator("details.docs-settings .docs-rerank")
+    assert line.inner_text().startswith(f"Reclassement indisponible{NBSP}: ")
+    assert "extra" in line.inner_text() or "cache" in line.inner_text()
     assert page.get_by_label("Taille des extraits (caractères)").input_value() == "800"
     assert page.get_by_label("Nombre d'extraits").input_value() == "4"
     assert page.get_by_label("Stratégie de recherche par défaut").input_value() == "naive"
@@ -413,3 +417,21 @@ def test_the_dialog_and_the_screen_fit_a_phone_width(base2):
     box = page.locator(DIALOG).bounding_box()
     assert box["x"] >= 0 and box["x"] + box["width"] <= 320
     assert_no_axe_violations(page, "320 px, dialogue ouvert")
+
+
+def test_a_present_reranker_is_said_active_in_the_settings_summary_and_line(docs):
+    page, server = docs
+    post_reranker(page, server)
+    page.reload()
+    wait_ready(page)
+    summary = page.locator("details.docs-settings > summary")
+    until(page, lambda: "reclassement actif" in summary.inner_text())
+    open_settings(page)
+    line = page.locator("details.docs-settings .docs-rerank").inner_text()
+    assert line.startswith("Reclassement actif (") and line.endswith(").")
+    assert_no_axe_violations(page, "réglages de la base, reclassement actif")
+
+
+def post_reranker(page, server) -> None:
+    response = page.request.post(f"{server.base_url}/api/test/reranker", data={"mode": "lexical"})
+    assert response.ok, response.text()

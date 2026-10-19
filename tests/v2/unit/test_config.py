@@ -148,3 +148,10 @@ def test_the_self_rag_bound_is_in_the_toml_and_stays_between_one_and_five(tmp_pa
     for bad in (0, 6):
         with pytest.raises(ConfigError):
             make_settings(tmp_path, rag={"self_rag_max_iterations": bad})
+
+
+def test_the_reranker_model_is_in_the_toml_and_cannot_be_empty(tmp_path):
+    rag = load_settings(DEFAULT_TOML, env_file=Path("absent.env"), environ={}).rag
+    assert rag.reranker_model == "jinaai/jina-reranker-v2-base-multilingual"
+    with pytest.raises(ConfigError):
+        make_settings(tmp_path, rag={"reranker_model": ""})

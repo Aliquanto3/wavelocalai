@@ -166,3 +166,18 @@ def test_plural_texts_come_in_pairs():
 def test_new_front_files_stay_under_the_size_budget():
     for name in (*SCREEN_FILES, "components/wl-source-panel.js", "documents.css"):
         assert len(source(name).splitlines()) <= 600, name
+
+
+def test_the_reranking_stage_and_its_state_come_from_the_server_and_never_download():
+    """Story 4.7 : « Reclassement… » est annoncé par `search` (`reranking`), l'état et la raison par
+    `settings.reranker` ; l'écran ne devine rien et n'appelle aucune route de téléchargement."""
+    run_status = code("components/wl-run-status.js")
+    assert "reranking" in run_status and "step.reranking" in run_status
+    assert CATALOG["components"]["run_status"]["reranking"] == "Reclassement…"
+    settings = code("screens/documents-chat-settings.js")
+    assert "reranker.available" in settings and "reranker.reason" in settings
+    assert "reranker: settings.reranker" in code("screens/documents.js")
+    assert "pull" not in settings.lower() and "fetch(" not in settings
+    off = CATALOG["discussion"]["rerank_off"]
+    assert off == "Reclassement indisponible\u00a0: {reason}."
+    assert "{model}" in CATALOG["discussion"]["rerank_on"]

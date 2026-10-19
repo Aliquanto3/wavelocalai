@@ -21,6 +21,11 @@ trouvés** : tous les extraits vus, un par `chunk_id` (la meilleure distance), l
 proches de la question. La v1 rendait une liste vide à la borne ; la story 4.6 demande les meilleurs
 extraits.
 
+**Reclassement** (`rerank_pool`, `rerank_top`, story 4.7). Quand un reranker local est là, chaque
+recherche (toute stratégie) prend `RERANK_POOL_FACTOR` fois plus de candidats que `top_k`, puis le
+reranker les note **contre la question de l'utilisateur** (jamais contre l'hypothèse de HyDE ni une
+reformulation) et seuls les `top_k` meilleurs restent. Sans reranker, rien ne change.
+
 **Citations** (`verify_citations`). Un marqueur `[n]` de la réponse est vérifié s'il désigne une
 source de l'événement `sources` (`n` entre 1 et le nombre de sources). Les autres (`[0]`, `[9]` pour
 trois sources) sont inventés par le modèle : ils ne figurent pas dans `citations`. Seul le marqueur
@@ -44,6 +49,8 @@ GRADE_TOKENS_PER_EXCERPT = 8  # « 12 : non » et son retour à la ligne, avec d
 GRADE_EXCERPT_CHARS = 600  # un extrait est noté sur ses premiers caractères
 REWRITE_MAX_TOKENS = 80
 REWRITE_MAX_CHARS = 500
+RERANK_POOL_FACTOR = 3  # candidats cherchés par extrait gardé quand un reranker reclassera
+RERANK_POOL_MAX = 60  # plafond du nombre de candidats reclassés (CPU)
 
 _GRADE_LINE = re.compile(r"(?<!\d)(\d{1,3})\]?\s*[:=.)\-–]?\s*(oui|non|yes|no)\b", re.IGNORECASE)
 _MARKER = re.compile(r"\[(\d{1,3})\]")
@@ -138,16 +145,42 @@ def clean_query(text: str) -> str:
     return ""
 
 
+def rerank_pool(top_k: int) -> int:
+    """Combien de candidats chercher quand un reranker reclassera : `RERANK_POOL_FACTOR` fois les
+    extraits gardés, au plus `RERANK_POOL_MAX` (jamais moins que `top_k`)."""
+    return max(top_k, min(top_k * RERANK_POOL_FACTOR, RERANK_POOL_MAX))
+
+
+def rerank_top(
+    found: list[dict[str, Any]], scores: list[float], top_k: int
+) -> list[dict[str, Any]]:
+    """Les `top_k` meilleurs candidats selon `scores` (le plus grand d'abord ; à égalité, le plus
+    proche par la distance), chacun avec son `rerank_score` (4 décimales). `found` et `scores` ont
+    la même longueur ; `distance` reste celle des vecteurs (libellé de pertinence, score brut)."""
+    scored = [
+        {**item, "rerank_score": round(float(score), 4)}
+        for item, score in zip(found, scores, strict=True)
+    ]
+    scored.sort(key=lambda item: (-item["rerank_score"], item["distance"]))
+    return scored[:top_k]
+
+
 def merge_best(rounds: list[list[dict[str, Any]]], top_k: int) -> list[dict[str, Any]]:
-    """Les meilleurs extraits de toutes les recherches : un par `chunk_id` (la plus petite
-    distance), du plus proche, au plus `top_k`."""
+    """Les meilleurs extraits de toutes les recherches : un par `chunk_id`, au plus `top_k`. Si
+    tous ont un `rerank_score` (même question à chaque tour, scores comparables), le meilleur score
+    de chacun et le plus grand d'abord ; sinon la plus petite distance et le plus proche."""
+    items = [item for found in rounds for item in found]
+    reranked = bool(items) and all("rerank_score" in item for item in items)
+
+    def rank(item: dict[str, Any]) -> tuple[float, float]:
+        return (-item["rerank_score"] if reranked else 0.0, item["distance"])
+
     best: dict[int, dict[str, Any]] = {}
-    for found in rounds:
-        for item in found:
-            kept = best.get(item["chunk_id"])
-            if kept is None or item["distance"] < kept["distance"]:
-                best[item["chunk_id"]] = item
-    return sorted(best.values(), key=lambda item: item["distance"])[:top_k]
+    for item in items:
+        kept = best.get(item["chunk_id"])
+        if kept is None or rank(item) < rank(kept):
+            best[item["chunk_id"]] = item
+    return sorted(best.values(), key=rank)[:top_k]
 
 
 def verify_citations(answer: str, numbers: set[int]) -> list[dict[str, int]]:

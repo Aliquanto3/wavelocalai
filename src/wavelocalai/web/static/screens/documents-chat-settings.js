@@ -3,6 +3,8 @@
 // envoyé avec la question suivante (`POST /api/rag/runs {strategy, top_k}`) : il agit réellement sur
 // le run suivant. La stratégie et le nombre d'extraits par défaut, et le plafond, viennent du
 // serveur (`GET /api/rag/settings`, réglés à l'écran Base), jamais d'une valeur écrite ici.
+// Le bloc dit aussi si un reranker local reclasse les extraits, ou pourquoi il ne le fait pas
+// (story 4.7) : l'état et la raison viennent du serveur (`settings.reranker`), rien n'est deviné ici.
 
 import { element } from "../core/dom.js";
 import { t } from "../core/i18n.js";
@@ -18,8 +20,9 @@ export function firstStage(strategy) {
 }
 
 // Le bloc « Réglages avancés » : `node` (un `details` replié), `strategy()` et `topK()` (nombre
-// entier choisi, ou `null` : défaut du serveur), `configure({ topK, maxTopK, strategy })` pour les
-// défauts et bornes que donne le serveur (sans effet sur un champ que l'utilisateur a déjà changé).
+// entier choisi, ou `null` : défaut du serveur), `configure({ topK, maxTopK, strategy, reranker })`
+// pour les défauts et bornes que donne le serveur (sans effet sur un champ que l'utilisateur a déjà
+// changé) et l'état du reclassement.
 export function advancedSettings(uid) {
   const strategy = element("select", "docs-select");
   strategy.id = `${uid}-strategy`;
@@ -70,15 +73,19 @@ export function advancedSettings(uid) {
     topK.value = value === null ? "" : String(value);
   });
 
+  const rerankNote = element("p", "docs-rerank");
+  rerankNote.hidden = true;
+
   const body = element("div", "docs-advanced-body");
-  body.append(strategyLabel, strategy, strategyHelp, topKLabel, topK, topKHelp);
+  body.append(strategyLabel, strategy, strategyHelp, topKLabel, topK, topKHelp, rerankNote);
   const node = element("details", "docs-advanced");
   node.append(element("summary", "", t("discussion.advanced")), body);
   return {
     node,
     strategy: () => strategy.value,
     topK: read,
-    configure({ topK: byDefault, maxTopK, strategy: byDefaultStrategy }) {
+    configure({ topK: byDefault, maxTopK, strategy: byDefaultStrategy, reranker }) {
+      showReranker(rerankNote, reranker);
       if (Number.isInteger(maxTopK)) topK.max = String(maxTopK);
       if (!touched && Number.isInteger(byDefault)) topK.value = String(byDefault);
       if (!strategyTouched && STRATEGIES.includes(byDefaultStrategy)) {
@@ -87,4 +94,17 @@ export function advancedSettings(uid) {
       }
     },
   };
+}
+
+// L'état du reclassement : actif (avec le modèle), ou indisponible avec la raison du serveur.
+function showReranker(note, reranker) {
+  if (!reranker || typeof reranker !== "object") {
+    note.hidden = true;
+    return;
+  }
+  note.textContent = reranker.available
+    ? t("discussion.rerank_on", { model: reranker.model })
+    : t("discussion.rerank_off", { reason: reranker.reason ?? "" });
+  note.dataset.reranker = reranker.available ? "on" : "off";
+  note.hidden = false;
 }

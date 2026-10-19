@@ -200,6 +200,7 @@ export function mount(host) {
             topK: settings.top_k,
             maxTopK: settings.limits?.top_k?.max,
             strategy: settings.strategy,
+            reranker: settings.reranker,
           }),
         () => {},
       );

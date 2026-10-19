@@ -56,6 +56,12 @@
   margin: 0 0 1rem;
 }
 
+/* État du reclassement par un reranker local (story 4.7) : une ligne discrète. */
+.docs-rerank {
+  margin: 0;
+  color: var(--color-ink-secondary);
+}
+
 .docs-card {
   margin: 0 0 1.5rem;
   padding: 1.5rem 1rem;

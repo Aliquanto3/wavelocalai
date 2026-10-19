@@ -127,6 +127,8 @@ class RagSettings(_Section):
     # Self-RAG (story 4.6) : reformulations de la question au plus, donc `1 + n` recherches ; la
     # borne atteinte, la réponse part avec les meilleurs extraits trouvés.
     self_rag_max_iterations: int = Field(2, ge=1, le=5)
+    # Reranker (story 4.7) : modèle fastembed lu dans le cache du dossier de données, jamais téléchargé.
+    reranker_model: str = Field("jinaai/jina-reranker-v2-base-multilingual", min_length=1)
     relevance_very_close: float = Field(0.70, gt=0.0, le=1.0)
     relevance_close: float = Field(0.60, ge=0.0, lt=1.0)
 
