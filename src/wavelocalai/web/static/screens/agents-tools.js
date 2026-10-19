@@ -8,7 +8,7 @@ import { api, ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 
-function switchFor(tool, uid) {
+export function switchFor(tool, uid) {
   const input = element("input");
   input.type = "checkbox";
   input.setAttribute("role", "switch");

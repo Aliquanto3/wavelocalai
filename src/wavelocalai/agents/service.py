@@ -16,8 +16,8 @@ from dataclasses import dataclass
 
 from wavelocalai.agents.crews import CrewAgent, CrewLibrary
 from wavelocalai.agents.loop import AgentLoop
-from wavelocalai.agents.outbox import build_actions
 from wavelocalai.agents.mission import MissionRunner
+from wavelocalai.agents.outbox import build_actions
 from wavelocalai.agents.tools import AgentTool, ToolRegistry
 from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope

@@ -16,9 +16,11 @@ import asyncio
 import contextlib
 import json
 import re
+import shutil
 import threading
 import time
 import urllib.request
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import expect
@@ -29,6 +31,7 @@ from .test_chat import MODEL as CHAT_MODEL
 from .test_chat import forget_conversations
 from .test_shell import assert_no_axe_violations, wait_for, wait_ready
 
+ROOT = Path(__file__).resolve().parents[3]
 NBSP = "\N{NO-BREAK SPACE}"
 MODEL = {**CHAT_MODEL, "tools_verified": True}
 UNVERIFIED = {**CHAT_MODEL, "tag": "fake:sans-outils", "name": "Sans outils 1B"}
@@ -205,10 +208,9 @@ def test_the_screen_is_agent_seul_with_the_picker_the_tools_and_the_welcome(agen
     tabs = agent.get_by_role("navigation", name="Écrans du module Agents")
     assert tabs.get_by_role("link", name="Agent seul").get_attribute("aria-current") == "page"
     crew = tabs.get_by_role("link", name="Équipe d'agents")
-    assert crew.get_attribute("aria-disabled") == "true" and crew.get_attribute("href") is None
-    assert crew.locator("xpath=following-sibling::span").inner_text() == (
-        "Pas encore disponible dans cette préversion"
-    )
+    # L'écran Équipe d'agents est disponible depuis la story 6.6 : un lien actif.
+    assert crew.get_attribute("aria-disabled") is None
+    assert crew.get_attribute("href") == "#/agents/equipe"
     # Le sélecteur est sur le défaut `agent`, avec sa raison.
     assert agent.locator("wl-model-picker .wl-picker-help").inner_text().endswith(REASON)
     assert agent.locator("wl-model-picker").evaluate("el => el.getAttribute('purpose')") == "agent"
@@ -582,6 +584,9 @@ def mail(tmp_path_factory, smtp):
     config = folder / "wavelocalai.toml"
     config.write_text("[delays]\napproval_expiry_s = 4\n", encoding="utf-8")
     (folder / "data").mkdir()
+    # Les équipes livrées, pour l'écran Équipe (story 6.6) : la bibliothèque se lit à côté du `.toml`.
+    (folder / "config").mkdir()
+    shutil.copy(ROOT / "config" / "agent_crews.json", folder / "config" / "agent_crews.json")
     env = {
         "SMTP_SERVER": "127.0.0.1",
         "SMTP_PORT": str(smtp.port),

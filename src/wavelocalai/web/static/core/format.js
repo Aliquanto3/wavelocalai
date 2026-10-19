@@ -163,3 +163,11 @@ export function formatMoney(amount, currency) {
     intl(`money-${currency}`, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value);
   return amount > 0 && amount < MONEY_FLOOR ? t("format.money_below", { value: money(MONEY_FLOOR) }) : money(amount);
 }
+
+// Heure ISO -> « 09:15:02 » (journal de mission : l'heure du serveur, lue dans le fuseau du poste).
+export function formatTime(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return formatUnknown();
+  const options = { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" };
+  return intl("time", options, Intl.DateTimeFormat).format(date);
+}

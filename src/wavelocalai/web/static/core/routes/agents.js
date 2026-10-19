@@ -10,6 +10,12 @@ export const agentsModule = {
       status: "available",
       load: () => import("../../screens/agents-solo.js"),
     },
-    { id: "agents-crew", path: "/agents/equipe", param: "run_id", status: "planned" },
+    {
+      id: "agents-crew",
+      path: "/agents/equipe",
+      param: "run_id",
+      status: "available",
+      load: () => import("../../screens/agents-crew.js"),
+    },
   ],
 };

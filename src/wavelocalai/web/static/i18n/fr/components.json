@@ -123,6 +123,8 @@
       "co2_unmeasurable_help": "Le CO₂ de cette réponse n'a pas pu être mesuré. Il n'est pas compté comme zéro.",
       "tokens": "Tokens",
       "duration": "Durée",
+      "peak_memory": "Pic de mémoire",
+      "peak_memory_help": "Plus haut niveau de mémoire vive occupée sur ce poste pendant la mission, tous programmes confondus.",
       "steps": "Étapes",
       "load": "Chargement",
       "total": "Durée totale",
@@ -147,6 +149,16 @@
       "thought": "Réflexion",
       "result": "Résultat",
       "open_file": "Ouvrir le fichier"
+    },
+    "team_graph": {
+      "title": "Schéma de l'équipe",
+      "then": ", puis ",
+      "then_report": ", puis le rapport",
+      "report_short": "Rapport",
+      "current": "en cours",
+      "done": "terminé",
+      "stopped": "arrêté",
+      "notrun": "non lancé"
     },
     "table": {
       "sorted_asc": "Trié par {column}, ordre croissant",

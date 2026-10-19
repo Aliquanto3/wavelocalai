@@ -13,7 +13,8 @@
 //                                       // restoreAnswer({ …, decorator }) l'applique à une réponse rouverte
 //   answer.refresh()                    // rend la réponse de nouveau (le décorateur a de nouvelles données)
 //   thread.beginAnswer({ name, origin, reduced: true })   // pied réduit (agents, D-31) : ni débit, ni
-//   answer.summarize({ co2, steps, duration_s })           // tokens, ni chargement ; les totaux du serveur
+//   answer.summarize({ co2, steps, duration_s, peak_memory_gb? })  // tokens, ni chargement ; totaux du
+//                                                      // serveur, pic de mémoire d'une mission d'équipe
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -23,7 +24,7 @@
 // à `metrics`, les mesures du serveur. Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
-import { formatCo2, formatDuration, formatInteger, formatRate } from "../core/format.js";
+import { formatCo2, formatDuration, formatGb, formatInteger, formatRate } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { renderMarkdown, tailHost } from "../core/markdown.js";
 import "./wl-badge.js";
@@ -317,6 +318,14 @@ class ChatAnswer {
       metric(t("components.thread.steps"), formatInteger(totals.steps)),
       metric(t("components.thread.duration"), formatDuration(totals.duration_s)),
     );
+    if ("peak_memory_gb" in totals) {
+      // Mission d'équipe : pic de mémoire du poste, lu du serveur ; inconnu = « inconnu », jamais 0.
+      parts.push(
+        metric(t("components.thread.peak_memory"), formatGb(totals.peak_memory_gb), {
+          help: t("components.thread.peak_memory_help"),
+        }),
+      );
+    }
     this.foot.replaceChildren(...parts);
   }
 

@@ -22,14 +22,13 @@ def linked_stylesheets_of(html: str) -> list[str]:
     return re.findall(r'<link rel="stylesheet" href="/static/([\w/.-]+)">', html)
 
 
-def test_the_agent_screen_is_registered_available_with_its_loader_and_the_crew_stays_planned():
+def test_the_agent_screen_is_registered_available_with_its_loader():
     text = registry_text()
     assert re.search(
         r'id: "agents-solo",\s*path: "/agents/seul",\s*status: "available",\s*'
         r'load: \(\) => import\("\.\./\.\./screens/agents-solo\.js"\)',
         text,
     )
-    assert re.search(r'id: "agents-crew",\s*path: "/agents/equipe",[^}]*status: "planned"', text)
     assert (STATIC / "screens/agents-solo.js").is_file()
 
 

@@ -270,7 +270,6 @@ MOCKUP_ROUTES = {
     "/arene/references": None,
     "/arene/banc": "run_id",
     "/documents/evaluation": "run_id",
-    "/agents/equipe": "run_id",
     "/modeles": "tag",
 }
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
@@ -297,9 +296,13 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
 
 def test_only_the_home_chat_arena_document_agent_and_sobriety_screens_are_available_so_far():
     text = registry_text()
-    assert text.count('status: "available"') == 7
-    assert text.count('status: "planned"') == len(ROUTES) - 7
+    assert text.count('status: "available"') == 8
+    assert text.count('status: "planned"') == len(ROUTES) - 8
     assert re.search(r'id: "agents-solo",\s*path: "/agents/seul",\s*status: "available"', text)
+    assert re.search(
+        r'id: "agents-crew",\s*path: "/agents/equipe",\s*param: "run_id",\s*status: "available"',
+        text,
+    )
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
     assert re.search(r'id: "documents-chat",\s*path: "/documents",\s*status: "available"', text)
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
@@ -313,7 +316,7 @@ def test_only_the_home_chat_arena_document_agent_and_sobriety_screens_are_availa
 
 def test_the_mockup_routes_are_planned_with_their_path_parameter():
     """D-8 : `#/arene/references`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`,
-    `#/agents/equipe/<run_id>` et `#/modeles/<tag>` existent, `planned`, sans écran ni `load`."""
+    et `#/modeles/<tag>` existent, `planned`, sans écran ni `load`."""
     text = registry_text()
     for path, param in MOCKUP_ROUTES.items():
         declaration = re.search(
