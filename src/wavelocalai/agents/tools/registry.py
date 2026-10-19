@@ -2,8 +2,8 @@
 
 Un outil est une coroutine `run(arguments) -> texte` et son schéma neutre (`name`, `description`,
 `parameters` : schéma JSON d'un objet) que les adaptateurs traduisent (`models/tool_format.py`).
-Le registre ne porte aucun outil de la v1 : la story 6.2 les y inscrit (`agents/tools/`), avec leur
-disponibilité et la route qui les liste. Un outil `sensitive` ne s'exécute jamais sans approbation
+Le registre de l'application porte les outils de la v1 (`builtin.py`, story 6.2), avec leur
+disponibilité, et la route `GET /api/agents/tools` les liste. Un outil `sensitive` ne s'exécute jamais sans approbation
 explicite (AD-9, story 6.3) : en 6.1 la boucle le refuse.
 """
 
@@ -19,6 +19,11 @@ from wavelocalai.errors import AppError
 # Nom vu par le modèle : accepté par les quatre fournisseurs (`^[a-zA-Z0-9_-]{1,64}$`).
 TOOL_ID = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 EMPTY_PARAMETERS: dict[str, Any] = {"type": "object", "properties": {}}
+
+
+class ToolError(Exception):
+    """Échec attendu d'un outil : son message (français, sans nom de classe) est le `tool_result`
+    en échec que l'agent lit et peut contourner."""
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,7 @@ class AgentTool:
     run: ToolFunction
     parameters: dict[str, Any] = field(default_factory=lambda: dict(EMPTY_PARAMETERS))
     label: str | None = None  # libellé du lexique (story 6.2) ; `id` sinon
+    summary: str | None = None  # description courte pour l'écran (`GET /api/agents/tools`)
     sensitive: bool = False
     available: bool = True
     reason: str | None = None  # pourquoi l'outil est indisponible
@@ -47,6 +53,17 @@ class AgentTool:
     def __post_init__(self) -> None:
         if not TOOL_ID.match(self.id):
             raise ValueError(f"Identifiant d'outil invalide : {self.id!r}")
+
+    def listing(self) -> dict[str, Any]:
+        """Ligne de `GET /api/agents/tools` : ce que l'écran affiche, jamais le schéma ni le code."""
+        return {
+            "id": self.id,
+            "label": self.label or self.id,
+            "description": self.summary or self.description,
+            "available": self.available,
+            "reason": None if self.available else self.reason,
+            "sensitive": self.sensitive,
+        }
 
     def spec(self) -> dict[str, Any]:
         """Schéma neutre passé au port (`ChatRequest.tools`)."""

@@ -16,7 +16,7 @@ from ollama import AsyncClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.agents.service import AgentService
-from wavelocalai.agents.tools import ToolRegistry
+from wavelocalai.agents.tools import Workspace, build_registry
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.evaluation.judge import Judge
@@ -262,7 +262,9 @@ def create_app(
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.agents = None  # service de l'agent seul (story 6.1), idem
-    app.state.agent_tools = ToolRegistry()  # outils des agents : ceux de la v1 arrivent en 6.2
+    # Outils des agents (story 6.2) : ceux de la v1, et le dossier de travail qu'ils partagent.
+    app.state.agent_workspace = Workspace(settings.agent_work_dir)
+    app.state.agent_tools = build_registry(settings, app.state.agent_workspace)
     app.state.ingest = None  # service d'ingestion des documents, idem
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
