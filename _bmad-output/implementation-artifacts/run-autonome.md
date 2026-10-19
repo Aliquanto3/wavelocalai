@@ -186,3 +186,10 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 04:17 · 4.8 · review · high corrigé (mémoire des modèles chargés inactifs comptée comme libre), modèle proposé plus petit, `required_gb` partagé sélecteur/refus, déchargement relit les runs actifs ; 921 v2, 108 E2E · 67fb239
 - 2026-10-19 04:17 · 4.8 · décision · pour Anaël : bouton « Décharger les modèles inactifs » gardé tel quel lors d'un refus (critère), à masquer ou non ; vérification Linux 16 Go (mmap) à faire · —
 - 2026-10-19 04:31 · 4.2 · fusion · PR #65 fusionnée · fff8faa
+- 2026-10-19 04:33 · 3.3 · fusion master · 2.7 et 4.2 fusionnées sans conflit de code ; tests v2 et E2E lancés · —
+- 2026-10-19 04:33 · 4.3 · dev · lancé (Sonnet high, worktree v2-4-3, depuis master fff8faa) · —
+- 2026-10-19 04:33 · 4.5 · dev · lancé (Sonnet high, worktree v2-4-5, depuis master fff8faa) · —
+- 2026-10-19 04:47 · 3.3 · contrôles · après fusion : 961 v2, 278 E2E + 1 erreur Playwright passagère (relancé seul : vert) ; poussé · a38bbbb
+- 2026-10-19 04:47 · run · report · `test_arena.py::test_the_panel_opens_and_works_from_the_keyboard` : « Browser.new_context: Response has been disposed » sous charge, 3 fois (8.1) · —
+- 2026-10-19 04:59 · 3.3 · fusion · PR #67 fusionnée · 2567e44
+- 2026-10-19 05:00 · 3.4 · dev · lancé (Sonnet high, worktree v2-3-4, depuis master 2567e44) · —
