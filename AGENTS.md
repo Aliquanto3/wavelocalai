@@ -29,7 +29,8 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 - Paquet à côté de la v1, dans le même projet : installation éditable seulement (`uv sync`), lanceur `wavelocalai-v2` (`wavelocalai.__main__:main`), port 8502 (8501 reste à la v1). Spec, architecture et epics : `_bmad-output/planning-artifacts/` (la spine d'architecture prime).
 - La v2 n'importe jamais `src.*` et la v1 jamais `wavelocalai` : ce qui est repris est copié puis adapté. Seul `web/` importe FastAPI, Starlette et uvicorn ; les imports lourds (`codecarbon`, `fastembed`, `pypdf`, `docx`, `ecologits`, SDK cloud) restent dans les fonctions. `tests/v2/unit/test_layers.py` le vérifie.
 - Version unique du dépôt : `2.0.0.dev0`, puis une préversion `2.0.0aN` par epic.
-- Tests : `python -m pytest tests/v2` (`tests/v2/{unit,web,e2e}`).
+- Tests : `python -m pytest tests/v2` (`tests/v2/{unit,web,e2e}`). E2E (`-m e2e`, exclus par défaut) en local sur Edge, rien à télécharger : `$env:WAVELOCALAI_E2E_CHROMIUM="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` puis `.venv\Scripts\python -m pytest tests/v2/e2e/<fichier> -m e2e` ; sans la variable, Chromium de Playwright (`python -m playwright install chromium`). Doublures (`fake`, faux Ollama, faux SMTP) : pas d'Ollama ; une requête hors de `127.0.0.1` fait échouer le test puis la suite (`conftest.py`).
+- CI des E2E : `.github/workflows/e2e-nocturne.yml` joue toute la suite chaque nuit sur Linux (Chromium de Playwright installé par la CI), et à la demande ; les PR n'attendent pas ce job nocturne (décision Q6 ; le job `test-v2-e2e` de `tests.yml` est un autre job, voir `story-8-3.md`). Parité avec la v1 : `docs/parite-v1-v2.md`.
 
 ## Running and verifying
 
