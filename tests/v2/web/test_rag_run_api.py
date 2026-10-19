@@ -501,3 +501,20 @@ async def test_the_whole_path_works_with_the_numpy_fallback_index(tmp_path, monk
         sources = next(e for e in events if e["type"] == "sources")["data"]["sources"]
         assert [s["document"] for s in sources] == ["chats.txt"]
         assert sources[0]["passage"] is not None
+
+
+async def test_the_test_route_scripts_the_fake_model_for_the_real_command(served):
+    app, client = served
+    await _import(client, **{"chats.txt": CATS})
+    scripted = await client.post(
+        "/api/test/chat-model", json={"script": [{"text": "Réponse"}, {"text": " scriptée"}]}
+    )
+    assert scripted.status_code == 200 and scripted.json() == {"steps": 2}
+    started = (await _ask(client)).json()
+    assert (await _ended(client, started["run_id"]))["status"] == "ok"
+    tokens = "".join(
+        e["data"]["text"] for e in await _events(client, started["run_id"]) if e["type"] == "token"
+    )
+    assert tokens == "Réponse scriptée"
+    unknown = await client.post("/api/test/chat-model", json={"model": "inconnu:1b"})
+    assert unknown.status_code == 404

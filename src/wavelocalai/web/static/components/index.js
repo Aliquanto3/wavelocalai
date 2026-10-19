@@ -7,6 +7,7 @@ export { WlError } from "./wl-error.js";
 export { WlModelPicker } from "./wl-model-picker.js";
 export { WlRunStatus } from "./wl-run-status.js";
 export { WlChatThread } from "./wl-chat-thread.js";
+export { WlSourcePanel } from "./wl-source-panel.js";
 export { exportMenu } from "./export-menu.js";
 export { WlArenaLane } from "./wl-arena-lane.js";
 export { WlDataTable } from "./wl-data-table.js";

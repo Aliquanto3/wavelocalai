@@ -149,9 +149,9 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
         and arena.get_attribute("aria-disabled") is None
     )
 
-    documents = links.nth(2)  # Documents : disponible depuis la story 4.2 (Base documentaire)
+    documents = links.nth(2)  # Documents : disponible depuis la story 4.5 (Discussion)
     assert (
-        documents.get_attribute("href") == "#/documents/base"
+        documents.get_attribute("href") == "#/documents"
         and documents.get_attribute("aria-disabled") is None
     )
 

@@ -174,6 +174,7 @@
     "run_status": {
       "starting": "Démarrage…",
       "loading": "Chargement du modèle en mémoire…",
+      "retrieving": "Recherche des extraits…",
       "generating": "Génération…",
       "stopping": "Arrêt en cours…",
       "ok": "Terminé",
@@ -185,6 +186,23 @@
       "stop_hint": "ou touche Échap",
       "first_load": "Le premier appel charge le modèle en mémoire : de 8 à 26 secondes.",
       "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
+    },
+    "sources": {
+      "summary_empty": "Sources",
+      "summary_one": "{n} source utilisée",
+      "summary_other": "{n} sources utilisées",
+      "empty": "Les sources apparaissent ici, avant la réponse.",
+      "page": "page {page}",
+      "rank": "n° {rank}",
+      "raw_label": "score brut",
+      "raw_help": "Score brut de similarité : {score}. Il ne se compare qu'entre les extraits d'une même recherche ; le libellé « très proche », « proche » ou « éloignée » en est la lecture normalisée.",
+      "open": "Ouvrir l'extrait",
+      "close": "Fermer l'extrait",
+      "open_for": "Ouvrir l'extrait de la source {n}, {document}",
+      "close_for": "Fermer l'extrait de la source {n}, {document}",
+      "deleted": "extrait supprimé",
+      "deleted_help": "Le document « {document} » a été supprimé de la base : cet extrait n'est plus disponible.",
+      "open_failed": "L'extrait n'a pas pu être chargé."
     },
     "thread": {
       "label": "Conversation",
@@ -212,7 +230,11 @@
       "duration": "Durée",
       "load": "Chargement",
       "total": "Durée totale",
-      "first_token": "Premier token"
+      "first_token": "Premier token",
+      "retrieval": "Recherche",
+      "retrieval_help": "Durée de la recherche des extraits dans vos documents, embedding de la question compris.",
+      "generation": "Génération",
+      "generation_help": "Durée de la génération de la réponse par le modèle."
     },
     "table": {
       "sorted_asc": "Trié par {column}, ordre croissant",
@@ -270,6 +292,38 @@
     "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
     "start_failed": "La demande n'a pas pu être envoyée.",
     "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ."
+  },
+  "discussion": {
+    "lead": "Posez une question à vos documents. Les sources apparaissent avant la réponse : vous vérifiez d'où elle vient pendant qu'elle s'écrit.",
+    "base_link": "Gérer la base documentaire",
+    "documents_one": "{n} document",
+    "documents_other": "{n} documents",
+    "indexing_one": "{n} document en cours d'indexation n'est pas encore interrogé.",
+    "indexing_other": "{n} documents en cours d'indexation ne sont pas encore interrogés.",
+    "empty_title": "Votre base documentaire est vide",
+    "empty_text": "Importez au moins un document pour lui poser des questions. Rien n'est envoyé hors de ce poste.",
+    "empty_action": "Importer des documents",
+    "indexing_only_title": "L'indexation est en cours",
+    "indexing_only_text": "Vous pourrez poser une question dès qu'un document est prêt.",
+    "indexing_only_action": "Suivre l'indexation",
+    "advanced": "Réglages avancés",
+    "strategy": "Stratégie de recherche",
+    "strategy_naive": "Recherche directe",
+    "strategy_help": "La question sert telle quelle à chercher les extraits les plus proches (méthode « naive »). D'autres stratégies viendront dans une prochaine préversion.",
+    "empty_thread": "Posez une question pour commencer. Les sources apparaissent avant la réponse.",
+    "question": "Posez une question à vos documents",
+    "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
+    "send": "Envoyer",
+    "clear": "Effacer la conversation",
+    "cleared": "Conversation effacée de ce poste. Le CO₂ déjà compté reste dans le total de la session.",
+    "no_model": "Aucun modèle n'est choisi.",
+    "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre question.",
+    "joined": "Une réponse est déjà en cours : vous la suivez. Votre question est restée dans le champ.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ.",
+    "cloud_warning": "{name} est un modèle cloud : les extraits retrouvés dans vos documents lui sont envoyés, hors de ce poste.",
+    "show_sources": "Afficher les sources",
+    "show_sources_for": "Afficher les sources de la réponse de {name}",
+    "start_failed": "La question n'a pas pu être envoyée."
   },
   "docs": {
     "lead": "Importez vos documents pour les interroger ensuite. Ils sont découpés et indexés sur ce poste : aucun fichier ne quitte la machine.",

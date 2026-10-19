@@ -6,6 +6,8 @@
 //   answer.token(texte, canal)  answer.retry(raison)  answer.metrics(données)  answer.end({ status })
 //   thread.restoreAnswer({ name, origin, text, thought, result, status })   // réponse déjà finie,
 //                                                                           // rouverte : rien n'est annoncé
+//                                                                           // (rend la réponse)
+//   answer.actions   // zone sous le pied où l'écran range ses boutons (« Afficher les sources »)
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -110,6 +112,7 @@ class ChatAnswer {
     this.flag = element("p", "wl-msg-flag");
     this.flag.hidden = true;
     this.foot = element("div", "wl-msg-foot");
+    this.actions = element("div", "wl-msg-actions");
 
     this.rate = metric(t("components.thread.rate"), formatRate(null), { provisional: true });
     this.duration = metric(t("components.thread.duration"), formatDuration(0));
@@ -117,7 +120,7 @@ class ChatAnswer {
     this.foot.append(this.rate, this.tokens, this.duration);
 
     this.root = element("div", "wl-msg wl-msg-assistant");
-    this.root.append(who, this.thought, this.body, this.note, this.flag, this.foot);
+    this.root.append(who, this.thought, this.body, this.note, this.flag, this.foot, this.actions);
     this.ticker = setInterval(() => this.#tick(), TICK_MS);
   }
 
@@ -254,8 +257,21 @@ class ChatAnswer {
       }),
       metric(t("components.thread.tokens"), formatInteger(result.eval_tokens)),
       metric(t("components.thread.load"), formatDuration(result.load_s)),
-      metric(t("components.thread.total"), formatDuration(result.total_s)),
     ];
+    if (typeof result.retrieval_s === "number") {
+      // Réponse à partir de documents : la recherche des extraits et la génération, à part
+      // (UX-DR23) ; `total_s` est celui de la génération seule.
+      parts.push(
+        metric(t("components.thread.retrieval"), formatDuration(result.retrieval_s), {
+          help: t("components.thread.retrieval_help"),
+        }),
+        metric(t("components.thread.generation"), formatDuration(result.total_s), {
+          help: t("components.thread.generation_help"),
+        }),
+      );
+    } else {
+      parts.push(metric(t("components.thread.total"), formatDuration(result.total_s)));
+    }
     if (this.showFirstToken) {
       parts.splice(2, 0, metric(t("components.thread.first_token"), formatDuration(result.ttft_s)));
     }
@@ -339,6 +355,7 @@ export class WlChatThread extends HTMLElement {
     this.#dom.log.append(answer.root);
     answer.restore(content);
     this.scrollToEnd();
+    return answer;
   }
 
   clear() {
