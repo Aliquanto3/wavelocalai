@@ -63,7 +63,8 @@ def children(*extra):
 def test_the_shipped_toml_loads_with_its_price_table():
     settings = load_settings(DEFAULT_TOML, env_file=Path("absent.env"), environ={})
     prices = settings.cloud.prices
-    assert prices.currency == "EUR"
+    assert prices.currency == "USD"  # les quatre fournisseurs publient leurs prix en dollars
+    assert prices.retrieved_at is not None and len(prices.models) == 8
     # Aucune entrée sans date ni source : soit la table est vide, soit elle est datée et sourcée.
     assert not prices.models or (prices.retrieved_at is not None and prices.source)
 
