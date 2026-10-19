@@ -11,7 +11,7 @@
 // - Notation (story 3.3) : le panneau « Critères de notation » (`arena-judge.js`) envoie `judge` et
 //   `criteria` ; sans juge, Lancer est désactivé (« Choisissez un juge ») et le résumé dit le juge
 //   (`arena-summary.js`). L'événement `judge` dit sa fiabilité, `judge_score` pose la note /100 (ou
-//   « Non évalué » et sa raison) dans la colonne et l'annonce poliment. Classement : story 3.4.
+//   « Non évalué » et sa raison) dans la colonne. Classement, matrice, tableau : `arena-results.js`.
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
 //   horizontal et en-têtes collants, et un mode focus par colonne.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
@@ -29,7 +29,9 @@ import { store } from "../core/store.js";
 import { nextTab } from "../core/tab-keys.js";
 import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { resultsView } from "./arena-results.js";
 import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
+import { nextTab } from "./arena-tabs.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
@@ -108,6 +110,7 @@ export function mount(host, params = {}) {
   lanesEl.setAttribute("aria-label", t("arena.lanes"));
   lanesEl.tabIndex = 0; // une zone qui défile se lit au clavier
   lanesEl.hidden = true;
+  const results = resultsView(uid, lanesEl); // classement, matrice et tableau (story 3.4)
   const live = element("div", "sr-only");
   live.setAttribute("role", "status");
   live.setAttribute("aria-live", "polite");
@@ -128,6 +131,7 @@ export function mount(host, params = {}) {
     info.el,
     tabs,
     lanesEl,
+    results.el,
     live,
     scoreLive.el,
   );
@@ -269,6 +273,7 @@ export function mount(host, params = {}) {
     runJudge = null;
     info.clear();
     scoreLive.clear();
+    results.reset();
   }
 
   function setAsked(text) {
@@ -371,6 +376,7 @@ export function mount(host, params = {}) {
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
+    results.end(state); // le classement se fige
     runId = null;
     stream = null;
     stopping = false;

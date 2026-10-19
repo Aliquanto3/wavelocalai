@@ -18,6 +18,9 @@ NEW_SCRIPTS = [
     "screens/arena-form.js",
     "screens/arena-judge.js",
     "screens/arena-summary.js",
+    "screens/arena-results.js",
+    "screens/arena-results-data.js",
+    "screens/arena-tabs.js",
     "components/wl-arena-lane.js",
 ]
 

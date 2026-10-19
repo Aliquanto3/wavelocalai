@@ -6,6 +6,9 @@
 //                                          done, timeout, failed, cancelled (interrupted : flux perdu)
 //   lane.token(text, channel)  lane.retry(reason)  lane.metrics(data)
 //   lane.setJudge({ single_judge, unreliable })   l'événement `judge` : fiabilité des notes
+//   lane.name  lane.origin  lane.status  lane.score  lane.result   lus par le classement (story 3.4) ;
+//                                          chaque changement de statut, de note ou de mesures émet
+//                                          `wl-lane-change` (bulle), jamais à chaque token
 //   lane.setScore({ score, reason })       `judge_score` : note /100 et sa raison, ou « Non évalué »
 //                                          avec sa raison (`score` nul : jamais 0). Une colonne qui
 //                                          finit en `timeout`, `failed`, `cancelled` ou `interrupted`
@@ -81,6 +84,24 @@ export class WlArenaLane extends HTMLElement {
 
   get status() {
     return this.#status;
+  }
+
+  get name() {
+    return this.#info.name;
+  }
+
+  // L'origine mesurée (événement `metrics`) prime sur celle du sélecteur.
+  get origin() {
+    return this.#result?.origin ?? this.#info.origin;
+  }
+
+  // Les mesures du serveur (événement `metrics`), ou `null` tant qu'il n'en a pas publié.
+  get result() {
+    return this.#result;
+  }
+
+  #changed() {
+    this.dispatchEvent(new CustomEvent("wl-lane-change", { bubbles: true }));
   }
 
   get thread() {
@@ -208,6 +229,7 @@ export class WlArenaLane extends HTMLElement {
     const score = Number.isInteger(data?.score) && data.score >= 0 && data.score <= 100 ? data.score : null;
     this.#score = { score, reason: data?.reason ?? "" };
     if (this.#dom) this.#renderScore();
+    this.#changed();
   }
 
   get score() {
@@ -266,6 +288,7 @@ export class WlArenaLane extends HTMLElement {
     this.#renderStatus(error);
     this.#renderScore();
     if (status in END_STATUS) this.#end(status);
+    this.#changed();
   }
 
   #end(status) {
@@ -300,6 +323,7 @@ export class WlArenaLane extends HTMLElement {
     this.#result = data ?? null;
     this.#answer?.metrics(data);
     if (this.#dom) this.#renderHead(); // l'origine mesurée prime sur celle du sélecteur
+    this.#changed();
   }
 
   // Le flux est perdu sans statut final : la réponse partielle reste, dite « interrompue ». Une
