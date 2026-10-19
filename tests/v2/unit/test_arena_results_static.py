@@ -15,6 +15,7 @@ SCRIPTS = [
     "screens/arena-results.js",
     "screens/arena-results-data.js",
     "screens/arena-tabs.js",
+    "screens/arena-verdict.js",
     "components/wl-chart-svg.js",
     "components/segments.js",
     "core/chart-scale.js",
@@ -146,7 +147,7 @@ def test_the_segments_are_a_radiogroup_with_arrow_keys_and_a_check_icon():
 def test_the_screen_hands_the_lanes_to_the_results_and_freezes_them_at_the_end():
     screen = source("screens/arena.js")
     assert "resultsView(uid, lanesEl)" in screen and "results.el" in screen
-    assert "results.end(state)" in screen and "results.reset()" in screen
+    assert "results.end(state, runId)" in screen and "results.reset()" in screen
     lane = source("components/wl-arena-lane.js")
     assert "wl-lane-change" in lane and lane.count("this.#changed()") >= 3
     assert "wl-lane-change" in source("screens/arena-results.js")

@@ -47,6 +47,20 @@ mistral = ["mistral-large-latest", "mistral-small-latest"]
 "openai/gpt-oss-20b" = "openai/gpt-oss-20b"
 "llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 
+[cloud.prices]
+# Table de prix cloud datée (story 3.5), lue par le verdict local/cloud de l'Arène. Prix publics
+# par million de tokens, dans la devise `currency` (aucune conversion de change n'est faite).
+# VIDE tant que personne n'a relevé les prix : aucun prix ni aucune date n'est inventé, et le
+# coût d'un modèle cloud s'affiche « inconnu » (avec sa raison), jamais 0. Pour la remplir, relever
+# les prix sur la page officielle de chaque fournisseur, puis renseigner `retrieved_at` (date du
+# relevé), `source` (adresse des pages) et une entrée par modèle de `[cloud.models]`, clé
+# `fournisseur/modèle` ; le chargement refuse une entrée sans date ni source. Forme :
+#   retrieved_at = AAAA-MM-JJ
+#   source = "adresse de la page des prix du fournisseur"
+#   [cloud.prices.models]
+#   "fournisseur/modèle" = { input_per_mtok = <prix>, output_per_mtok = <prix> }
+currency = "EUR"
+
 [rag]
 # Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec
 # `chunk_overlap` de recouvrement ; chaque lot de `embed_batch_size` extraits est une feuille

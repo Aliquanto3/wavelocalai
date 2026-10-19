@@ -112,6 +112,8 @@ export const api = {
     request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   conversationExportUrl: (id, extension) =>
     `/api/conversations/${encodeURIComponent(id)}.${extension}`,
+  // Instantané d'un run (AD-5) : statut, mesures des feuilles et, pour une Arène, son `verdict`.
+  run: (runId) => request(`/api/runs/${encodeURIComponent(runId)}`),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

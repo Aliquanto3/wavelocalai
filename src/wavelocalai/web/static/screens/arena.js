@@ -374,7 +374,7 @@ export function mount(host, params = {}) {
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
-    results.end(state); // le classement se fige
+    results.end(state, runId); // le classement se fige, le verdict est lu
     runId = null;
     stream = null;
     stopping = false;

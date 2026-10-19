@@ -83,9 +83,13 @@ class Backend:
 
     Données en dossier temporaire, route de test et modèle `fake` actifs (`WAVELOCALAI_TESTING`),
     aucune clé cloud. `ollama_port` : où le serveur cherche Ollama (par défaut un port fermé).
+    `config` : un `.toml` de réglages (`--config`), par exemple une table de prix cloud de test.
     """
 
-    def __init__(self, data_dir: Path, ollama_port: int | None = None) -> None:
+    def __init__(
+        self, data_dir: Path, ollama_port: int | None = None, config: Path | None = None
+    ) -> None:
+        self.config = config
         self.data_dir = data_dir
         self.port = closed_port()
         self.ollama_port = ollama_port or closed_port()
@@ -112,6 +116,7 @@ class Backend:
                 str(self.port),
                 "--data-dir",
                 str(self.data_dir),
+                *(["--config", str(self.config)] if self.config else []),
             ],
             env=env,
             stdout=self._log,
