@@ -35,6 +35,12 @@ const NOTE_ICONS = { ok: "check", refused: "block", expired: "hourglass-empty", 
 
 let counter = 0;
 
+// `artifact_url` est bâti par le serveur (`/api/outputs/<nom>`) : seul un chemin du même site est
+// suivi (ni `javascript:`, ni `//hôte`, ni adresse absolue).
+function sameOriginPath(url) {
+  return typeof url === "string" && url.startsWith("/") && !url.startsWith("//") && !url.includes("\\");
+}
+
 function kindOf(step) {
   if (step.kind === "tool_result" && step.failed) return "failed";
   if (step.kind === "answer" && step.stopped) return "stopped";
@@ -46,6 +52,7 @@ export class WlStepTrace extends HTMLElement {
   #uid = `wl-trace-${++counter}`;
   #steps = [];
   #state = null;
+  #marked = null; // l'étape qui porte la marque « en cours »
   labelOf = (toolId) => toolId;
   maxTurns = null;
 
@@ -97,7 +104,7 @@ export class WlStepTrace extends HTMLElement {
       section(t("components.step_trace.thought"), element("p", "wl-step-text", step.summary));
     } else if (step.kind === "tool_result") {
       if (step.summary) section(t("components.step_trace.result"), element("p", "wl-step-text", step.summary));
-      if (step.artifact_url) {
+      if (sameOriginPath(step.artifact_url)) {
         const link = element("a", "wl-step-file", t("components.step_trace.open_file"));
         link.href = step.artifact_url;
         link.download = "";
@@ -171,21 +178,27 @@ export class WlStepTrace extends HTMLElement {
 
   // Seule la dernière étape porte la marque (contour et libellé) : les autres sont terminées. Un
   // appel d'outil est « en cours » jusqu'à son résultat ; une réflexion ou un résultat ne l'est pas.
+  // Seules l'ancienne étape marquée et la dernière sont touchées : O(1) par événement.
   #mark() {
-    const last = this.#steps.length - 1;
-    this.#steps.forEach(({ item, state, kind }, index) => {
-      const open = this.#state === "approval" || (this.#state === "running" && kind === "tool_call");
-      const current = index === last && open ? this.#state : null;
-      if (current) item.dataset.current = current;
-      else delete item.dataset.current;
-      state.hidden = !current;
-      state.textContent = current ? t(`components.step_trace.state_${current}`) : "";
-    });
+    const last = this.#steps.at(-1) ?? null;
+    const open =
+      last && (this.#state === "approval" || (this.#state === "running" && last.kind === "tool_call"));
+    if (this.#marked && this.#marked !== last) this.#paint(this.#marked, null);
+    if (last) this.#paint(last, open ? this.#state : null);
+    this.#marked = open ? last : null;
+  }
+
+  #paint({ item, state }, current) {
+    if (current) item.dataset.current = current;
+    else delete item.dataset.current;
+    state.hidden = !current;
+    state.textContent = current ? t(`components.step_trace.state_${current}`) : "";
   }
 
   clear() {
     this.#steps = [];
     this.#state = null;
+    this.#marked = null;
     this.#list?.replaceChildren();
   }
 }

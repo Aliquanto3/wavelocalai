@@ -50,7 +50,7 @@
       "send_failed": "L'email n'a pas été envoyé : voir le résultat de l'étape.",
       "refused": "Envoi annulé : l'agent en est informé.",
       "expired": "Validation expirée : email non envoyé.",
-      "late": "Cette validation n'est plus attendue : l'agent a déjà poursuivi sans votre réponse.",
+      "late": "Cette validation n'est plus attendue : votre réponse n'a pas été prise en compte.",
       "answer_failed": "Votre réponse n'a pas pu être envoyée. Le dialogue reste ouvert : réessayez."
     }
   }

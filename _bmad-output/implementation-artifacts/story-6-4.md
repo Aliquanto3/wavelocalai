@@ -70,3 +70,22 @@ deferred:
 
 - Tests ciblés : unit 171 passés (agents, totaux, coquille, découpage, chat, sélecteur, couches, API agents et approbation, statique) ; E2E `test_agents_solo.py` 24 passés (Edge, clair et sombre pour axe-core) ; E2E touchés `test_shell`, `test_home`, `test_components`, `test_picker` : 110 passés ; `test_chat` et `test_memory_guard` (arrêt, garde-fou) : 6 passés. Aucune suite complète (poste partagé).
 - Contrôle rapide propre. Faux SMTP local seulement : aucun email réel, aucune connexion hors `127.0.0.1`, `.env` jamais lu.
+
+## Revue
+
+Revue Opus du 2026-10-19, sur la branche à jour (6.3 et `origin/master` fusionnés, ff0ce9e). Approbation de la 6.3 vérifiée de bout en bout avec l'écran (vrai serveur, faux SMTP local) : accord = un message, refus, Échap, expiration, arrêt et réponse tardive = aucune connexion.
+
+| Sévérité | Source | Constat | Issue |
+|---|---|---|---|
+| low | second avis 1 | `wl-model-picker` dit la raison du serveur sans défaut, donc aussi dans l'Arène (« l'Arène ne peut pas partir… ») | Rejeté : seule l'Arène rend `tags: []` avec une raison, faite pour être lue ; changement voulu, consigné ici. E2E `test_arena.py` : 57 passés. |
+| low | second avis 2 | Garde Échap de `wl-run-status` globale (`dialog[open]`) | Rejeté : seul `wl-confirm-dialog` ouvre un `<dialog>`, toujours modal ; un dialogue modal ouvert prend Échap sur tout écran (avant, Échap fermait le dialogue **et** arrêtait le run). |
+| low | second avis 3 | Validation répondue, `approval_resolved` pas encore reçu : revenir sur l'écran rouvre le dialogue (409 au clic) | Corrigé : demande marquée `answered` (succès ou 409), `resume` ne la rouvre pas. `test_an_answered_validation_is_not_asked_again_when_coming_back`. |
+| low | second avis 4 | « Envoyer » actif pendant le chargement des outils ou après son échec : tâche sans outil, sans le dire | Corrigé : envoi (bouton et Entrée) bloqué tant que la liste n'est pas lue. `test_the_task_cannot_leave_before_the_tools_are_read`. |
+| low | second avis 5 | `artifact_url` posé en `href` sans contrôle | Corrigé (défense en profondeur, l'adresse est bâtie par le serveur) : seul un chemin du même site devient un lien. `test_only_a_same_site_path_becomes_an_open_file_link`. |
+| low | second avis 6 | Tout `409 approval_not_pending` dit « l'agent a déjà poursuivi » | Corrigé : texte neutre et vrai dans tous les cas (« votre réponse n'a pas été prise en compte »). |
+| low | revue | Complexité : `wl-step-trace.#mark()` parcourait toutes les étapes à chaque événement (O(n²) sur une tâche) | Corrigé : seules l'ancienne étape marquée et la dernière sont touchées (O(1)). Impact faible (borné par `max_turns`), correctif sans risque. |
+| low | revue | Run arrêté pendant la validation : le serveur publie `rejected`, la trace dit « l'agent en est informé » alors que la tâche s'arrête | Reporté : l'arrêt pendant le dialogue ne vient que d'ailleurs (Échap et « Arrêter » sont sous le dialogue modal) ; à revoir si le contrat distingue un jour l'annulation (`decision: "cancelled"`). |
+
+Aucun constat high ni medium. XSS : réponse par `core/markdown.js` (sans `innerHTML`), résultats d'outil, arguments et détails du dialogue en `textContent`. Validation : interrupteur indisponible non activable et filtré à l'envoi ; le serveur reste la seule autorité (approbation obligatoire de l'outil sensible).
+
+Tests de revue : E2E `test_agents_solo.py` 27 passés, `test_components.py` 10, `test_arena.py` 57 (Edge) ; unit et web `test_agents_static`, `test_agent_totals`, `test_shell_static`, `test_layers`, `test_agent_api` : 116 passés. Pas de suite complète (poste partagé).

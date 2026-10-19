@@ -51,10 +51,12 @@ export function createTools(uid) {
   const list = element("ul", "agents-tool-list");
   root.append(error, loading, list);
   let tools = [];
+  let ready = false; // liste lue : sans elle, la tâche partirait sans outil, sans le dire
 
   async function load() {
     try {
       tools = (await api.agentTools()).tools;
+      ready = true;
       error.hidden = true;
     } catch (failure) {
       tools = [];
@@ -73,6 +75,9 @@ export function createTools(uid) {
   return {
     root,
     load,
+    get ready() {
+      return ready;
+    },
     // Les outils activés, dans l'ordre du serveur.
     selected: () =>
       [...list.querySelectorAll("input[role=switch]")]

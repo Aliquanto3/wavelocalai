@@ -20,7 +20,7 @@ function delayText(seconds) {
 }
 
 export function createApproval({ dialog, trace, runId, say, fail }) {
-  let pending = null; // { id, data, resolved, suspended }
+  let pending = null; // { id, data, resolved, suspended, answered }
   let awaitingResult = null; // call_id d'un accord dont on attend le `tool_result`
 
   async function ask(request) {
@@ -40,10 +40,12 @@ export function createApproval({ dialog, trace, runId, say, fail }) {
       if (pending !== request || request.resolved || request.suspended) return;
       try {
         await api.answerApproval(runId(), request.id, confirmed ? "approved" : "rejected");
+        request.answered = true; // répondue : un retour sur l'écran avant `approval_resolved` ne la rouvre pas
         return;
       } catch (failure) {
         const envelope = failure instanceof ApiError ? failure.envelope : null;
         if (failure instanceof ApiError && failure.status === 409 && envelope?.code === "approval_not_pending") {
+          request.answered = true;
           say(t("agents.approval.late"));
           return;
         }
@@ -54,7 +56,7 @@ export function createApproval({ dialog, trace, runId, say, fail }) {
 
   return {
     required(data) {
-      pending = { id: data.approval_id, data, resolved: false, suspended: false };
+      pending = { id: data.approval_id, data, resolved: false, suspended: false, answered: false };
       ask(pending);
     },
 
@@ -92,6 +94,7 @@ export function createApproval({ dialog, trace, runId, say, fail }) {
 
     resume() {
       if (!pending || pending.resolved || !pending.suspended) return;
+      if (pending.answered) return; // déjà répondue : seul `approval_resolved` reste attendu
       pending.suspended = false;
       ask(pending);
     },

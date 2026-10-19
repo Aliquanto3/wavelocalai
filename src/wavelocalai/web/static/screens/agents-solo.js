@@ -170,7 +170,7 @@ export function mount(host) {
   function render() {
     const chosen = picker.selected;
     clear.disabled = running() || pending;
-    send.disabled = running() || pending || !picker.value;
+    send.disabled = running() || pending || !picker.value || !tools.ready;
     welcome.hidden = !thread.empty || running();
     stepsEmpty.hidden = trace.count > 0;
     modelHint.hidden = !picker.loaded || Boolean(picker.value);
@@ -287,7 +287,7 @@ export function mount(host) {
   }
 
   async function submit() {
-    if (running() || pending) return;
+    if (running() || pending || !tools.ready) return;
     const task = input.value;
     if (!task.trim()) {
       input.focus();
@@ -419,7 +419,7 @@ export function mount(host) {
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
   render();
-  tools.load();
+  tools.load().then(render);
   return () => {
     visibility.disconnect();
     stream?.close();

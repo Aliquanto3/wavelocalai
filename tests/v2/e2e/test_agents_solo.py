@@ -387,6 +387,53 @@ def test_a_file_produced_by_a_tool_is_offered_in_its_step(agent, server):
     assert agent.request.get(f"{server.base_url}{href}").ok
 
 
+def test_only_a_same_site_path_becomes_an_open_file_link(agent):
+    # Revue 6.4 : `artifact_url` vient du serveur ; une autre adresse n'est jamais un lien suivi.
+    links = agent.evaluate(
+        """() => {
+          const trace = document.querySelector('wl-step-trace');
+          const urls = ['javascript:alert(1)', '//evil.example/x', 'https://evil.example/x',
+                        '/api/outputs/a.png'];
+          for (const url of urls) {
+            trace.add({ kind: 'tool_result', tool: 'calculator', summary: 'ok', artifact_url: url });
+          }
+          return [...trace.querySelectorAll('a.wl-step-file')].map((a) => a.getAttribute('href'));
+        }"""
+    )
+    assert links == ["/api/outputs/a.png"]
+
+
+def test_the_task_cannot_leave_before_the_tools_are_read(page_tolerating_failed_requests, server):
+    # Revue 6.4 : sans la liste des outils, la tâche partirait sans outil et sans le dire.
+    page = page_tolerating_failed_requests
+    page.route(
+        re.compile(r"/api/agents/tools$"),
+        lambda route: route.fulfill(
+            status=500,
+            content_type="application/json",
+            body=json.dumps({"code": "internal", "message": "Erreur.", "action": "", "detail": {}}),
+        ),
+    )
+    posted = []
+    page.on(
+        "request",
+        lambda request: (
+            posted.append(request.url)
+            if request.url.endswith("/api/agents/runs") and request.method == "POST"
+            else None
+        ),
+    )
+    install_models(page)
+    page.goto(f"{server.base_url}/#/agents/seul")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.value === 'fake:1b'")
+    expect(page.locator(".agents-tools wl-error")).to_be_visible()
+    expect(page.get_by_role("button", name="Envoyer")).to_be_disabled()
+    ask(page, "Calcule 2 + 2")
+    page.wait_for_timeout(300)
+    assert posted == []
+
+
 def test_the_turn_limit_is_a_last_step_that_says_so(page, tmp_path_factory):
     folder = tmp_path_factory.mktemp("e2e-agent-turns")
     config = folder / "wavelocalai.toml"
@@ -678,9 +725,31 @@ def test_a_late_answer_is_said_without_a_technical_error(
     dialog.get_by_role("button", name="Envoyer l'email").click()
     expect(dialog).to_be_hidden()
     expect(mailer.locator("p.chat-notice")).to_have_text(
-        f"Cette validation n'est plus attendue{NBSP}: l'agent a déjà poursuivi sans votre réponse."
+        f"Cette validation n'est plus attendue{NBSP}: votre réponse n'a pas été prise en compte."
     )
     assert mailer.locator("wl-error:visible").count() == 0
+    assert smtp.messages == []
+
+
+def test_an_answered_validation_is_not_asked_again_when_coming_back(mailer, mail, smtp):
+    # Revue 6.4 : réponse partie, `approval_resolved` pas encore arrivé (ici, jamais : la réponse
+    # est interceptée) ; revenir sur l'écran ne rouvre pas le dialogue, l'expiration le clôt.
+    mailer.route(
+        re.compile(r"/api/runs/[^/]+/approvals/"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"run_id": "x", "approval_id": "y", "decision": "rejected"}),
+        ),
+    )
+    dialog = propose_email(mailer, mail)
+    dialog.get_by_role("button", name="Annuler").click()
+    expect(dialog).to_be_hidden()
+    mailer.evaluate("location.hash = '#/'")
+    mailer.evaluate("location.hash = '#/agents/seul'")
+    mailer.wait_for_timeout(500)
+    expect(mailer.get_by_role("dialog")).to_be_hidden()
+    mailer.locator("wl-step-trace li.wl-step-note").get_by_text("Validation expirée").wait_for()
     assert smtp.messages == []
 
 
