@@ -600,3 +600,52 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 22:00 · 5.6 + 5.8 · fusion master · tests de la coquille repris de la branche d'intégration (12 écrans, aucune route `planned`), onglets de l'Arène réalignés ; 1261 unit, 116 E2E (budget de la coquille : #109) · 28041da
 - 2026-10-19 22:00 · 5.6 + 5.8 · PR · #110 ouverte (essai d'une PR par pile) · 28041da
 - 2026-10-19 22:10 · 8.1 · review · #109 : 0 high/medium ; 5 low corrigés (imports hors de `static/` ignorés, commentaires retirés, ETag et 304 sur `GET /` et `fr.json`, texte du preload) ; budget sur master 287-301 ms → 123-161 ms ; branche rebasée sur master et poussée (`--force-with-lease`) · e87fe34
+- 2026-10-19 22:23 · 8.1 · fusion · PR #109 fusionnée (budget de la coquille) · 43d9a59
+- 2026-10-19 22:23 · état · fusion · PR #111 fusionnée · 7df9224
+- 2026-10-19 22:23 · 5.6 + 5.8 · fusion master · sans conflit ; poussé sur #110 · 572cbed
+- 2026-10-19 22:37 · 5.6 + 5.8 · fusion · PR #110 fusionnée (essai du levier 3 : relance d'un job, budget de la coquille avant #109) · ce1aac9
+- 2026-10-19 22:37 · version · 2.0.0a5, a6, a7 · PR #112 ouverte (manifeste seulement) · c5cf664
+- 2026-10-19 22:37 · 8.1 · décision · `feat/v2-dette` abandonnée (contenu déjà sur master) ; 8.1 en trois lots parallèles depuis master (a serveur, b Arène et délais, c écrans), réunis en une PR par pile · —
+- 2026-10-19 22:38 · 8.1 · dev · lancé, lot a (serveur et garde-fous, `v2-8-1a`), Sonnet high · —
+- 2026-10-19 22:38 · 8.1 · dev · lancé, lot b (Arène et délais, `v2-8-1b`), Sonnet high · —
+- 2026-10-19 22:38 · 8.1 · dev · lancé, lot c (Discussion, Base, Agent, coquille, `v2-8-1c`), Sonnet high · —
+- 2026-10-19 22:38 · 8.3 · décision · lancée en parallèle de la 8.1 (fichiers neufs surtout : parité, parcours E2E, job nocturne, README) ; la 8.2 attend la 8.1 (CSS de tous les écrans) · —
+- 2026-10-19 22:38 · 8.3 · dev · lancé (Sonnet high, worktree `v2-8-3`) · —
+- 2026-10-19 22:45 · 8.1b · dev · fini (n° 1 serveur et front, n° 7 ajouté par `arena-run.js`, n° 4 et 5 déjà conformes avec E2E, retrait de `onSmallerModel` ; picker déjà à 596 lignes) ; second avis lancé · 141a89c
+- 2026-10-19 22:48 · 8.1b · second-avis · 0 high, 1 medium (clé du routeur après `replaceState`), 6 low · —
+- 2026-10-19 22:48 · 8.1b · review · lancée (Opus) · —
+- 2026-10-19 23:00 · 8.1b · review · medium corrigé (`replaceAddress` du routeur, E2E), 2 low corrigés (délai exact `formatDelay`, repli sans `timeout_s`), 4 écartés ; reporté à l'intégration : `agents-crew.js` doit passer à `replaceAddress` · 4844524
+- 2026-10-19 23:05 · version · 2.0.0a5 · posée dans le manifeste (PR #112 fusionnée ; tag et release pour Anaël) · e28d177
+- 2026-10-19 23:05 · version · 2.0.0a6 · posée dans le manifeste (PR #112 fusionnée ; tag et release pour Anaël) · e28d177
+- 2026-10-19 23:05 · version · 2.0.0a7 · posée dans le manifeste (PR #112 fusionnée ; tag et release pour Anaël) · e28d177
+- 2026-10-19 23:05 · 8.1c · dev · fini (Self-RAG petit modèle, Supprimer/Vider désactivés pendant un import, retrait de `onSmallerModel`, `params.mode`, comptes de la coquille lus dans le registre ; reporté à l'intégration : retrait dans `chat.js` et `bench.js`) ; second avis lancé · 17c14b3
+- 2026-10-19 23:10 · 8.1c · second-avis · 0 high, 2 medium (« Vider » des réglages non verrouillé pendant un import ; budget de la coquille en « une manche sur trois », garde-fou affaibli), 3 low · —
+- 2026-10-19 23:10 · 8.1c · review · lancée (Opus), branche à jour de master · fe73a80
+- 2026-10-19 23:12 · 8.3 · dev · fini (parité : 13 abandons à confirmer par Anaël ; 4 parcours E2E et garde hors 127.0.0.1 ; job nocturne ; README v2 et captures de doublures) ; second avis lancé · 0364d4c
+- 2026-10-19 23:19 · 8.3 · second-avis · 0 high/medium, 7 low (dont capture Sobriété avec le vrai matériel du poste) · —
+- 2026-10-19 23:19 · 8.3 · review · lancée (Opus) · 0f140e3
+- 2026-10-19 23:24 · 8.1a · dev · fini (C1 à C9, `.db.bak-N`, verrou par modèle, contrat découpé en 13 fichiers `contrat/<story>.md` ; écart : Ctrl+Break attend le préchauffage de CodeCarbon, borne d'un test portée à 30 s) ; second avis lancé · 171efbc
+- 2026-10-19 23:29 · 8.3 · review · 1 medium corrigé (captures sur matériel fictif, régénérées et vérifiées), 4 low corrigés, 2 écartés ; branche réécrite en local avant tout push pour retirer les anciennes captures de l'historique (arbre identique) · b152d22
+- 2026-10-19 23:29 · 8.3 · contrôles · lancés · b152d22
+- 2026-10-19 23:30 · 8.1a · second-avis · 0 high, 2 medium (formes d'import dynamique non vues par `test_layers` ; purge relancée sans borne tant qu'une copie `.bak` est tenue), 3 low · —
+- 2026-10-19 23:30 · 8.1a · review · lancée (Opus), branche à jour de master · ba43279
+- 2026-10-19 23:30 · 8.1c · review · 2 medium corrigés (« Vider » des réglages verrouillé ; budget de la coquille revenu à une manche, deuxième meilleur de 5), 1 low corrigé, 2 écartés · 947f1e2
+- 2026-10-19 23:30 · 8.1 · intégration · lots b et c réunis dans `feat/v2-dette` (depuis master, sans conflit) · —
+- 2026-10-19 23:30 · 8.1 · dev · lancé, reports d'intégration (`agents-crew.js` vers `replaceAddress`, retrait de `onSmallerModel` dans Chat et Banc ; Sonnet medium) · —
+- 2026-10-19 23:34 · 8.1 · dev · reports d'intégration faits (`replaceAddress` dans l'Équipe avec E2E ; retrait dans `chat.js`, `bench.js` déjà conforme) · 3c488af
+- 2026-10-19 23:37 · 8.3 · contrôles · verts (74 E2E ciblés, 19 integration) · b152d22
+- 2026-10-19 23:37 · 8.3 · PR · #113 ouverte · b152d22
+- 2026-10-19 23:37 · 8.1a · review · 2 medium corrigés (alias et réaffectations d'imports dynamiques ; purge de l'espace séparée de la suppression des copies), 2 low corrigés (sonde forcée partagée, route non couverte en échec), 2 écartés · 222be54
+- 2026-10-19 23:37 · 8.1 · intégration · lot a réuni sans conflit, index du contrat complété (8-1b, 8-1c) · eed68bf
+- 2026-10-19 23:37 · 8.1 · contrôles · lancés (complets) · eed68bf
+- 2026-10-19 23:38 · 8.2 · dev · lancé (Sonnet high, worktree `v2-8-2`, branche empilée sur `feat/v2-dette`) · eed68bf
+- 2026-10-19 23:51 · 8.3 · fusion · PR #113 fusionnée · a78d118
+- 2026-10-20 00:27 · 8.1 · contrôles · verts (685 E2E complets, 1944 v2, 1286 v1, 19 integration ; `test_references_api` 300 ms vert en relance seule) · eed68bf
+- 2026-10-20 00:30 · 8.1 · PR · #114 ouverte (lots a, b, c et reports, PR par pile) · 8ec7b25
+- 2026-10-20 00:34 · 8.2 · dev · fini (axe sans violation sur 12 routes × 6 affichages ; 4 correctifs : reflux Modèles 320 px, texte du schéma de l'Équipe en rem, liens nouvelle fenêtre, renvois de position ; B16 : focus en tête ; 8 points de recette manuelle pour Anaël) ; second avis lancé · 0be5025
+- 2026-10-20 00:37 · 8.2 · second-avis · 0 high, 4 medium (résultats `incomplete` d'axe ignorés ; panneaux et dialogues vérifiés en union ; contenu coupé non compté ; B16 gardé contre le critère de la 1.8), 4 low · —
+- 2026-10-20 00:38 · 8.2 · décision · B16 : appliquer le critère écrit de la 1.8 (focus sur le `h1` au premier chargement, lien d'évitement atteignable), à confirmer par Anaël à la recette NVDA · —
+- 2026-10-20 00:38 · 8.2 · review · lancée (Opus), branche à jour de `feat/v2-dette` · 24afe7b
+- 2026-10-20 00:52 · 8.1 · CI · rouge (E2E Ubuntu morceau 0 : `test_models_manage` focus après suppression, instable) · —
+- 2026-10-20 00:52 · 8.1 · CI · verte après relance du job · —
+- 2026-10-20 00:52 · 8.1 · fusion · PR #114 fusionnée (PR par pile, 3 lots : 1 relance) · 4808553
