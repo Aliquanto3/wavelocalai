@@ -96,8 +96,13 @@ USEFUL_SYSTEM = (
 )
 
 
+def answer_is_cut(answer: str) -> bool:
+    """Vrai si la réponse dépasse `MAX_ANSWER_CHARS` : le juge n'en voit que le début."""
+    return len(answer) > MAX_ANSWER_CHARS
+
+
 def _shown(answer: str) -> str:
-    if len(answer) > MAX_ANSWER_CHARS:
+    if answer_is_cut(answer):
         return answer[:MAX_ANSWER_CHARS] + "\n[…réponse tronquée]"
     return answer
 
@@ -151,10 +156,17 @@ def _clean(texts: Sequence[str], limit: int, size: int) -> list[str]:
     return list(seen)[:limit]
 
 
+def read_claims(text: str) -> tuple[list[str], int]:
+    """`(affirmations gardées, nombre d'affirmations rendues par le juge)` : au plus `MAX_CLAIMS`
+    sont gardées, le total dit combien le plafond en a laissé de côté (story 7.2)."""
+    value = parse_structured(text, CLAIMS_SCHEMA)
+    every = _clean(value["claims"], len(value["claims"]), MAX_CLAIM_CHARS)
+    return every[:MAX_CLAIMS], len(every)
+
+
 def parse_claims(text: str) -> list[str]:
     """Les affirmations de la réponse (liste vide : le juge n'en a trouvé aucune)."""
-    value = parse_structured(text, CLAIMS_SCHEMA)
-    return _clean(value["claims"], MAX_CLAIMS, MAX_CLAIM_CHARS)
+    return read_claims(text)[0]
 
 
 def parse_verdict(text: str, source_count: int) -> dict[str, Any]:

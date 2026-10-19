@@ -102,7 +102,8 @@ def test_the_drop_zone_is_visible_before_the_server_answers_and_the_base_is_empt
     )
 
 
-def test_the_module_tabs_name_the_screen_and_disable_the_others_with_their_reason(docs):
+def test_the_module_tabs_name_the_screen_and_link_the_others(docs):
+    # Depuis la story 7.3, les trois écrans du module sont disponibles : plus d'onglet désactivé.
     page, _ = docs
     tabs = page.locator("nav.screen-tabs")
     assert (
@@ -110,11 +111,8 @@ def test_the_module_tabs_name_the_screen_and_disable_the_others_with_their_reaso
     )
     assert tabs.get_by_role("link", name="Discussion").get_attribute("href") == "#/documents"
     link = tabs.get_by_role("link", name="Évaluation de la qualité")
-    assert link.get_attribute("aria-disabled") == "true" and link.get_attribute("href") is None
-    reason = link.evaluate(
-        "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
-    )
-    assert reason == "Pas encore disponible dans cette préversion"
+    assert link.get_attribute("href") == "#/documents/evaluation"
+    assert link.get_attribute("aria-disabled") is None
 
 
 def test_both_import_buttons_open_the_file_chooser(docs):

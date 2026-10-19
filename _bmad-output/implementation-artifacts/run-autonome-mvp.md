@@ -14,16 +14,25 @@ Démarré le 2026-10-18. Orchestrateur : session principale (Opus 5.5). Contrat 
 8. E2E : `$env:WAVELOCALAI_E2E_CHROMIUM = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"`. Tests : `$env:PYTHONUTF8 = "1"`. Ollama : `http://127.0.0.1:11434`, `qwen2.5:1.5b` installé.
 9. **Depuis le 2026-10-19 vers 8 h (accord d'Anaël, amélioration continue d'agent-cost-kit n° 1, 3, 4, 10, 16)** : la CI de branche (3 OS) joue `tests/v2` et la v1. En local, `checks.sh <wt>` lance le contrôle rapide, les **E2E ciblés** (`e2e_cibles.sh` : écrans touchés, composants et coquille si `core/`, `components/` ou CSS changent, fumée Accueil + coquille) et l'integration, et relance une fois seuls les tests en échec ; `checks.sh <wt> complet` pour tout. **Suite E2E complète sur master** après chaque lot de 3 à 4 fusions : `e2e_master.sh` (worktree `v2-master`) ; un échec y ouvre un correctif avant la fusion suivante. Un seul contrôle local à la fois ; au plus 5 agents actifs (dev + revue). Chaque prompt de dev et de revue cite la section « Contrats partagés en cours ». Second avis : comparer à `git merge-base HEAD origin/master` et signaler « base en retard de N fusions » ; le reviewer part d'une branche à jour de master (l'orchestrateur fusionne d'abord). Une décision qui revient à Anaël ne bloque que les stories qui en dépendent. Après la 5.0 : pile de branches revues fusionnée par lots (n° 3).
 
-## État courant (2026-10-19 vers 16 h 50, reprise des Epics 5 à 8)
+## État courant (2026-10-19 vers 19 h, reprise après /clear de 17 h 15)
 
-- **Fusionnées** : report au contrat (#85, f783ae9), 5.0 (#86, d51572e : E2E en CI, job bloquant en 3 morceaux ; `e2e_master.sh` n'est plus utile), 5.1 (#88, 75ea21e).
-- **En file de fusion** (`merge_queue.sh 91 87 90` lancé) : #91 correctif (verdict de l'Arène rouverte non renommé + budget température au meilleur de 3 ; à fusionner en premier, il rend vertes les autres CI), #87 (6.1, conflit contrat résolu 096863e), #90 (7.1). Puis **#89 (5.3)** : conflits avec la 5.1 résolus (3bf7ff2, poussé) ; relancer `merge_queue.sh 89` (et relancer ses jobs si rouge sur `test_arena_verdict` avant #91).
-- **Revues faites, PR à ouvrir après fusion de la base** : 6.2 (worktree `v2-6-2`, 19a01bd, contrôles verts ; PR après #87 : fusionner `origin/master`, `finalize.sh v2-6-2 feat/v2-agent-outils 6-2 6.2`).
-- **En revue (Opus)** : 5.2 (`v2-5-2`, master fusionné a96b9a9), 7.2 (`v2-7-2`, base 7.1 fusionnée 7152483 ; story mixte : relecture des verdicts par Anaël, juge 1,5 B non informatif).
-- **En développement (Sonnet)** : 5.4 (`v2-5-4`, empilée sur la 5.3 2dbb19d), 6.3 (`v2-6-3`, empilée sur la 6.2 19a01bd ; SMTP factice).
-- **Suite** : 5.5 ← 5.4 ; 5.7 (mixte) ← 5.4 ; 5.6 ← 5.5 ; 6.4 ← 6.3 (écran Agent seul ; consigne de la revue 6.1 : réponse finale en un seul `token`) ; 6.5 ← 6.1 ; 7.3 ← 7.1 (route `GET /api/rag/eval/runs` livrée) ; 5.8 (a5), 6.6 (a6), 7.4 (a7), 8.1 à 8.3. Au plus 3 stories en dev, 5 agents.
-- Méthode éprouvée : spec de story rédigée par l'agent de dev depuis epics.md ; branches empilées sur la story précédente revue ; master fusionné dans la branche avant la revue et avant la PR ; un conflit sémantique confié à un agent Sonnet.
-- **Pour Anaël** : facteur voiture 142 g/km (5.1) ; `fits` sans VRAM ni cache KV (5.3) ; recette du vrai `pull` (annulation, reprise) ; réponse de l'agent en un bloc (6.1, à confirmer en 6.4) ; relecture du jeu fixe `tests/v2/fixtures/eval/cases.json` (7.2, ~30 min) et choix d'un juge plus gros ; écarts Q4 (pas de verdicts cloud) ; limite de 4 modèles aussi côté serveur (PR #85).
+- **Fusionnées depuis la reprise** : état (#92), 6.2 (#93), 7.1 (#90), correctif minutage de la coquille (#97), 5.2 (#94).
+- **PR ouvertes** (file : `queue2.sh` du scratchpad de la session, ou `_outils/merge_queue.sh`, qui ignorent les jobs sautés) : #100 (CI allégée, à fusionner en premier), #89 (5.3, master refusionné 69f0324), #95 (6.3), #96 (6.5), #98 (7.2), #99 (7.3). Après chaque fusion, une PR peut passer en conflit (souvent `web/app.py`, `runs/snapshot.py`, `contrat-api.md` : garder les deux côtés, `_outils/ours_then_theirs.py`).
+- **Revues faites, PR à ouvrir** : 5.4 (`v2-5-4`, `feat/v2-modeles-gerer`, contrôles verts) après #89 ; 5.5 (`v2-5-5`, `feat/v2-reranker-ecran`, c5c9210, contrôles verts) après 5.4 ; 6.4 (`v2-6-4`, `feat/v2-agent-ecran`, c5ca237) : contrôles puis PR après #95 ; 7.4 (`v2-7-4`, `feat/v2-banc-format`, da45907 + 7.3 finale) : contrôles en cours, PR après #98 et #99, puis version 2.0.0a7 **après** a5 et a6.
+- **En cours** : revue Opus 5.6 (`v2-5-6`, f095fea) ; dev 6.6 (`v2-6-6`, sur la 6.4, fusion de la 6.5 confiée à l'agent).
+- **Suivantes** : 5.8 (a5) ← 5.6 ; 6.6 (a6) ; 8.1 après fusion de la pile (touche tous les écrans) ; 8.2, 8.3. 5.7 en attente humaine (aucun `qb.results/1` réel sur master, Q7).
+- **Suite E2E complète sur master** (`e2e_master.sh`) à lancer : 5 fusions depuis la dernière.
+- **Pour Anaël** (en plus de l'état précédent) : réponse de l'agent en un bloc (6.4, à confirmer) ; licence des modèles (5.6 : migration ou catalogue) ; jointure d'empreinte et définition du PC pro à vérifier à la première synchro réelle (5.6) ; recette réelle du reranker ~1,1 Go (5.5) ; textes des issues de validation d'email (6.4) ; décision prise seule : budget de la coquille au deuxième meilleur de 5 (#97).
+
+## État précédent (2026-10-19 vers 17 h 15, pause pour /clear demandée par Anaël)
+
+- **Fusionnées** : report au contrat (#85), 5.0 (#86, E2E en CI), 5.1 (#88), correctif verdict/budget (#91), 6.1 (#87).
+- **PR ouvertes, à fusionner par `_outils/merge_queue.sh` quand la CI est verte** (vérifier d'abord `gh pr view <n> --json state,mergeable`) : #92 (état), #90 (7.1, conflits avec la 6.1 résolus 9755e84), #89 (5.3, conflits avec la 5.1 résolus 3bf7ff2), #93 (6.2, 8339d2c). Après chaque fusion, une PR suivante peut passer en conflit : fusionner `origin/master` dans sa branche (conflits sémantiques → agent Sonnet), pousser, relancer la file.
+- **Prêtes, PR à ouvrir** : 7.2 (`v2-7-2`, 5da70b5, revue faite, contrôles verts) après la fusion de #90 : fusionner `origin/master`, `finalize.sh v2-7-2 feat/v2-jeu-fixe 7-2 7.2`, PR. 5.2 (`v2-5-2`, a3e424d, revue faite) : **relancer `checks.sh v2-5-2`** (coupés par la pause), puis fusionner `origin/master`, `finalize.sh v2-5-2 feat/v2-historique-carbone 5-2 5.2`, PR.
+- **Revue Opus à lancer** (second avis fait, sa liste dans le journal de `run-autonome.md`) : 5.4 (`v2-5-4`, 744529e) après fusion de #89 dans la branche — 2 medium : course refresh/suppression dans `models/registry.py forget`, `keep_alive: 0` qui charge un modèle froid (lire `/api/ps` avant) ; 3 low. 6.3 (`v2-6-3`, 4b7702f) après fusion de master (6.1, 6.2) — 2 low : course délai/approbation dans `runs/hub.py request_approval`, `tool_timeout_s` < 30 s pendant l'envoi SMTP.
+- **Stories suivantes** (au plus 3 en dev, 5 agents) : 6.5 ← 6.1 (serveur équipe), 7.3 ← 7.1 (écran Évaluation, route `GET /api/rag/eval/runs` livrée), 5.5 ← 5.4, 5.7 (mixte) ← 5.4, 6.4 ← 6.3 (écran Agent seul ; consignes des revues 6.1 et 6.3 dans leurs specs), puis 5.6, 5.8 (a5), 6.6 (a6), 7.4 (a7), 8.1 à 8.3.
+- Méthode : spec de story rédigée par l'agent de dev depuis epics.md + décisions ; branche empilée sur la story précédente revue ; master fusionné dans la branche avant la revue et avant la PR ; prompts de dev : « poste partagé, tests ciblés seulement », worktree, jamais `git stash`.
+- **Pour Anaël** : facteur voiture 142 g/km (5.1) ; `fits` sans VRAM ni cache KV (5.3) ; recette du vrai `pull` et du vrai `/api/delete` (5.3, 5.4) ; réponse de l'agent en un bloc (6.1, à confirmer en 6.4) ; relecture du jeu fixe `tests/v2/fixtures/eval/cases.json` (7.2, ~30 min) et choix d'un juge plus gros (le 1,5 B est non informatif) ; écart Q4 (pas de verdicts cloud) ; limite de 4 modèles aussi côté serveur (PR #85) ; éligibilité par usage (5.4) à employer ou non dans les sélecteurs des Epics 6 et 7.
 
 ## État précédent (2026-10-19, fin du run vers 12 h 30)
 
@@ -60,6 +69,10 @@ Noms, modules et constantes décidés pour plusieurs stories ; à citer dans cha
 - Graphiques : `components/wl-chart-svg.js`, `core/chart-scale.js` (3.4).
 - Formats : `core/format.js` (`formatMoney`, `formatDate`, `co2Group`, `formatScore`…), jamais de calcul de métrique à l'écran (AD-20).
 - Prix cloud : `[cloud.prices]` de `wavelocalai.toml` (`PriceTable`, devise ISO 4217), vide tant qu'Anaël ne l'a pas remplie (3.5).
+- `onSmallerModel` (`core/ram-guard.js`) rend une fonction de retrait de l'écouteur, à appeler au démontage (7.3) ; Arène, Discussion et Base ne l'appellent pas encore (8.1).
+- Trace d'étapes d'agent : `components/wl-step-trace.js` (6.4), réutilisée par l'Équipe (6.6).
+- Résultats du banc côté serveur : `models/bench_results.py` (5.6), réutilisé par 5.7 et 5.8.
+- Préversions a5, a6, a7 : posées par l'orchestrateur (`bump_version.py`), dans l'ordre, jamais par l'agent de story.
 - Taille : aucun fichier JS du front au-delà de 600 lignes (`arena.js` à 598 : ne plus rien y ajouter, sortir un module voisin).
 
 ## Périmètre étendu (confirmé par Anaël le 2026-10-18 vers 23 h 20)

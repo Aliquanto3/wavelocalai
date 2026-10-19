@@ -23,8 +23,13 @@ export const TEXT_FILES = [
   "discussion",
   "docs",
   "arena",
+  "models",
   "sobriety",
+<<<<<<< HEAD
   "agents",
+=======
+  "evaluation",
+>>>>>>> origin/master
 ];
 
 let texts = {};

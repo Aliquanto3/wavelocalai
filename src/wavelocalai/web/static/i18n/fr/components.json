@@ -52,6 +52,7 @@
       "unavailable_cloud": "Indisponible : clé absente",
       "empty": "Aucun modèle ne correspond à « {query} ».",
       "none": "Aucun modèle de conversation n'est disponible.",
+      "none_eligible": "Aucun modèle installé n'est éligible à cet usage.",
       "results_one": "1 modèle proposé",
       "results_many": "{count} modèles proposés",
       "remove": "Retirer {name}",
