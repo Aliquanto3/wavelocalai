@@ -94,6 +94,9 @@ class ModelInfo(BaseModel):
     short_gb: float | None = None
     fits: bool | None = None  # `null` : taille inconnue ou modèle non local
     tools_verified: bool = False
+    # Le modèle peut imposer un format de sortie (`response_schema`, AD-8) : tout modèle de
+    # conversation, local (`format` d'Ollama) ou cloud ; jamais un embedder ni un reranker (story 7.4).
+    structured_output: bool = False
     reasoning: bool = False
     # Créativité conseillée pour le modèle (D-12) : paramètres publiés par Ollama, sinon catalogue ;
     # `null` si inconnue (le front replie alors à 0,2). Toujours `null` pour un modèle cloud.
@@ -402,6 +405,7 @@ class ModelRegistry:
             short_gb=short,
             fits=fits,
             tools_verified=caps_tools,
+            structured_output=kind == "chat",
             reasoning=caps_thinking
             or is_dedicated_reasoning(facts.tag, entry.name if entry else None),
             default_temperature=_first_not_none(
@@ -596,6 +600,7 @@ class ModelRegistry:
                         origin="cloud",
                         kind="chat",
                         available=True,
+                        structured_output=True,
                         co2_method=self._cloud_co2_method(provider, model),
                     )
                 )

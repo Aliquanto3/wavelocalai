@@ -58,7 +58,7 @@ def test_the_screen_is_registered_as_available_with_its_path_parameter():
 
 
 def test_the_texts_have_their_own_file_declared_once_with_one_top_level_key():
-    assert re.search(r'"evaluation",\n\];', source("core/i18n.js"))
+    assert re.search(r'"evaluation",\n(?:\s*"[\w-]+",\n)*\];', source("core/i18n.js"))
     assert list(CATALOG["evaluation"]) and (STATIC / "i18n/fr/evaluation.json").exists()
 
 
