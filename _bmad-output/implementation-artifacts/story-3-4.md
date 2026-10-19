@@ -88,3 +88,12 @@ Preuves : `tests/v2/e2e/test_arena_results.py` (Edge, 25 parcours, axe-core clai
 Voir `deferred` : étiquette « le plus petit », CO₂ d'une lane annulée (instantané), fourchette d'estimation, fiabilité du juge dans le classement, route de test, échelle logarithmique du débit.
 
 Tests : `tests/v2` 971 réussis (hors E2E, désélectionnés par défaut) ; E2E sur Edge : `-m e2e -k arena` 83 réussis (dont les 25 de `test_arena_results.py`), `test_components.py`, `test_shell.py` et `test_home.py` 57 réussis ; contrôle rapide propre.
+
+## Revue
+
+- medium · second avis · corrigé : `wrapLabel` gardait entier un tag sans espace (`mistral-small3.2:24b-instruct-2506` sortait du SVG à 320 px) ; coupe après `:`, `-`, `.`, `_`, `/`, puis au caractère. Preuves : `test_the_labels_stay_inside_the_plot_and_do_not_overlap` (cas ajoutés), `test_a_long_tag_without_spaces_stays_inside_the_picture_at_320_px` (échouent sans le correctif).
+- medium · second avis · corrigé : en mode Tableau, chaque mise à jour des lignes remettait le défilement horizontal de `.wl-table-wrap` à 0 ; `wl-data-table` rétablit `scrollLeft`/`scrollTop` (focus rendu sans défilement). Preuve : `test_a_live_update_of_the_table_keeps_its_horizontal_scroll`.
+- medium · second avis · rejeté : E2E hors CI, règle du dépôt (CI : `pytest tests/v2` sans `-m e2e`) ; lancés en local sur Edge.
+- low · second avis · corrigé : le gel à `run_ended` n'était pas gardé (un `wl-lane-change` tardif refaisait le classement) ; `schedule` ne redessine plus après `end`. `_amend_cancelled` écrit en base et n'émet aucun événement de flux : risque faible, garde peu coûteuse. Preuve : `test_a_late_lane_change_after_the_end_does_not_change_the_frozen_ranking`.
+- low · second avis · corrigé : `CHAR_WIDTH = 6.6` fixe pour du 12 px graisse 600 ; `wl-chart-svg` mesure chaque étiquette au canevas (police `--font-caption`, graisse 600, taille suivant la projection, contour de 3 px compris) et la passe à `layoutLabels` (`measure`) ; l'estimation par caractère reste le repli des fonctions pures.
+- Complexité · revue · rien à corriger : `draw()` relit au plus 4 lanes (`MAX_MODELS`) par image, `rankLanes` en O(n²) sur n ≤ 4 ; aucune structure qui grossit pendant le run (les tokens n'émettent pas `wl-lane-change`).

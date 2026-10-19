@@ -241,8 +241,9 @@ export function resultsView(uid, lanesEl) {
     if (chosenSegment !== seg.value) seg.select(chosenSegment, { silent: true });
   }
 
+  // Après `run_ended`, le classement est figé : un changement tardif d'une colonne ne le refait pas.
   function schedule() {
-    if (!frame) {
+    if (!frame && !ended) {
       frame = requestAnimationFrame(() => {
         frame = 0;
         draw();

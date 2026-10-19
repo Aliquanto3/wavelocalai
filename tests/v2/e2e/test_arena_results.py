@@ -19,8 +19,10 @@ import time
 import pytest
 
 from .test_arena import (  # noqa: F401  (`cancel_leftover_runs` est une fixture automatique)
+    BASE_MODEL,
     DONE,
     JUDGE_DEFAULT,
+    MODELS,
     NBSP,
     STARTED,
     arena,
@@ -115,8 +117,10 @@ def mixed_lanes() -> list[dict]:
     ]
 
 
-def open_replayed(page, server, scores, rates=None, co2s=None, lanes=None, viewport=None):
-    install_models(page)
+def open_replayed(
+    page, server, scores, rates=None, co2s=None, lanes=None, viewport=None, models=None
+):
+    install_models(page, models)
     run_id = finished_run(page, server, lanes or mixed_lanes())
     replayed(page, server, run_id, tuned(scores, rates, co2s))
     if viewport:
@@ -534,6 +538,15 @@ def test_the_labels_stay_inside_the_plot_and_do_not_overlap(page, server):
         " wrapped: scale.wrapLabel('Qwen 2.5 Coder 7B Instruct', 12) };",
     )
     assert placed["wrapped"] == ["Qwen 2.5", "Coder 7B", "Instruct"]
+    # Un tag sans espace plus long que la place est coupé après `:`, `-` ou `.`, puis au caractère.
+    cut = evaluate_module(
+        page,
+        server,
+        "return [scale.wrapLabel('mistral-small3.2:24b-instruct-2506', 12),"
+        " scale.wrapLabel('x'.repeat(25), 10)];",
+    )
+    assert cut[0] == ["mistral-", "small3.2:", "24b-", "instruct-", "2506"]
+    assert cut[1] == ["x" * 10, "x" * 10, "x" * 5]
     boxes = []
     for label in placed["placed"]:
         width = max(len(line) for line in label["lines"]) * 6.6
@@ -629,6 +642,59 @@ def test_the_matrix_labels_stay_inside_the_picture_at_320_px_and_in_projection(p
         "(n) => parseFloat(getComputedStyle(n).fontSize)"
     )
     assert font > 12  # le texte du graphique suit le mode projection
+
+
+def test_a_long_tag_without_spaces_stays_inside_the_picture_at_320_px(page, server):
+    long = "mistral-small3.2:24b-instruct-2506"
+    models = [{**BASE_MODEL, "tag": "fake:a", "name": long}] + MODELS[1:]
+    open_replayed(
+        page,
+        server,
+        {"fake:a": 64, "fake:b": 66},
+        {"fake:a": 30.0, "fake:b": 31.0},
+        {"fake:a": co2(1.8), "fake:b": co2(0.9)},
+        lanes=[ok_lane("fake:a"), ok_lane("fake:b")],
+        viewport={"width": 320, "height": 900},
+        models=models,
+    )
+    boxes = page.evaluate(
+        """() => {
+        const svg = document.querySelector('wl-chart-svg svg');
+        const frame = svg.getBoundingClientRect();
+        return [...svg.querySelectorAll('text.wl-chart-label')].map((text) => {
+            const box = text.getBoundingClientRect();
+            return { text: text.textContent, inside: box.left >= frame.left - 1
+                && box.right <= frame.right + 1 };
+        });
+    }"""
+    )
+    assert any(box["text"] == long for box in boxes)  # le nom complet, sur plusieurs lignes
+    assert all(box["inside"] for box in boxes), boxes
+
+
+def test_a_live_update_of_the_table_keeps_its_horizontal_scroll(page, server):
+    open_replayed(page, server, SCORES, RATES, CO2S, viewport={"width": 320, "height": 900})
+    see_table(page)
+    wrap = page.locator(".arena-results .wl-table-wrap")
+    assert wrap.evaluate("(n) => n.scrollWidth > n.clientWidth")
+    wrap.evaluate("(n) => { n.scrollLeft = 120; }")
+    # Une mise à jour des lignes (comme chaque `wl-lane-change` pendant un run) refait le tableau.
+    page.evaluate(
+        "() => { const table = document.querySelector('.arena-results wl-data-table');"
+        " table.rows = [...table.rows]; }"
+    )
+    assert page.locator(".arena-results .wl-table-wrap").evaluate("(n) => n.scrollLeft") > 100
+
+
+def test_a_late_lane_change_after_the_end_does_not_change_the_frozen_ranking(page, server):
+    open_replayed(page, server, SCORES, RATES, CO2S)
+    assert ranked_names(page) == ["Bravo 2B", "Alpha 1B"]
+    page.evaluate(
+        "() => document.querySelector('wl-arena-lane[data-tag=\"fake:a\"]')"
+        ".setScore({ score: 99, reason: '' })"
+    )
+    page.wait_for_timeout(100)
+    assert ranked_names(page) == ["Bravo 2B", "Alpha 1B"]
 
 
 def test_the_chart_redraws_when_the_width_changes_and_keeps_its_text_size(page, server):

@@ -43,6 +43,7 @@ export class WlChartSvg extends HTMLElement {
   #observer = null;
   #projection = null;
   #width = 0;
+  #canvas = null;
 
   get chart() {
     return this.#chart;
@@ -164,7 +165,8 @@ export class WlChartSvg extends HTMLElement {
       dot.style.setProperty("--dot", `var(--color-chart-${(index % 4) + 1})`);
       return { name: point.name, cx: x(point.x), cy: y(point.y), r };
     });
-    const labels = layoutLabels(dots, { left: MARGIN.left, right, top: MARGIN.top, bottom }, unit);
+    const bounds = { left: MARGIN.left, right, top: MARGIN.top, bottom };
+    const labels = layoutLabels(dots, bounds, unit, this.#measurer(unit));
     labels.forEach((label) => {
       const text = add("text", { x: label.x, y: label.y, class: "wl-chart-label", "text-anchor": label.anchor });
       label.lines.forEach((line, index) => {
@@ -172,6 +174,17 @@ export class WlChartSvg extends HTMLElement {
       });
     });
     return svg;
+  }
+
+  // La largeur réelle d'une étiquette (police, graisse et taille de `.wl-chart-label`), contour compris ;
+  // sans canevas, `layoutLabels` estime par caractère.
+  #measurer(unit) {
+    this.#canvas ??= document.createElement("canvas");
+    const context = this.#canvas.getContext("2d");
+    if (!context) return null;
+    const family = getComputedStyle(document.documentElement).getPropertyValue("--font-caption").trim();
+    context.font = `600 ${12 * unit}px ${family || "sans-serif"}`;
+    return (text) => context.measureText(text).width + 3;
   }
 
   #legendNodes(chart) {

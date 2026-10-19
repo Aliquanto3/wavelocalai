@@ -7,7 +7,7 @@
 // - La taille d'un point est une fonction croissante du CO2 ; sans mesure, un rayon fixe (le point
 //   est alors tracé en pointillés par l'appelant).
 
-export const CHAR_WIDTH = 6.6; // largeur moyenne d'un caractère à 12 px (étiquettes)
+export const CHAR_WIDTH = 6.6; // largeur moyenne d'un caractère à 12 px, sans mesure réelle
 export const LINE_HEIGHT = 14;
 
 // Un pas « rond » (1, 2 ou 5 fois une puissance de dix) : au plus `count` graduations.
@@ -47,16 +47,38 @@ export function legendSizes(values) {
   return low === high ? [high] : [low, high];
 }
 
-// Coupe un nom en lignes d'au plus `maxChars` caractères, aux espaces ; un mot plus long reste entier.
-export function wrapLabel(name, maxChars) {
+// Coupe un nom en lignes d'au plus `max` (en unités de `width`, par défaut des caractères), aux
+// espaces ; un mot trop long (un tag comme `mistral-small3.2:24b-instruct-2506`) est coupé après un
+// `:`, `-`, `.`, `_` ou `/`, puis au caractère s'il dépasse encore : aucune ligne ne déborde.
+export function wrapLabel(name, max, width = (text) => text.length) {
+  const fits = (text) => width(text) <= max;
+  const pieces = []; // { text, space } : `space` = séparé du précédent par une espace
+  for (const word of String(name).split(/\s+/).filter(Boolean)) {
+    if (fits(word)) {
+      pieces.push({ text: word, space: true });
+      continue;
+    }
+    let first = true;
+    for (const part of word.split(/(?<=[:\-._/])/)) {
+      let rest = part;
+      while (rest) {
+        let cut = rest.length;
+        while (cut > 1 && !fits(rest.slice(0, cut))) cut--;
+        pieces.push({ text: rest.slice(0, cut), space: first });
+        first = false;
+        rest = rest.slice(cut);
+      }
+    }
+  }
   const lines = [];
   let line = "";
-  for (const word of String(name).split(/\s+/).filter(Boolean)) {
-    if (line && line.length + 1 + word.length > maxChars) {
+  for (const { text, space } of pieces) {
+    const joined = line ? `${line}${space ? " " : ""}${text}` : text;
+    if (line && !fits(joined)) {
       lines.push(line);
-      line = word;
+      line = text;
     } else {
-      line = line ? `${line} ${word}` : word;
+      line = joined;
     }
   }
   if (line) lines.push(line);
@@ -68,11 +90,13 @@ const overlap = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.
 // Place l'étiquette de chaque point, à droite du point s'il y a la place, sinon à gauche, sur plusieurs
 // lignes si besoin, et décale vers le bas celles qui se chevaucheraient.
 // `items` : [{ name, cx, cy, r }] ; `bounds` : { left, right, top, bottom } (zone de tracé) ;
-// `unit` : facteur de la police (1 à 12 px ; le mode projection l'agrandit).
+// `unit` : facteur de la police (1 à 12 px ; le mode projection l'agrandit) ; `measure(text)` : la
+// largeur réelle du texte en px à cette taille (sinon `CHAR_WIDTH` par caractère).
 // -> [{ lines, x, y, anchor: "start" | "end" }] dans l'ordre de `items`.
-export function layoutLabels(items, bounds, unit = 1) {
+export function layoutLabels(items, bounds, unit = 1, measure = null) {
   const CHAR = CHAR_WIDTH * unit;
   const LINE = LINE_HEIGHT * unit;
+  const textWidth = measure ?? ((text) => text.length * CHAR);
   const placed = [];
   const order = items.map((item, index) => ({ item, index })).sort((a, b) => a.item.cy - b.item.cy);
   const result = new Array(items.length);
@@ -81,11 +105,11 @@ export function layoutLabels(items, bounds, unit = 1) {
     const gap = r + 6;
     const roomRight = bounds.right - (cx + gap);
     const roomLeft = cx - gap - bounds.left;
-    const full = String(name).length * CHAR;
+    const full = textWidth(String(name));
     const right = roomRight >= full || (roomLeft < full && roomRight >= roomLeft);
     const room = Math.max(CHAR * 6, right ? roomRight : roomLeft);
-    const lines = wrapLabel(name, Math.max(6, Math.floor(room / CHAR)));
-    const width = Math.max(...lines.map((line) => line.length)) * CHAR;
+    const lines = wrapLabel(name, room, textWidth);
+    const width = Math.max(...lines.map(textWidth));
     const x = right ? cx + gap : cx - gap;
     let top = cy - (lines.length * LINE) / 2;
     const box = () => ({
