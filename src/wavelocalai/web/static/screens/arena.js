@@ -286,6 +286,17 @@ export function mount(host, params = {}) {
     tabs.append(tab);
   }
 
+  // Colonnes d'une comparaison rouverte créées avant la liste des modèles : identifiant, puis nom.
+  function nameLanes() {
+    for (const [tag, entry] of lanes) {
+      const fiche = picker.modelFor(tag);
+      if (!fiche || (entry.name === fiche.name && entry.origin === fiche.origin)) continue;
+      Object.assign(entry, { name: fiche.name, origin: fiche.origin });
+      entry.el.setup({ tag, name: fiche.name, origin: fiche.origin });
+      updateTab(tag);
+    }
+  }
+
   function buildLanes(tags) {
     clearLanes();
     tags.forEach(addLane);
@@ -549,7 +560,7 @@ export function mount(host, params = {}) {
   });
   picker.addEventListener("wl-model-change", render);
   for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);
-  picker.addEventListener("wl-models-loaded", () => (render(), history.render())); // un modèle local est-il prêt ?
+  picker.addEventListener("wl-models-loaded", () => (render(), history.render(), nameLanes())); // un modèle local est-il prêt ?
   host.addEventListener("wl-arena-reuse", (event) => reuseConfig(event.detail, { question, picker, judging, launchReason, submit }));
   host.addEventListener("wl-arena-erased", (event) => {
     clearLanes(); forgetErased(question, event.detail?.prompt); // ni à l'écran ni en brouillon
