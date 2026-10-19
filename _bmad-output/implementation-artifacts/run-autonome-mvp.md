@@ -31,6 +31,14 @@ Démarré le 2026-10-18. Orchestrateur : session principale (Opus 5.5). Contrat 
 
 Le run s'arrête à la fin de l'Epic 4 (4.9 fusionnée, préversion 2.0.0a4) : Epics 5 à 8 reportés (budget de tokens). Ollama reste au run jusqu'à la fin des contrôles de la 4.9, puis est rendu à Anaël (benchmarks) : le prévenir. Aucune story des Epics 5 à 8 ni la 7.1 avant une nouvelle consigne.
 
+## Décisions d'Anaël (2026-10-19, vers 12 h 30, pour la reprise des Epics 5 à 8)
+
+- Ollama disponible au run la plupart du temps ; une ou deux pauses possibles sur demande (tests integration alors notés « à rejouer »).
+- Prix cloud : Groq à 0 (plan gratuit de l'API) ; `mistral-large-latest` = `mistral-large-2512` (Large 3) vérifié par l'API, 0,50 / 1,50 USD (PR #81).
+- Sprite Material Symbols Rounded officiel : accord (à intégrer, aucun téléchargement par le run : fourni par Anaël ou story dédiée).
+- `.venv` du dépôt principal resynchronisé (`uv sync`, 2.0.0a4).
+- Recommandations de l'orchestrateur acceptées (AD-6 amendé, 18 écarts du §7(d) tranchés, ajouts d'API et points ouverts ratifiés, dette 8.1, `mesures-couts/` ignoré) : **`_bmad-output/planning-artifacts/decisions-2026-10-19.md`** (PR #82), qui prime sur les documents qu'elle amende jusqu'à la passe « Report au contrat » (avant la 5.1). Les écarts du §7(d) ne sont plus « jamais tranchés » : appliquer ce fichier.
+
 ## Contrats partagés en cours
 
 Noms, modules et constantes décidés pour plusieurs stories ; à citer dans chaque prompt, à réutiliser plutôt qu'à recréer.
