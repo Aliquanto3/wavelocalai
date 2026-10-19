@@ -1,5 +1,6 @@
-"""Écran Sobriété (story 5.1) : règles de structure du front, sans navigateur. Les parcours (santé en
-direct, GPU, session carbone, onglet masqué, panneaux, axe) vivent dans `e2e/test_sobriety.py`."""
+"""Écran Sobriété (stories 5.1 et 5.2) : règles de structure du front, sans navigateur. Les parcours
+(santé en direct, GPU, session carbone, onglet masqué, panneaux, historique, remise à zéro, axe)
+vivent dans `e2e/test_sobriety.py` et `e2e/test_sobriety_history.py`."""
 
 from __future__ import annotations
 
@@ -8,7 +9,8 @@ import re
 from .static_files import STATIC, catalog, read
 
 CATALOG = catalog()
-FILES = ("sobriety", "sobriety-health", "sobriety-carbon", "sobriety-details")
+LIVE_FILES = ("sobriety", "sobriety-health", "sobriety-carbon", "sobriety-details")  # story 5.1
+FILES = (*LIVE_FILES, "sobriety-history", "sobriety-reset")  # + story 5.2
 SCREEN = "\n".join(read(f"screens/{name}.js") for name in FILES)
 CODE = "\n".join(line for line in SCREEN.splitlines() if not line.lstrip().startswith("//"))
 NBSP = "\N{NO-BREAK SPACE}"
@@ -32,6 +34,12 @@ def test_every_text_the_screen_asks_for_exists_and_every_text_is_used():
     used |= {key for key in TEXTS if key.startswith("sobriety.carbon.modules.")}  # par module
     used |= {f"sobriety.method.{k}" for k in ("local", "cloud", "throughput", "unmeasurable")}
     used |= {"sobriety.method.no_threshold"}  # la liste du panneau de méthode, bouclée
+    # Segments de période et colonnes du tableau de l'historique : clés construites.
+    used |= {
+        key
+        for key in TEXTS
+        if key.startswith(("sobriety.history.window_", "sobriety.history.col_"))
+    }
     assert used <= TEXTS, sorted(used - TEXTS)
     assert used >= TEXTS, sorted(TEXTS - used)
 
@@ -49,12 +57,36 @@ def test_texts_keep_a_no_break_space_before_double_punctuation_and_inside_guille
         assert not re.search(r" [:;!?»]|« ", text), (key, text)
 
 
-def test_the_screen_calls_the_api_only_from_the_folded_panels_and_never_before_shell_ready():
+def test_the_screen_calls_the_api_only_from_the_folded_panels_the_history_and_the_reset():
     for name in ("sobriety", "sobriety-health", "sobriety-carbon"):
         assert "api." not in read(f"screens/{name}.js").replace("// ", ""), name
     details = read("screens/sobriety-details.js")
     assert details.count("await shellReady()") == 2  # identité et méthode : AD-15
     assert "api.systemIdentity()" in details and "api.carbonMethod()" in details
+
+
+def test_the_history_reads_after_shell_ready_and_the_reset_is_a_click():
+    history = read("screens/sobriety-history.js")
+    assert history.count("await shellReady()") == 1 and "api.carbonHistory(" in history
+    assert history.index("await shellReady()") < history.index("api.carbonHistory(")
+    reset = read("screens/sobriety-reset.js")
+    assert "api.resetCarbonSession()" in reset
+    assert len(re.findall(r"api\.\w+\(", reset)) == 1  # un seul appel, parti d'un clic
+    assert 'addEventListener("click"' in reset
+
+
+def test_the_reset_has_no_confirmation_dialog_and_never_deletes_anything():
+    # La session close reste dans l'historique (AD-13) : rien à confirmer (EXPERIENCE.md).
+    assert "wl-confirm-dialog" not in read("screens/sobriety-reset.js")
+    assert 'method: "DELETE"' not in read("core/api/system.js")
+
+
+def test_the_history_holds_no_calculation_of_a_measure():
+    history = read("screens/sobriety-history.js")
+    code = "\n".join(line for line in history.splitlines() if not line.lstrip().startswith("//"))
+    # AD-20 : les totaux viennent du serveur ; l'écran trie, met en forme et trace.
+    assert not re.search(r"\.reduce\(|Math\.(max|min|sum)\(|total_mg\s*[-+*/]|\+=", code)
+    assert 'unit: "mg"' in code  # une seule unité pour le graphique et le tableau
 
 
 def test_the_front_holds_no_car_factor_nor_any_calculation_of_a_measure():
@@ -69,7 +101,12 @@ def test_the_front_holds_no_car_factor_nor_any_calculation_of_a_measure():
 
 def test_the_screen_never_writes_html_and_has_no_polite_live_region_for_the_two_second_updates():
     assert not re.search(r"innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(", CODE)
-    assert "aria-live" not in CODE and '"status"' not in CODE
+    lines = [line for name in LIVE_FILES for line in read(f"screens/{name}.js").splitlines()]
+    live = "\n".join(line for line in lines if not line.lstrip().startswith("//"))
+    assert "aria-live" not in live and '"status"' not in live
+    # Seule la fin de la remise à zéro est annoncée, en `polite`.
+    reset = read("screens/sobriety-reset.js")
+    assert reset.count('"status"') == 1 and "aria-live" not in reset
 
 
 def test_the_screen_is_registered_as_available_and_its_texts_and_stylesheet_are_loaded():
