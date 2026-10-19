@@ -77,6 +77,11 @@ CLOUD_JUDGE_PREFERENCE = (
 CLOUD_JUDGE_DEMOTED = ("gpt-4o-mini",)
 
 
+def is_weak_judge(is_cloud: bool, params_active_b: float | None) -> bool:
+    """Juge local de moins de ~4B paramètres actifs, ou de taille inconnue (« note peu fiable »)."""
+    return not is_cloud and (params_active_b is None or params_active_b < JUDGE_MIN_PARAMS_B)
+
+
 class ModelDefault(BaseModel):
     purpose: Purpose
     tags: list[str]  # un seul tag sauf `arena`
@@ -113,7 +118,7 @@ class _Cand:
     @property
     def weak_judge(self) -> bool:
         """Juge local de moins de ~4B paramètres actifs, ou de taille inconnue."""
-        return not self.is_cloud and (self.params_b is None or self.params_b < JUDGE_MIN_PARAMS_B)
+        return is_weak_judge(self.is_cloud, self.params_b)
 
 
 def _candidates(models: Iterable[ModelInfo], allow_cloud: bool) -> list[_Cand]:

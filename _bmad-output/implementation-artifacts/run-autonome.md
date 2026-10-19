@@ -176,3 +176,13 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 03:37 · 3.3 · fusion master · 4.4 : conflits `streaming.py` (`capture` et `metrics_extra`) et contrat ; 915 v2 ; contrôles lancés · c79c074
 - 2026-10-19 03:37 · 4.2 · fusion master · résolue par le relecteur (11 fichiers, garder les deux) + route planifiée de `test_shell.py` réalignée ; 894 v2 · 869893c
 - 2026-10-19 03:52 · 2.7 · fusion · PR #63 fusionnée · f6e3841
+- 2026-10-19 03:53 · 4.2 · fusion master · 2.7 fusionnée sans conflit de code ; contrôles lancés · 5e1d995
+- 2026-10-19 03:53 · 4.8 · dev · fini, 916 v2, 74 E2E chat/Arène, integration verte ; §7(d) n° 13 en variante conservatrice · b7f6fc6
+- 2026-10-19 03:53 · 4.8 · second-avis · lancé (Haiku) · —
+- 2026-10-19 03:57 · 4.8 · second-avis · 1 high (Arène : modèle de la lane précédente compté comme occupé, refus à tort), 4 medium, 3 low · —
+- 2026-10-19 03:57 · 4.8 · review · lancée (Opus, effort high) · —
+- 2026-10-19 04:05 · 3.3 · contrôles · verts (915 v2, E2E 228 + 1 erreur Playwright passagère, 229/229 relancés, 9 integration, 1286 v1) ; PR ouverte · c79c074
+- 2026-10-19 04:15 · 4.2 · contrôles · verts après fusions (920 v2, 256 E2E, 9 integration, 1286 v1) ; poussé · 5e1d995
+- 2026-10-19 04:17 · 4.8 · review · high corrigé (mémoire des modèles chargés inactifs comptée comme libre), modèle proposé plus petit, `required_gb` partagé sélecteur/refus, déchargement relit les runs actifs ; 921 v2, 108 E2E · 67fb239
+- 2026-10-19 04:17 · 4.8 · décision · pour Anaël : bouton « Décharger les modèles inactifs » gardé tel quel lors d'un refus (critère), à masquer ou non ; vérification Linux 16 Go (mmap) à faire · —
+- 2026-10-19 04:31 · 4.2 · fusion · PR #65 fusionnée · fff8faa

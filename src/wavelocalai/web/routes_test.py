@@ -18,6 +18,8 @@ d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route pub
 
 `POST /api/test/arena` lance une Arène dont chaque lane est un `fake` scripté (`tag`, `origin`,
 `script` comme ci-dessus), par le vrai service de l'Arène : sémaphore, délais, flux du parent.
+`judge` (`tag`, `origin`, `script`) ajoute un juge `fake` au vrai service de notation : son script
+rend le JSON `{"score": …, "reason": …}` (ou échoue) ; sans `judge`, aucune notation n'est câblée.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from wavelocalai.errors import AppError, ProviderError
+from wavelocalai.evaluation.judge import Judge
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.arena import ArenaCommand, ArenaService
 from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
@@ -159,6 +162,7 @@ class ScriptedArena(BaseModel):
     prompt: str
     criteria: list[str] = Field(default_factory=list)
     allow_cloud: bool = True
+    judge: ScriptedLane | None = None  # le juge `fake` (son `tag` est celui de la commande)
 
 
 class ArenaStarted(BaseModel):
@@ -176,6 +180,11 @@ async def start_scripted_arena(body: ScriptedArena, request: Request) -> ArenaSt
     for lane in body.lanes:
         ref = ModelRef(lane.tag, "fake", lane.origin, "chat")
         fakes[lane.tag] = FakeChatModel(parse_script(lane.script), ref)
+    scorer = None
+    if body.judge is not None:
+        ref = ModelRef(body.judge.tag, "fake", body.judge.origin, "chat")
+        fakes[body.judge.tag] = FakeChatModel(parse_script(body.judge.script), ref)
+        scorer = Judge(state.hub, state.local_slot, state.settings, bus=state.system_feed)
     service = ArenaService(
         state.hub,
         ModelRegistry(state.settings, extra_refs={tag: model.ref for tag, model in fakes.items()}),
@@ -183,11 +192,13 @@ async def start_scripted_arena(body: ScriptedArena, request: Request) -> ArenaSt
         state.local_slot,
         state.settings,
         bus=state.system_feed,
+        judge=scorer,
     )
     handle = await service.start(
         ArenaCommand(
-            models=list(fakes),
+            models=[lane.tag for lane in body.lanes],
             prompt=body.prompt,
+            judge=body.judge.tag if body.judge else None,
             criteria=body.criteria,
             allow_cloud=body.allow_cloud,
         )

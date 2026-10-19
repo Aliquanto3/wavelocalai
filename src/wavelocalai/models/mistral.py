@@ -27,6 +27,7 @@ from wavelocalai.models.cloud import (
     translate_error,
 )
 from wavelocalai.models.port import ChatChunk, ChatRequest, Done, ModelRef, TextDelta
+from wavelocalai.models.structured import StructuredCheck
 
 
 def _field(obj: Any, name: str) -> Any:
@@ -93,6 +94,16 @@ class MistralChatModel:
         options: dict[str, Any] = {"temperature": request.temperature}
         if request.max_tokens is not None:
             options["max_tokens"] = request.max_tokens
+        if request.response_schema is not None:
+            options["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "schema": request.response_schema,
+                    "strict": True,
+                },
+            }
+        structured = StructuredCheck(request.response_schema)
         upstream: Any = None
         fragments = 0
         finish: str | None = None
@@ -117,6 +128,8 @@ class MistralChatModel:
                 for channel, text in _pieces(_field(_field(choice, "delta"), "content")):
                     clock.note(text)
                     fragments += 1
+                    if channel == "answer":
+                        structured.add(text)
                     yield TextDelta(text, channel)  # type: ignore[arg-type]
                 finish = _field(choice, "finish_reason") or finish
         except asyncio.CancelledError:
@@ -130,6 +143,7 @@ class MistralChatModel:
             await close_quietly(upstream)
             await _close_client(client)
             await close_quietly(http)  # le SDK ne ferme pas un client HTTP qu'on lui a fourni
+        structured.done()
         yield Done(
             clock.result(
                 finish_reason=finish, input_tokens=input_tokens, output_tokens=output_tokens
