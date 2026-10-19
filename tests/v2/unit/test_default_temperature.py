@@ -175,6 +175,6 @@ def test_migration_0005_adds_the_column_and_keeps_old_rows_unread(tmp_path):
         conn.execute(
             "INSERT INTO model_facts (tag, digest, fetched_at) VALUES ('m', 'd', ?)", (OLD,)
         )
-    assert migrate(path) == 5
+    assert migrate(path, target=5) == 5
     with sqlite3.connect(path) as conn:
         assert conn.execute("SELECT parameters FROM model_facts").fetchall() == [(None,)]
