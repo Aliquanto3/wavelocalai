@@ -40,6 +40,11 @@ ENV_OVERRIDES: dict[str, tuple[str, str]] = {
     "WAVELOCALAI_PORT": ("server", "port"),
     "WAVELOCALAI_DATA_DIR": ("data", "dir"),
     "WAVELOCALAI_OLLAMA_HOST": ("ollama", "host"),
+    # SMTP de l'outil « Envoi d'email » des agents (story 6.2) : mêmes noms que la v1.
+    "SMTP_SERVER": ("smtp", "server"),
+    "SMTP_PORT": ("smtp", "port"),
+    "SMTP_USER": ("smtp", "user"),
+    "SMTP_PASSWORD": ("smtp", "password"),
 }
 TESTING_VAR = "WAVELOCALAI_TESTING"
 
@@ -130,6 +135,39 @@ class DelaySettings(_Section):
     approval_expiry_s: float = Field(600.0, gt=0)
 
 
+class AgentSettings(_Section):
+    """Boucle d'outils des agents (story 6.1)."""
+
+    max_turns: int = Field(10, ge=1, le=50)  # appels de modèle au plus par tâche (fin propre)
+    tool_timeout_s: float = Field(60.0, gt=0)  # délai d'un outil ; dépassé, l'agent reçoit l'erreur
+    summary_chars: int = Field(500, ge=50)  # taille du `summary` d'une étape publiée
+    result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
+    # Outils d'un tour (story 6.2) : au-delà, l'appel n'est pas exécuté et l'agent reçoit le refus.
+    max_tool_calls_per_turn: int = Field(8, ge=1, le=64)
+    max_input_mb: int = Field(20, ge=1)  # taille d'un fichier que les outils acceptent de lire
+
+
+class SmtpSettings(_Section):
+    """SMTP de l'outil « Envoi d'email » (story 6.2), lu de `.env` ou de l'environnement : le mot de
+    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 ne s'en sert que pour dire si l'outil est
+    disponible ; l'envoi, après validation de l'utilisateur, est la story 6.3."""
+
+    server: str = "smtp.gmail.com"
+    port: int = Field(587, ge=1, le=65535)
+    user: str = ""
+    password: SecretStr = SecretStr("")
+
+    def missing(self) -> list[str]:
+        """Variables d'environnement SMTP vides, dans l'ordre `SMTP_SERVER`, `SMTP_USER`,
+        `SMTP_PASSWORD` : l'outil n'est disponible que si cette liste est vide."""
+        values = {
+            "SMTP_SERVER": self.server.strip(),
+            "SMTP_USER": self.user.strip(),
+            "SMTP_PASSWORD": self.password.get_secret_value().strip(),
+        }
+        return [name for name, value in values.items() if not value]
+
+
 class RagSettings(_Section):
     """Base documentaire : découpe, lots d'embedding et plafonds d'un import (stories 4.1 et 4.2)."""
 
@@ -176,6 +214,8 @@ class Settings(BaseModel):
     cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
     rag: RagSettings = RagSettings()
+    agents: AgentSettings = AgentSettings()
+    smtp: SmtpSettings = SmtpSettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
     base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)
@@ -186,6 +226,12 @@ class Settings(BaseModel):
         path = self.data.dir.expanduser()
         return path if path.is_absolute() else (self.base_dir / path).resolve()
 
+    @property
+    def agent_work_dir(self) -> Path:
+        """Dossier de travail des agents : la seule racine que leurs outils lisent et écrivent
+        (story 6.2)."""
+        return self.data_dir / "agent_work"
+
     def cloud_providers(self) -> list[dict[str, Any]]:
         """`[{id, configured}]` lu d'ici : aucun fournisseur n'est appelé."""
         return [
@@ -195,7 +241,8 @@ class Settings(BaseModel):
 
     def secret_values(self) -> list[str]:
         """Valeurs des clés configurées, pour le masquage (AD-18)."""
-        return [key.get_secret_value() for key in self.api_keys.values() if key.get_secret_value()]
+        keys = [*self.api_keys.values(), self.smtp.password]
+        return [key.get_secret_value() for key in keys if key.get_secret_value()]
 
 
 def get_version() -> str:

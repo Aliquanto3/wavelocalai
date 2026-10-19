@@ -130,3 +130,12 @@ self_rag_max_iterations = 2
 reranker_model = "jinaai/jina-reranker-v2-base-multilingual"
 relevance_very_close = 0.70
 relevance_close = 0.60
+
+[agents]
+# Boucle d'outils des agents (story 6.1).
+max_turns = 10        # appels de modèle au plus par tâche ; borne atteinte = fin propre avec la raison
+tool_timeout_s = 60.0 # délai d'un outil ; dépassé, l'agent reçoit l'erreur et peut poursuivre
+summary_chars = 500   # taille du résumé d'une étape publiée
+result_chars = 8000   # taille d'un résultat d'outil rendu au modèle, tronqué au-delà
+max_tool_calls_per_turn = 8 # appels d'outils exécutés au plus par tour ; les suivants sont refusés (story 6.2)
+max_input_mb = 20     # taille d'un fichier que les outils d'agent acceptent de lire (dossier de travail seulement)

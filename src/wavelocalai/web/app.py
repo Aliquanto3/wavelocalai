@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse, Response
 from ollama import AsyncClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from wavelocalai.agents.service import AgentService
+from wavelocalai.agents.tools import Workspace, build_registry
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.evaluation.judge import Judge
@@ -45,6 +47,7 @@ from wavelocalai.store.db import Store, db_path
 from wavelocalai.store.preferences import PreferenceStore, SqlitePreferenceStore
 from wavelocalai.telemetry import disable_telemetry
 from wavelocalai.web import (
+    routes_agents,
     routes_arena,
     routes_chat,
     routes_conversations,
@@ -146,6 +149,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             guard=guard,
         ),
     )
+    app.state.agents = AgentService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        app.state.agent_tools,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
+        guard=guard,
+    )
     index = select_index(store.vec_available)  # le même pour l'import et la question (repli numpy)
     app.state.rag = RagService(
         hub,
@@ -192,6 +206,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.registry.stop()
         await app.state.probe.aclose()
         app.state.chat = None
+        app.state.agents = None
         app.state.ingest = None
         app.state.rag = None
         app.state.rag_base = None
@@ -249,6 +264,10 @@ def create_app(
     app.state.local_slot = LocalSlot()  # sémaphore « Ollama local » à 1, pris par appel (AD-14)
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
+    app.state.agents = None  # service de l'agent seul (story 6.1), idem
+    # Outils des agents (story 6.2) : ceux de la v1, et le dossier de travail qu'ils partagent.
+    app.state.agent_workspace = Workspace(settings.agent_work_dir)
+    app.state.agent_tools = build_registry(settings, app.state.agent_workspace)
     app.state.ingest = None  # service d'ingestion des documents, idem
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
@@ -335,6 +354,7 @@ def create_app(
     app.include_router(routes_health.router)
     app.include_router(routes_runs.router)
     app.include_router(routes_chat.router)
+    app.include_router(routes_agents.router)
     app.include_router(routes_arena.router)
     app.include_router(routes_conversations.router)
     app.include_router(routes_rag.router)

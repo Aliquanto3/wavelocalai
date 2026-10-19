@@ -4,8 +4,9 @@ Groq parle l'API Chat Completions d'OpenAI : même SDK (`openai`, `AsyncOpenAI`)
 Copie adaptée du streaming de `src/core/providers/openai_provider.py` (v1), sans
 `get_langchain_model` et sans importer la v1. Le SDK n'est importé que dans la fonction (AD-4).
 
-L'adaptateur émet des `TextDelta` (raisonnement `reasoning` de Groq sur le canal `thought`), puis un
-seul `Done` avec `tps_source = "wallclock"`. Il ne calcule pas de CO2, n'écrit pas en base et ne lit
+L'adaptateur émet des `TextDelta` (raisonnement `reasoning` de Groq sur le canal `thought`), les
+`ToolCall` assemblés depuis les fragments `delta.tool_calls` (story 6.1, `models/tool_format.py`),
+puis un seul `Done` avec `tps_source = "wallclock"`. Il ne calcule pas de CO2, n'écrit pas en base et ne lit
 pas `allow_cloud`. L'annulation est celle de la tâche : le flux HTTP et le client sont fermés dans
 un `finally`. Aucune nouvelle tentative du SDK (`max_retries=0`) : une panne remonte aussitôt, avec
 le nom du fournisseur.
@@ -23,7 +24,6 @@ from wavelocalai.models.cloud import (
     CONNECT_TIMEOUT_S,
     HttpClientFactory,
     WallClock,
-    chat_text_messages,
     close_quietly,
     key_missing,
     model_of,
@@ -31,6 +31,7 @@ from wavelocalai.models.cloud import (
 )
 from wavelocalai.models.port import ChatChunk, ChatRequest, Done, ModelRef, TextDelta
 from wavelocalai.models.structured import StructuredCheck
+from wavelocalai.models.tool_format import ToolCallDeltas, chat_messages, function_tools
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -74,6 +75,8 @@ class OpenAICompatChatModel:
             options["temperature"] = request.temperature
         if request.max_tokens is not None:
             options["max_completion_tokens"] = request.max_tokens
+        if request.tools:
+            options["tools"] = function_tools(request.tools)
         if request.response_schema is not None:
             options["response_format"] = {
                 "type": "json_schema",
@@ -109,10 +112,11 @@ class OpenAICompatChatModel:
         input_tokens: int | None = None
         output_tokens: int | None = None
         structured = StructuredCheck(request.response_schema)
+        tool_deltas = ToolCallDeltas()
         try:
             upstream = await client.chat.completions.create(
                 model=model_of(self.ref.tag),
-                messages=chat_text_messages(request.messages),  # type: ignore[arg-type]
+                messages=chat_messages(request.messages),  # type: ignore[arg-type]
                 stream=True,
                 stream_options={"include_usage": True},
                 **self._options(request),
@@ -138,6 +142,15 @@ class OpenAICompatChatModel:
                     fragments += 1
                     structured.add(content)
                     yield TextDelta(content, "answer")
+                for call in _field(delta, "tool_calls") or ():
+                    function = _field(call, "function")
+                    tool_deltas.add(
+                        _field(call, "index"),
+                        _field(call, "id"),
+                        _field(function, "name"),
+                        _field(function, "arguments"),
+                    )
+                    fragments += 1
                 finish = _field(choice, "finish_reason") or finish
         except asyncio.CancelledError:
             raise
@@ -150,6 +163,8 @@ class OpenAICompatChatModel:
             await close_quietly(upstream)
             await close_quietly(client)
         structured.done()
+        for tool_call in tool_deltas.calls():
+            yield tool_call
         yield Done(
             clock.result(
                 finish_reason=finish, input_tokens=input_tokens, output_tokens=output_tokens
