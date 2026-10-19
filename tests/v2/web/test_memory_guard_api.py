@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 
 import httpx
+import pytest
 
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading
 from wavelocalai.inference.memory_guard import MemoryGuard
@@ -274,6 +275,26 @@ async def test_a_rag_question_that_does_not_fit_keeps_its_sources_and_ends_in_ra
         assert error["code"] == "ram_guard" and error["detail"]["suggested_model"] == "petit:1b"
         conversation = (await client.get(f"/api/conversations/{started['conversation_id']}")).json()
         assert [m["content"] for m in conversation["messages"] if m["role"] == "user"] == [QUESTION]
+
+
+@pytest.mark.parametrize("strategy", ["hyde", "self_rag"])
+async def test_a_strategy_call_that_does_not_fit_ends_the_rag_run_in_ram_guard(tmp_path, strategy):
+    """Revue 4.6 : la réponse hypothétique et la notation passent le garde-fou comme la réponse ;
+    leur refus termine le run, sans recherche de repli ni appel du modèle."""
+    needs = [ModelNeed("fake:1b", "chat", 6.0), ModelNeed("petit:1b", "chat", 0.5)]
+    async with guarded_app(tmp_path, needs, 2.5) as (app, client):
+        await _import(client, **{"chats.txt": CATS})
+        _script(app, "jamais")
+        model = app.state.models["fake:1b"]
+        opened = model.opened
+        started = (await _ask(client, QUESTION, strategy=strategy)).json()
+        assert (await _ended(client, started["run_id"]))["status"] == "error"
+        events = await _events(client, started["run_id"])
+        types = [e["type"] for e in events]
+        assert "sources" not in types and "token" not in types
+        error = events[-1]["data"]["error"]
+        assert error["code"] == "ram_guard" and error["detail"]["suggested_model"] == "petit:1b"
+        assert model.opened == opened  # le modèle n'a jamais été appelé
 
 
 # --- Déchargement -------------------------------------------------------------------------------

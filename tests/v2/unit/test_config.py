@@ -136,3 +136,15 @@ def test_env_read_is_detected_outside_config(tmp_path, code):
     (tmp_path / "web" / "trap.py").write_text(textwrap.dedent(code), encoding="utf-8")
     (tmp_path / "config.py").write_text("import os\nx = os.getenv('OK')\n", encoding="utf-8")
     assert find_env_reads(tmp_path)
+
+
+def test_the_self_rag_bound_is_in_the_toml_and_stays_between_one_and_five(tmp_path):
+    assert (
+        load_settings(
+            DEFAULT_TOML, env_file=Path("absent.env"), environ={}
+        ).rag.self_rag_max_iterations
+        == 2
+    )
+    for bad in (0, 6):
+        with pytest.raises(ConfigError):
+            make_settings(tmp_path, rag={"self_rag_max_iterations": bad})

@@ -227,6 +227,46 @@
   color: var(--color-ink);
 }
 
+.docs-number {
+  width: 6rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Marqueurs [n] que le serveur a vérifiés (événement `citations`) : boutons dans le texte de la
+   réponse ; le survol ou le focus met la source en évidence dans le panneau, et inversement. */
+.docs-cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  margin: 0 0.125rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.docs-cite:hover,
+.docs-cite.is-linked {
+  border-color: var(--color-primary);
+  background: var(--color-line);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* Fil à gauche, sources à droite dès 1 024 px ; sous la réponse et repliées en deçà (UX-DR19). */
 .docs-chat-layout {
   display: grid;

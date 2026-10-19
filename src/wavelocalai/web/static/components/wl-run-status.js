@@ -3,8 +3,11 @@
 // `el.runId = "<id>"` (ou l'attribut `run-id`) suit un run par le client SSE unique : « Chargement
 // du modèle en mémoire… » (`model_loading`), « Génération… » (`model_loaded`, puis `token`), puis
 // l'état final (`run_ended`). Un run de RAG commence par « Recherche des extraits… » (attribut
-// `first-stage="retrieving"`), jusqu'à `sources` ; `retrieval_step` y ramène aussi l'étape. Le
-// chronomètre est le seul chiffre calculé ici (AD-20) : il part de l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
+// `first-stage="retrieving"`) ou, pour HyDE, par « Rédaction d'une réponse hypothétique… »
+// (`first-stage="hypothesizing"`), jusqu'à `sources` ; `retrieval_step`, publié à la fin de chaque
+// étape, dit la suivante : la recherche, et pour Self-RAG, après chaque recherche, « Vérification de
+// la pertinence… ». Le chronomètre est le seul chiffre calculé ici (AD-20) : il part de
+// l'horodatage de `run_started` et s'arrête à `run_ended`. Le bouton Arrêter et la touche Échap
 // appellent `POST /api/runs/{id}/cancel` ; le run se termine par son propre `run_ended`.
 //
 // Événement : `wl-run-ended` (`detail.status`, `detail.error`). Un flux n'est ouvert que pour le
@@ -30,6 +33,8 @@ import "./wl-error.js";
 const STAGE_TEXT = {
   starting: "components.run_status.starting",
   retrieving: "components.run_status.retrieving",
+  hypothesizing: "components.run_status.hypothesizing",
+  verifying: "components.run_status.verifying",
   loading: "components.run_status.loading",
   generating: "components.run_status.generating",
   stopping: "components.run_status.stopping",
@@ -39,6 +44,14 @@ const STAGE_TEXT = {
   interrupted: "components.run_status.interrupted",
 };
 const TICK_MS = 250;
+const FIRST_STAGES = ["retrieving", "hypothesizing"]; // valeurs de l'attribut `first-stage`
+
+// Étape qui suit une étape de recherche terminée : Self-RAG note les extraits après chaque
+// recherche, tout le reste continue de chercher (la réponse hypothétique de HyDE vient d'être
+// rédigée, la question reformulée ou vectorisée) jusqu'à `sources`.
+function stageAfter(step) {
+  return step?.strategy === "self_rag" && step.step === "search" ? "verifying" : "retrieving";
+}
 
 export class WlRunStatus extends HTMLElement {
   static observedAttributes = ["run-id"];
@@ -119,9 +132,10 @@ export class WlRunStatus extends HTMLElement {
   }
 
   #reset() {
-    // `first-stage="retrieving"` : un run qui cherche d'abord (RAG) dit « Recherche des extraits… »
-    // dès son démarrage, jusqu'à l'événement `sources`.
-    this.#stage = this.getAttribute("first-stage") === "retrieving" ? "retrieving" : "starting";
+    // `first-stage` : un run qui cherche d'abord (RAG) dit « Recherche des extraits… » (ou, pour
+    // HyDE, « Rédaction d'une réponse hypothétique… ») dès son démarrage, jusqu'à `sources`.
+    const first = this.getAttribute("first-stage");
+    this.#stage = FIRST_STAGES.includes(first) ? first : "starting";
     this.#final = null;
     this.#startMs = null;
     this.#endMs = null;
@@ -144,7 +158,7 @@ export class WlRunStatus extends HTMLElement {
       this.#timer ??= setInterval(() => this.#renderTimer(), TICK_MS);
       this.#render();
     },
-    retrieval_step: () => this.#setStage("retrieving"),
+    retrieval_step: (data) => this.#setStage(stageAfter(data)),
     sources: () => this.#setStage("generating"),
     model_loading: () => this.#setStage("loading"),
     model_loaded: () => this.#setStage("generating"),

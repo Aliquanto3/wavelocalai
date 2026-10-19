@@ -159,6 +159,9 @@ async def script_embedder(body: ScriptedEmbedder, request: Request) -> dict[str,
 class ScriptedChatModel(BaseModel):
     model: str = "fake:1b"
     script: list[dict[str, Any]] = Field(default_factory=lambda: list(DEFAULT_SCRIPT))
+    # Un script par appel, dans l'ordre (le dernier se répète) : HyDE et Self-RAG appellent le
+    # modèle plusieurs fois par question (story 4.6). Sans lui, `script` sert à chaque appel.
+    scripts: list[list[dict[str, Any]]] = Field(default_factory=list)
 
 
 @router.post("/chat-model")
@@ -169,6 +172,8 @@ async def script_chat_model(body: ScriptedChatModel, request: Request) -> dict[s
     if not isinstance(model, FakeChatModel):
         raise AppError("not_found", f"Modèle factice {body.model!r} inconnu.")
     model.script = parse_script(body.script)
+    model.scripts = [parse_script(script) for script in body.scripts]
+    model.opened = 0  # les scripts par appel repartent du premier
     return {"steps": len(model.script)}
 
 

@@ -16,14 +16,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from wavelocalai.config import RagSettings
+from wavelocalai.rag.strategies import MAX_TOP_K, STRATEGIES
 from wavelocalai.store.preferences import PreferenceStore
 
 PREF_KEY = "rag.settings"
-STRATEGIES = ("naive",)  # les autres stratégies arrivent avec les stories 4.6 et 4.7
 
 # Bornes de l'API : celles de `RagSettings` (le `.toml` les respecte aussi).
 CHUNK_SIZE_RANGE = (100, 8000)
-TOP_K_RANGE = (1, 20)
+TOP_K_RANGE = (1, MAX_TOP_K)
 OVERLAP_MIN = 0
 
 

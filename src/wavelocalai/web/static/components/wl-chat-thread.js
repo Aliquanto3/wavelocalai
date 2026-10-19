@@ -8,6 +8,10 @@
 //                                                                           // rouverte : rien n'est annoncé
 //                                                                           // (rend la réponse)
 //   answer.actions   // zone sous le pied où l'écran range ses boutons (« Afficher les sources »)
+//   answer.decorator = (corps) => {…}   // appelée après chaque rendu Markdown de la réponse : l'écran y
+//                                       // transforme des marqueurs en boutons (citations vérifiées) ;
+//                                       // restoreAnswer({ …, decorator }) l'applique à une réponse rouverte
+//   answer.refresh()                    // rend la réponse de nouveau (le décorateur a de nouvelles données)
 //
 // Les tokens vont dans un nœud tampon dès leur réception (le texte brut est lisible tout de suite),
 // et la réponse entière est rendue en Markdown (`core/markdown.js`, sans `innerHTML`) au plus toutes
@@ -85,6 +89,7 @@ class ChatAnswer {
     this.text = "";
     this.thoughtText = "";
     this.result = null; // données de `metrics`
+    this.decorator = null;
     this.ended = false;
     this.startedAt = performance.now();
     this.firstTokenAt = null;
@@ -158,6 +163,10 @@ class ChatAnswer {
     if (this.ended) this.#finalFoot(); // mesures complétées après l'arrêt (Arène rouverte, story 3.6)
   }
 
+  refresh() {
+    this.#render();
+  }
+
   end({ status = "ok" } = {}) {
     if (this.ended) return;
     this.#settle(status);
@@ -213,6 +222,7 @@ class ChatAnswer {
     this.timer = null;
     this.lastRender = performance.now();
     this.body.replaceChildren(renderMarkdown(this.text));
+    this.decorator?.(this.body);
     this.tail.data = "";
     if (!this.ended) tailHost(this.body).append(this.tail);
     this.thread._changed();
@@ -350,8 +360,9 @@ export class WlChatThread extends HTMLElement {
     return answer;
   }
 
-  restoreAnswer({ name, origin, ...content }) {
+  restoreAnswer({ name, origin, decorator = null, ...content }) {
     const answer = new ChatAnswer(this, { name, origin, restored: true });
+    answer.decorator = decorator;
     this.#answers.add(answer);
     this.#dom.log.append(answer.root);
     answer.restore(content);

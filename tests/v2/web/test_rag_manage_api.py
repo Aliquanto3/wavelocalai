@@ -325,7 +325,7 @@ async def test_the_settings_start_from_the_toml_defaults(served):
     assert body["top_k"] == 4 and body["strategy"] == "naive"
     assert body["embedding_model"] is None
     assert body["base"] == {"embedding_model": None, "documents": 0, "chunks": 0}
-    assert body["strategies"] == ["naive"]
+    assert body["strategies"] == ["naive", "hyde", "self_rag"]
     assert body["limits"]["chunk_size"] == {"min": 100, "max": 8000}
     assert body["limits"]["top_k"] == {"min": 1, "max": 20}
     # sqlite-vec chargé : index persistant ; sans l'extension (CI macOS), repli en mémoire.
@@ -369,7 +369,7 @@ async def test_a_null_gives_the_choice_back_to_the_toml(served):
         {"chunk_size": 99999},
         {"top_k": 0},
         {"top_k": 21},
-        {"strategy": "hyde"},
+        {"strategy": "agentic"},
         {"chunk_size": 200, "chunk_overlap": 200},
         {"inconnu": 1},
         {"embedding_model": ""},

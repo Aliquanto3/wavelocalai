@@ -124,6 +124,9 @@ class RagSettings(_Section):
     # Question (story 4.4) : nombre d'extraits cités et seuils du libellé de pertinence (similarité
     # cosinus, 0 à 1) calés sur le modèle d'embedding par défaut de la base.
     top_k: int = Field(4, ge=1, le=20)
+    # Self-RAG (story 4.6) : reformulations de la question au plus, donc `1 + n` recherches ; la
+    # borne atteinte, la réponse part avec les meilleurs extraits trouvés.
+    self_rag_max_iterations: int = Field(2, ge=1, le=5)
     relevance_very_close: float = Field(0.70, gt=0.0, le=1.0)
     relevance_close: float = Field(0.60, ge=0.0, lt=1.0)
 
