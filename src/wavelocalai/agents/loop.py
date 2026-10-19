@@ -31,7 +31,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from wavelocalai.agents.tools import AgentTool, ToolOutput
+from wavelocalai.agents.tools import AgentTool, ToolError, ToolOutput
 from wavelocalai.config import Settings
 from wavelocalai.errors import mask_secrets
 from wavelocalai.greenops.local_meter import LocalMeter
@@ -48,6 +48,10 @@ NO_RESULT = "(aucun résultat)"
 SENSITIVE_REFUSAL = (
     "L'outil « {tool} » est sensible : il ne s'exécute qu'après une validation explicite de "
     "l'utilisateur, qui n'est pas disponible. Dis à l'utilisateur ce que tu aurais fait."
+)
+TOO_MANY_CALLS = (
+    "Appel refusé : au plus {limit} appels d'outils par tour, celui-ci n'a pas été exécuté. "
+    "Refais-le au tour suivant si tu en as encore besoin."
 )
 MAX_TURNS_MESSAGE = (
     "Je m'arrête : la limite de {turns} appels de modèle est atteinte avant d'avoir pu conclure. "
@@ -197,9 +201,16 @@ class AgentLoop:
                     ],
                 )
             )
-            for call in turn.tool_calls:
+            for rank, call in enumerate(turn.tool_calls):
                 tool_calls += 1
-                ran = await self._call(call, by_name, lane, agent, turn_no)
+                # Plafond d'appels d'un tour (story 6.2) : les suivants reçoivent un refus, sans quoi
+                # le fournisseur rejetterait un appel resté sans résultat.
+                refusal = (
+                    TOO_MANY_CALLS.format(limit=cfg.max_tool_calls_per_turn)
+                    if rank >= cfg.max_tool_calls_per_turn
+                    else None
+                )
+                ran = await self._call(call, by_name, lane, agent, turn_no, refusal)
                 conversation.append(ChatMessage("tool", ran.text, tool_call_id=call.id))
         # Borne atteinte : fin propre, la raison est la réponse.
         message = MAX_TURNS_MESSAGE.format(turns=cfg.max_turns)
@@ -263,8 +274,10 @@ class AgentLoop:
         lane: str,
         agent: str | None,
         turn: int,
+        refusal: str | None = None,
     ) -> _ToolRun:
-        """`tool_call` (avant l'exécution), exécution, `tool_result`. Rend ce que lira le modèle."""
+        """`tool_call` (avant l'exécution), exécution, `tool_result`. Rend ce que lira le modèle.
+        `refusal` : l'appel n'est pas exécuté (plafond du tour), ce texte est son `tool_result`."""
         self._step(
             "tool_call",
             lane,
@@ -276,7 +289,11 @@ class AgentLoop:
             call_id=call.id,
             arguments=masked(call.arguments, self._secrets),
         )
-        ran = await self._execute(call, by_name.get(call.name), list(by_name))
+        ran = (
+            self._refused(refusal)
+            if refusal
+            else await self._execute(call, by_name.get(call.name), list(by_name))
+        )
         self._step(
             "tool_result",
             lane,
@@ -294,6 +311,9 @@ class AgentLoop:
         if len(shown) > limit:
             shown = f"{shown[:limit]}\n[résultat tronqué : {limit} caractères sur {len(shown)}]"
         return _ToolRun(shown or NO_RESULT, ran.failed, ran.duration_s, ran.artifact_url)
+
+    def _refused(self, text: str) -> _ToolRun:
+        return _ToolRun(mask_secrets(text, self._secrets), True, 0.0)
 
     async def _execute(
         self, call: ToolCall, tool: AgentTool | None, offered: list[str]
@@ -320,6 +340,8 @@ class AgentLoop:
         try:
             async with deadline:
                 output = await tool.run(dict(call.arguments))
+        except ToolError as exc:  # échec attendu : son message est écrit pour l'agent
+            return done(str(exc), True)
         except Exception as exc:  # noqa: BLE001 - l'erreur d'un outil est son résultat
             if isinstance(exc, TimeoutError) and deadline.expired():
                 return done(f"Délai dépassé ({timeout_s:g} s) : l'outil n'a pas répondu.", True)
