@@ -52,6 +52,9 @@ function renderOllama(state, parts) {
         total: formatGb(memory.total_gb),
       })
     : formatUnknown();
+  // Mémoire libre pour un nouveau modèle : celle que le garde-fou compare au besoin (story 4.8).
+  parts.memoryFree.textContent =
+    typeof memory?.available_gb === "number" ? formatGb(memory.available_gb) : formatUnknown();
 
   const items = [];
   const loaded = state.system.modelsLoaded;
@@ -95,6 +98,7 @@ function setupOllama(getSystem) {
     state: byId("ollama-state"),
     version: byId("ollama-version"),
     memory: byId("ollama-memory"),
+    memoryFree: byId("ollama-memory-free"),
     loaded: byId("ollama-loaded"),
     error: byId("ollama-error"),
     retry: byId("ollama-retry"),

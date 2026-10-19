@@ -33,7 +33,7 @@ deferred:
     location: src/wavelocalai/web/static/screens/documents.js
     severity: low
   - summary: >-
-      Garde-fou mémoire (story 4.8, en revue sur une autre branche) : `core/ram-guard.js` n'existe pas sur cette base, `ram_guard` s'affiche par `wl-error` comme les autres erreurs (message et action du serveur, question gardée dans le champ). Le branchement viendra à la fusion.
+      Garde-fou mémoire (story 4.8, fusionnée) : l'écran branche `core/ram-guard.js` comme le Chat. Sur un `run_ended` en erreur `ram_guard`, la question revient dans le champ (sauf si la personne a déjà tapé autre chose) ; « Prendre un modèle plus petit » choisit `detail.suggested_model` dans le sélecteur, met à jour l'avertissement cloud et annonce le choix (`discussion.model_changed`), sans relancer. Le serveur applique le garde-fou à la réponse RAG.
     evidence: |-
       `screens/documents.js::submit` (`error.error = envelopeOf(...)`).
     location: src/wavelocalai/web/static/screens/documents.js

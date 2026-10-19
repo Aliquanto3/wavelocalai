@@ -59,8 +59,16 @@ class Server:
     process: subprocess.Popen
 
 
+# Échéance de démarrage d'un serveur : un poste saturé (CI Windows, run parallèle) a mis plus de
+# 30 s ; l'attente s'arrête dès que `/api/health` répond, un serveur sain ne la consomme pas.
+START_TIMEOUT_S = 90.0
+
+
 def _wait_healthy(
-    base_url: str, process: subprocess.Popen, log_path: Path, timeout_s: float = 30.0
+    base_url: str,
+    process: subprocess.Popen,
+    log_path: Path,
+    timeout_s: float = START_TIMEOUT_S,
 ) -> None:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -157,14 +165,17 @@ def backend(tmp_path) -> Iterator[Backend]:
 
 
 class FakeOllama:
-    """Un Ollama minimal (`/api/version`, `/api/ps`) qu'un test allume et éteint : le vrai Ollama,
-    utilisé ailleurs sur la machine, n'est jamais sollicité."""
+    """Un Ollama minimal (`/api/version`, `/api/ps`, déchargement `keep_alive: 0` d'`/api/generate`)
+    qu'un test allume et éteint : le vrai Ollama, utilisé ailleurs sur la machine, n'est jamais
+    sollicité."""
 
     VERSION = "0.9.9"
     MODELS = [{"name": "qwen2.5:1.5b", "size": 2 * 1024**3, "size_vram": 1024**3}]
 
     def __init__(self, port: int) -> None:
         self.port = port
+        self.models = [dict(model) for model in self.MODELS]  # `/api/ps` : modèles chargés
+        self.unloaded: list[str] = []  # modèles déchargés par `keep_alive: 0`
         self._httpd: http.server.ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -176,11 +187,26 @@ class FakeOllama:
                 if self.path == "/api/version":
                     body = {"version": owner.VERSION}
                 elif self.path == "/api/ps":
-                    body = {"models": owner.MODELS}
+                    body = {"models": owner.models}
                 else:
                     self.send_error(404)
                     return
                 payload = json.dumps(body).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_POST(self):  # noqa: N802
+                if self.path not in ("/api/generate", "/api/embed"):
+                    self.send_error(404)
+                    return
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                assert request.get("keep_alive") == 0, request
+                owner.unloaded.append(request["model"])
+                owner.models = [m for m in owner.models if m["name"] != request["model"]]
+                payload = json.dumps({"model": request["model"], "done": True}).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(payload)))

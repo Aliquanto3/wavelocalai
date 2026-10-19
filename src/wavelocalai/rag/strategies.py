@@ -44,7 +44,8 @@ MAX_TOP_K = 20  # le plafond de `RagSettings.top_k`, aussi celui d'une commande
 
 HYDE_TEMPERATURE = 0.3
 HYDE_MAX_TOKENS = 220
-GRADE_MAX_TOKENS = 64
+GRADE_MAX_TOKENS = 64  # plancher du budget de notation
+GRADE_TOKENS_PER_EXCERPT = 8  # « 12 : non » et son retour à la ligne, avec de la marge
 GRADE_EXCERPT_CHARS = 600  # un extrait est noté sur ses premiers caractères
 REWRITE_MAX_TOKENS = 80
 REWRITE_MAX_CHARS = 500
@@ -53,6 +54,11 @@ RERANK_POOL_MAX = 60  # plafond du nombre de candidats reclassés (CPU)
 
 _GRADE_LINE = re.compile(r"(?<!\d)(\d{1,3})\]?\s*[:=.)\-–]?\s*(oui|non|yes|no)\b", re.IGNORECASE)
 _MARKER = re.compile(r"\[(\d{1,3})\]")
+# Préambule d'un petit modèle avant la reformulation (« Voici la question reformulée : … »).
+_PREAMBLE = re.compile(
+    r"^(voici|reformulation|question reformul[ée]e|nouvelle (question|formulation)|here is)[^:]{0,60}:\s*",
+    re.IGNORECASE,
+)
 
 
 def hyde_request(question: str) -> ChatRequest:
@@ -79,11 +85,23 @@ def grade_request(question: str, found: list[dict[str, Any]]) -> ChatRequest:
     blocks = [
         f"[{rank}]\n{item['text'][:GRADE_EXCERPT_CHARS]}" for rank, item in enumerate(found, 1)
     ]
-    user = "Extraits :\n\n" + "\n\n".join(blocks) + f"\n\nQuestion : {question}"
+    # Le gabarit des lignes attendues : sans lui, qwen2.5:1.5b ne note que le premier extrait
+    # (« 1 : oui »), et les autres, sans verdict, seraient tous gardés (mesure de la revue 4.6).
+    count = len(found)
+    template = "\n".join(f"{rank} : oui ou non" for rank in range(1, count + 1))
+    user = (
+        "Extraits :\n\n"
+        + "\n\n".join(blocks)
+        + f"\n\nQuestion : {question}"
+        + f"\n\nRéponds par exactement {count} lignes, de 1 à {count}, une par extrait :\n"
+        + template
+    )
     return ChatRequest(
         messages=[ChatMessage("system", system), ChatMessage("user", user)],
         temperature=0.0,
-        max_tokens=GRADE_MAX_TOKENS,
+        # Une ligne par extrait : un budget fixe couperait la notation de 20 extraits, et les rangs
+        # sans verdict seraient gardés par défaut.
+        max_tokens=max(GRADE_MAX_TOKENS, GRADE_TOKENS_PER_EXCERPT * len(found) + 16),
     )
 
 
@@ -116,9 +134,12 @@ def rewrite_request(question: str, previous: str) -> ChatRequest:
 
 def clean_query(text: str) -> str:
     """Une reformulation propre : première ligne non vide, guillemets de bord et espaces en trop
-    retirés, au plus `REWRITE_MAX_CHARS` caractères ; vide si le modèle n'a rien rendu d'utile."""
+    retirés, au plus `REWRITE_MAX_CHARS` caractères ; vide si le modèle n'a rien rendu d'utile.
+    Un préambule (« Voici la question reformulée : ») est retiré, et une ligne qui n'est que lui
+    est sautée."""
     for line in text.splitlines():
-        line = " ".join(line.split()).strip("«»\"'“” ")
+        line = " ".join(line.split()).strip("«»\"'“” *")
+        line = _PREAMBLE.sub("", line).strip("«»\"'“” *")
         if line:
             return line[:REWRITE_MAX_CHARS]
     return ""

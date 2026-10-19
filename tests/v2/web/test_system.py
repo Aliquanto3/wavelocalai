@@ -135,6 +135,7 @@ async def test_stream_sends_the_system_state_envelope_without_id_or_event(system
     assert data["ollama"]["up"] is True and data["ollama"]["version"] == "0.40.6"
     assert 0.0 <= data["cpu_percent"] <= 100.0
     assert 0 < data["memory"]["used_gb"] <= data["memory"]["total_gb"]
+    assert 0 < data["memory"]["available_gb"] <= data["memory"]["total_gb"]
     assert data["models_loaded"] == [{"tag": "qwen3:1.7b", "size_gb": 2.0, "vram_gb": 1.0}]
     assert data["runs_active"] == []
     await stream.disconnect()

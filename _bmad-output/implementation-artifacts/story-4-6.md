@@ -92,3 +92,15 @@ Ciblée (la suite complète est lancée par l'orchestrateur). Unitaires et web :
 ## Journal
 
 - 2026-10-19 · dev : spec, serveur (stratégies, citations), écran (réglages, marqueurs), tests unitaires, web et E2E ciblés verts.
+
+## Revue
+
+Revue Opus du 2026-10-19 sur `5bd6a5b`, avec la liste du second avis (Haiku).
+
+- medium · second avis 1 · corrigé · notation Self-RAG coupée : mesuré sur `qwen2.5:1.5b`, 20 extraits demandent 91 jetons (64 accordés) ; et, plus grave, sans gabarit le modèle ne note que le premier extrait (« 1 : oui » pour 4 extraits), les autres étaient gardés sans verdict, donc Self-RAG ne filtrait ni ne reformulait jamais. Budget proportionnel (`max(64, 8 × n + 16)`) et gabarit « n : oui ou non » de 1 à n dans l'invite : 4/4 et 20/20 verdicts lus sur le vrai modèle. La règle « un rang sans verdict est gardé » reste (documentée, pas de nouvelle valeur de `fallback`).
+- medium · second avis 2 · corrigé · `_ask` sans `guard=` : HyDE, notation et reformulation chargeaient un modèle local trop gros sans passer le garde-fou de la 4.8. Branché ; un refus `ram_guard` termine le run en erreur avec son enveloppe (au lieu d'un repli silencieux suivi d'un second refus). Test `test_memory_guard_api.py::test_a_strategy_call_that_does_not_fit_ends_the_rag_run_in_ram_guard` (HyDE et Self-RAG, rouge sans le correctif).
+- low · second avis 3 · corrigé · préambule de reformulation (« Voici la question reformulée : ») retiré, sa ligne seule sautée, gras Markdown retiré ; un « : » dans la question reste.
+- low · second avis 4 · rejeté · sans `GET /api/rag/settings`, un `top_k` > 20 reçoit un 422 `invalid_request` affiché par `wl-error` : pas de résultat faux, cas d'une route en panne ; poser un plafond écrit en dur dans l'écran contredirait la règle « bornes du serveur ».
+- low · revue · reporté · aucun test d'intégration ne joue HyDE ni Self-RAG de bout en bout sur Ollama ; la notation et la reformulation ont été vérifiées directement sur `qwen2.5:1.5b`. À faire : une question `self_rag` sur `integration/test_rag_question_ollama.py`. La justesse des verdicts d'un 1,5B reste faible à 20 extraits (oui pour 7 à 20) : qualité du modèle, pas du code.
+- Complexité : 0 constat (`answer_text` joint la réponse une fois en fin de run ; `verify_citations` et `merge_best` bornés par `top_k` ≤ 20).
+- Vérifié sans constat : citations construites sans `innerHTML`, jetons `thought` exclus de `answer_text`, `retry` qui vide la réponse, annulation pendant un appel de stratégie (`_leaf` lève `CancelledError`), couches (`test_layers.py`), fichiers JS de la story sous 600 lignes.

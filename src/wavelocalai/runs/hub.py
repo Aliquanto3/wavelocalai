@@ -104,8 +104,16 @@ class _Event:
 
 
 class _Run:
-    def __init__(self, run_id: str, kind: str, parent_id: str | None, conversation_id: str | None):
+    def __init__(
+        self,
+        run_id: str,
+        kind: str,
+        parent_id: str | None,
+        conversation_id: str | None,
+        models: Sequence[str] = (),
+    ):
         self.id = run_id
+        self.models = tuple(models)
         self.kind = kind
         self.parent_id = parent_id
         self.conversation_id = conversation_id
@@ -267,7 +275,7 @@ class RunHub:
             if user_message is not None:  # après le run, que le message référence
                 repo.insert_message(conn, str(conv_id), run_id, "user", now, user_message)
 
-        run = _Run(run_id, kind, parent_run_id, conv_id)
+        run = _Run(run_id, kind, parent_run_id, conv_id, models)
         if parent is None:
             # Racine réservée pendant l'écriture : pas de course entre deux POST du même genre.
             self._reserved[kind] = run_id
@@ -632,6 +640,18 @@ class RunHub:
             for r in self._runs.values()
             if r.parent_id is None and not r.closing
         ]
+
+    def active_models(self) -> dict[str, str]:
+        """Modèles qu'un run actif (racine ou feuille) emploie : tag -> `run_id` du run racine.
+        Sert à ne décharger que les modèles inactifs (story 4.8)."""
+        used: dict[str, str] = {}
+        for run in self._runs.values():
+            if run.closing:
+                continue
+            root = run.id if run.parent_id is None else run.parent_id
+            for tag in run.models:
+                used.setdefault(tag, root)
+        return used
 
     def active_root(self, kind: str) -> str | None:
         """`run_id` du run racine actif (ou en création) de ce genre, sinon `None` (AD-14)."""

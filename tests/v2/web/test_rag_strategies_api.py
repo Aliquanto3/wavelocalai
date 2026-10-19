@@ -144,7 +144,7 @@ async def test_self_rag_keeps_the_relevant_excerpts_and_answers_without_reformul
     assert model.opened == 2  # la notation, puis la réponse : aucune reformulation
     grading = model.requests[0].messages[1].content
     assert "[1]\n" + CATS in grading and "[2]\n" + CARS in grading
-    assert grading.endswith(f"Question : {QUESTION}")
+    assert f"Question : {QUESTION}\n\n" in grading
 
 
 async def test_self_rag_reformulates_the_question_while_no_excerpt_is_relevant(served):

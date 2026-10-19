@@ -129,6 +129,8 @@ export const api = {
     request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   conversationExportUrl: (id, extension) =>
     `/api/conversations/${encodeURIComponent(id)}.${extension}`,
+  // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
+  unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
   cancelRun: (runId) =>
     request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
 };

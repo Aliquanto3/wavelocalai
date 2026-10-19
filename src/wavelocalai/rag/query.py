@@ -42,7 +42,7 @@ from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.chat import cloud_estimator
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import CANCELLED_CO2, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, Guard, stream_into_run
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ChatResult, Embedder
 from wavelocalai.models.registry import ModelRegistry
@@ -161,6 +161,7 @@ class RagService:
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
         preferences: PreferenceStore | None = None,
+        guard: Guard | None = None,
         reranker: RerankerService | None = None,
     ) -> None:
         self._hub = hub
@@ -174,6 +175,7 @@ class RagService:
         self._reranker = reranker  # sans reranker (ou indisponible), l'ordre des vecteurs reste
         self._meter = meter  # sans compteur, le CO2 d'une feuille locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
+        self._guard = guard  # garde-fou mémoire de la réponse locale (story 4.8)
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: RagCommand) -> RunHandle:
@@ -292,6 +294,7 @@ class RagService:
                 meter=self._meter,
                 on_leaf_closed=self._announce_carbon,
                 metrics_extra={"retrieval_s": retrieval_s},
+                guard=self._guard,
             )
             if leaf.status == "ok":
                 self._publish_citations(root, sources)
@@ -458,7 +461,9 @@ class RagService:
     async def _ask(self, run: _Rag, request: ChatRequest, secrets: Sequence[str]) -> str | None:
         """Un appel de modèle de la stratégie, **silencieux** (rien n'est publié dans le flux) et en
         feuille `generation` du run, mesurée comme les autres. Rend le texte, ou `None` si l'appel
-        échoue ou ne rend rien : la stratégie a alors son repli."""
+        échoue ou ne rend rien : la stratégie a alors son repli. Le garde-fou mémoire (story 4.8)
+        s'applique comme à la réponse : son refus `ram_guard` termine le run en erreur (le modèle
+        ne tiendrait pas plus pour la réponse), au lieu d'un repli silencieux."""
         leaf_id = await self._leaf(run, "generation", run.model.ref.tag)
         captured: list[str] = []
         result = await stream_into_run(
@@ -474,8 +479,13 @@ class RagService:
             meter=self._meter,
             on_leaf_closed=self._announce_carbon,
             capture=captured,
+            guard=self._guard,
         )
         if result.status != "ok":
+            error = result.error or {}
+            if error.get("code") == "ram_guard":
+                detail = {k: v for k, v in (error.get("detail") or {}).items() if k != "technical"}
+                raise AppError("ram_guard", (error.get("detail") or {}).get("technical"), **detail)
             logger.warning(
                 "Appel de stratégie %s en échec (%s)",
                 run.strategy,
