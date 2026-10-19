@@ -62,6 +62,18 @@ Le run s'arrête à la fin de l'Epic 4 (4.9 fusionnée, préversion 2.0.0a4) : E
 - `.venv` du dépôt principal resynchronisé (`uv sync`, 2.0.0a4).
 - Recommandations de l'orchestrateur acceptées (AD-6 amendé, 18 écarts du §7(d) tranchés, ajouts d'API et points ouverts ratifiés, dette 8.1, `mesures-couts/` ignoré) : **`_bmad-output/planning-artifacts/decisions-2026-10-19.md`** (PR #82), qui prime sur les documents qu'elle amende jusqu'à la passe « Report au contrat » (avant la 5.1). Les écarts du §7(d) ne sont plus « jamais tranchés » : appliquer ce fichier.
 
+## Reprise du 2026-10-19 vers 22 h 20 (Epic 8)
+
+- #109 et #111 fusionnées ; #110 (5.6 + 5.8) en file après fusion de master.
+- `feat/v2-dette` abandonnée (tout son contenu est sur master avec #108 à #110 ; sauvegarde : tag local `sauvegarde/v2-dette-avant-reprise`). La 8.1 repart de master **après #110**, en trois lots parallèles sur fichiers disjoints (décision prise seul), réunis ensuite dans `feat/v2-dette` pour une seule PR par pile :
+  - **8.1a serveur et garde-fous** (`feat/v2-dette-serveur`, worktree `v2-8-1a`) : C1 à C9 (C8 et C9 avec le panneau Ollama de la barre haute), copies `.db.bak-N`, verrou par modèle (5.4), contrat découpé par story (`contrat/<story>.md` indexé par `contrat-api.md`), `test_topbar` instable.
+  - **8.1b Arène et délais** (`feat/v2-dette-arene`, worktree `v2-8-1b`) : écart n° 1 serveur et front (Arène, Banc, chat), n° 4, 5, 7 (Arène, nouveau module voisin : `arena.js` à 598 lignes), `onSmallerModel` retiré dans l'Arène, `wl-model-picker.js` sous 600 lignes.
+  - **8.1c Discussion, Base, Agent, coquille** (`feat/v2-dette-ecrans`, worktree `v2-8-1c`) : écarts n° 12 et Self-RAG petit modèle, n° 13, `onSmallerModel` retiré dans Discussion et Base, `agents-solo.js` et `params.mode`, tests de la coquille lus dans le registre, `test_shell` 300 ms instable.
+  - Sprite officiel : en attente du fichier d'Anaël (reste en `deferred`).
+  - Spécs par lot : `story-8-1a.md`, `story-8-1b.md`, `story-8-1c.md` (jamais `story-8-1.md`) ; ajouts au contrat des lots b et c dans `contrat/8-1b.md`, `contrat/8-1c.md`, sans toucher `contrat-api.md` (l'index est complété à l'intégration).
+
+- **État au 2026-10-20 vers 0 h 55** : fusionnées #112 (préversions a5, a6, a7, manifeste seulement), #113 (8.3), #114 (8.1, trois lots en une PR par pile, une relance). En cours : 8.2 (`feat/v2-accessibilite`, worktree `v2-8-2`, empilée sur la 8.1) en revue Opus ; ensuite fusion de `origin/master`, `checks.sh v2-8-2`, PR. B16 : focus sur le `h1` au premier chargement (critère de la 1.8), à confirmer par Anaël. Instable vu en CI : `test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model` (focus après suppression, Ubuntu).
+
 ## Contrats partagés en cours
 
 Noms, modules et constantes décidés pour plusieurs stories ; à citer dans chaque prompt, à réutiliser plutôt qu'à recréer.
