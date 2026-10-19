@@ -122,9 +122,7 @@ def verdict_text(page) -> str:
 def finish_leftover_runs(server):
     """Un seul essai à la fois : un test n'en laisse aucun en cours au suivant."""
     yield
-    with urllib.request.urlopen(
-        f"{server.base_url}/api/bench/runs?limit=5", timeout=5
-    ) as reply:  # noqa: S310
+    with urllib.request.urlopen(f"{server.base_url}/api/bench/runs?limit=5", timeout=5) as reply:  # noqa: S310
         listing = json.load(reply)["runs"]
     for item in listing:
         if item["status"] == "running":
@@ -234,7 +232,10 @@ def test_a_violated_format_names_its_first_violation(page, server):
     script(page, server, BAD)
     open_bench(page, server)
     run_test(page)
-    assert verdict_text(page) == f"« sentiment »{NBSP}: valeur hors de la liste permise"
+    assert (
+        verdict_text(page)
+        == f"« sentiment »{NBSP}: valeur hors de la liste permise (Positif, Neutre, Négatif)"
+    )
     assert page.locator(".bc-verdict-line").get_attribute("data-ok") == "false"
     assert '"Super"' in page.locator(".bc-json").inner_text()  # lisible : mis en forme quand même
 

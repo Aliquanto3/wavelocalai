@@ -70,3 +70,20 @@ Ciblé (poste partagé : ni `tests/v2` complet, ni les autres E2E). Serveur : `t
 - `_Tee` enveloppe le modèle pour lire le texte de la tentative en cours : le verdict est calculé dans `metrics_extra`, avant la clôture du run, donc sans `finish_leaf` supplémentaire.
 - Un banc en erreur (délai, `ram_guard`) n'a pas de `format_verdict` ni de mesures ; la sortie partielle reste dans `bench.output`.
 - La story ne pose ni version ni tag (`2.0.0a7` par l'orchestrateur).
+
+## Revue
+
+Revue Opus du 2026-10-19, sur la branche fusionnée avec `origin/master` (7.1) sans conflit.
+
+| Sévérité | Source | Constat | Suite | Motif |
+|---|---|---|---|---|
+| medium | second avis | Conflits avec `master` | rejeté | fusion d'`origin/master` faite sans conflit avant la revue |
+| low | second avis n° 1 | « Scénario inconnu : » avec espace ASCII | rejeté | texte technique d'`invalid_request` ; les messages serveur (`errors.py`, `conversation_export.py`) gardent l'espace ASCII, l'insécable vaut pour le verdict affiché |
+| low | second avis n° 2 | Texte après une clôture Markdown : « pas du JSON valide (ligne 1, colonne 1) » | corrigé | « La sortie a du texte autour de son bloc JSON » ; texte après le JSON : « La sortie a du texte après son JSON (ligne, colonne) » ; tests `unit/test_bench_verdict.py` |
+| low | second avis n° 3 | « Délai dépassé (N s) » formé au front | rejeté | le front met en forme `detail.timeout_s` du serveur, sans calcul (AD-20) : la décision n° 1 est tenue pour le Banc ; changer l'enveloppe partagée de `timeout` toucherait le chat et l'Arène (8.1) |
+| low | second avis n° 4 | Violation d'`enum` sans les valeurs permises | corrigé | `schema_errors` les cite (« valeur hors de la liste permise (Positif, Neutre, Négatif) »), aussi dans le message technique d'`invalid_output` ; contrat mis à jour |
+| low | revue | `_plain` traduisait les noms de type partout dans la raison : une valeur permise « string » ou « object » aurait été traduite | corrigé | seuls les types de « type attendu » sont traduits ; test `test_enum_violation_names_the_allowed_values_untranslated` |
+| low | revue | `NaN` et `Infinity` acceptés par `json.loads` : « Format » jugé lisible et `formatted` qui n'est pas du JSON | corrigé | refusés (`parse_constant`), « La sortie n'est pas du JSON valide (NaN ou Infinity) » |
+| low | revue | `_Tee` : format imposé violé, run `ok` sans jetons ni débit (l'adaptateur lève avant `Done`) | rejeté | variante déclarée et consignée au contrat ; le CO₂ local reste mesuré (tracker), le cloud est dit non mesurable sans jetons |
+| low | revue | Complexité : `list_bench_runs` parcourt les événements de chaque run pour trouver `metrics` (clé primaire `(run_id, seq)`, sans index sur `type`) ; flux : `textContent` réécrit une fois par image | rejeté | 20 runs au plus par appel, quelques milliers d'événements : sans impact mesurable sur un poste local ; le rendu en flux est groupé par `requestAnimationFrame` (Complexité : 0 constat à impact réel) |
+| — | revue | `structured_output` (registre, local et cloud), exports `metric`/`co2Metric` de `wl-chat-thread.js`, branche `bench` de `runs/snapshot.py` après fusion (7.1, 6.4, 6.5), consigne d'extraction nommant ses champs | vérifié | tests statiques et API verts ; écart d'extraction déclaré |

@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -62,6 +63,12 @@ _TYPES_FR = {
     "boolean": "booléen",
     "null": "nul",
 }
+_TYPE_EXPECTED = "type attendu "
+_FENCE_LINE = re.compile(r"^```", re.MULTILINE)  # une ligne qui ouvre ou ferme un bloc Markdown
+
+
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"{name} n'est pas une valeur JSON")
 
 
 def _where(path: str) -> str:
@@ -73,8 +80,9 @@ def _where(path: str) -> str:
 def _plain(error: str) -> str:
     """Une violation de `schema_errors` en clair : champ entre guillemets, types en français."""
     path, _, reason = error.partition(" : ")
-    for name, french in _TYPES_FR.items():
-        reason = reason.replace(name, french)
+    wanted = reason.removeprefix(_TYPE_EXPECTED)
+    if wanted != reason:  # seuls les noms de type sont traduits, jamais les valeurs permises
+        reason = _TYPE_EXPECTED + "/".join(_TYPES_FR.get(name, name) for name in wanted.split("/"))
     where = _where(path)
     return f"{where[0].upper()}{where[1:]}{NBSP}: {reason}"
 
@@ -86,14 +94,9 @@ def format_verdict(text: str, schema: dict[str, Any], *, forced: bool = False) -
     JSON est tolérée, comme par les adaptateurs."""
     body = strip_fence(text)
     try:
-        value = json.loads(body)
-    except json.JSONDecodeError as exc:
-        reason = (
-            "La sortie est vide"
-            if not body
-            else f"La sortie n'est pas du JSON valide (ligne {exc.lineno}, colonne {exc.colno})"
-        )
-        return {"ok": False, "message": reason, "formatted": None, "forced": forced}
+        value = json.loads(body, parse_constant=_reject_constant)  # NaN, Infinity : pas du JSON
+    except ValueError as exc:
+        return {"ok": False, "message": _unreadable(body, exc), "formatted": None, "forced": forced}
     errors = schema_errors(value, schema)
     return {
         "ok": not errors,
@@ -101,6 +104,21 @@ def format_verdict(text: str, schema: dict[str, Any], *, forced: bool = False) -
         "formatted": json.dumps(value, ensure_ascii=False, indent=2),
         "forced": forced,
     }
+
+
+def _unreadable(body: str, exc: ValueError) -> str:
+    """Pourquoi la sortie n'est pas lisible, en clair : vide, texte autour d'un bloc Markdown, texte
+    après le JSON, ou position de la première erreur."""
+    if not body:
+        return "La sortie est vide"
+    if _FENCE_LINE.search(body):
+        return "La sortie a du texte autour de son bloc JSON"
+    if not isinstance(exc, json.JSONDecodeError):
+        return "La sortie n'est pas du JSON valide (NaN ou Infinity)"
+    where = f"ligne {exc.lineno}, colonne {exc.colno}"
+    if exc.msg == "Extra data":
+        return f"La sortie a du texte après son JSON ({where})"
+    return f"La sortie n'est pas du JSON valide ({where})"
 
 
 class _Tee:

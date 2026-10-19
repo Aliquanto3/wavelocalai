@@ -48,7 +48,8 @@ def schema_errors(value: Any, schema: dict[str, Any], path: str = "$") -> list[s
         if not any(_is(value, n) for n in names):
             return [f"{path} : type attendu {'/'.join(names)}"]
     if "enum" in schema and value not in schema["enum"]:
-        errors.append(f"{path} : valeur hors de la liste permise")
+        allowed = ", ".join(v if isinstance(v, str) else json.dumps(v) for v in schema["enum"])
+        errors.append(f"{path} : valeur hors de la liste permise ({allowed})")
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if "minimum" in schema and value < schema["minimum"]:
             errors.append(f"{path} : inférieur à {schema['minimum']}")
