@@ -660,7 +660,11 @@ class RunHub:
                 await self.store.awrite(tx)
             except Exception:
                 logger.exception("Le run %s n'a pas pu être clos en base", run.id)
-                run.closed.set()  # `amend_cancelled_leaf` n'attend pas une clôture qui n'aura pas lieu
+                # Disque plein, base verrouillée : la transaction est annulée, la ligne reste
+                # `running` et passera à `interrupted` au prochain démarrage (C6). En attendant, le
+                # run ne doit pas rester en mémoire ni occuper la place de son genre (AD-14).
+                for item in (*children, run):
+                    self._abandon(item)
                 raise
         for child in children:
             self._forget(child, "cancelled")
@@ -689,6 +693,21 @@ class RunHub:
         self._runs.pop(run.id, None)
         self._closed.add(run.id)
         run.closed.set()
+
+    def _abandon(self, run: _Run) -> None:
+        """Purge de la mémoire un run dont la clôture a échoué en base : plus d'événement, plus de
+        minuterie, plus de place occupée. Contrairement à `_forget`, son statut en base reste
+        `running` (la transaction est annulée) : `interrupted` au prochain démarrage."""
+        run.closing = True
+        if run.token_timer is not None:
+            run.token_timer.cancel()
+            run.token_timer = None
+        self._wake(run)  # un flux ouvert relit la base (sans le dernier lot) et se termine
+        run.events = []
+        run.flushed = 0
+        self._runs.pop(run.id, None)
+        self._closed.add(run.id)  # un appel tardif du service est sans effet, pas une erreur
+        run.closed.set()  # `amend_cancelled_leaf` n'attend pas une clôture qui n'aura pas lieu
 
     # --- lots d'événements ---------------------------------------------------------------------
 

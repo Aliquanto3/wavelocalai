@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import sqlite3
 import threading
 from pathlib import Path
 
@@ -130,6 +132,45 @@ async def test_last_batch_status_and_assistant_message_are_one_transaction(hub, 
     row = _run(store, handle.run_id)
     assert row["status"] == "running" and row["ended_at"] is None and row["co2_method"] is None
     assert [m["role"] for m in _messages(store, handle.conversation_id)] == ["user"]
+
+
+async def test_failed_close_purges_the_run_frees_its_kind_and_interrupts_at_next_start(
+    hub, store, monkeypatch, caplog
+):
+    """C6 : disque plein pendant la transaction de clôture. La racine (et ses enfants) quitte la
+    mémoire du hub, l'erreur est journalisée, la place du genre est libre, et la ligne `running`
+    devient `interrupted` au démarrage suivant."""
+    parent, leaves = await produce_arena(hub)
+    leaf_ids = [handle.run_id for handle in leaves]
+    original = repo.finish_run_row
+
+    def full_disk(*args, **kwargs):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(repo, "finish_run_row", full_disk)
+    with caplog.at_level(logging.ERROR, logger="wavelocalai.runs.hub"):
+        with pytest.raises(sqlite3.OperationalError, match="disk is full"):
+            await hub.finish_run(parent.run_id)
+    assert f"Le run {parent.run_id} n'a pas pu être clos en base" in caplog.text
+    assert hub.active_runs() == [] and hub.active_root("arena") is None
+    assert hub.watch(parent.run_id) is None and hub._runs == {}  # rien ne reste en mémoire
+    assert await hub.finish_run(parent.run_id) is False  # appel tardif : sans effet, sans erreur
+    assert await hub.cancel(parent.run_id) is False
+
+    monkeypatch.setattr(repo, "finish_run_row", original)
+    again = await produce_arena(hub)  # la place de `arena` est libérée : un nouveau run démarre
+    await hub.cancel(again[0].run_id)
+
+    # La transaction annulée n'a rien laissé : statut `running` en base, jusqu'au redémarrage.
+    assert _run(store, parent.run_id)["status"] == "running"
+    after = RunHub(store, batch_interval_s=3600)
+    try:
+        interrupted = await after.start()
+        assert {parent.run_id, *leaf_ids} <= set(interrupted)
+        assert _run(store, parent.run_id)["status"] == "interrupted"
+        assert [_run(store, i)["status"] for i in leaf_ids] == ["interrupted", "interrupted"]
+    finally:
+        await after.stop()
 
 
 async def test_late_publish_and_finish_are_dropped_not_raised(hub):
