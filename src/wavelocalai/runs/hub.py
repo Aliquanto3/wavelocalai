@@ -16,7 +16,7 @@ import json
 import logging
 import sqlite3
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any
 
 from wavelocalai.errors import AppError
@@ -50,6 +50,12 @@ MAX_PARAM_TEXT = 256
 # Un texte saisi plus court qu'ici n'est pas cherché dans les valeurs : un sujet d'un mot (« carbone »)
 # se retrouve par hasard dans un identifiant (équipe `comparaison_carbone`, rôle, outil, modèle).
 MIN_TYPED_MATCH = 20
+
+
+def _model_key(tag: str) -> str:
+    """Clé de comparaison d'un modèle : le tag sans `:latest` (comme `models.classify.base_tag`,
+    que `runs/` n'importe pas, AD-4)."""
+    return tag.removesuffix(":latest")
 
 
 def check_params(params: Mapping[str, Any], typed_text: str | None = None) -> None:
@@ -163,6 +169,10 @@ class RunHub:
         self._runs: dict[str, _Run] = {}
         self._closed: set[str] = set()
         self._reserved: dict[str, str] = {}  # kind -> run racine en cours de création
+        # Modèles des runs en cours de création (avant leur inscription) : ils comptent comme
+        # employés, sinon une suppression de modèle passerait entre le contrôle et la création.
+        self._pending: dict[str, tuple[str, tuple[str, ...]]] = {}  # run_id -> (racine, modèles)
+        self._deleting: dict[str, int] = {}  # modèle -> suppressions en cours (verrou par modèle)
         self._flusher: asyncio.Task[None] | None = None
         self.app_session_id: str | None = None
 
@@ -203,6 +213,24 @@ class RunHub:
         self.app_session_id = session_id
         return session_id
 
+    # --- verrou par modèle (suppression d'un modèle, story 5.4) -------------------------------
+
+    @contextlib.contextmanager
+    def deleting_model(self, tag: str) -> Iterator[None]:
+        """Pendant la suppression d'un modèle, aucun run ne démarre dessus (`model_not_found`) : le
+        contrôle « est-il employé ? » et l'appel qui le supprime ne laissent plus de fenêtre. À
+        poser **avant** le contrôle d'usage ; les runs déjà inscrits ou en cours de création sont
+        vus par `active_models`."""
+        key = _model_key(tag)
+        self._deleting[key] = self._deleting.get(key, 0) + 1
+        try:
+            yield
+        finally:
+            if self._deleting[key] <= 1:
+                del self._deleting[key]
+            else:
+                self._deleting[key] -= 1
+
     # --- création ------------------------------------------------------------------------------
 
     async def create_run(
@@ -234,6 +262,11 @@ class RunHub:
             busy = self.active_root(kind)  # AD-14 : un run racine actif par genre
             if busy is not None:
                 raise AppError("run_busy", f"Un run {kind} est déjà actif.", run_id=busy)
+        for model in models:
+            if _model_key(model) in self._deleting:
+                raise AppError(
+                    "model_not_found", f"{model} est en cours de suppression.", tag=model
+                )
         if (user_message is not None or conversation_id) and kind not in CONVERSATION_KINDS:
             raise ValueError(f"Un run {kind} n'ouvre pas de conversation.")
         if conversation_id and user_message is None:
@@ -296,6 +329,9 @@ class RunHub:
             # celle-ci l'annule (`cancel_rows` passe après l'insertion dans la file de l'écrivain).
             self._runs[run_id] = run
             parent.children.append(run_id)
+        # Visible comme « employant ses modèles » dès ici, sans attendre l'écriture (même segment
+        # synchrone que le contrôle `_deleting` plus haut : rien ne s'intercale).
+        self._pending[run_id] = (parent_run_id or run_id, tuple(models))
         try:
             await self.store.awrite(tx)
         except Exception:
@@ -310,6 +346,7 @@ class RunHub:
                 run.flushed = 1
                 self._runs[run_id] = run
         finally:
+            self._pending.pop(run_id, None)
             if parent is None and self._reserved.get(kind) == run_id:
                 del self._reserved[kind]
         return RunHandle(run_id, conv_id)
@@ -769,6 +806,9 @@ class RunHub:
                 continue
             root = run.id if run.parent_id is None else run.parent_id
             for tag in run.models:
+                used.setdefault(tag, root)
+        for root, tags in self._pending.values():  # runs en cours de création
+            for tag in tags:
                 used.setdefault(tag, root)
         return used
 

@@ -175,6 +175,61 @@ async def test_failed_close_purges_the_run_frees_its_kind_and_interrupts_at_next
         await after.stop()
 
 
+async def test_a_run_being_created_already_counts_as_using_its_models(hub, monkeypatch):
+    """Verrou par modèle (8.1) : entre le contrôle « le modèle est-il employé ? » et l'inscription
+    du run, `active_models` voit le run en cours de création (sinon la suppression passerait)."""
+    gate, writing = asyncio.Event(), asyncio.Event()
+    real = hub.store.awrite
+
+    async def slow_write(func, **kwargs):
+        writing.set()
+        await gate.wait()
+        return await real(func, **kwargs)
+
+    monkeypatch.setattr(hub.store, "awrite", slow_write)
+    creating = asyncio.create_task(hub.create_run("chat", models=["m:7b"], user_message="Q ?"))
+    await writing.wait()
+    assert list(hub.active_models()) == ["m:7b"]  # pas encore inscrit, déjà employé
+    gate.set()
+    handle = await creating
+    assert hub.active_models() == {"m:7b": handle.run_id}
+    monkeypatch.undo()
+    await hub.cancel(handle.run_id)
+    assert hub.active_models() == {}
+    assert hub._pending == {}
+
+
+async def test_a_failed_creation_leaves_no_pending_model(hub, monkeypatch):
+    async def broken(func, **kwargs):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(hub.store, "awrite", broken)
+    with pytest.raises(sqlite3.OperationalError):
+        await hub.create_run("chat", models=["m:7b"], user_message="Q ?")
+    assert hub.active_models() == {} and hub._pending == {}
+
+
+async def test_no_run_starts_on_a_model_being_deleted(hub):
+    """Verrou par modèle : pendant `deleting_model`, un run sur ce modèle (avec ou sans `:latest`)
+    est refusé ; les autres modèles et la fin du verrou ne changent rien."""
+    with hub.deleting_model("m:7b"):
+        with hub.deleting_model("m:7b"):  # une seconde suppression : le verrou est compté
+            pass
+        with pytest.raises(AppError) as refused:
+            await hub.create_run("chat", models=["m:7b"], user_message="Q ?")
+        assert refused.value.code == "model_not_found" and refused.value.detail["tag"] == "m:7b"
+        other = await hub.create_run("chat", models=["autre:1b"], user_message="Q ?")
+        await hub.cancel(other.run_id)
+    handle = await hub.create_run("chat", models=["m:7b"], user_message="Q ?")  # verrou levé
+    await hub.cancel(handle.run_id)
+    assert hub._deleting == {}
+    with (  # `:latest` ne distingue pas deux écritures du tag
+        hub.deleting_model("qwen3:latest"),
+        pytest.raises(AppError, match="en cours de suppression"),
+    ):
+        await hub.create_run("chat", models=["qwen3"], user_message="Q ?")
+
+
 async def test_late_publish_and_finish_are_dropped_not_raised(hub):
     handle = await produce_chat(hub)
     assert hub.publish(handle.run_id, "token", {"text": "tard"}) is None
