@@ -1,0 +1,99 @@
+{
+  "crew": {
+    "lead": "Une équipe d'agents mène une mission : chaque agent passe son travail au suivant et le dernier rédige le rapport. Rien ne part par email sans votre validation.",
+    "team": {
+      "label": "Équipe",
+      "loading": "Chargement des équipes…",
+      "failed": "Les équipes n'ont pas pu être lues.",
+      "failed_action": "Rechargez la page ou relancez l'application, puis réessayez.",
+      "modified": "Modifiée",
+      "revert": "Revenir à l'équipe d'origine",
+      "reverted": "Équipe d'origine rétablie.",
+      "revert_failed": "L'équipe d'origine n'a pas pu être rétablie.",
+      "configure": "Configurer",
+      "schema": "Schéma de l'équipe"
+    },
+    "model": {
+      "label": "Modèle des agents",
+      "help": "Utilisé par les agents qui n'ont pas leur propre modèle.",
+      "unverified": "Ce modèle n'a pas d'outils vérifiés : un agent risque de mal appeler ses outils. Préférez un modèle marqué « Outils vérifiés »."
+    },
+    "topic": {
+      "label": "Sujet de la mission",
+      "keys": "Entrée : lancer · Maj+Entrée : nouvelle ligne · Échap : arrêter"
+    },
+    "launch": "Lancer la mission",
+    "reason": {
+      "no_agent": "Ajoutez au moins un agent",
+      "no_topic": "Saisissez un sujet",
+      "no_model": "Choisissez un modèle",
+      "busy": "Une mission est en cours"
+    },
+    "start_failed": "La mission n'a pas pu être lancée.",
+    "joined": "Une mission est déjà en cours : vous la suivez.",
+    "solo_busy": "Un agent seul travaille en ce moment : la mission pourra être lancée quand il aura fini.",
+    "solo_busy_link": "Voir l'Agent seul",
+    "reopen_failed": "La mission n'a pas pu être relue.",
+    "track": {
+      "title": "Suivi de la mission",
+      "empty": "Les agents apparaissent ici dès que la mission démarre.",
+      "no_steps": "Aucune étape pour cet agent.",
+      "pending": "En attente",
+      "running": "En cours · Réflexion…",
+      "running_tool": "En cours · Appel de l'outil {tool}…",
+      "approval": "En cours · En attente de votre validation",
+      "done": "Terminé",
+      "done_totals": "Terminé · {tools} · {duration}",
+      "tools_one": "{n} outil",
+      "tools_other": "{n} outils",
+      "stopped": "Arrêté",
+      "notrun": "Non lancé"
+    },
+    "journal": {
+      "title": "Journal brut",
+      "empty": "Aucun événement pour le moment.",
+      "started": "Mission lancée",
+      "ended_ok": "Mission terminée",
+      "ended_cancelled": "Mission arrêtée",
+      "ended_error": "Mission en erreur",
+      "ended_interrupted": "Mission interrompue",
+      "approved": "Envoi validé",
+      "rejected": "Envoi refusé",
+      "expired": "Validation expirée"
+    },
+    "report": {
+      "title": "Rapport",
+      "title_partial": "Rapport partiel (mission arrêtée)",
+      "none_cancelled": "Aucun rapport : la mission a été arrêtée avant la fin du premier agent.",
+      "none_error": "Aucun rapport : la mission s'est terminée en erreur.",
+      "download": "Télécharger en Markdown"
+    },
+    "missing": {
+      "title": "Mission introuvable",
+      "unknown": "Cette mission n'existe pas ou n'est plus conservée sur ce poste.",
+      "new": "Lancer une nouvelle mission"
+    },
+    "config": {
+      "title": "Configurer l'équipe",
+      "lead": "Vos modifications sont enregistrées sur ce poste. Le schéma reste visible pendant que vous les faites.",
+      "agent": "Agent {n}",
+      "role": "Rôle",
+      "goal": "Objectif",
+      "tools": "Outils",
+      "model": "Modèle",
+      "model_mission": "Modèle de la mission",
+      "remove": "Retirer cet agent",
+      "add": "Ajouter un agent",
+      "add_reason": "Une équipe compte {max} agents au plus : retirez un agent pour en ajouter un autre.",
+      "none": "Aucun agent. Ajoutez-en au moins un.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "saved": "Équipe enregistrée.",
+      "invalid": "Corrigez les champs signalés avant d'enregistrer.",
+      "save_failed": "L'équipe n'a pas pu être enregistrée.",
+      "removed": "Agent retiré.",
+      "added": "Agent ajouté."
+    }
+  }
+}

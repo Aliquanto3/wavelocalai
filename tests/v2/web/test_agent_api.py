@@ -172,6 +172,24 @@ async def test_a_task_runs_a_tool_then_answers_and_every_step_is_published(serve
     ]
 
 
+async def test_the_snapshot_of_an_agent_run_carries_server_computed_totals(served):
+    """Story 6.4, AD-20 : le pied de la réponse lit ces totaux, l'écran n'additionne rien."""
+    app, client = served
+    app.state.agent_tools.register(tool())
+    turns(app, ["Je calcule.", call(a=2, b=3)], ["C'est 5."])
+    _, snapshot, events = await _run(client)
+    totals = snapshot["totals"]
+    assert totals["turns"] == 2 and totals["steps"] == len(steps(events)) == 4
+    assert isinstance(totals["duration_s"], float) and totals["duration_s"] >= 0
+    leaves = [c["metrics"]["co2"] for c in snapshot["children"]]
+    expected = sum(c["mg"] for c in leaves if c["mg"] is not None)
+    if all(c["mg"] is not None for c in leaves):
+        assert totals["co2"]["mg"] == pytest.approx(expected)
+    else:
+        assert totals["co2"]["mg"] is None and totals["co2"]["method"] == "unmeasurable"
+        assert totals["co2"]["reason"]
+
+
 async def test_a_task_without_tools_answers_in_one_turn_and_a_conversation_continues(served):
     app, client = served
     model = turns(app, ["Bonjour !"], ["Je me souviens."])

@@ -8,6 +8,7 @@
 // son import et une ligne dans `api` ; une story qui ajoute un appel à un domaine existant ne
 // touche que le fichier de ce domaine. Les écrans importent toujours `api` d'ici.
 
+import { agentsApi } from "./api/agents.js";
 import { arenaApi } from "./api/arena.js";
 import { benchApi } from "./api/bench.js";
 import { conversationsApi } from "./api/conversations.js";
@@ -111,4 +112,5 @@ export const api = {
   ...evaluationApi(request),
   ...ragApi(request),
   ...runsApi(request),
+  ...agentsApi(request),
 };
