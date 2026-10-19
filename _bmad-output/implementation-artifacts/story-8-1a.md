@@ -139,3 +139,19 @@ d'icônes (attend Anaël).
 ## Rapport de dev
 
 Voir le rapport de l'agent (tests ciblés lancés, résultats).
+
+## Revue
+
+Revue Opus, une passe, sur `ce1aac9..171efbc` (branche à jour de master par `ba43279`).
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| medium | second avis 1 | C1 : `import_module as im`, `getattr(importlib, "import_module")(...)`, `w = wavelocalai; w.runs`, `getattr(wavelocalai, nom)` et `package=` calculé échappaient au contrôle (le dernier était résolu contre le paquet du fichier). | Corrigé : alias du chargeur et réaffectations suivis, chargeur obtenu par `getattr`, nom ou `package=` non littéraux refusés (« non vérifiable ») ; 5 modules pièges. |
+| medium | second avis 2 | Copie `.bak-N` tenue (Windows) : `VACUUM` et deux checkpoints rejoués à chaque écriture tant qu'elle reste. | Corrigé : deux reports séparés (espace libre, copies) ; une copie tenue ne rejoue que la suppression ; test qui prouve qu'aucun `VACUUM` n'est relancé. |
+| low | second avis 3 | « Réessayer » : chaque clic lançait deux sondes et une publication ; 20 clics = 40 requêtes vers Ollama. | Corrigé : une sonde forcée en cours sert aux clics suivants, une seule publication `system_state` en attente par application ; test (20 clics, une requête). |
+| low | second avis 4 | `route_discovery.py` : WebSocket et routes sans méthode ignorées en silence. | Corrigé : la découverte échoue (« route non couverte ») ; test. Rejeté pour les attributs `original_router`, `include_context`, `dependant` : c'est la solution retenue par C2 (aucune classe interne importée), gardée par le recoupement avec `app.openapi()`. |
+| low | second avis 5 | Textes « Ollama ne répond pas » dans `models.json` et `components.json`. | Rejeté : ce sont des états d'écran propres à leur contexte (liste, installation, déchargement, sélecteur), pas le message ni l'action du code `ollama_down` d'`errors.py` ; C9 vise ces derniers, dont le miroir est supprimé. Écrans hors du lot a. |
+
+Complexité : 0 constat (structures qui grossissent : `_pending`, `_deleting`, annonces de « Réessayer », bornées par les runs ou clics en cours ; la suppression des copies rejouée à chaque écriture ne coûte plus qu'un `glob`).
+
+Tests ciblés : `unit/test_layers.py`, `test_store.py`, `test_ollama_probe.py`, `test_hub.py`, `test_errors.py`, `test_main.py`, `test_datadir.py`, `web/test_system.py`, `test_models_manage_api.py`, `test_read_budget.py`, `test_route_params.py` (245 passés) ; E2E `test_topbar.py` « Réessayer » (3 passés). Suite complète non lancée (poste partagé) : la CI de branche en tient lieu.

@@ -27,8 +27,9 @@ from wavelocalai.web.system_state import SystemSampler
 router = APIRouter(prefix="/api")
 logger = logging.getLogger("wavelocalai.web")
 
-# Tâches de publication lancées après un « Réessayer » : tenues ici pour que rien ne les ramasse.
-_ANNOUNCEMENTS: set[asyncio.Task[None]] = set()
+# Tâche de publication lancée après un « Réessayer », une par application : tenue ici pour que rien
+# ne la ramasse, et partagée par les clics suivants tant qu'elle attend (un seul `system_state`).
+_ANNOUNCEMENTS: dict[int, asyncio.Task[None]] = {}
 
 
 class OllamaRecheck(BaseModel):
@@ -65,12 +66,16 @@ async def ollama_recheck(request: Request) -> OllamaRecheck:
     statuses = await asyncio.gather(*(p.recheck() for p in probes))
     status = statuses[0]
     settled = all(p.settled for p in probes)
-    if not settled:
+    pending = _ANNOUNCEMENTS.get(id(state))
+    if not settled and (pending is None or pending.done()):
         task = asyncio.get_running_loop().create_task(
             _announce_when_settled(state), name="wavelocalai-ollama-recheck"
         )
-        _ANNOUNCEMENTS.add(task)
-        task.add_done_callback(_ANNOUNCEMENTS.discard)
+        key = id(state)
+        _ANNOUNCEMENTS[key] = task
+        task.add_done_callback(
+            lambda done: _ANNOUNCEMENTS.pop(key) if _ANNOUNCEMENTS.get(key) is done else None
+        )
     return OllamaRecheck(
         up=status.up, version=status.version, latency_ms=status.latency_ms, settled=settled
     )

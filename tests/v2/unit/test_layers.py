@@ -128,14 +128,48 @@ def _package_aliases(tree: ast.AST) -> set[str]:
                 names.add(PACKAGE)
             elif len(parts) == 1:
                 names.add(alias.asname)
+    # `w = wavelocalai` (ou `w = wl`) : le nouveau nom désigne aussi le paquet.
+    assigns = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)]
+    grown = True
+    while grown:
+        grown = False
+        for node in assigns:
+            if isinstance(node.value, ast.Name) and node.value.id in names:
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id not in names:
+                        names.add(target.id)
+                        grown = True
     return names
 
 
-def _is_dynamic_import(call: ast.Call) -> bool:
-    """Vrai pour `importlib.import_module(...)`, `import_module(...)` et `__import__(...)`."""
+_LOADERS = {"import_module", "__import__"}
+
+
+def _loader_aliases(tree: ast.AST) -> set[str]:
+    """Noms locaux d'`import_module` (`from importlib import import_module as im`)."""
+    names = set(_LOADERS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            names.update(a.asname or a.name for a in node.names if a.name == "import_module")
+    return names
+
+
+def _is_dynamic_import(call: ast.Call, loaders: set[str]) -> bool:
+    """Vrai pour `importlib.import_module(...)`, `import_module(...)` (alias compris) et
+    `__import__(...)`."""
     func = call.func
-    name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
-    return name in {"import_module", "__import__"}
+    if isinstance(func, ast.Name):
+        return func.id in loaders
+    return isinstance(func, ast.Attribute) and func.attr in _LOADERS
+
+
+def _is_hidden_loader(call: ast.Call) -> bool:
+    """`getattr(importlib, "import_module")` ou `getattr(builtins, "__import__")` : chargeur
+    obtenu par son nom, dont l'appel n'est pas vérifiable."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "getattr" and len(call.args) >= 2):
+        return False
+    attr = call.args[1]
+    return isinstance(attr, ast.Constant) and attr.value in _LOADERS
 
 
 def _dynamic_target(call: ast.Call, package: list[str]) -> list[str]:
@@ -152,20 +186,24 @@ def _dynamic_target(call: ast.Call, package: list[str]) -> list[str]:
                 given = keyword.value
         if isinstance(given, ast.Constant) and isinstance(given.value, str):
             package = given.value.split(".")
+        elif given is not None:
+            return []  # `package=` calculé : la cible n'est pas vérifiable
         base = package[: len(package) - (dots - 1)]
         return [*base, *[part for part in name.lstrip(".").split(".") if part]]
     return name.split(".")
 
 
 def _getattr_target(call: ast.Call, aliases: set[str]) -> str | None:
-    """`getattr(wavelocalai, "runs")` : rend « runs » ; sinon None."""
+    """`getattr(wavelocalai, "runs")` : rend « runs » ; `""` si le nom n'est pas un littéral
+    (non vérifiable) ; None pour un autre appel."""
     if not (isinstance(call.func, ast.Name) and call.func.id == "getattr" and len(call.args) >= 2):
         return None
     obj, attr = call.args[0], call.args[1]
-    is_alias = isinstance(obj, ast.Name) and obj.id in aliases
-    if is_alias and isinstance(attr, ast.Constant) and isinstance(attr.value, str):
+    if not (isinstance(obj, ast.Name) and obj.id in aliases):
+        return None
+    if isinstance(attr, ast.Constant) and isinstance(attr.value, str):
         return attr.value
-    return None
+    return ""
 
 
 def check_package(root: Path) -> list[str]:
@@ -177,6 +215,7 @@ def check_package(root: Path) -> list[str]:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         package = _package_parts(root, path)
         aliases = _package_aliases(tree)
+        loaders = _loader_aliases(tree)
         for node, module_level in _walk_imports(tree):
             where = f"{rel}:{node.lineno}"
             if isinstance(node, ast.Attribute):
@@ -186,9 +225,15 @@ def check_package(root: Path) -> list[str]:
                 continue
             if isinstance(node, ast.Call):
                 target = _getattr_target(node, aliases)
+                if target == "" or _is_hidden_loader(node):
+                    violations.append(
+                        f"{where} : import dynamique dont le nom n'est pas un littéral "
+                        "(non vérifiable)"
+                    )
+                    continue
                 if target is not None:
                     violations.extend(_layer_violation(where, component, target))
-                if not _is_dynamic_import(node):
+                if not _is_dynamic_import(node, loaders):
                     continue
                 dynamic = _dynamic_target(node, package)
                 if not dynamic:
@@ -341,6 +386,32 @@ def _tree(tmp_path: Path, files: dict[str, str]) -> Path:
         (
             "runs/trap.py",
             "import importlib\ndef f(name):\n    return importlib.import_module(name)\n",
+            "non vérifiable",
+        ),
+        # Revue : alias du chargeur, chargeur obtenu par `getattr`, paquet réaffecté, noms calculés.
+        (
+            "store/trap.py",
+            "from importlib import import_module as im\nm = im('wavelocalai.runs')\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\nm = getattr(importlib, 'import_module')('wavelocalai.runs')\n",
+            "non vérifiable",
+        ),
+        (
+            "store/trap.py",
+            "import wavelocalai\nw = wavelocalai\nx = w.runs\n",
+            "contre le diagramme",
+        ),
+        (
+            "store/trap.py",
+            "import wavelocalai\ndef f(n):\n    return getattr(wavelocalai, n)\n",
+            "non vérifiable",
+        ),
+        (
+            "store/trap.py",
+            "import importlib\ndef f(p):\n    return importlib.import_module('.runs', package=p)\n",
             "non vérifiable",
         ),
     ],

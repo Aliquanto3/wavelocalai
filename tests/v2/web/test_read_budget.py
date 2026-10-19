@@ -144,3 +144,15 @@ def test_discovery_measures_the_files_of_a_mount(tmp_path):
     assert any(isinstance(route, Mount) and route.path == "/fichiers" for route in app.routes)
     found = static_paths(app)
     assert {"/fichiers/grand.js", "/fichiers/petit.css", "/fichiers/autre.svg"} <= set(found)
+
+
+def test_discovery_fails_loudly_on_a_route_it_cannot_cover(tmp_path):
+    """Revue : une route WebSocket n'est ni mesurée ni contrôlée : la découverte rougit."""
+    app = create_app(make_settings(tmp_path))
+
+    @app.websocket("/api/ws")
+    async def ws(websocket):  # pragma: no cover - jamais servie
+        await websocket.close()
+
+    with pytest.raises(AssertionError, match="route non couverte"):
+        discover(app)

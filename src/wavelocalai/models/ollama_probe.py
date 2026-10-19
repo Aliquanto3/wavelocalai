@@ -57,6 +57,7 @@ class OllamaProbe:
         self._checked_at = 0.0
         self._task: asyncio.Task[None] | None = None
         self._generation = 0  # une sonde forcée rend caduque celle qui tournait (état plus ancien)
+        self._forced: asyncio.Task[None] | None = None  # dernière sonde forcée (coalescence)
 
     async def status(self) -> OllamaStatus:
         """État d'Ollama, rendu en `wait_s` au plus."""
@@ -70,9 +71,13 @@ class OllamaProbe:
     async def recheck(self, wait_s: float = 0.25) -> OllamaStatus:
         """Sonde neuve, lancée tout de suite quel que soit l'âge du cache ; rend l'état connu après
         `wait_s` au plus (le nouvel état s'il est arrivé, sinon le précédent : voir `settled`). Une
-        sonde déjà en cours est laissée finir sans écrire : son résultat date d'avant le clic."""
-        self._generation += 1
-        task = self._task = asyncio.get_running_loop().create_task(self._refresh(self._generation))
+        sonde déjà en cours est laissée finir sans écrire : son résultat date d'avant le clic. Une
+        sonde forcée encore en cours sert aux clics suivants (aucune sonde de plus vers Ollama)."""
+        loop = asyncio.get_running_loop()
+        task = self._forced
+        if task is None or task.done() or task.get_loop() is not loop or task is not self._task:
+            self._generation += 1
+            task = self._task = self._forced = loop.create_task(self._refresh(self._generation))
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(asyncio.shield(task), wait_s)
         return self._state or DOWN

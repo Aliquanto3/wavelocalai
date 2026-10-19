@@ -209,3 +209,15 @@ async def test_a_probe_started_before_a_recheck_cannot_overwrite_its_result():
     assert (await probe.recheck(wait_s=1.0)).up is True
     await asyncio.sleep(0.4)  # la première finit maintenant : elle ne réécrit rien
     assert (await probe.status()).up is True
+
+
+async def test_repeated_rechecks_share_the_forced_probe_in_flight():
+    """Vingt clics pendant une sonde forcée lente : une seule requête vers Ollama (revue)."""
+    calls: list[str] = []
+    probe = OllamaProbe("http://127.0.0.1:11434", transport=_transport(calls, delay=0.3))
+    for _ in range(20):
+        await probe.recheck(wait_s=0.001)
+    assert (await probe.wait_settled()).up is True
+    assert len(calls) == 1
+    await probe.recheck(wait_s=1.0)  # la sonde forcée a fini : un nouveau clic sonde de nouveau
+    assert len(calls) == 2

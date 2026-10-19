@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from wavelocalai.store import db as db_module
 from wavelocalai.store.db import DB_NAME, Store, db_path, utc_now_iso
 from wavelocalai.store.migrate import (
     MIGRATIONS_DIR,
@@ -380,6 +381,12 @@ def test_a_copy_that_cannot_be_removed_keeps_the_purge_due_then_is_removed(tmp_p
         monkeypatch.setattr(Path, "unlink", locked)
         store.write(lambda conn: conn.execute("DELETE FROM app_sessions"), purge=True).result()
         assert copy.exists() and store.purge_pending is True  # l'effacement est validé, pas fini
+        # La copie tenue ne relance pas `VACUUM` à chaque écriture : l'espace libre est déjà purgé.
+        vacuums = []
+        monkeypatch.setattr(db_module, "purge_free_space", lambda conn: vacuums.append(1) or True)
+        store.write(lambda conn: None).result()
+        store.write(lambda conn: None).result()
+        assert vacuums == [] and copy.exists() and store.purge_pending is True
         monkeypatch.undo()
         store.write(lambda conn: None).result()  # écriture suivante : la suppression est rejouée
         assert not copy.exists() and store.purge_pending is False

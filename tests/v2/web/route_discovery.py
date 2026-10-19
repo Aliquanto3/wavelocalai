@@ -78,11 +78,12 @@ def _walk(routes: Any, prefix: str, found: list[RouteInfo], mounts: list[StaticM
             # Routes d'un `include_router` : rangées derrière l'enveloppe, préfixe à part.
             extra = getattr(getattr(route, "include_context", None), "prefix", "") or ""
             _walk(original.routes, prefix + extra, found, mounts)
-        elif getattr(route, "path", None) is not None:  # WebSocket, route sans méthode
-            continue
         else:
+            # WebSocket, route sans méthode ou structure nouvelle : ni le budget ni le contrôle des
+            # paramètres ne la couvriraient. Mieux vaut un test rouge qu'une route oubliée.
             raise AssertionError(
-                f"structure de route inconnue ({type(route).__name__}) : adapter route_discovery.py"
+                f"route non couverte ({type(route).__name__} "
+                f"{getattr(route, 'path', '?')!r}) : adapter route_discovery.py"
             )
 
 
