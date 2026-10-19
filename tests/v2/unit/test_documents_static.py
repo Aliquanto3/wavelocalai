@@ -7,13 +7,15 @@ import json
 import re
 from pathlib import Path
 
+from .static_files import catalog, read_static
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
-CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
+CATALOG = catalog()
 
 
 def source(name: str) -> str:
-    return (STATIC / name).read_text(encoding="utf-8")
+    return read_static(name)
 
 
 SCREEN = "".join(
@@ -74,7 +76,7 @@ def test_the_screen_is_registered_as_available_and_its_stylesheet_is_linked():
     registry = source("core/registry.js")
     assert re.search(
         r'id: "documents-base",\s*path: "/documents/base",\s*status: "available",\s*'
-        r'load: \(\) => import\("\.\./screens/documents-base\.js"\)',
+        r'load: \(\) => import\("\.\./\.\./screens/documents-base\.js"\)',
         registry,
     )
     assert '<link rel="stylesheet" href="/static/documents.css">' in source("index.html")

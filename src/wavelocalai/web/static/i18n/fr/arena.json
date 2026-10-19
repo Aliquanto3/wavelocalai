@@ -1,0 +1,201 @@
+{
+  "arena": {
+    "lead": "Posez la même question à 2 à 4 modèles et lisez leurs réponses côte à côte, au fil de leur rédaction.",
+    "question": "Question",
+    "scenarios": "Scénarios",
+    "scenarios_help": "Remplit la question ; vous pouvez ensuite la modifier.",
+    "scenario": {
+      "popularize": {
+        "label": "Vulgarisation",
+        "prompt": "Explique la photosynthèse à un enfant de dix ans, en trois phrases simples."
+      },
+      "extract": {
+        "label": "Extraction JSON",
+        "prompt": "Extrais de ce texte le nom, la date et le montant, et rends-les en JSON strict avec les clés « nom », « date » et « montant » : « Facture n° 2026-118 émise le 14 septembre 2026 pour Marie Durand, d'un montant de 1 250 euros. »"
+      },
+      "summarize": {
+        "label": "Résumé",
+        "prompt": "Résume en trois points le texte suivant : « Les petits modèles de langage tournent sur un ordinateur ordinaire, sans envoyer de données à l'extérieur. Ils répondent avec moins de nuances que les grands modèles hébergés dans le cloud, mais ils coûtent moins cher et consomment moins d'énergie par réponse. Le bon choix dépend de la sensibilité des données et du niveau de qualité attendu. »"
+      },
+      "translate": {
+        "label": "Traduction",
+        "prompt": "Traduis en anglais : « Les modèles locaux gardent vos données sur votre poste, ce qui rassure les équipes juridiques. »"
+      }
+    },
+    "models": "Modèles à comparer",
+    "execution": "Les modèles locaux passent l'un après l'autre (mémoire) ; les modèles cloud en parallèle.",
+    "launch": "Lancer la comparaison",
+    "need_models": "Choisissez au moins 2 modèles",
+    "too_many": "Choisissez 4 modèles au plus",
+    "need_question": "Saisissez une question",
+    "no_local_reason": "Aucun modèle local prêt, installez un modèle ou autorisez le cloud",
+    "no_local_cloud_off": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles, ou activez « Autoriser le cloud » dans la barre haute pour comparer des modèles cloud.",
+    "no_local_cloud_on": "Aucun modèle local n'est prêt. Installez un modèle depuis l'écran Modèles pour comparer des modèles locaux, ou choisissez des modèles cloud si une clé d'API est configurée.",
+    "summary": {
+      "title": "Comparaison",
+      "question": "Question",
+      "models": "Modèles comparés",
+      "judge": "Juge",
+      "no_judge": "Aucun juge"
+    },
+    "busy": "Une comparaison est en cours",
+    "start_failed": "La comparaison n'a pas pu être lancée.",
+    "joined": "Une comparaison est déjà en cours : vous la suivez.",
+    "model_changed": "Modèle choisi : {model}, à la place de {old}. Relancez la comparaison, la question est restée dans le champ.",
+    "asked": "Question posée",
+    "lanes": "Réponses des modèles",
+    "tabs": "Modèles comparés",
+    "banner": {
+      "running": "Comparaison en cours · {done} sur {total} · {clock}",
+      "ok": "Comparaison terminée · {done} sur {total} · {clock}",
+      "cancelled": "Comparaison arrêtée · {done} sur {total} · {clock}",
+      "interrupted": "Comparaison interrompue · {done} sur {total} · {clock}",
+      "error": "Comparaison en échec · {done} sur {total} · {clock}",
+      "stopping": "Arrêt en cours · {done} sur {total} · {clock}"
+    },
+    "announce": {
+      "started": "Comparaison lancée sur {count} modèles.",
+      "ok": "Comparaison terminée : {done} réponses sur {total}.",
+      "cancelled": "Comparaison arrêtée.",
+      "interrupted": "Comparaison interrompue.",
+      "error": "Comparaison en échec.",
+      "score": "{name} : note {score} sur 100.",
+      "score_unreliable": "{name} : note {score} sur 100, peu fiable.",
+      "not_evaluated": "{name} : non évalué, {reason}."
+    },
+    "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
+    "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
+    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré.",
+    "actions": {
+      "label": "Actions sur cette comparaison",
+      "rerun": "Relancer",
+      "edit": "Modifier la question",
+      "csv": "Exporter en CSV",
+      "markdown": "Exporter en Markdown",
+      "erase": "Effacer la comparaison",
+      "erase_title": "Effacer cette comparaison ?",
+      "erase_consequence": "La question, les réponses et les notes sont supprimées de ce poste, sans retour possible. Les mesures de CO₂ restent au registre carbone de la session.",
+      "erase_confirm": "Effacer",
+      "erase_failed": "La comparaison n'a pas pu être effacée. Réessayez.",
+      "erased": "Comparaison effacée. Ses mesures de CO₂ restent au registre carbone."
+    },
+    "missing": {
+      "title": "Résultat introuvable",
+      "unknown": "Cette adresse ne correspond à aucune comparaison enregistrée sur ce poste.",
+      "erased": "Cette comparaison a été effacée : seules ses mesures de CO₂ restent au registre carbone, la question et les réponses n'existent plus.",
+      "new": "Lancer une nouvelle comparaison"
+    },
+    "history": {
+      "title": "Comparaisons précédentes",
+      "help": "Rouvrez une comparaison terminée : l'écran la reconstruit depuis la base, sans relancer de modèle.",
+      "status": {
+        "ok": "terminée",
+        "cancelled": "arrêtée",
+        "error": "en échec",
+        "interrupted": "interrompue",
+        "running": "en cours"
+      }
+    },
+    "judge": {
+      "panel": "Critères de notation",
+      "label": "Juge",
+      "need_judge": "Choisissez un juge",
+      "help": "Le juge note chaque réponse sur 100. Le cloud n'est jamais le juge sans « Autoriser le cloud ».",
+      "weak_help": "Un juge de moins de 4 milliards de paramètres actifs donne une note peu fiable.",
+      "current": "Juge retenu : {name}",
+      "criteria_legend": "Critères envoyés au juge",
+      "criterion_label": "Critère {n}",
+      "criterion_remove": "Retirer le critère {n}",
+      "add": "Ajouter un critère",
+      "reset": "Rétablir les critères par défaut",
+      "criteria_help": "Au plus {max} critères de {chars} caractères. Sans critère, le juge applique : {defaults}.",
+      "criteria_full": "Huit critères au plus : retirez-en un pour en ajouter.",
+      "defaults": {
+        "accuracy": "exactitude",
+        "relevance": "pertinence",
+        "clarity": "clarté"
+      },
+      "info_judge": "Juge : {name}",
+      "info_criteria": "Critères : {list}",
+      "unreliable_alert": "Note peu fiable : le juge a moins de 4 milliards de paramètres actifs, ou sa taille est inconnue. Choisissez un juge plus gros pour un classement plus sûr.",
+      "none_alert": "Aucun juge n'est disponible : les réponses ne sont pas évaluées, et une réponse non évaluée ne vaut jamais 0."
+    },
+    "results": {
+      "title": "Classement",
+      "help_live": "Le classement se construit au fil des notes et se fige à la fin de la comparaison.",
+      "help_frozen": "Classement figé.",
+      "none_yet": "Aucune note pour l'instant.",
+      "partial_cancelled": "Comparaison arrêtée : le classement ne vaut que pour les modèles déjà notés.",
+      "partial_interrupted": "Comparaison interrompue : le classement ne vaut que pour les modèles déjà notés.",
+      "partial_error": "Comparaison en échec : le classement ne vaut que pour les modèles déjà notés.",
+      "rank": "Rang",
+      "tie": "ex æquo",
+      "fact_score": "Note",
+      "fact_rate": "Débit",
+      "fact_co2": "CO₂",
+      "unranked": "Non évalués, sans rang",
+      "not_evaluated_line": "Non évalué : {reason}",
+      "not_evaluated_cell": "non évalué : {reason}",
+      "reason_unknown": "aucune note reçue",
+      "pending_one": "1 modèle n'est pas encore noté.",
+      "pending_many": "{count} modèles ne sont pas encore notés.",
+      "in_progress": "en cours",
+      "not_measured": "non mesuré"
+    },
+    "chart": {
+      "title": "Qualité, débit et CO₂",
+      "segment_label": "Affichage des résultats",
+      "matrix": "Matrice",
+      "table": "Tableau",
+      "svg_title": "Note du juge et débit de chaque modèle, taille du point selon le CO₂",
+      "svg_desc": "Nuage de points. En abscisse, le débit en tokens par seconde ; en ordonnée, la note du juge sur 100 ; la taille du point indique le CO₂ de la réponse. {points}",
+      "point": "{name} : {score}, {rate}, {co2}.",
+      "x_axis": "Débit (tokens/s)",
+      "y_axis": "Note du juge (/100)",
+      "see_table": "Voir le tableau",
+      "size_legend": "Taille du point : CO₂ de la réponse",
+      "size_unmeasurable": "Contour en pointillés : CO₂ non mesurable",
+      "not_plotted": "Non placés sur la matrice : {names}.",
+      "empty": "La matrice apparaît dès qu'un modèle est noté.",
+      "nothing_placed": "Aucun modèle n'a à la fois une note et un débit : la matrice reste vide. Le tableau les liste tous.",
+      "caption": "Résultats de la comparaison, une ligne par modèle",
+      "col_model": "Modèle",
+      "col_origin": "Origine",
+      "col_score": "Note",
+      "col_rate": "Débit",
+      "col_co2": "CO₂",
+      "col_load": "Chargement",
+      "col_total": "Durée totale",
+      "defs_title": "Que mesure chaque colonne ?",
+      "def_score": "Note : donnée sur 100 par un juge selon les critères choisis ; « non évalué » quand elle est impossible, jamais 0.",
+      "def_rate": "Débit : tokens produits par seconde pendant la génération, mesuré par Ollama, chargement exclu.",
+      "def_load": "Chargement : temps passé à mettre le modèle en mémoire, compté à part.",
+      "def_co2": "CO₂ : émissions de la réponse ; mesurées en local, estimées pour un modèle cloud, « non mesurable » quand la mesure n'a pas pu se faire.",
+      "same_unit": "Tous les CO₂ de cette comparaison sont exprimés en {unit}.",
+      "not_applicable": "sans objet"
+    },
+    "verdict": {
+      "title": "Verdict local et cloud",
+      "help": "Calculé par le serveur à la fin de la comparaison, d'après le meilleur modèle local et le meilleur modèle cloud notés.",
+      "unavailable": "Le verdict local et cloud n'a pas pu être lu. Rouvrez la comparaison pour réessayer.",
+      "score": "Écart de note",
+      "score_local": "{local} ({localScore}) devance {cloud} ({cloudScore}) de {gap}.",
+      "score_cloud": "{cloud} ({cloudScore}) devance {local} ({localScore}) de {gap}.",
+      "score_tie": "{local} et {cloud} sont à égalité ({localScore}).",
+      "points_one": "1 point",
+      "points_many": "{count} points",
+      "cost": "Coût pour {requests} requêtes de même taille",
+      "cost_text": "{local} en local ; {cloud} avec {name}.",
+      "cost_unknown": "inconnu",
+      "price_date": "Prix relevés le {date}.",
+      "price_source": "Source : {source}.",
+      "price_no_date": "Aucune date de relevé : la table de prix n'est pas renseignée.",
+      "co2": "CO₂ par réponse",
+      "co2_text": "{local} en local ; {cloud} avec {name}.",
+      "data": "Données restées sur le poste",
+      "data_one": "Les questions et les réponses d'un modèle local n'ont pas quitté ce poste.",
+      "data_many": "Les questions et les réponses de {count} modèles locaux n'ont pas quitté ce poste.",
+      "data_judge_cloud": "Le juge est un modèle cloud : les réponses des modèles locaux lui ont été envoyées pour être notées."
+    }
+  }
+}

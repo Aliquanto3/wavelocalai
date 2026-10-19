@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "lead": "Posez une question à un modèle de ce poste et lisez sa réponse au fil de sa rédaction.",
+    "creativity": "Créativité",
+    "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "creativity_default": "Valeur conseillée pour {model} : {value}.",
+    "creativity_default_fallback": "Valeur par défaut : 0,2 (ce modèle n'en conseille pas).",
+    "message": "Écrivez votre message",
+    "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
+    "send": "Envoyer",
+    "clear": "Effacer la conversation",
+    "download_json": "Télécharger (JSON)",
+    "download_markdown": "Télécharger (Markdown)",
+    "cleared": "Conversation effacée de ce poste. Le CO₂ déjà compté reste dans le total de la session.",
+    "empty": "Posez une question pour commencer. La réponse s'affiche au fil de sa rédaction.",
+    "no_model": "Aucun modèle n'est choisi.",
+    "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre message.",
+    "joined": "Une réponse est déjà en cours : vous la suivez. Votre message est resté dans le champ.",
+    "start_failed": "La demande n'a pas pu être envoyée.",
+    "model_changed": "Modèle choisi : {model}. Renvoyez votre question, elle est restée dans le champ."
+  }
+}

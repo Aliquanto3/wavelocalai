@@ -9,13 +9,15 @@ import json
 import re
 from pathlib import Path
 
+from .static_files import catalog, read_static
+
 ROOT = Path(__file__).resolve().parents[3]
 STATIC = ROOT / "src" / "wavelocalai" / "web" / "static"
-CATALOG = json.loads((STATIC / "i18n/fr.json").read_text(encoding="utf-8"))
+CATALOG = catalog()
 
 
 def source(name: str) -> str:
-    return (STATIC / name).read_text(encoding="utf-8")
+    return read_static(name)
 
 
 def code(name: str) -> str:
@@ -122,7 +124,7 @@ def test_the_screen_is_registered_as_available_and_the_panel_is_a_shared_compone
     registry = source("core/registry.js")
     assert re.search(
         r'id: "documents-chat",\s*path: "/documents",\s*status: "available",\s*'
-        r'load: \(\) => import\("\.\./screens/documents\.js"\)',
+        r'load: \(\) => import\("\.\./\.\./screens/documents\.js"\)',
         registry,
     )
     assert "wl-source-panel.js" in source("components/index.js")
