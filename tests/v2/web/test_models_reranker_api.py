@@ -159,7 +159,8 @@ async def test_a_loading_failure_is_forgotten_once_the_model_is_installed(served
 
 async def test_a_download_cut_by_a_hard_stop_is_not_installed_and_the_next_pull_starts_over(served):
     """Arrêt brutal du serveur pendant l'installation : le dossier partiel et son témoin restent. Le
-    reranker n'est pas « installé », l'installation se relance et repart d'un dossier vide (revue 5.5)."""
+    reranker n'est pas « installé », l'installation se relance et repart d'un dossier vide (revue 5.5).
+    """
     app, client = served
     await _install(client, total_bytes=1000, steps=2)
     service = app.state.reranker
