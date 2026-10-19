@@ -154,7 +154,7 @@ async def test_query_cursor_wins_over_the_header(served):
 async def test_unknown_run_child_run_and_bad_cursor_use_the_error_envelope(served):
     app, client = served
     missing = await client.get("/api/runs/inconnu/events")
-    assert missing.status_code == 404 and missing.json()["code"] == "not_found"
+    assert missing.status_code == 404 and missing.json()["code"] == "run_not_found"
     _, leaves = await produce_arena(app.state.hub)
     child = await client.get(f"/api/runs/{leaves[0].run_id}/events")
     assert child.status_code == 404  # le parent publie seul (AD-5)

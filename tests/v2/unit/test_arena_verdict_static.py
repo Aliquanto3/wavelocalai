@@ -52,7 +52,10 @@ def test_the_verdict_texts_follow_the_french_typography():
 
 def test_the_screen_reads_the_snapshot_and_computes_nothing():
     code = code_of("screens/arena-verdict.js")
-    assert "api.run(runId)" in code and "snapshot?.verdict" in code
+    assert (
+        "snapshot?.verdict" in code and "api." not in code
+    )  # elle affiche, la lecture est ailleurs
+    assert "api.run(runId)" in code_of("screens/arena-snapshot.js")
     # Aucun calcul de mesure dans le navigateur (AD-20) : pas d'opération sur les montants, les
     # notes ou les prix ; seuls la mise en forme et le choix de la phrase par `leader`.
     assert not re.search(r"\b(price|per_mtok|input_tokens|output_tokens)\b", code)
@@ -63,8 +66,8 @@ def test_the_screen_reads_the_snapshot_and_computes_nothing():
 
 def test_the_results_read_the_verdict_only_after_a_comparison_that_ended_normally():
     results = source("screens/arena-results.js")
-    assert 'state === "ok" && runId' in results and "verdict.load(runId)" in results
-    assert "verdict.reset()" in results
+    assert 'if (state === "ok")' in results and "verdict.show(snapshot)" in results
+    assert "readSettled(runId" in results and "verdict.reset()" in results
     assert "results.end(state, runId)" in source("screens/arena.js")
 
 

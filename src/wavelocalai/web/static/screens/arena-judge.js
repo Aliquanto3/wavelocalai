@@ -170,6 +170,13 @@ export function judgePanel(uid) {
       return picker.value ? { tag: picker.value, name: fiche?.name ?? picker.value, origin } : null;
     },
     criteria: () => cleanCriteria(items),
+    // Reprend le juge et les critères d'une comparaison passée (`config` du serveur, story 3.6) ; sans
+    // juge dans la configuration, le choix du défaut `judge` reste celui du sélecteur.
+    restore({ judge, criteria }) {
+      if (judge) picker.value = judge;
+      items = criteria?.length ? cleanCriteria(criteria) : defaultCriteria();
+      renderList();
+    },
   };
 }
 

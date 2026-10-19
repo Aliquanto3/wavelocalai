@@ -84,6 +84,17 @@
       "label": "Mémoire",
       "total": "sur {total}"
     },
+    "demo": {
+      "title": "Démo recommandée",
+      "text": "Comparez plusieurs petits modèles sur votre question : qualité, vitesse et CO₂.",
+      "ready": "Prêts :",
+      "cloud_ready": "Modèles cloud disponibles :",
+      "no_local": "Aucun modèle local disponible",
+      "no_local_cloud_off": "Autorisez le cloud dans la barre haute pour comparer des modèles cloud, ou installez un modèle depuis l'écran Modèles.",
+      "no_local_cloud_on": "Installez un modèle depuis l'écran Modèles, ou choisissez des modèles cloud dont la clé d'API est configurée.",
+      "unavailable": "La liste des modèles n'est pas disponible pour le moment.",
+      "launch": "Lancer une comparaison"
+    },
     "modules_title": "Modules",
     "documents_indexed_one": "{n} document indexé",
     "documents_indexed_other": "{n} documents indexés",
@@ -568,6 +579,36 @@
     "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
     "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
     "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré.",
+    "actions": {
+      "label": "Actions sur cette comparaison",
+      "rerun": "Relancer",
+      "edit": "Modifier la question",
+      "csv": "Exporter en CSV",
+      "markdown": "Exporter en Markdown",
+      "erase": "Effacer la comparaison",
+      "erase_title": "Effacer cette comparaison ?",
+      "erase_consequence": "La question, les réponses et les notes sont supprimées de ce poste, sans retour possible. Les mesures de CO₂ restent au registre carbone de la session.",
+      "erase_confirm": "Effacer",
+      "erase_failed": "La comparaison n'a pas pu être effacée. Réessayez.",
+      "erased": "Comparaison effacée. Ses mesures de CO₂ restent au registre carbone."
+    },
+    "missing": {
+      "title": "Résultat introuvable",
+      "unknown": "Cette adresse ne correspond à aucune comparaison enregistrée sur ce poste.",
+      "erased": "Cette comparaison a été effacée : seules ses mesures de CO₂ restent au registre carbone, la question et les réponses n'existent plus.",
+      "new": "Lancer une nouvelle comparaison"
+    },
+    "history": {
+      "title": "Comparaisons précédentes",
+      "help": "Rouvrez une comparaison terminée : l'écran la reconstruit depuis la base, sans relancer de modèle.",
+      "status": {
+        "ok": "terminée",
+        "cancelled": "arrêtée",
+        "error": "en échec",
+        "interrupted": "interrompue",
+        "running": "en cours"
+      }
+    },
     "judge": {
       "panel": "Critères de notation",
       "label": "Juge",

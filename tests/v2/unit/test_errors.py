@@ -104,3 +104,15 @@ def test_conversation_busy_is_a_409_that_names_the_active_run():
     envelope = build_envelope("conversation_busy", "run actif", run_id="abc")
     assert envelope["detail"] == {"technical": "run actif", "run_id": "abc"}
     assert envelope["message"] and envelope["action"]
+
+
+def test_run_not_found_is_a_404_and_arena_busy_a_409_that_name_the_run():
+    """Story 3.6 : un identifiant de run inconnu, et l'effacement d'une Arène encore active."""
+    assert ERRORS["run_not_found"].status == 404 and ERRORS["run_not_found"].detail_keys == (
+        "run_id",
+    )
+    assert ERRORS["arena_busy"].status == 409 and ERRORS["arena_busy"].detail_keys == ("run_id",)
+    for code in ("run_not_found", "arena_busy"):
+        envelope = build_envelope(code, "détail", run_id="abc")
+        assert envelope["detail"]["run_id"] == "abc"
+        assert envelope["message"] and envelope["action"] and "{" not in envelope["message"]

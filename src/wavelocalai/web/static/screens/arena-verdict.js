@@ -1,23 +1,18 @@
 // Verdict local/cloud de l'Arène (story 3.5, AD-5, AD-10, AD-20).
 //
 //   const verdict = verdictView(uid, nameOf);   // `nameOf(tag)` : le nom lisible d'un modèle
-//   verdict.el  verdict.load(runId)  verdict.reset()
+//   verdict.el  verdict.show(snapshot)  verdict.fail()  verdict.reset()
 //
 // Le serveur calcule le verdict à la fin de la comparaison et le rend dans l'instantané du run
-// (`GET /api/runs/{id}`, champ `verdict`) : cette vue le lit à `run_ended` et à la réouverture (le
-// rejeu finit aussi par `run_ended`), et n'en calcule rien. Elle choisit la phrase selon `leader`,
+// (`GET /api/runs/{id}`, champ `verdict`) : `arena-results.js` le lit à `run_ended` et à la réouverture
+// (le rejeu finit aussi par `run_ended`, `arena-snapshot.js`), cette vue l'affiche et n'en calcule rien. Elle choisit la phrase selon `leader`,
 // met en forme montants, points et CO2, et affiche la date de la table de prix avec le coût. Sans
 // verdict (pas de modèle cloud noté, run arrêté), la section ne paraît pas. Un coût inconnu dit la
 // raison du serveur, jamais 0 ni « — ».
 
-import { api } from "../core/api.js";
 import { element } from "../core/dom.js";
 import { co2Group, formatDate, formatInteger, formatMoney, formatNumber, formatScore } from "../core/format.js";
 import { t } from "../core/i18n.js";
-
-const ACTIVE = ["running", "awaiting_approval"]; // statuts non terminaux de l'instantané
-const RETRIES = 20;
-const RETRY_MS = 150;
 
 function co2Text(co2, group) {
   if (co2 === null || co2 === undefined) return t("arena.results.not_measured");
@@ -79,8 +74,6 @@ export function verdictView(uid, nameOf) {
   const body = element("div", "arena-verdict-body");
   el.append(title, help, body);
 
-  let ticket = 0; // une lecture tardive d'une comparaison précédente n'écrase pas la courante
-
   function render(verdict) {
     const name = (tag) => nameOf(tag) ?? tag;
     const group = co2Group([verdict.local.co2?.mg, verdict.cloud.co2?.mg].filter((mg) => typeof mg === "number"));
@@ -111,7 +104,6 @@ export function verdictView(uid, nameOf) {
   }
 
   function reset() {
-    ticket += 1;
     el.hidden = true;
     body.replaceChildren();
   }
@@ -119,31 +111,21 @@ export function verdictView(uid, nameOf) {
   return {
     el,
     reset,
-    // Lit l'instantané du run terminé ; sans `verdict`, la section reste cachée.
-    // Le hub publie `run_ended` juste avant d'écrire le statut final en base : tant que
-    // l'instantané dit encore le run actif, il est relu (quelques fois, à intervalle court).
-    async load(runId) {
-      const mine = ++ticket;
-      const unavailable = () => {
-        body.replaceChildren(element("p", "help arena-verdict-unavailable", t("arena.verdict.unavailable")));
-        help.hidden = true;
-        el.hidden = false;
-      };
-      let snapshot;
+    // L'instantané d'une comparaison terminée : sans `verdict` (pas de modèle cloud noté, run
+    // arrêté), la section reste cachée.
+    show(snapshot) {
       try {
-        for (let attempt = 0; ; attempt += 1) {
-          snapshot = await api.run(runId);
-          if (mine !== ticket) return;
-          if (!ACTIVE.includes(snapshot?.status) || attempt >= RETRIES) break;
-          await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
-          if (mine !== ticket) return;
-        }
-        if (ACTIVE.includes(snapshot?.status)) unavailable();
-        else if (snapshot?.verdict) render(snapshot.verdict);
+        if (snapshot?.verdict) render(snapshot.verdict);
         else reset();
       } catch {
-        if (mine === ticket) unavailable();
+        this.fail();
       }
+    },
+    // L'instantané n'a pas pu être lu : la section le dit plutôt que de disparaître.
+    fail() {
+      body.replaceChildren(element("p", "help arena-verdict-unavailable", t("arena.verdict.unavailable")));
+      help.hidden = true;
+      el.hidden = false;
     },
   };
 }

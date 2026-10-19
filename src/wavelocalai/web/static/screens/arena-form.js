@@ -1,10 +1,45 @@
 // Éléments du formulaire de l'Arène, extraits de `arena.js` (plafond de taille des fichiers du front).
 
+import { ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
 import { saveDraft } from "../core/drafts.js";
 import { t } from "../core/i18n.js";
+import { store } from "../core/store.js";
 
 export const SCENARIOS = ["popularize", "extract", "summarize", "translate"];
+const MIN_MODELS = 2;
+const MAX_MODELS = 4;
+
+// Un échec de l'API : son enveloppe (AD-18), sinon un message de lancement impossible.
+export function envelopeOf(error) {
+  if (error instanceof ApiError && error.envelope) return error.envelope;
+  return { code: "internal", message: t("arena.start_failed") };
+}
+
+// Le premier prérequis du lancement qui manque, en texte (vide : on peut lancer). `busy()` dit qu'une
+// comparaison est en cours ou en cours d'envoi. La première raison l'emporte.
+export function launchReasonOf({ busy, picker, question, judging }) {
+  const availableChoices = () =>
+    picker.values.filter((tag) => picker.modelFor(tag)?.available !== false).length;
+  const checks = [
+    () => (busy() ? t("arena.busy") : ""),
+    () =>
+      picker.localReadyCount === 0 && !store.get().allowCloud && availableChoices() < MIN_MODELS
+        ? t("arena.no_local_reason")
+        : "",
+    () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
+    () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
+    () => (question.value.trim() ? "" : t("arena.need_question")),
+    () => (judging.ready() ? "" : t("arena.judge.need_judge")),
+  ];
+  return () => {
+    for (const check of checks) {
+      const why = check();
+      if (why) return why;
+    }
+    return "";
+  };
+}
 
 // Les scénarios d'exemple : un clic remplace la question (et son brouillon), puis rend le focus.
 export function scenarioFieldset(question, draft, onPick) {
@@ -33,4 +68,12 @@ export function noLocalNotice() {
   const text = element("span", "");
   el.append(icon("info"), text); // masqué ou non par l'écran, dès le montage
   return { el, text };
+}
+
+// Une comparaison effacée (AD-13) : sa question ne reste ni dans le champ ni dans le brouillon
+// (`localStorage`). Un autre texte, tapé depuis, est gardé.
+export function forgetErased(question, prompt) {
+  if (!prompt || question.value !== prompt) return;
+  question.value = "";
+  question.dispatchEvent(new Event("input")); // brouillon effacé, raison du lancement recalculée
 }

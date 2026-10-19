@@ -568,12 +568,19 @@ def test_the_front_computes_no_measure_and_names_no_host():
 
 
 def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_text_is_used():
-    """Les cartes de l'Accueil lisent le store rempli par le flux (AD-6) ; son seul appel à l'API est
-    le résumé de la base documentaire (story 4.9) ; il ne calcule rien, et le catalogue ne garde
+    """Les cartes d'état de l'Accueil lisent le store rempli par le flux (AD-6) et ne calculent rien.
+    `home.js` n'appelle que le résumé de la base documentaire (story 4.9) ; la carte « Démo
+    recommandée » (story 3.6, `home-demo.js`) ne lit que la liste des modèles et le défaut `arena`.
+    Les deux attendent le repère `shell-ready` avant d'appeler l'API (AD-15). Le catalogue ne garde
     aucun texte `home.*` qu'il n'affiche pas (un texte au pluriel compte par sa base)."""
     text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
-    assert "fetch(" not in text and "EventSource" not in text
+    demo = (STATIC / "screens/home-demo.js").read_text(encoding="utf-8")
+    for source in (text, demo):
+        assert "fetch(" not in source and "EventSource" not in source
+        assert 'from "../core/shell-ready.js"' in source and "await shellReady()" in source
     assert re.findall(r"\bapi\.(?!js)(\w+)", text) == ["documents"]
+    assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
+    text += demo
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
     literal = {key for key in named if "${" not in key}
