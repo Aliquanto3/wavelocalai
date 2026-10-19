@@ -116,6 +116,18 @@ export function formatClock(seconds) {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
+// Distance en voiture (équivalence parlante du CO2, panneau de méthode) : « 3,7 m », « 1,2 km ». Le
+// serveur donne des mètres ; ici seulement l'unité qui convient, comme `co2Unit`.
+export function formatDistance(meters) {
+  if (!isMeasure(meters) || meters < 0) return formatUnknown();
+  if (meters === 0) return withUnit(formatNumber(0), "m"); // « 0 m », jamais « 0 mm »
+  const rounded = Number(meters.toPrecision(3));
+  if (rounded >= 1000) return withUnit(formatNumber(meters / 1000), "km");
+  if (rounded >= 1) return withUnit(formatNumber(meters), "m");
+  if (rounded >= 0.01) return withUnit(formatNumber(meters * 100), "cm");
+  return withUnit(formatNumber(meters * 1000), "mm");
+}
+
 // Texte au pluriel du catalogue : `<base>_one` (0 et 1) ou `<base>_other`, `{n}` mis en forme.
 export const plural = (base, n, vars = {}) =>
   t(`${base}_${n < 2 ? "one" : "other"}`, { n: formatInteger(n), ...vars });

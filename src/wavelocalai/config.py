@@ -71,9 +71,28 @@ class OllamaSettings(_Section):
     probe_cache_s: float = Field(5.0, ge=0)
 
 
+class CarEquivalence(_Section):
+    """Facteur de l'équivalence parlante du CO2 en distance parcourue en voiture (story 5.1, D-38).
+
+    Réglage daté et sourcé, comme la table de prix : un facteur sans source ni date de relevé ne se
+    vérifie pas, il est refusé. Le front ne contient aucune valeur de repli.
+    """
+
+    g_per_km: float = Field(gt=0)  # g de CO2e par km parcouru
+    source: str = Field(min_length=1)  # source publique citée à l'écran
+    retrieved_at: date  # date du relevé
+
+    @model_validator(mode="after")
+    def _sourced(self) -> CarEquivalence:
+        if not self.source.strip():
+            raise ValueError("l'équivalence en voiture a besoin d'une source")
+        return self
+
+
 class CarbonSettings(_Section):
     country_iso: str = Field("FRA", min_length=3, max_length=3)
     pue: float = Field(1.1, ge=1.0)
+    car_equivalence: CarEquivalence | None = None  # absente : le panneau de méthode n'en dit rien
 
 
 class ModelPrice(_Section):

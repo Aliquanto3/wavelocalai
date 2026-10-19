@@ -276,7 +276,10 @@ export function resultsView(uid, lanesEl) {
   }
 
   lanesEl.addEventListener("wl-lane-change", () => schedule());
-  lanesEl.addEventListener("wl-lane-rename", () => schedule(true));
+  lanesEl.addEventListener("wl-lane-rename", () => {
+    schedule(true);
+    verdict.refresh(); // le verdict nomme les modèles : il se redessine comme le classement
+  });
   return {
     el,
     // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted) ; l'instantané

@@ -45,7 +45,7 @@ export const store = createStore({
   cloudProviders: [],
   ollama: { known: false, up: false, version: null, latencyMs: null },
   ollamaChecking: false,
-  system: { cpuPercent: null, memory: null, modelsLoaded: null },
+  system: { cpuPercent: null, memory: null, modelsLoaded: null, gpu: null }, // gpu : absent sans NVML
   systemSeen: false, // vrai dès le premier état du flux : avant, les cartes montrent un squelette
   runsActive: [],
   carbon: null, // dernière somme de session (GET /api/carbon/session ou carbon_updated)
