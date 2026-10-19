@@ -62,6 +62,12 @@ class OllamaProbe:
             await asyncio.wait_for(asyncio.shield(task), self._wait_s)
         return self._state or DOWN
 
+    @property
+    def cached(self) -> OllamaStatus | None:
+        """Dernier état connu, sans sonde ni attente (`None` avant la première sonde terminée) :
+        la fiche machine y lit la version d'Ollama."""
+        return self._state
+
     def start(self) -> None:
         """Lance la première sonde sans l'attendre (à appeler dans la boucle du serveur)."""
         self._ensure_task()
