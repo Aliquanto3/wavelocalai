@@ -21,6 +21,7 @@ import re
 import pytest
 
 from ..workshop_note import ANSWER_PARAGRAPH, ANSWER_SENTENCE, FILE_NAME, QUESTION, make_note
+from .parcours import assert_never_reloaded, mark_no_reload
 from .test_arena import install_models as install_arena_models
 from .test_discussion import (
     ANSWER,
@@ -69,6 +70,7 @@ def test_flow_2_from_the_home_to_the_source_the_mistaken_clear_and_the_memory_gu
     install_chat_models(page)
     page.goto(f"{server.base_url}/")
     wait_ready(page)
+    mark_no_reload(page)  # un rechargement l'effacerait (story 8.3)
 
     # 1. L'Accueil : la carte « Documents », avec le nom court, le nom long et le résumé de la base.
     link = page.locator(DOCUMENTS)
@@ -162,7 +164,8 @@ def test_flow_2_from_the_home_to_the_source_the_mistaken_clear_and_the_memory_gu
     assert button(alert, "Prendre un modèle plus petit").is_visible()
     assert field(page).input_value() == "Quelle est la durée de la pause de midi ?"
 
-    # Rien n'est sorti de la machine pendant tout le parcours.
+    # La page n'a jamais été rechargée, et rien n'est sorti de la machine pendant tout le parcours.
+    assert_never_reloaded(page)
     assert traffic.urls
     assert all(url.startswith(server.base_url) for url in traffic.urls), traffic.urls
     assert not traffic.blocked
