@@ -6,83 +6,27 @@
 // passer à `available` et à lui donner son `load`. Le paramètre est toujours facultatif :
 // `findScreen` accepte le chemin nu, que l'écran monte avec `params = {}` (nouvelle comparaison,
 // liste des modèles), et c'est ce chemin nu que l'Accueil et le menu lient.
+//
+// Les modules sont déclarés un par fichier dans `core/routes/<module>.js` (`<module>Module`).
+// Mode d'emploi : passer un écran à `available`, ou lui donner son `load`, ne touche que le fichier
+// de son module. Une story qui ajoute un module crée son fichier, puis ajoute ici son import et
+// une ligne dans `MODULES`, à la place qu'il occupe dans la navigation.
 
+import { agentsModule } from "./routes/agents.js";
+import { arenaModule } from "./routes/arena.js";
+import { documentsModule } from "./routes/documents.js";
+import { homeModule } from "./routes/home.js";
+import { modelsModule } from "./routes/models.js";
+import { sobrietyModule } from "./routes/sobriety.js";
+
+// Ordre de la navigation.
 export const MODULES = [
-  {
-    id: "home",
-    icon: "home",
-    screens: [
-      {
-        id: "home",
-        path: "/",
-        status: "available",
-        load: () => import("../screens/home.js"),
-      },
-    ],
-  },
-  {
-    id: "arena",
-    icon: "swords",
-    screens: [
-      {
-        id: "arena-chat",
-        path: "/arene/chat",
-        status: "available",
-        load: () => import("../screens/chat.js"),
-      },
-      {
-        id: "arena-compare",
-        path: "/arene/comparer",
-        param: "run_id",
-        status: "available",
-        load: () => import("../screens/arena.js"),
-      },
-      { id: "arena-bench", path: "/arene/banc", param: "run_id", status: "planned" },
-      { id: "arena-references", path: "/arene/references", status: "planned" },
-    ],
-  },
-  {
-    id: "documents",
-    icon: "description",
-    screens: [
-      {
-        id: "documents-chat",
-        path: "/documents",
-        status: "available",
-        load: () => import("../screens/documents.js"),
-      },
-      {
-        id: "documents-base",
-        path: "/documents/base",
-        status: "available",
-        load: () => import("../screens/documents-base.js"),
-      },
-      {
-        id: "documents-evaluation",
-        path: "/documents/evaluation",
-        param: "run_id",
-        status: "planned",
-      },
-    ],
-  },
-  {
-    id: "agents",
-    icon: "smart-toy",
-    screens: [
-      { id: "agents-solo", path: "/agents/seul", status: "planned" },
-      { id: "agents-crew", path: "/agents/equipe", param: "run_id", status: "planned" },
-    ],
-  },
-  {
-    id: "sobriety",
-    icon: "eco",
-    screens: [{ id: "sobriety", path: "/sobriete", status: "planned" }],
-  },
-  {
-    id: "models",
-    icon: "deployed-code",
-    screens: [{ id: "models", path: "/modeles", param: "tag", status: "planned" }],
-  },
+  homeModule,
+  arenaModule,
+  documentsModule,
+  agentsModule,
+  sobrietyModule,
+  modelsModule,
 ];
 
 export const SCREENS = MODULES.flatMap((module) =>

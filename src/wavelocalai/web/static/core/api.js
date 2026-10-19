@@ -1,6 +1,19 @@
 // Appels JSON à l'API locale. Toute réponse en erreur suit `{code, message, action, detail}`
 // (AD-18) : `ApiError.envelope` la garde telle quelle, l'écran affiche `message` puis `action`.
 // Les requêtes ne visent que la même origine (127.0.0.1).
+//
+// Ce fichier garde le transport (`request`, `ApiError`, `uploadDocuments`) et assemble `api`. Les
+// appels sont rangés par domaine dans `core/api/<domaine>.js`, fonction `<domaine>Api(request)` qui
+// rend ses appels. Mode d'emploi : une story qui ajoute un domaine crée son fichier et ajoute ici
+// son import et une ligne dans `api` ; une story qui ajoute un appel à un domaine existant ne
+// touche que le fichier de ce domaine. Les écrans importent toujours `api` d'ici.
+
+import { arenaApi } from "./api/arena.js";
+import { conversationsApi } from "./api/conversations.js";
+import { modelsApi } from "./api/models.js";
+import { ragApi } from "./api/rag.js";
+import { runsApi } from "./api/runs.js";
+import { systemApi } from "./api/system.js";
 
 export class ApiError extends Error {
   constructor(message, { status = 0, envelope = null, cause } = {}) {
@@ -88,57 +101,10 @@ export function uploadDocuments(files, { signal, onProgress = () => {}, onSent =
 }
 
 export const api = {
-  health: () => request("/api/health"),
-  carbonSession: () => request("/api/carbon/session"),
-  systemIdentity: () => request("/api/system/identity"),
-  // Liste unique des modèles (AD-15) : sans `allowCloud`, aucun modèle cloud (AD-9).
-  models: (allowCloud) => request(`/api/models?allow_cloud=${allowCloud ? "true" : "false"}`),
-  modelDefaults: (purpose, allowCloud) =>
-    request(
-      `/api/models/defaults?purpose=${encodeURIComponent(purpose)}&allow_cloud=${allowCloud ? "true" : "false"}`,
-    ),
-  // Lance une réponse de chat ; `allow_cloud` vient du store, sur chaque commande (AD-9).
-  startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
-  // Pose une question aux documents prêts ; `allow_cloud` vient du store, sur chaque commande (AD-9).
-  startRag: (body) => request("/api/rag/runs", { method: "POST", body }),
-  // Un extrait en entier (« Ouvrir l'extrait ») ; `404 chunk_not_found` s'il n'existe plus.
-  chunk: (id) => request(`/api/rag/chunks/${encodeURIComponent(id)}`),
-  // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
-  documents: () => request("/api/rag/documents"),
-  // Supprime un document `ready` ou `failed` (AD-13) ; rend `{chunks_removed, ...}`. Le `VACUUM`
-  // qui suit réécrit tout le fichier : sur une grosse base, il dépasse largement 30 s.
-  deleteDocument: (id) =>
-    request(`/api/rag/documents/${encodeURIComponent(id)}`, { method: "DELETE", timeoutMs: 300000 }),
-  // Vide la base : `expectedCount` est le nombre d'extraits affiché, le serveur le compare au réel.
-  clearBase: (expectedCount) =>
-    request(`/api/rag/base?expected_count=${encodeURIComponent(expectedCount)}`, {
-      method: "DELETE",
-      timeoutMs: 300000,
-    }),
-  // Réglages de la base (embedding, découpe, nombre d'extraits, stratégie par défaut).
-  ragSettings: () => request("/api/rag/settings"),
-  saveRagSettings: (body) => request("/api/rag/settings", { method: "PUT", body }),
-  // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).
-  startArena: (body) => request("/api/arena/runs", { method: "POST", body }),
-  // Comparaisons précédentes (les plus récentes d'abord), adresse de leurs exports (`csv`, `md`,
-  // téléchargés par un lien et non par `fetch`) et effacement (AD-13) : story 3.6.
-  arenaRuns: (limit = 20) => request(`/api/arena/runs?limit=${encodeURIComponent(limit)}`),
-  arenaExportUrl: (id, extension) => `/api/arena/runs/${encodeURIComponent(id)}.${extension}`,
-  deleteArenaRun: (id) =>
-    request(`/api/arena/runs/${encodeURIComponent(id)}`, { method: "DELETE", timeoutMs: 120000 }),
-  // Conversations (AD-5, AD-13) : les plus récentes d'un genre, une conversation, son effacement,
-  // et l'adresse de ses exports (`json`, `md`), téléchargés par un lien et non par `fetch`.
-  conversations: (kind, limit = 1) =>
-    request(`/api/conversations?kind=${encodeURIComponent(kind)}&limit=${limit}`),
-  conversation: (id) => request(`/api/conversations/${encodeURIComponent(id)}`),
-  deleteConversation: (id) =>
-    request(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  conversationExportUrl: (id, extension) =>
-    `/api/conversations/${encodeURIComponent(id)}.${extension}`,
-  // Décharge les modèles Ollama qu'aucun run actif n'emploie (garde-fou mémoire, story 4.8).
-  unloadModels: () => request("/api/models/unload", { method: "POST", timeoutMs: 20000 }),
-  // Instantané d'un run (AD-5) : statut, mesures des feuilles et, pour une Arène, son `verdict`.
-  run: (runId) => request(`/api/runs/${encodeURIComponent(runId)}`),
-  cancelRun: (runId) =>
-    request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
+  ...systemApi(request),
+  ...modelsApi(request),
+  ...conversationsApi(request),
+  ...arenaApi(request),
+  ...ragApi(request),
+  ...runsApi(request),
 };
