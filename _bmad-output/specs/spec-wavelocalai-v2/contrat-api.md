@@ -117,3 +117,5 @@ Les champs, codes et événements propres à une story vivent dans son fichier `
 | 7.1 | [`contrat/7-1.md`](contrat/7-1.md) | Évaluation |
 | 7.4 | [`contrat/7-4.md`](contrat/7-4.md) | Banc d'essai |
 | 8.1a | [`contrat/8-1a.md`](contrat/8-1a.md) | Serveur et garde-fous (sonde forcée, textes d'erreur, verrou par modèle, copies de migration, clôture en échec) |
+| 8.1b | [`contrat/8-1b.md`](contrat/8-1b.md) | Arène et délais (message de `timeout` avec le délai, `replaceAddress`) |
+| 8.1c | [`contrat/8-1c.md`](contrat/8-1c.md) | Discussion et Base (`verify_min_params_b` de `GET /api/rag/settings`) |
