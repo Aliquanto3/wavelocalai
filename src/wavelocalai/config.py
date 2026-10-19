@@ -66,9 +66,28 @@ class OllamaSettings(_Section):
     probe_cache_s: float = Field(5.0, ge=0)
 
 
+class CarEquivalence(_Section):
+    """Facteur de l'équivalence parlante du CO2 en distance parcourue en voiture (story 5.1, D-38).
+
+    Réglage daté et sourcé, comme la table de prix : un facteur sans source ni date de relevé ne se
+    vérifie pas, il est refusé. Le front ne contient aucune valeur de repli.
+    """
+
+    g_per_km: float = Field(gt=0)  # g de CO2e par km parcouru
+    source: str = Field(min_length=1)  # source publique citée à l'écran
+    retrieved_at: date  # date du relevé
+
+    @model_validator(mode="after")
+    def _sourced(self) -> CarEquivalence:
+        if not self.source.strip():
+            raise ValueError("l'équivalence en voiture a besoin d'une source")
+        return self
+
+
 class CarbonSettings(_Section):
     country_iso: str = Field("FRA", min_length=3, max_length=3)
     pue: float = Field(1.1, ge=1.0)
+    car_equivalence: CarEquivalence | None = None  # absente : le panneau de méthode n'en dit rien
 
 
 class ModelPrice(_Section):
@@ -109,6 +128,15 @@ class CloudSettings(_Section):
 class DelaySettings(_Section):
     lane_timeout_s: float = Field(300.0, gt=0)
     approval_expiry_s: float = Field(600.0, gt=0)
+
+
+class AgentSettings(_Section):
+    """Boucle d'outils des agents (story 6.1)."""
+
+    max_turns: int = Field(10, ge=1, le=50)  # appels de modèle au plus par tâche (fin propre)
+    tool_timeout_s: float = Field(60.0, gt=0)  # délai d'un outil ; dépassé, l'agent reçoit l'erreur
+    summary_chars: int = Field(500, ge=50)  # taille du `summary` d'une étape publiée
+    result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
 
 
 class RagSettings(_Section):
@@ -157,6 +185,7 @@ class Settings(BaseModel):
     cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
     rag: RagSettings = RagSettings()
+    agents: AgentSettings = AgentSettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
     base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)

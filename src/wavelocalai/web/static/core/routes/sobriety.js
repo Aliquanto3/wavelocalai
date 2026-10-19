@@ -3,5 +3,12 @@
 export const sobrietyModule = {
   id: "sobriety",
   icon: "eco",
-  screens: [{ id: "sobriety", path: "/sobriete", status: "planned" }],
+  screens: [
+    {
+      id: "sobriety",
+      path: "/sobriete",
+      status: "available",
+      load: () => import("../../screens/sobriety.js"),
+    },
+  ],
 };

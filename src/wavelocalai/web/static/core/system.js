@@ -33,6 +33,7 @@ function onSystemState(data) {
       memory: data.memory ?? null,
       modelsLoaded: data.models_loaded ?? null,
       modelsInUse: data.models_in_use ?? {}, // tag -> run racine qui l'emploie (story 5.4)
+      gpu: data.gpu ?? null, // champ absent sans NVML : l'écran Sobriété dit « Aucun »
     },
     runsActive: Array.isArray(data.runs_active) ? data.runs_active : [],
   });

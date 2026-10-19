@@ -218,6 +218,156 @@ def anthropic_tool_stream(json_parts: list[str], *, usage=(12, 7)) -> bytes:
     return sse(*events)
 
 
+def chat_tool_stream(
+    calls: list[tuple[str, str, list[str]]], *, text: str | None = None, usage=(11, 5)
+) -> bytes:
+    """Flux Chat Completions (OpenAI, Groq) d'appels d'outils, comme le SDK les reçoit : le premier
+    fragment de chaque appel porte `index`, `id` et `name`, les suivants des morceaux d'`arguments`.
+    `calls` : `(id, nom, morceaux de la chaîne JSON des arguments)`."""
+    events: list[tuple[str | None, dict[str, Any] | str]] = [
+        (None, _chat_chunk({"role": "assistant", "content": ""}))
+    ]
+    if text:
+        events.append((None, _chat_chunk({"content": text})))
+    for index, (call_id, name, parts) in enumerate(calls):
+        head = {
+            "index": index,
+            "id": call_id,
+            "type": "function",
+            "function": {"name": name, "arguments": ""},
+        }
+        events.append((None, _chat_chunk({"tool_calls": [head]})))
+        for part in parts:
+            tail = {"index": index, "function": {"arguments": part}}
+            events.append((None, _chat_chunk({"tool_calls": [tail]})))
+    events.append((None, _chat_chunk({}, "tool_calls")))
+    events.append(
+        (
+            None,
+            {
+                "id": "c1",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "m",
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": usage[0],
+                    "completion_tokens": usage[1],
+                    "total_tokens": usage[0] + usage[1],
+                },
+            },
+        )
+    )
+    events.append((None, "[DONE]"))
+    return sse(*events)
+
+
+def mistral_tool_stream(calls: list[tuple[str | None, str, Any]], *, usage=(11, 5)) -> bytes:
+    """Flux Mistral d'appels d'outils : chaque appel arrive entier dans un fragment (`id` absent =
+    `"null"` côté SDK) ; `arguments` est une chaîne JSON ou un objet."""
+    events: list[tuple[str | None, dict[str, Any] | str]] = []
+    for index, (call_id, name, arguments) in enumerate(calls):
+        call: dict[str, Any] = {
+            "type": "function",
+            "function": {"name": name, "arguments": arguments},
+            "index": index,
+        }
+        if call_id is not None:
+            call["id"] = call_id
+        events.append(
+            (None, _chat_chunk({"role": "assistant", "content": "", "tool_calls": [call]}))
+        )
+    last = _chat_chunk({"content": ""}, "tool_calls")
+    last["usage"] = {
+        "prompt_tokens": usage[0],
+        "completion_tokens": usage[1],
+        "total_tokens": usage[0] + usage[1],
+    }
+    events.append((None, last))
+    events.append((None, "[DONE]"))
+    return sse(*events)
+
+
+def anthropic_tool_use_stream(
+    calls: list[tuple[str, str, list[str]]], *, text: str | None = None, usage=(12, 7)
+) -> bytes:
+    """Flux Anthropic d'appels d'outils : un bloc `text` éventuel, puis un bloc `tool_use` par appel
+    (`content_block_start`, `input_json_delta`, `content_block_stop`). `calls` : `(id, nom, morceaux
+    du JSON de l'entrée)`."""
+    start = {
+        "type": "message_start",
+        "message": {
+            "id": "m1",
+            "type": "message",
+            "role": "assistant",
+            "model": "m",
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {"input_tokens": usage[0], "output_tokens": 1},
+        },
+    }
+    events: list[tuple[str | None, dict[str, Any] | str]] = [("message_start", start)]
+    index = 0
+    if text:
+        events += [
+            (
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": index,
+                    "content_block": {"type": "text", "text": ""},
+                },
+            ),
+            (
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": index,
+                    "delta": {"type": "text_delta", "text": text},
+                },
+            ),
+            ("content_block_stop", {"type": "content_block_stop", "index": index}),
+        ]
+        index += 1
+    for call_id, name, parts in calls:
+        events.append(
+            (
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": index,
+                    "content_block": {"type": "tool_use", "id": call_id, "name": name, "input": {}},
+                },
+            )
+        )
+        for part in parts:
+            events.append(
+                (
+                    "content_block_delta",
+                    {
+                        "type": "content_block_delta",
+                        "index": index,
+                        "delta": {"type": "input_json_delta", "partial_json": part},
+                    },
+                )
+            )
+        events.append(("content_block_stop", {"type": "content_block_stop", "index": index}))
+        index += 1
+    events += [
+        (
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                "usage": {"output_tokens": usage[1]},
+            },
+        ),
+        ("message_stop", {"type": "message_stop"}),
+    ]
+    return sse(*events)
+
+
 def stream_for(provider: str, texts: list[str], **kwargs: Any) -> bytes:
     if provider == "anthropic":
         return anthropic_stream(texts, **kwargs)

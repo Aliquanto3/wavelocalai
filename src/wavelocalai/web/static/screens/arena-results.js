@@ -251,9 +251,10 @@ export function resultsView(uid, lanesEl) {
     if (chosenSegment !== seg.value) seg.select(chosenSegment, { silent: true });
   }
 
-  // Après `run_ended`, le classement est figé : un changement tardif d'une colonne ne le refait pas.
-  function schedule() {
-    if (!frame && !ended) {
+  // Après `run_ended`, le classement est figé : un changement tardif d'une colonne ne le refait pas
+  // (sauf son nom d'affichage, `force`, qui arrive avec la liste des modèles d'une comparaison rouverte).
+  function schedule(force = false) {
+    if (!frame && (force || !ended)) {
       frame = requestAnimationFrame(() => {
         frame = 0;
         draw();
@@ -274,7 +275,11 @@ export function resultsView(uid, lanesEl) {
     actions.ready(runId, snapshot);
   }
 
-  lanesEl.addEventListener("wl-lane-change", schedule);
+  lanesEl.addEventListener("wl-lane-change", () => schedule());
+  lanesEl.addEventListener("wl-lane-rename", () => {
+    schedule(true);
+    verdict.refresh(); // le verdict nomme les modèles : il se redessine comme le classement
+  });
   return {
     el,
     // `run_ended` : le classement se fige (état final : ok, cancelled, error, interrupted) ; l'instantané

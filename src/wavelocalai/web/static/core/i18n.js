@@ -24,6 +24,7 @@ export const TEXT_FILES = [
   "docs",
   "arena",
   "models",
+  "sobriety",
 ];
 
 let texts = {};

@@ -155,13 +155,19 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
         and documents.get_attribute("aria-disabled") is None
     )
 
+    sobriety = links.nth(4)  # Sobriété : disponible depuis la story 5.1
+    assert (
+        sobriety.get_attribute("href") == "#/sobriete"
+        and sobriety.get_attribute("aria-disabled") is None
+    )
+
     models = links.nth(5)  # Modèles : disponible depuis la story 5.3 (installation)
     assert (
         models.get_attribute("href") == "#/modeles"
         and models.get_attribute("aria-disabled") is None
     )
 
-    for index in range(3, len(MODULES) - 1):
+    for index in (3,):  # Agents : à venir
         link = links.nth(index)
         assert link.evaluate("el => el.tagName") == "A"
         assert link.get_attribute("href") is None
@@ -172,7 +178,7 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
             "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
         )
         assert reason == PLANNED_REASON
-    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 4
+    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 5
 
 
 # Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.
@@ -187,7 +193,7 @@ MOCKUP_ROUTES = [
 
 @pytest.mark.parametrize(
     "route",
-    ["#/arene/banc", "#/sobriete", "#/n-importe-quoi", "#main", *MOCKUP_ROUTES],
+    ["#/arene/banc", "#/n-importe-quoi", "#main", *MOCKUP_ROUTES],
 )
 def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")

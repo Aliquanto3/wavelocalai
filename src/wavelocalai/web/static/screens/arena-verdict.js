@@ -1,7 +1,7 @@
 // Verdict local/cloud de l'Arène (story 3.5, AD-5, AD-10, AD-20).
 //
 //   const verdict = verdictView(uid, nameOf);   // `nameOf(tag)` : le nom lisible d'un modèle
-//   verdict.el  verdict.show(snapshot)  verdict.fail()  verdict.reset()
+//   verdict.el  verdict.show(snapshot)  verdict.refresh()  verdict.fail()  verdict.reset()
 //
 // Le serveur calcule le verdict à la fin de la comparaison et le rend dans l'instantané du run
 // (`GET /api/runs/{id}`, champ `verdict`) : `arena-results.js` le lit à `run_ended` et à la réouverture
@@ -74,7 +74,10 @@ export function verdictView(uid, nameOf) {
   const body = element("div", "arena-verdict-body");
   el.append(title, help, body);
 
+  let shown = null; // le verdict affiché, redessiné quand un nom d'affichage arrive après lui
+
   function render(verdict) {
+    shown = verdict;
     const name = (tag) => nameOf(tag) ?? tag;
     const group = co2Group([verdict.local.co2?.mg, verdict.cloud.co2?.mg].filter((mg) => typeof mg === "number"));
     const locals = verdict.data_on_device.count;
@@ -104,6 +107,7 @@ export function verdictView(uid, nameOf) {
   }
 
   function reset() {
+    shown = null;
     el.hidden = true;
     body.replaceChildren();
   }
@@ -121,8 +125,18 @@ export function verdictView(uid, nameOf) {
         this.fail();
       }
     },
+    // Un nom d'affichage est arrivé (liste des modèles d'une comparaison rouverte) : on redessine.
+    refresh() {
+      if (!shown) return;
+      try {
+        render(shown);
+      } catch {
+        this.fail();
+      }
+    },
     // L'instantané n'a pas pu être lu : la section le dit plutôt que de disparaître.
     fail() {
+      shown = null;
       body.replaceChildren(element("p", "help arena-verdict-unavailable", t("arena.verdict.unavailable")));
       help.hidden = true;
       el.hidden = false;
