@@ -36,7 +36,7 @@ Chaque story livrée a ajouté des composants et des textes : la cascade s'est a
 **Correctif** (`web/routes_static.py`, `static/core/i18n.js`) :
 
 - `GET /static/i18n/fr.json` : les textes en un seul document, assemblé au démarrage depuis `i18n/fr/*.json`, qui restent la source ; une clé de premier niveau en double lève une erreur au démarrage (le test `test_static_split.py` garde le même contrôle). `loadTexts` le lit d'abord, et se replie sur les fichiers de `TEXT_FILES` si le document manque (fixtures E2E, serveur ancien).
-- `GET /` sert `index.html` enrichi à la volée (assemblé une fois au démarrage, le fichier n'est pas modifié) : `preload` du document de textes et `modulepreload` de tout le graphe des imports (statiques, plus les `import()` littéraux de `main.js`) à partir de `main.js` et des modules déjà listés. Les écrans chargés à la demande par le routeur ne sont pas préchargés. Une story qui ajoute un composant ou un import n'a rien à déclarer.
+- `GET /` sert `index.html` enrichi (assemblé une fois au démarrage, le fichier n'est pas modifié) : `modulepreload` de tout le graphe des imports (statiques, plus les `import()` littéraux de `main.js`) à partir de `main.js` et des modules déjà listés. Les écrans chargés à la demande par le routeur ne sont pas préchargés. Une story qui ajoute un composant ou un import n'a rien à déclarer.
 - Aucun outil de build, aucune dépendance ; seul `web/` change côté Python (couches respectées) ; rien de `/api/` avant `shell-ready` (AD-6 amendé).
 
 **Mesure après** : `shell-ready` 143 ms (une sonde), `first-contentful-paint` inchangé ; le test passe 5 fois de suite. Toutes les requêtes de modules partent dès le HTML ; il ne reste que `fr.json`, `main.js`, `home.js` et ses deux imports sur le chemin de rendu.
@@ -46,3 +46,20 @@ Chaque story livrée a ajouté des composants et des textes : la cascade s'est a
 ## Tests
 
 `tests/v2/web/test_static.py` : document de textes (contenu, en-têtes), clé en double, parcours du graphe (statique, `import()` de `main.js` seul), préchargement dans `GET /` sans écran à la demande ni doublon.
+
+## Revue du budget
+
+Branche rebasée sur master (`f59781b`, PR #108 : écrans Agent et Équipe) avant la revue. Mesure locale (Edge, deuxième meilleur de cinq chargements, trois séries) : `shell-ready` 287, 301 et 291 ms sur master, 123, 161 et 151 ms avec le correctif ; `first-contentful-paint` inchangé (~95 ms). Test de budget passé 5 fois de suite. Rien de `/api/` avant `shell-ready` (assertion du test), en-têtes AD-19 sur `GET /` et `fr.json` (`test_static.py`).
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| low | second avis 1 | `..` au-delà de la racine : `IndexError` au démarrage | corrigé : `_resolve` rend `None`, import ignoré (test) |
+| low | second avis 2 | import remonté hors de `static/` : fichier hors du dossier lu au démarrage | corrigé : tout import qui sort de `/static/` est ignoré (même test) |
+| low | second avis 3 | imports cités en commentaire préchargés | corrigé : lignes `//`, `/*`, `*` retirées avant la recherche (test) ; aucun cas aujourd'hui |
+| low | second avis 4 | `index.html` absent : échec au démarrage ; textes lus une fois | rejeté : échouer au démarrage vaut mieux que le 500 de `FileResponse` d'avant ; dossier vide → `{}`, le HTML garde son français. « Redémarrer après modification » noté en commentaire de `mount_shell` |
+| low | second avis 5 | `GET /` et `fr.json` sans ETag : plus de 304, docstring du module fausse | corrigé : ETag fixe calculé au démarrage, 304 sur `If-None-Match`, mêmes en-têtes (test) |
+| low | second avis 6 | `TEXT_FILES` écrite à la main ; repli qui masque une panne | rejeté : `test_static_split.py` vérifie déjà `TEXT_FILES` = fichiers de `i18n/fr/` ; le repli ne sert qu'aux serveurs sans le document, une clé en double arrête déjà le démarrage |
+| low | revue | spec et docstring annonçaient un `preload` du document de textes que le code ne pose pas | corrigé dans le texte : budget tenu sans lui, et un `preload` mal apparié au `fetch` ajoute un avertissement console |
+| low | revue (complexité) | `module_graph` : `in` sur une liste, `pop(0)` | rejeté : une fois au démarrage, ~50 modules |
+
+Complexité : 1 constat, sans impact (démarrage seul).

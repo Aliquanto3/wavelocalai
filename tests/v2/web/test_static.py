@@ -142,3 +142,31 @@ def test_index_preloads_the_shell_modules_but_not_the_screens_loaded_on_demand()
     assert html.count('href="/static/core/router.js"') == 1  # déjà listé : pas de doublon
     assert 'href="/static/screens/chat.js"' not in html
     assert html.index('rel="modulepreload"') < html.index('<script type="module"')
+
+
+@pytest.mark.parametrize("path", ["/", "/static/i18n/fr.json"])
+def test_assembled_pages_keep_the_etag_revalidation_of_no_cache(client, path):
+    first = client.get(path)
+    etag = first.headers["etag"]
+    again = client.get(path, headers={"If-None-Match": etag})
+    assert again.status_code == 304 and again.content == b""
+    assert again.headers["etag"] == etag
+    assert again.headers["content-security-policy"] == first.headers["content-security-policy"]
+    assert client.get(path, headers={"If-None-Match": '"autre"'}).status_code == 200
+
+
+def test_module_graph_ignores_comments_and_imports_leaving_the_static_folder(tmp_path):
+    (tmp_path / "main.js").write_text(
+        '// import "./core/commented.js";\n'
+        ' * from "./core/doc.js"\n'
+        'import "../outside.js";\nimport "../../../far.js";\nimport "./core/kept.js";',
+        encoding="utf-8",
+    )
+    (tmp_path / "core").mkdir()
+    for name in ("commented", "doc", "kept"):
+        (tmp_path / "core" / f"{name}.js").write_text("export {};", encoding="utf-8")
+    (tmp_path.parent / "outside.js").write_text("export {};", encoding="utf-8")
+    assert module_graph(tmp_path, ["/static/main.js"]) == [
+        "/static/main.js",
+        "/static/core/kept.js",
+    ]
