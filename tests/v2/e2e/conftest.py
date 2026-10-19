@@ -4,7 +4,9 @@
   `data/`), Ollama pointé sur un port fermé (aucun vrai réseau) et aucune clé cloud.
 - Aucun navigateur n'est téléchargé : Chromium déjà installé pour Playwright, ou l'exécutable de
   `WAVELOCALAI_E2E_CHROMIUM` (Edge convient), comme pour la v1 (`tests/e2e/conftest.py`).
-- Toute requête hors de 127.0.0.1 est bloquée et relevée ; le test qui la provoque échoue.
+- Toute requête hors de 127.0.0.1 est bloquée et relevée ; le test qui la provoque échoue, et la
+  suite entière aussi : `no_request_left_the_machine` (à l'échelle de la session) échoue en fin de
+  suite si une seule requête a quitté la machine, quel que soit le test qui l'a faite.
 - Les tests de ce dossier portent le marqueur `e2e` (posé ici) : `pytest tests/v2 -m e2e`.
 """
 
@@ -280,9 +282,22 @@ class Traffic:
         return [url for url in self.urls if "/api/" in url]
 
 
+# Le bilan de toute la suite : chaque contexte y verse ses sorties en se fermant (story 8.3). Il voit ce
+# que voit la route du contexte, requêtes et navigations des pages (ni WebSocket ni worker, que le front
+# n'emploie pas). Chaque morceau de la CI (`tests.yml`) a son propre bilan, un par processus.
+SUITE_OUTSIDE: list[str] = []
+
+
 @pytest.fixture
 def traffic() -> Traffic:
     return Traffic()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def no_request_left_the_machine() -> Iterator[None]:
+    """En fin de suite : aucune requête du navigateur n'a quitté 127.0.0.1, tous tests confondus."""
+    yield
+    assert not SUITE_OUTSIDE, f"Requêtes sorties de 127.0.0.1 pendant la suite : {SUITE_OUTSIDE}"
 
 
 @pytest.fixture
@@ -299,6 +314,8 @@ def context(browser, traffic: Traffic):
     ctx.set_default_timeout(PAGE_TIMEOUT_MS)
     yield ctx
     ctx.close()
+    SUITE_OUTSIDE.extend(traffic.blocked)
+    SUITE_OUTSIDE.extend(u for u in traffic.urls if EXTERNAL_URL.match(u))
     assert not traffic.blocked, f"Requêtes du navigateur hors de la machine : {traffic.blocked}"
     outside = [u for u in traffic.urls if EXTERNAL_URL.match(u)]
     assert not outside, f"Requêtes du navigateur hors de 127.0.0.1 : {outside}"

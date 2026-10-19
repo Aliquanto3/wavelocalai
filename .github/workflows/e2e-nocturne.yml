@@ -1,0 +1,44 @@
+name: E2E v2 nocturne
+
+# Suite E2E complète de la v2 (`tests/v2`, marqueur `e2e`), une fois par nuit sur Linux (décision Q6,
+# story 8.3). Les PR n'attendent pas ce job : `tests.yml` ne le lance pas à leur place. Le job peut
+# aussi se lancer à la main (Actions, « Run workflow »). Rouge, il ouvre une correction avant la
+# fusion suivante.
+on:
+  schedule:
+    # 02 h 30 UTC, après les fusions de la veille.
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: E2E v2 (ubuntu-latest, Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v10.3.0
+      with:
+        python-version: '3.12'
+        enable-cache: true
+
+    # uv.lock fait foi : le job échoue s'il n'est plus à jour avec pyproject.toml.
+    - name: Install dependencies
+      run: uv sync --locked
+
+    # Chromium de Playwright, dans la version verrouillée par uv.lock (aucun Edge sur Linux).
+    - name: Install Chromium (Playwright)
+      run: uv run --locked python -m playwright install --with-deps chromium
+
+    - name: Run v2 E2E suite
+      run: uv run --locked python -m pytest tests/v2 -m e2e
