@@ -134,6 +134,13 @@ def _gb(value: float | None, digits: int = 1) -> str:
     return (text or "0").replace(".", ",")
 
 
+def _rate(value: float) -> str:
+    """Un débit à trois chiffres significatifs au plus, comme `formatRate` du front : « 12,7 »,
+    « 0,4 », « 128 » (jamais « 0 » pour un débit mesuré)."""
+    text = f"{value:.0f}" if abs(value) >= 1000 else f"{value:.3g}"
+    return text.replace(".", ",")
+
+
 def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
@@ -227,7 +234,7 @@ def why_lines(source: CardSource, *, vram_gb: float | None) -> list[str]:
     )
     if source.throughput_tps is not None:
         lines.append(
-            f"Sur ce poste, ces facteurs donnent le débit mesuré de {_gb(source.throughput_tps, 0)}"
+            f"Sur ce poste, ces facteurs donnent le débit mesuré de {_rate(source.throughput_tps)}"
             f"{NBSP}tokens/s."
         )
     else:

@@ -130,11 +130,16 @@ async def model_card(tag: str, request: Request) -> ModelCard:
     """Fiche d'un modèle installé, au catalogue ou cloud (story 5.6) : caractéristiques, « Pourquoi ce
     débit ? » et « Sur d'autres postes » (`qb.results/1`, AD-22). Tout est calculé ici (AD-20) et sort
     du cache du registre, du fichier des résultats et de la dernière lecture du GPU : aucun appel
-    d'Ollama avant de répondre (AD-15), hors la lecture de `/api/ps` du catalogue. `404
-    model_not_found` pour un tag inconnu."""
+    d'Ollama avant de répondre (AD-15) : la mémoire des modèles chargés d'un modèle du catalogue est
+    celle du dernier échantillon du flux système. `404 model_not_found` pour un tag inconnu."""
     app = request.app
     registry = app.state.registry
-    source = await registry.card_source(tag, reclaimable=lambda: _reclaimable_gb(request))
+    sampler = app.state.system_sampler
+
+    async def reclaimable() -> float:
+        return sampler.last_loaded_gb if registry.ollama_up else 0.0
+
+    source = await registry.card_source(tag, reclaimable=reclaimable)
     if source is None:
         raise AppError("model_not_found", f"Modèle inconnu : {tag}", tag=tag)
     bench = await asyncio.to_thread(registry.bench.current)

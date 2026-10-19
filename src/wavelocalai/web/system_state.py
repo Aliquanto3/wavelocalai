@@ -65,12 +65,19 @@ class SystemSampler:
         self.gpu_reader = gpu_reader  # remplaçable : la route de test `POST /api/test/gpu`
         self._gpu: GpuState | None = None  # dernière lecture réussie
         self._gpu_task: asyncio.Task[None] | None = None
+        self._loaded_gb = 0.0  # mémoire des modèles chargés au dernier échantillon (`/api/ps`)
 
     @property
     def last_gpu(self) -> GpuState | None:
         """Dernière lecture réussie du GPU, sans attendre ni lancer de lecture (la fiche d'un modèle,
         story 5.6) ; `None` sans GPU ou avant la première lecture."""
         return self._gpu
+
+    @property
+    def last_loaded_gb(self) -> float:
+        """Mémoire des modèles chargés au dernier échantillon, sans appel d'Ollama (la fiche d'un
+        modèle du catalogue, story 5.6) ; 0 avant le premier échantillon ou Ollama arrêté."""
+        return self._loaded_gb
 
     async def _gpu_state(self) -> GpuState | None:
         """Dernier état du GPU : une lecture part dans un fil, l'échantillon l'attend `GPU_WAIT_S`
@@ -100,6 +107,7 @@ class SystemSampler:
             models = await loaded_models(
                 self._host, timeout_s=self._ps_timeout_s, transport=self._ps_transport
             )
+        self._loaded_gb = sum(max(0.0, m.size_gb) for m in models or [])
         hub = self._hub()
         gpu = await self._gpu_state()
         return {

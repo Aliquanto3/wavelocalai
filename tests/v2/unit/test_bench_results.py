@@ -147,7 +147,14 @@ def test_the_preferred_result_of_a_machine_is_think_off_then_complete_then_recen
     extra["speed"] = dict(extra["speed"], decode_tok_s=99.0)
     newer = dict(data["results"][0], track="think_off", complete=True, campaign="c2")
     newer["speed"] = dict(newer["speed"], decode_tok_s=7.7)
-    data["campaigns"] += [{"id": "c0"}, {"id": "c2"}]
+    data["campaigns"] += [
+        {"id": "c0", "first_line_at": "2026-09-01T10:00:00Z", "last_line_at": None},
+        {
+            "id": "c2",
+            "first_line_at": "2026-10-05T10:00:00Z",
+            "last_line_at": "2026-10-05T18:00:00Z",
+        },
+    ]
     data["results"] += [extra, newer]
     path = tmp_path / "r.json"
     path.write_text(json.dumps(data), encoding="utf-8")
@@ -165,3 +172,30 @@ def test_the_pc_pro_is_a_16_gb_machine_without_gpu(tmp_path):
     assert by_id["pc-pro"].is_pc_pro
     assert not by_id["portable"].is_pc_pro  # 16 Go mais avec une carte graphique
     assert not by_id["station"].is_pc_pro
+
+
+def test_the_most_recent_campaign_is_the_one_that_ended_last_not_the_last_listed(tmp_path):
+    data = _data()
+    older = dict(data["results"][0], track="think_off", complete=True, campaign="old")
+    older["speed"] = dict(older["speed"], decode_tok_s=1.1)
+    recent = dict(data["results"][0], track="think_off", complete=True, campaign="new")
+    recent["speed"] = dict(recent["speed"], decode_tok_s=2.2)
+    # Listée en dernier, la campagne « old » a pourtant fini avant « new » : la date l'emporte.
+    data["campaigns"] = [
+        {
+            "id": "new",
+            "first_line_at": "2026-10-10T08:00:00Z",
+            "last_line_at": "2026-10-10T20:00:00Z",
+        },
+        {
+            "id": "old",
+            "first_line_at": "2026-09-01T08:00:00Z",
+            "last_line_at": "2026-09-01T20:00:00Z",
+        },
+    ]
+    data["results"] = [r for r in data["results"] if r["machine"] != "pc-pro"] + [recent, older]
+    path = tmp_path / "r.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    loaded = BenchReferences(path).current()
+    best = loaded.best_result(loaded.find("mid:7b", "d-mid:7b"), "pc-pro")
+    assert best.campaign == "new" and best.speed.decode_tok_s == 2.2

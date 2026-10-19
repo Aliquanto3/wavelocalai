@@ -21,6 +21,7 @@ import logging
 import statistics
 import threading
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -68,6 +69,29 @@ class BenchMachine(_Lenient):
 class BenchCampaign(_Lenient):
     id: str
     status: str | None = None
+    first_line_at: str | None = None
+    last_line_at: str | None = None
+
+    @property
+    def ended_at(self) -> datetime | None:
+        """Fin de la campagne (dernière ligne, à défaut la première) ; `None` si absente ou illisible."""
+        for text in (self.last_line_at, self.first_line_at):
+            if not text:
+                continue
+            try:
+                moment = datetime.fromisoformat(text)
+            except ValueError:
+                continue
+            return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+        return None
+
+
+def _campaign_ranks(campaigns: list[BenchCampaign]) -> dict[str, int]:
+    """Rang de chaque campagne, la plus récente la plus haute : par date de fin publiée, puis par
+    place dans `campaigns[]` (une campagne sans date passe avant celles qui en ont une)."""
+    floor = datetime.min.replace(tzinfo=UTC)
+    order = sorted(enumerate(campaigns), key=lambda item: (item[1].ended_at or floor, item[0]))
+    return {campaign.id: rank for rank, (_, campaign) in enumerate(order)}
 
 
 class BenchModel(_Lenient):
@@ -177,10 +201,14 @@ class LoadedBench:
     def __init__(self, file: ResultsFile | None, reason: Reason | None = None) -> None:
         self.file = file
         self.reason_code: Reason | None = reason
-        self._campaign_rank = {c.id: i for i, c in enumerate(file.campaigns)} if file else {}
+        self._campaign_rank = _campaign_ranks(file.campaigns) if file else {}
         self._machines = {m.id: m for m in file.machines} if file else {}
         self._models: dict[str, list[BenchModel]] = {}
-        self._results: list[BenchResult] = file.results if file else []
+        # Résultats groupés par tag de base : `find` ne parcourt que ceux du modèle (une fiche, ou
+        # chaque modèle de `GET /api/models`), jamais tout le fichier.
+        self._results: dict[str, list[BenchResult]] = {}
+        for result in file.results if file else []:
+            self._results.setdefault(base_tag(result.model), []).append(result)
         for model in file.models if file else []:
             self._models.setdefault(base_tag(model.tag), []).append(model)
 
@@ -218,8 +246,8 @@ class LoadedBench:
         model = (exact or candidates)[-1]
         results = tuple(
             r
-            for r in self._results
-            if base_tag(r.model) == base_tag(model.tag) and same_digest(r.digest, model.digest)
+            for r in self._results.get(base_tag(model.tag), ())
+            if same_digest(r.digest, model.digest)
         )
         return BenchMatch(model=model, version=version, results=results)
 

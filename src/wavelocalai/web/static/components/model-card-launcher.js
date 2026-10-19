@@ -6,8 +6,11 @@
 // - Le bouton ouvre la fiche du modèle choisi dans le panneau de `model-card-drawer.js`, sans
 //   changer d'URL. Aucun modèle choisi : pas de bouton.
 // - Mode `multi` (l'Arène : deux ou trois modèles) : un bouton par modèle choisi, nommé « Fiche : <nom> ».
-// - Le bouton suit le choix (`wl-model-change`) et la liste relue (`wl-models-loaded`, qui peut
-//   donner un nom à un tag). Un sélecteur retiré de la page emporte ses boutons.
+// - Le bouton suit le choix (`wl-model-change`), la liste relue (`wl-models-loaded`, qui peut
+//   donner un nom à un tag) et les choix posés par le code (`picker.values = …` : garde-fou
+//   mémoire, reprise d'une configuration), qui ne lèvent aucun événement mais redessinent le
+//   sélecteur : un observateur de son sous-arbre relit alors le choix, et ne refait les boutons que
+//   s'il a changé. Un sélecteur retiré de la page emporte ses boutons ; déplacé, ses boutons le suivent.
 // - `data-no-card` sur le sélecteur : aucun bouton.
 
 import { element, icon } from "../core/dom.js";
@@ -16,14 +19,20 @@ import { openModelCardDrawer } from "./model-card-drawer.js";
 
 const SELECTOR = "wl-model-picker";
 const buttonsOf = new WeakMap(); // sélecteur -> conteneur de ses boutons
+const stopOf = new WeakMap(); // sélecteur -> retrait de ses écouteurs
 
 function nameOf(picker, tag) {
   return picker.modelFor?.(tag)?.name ?? tag;
 }
 
+const shownKey = new WeakMap(); // conteneur -> choix et noms affichés
+
 function render(picker, box) {
   const tags = picker.values;
   const multi = picker.multi;
+  const key = JSON.stringify([multi, tags.map((tag) => [tag, nameOf(picker, tag)])]);
+  if (shownKey.get(box) === key) return; // rien n'a changé : les boutons (et leur focus) restent
+  shownKey.set(box, key);
   const buttons = tags.map((tag) => {
     const name = nameOf(picker, tag);
     const button = element("button", "btn models-card-open");
@@ -42,7 +51,8 @@ function attach(picker) {
   if (picker.hasAttribute("data-no-card")) return;
   const known = buttonsOf.get(picker);
   if (known) {
-    if (!known.isConnected) picker.after(known); // le parent a été vidé puis refait
+    // Le parent a été vidé puis refait, ou le sélecteur a été déplacé : ses boutons le suivent.
+    if (known.previousElementSibling !== picker) picker.after(known);
     return;
   }
   const box = element("div", "models-card-open-box");
@@ -51,6 +61,13 @@ function attach(picker) {
   const update = () => render(picker, box);
   picker.addEventListener("wl-model-change", update);
   picker.addEventListener("wl-models-loaded", update);
+  const redraws = new MutationObserver(update);
+  redraws.observe(picker, { childList: true, subtree: true });
+  stopOf.set(picker, () => {
+    redraws.disconnect();
+    picker.removeEventListener("wl-model-change", update);
+    picker.removeEventListener("wl-models-loaded", update);
+  });
   update();
 }
 
@@ -62,6 +79,8 @@ function detach(picker) {
     if (picker.isConnected) return;
     box.remove();
     buttonsOf.delete(picker);
+    stopOf.get(picker)?.();
+    stopOf.delete(picker);
   });
 }
 

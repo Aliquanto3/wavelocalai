@@ -163,7 +163,7 @@ def test_an_unknown_tag_says_so_and_offers_the_way_back(
     wait_for(
         page, "() => document.querySelector('.models-fiche')?.textContent.includes('introuvable')"
     )
-    assert "« inconnu:1b » n'est ni installé" in fiche(page).inner_text()
+    assert f"«{NBSP}inconnu:1b{NBSP}» n'est ni installé" in fiche(page).inner_text()
     fiche(page).get_by_role("link", name="Retour à la liste des modèles").click()
     wait_for(page, "() => document.querySelector('.models-fiche')?.hidden === true")
 
@@ -334,6 +334,32 @@ def test_the_card_button_is_outside_the_option_list(page, card_server):
     wait_for(page, "() => !!document.querySelector('.models-card-open')")
     assert page.locator("wl-model-picker .models-card-open").count() == 0
     assert page.locator("[role='listbox'] .models-card-open").count() == 0
+
+
+def test_the_card_button_follows_a_choice_made_by_code_and_a_moved_picker(page, card_server):
+    """Revue : `picker.value = …` (garde-fou mémoire, reprise d'une configuration) ne lève aucun
+    événement ; le bouton suit quand même le choix, et suit le sélecteur déplacé."""
+    page.goto(f"{card_server.base_url}/#/arene/chat")
+    wait_ready(page)
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.loaded === true")
+    wait_for(page, "() => !!document.querySelector('.models-card-open')")
+    page.evaluate(f"() => {{ document.querySelector('wl-model-picker').value = '{SMALL}'; }}")
+    wait_for(page, f"() => document.querySelector('.models-card-open')?.dataset.tag === '{SMALL}'")
+    page.evaluate(
+        """() => {
+          const picker = document.querySelector('wl-model-picker');
+          const place = document.createElement('div');
+          place.id = 'moved-here';
+          picker.closest('main, body').append(place);
+          place.append(picker);
+        }"""
+    )
+    wait_for(
+        page,
+        "() => document.querySelector('#moved-here wl-model-picker')"
+        "?.nextElementSibling?.classList.contains('models-card-open-box')",
+    )
+    assert page.locator(".models-card-open-box").count() == page.locator("wl-model-picker").count()
 
 
 # --- Accessibilité -------------------------------------------------------------------------------

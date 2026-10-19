@@ -152,7 +152,10 @@ function othersBlock(card, notice) {
   if (refs.version === "other_version") {
     box.append(notice(t("models.card.other_version"), t("models.card.other_version_note")));
   } else if (refs.version === "unknown") {
-    box.append(element("p", "help", t("models.card.unknown_version_note")));
+    const note = card.installed
+      ? t("models.card.unknown_version_installed_note")
+      : t("models.card.unknown_version_note");
+    box.append(element("p", "help", note));
   }
   box.append(referenceTable(card));
   if (!refs.pc_pro_published) box.append(element("p", "help", t("models.card.no_pc_pro")));

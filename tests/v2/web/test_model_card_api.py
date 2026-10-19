@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading
 from wavelocalai.models.ollama_api import OllamaHttpSource
+from wavelocalai.models.ollama_probe import OllamaStatus
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.web.app import create_app
 
@@ -287,6 +288,42 @@ async def test_punctuation_in_the_explanation_keeps_a_non_breaking_space(tmp_pat
 
 
 # --- Budget de lecture (AD-15) -------------------------------------------------------------------
+
+
+class _UpProbe:
+    async def status(self) -> OllamaStatus:
+        return OllamaStatus(up=True, version="0.40.6", latency_ms=1)
+
+
+async def test_a_catalog_card_reads_the_sampled_loaded_models_and_never_calls_ollama(
+    tmp_path, monkeypatch
+):
+    """Revue : la fiche d'un modèle du catalogue compte comme libre la mémoire des modèles chargés du
+    dernier échantillon du flux système, sans lire `/api/ps` (AD-15) ; le catalogue, qui la lit,
+    donne alors la même estimation."""
+    from wavelocalai.web import routes_models
+
+    calls: list[str] = []
+    original = routes_models.loaded_models
+
+    async def counted(*args, **kwargs):
+        calls.append("ps")
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(routes_models, "loaded_models", counted)
+    async with card_app(tmp_path, available_gb=4.0, loaded=["mid:7b"]) as (app, client, _b):
+        before = await _card(client, "grand:14b")  # aucun échantillon : rien de compté libre
+        sampler = app.state.system_sampler
+        sampler._probe = _UpProbe()  # le faux Ollama ne répond pas à `/api/version`
+        await sampler.sample()
+        assert sampler.last_loaded_gb > 4
+        after = await _card(client, "grand:14b")
+        assert calls == []
+        catalog = (await client.get("/api/models/catalog")).json()
+    assert calls == ["ps"]
+    offered = next(m for m in catalog["models"] if m["tag"] == "grand:14b")
+    assert after["short_gb"] == offered["short_gb"] and after["fits"] == offered["fits"]
+    assert after["short_gb"] < before["short_gb"]  # les 4,7 Go de `mid:7b` comptent comme libres
 
 
 def test_the_card_answers_under_300_ms_with_ollama_down(tmp_path):
