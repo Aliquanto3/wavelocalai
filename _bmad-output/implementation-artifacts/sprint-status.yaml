@@ -29,13 +29,13 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 05:00
+last_updated: 10-19-2026 06:43
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-le-dépôt-accueille-la-v2-squelette-python-3-11-ci-ratificati: done
   1-2-le-serveur-v2-démarre-en-local-protégé-et-dit-son-état: done
   1-3-le-hub-enregistre-chaque-exécution-store-sqlite-migration-du: done
@@ -50,7 +50,7 @@ development_status:
   1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-converser-en-flux-avec-un-modèle-ollama-serveur: done
   2-2-l-écran-chat-libre-affiche-la-réponse-en-flux-et-la-reprend: done
   2-3-chaque-réponse-locale-affiche-son-co₂-mesuré: done
@@ -64,7 +64,7 @@ development_status:
   3-1-l-arène-exécute-plusieurs-modèles-sur-une-même-question-serv: done
   3-2-l-écran-arène-affiche-les-colonnes-en-flux: done
   3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: done
-  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: in-progress
+  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: done
   3-5-le-verdict-local-cloud-est-chiffré: backlog
   3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: backlog
   epic-3-retrospective: optional
@@ -72,7 +72,7 @@ development_status:
   epic-4: in-progress
   4-1-indexer-un-document-dans-la-base-locale-serveur: done
   4-2-l-écran-base-documentaire-suit-chaque-fichier: done
-  4-3-supprimer-un-document-vider-la-base-changer-de-réglages: in-progress
+  4-3-supprimer-un-document-vider-la-base-changer-de-réglages: done
   4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: done
   4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: in-progress
   4-6-chercher-autrement-hyde-self-rag-et-citer-ses-sources: backlog
