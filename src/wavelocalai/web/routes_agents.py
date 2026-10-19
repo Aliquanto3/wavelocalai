@@ -3,7 +3,8 @@
 Les étapes (`step`) et la réponse se lisent par `GET /api/runs/{id}/events` (AD-6) ; l'écran de
 l'agent est la story 6.4. Story 6.2 : `GET /api/agents/tools` liste les outils avec leur
 disponibilité, `GET /api/outputs/{name}` sert les fichiers qu'ils ont produits (dossier de travail
-des agents, jamais un chemin libre).
+des agents, jamais un chemin libre). Story 6.3 : `POST /api/runs/{id}/approvals/{approval_id}` est
+la seule route qui approuve ou refuse une action sensible (jamais d'approbation automatique).
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from pydantic import BaseModel, Field, field_validator
 from wavelocalai.agents.service import AgentCommand, AgentService
 from wavelocalai.agents.tools import ToolRegistry, Workspace, WorkspaceError
 from wavelocalai.errors import AppError
+from wavelocalai.runs.hub import RunHub
+from wavelocalai.runs.snapshot import stream_state
 
 router = APIRouter(prefix="/api")
 
@@ -69,6 +72,38 @@ async def start_agent_run(body: AgentBody, request: Request) -> Started:
         )
     )
     return Started(run_id=handle.run_id, conversation_id=handle.conversation_id)
+
+
+class ApprovalBody(BaseModel):
+    decision: Literal["approved", "rejected"]  # `expired` n'est jamais dit par le client
+
+
+class ApprovalResult(BaseModel):
+    run_id: str
+    approval_id: str
+    decision: Literal["approved", "rejected"]
+
+
+@router.post("/runs/{run_id}/approvals/{approval_id}")
+async def answer_approval(
+    run_id: str, approval_id: str, body: ApprovalBody, request: Request
+) -> ApprovalResult:
+    """Approuve ou refuse une action sensible en attente (AD-9) : `409 approval_not_pending` si la
+    demande a déjà reçu une réponse, a expiré ou si le run est terminé ; `404 run_not_found` si le
+    run n'existe pas. L'écriture est soumise au contrôle d'`Origin` (AD-19)."""
+    hub: RunHub | None = request.app.state.hub
+    if hub is None:  # hors du cycle de vie de l'app
+        raise AppError("internal", "Le hub des runs n'est pas démarré.")
+    if not await hub.resolve_approval(run_id, approval_id, body.decision):
+        if await stream_state(request.app.state.store, run_id) is None:
+            raise AppError("run_not_found", f"Run {run_id} inconnu.", run_id=run_id)
+        raise AppError(
+            "approval_not_pending",
+            f"Demande {approval_id} du run {run_id} : plus en attente.",
+            run_id=run_id,
+            approval_id=approval_id,
+        )
+    return ApprovalResult(run_id=run_id, approval_id=approval_id, decision=body.decision)
 
 
 @router.get("/agents/tools")

@@ -243,6 +243,15 @@ def amend_cancelled_co2(
     return cursor.rowcount > 0
 
 
+def transition_status(conn: sqlite3.Connection, run_id: str, new: str, expected: str) -> bool:
+    """Passe un run de `expected` à `new` (`running` <-> `awaiting_approval`) ; sans effet si son
+    statut a déjà changé (clôture concurrente). Rend `True` si la ligne a bougé."""
+    cursor = conn.execute(
+        "UPDATE runs SET status = ? WHERE id = ? AND status = ?", (new, run_id, expected)
+    )
+    return cursor.rowcount > 0
+
+
 def cancel_rows(conn: sqlite3.Connection, run_ids: Iterable[str], ended_at: str) -> None:
     conn.executemany(
         "UPDATE runs SET status = 'cancelled', ended_at = ? WHERE id = ?"
