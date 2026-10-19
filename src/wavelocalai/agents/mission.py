@@ -54,7 +54,7 @@ class _Mission:
     """État partagé avec le crochet d'annulation (synchrone)."""
 
     started: float
-    lane: str = ""
+    lane: str = ""  # lane (modèle) de l'agent qui a produit `last_output`
     last_output: str = ""  # sortie du dernier agent terminé : le rapport partiel
     done: int = 0
     reported: bool = False  # le rapport final est déjà parti en `token`
@@ -176,7 +176,6 @@ class MissionRunner:
                 zip(agents, models, tools, strict=True), start=1
             ):
                 last = rank == len(agents)
-                state.lane = model.ref.tag
                 messages = [
                     ChatMessage("system", agent_system(agent, rank, len(agents))),
                     ChatMessage("user", agent_task(agent, topic, previous, self._result_chars)),
@@ -195,6 +194,7 @@ class MissionRunner:
                     break
                 state.done += 1
                 state.last_output = outcome.answer or NO_ANSWER
+                state.lane = model.ref.tag  # lane de l'agent qui a écrit le rapport partiel
                 state.reported = last and bool(outcome.answer)
                 previous = (agent.role, state.last_output)
         finally:

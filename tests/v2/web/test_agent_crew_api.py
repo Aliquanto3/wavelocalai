@@ -240,6 +240,17 @@ async def test_a_mission_chains_the_agents_and_publishes_their_steps(crewed):
     assert mission["peak_memory_gb"] is None or mission["peak_memory_gb"] > 0
 
 
+async def test_a_short_topic_found_in_the_crew_identifiers_still_starts(crewed):
+    """AD-7 : un sujet d'un mot qui se lit dans l'id de l'équipe ou un rôle n'est pas un texte saisi
+    fuité dans `params` (avant correctif : `ValueError` du hub, 500 sans run)."""
+    app, client = crewed
+    turns(app, ["Fait."], ["Rapport."])
+    for topic in ("duo", "Chercheur"):
+        started, snapshot, _ = await _mission(client, topic=topic)
+        assert snapshot["status"] == "ok", topic
+        turns(app, ["Fait."], ["Rapport."])
+
+
 async def test_an_agent_without_its_own_model_needs_the_mission_model(crewed):
     _, client = crewed
     response = await client.post(

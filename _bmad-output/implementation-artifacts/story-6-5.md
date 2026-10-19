@@ -67,3 +67,12 @@ Lancer une équipe (chercheur, analyste, rédacteur…) sur un sujet, chaque age
 ## Rapport de dev
 
 - Tests : `test_agent_crews.py` (10), `test_agent_crew_api.py` (13), `test_layers.py`, `test_agent_api.py`, `test_agent_tools_api.py`, `test_agent_tools.py`, `test_config.py`, `test_runs_api.py` ; intégration Ollama (`test_agent_ollama.py`, 2, `qwen2.5:1.5b` installé, aucun téléchargement). Aucun E2E, aucune suite complète (poste partagé).
+
+## Revue
+
+- medium · second avis · corrigé · `check_params` (AD-7) refusait tout sujet court contenu dans un identifiant des `params` (sujet « duo » ou « carbone », équipe `comparaison_carbone`, rôle, outil) : `ValueError` du hub, 500 sans run ; défaut déjà latent pour l'agent seul (tâche « calculator »). Le texte saisi n'est plus cherché dans les valeurs qu'à partir de `MIN_TYPED_MATCH` (20) caractères ; clés réservées et valeurs de plus de 256 caractères toujours refusées pour tous les runs. Tests : `test_hub.py::test_run_params_never_hold_typed_text`, `test_agent_crew_api.py::test_a_short_topic_found_in_the_crew_identifiers_still_starts`.
+- low · second avis · corrigé · `_on_cancel` publiait le rapport partiel sur la lane de l'agent interrompu : `_Mission.lane` est désormais celle de l'agent qui a écrit `last_output`.
+- low · second avis · rejeté · le `pytest.skip` cité est celui du test de l'agent seul (6.1) ; le test d'équipe n'a pas d'outil et ne se saute que si Ollama ou le modèle manque (passé contre `qwen2.5:1.5b`).
+- low · revue · rejeté · `PUT`/`DELETE /api/agents/crews/{id}` hors critère : variante acceptable, Q3 exige d'enregistrer une modification et de revenir à l'origine, aucune autre route ne le permet ; consigné en écart additif.
+- info · revue · vérifié · D-36 (5 agents au plus) contrôlé par `validate` et au lancement (`check`) ; les trois équipes livrées passent `validate` contre le vrai registre d'outils ; outil sensible toujours refusé en équipe (point d'intégration 6.3 consigné) ; annulation : hook idempotent (`totals_sent`, `reported`), aucun `await` entre la publication du rapport et l'état.
+- Complexité : 0 constat (bibliothèque de 3 équipes, une lecture de `preferences` par équipe ; aucun parcours complet par événement ajouté).
