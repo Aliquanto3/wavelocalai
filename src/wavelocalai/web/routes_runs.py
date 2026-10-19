@@ -54,7 +54,9 @@ async def resume_cursor(
     if hub.watch(run_id) is not None:
         return cursor  # run actif : le flux part de la mémoire
     state = await stream_state(request.app.state.store, run_id)
-    if state is None or state[1] is not None:  # inconnu, ou feuille (le parent publie seul)
+    if state is None:
+        raise AppError("run_not_found", f"Run {run_id} inconnu.", run_id=run_id)
+    if state[1] is not None:  # feuille : le parent publie seul
         raise AppError("not_found", f"Aucun flux pour le run {run_id}.")
     if cursor >= state[2]:
         raise NoContentError
@@ -90,7 +92,7 @@ async def cancel_run(run_id: str, request: Request) -> CancelResult:
     hub = _hub(request)
     store = request.app.state.store
     if await stream_state(store, run_id) is None:
-        raise AppError("not_found", f"Run {run_id} inconnu.")
+        raise AppError("run_not_found", f"Run {run_id} inconnu.", run_id=run_id)
     cancelled = await hub.cancel(run_id)
     state = await stream_state(store, run_id)
     return CancelResult(run_id=run_id, cancelled=cancelled, status=state[0] if state else "")
@@ -102,5 +104,5 @@ async def get_run(run_id: str, request: Request) -> dict[str, Any]:
         request.app.state.store, run_id, request.app.state.settings.cloud.prices
     )
     if snapshot is None:
-        raise AppError("not_found", f"Run {run_id} inconnu.")
+        raise AppError("run_not_found", f"Run {run_id} inconnu.", run_id=run_id)
     return snapshot

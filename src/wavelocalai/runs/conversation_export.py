@@ -22,13 +22,13 @@ TPS_SOURCES = {
 ROLES = {"user": "Vous", "assistant": "Modèle", "system": "Système", "tool": "Outil"}
 
 
-def _mask(value: Any, secrets: tuple[str, ...]) -> Any:
+def mask_value(value: Any, secrets: tuple[str, ...]) -> Any:
     if isinstance(value, str):
         return mask_secrets(value, secrets)
     if isinstance(value, dict):
-        return {key: _mask(item, secrets) for key, item in value.items()}
+        return {key: mask_value(item, secrets) for key, item in value.items()}
     if isinstance(value, list):
-        return [_mask(item, secrets) for item in value]
+        return [mask_value(item, secrets) for item in value]
     return value
 
 
@@ -87,7 +87,7 @@ def export_document(
         },
         "messages": [_message(raw) for raw in view["messages"]],
     }
-    return _mask(document, tuple(secrets))  # type: ignore[no-any-return]
+    return mask_value(document, tuple(secrets))  # type: ignore[no-any-return]
 
 
 def to_json(document: dict[str, Any]) -> str:

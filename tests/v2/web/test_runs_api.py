@@ -74,7 +74,7 @@ async def test_cancelling_a_parent_cancels_its_children(served):
 async def test_cancelling_an_unknown_run_is_404(served):
     _, client = served
     response = await client.post("/api/runs/inconnu/cancel")
-    assert response.status_code == 404 and response.json()["code"] == "not_found"
+    assert response.status_code == 404 and response.json()["code"] == "run_not_found"
 
 
 async def test_snapshot_of_a_finished_run_gives_status_metrics_and_no_error(served):
@@ -87,7 +87,7 @@ async def test_snapshot_of_a_finished_run_gives_status_metrics_and_no_error(serv
     assert snapshot["metrics"]["co2"] == LOCAL_CO2.as_dict()
     assert snapshot["children"] == [] and snapshot["ended_at"]
     missing = await client.get("/api/runs/inconnu")
-    assert missing.status_code == 404 and missing.json()["code"] == "not_found"
+    assert missing.status_code == 404 and missing.json()["code"] == "run_not_found"
 
 
 async def test_snapshot_of_a_composite_carries_metrics_on_leaves_only(served):

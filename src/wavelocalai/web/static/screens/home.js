@@ -6,8 +6,9 @@
 // - Ollama arrêté : « Indisponible », la marche à suivre et « Réessayer » ; les liens restent actifs.
 // - Onglet masqué : les cartes cessent de se mettre à jour (le flux est fermé par `core/system.js`)
 //   et reprennent au retour.
-// - Aucune carte ne mène à un écran absent : « Démo recommandée » arrive avec l'Arène (Epic 3), le
-//   résumé de la base avec l'Epic 4. Un module n'est listé que si son écran est disponible.
+// - Aucune carte ne mène à un écran absent : « Démo recommandée » (`home-demo.js`, story 3.6) n'existe
+//   que si l'Arène l'est, le résumé de la base arrive avec l'Epic 4. Un module n'est listé que si son
+//   écran est disponible.
 
 import { element, icon } from "../core/dom.js";
 import {
@@ -21,6 +22,7 @@ import { t } from "../core/i18n.js";
 import { MODULES, entryScreen } from "../core/registry.js";
 import { store } from "../core/store.js";
 import { recheckOllama } from "../core/system.js";
+import { demoSection } from "./home-demo.js";
 
 // Ne touche le DOM que si la valeur change : une carte mise à jour toutes les 2 s ne clignote pas.
 function setText(node, text) {
@@ -222,6 +224,8 @@ export function mount(host) {
   status.append(statusTitle, cards);
 
   const parts = [title, lead, status];
+  const demo = demoSection();
+  if (demo) parts.push(demo.el);
   const modules = modulesSection();
   if (modules) parts.push(modules);
   host.replaceChildren(...parts);
@@ -231,6 +235,7 @@ export function mount(host) {
     renderMode(mode, state);
     renderCpu(cpu, state);
     renderMemory(memory, state);
+    demo?.render(state);
   }
 
   // Onglet masqué : on ne lit plus le store (le flux est fermé), et on reprend au retour.
@@ -261,6 +266,7 @@ export function mount(host) {
 
   return () => {
     document.removeEventListener("visibilitychange", onVisibility);
+    demo?.dispose();
     pause();
     delete host.dataset.live;
     host.replaceChildren();

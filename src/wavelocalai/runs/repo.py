@@ -127,6 +127,34 @@ def erase_conversation(conn: sqlite3.Connection, conversation_id: str) -> None:
     conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
 
 
+def erase_arena(conn: sqlite3.Connection, run_id: str) -> None:
+    """Efface une Arène terminée (AD-13) : `run_events` et `messages` de la racine et de ses
+    feuilles sont supprimés (la question, les réponses et les raisons du juge y vivent), les lignes
+    `runs` restent sans texte comme registre carbone. Lève `run_not_found` si ce n'est pas une
+    Arène, `arena_busy` si elle est active ; le contrôle se fait ici, dans la transaction de
+    l'écrivain. Une Arène déjà effacée est effacée de nouveau sans erreur (idempotent)."""
+    row = conn.execute(
+        "SELECT status FROM runs WHERE id = ? AND kind = 'arena'", (run_id,)
+    ).fetchone()
+    if row is None:
+        raise AppError("run_not_found", f"Arène {run_id} inconnue.", run_id=run_id)
+    if row[0] in ("running", "awaiting_approval"):
+        raise AppError("arena_busy", "L'Arène est active.", run_id=run_id)
+    family = "SELECT id FROM runs WHERE id = ? OR parent_run_id = ?"
+    conn.execute(
+        f"DELETE FROM run_events WHERE run_id IN ({family})", (run_id, run_id)
+    )  # noqa: S608
+    conn.execute(f"DELETE FROM messages WHERE run_id IN ({family})", (run_id, run_id))  # noqa: S608
+    # Enveloppe d'erreur gardée sans `detail.technical` (texte d'exception ou de fournisseur qui peut
+    # citer la question ou la réponse), comme pour une conversation.
+    conn.execute(
+        "UPDATE runs SET error = CASE WHEN error IS NULL THEN NULL"
+        " ELSE json_remove(error, '$.detail.technical') END"
+        " WHERE id = ? OR parent_run_id = ?",
+        (run_id, run_id),
+    )
+
+
 def insert_events(
     conn: sqlite3.Connection, run_id: str, events: Iterable[tuple[int, str, str, str]]
 ) -> None:

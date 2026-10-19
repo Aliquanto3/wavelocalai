@@ -160,6 +160,7 @@ class ChatAnswer {
 
   metrics(data) {
     this.result = data ?? null;
+    if (this.ended) this.#finalFoot(); // mesures complétées après l'arrêt (Arène rouverte, story 3.6)
   }
 
   refresh() {
