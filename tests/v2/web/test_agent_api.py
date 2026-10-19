@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 
 import httpx
 import pytest
@@ -448,8 +449,10 @@ async def test_agent_secrets_never_reach_the_steps(tmp_path):
                 return f"clé : {key}"
 
             app.state.agent_tools.register(tool("leak", leak))
-            model = turns(app, [call("c1", "leak")], ["Fini."])
+            model = turns(app, [call("c1", "leak", cle={"valeur": [key]})], ["Fini."])
             _, _, events = await _run(client, tools=("leak",))
+            asked = next(s for s in steps(events) if s["kind"] == "tool_call")
+            assert key not in json.dumps(asked) and "***" in asked["arguments"]["cle"]["valeur"][0]
             result = next(s for s in steps(events) if s["kind"] == "tool_result")
             assert key not in result["summary"] and "***" in result["summary"]
             assert key not in model.requests[1].messages[-1].content

@@ -77,6 +77,17 @@ class _ToolRun:
     artifact_url: str | None = None
 
 
+def masked(value: Any, secrets: Sequence[str]) -> Any:
+    """`value` (arguments d'un outil) avec ses textes masqués, à toute profondeur (AD-18)."""
+    if isinstance(value, str):
+        return mask_secrets(value, secrets)
+    if isinstance(value, dict):
+        return {key: masked(item, secrets) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [masked(item, secrets) for item in value]
+    return value
+
+
 def clip(text: str, limit: int) -> str:
     """Texte replié à `limit` caractères au plus (`…` en fin s'il est coupé)."""
     text = text.strip()
@@ -263,7 +274,7 @@ class AgentLoop:
             json.dumps(call.arguments, ensure_ascii=False, default=str),
             tool=call.name,
             call_id=call.id,
-            arguments=call.arguments,
+            arguments=masked(call.arguments, self._secrets),
         )
         ran = await self._execute(call, by_name.get(call.name), list(by_name))
         self._step(

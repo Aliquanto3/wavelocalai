@@ -31,9 +31,11 @@ NO_ID = {"", "null", "None"}
 
 
 def new_call_id() -> str:
-    """Identifiant d'un appel d'outil pour un fournisseur qui n'en donne pas (Ollama) : unique, car
-    une boucle d'agent enchaîne plusieurs tours."""
-    return f"call_{uuid.uuid4().hex[:12]}"
+    """Identifiant d'un appel d'outil pour un fournisseur qui n'en donne pas (Ollama, fragment
+    Mistral sans `id`) : unique, car une boucle d'agent enchaîne plusieurs tours. Neuf caractères
+    alphanumériques : le seul format que Mistral accepte en retour (`tool_call_id`), et que les
+    autres fournisseurs acceptent aussi."""
+    return uuid.uuid4().hex[:9]
 
 
 def parse_arguments(raw: Any) -> tuple[dict[str, Any], str | None]:
@@ -148,7 +150,14 @@ class ToolCallDeltas:
         position = index or 0
         has_id = bool(call_id) and call_id not in NO_ID
         entry = self._by_index.get(position)
-        if entry is None or (has_id and entry["id"] and call_id != entry["id"]):
+        same_id = has_id and entry is not None and entry["id"] == call_id
+        # Un nouvel appel : indice nouveau, autre `id`, ou un nom qui revient sans le même `id`
+        # (Mistral rend des appels entiers sur le même indice avec `id = "null"`).
+        if (
+            entry is None
+            or (has_id and entry["id"] and call_id != entry["id"])
+            or (name and entry["name"] and not same_id)
+        ):
             entry = {"id": None, "name": "", "args": "", "obj": None}
             self._entries.append(entry)
             self._by_index[position] = entry

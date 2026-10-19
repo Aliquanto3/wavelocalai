@@ -230,7 +230,8 @@ async def test_mistral_sends_function_tools_and_reads_whole_calls_even_without_i
     assert fake.bodies[0]["tools"] == [FUNCTION_TOOL]
     first, second = calls_of(chunks)
     assert (first.id, first.name, first.arguments) == ("AbCd12345", "meteo", {"ville": "Lyon"})
-    assert second.arguments == {"ville": "Paris"} and second.id.startswith("call_")  # id fabriqué
+    assert second.arguments == {"ville": "Paris"}
+    assert len(second.id) == 9 and second.id.isalnum()  # id fabriqué, format Mistral
     assert second.id != first.id and chunks[-1].result.finish_reason == "tool_calls"
 
 
@@ -318,3 +319,25 @@ def test_parallel_deltas_are_assembled_by_index_and_new_ids_split_calls():
         ("b", "outil_deux", {"y": 2}),
         ("c", "outil_trois", {}),
     ]
+
+
+def test_whole_calls_on_one_index_without_id_are_not_merged():
+    """Mistral : deux appels entiers sur l'indice 0, `id = "null"` : deux appels, pas un mélange."""
+    deltas = ToolCallDeltas()
+    deltas.add(0, "null", "meteo", '{"ville": "Lyon"}')
+    deltas.add(0, "null", "heure", {"fuseau": "UTC"})
+    deltas.add(0, "null", "meteo", '{"ville": "Paris"}')
+    calls = deltas.calls()
+    assert [(c.name, c.arguments, c.error) for c in calls] == [
+        ("meteo", {"ville": "Lyon"}, None),
+        ("heure", {"fuseau": "UTC"}, None),
+        ("meteo", {"ville": "Paris"}, None),
+    ]
+    assert len({c.id for c in calls}) == 3
+
+
+def test_a_repeated_name_with_the_same_id_stays_one_call():
+    deltas = ToolCallDeltas()
+    deltas.add(0, "a", "meteo", '{"ville"')
+    deltas.add(0, "a", "meteo", ': "Lyon"}')
+    assert [(c.id, c.arguments) for c in deltas.calls()] == [("a", {"ville": "Lyon"})]
