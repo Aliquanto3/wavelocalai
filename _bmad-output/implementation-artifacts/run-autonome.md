@@ -300,3 +300,41 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 09:32 · 4.6 · review · lancée (Opus, liste du second avis) · —
 - 2026-10-19 09:36 · 3.5 · contrôles · verts (244 E2E ciblés, 1 erreur connue corrigée par #72 ; 11 integration) ; PR #74 ouverte, file de fusion · a9f0dab
 - 2026-10-19 09:47 · 4.5 · fusion · PR #73 fusionnée · 3e11106
+- 2026-10-19 09:48 · 4.6 · review · 2 medium corrigés (budget et gabarit de notation : 20 verdicts sur 20 sur qwen2.5:1.5b ; garde-fou sur HyDE/notation/reformulation), préambule de reformulation retiré, 1 low rejeté ; report : integration HyDE/Self-RAG de bout en bout · cb98d39
+- 2026-10-19 09:50 · 3.5 · fusion · PR #74 fusionnée · 03243e5
+- 2026-10-19 09:53 · 3.6 · dev · fini (version 2.0.0a3, réouverture, exports CSV/MD, effacement AD-13, carte démo) ; §7(d) n° 3, 7, 8 en variante conservatrice · 1978ab7
+- 2026-10-19 09:53 · run · incident · `git stash` partagé entre worktrees : l'agent de la 3.6 a appliqué le stash d'un autre agent, puis rétabli son travail par SHA ; 4.7 prévenue ; consigne : plus de `git stash` dans les agents · —
+- 2026-10-19 09:53 · 3.6 · fusion master · 3.5 et 4.5 sans conflit, `arena.js` 589 lignes · af15af8
+- 2026-10-19 09:53 · 3.6 · second-avis · lancé (Haiku) · —
+- 2026-10-19 09:57 · 4.7 · dev · fini (reranker hors ligne seulement, raison affichée sinon ; 54 E2E Discussion/Base) ; écarts `reranker` dans `GET /api/rag/settings`, champs de `retrieval_step` · 6d8ab31
+- 2026-10-19 09:57 · 4.7 · fusion 4.6 revue · conflits `rag/query.py`, `web/app.py` gardés des deux côtés (`reranker` + `guard`) ; 439 tests ciblés verts · 8e1ff2f
+- 2026-10-19 09:57 · 4.7 · second-avis · lancé (Haiku) · —
+- 2026-10-19 09:58 · 4.9 · dev · lancé (Sonnet high, worktree v2-4-9, empilée sur 4.7 8e1ff2f ; version 2.0.0a4) · —
+- 2026-10-19 10:00 · 3.6 · second-avis · aucun high/medium ; 3 low (codes `run_not_found`/`not_found`, réouverture d'un run non Arène, « (effacée) » à tort) · —
+- 2026-10-19 10:00 · 3.6 · review · lancée (Opus) · —
+- 2026-10-19 10:03 · 4.7 · second-avis · aucun high/medium ; 4 low (requêtes Hub de fastembed avant le chargement hors ligne, test réseau sur un faux, double chargement après annulation, fusion Self-RAG sans score) ; API fastembed 0.9.0 vérifiée · —
+- 2026-10-19 10:03 · 4.7 · review · lancée (Opus) · —
+- 2026-10-19 10:05 · run · état · PR #75 fusionnée (`mergeable` UNKNOWN passager à la 1re tentative) · cc7e1bf
+- 2026-10-19 10:14 · 3.6 · review · medium corrigé (question effacée restée dans le champ et le brouillon), run non Arène « Résultat introuvable », libellés export/arena_busy ; 2 low rejetés · 0c907bc
+- 2026-10-19 10:15 · 3.6 · PR · #76 ouverte (CI) ; contrôles locaux après ceux de la 4.6 · 0c907bc
+- 2026-10-19 10:15 · 4.7 · review · medium corrigé (chargement unique partagé, annulation sans double chargement) ; test réseau sur le vrai fastembed (venv jetable hors ligne) ; requêtes Hub réfutées ; reports : nom de cache vs dépôt source (5.5), énergie du reclassement (AD-10) · 15d461e
+- 2026-10-19 10:19 · 4.6 · contrôles · verts (230 E2E ciblés, 11 integration) ; PR #77 ouverte, file de fusion · 23233ef
+- 2026-10-19 10:19 · 3.6 · contrôles · lancés · 0c907bc
+- 2026-10-19 10:36 · 4.6 · fusion · PR #77 fusionnée · 8d6210d
+- 2026-10-19 10:36 · 3.6 · contrôles · 279 E2E verts, 1 rouge réel (`test_shell` : la carte démo appelait `/api/models` avant `shell-ready`, AD-15) corrigé (58 E2E coquille/démo/Flow 1 verts) ; integration 11 ; master (4.6) fusionné sans conflit ; poussé · e96be54
+- 2026-10-19 10:36 · run · outil · `checks.sh` : la relance seule précise le marqueur (`-m`), sinon un E2E relancé était désélectionné · —
+- 2026-10-19 10:36 · 4.7 · fusion master · 4.6 sans conflit ; contrôles lancés · d5237c7
+- 2026-10-19 10:46 · 4.9 · dev · fini (E2E Flow 2, integration naive + self_rag sur Ollama 17 s, carte Documents de l'Accueil, version 2.0.0a4) ; écart : appel `GET /api/rag/documents` sur l'Accueil (AD-6, variante conservatrice) · c935eff
+- 2026-10-19 10:46 · 4.9 · fusion 4.7 puis 3.6 · 4.7 sans conflit ; 3.6 : versions gardées à a4, `home.js` et `test_shell_static.py` en conflit de fond (laissés au relecteur) · —
+- 2026-10-19 10:46 · 4.9 · second-avis · lancé (Haiku) · —
+- 2026-10-19 10:51 · 3.6 · fusion · PR #76 fusionnée ; Epic 3 terminé, préversion 2.0.0a3 (tag et release en attente d'Anaël) · 360c6a4
+- 2026-10-19 10:51 · 4.9 · second-avis · 1 high (l'Accueil appelle `/api/rag/documents` avant `shell-ready`, AD-15, même défaut que la 3.6), 1 medium (double appel au premier passage) · —
+- 2026-10-19 10:51 · 4.9 · review · lancée (Opus) avec fin de fusion de la 3.6 (`home.js`, `test_shell_static.py`) · —
+- 2026-10-19 10:55 · 4.7 · contrôles · verts (206 E2E ciblés, 11 integration) ; PR #78 ouverte, file de fusion ; `e2e_cibles.sh` : écrans documents → aussi `test_discussion*` · d5237c7
+- 2026-10-19 11:05 · 4.9 · review · high corrigé (`core/shell-ready.js` partagé, Accueil après `shell-ready`), medium corrigé (une lecture par affichage, E2E), fusion 3.6 terminée ; report : `wl-model-picker.js` 666 lignes (dette 8.1) · 50ef444
+- 2026-10-19 11:05 · 4.9 · contrôles · lancés en complet (tous E2E, v2, v1, integration ; passe E2E complète du lot) · b46254b
+- 2026-10-19 11:09 · 4.7 · fusion · PR #78 fusionnée · 4fb98c8
+- 2026-10-19 11:51 · 4.9 · contrôles · verts en complet (459 E2E, 12 integration, 1238 v2, 1286 v1) ; Ollama rendu à Anaël · —
+- 2026-10-19 11:52 · 4.9 · PR · #79 ouverte (master avec 4.7 finale fusionné, 408 tests ciblés verts), file de fusion · 47ee04f
+- 2026-10-19 12:06 · 4.9 · fusion · PR #79 fusionnée ; Epic 4 terminé, MVP terminé, préversion 2.0.0a4 (tag et release en attente d'Anaël) · de1288c
+- 2026-10-19 12:06 · run · fin · run arrêté à la fin de l'Epic 4 (décision d'Anaël) ; Epics 5 à 8 reportés · —
