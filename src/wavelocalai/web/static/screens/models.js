@@ -5,8 +5,10 @@
 // installable ». Story 5.4 : « Décharger les modèles inactifs », « Supprimer » (dialogue de
 // confirmation) et « Modèles proposés par défaut ». Les suivantes ajoutent chacune leur section :
 // la fiche d'un modèle (5.6). Story 5.5 : « Reclassement des extraits », l'installation du reranker
-// local (même run `pull`). Un fichier par bloc : `models-installed.js`, `models-catalog.js`,
-// `models-pull.js`, `models-unload.js`, `models-delete.js`, `models-defaults.js`, `models-rerank.js`.
+// local (même run `pull`). Story 5.6 : la fiche d'un modèle, `#/modeles/<tag>` (`models-card.js`,
+// panneau à droite dès 1 120 px, au-dessus en deçà ; `update` suit l'adresse sans remonter l'écran).
+// Un fichier par bloc : `models-installed.js`, `models-catalog.js`, `models-pull.js`,
+// `models-unload.js`, `models-delete.js`, `models-defaults.js`, `models-rerank.js`, `models-card.js`.
 //
 // - Aucun appel d'API avant le repère `shell-ready` (AD-15) ; la page se construit avant.
 // - Le front ne calcule rien (AD-20) : `fits`, la mémoire nécessaire et celle qui manque viennent
@@ -22,6 +24,7 @@ import { t } from "../core/i18n.js";
 import { shellReady } from "../core/shell-ready.js";
 import { store } from "../core/store.js";
 import "../components/index.js";
+import { createCard } from "./models-card.js";
 import { createCatalog } from "./models-catalog.js";
 import { createDefaults } from "./models-defaults.js";
 import { createDeleter } from "./models-delete.js";
@@ -32,8 +35,17 @@ import { createUnload } from "./models-unload.js";
 
 const baseTag = (tag) => tag.replace(/:latest$/, "");
 
-export function mount(host) {
+// Les écrans montés, par hôte : le routeur appelle `update` quand seule l'adresse de la fiche change.
+const mounted = new WeakMap();
+
+export function update(host, params = {}) {
+  mounted.get(host)?.openCard(params.tag ?? null);
+}
+
+export function mount(host, params = {}) {
   // --- Structure (construite avant tout appel au serveur) ----------------------------------
+  const layout = element("div", "models-layout");
+  layout.dataset.fiche = "false";
   const notice = element("p", "models-notice");
   notice.setAttribute("role", "status");
   const problem = document.createElement("wl-error");
@@ -83,6 +95,7 @@ export function mount(host) {
   let ollamaUp = true;
   let catalog = null; // créé après `pull` (le tableau lit l'installation en cours)
   let rerank = null; // idem : la section du reranker lit l'installation en cours
+  let card = null; // idem : la fiche lit l'installation en cours
 
   const defaults = createDefaults({ say, allowCloud: () => store.get().allowCloud });
   const unload = createUnload({ say, onProblem: setProblem, nameOf });
@@ -107,7 +120,10 @@ export function mount(host) {
     say,
     onChange: () => onChange(),
     onEnded: ({ status }) => {
-      if (status === "ok") load(); // le registre est relu avant `run_ended` : le modèle y est
+      if (status === "ok") {
+        load(); // le registre est relu avant `run_ended` : le modèle y est
+        card?.reload(); // la fiche ouverte dit « installé »
+      }
     },
     onProblem: (envelope) => {
       problem.error = envelope ?? {
@@ -130,15 +146,27 @@ export function mount(host) {
     },
   });
 
+  card = createCard({
+    onInstall: (tag) => install(tag),
+    blockedReason: () => blockedReason(),
+    onChange: () => {
+      installed.refresh(); // `aria-current` du lien de la fiche ouverte
+      catalog.render();
+      layout.dataset.fiche = String(card.tag !== null);
+    },
+  });
+
   // Pourquoi « Installer » est désactivé : une installation en cours, ou Ollama muet.
   function blockedReason() {
     if (pull.busy) return t("models.actions.install_busy", { tag: pull.activeTag ?? "…" });
     return ollamaUp ? null : t("models.actions.install_ollama_down");
   }
 
+  let lastReason = null;
+
   function onChange() {
     // Le flux système peut rejoindre une installation dès la création.
-    if (catalog === null || rerank === null) return;
+    if (catalog === null || rerank === null || card === null) return;
     catalog.render();
     rerank.render();
     const tag = pull.activeTag;
@@ -156,6 +184,10 @@ export function mount(host) {
     panel.replaceChildren(...parts);
     panel.hidden = parts.length === 0;
     const why = blockedReason();
+    if (why !== lastReason) {
+      lastReason = why;
+      card.refresh(); // le bouton « Installer » de la fiche suit
+    }
     reason.hidden = why === null;
     reason.textContent = why ?? "";
     installButton.setAttribute("aria-disabled", String(why !== null));
@@ -279,9 +311,9 @@ export function mount(host) {
     },
   );
 
-  host.replaceChildren(
-    element("h1", "", t("screens.models")),
-    element("p", "lead", t("models.lead")),
+  // La fiche (panneau) et le reste de l'écran : à droite dès 1 120 px, au-dessus en deçà (D-40).
+  const main = element("div", "models-main");
+  main.append(
     actions,
     notice,
     problem,
@@ -293,6 +325,14 @@ export function mount(host) {
     catalog.el,
     deleter.el,
   );
+  layout.append(card.el, main);
+  host.replaceChildren(
+    element("h1", "", t("screens.models")),
+    element("p", "lead", t("models.lead")),
+    layout,
+  );
+  mounted.set(host, { openCard: (tag) => card.open(tag) });
+  if (params.tag) card.open(params.tag);
 
   // --- Écran masqué puis revu ---------------------------------------------------------------
   let wasHidden = host.hidden;
@@ -309,6 +349,7 @@ export function mount(host) {
 
   return () => {
     visibility.disconnect();
+    mounted.delete(host);
     unsubscribeMemory();
     unsubscribeCloud();
     unsubscribeOllama();

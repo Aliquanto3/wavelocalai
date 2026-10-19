@@ -17,6 +17,10 @@ export function modelsApi(request) {
     // Installe le reranker local (modèle fastembed, extra « rerank ») : le même run racine `pull`,
     // `{run_id}` aussitôt ; `409 run_busy` si une installation tourne, `422` sans l'extra (story 5.5).
     pullReranker: () => request("/api/models/reranker/pull", { method: "POST" }),
+    // Fiche d'un modèle (story 5.6) : caractéristiques, « Pourquoi ce débit ? » et « Sur d'autres
+    // postes » (résultats du banc), tout calculé par le serveur. `404 model_not_found` si inconnu.
+    // Le tag garde ses `/` (`hf.co/utilisateur/depot:Q4`), le reste est encodé.
+    modelCard: (tag) => request(`/api/models/card/${tag.split("/").map(encodeURIComponent).join("/")}`),
     // Choix explicite du modèle d'un usage (`PUT`, un tag, 2 à 3 pour `arena`) : rend le défaut
     // résultant (`source: preference`) ; `model_not_eligible`, `cloud_not_allowed` sinon (story 5.4).
     setModelDefault: (purpose, tags, allowCloud) =>

@@ -13,3 +13,4 @@ export { WlArenaLane } from "./wl-arena-lane.js";
 export { WlDataTable } from "./wl-data-table.js";
 export { WlChartSvg } from "./wl-chart-svg.js";
 export { WlConfirmDialog } from "./wl-confirm-dialog.js";
+export { watchModelPickers } from "./model-card-launcher.js";
