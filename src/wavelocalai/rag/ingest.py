@@ -48,12 +48,14 @@ from wavelocalai.rag.extract import (
     validate_path,
 )
 from wavelocalai.rag.index import VectorIndex
+from wavelocalai.rag.settings import RagTunables, effective
 from wavelocalai.rag.split import ChunkDraft, split_pages
 from wavelocalai.rag.staging import StagedFile, discard_staging
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import RunHandle
 from wavelocalai.runs.system_bus import SystemBus
 from wavelocalai.store.db import Store, utc_now_iso
+from wavelocalai.store.preferences import PreferenceStore
 
 logger = logging.getLogger("wavelocalai.rag")
 
@@ -73,6 +75,7 @@ class IngestService:
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
         fallback_model: str | None = None,
+        preferences: PreferenceStore | None = None,
     ) -> None:
         self._hub = hub
         self._store: Store = hub.store
@@ -84,6 +87,7 @@ class IngestService:
         self._meter = meter  # sans compteur, le CO2 d'un lot n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._fallback_model = fallback_model  # dernier recours (modèle `fake` des tests)
+        self._preferences = preferences  # réglages choisis à l'écran (AD-15), priment sur le .toml
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     # --- démarrage ---------------------------------------------------------------------------
@@ -118,7 +122,8 @@ class IngestService:
         sinon le service le supprime à la fin du run."""
         if not files:
             raise AppError("invalid_request", "Aucun fichier à indexer.")
-        ref = await self._pick_model(embedding_model)
+        tun = effective(self._settings.rag, self._preferences)  # figés pour tout cet import
+        ref = await self._pick_model(embedding_model, tun)
         embedder = self._factory.embedder(ref)
         rag = self._settings.rag
         handle = await self._hub.create_run(
@@ -128,12 +133,12 @@ class IngestService:
                 "embedding_model": ref.tag,
                 "file_count": len(files),
                 "batch_size": rag.embed_batch_size,
-                "chunk_size": rag.chunk_size,
-                "chunk_overlap": rag.chunk_overlap,
+                "chunk_size": tun.chunk_size,
+                "chunk_overlap": tun.chunk_overlap,
             },
         )
         task = asyncio.create_task(
-            self._run(handle, list(files), staging_dir, embedder),
+            self._run(handle, list(files), staging_dir, embedder, tun),
             name=f"wavelocalai-ingest-{handle.run_id}",
         )
         self._hub.attach_task(handle.run_id, task)
@@ -141,12 +146,13 @@ class IngestService:
         task.add_done_callback(self._tasks.discard)
         return handle
 
-    async def _pick_model(self, requested: str | None) -> ModelRef:
+    async def _pick_model(self, requested: str | None, tun: RagTunables) -> ModelRef:
         """Modèle d'embedding : celui demandé, sinon celui de la base (une base = un modèle,
-        AD-16), sinon le défaut des réglages, sinon le premier installé."""
+        AD-16), sinon le défaut des réglages (préférence, puis `.toml`), sinon le premier
+        installé."""
         rows = await self._store.aread(repo.BASE_MODEL_SQL)
         current = rows[0]["embedding_model"] if rows else None
-        tag = requested or current or self._settings.rag.embedding_model
+        tag = requested or current or tun.embedding_model
         if tag is None:
             installed = (await self._registry.list_models()).models
             tag = next((m.tag for m in installed if m.kind == "embedding"), self._fallback_model)
@@ -165,12 +171,17 @@ class IngestService:
     # --- le run ------------------------------------------------------------------------------
 
     async def _run(
-        self, handle: RunHandle, files: list[StagedFile], staging_dir: Path, embedder: Embedder
+        self,
+        handle: RunHandle,
+        files: list[StagedFile],
+        staging_dir: Path,
+        embedder: Embedder,
+        tun: RagTunables,
     ) -> None:
         secrets = self._settings.secret_values()
         try:
             for position, staged in enumerate(files, 1):
-                await self._ingest_file(handle, staged, position, len(files), embedder)
+                await self._ingest_file(handle, staged, position, len(files), embedder, tun)
             await self._hub.finish_run(handle.run_id, "ok")
         except asyncio.CancelledError:
             raise  # `hub.cancel` a déjà fixé `cancelled` ; le document en cours est retiré
@@ -189,6 +200,7 @@ class IngestService:
         position: int,
         count: int,
         embedder: Embedder,
+        tun: RagTunables,
     ) -> None:
         run_id = handle.run_id
         meta = {"file": staged.name, "file_index": position, "file_count": count}
@@ -217,7 +229,7 @@ class IngestService:
             self._done(run_id, meta, present[0]["id"], "duplicate", present[0]["chunk_count"])
             return
         try:
-            chunks = await self._index_file(run_id, staged, meta, doc_id, embedder)
+            chunks = await self._index_file(run_id, staged, meta, doc_id, embedder, tun)
         except asyncio.CancelledError:
             await self._discard(doc_id)  # l'import annulé ne laisse aucun extrait (ni le document)
             raise
@@ -235,7 +247,13 @@ class IngestService:
         self._done(run_id, meta, doc_id, "ready", chunks)
 
     async def _index_file(
-        self, run_id: str, staged: StagedFile, meta: dict[str, Any], doc_id: str, embedder: Embedder
+        self,
+        run_id: str,
+        staged: StagedFile,
+        meta: dict[str, Any],
+        doc_id: str,
+        embedder: Embedder,
+        tun: RagTunables,
     ) -> int:
         """Extraction, découpe, embedding, puis `ready` ; rend le nombre d'extraits."""
         rag = self._settings.rag
@@ -251,7 +269,7 @@ class IngestService:
         self._progress(run_id, meta, "extract", 1, 1)
         self._progress(run_id, meta, "split", 0, 1)
         drafts: list[ChunkDraft] = await asyncio.to_thread(
-            split_pages, pages, rag.chunk_size, rag.chunk_overlap
+            split_pages, pages, tun.chunk_size, tun.chunk_overlap
         )
         if not drafts:
             raise IngestError("le fichier ne contient aucun texte à indexer")

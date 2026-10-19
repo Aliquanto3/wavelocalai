@@ -490,13 +490,13 @@ def test_the_table_lists_name_chunks_date_model_and_status_and_sorts_from_the_ke
     wait_summary(page, "7 extraits ajoutés depuis 3 documents.")
     headers = page.locator("wl-data-table thead th").all_inner_texts()
     assert [h.strip() for h in headers] == [
-        "Nom", "Extraits", "Ajouté le", "Modèle de représentation", "Statut",
+        "Nom", "Extraits", "Ajouté le", "Modèle de représentation", "Statut", "Actions",
     ]  # fmt: skip
     first = table_rows(page)[0]
     assert re.fullmatch(r"\d{1,2} [^\s]+ \d{4}", first[2]), first  # date fr-FR, jamais ISO
     assert first[3] == "fake-embed:16" and first[4] == "Prêt"
     assert page.locator("wl-data-table table").get_attribute("class") == "wl-table"
-    assert page.locator("wl-data-table th[scope=col]").count() == 5
+    assert page.locator("wl-data-table th[scope=col]").count() == 6  # dont « Actions » (4.3)
     assert page.locator("wl-data-table tbody th[scope=row]").count() == 3
 
     name = page.locator("wl-data-table .wl-table-sort[data-key=source]")
@@ -547,12 +547,13 @@ def test_a_failed_document_is_in_the_table_but_not_in_the_ready_count(docs):
     wait_summary(page, "5 extraits ajoutés depuis 1 document. 1 fichier n'a pas pu être indexé.")
     for _ in range(2):  # puis après un rechargement
         wait_for(page, "() => document.querySelectorAll('wl-data-table tbody tr').length === 2")
-        statuses = {r[0]: r[-1].replace("\n", " ") for r in table_rows(page)}
+        statuses = {r[0]: r[-2].replace("\n", " ") for r in table_rows(page)}
         assert statuses == {"bon.txt": "Prêt", "vide.md": "Échec le fichier est vide"}
         assert (
             page.locator(".docs-section .docs-count").inner_text() == "1 document prêt · 5 extraits"
         )
-        assert page.locator("wl-data-table button").filter(has_text="Supprimer").count() == 0
+        # « Supprimer » de chaque ligne `ready` ou `failed` (4.3 ; absent en 4.2, D-26).
+        assert page.locator("wl-data-table button.docs-delete").count() == 2
         page.reload()
         wait_ready(page)
 

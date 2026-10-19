@@ -16,7 +16,9 @@ def source(name: str) -> str:
     return (STATIC / name).read_text(encoding="utf-8")
 
 
-SCREEN = source("screens/documents-base.js") + source("screens/documents-import-row.js")
+SCREEN = "".join(
+    source(f"screens/documents-{name}.js") for name in ("base", "import-row", "manage", "settings")
+)
 TABLE = source("components/wl-data-table.js")
 
 
@@ -90,7 +92,10 @@ def test_new_front_files_stay_under_the_size_budget():
     for name in (
         "screens/documents-base.js",
         "screens/documents-import-row.js",
+        "screens/documents-manage.js",
+        "screens/documents-settings.js",
         "components/wl-data-table.js",
+        "components/wl-confirm-dialog.js",
         "documents.css",
     ):
         assert len(source(name).splitlines()) <= 600, name
