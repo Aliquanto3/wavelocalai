@@ -305,10 +305,8 @@ def test_planned_modules_have_no_card_on_the_home(home):
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/documents"]').count() == 1
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/modeles"]').count() == 1
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/agents"]').count() == 1
-    # La barre haute les montre désactivés, avec leur raison.
-    assert (
-        "Pas encore disponible dans cette préversion" in home.locator("#module-list").inner_text()
-    )
+    # Plus aucun module à venir : la barre haute n'en montre aucun de désactivé.
+    assert "Pas encore disponible" not in home.locator("#module-list").inner_text()
 
 
 def mount_second_home(page, every_module: bool = False) -> None:
