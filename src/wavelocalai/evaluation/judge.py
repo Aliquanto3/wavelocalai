@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from wavelocalai.config import Settings
 from wavelocalai.errors import ProviderError
@@ -36,6 +37,15 @@ from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SystemBus
 
 logger = logging.getLogger("wavelocalai.evaluation")
+
+
+@dataclass(frozen=True)
+class JudgeReply:
+    """Réponse brute d'un appel du juge : son texte, ou `None` avec la raison « non évalué »."""
+
+    text: str | None
+    reason: str
+
 
 MAX_ANSWER_CHARS = 12_000  # au-delà, la réponse est tronquée pour le juge (petit contexte)
 MAX_REASON_CHARS = 600
@@ -123,18 +133,28 @@ class Judge:
     ) -> JudgeVerdict:
         if not answer.strip():
             return JudgeVerdict(None, NOT_EVALUATED_EMPTY)  # inutile de déranger le juge
+        reply = await self.ask(parent_run_id, judge, build_request(question, criteria, answer))
+        if reply.text is None:
+            return JudgeVerdict(None, reply.reason)
+        return verdict_from_text(reply.text)
+
+    async def ask(self, parent_run_id: str, judge: ChatModel, request: ChatRequest) -> JudgeReply:
+        """Un appel silencieux du juge, en feuille `judge` du run `parent_run_id` : rend le texte de
+        sa réponse, ou `text=None` avec la raison « non évalué » (juge indisponible, sortie
+        invalide). Ne lève que pour une annulation. Sert la notation de l'Arène (`score`) et celle
+        de l'évaluation de la qualité (story 7.1), qui lui passent leurs propres invites."""
         try:
             leaf = await self._hub.create_run(
                 "judge", models=[judge.ref.tag], parent_run_id=parent_run_id
             )
-        except ValueError:  # le parent se clôt : l'Arène est annulée, rien à publier
-            return JudgeVerdict(None, NOT_EVALUATED_UNAVAILABLE)
+        except ValueError:  # le parent se clôt : le run est annulé, rien à publier
+            return JudgeReply(None, NOT_EVALUATED_UNAVAILABLE)
         captured: list[str] = []
         result = await stream_into_run(
             self._hub,
             leaf.run_id,
             judge,
-            build_request(question, criteria, answer),
+            request,
             secrets=self._settings.secret_values(),
             co2=NOT_MEASURED,
             estimate_co2=cloud_estimator(judge, self._settings),  # juge cloud : ecologits (AD-11)
@@ -150,6 +170,6 @@ class Judge:
             code = (result.error or {}).get("code")
             logger.warning("Juge %s indisponible (%s)", judge.ref.tag, code)
             if code == "invalid_output":
-                return JudgeVerdict(None, NOT_EVALUATED_INVALID)
-            return JudgeVerdict(None, NOT_EVALUATED_UNAVAILABLE)
-        return verdict_from_text("".join(captured))
+                return JudgeReply(None, NOT_EVALUATED_INVALID)
+            return JudgeReply(None, NOT_EVALUATED_UNAVAILABLE)
+        return JudgeReply("".join(captured), "")

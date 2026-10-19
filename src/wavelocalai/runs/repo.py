@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Iterable
 from typing import Any
 
-from wavelocalai.errors import AppError
+from wavelocalai.errors import AppError, pull_failed_envelope
 from wavelocalai.runs.models import AssistantMessage, Co2, LeafResult
 
 
@@ -155,6 +155,33 @@ def erase_arena(conn: sqlite3.Connection, run_id: str) -> None:
     )
 
 
+def erase_eval(conn: sqlite3.Connection, run_id: str) -> None:
+    """Efface une évaluation terminée (AD-13) : ses `evaluations` (notes, verdicts par affirmation) et
+    les `run_events` de la racine et de ses feuilles (questions, réponses, raisons) sont supprimés,
+    les lignes `runs` restent sans texte comme registre carbone. Lève `run_not_found` si ce n'est pas
+    une évaluation, `run_busy` si elle est active ; le contrôle se fait ici, dans la transaction de
+    l'écrivain. Une évaluation déjà effacée est effacée de nouveau sans erreur (idempotent)."""
+    row = conn.execute(
+        "SELECT status FROM runs WHERE id = ? AND kind = 'eval'", (run_id,)
+    ).fetchone()
+    if row is None:
+        raise AppError("run_not_found", f"Évaluation {run_id} inconnue.", run_id=run_id)
+    if row[0] in ("running", "awaiting_approval"):
+        raise AppError("run_busy", "L'évaluation est active.", run_id=run_id)
+    family = "SELECT id FROM runs WHERE id = ? OR parent_run_id = ?"
+    conn.execute(
+        f"DELETE FROM run_events WHERE run_id IN ({family})", (run_id, run_id)
+    )  # noqa: S608
+    conn.execute("DELETE FROM evaluations WHERE run_id = ?", (run_id,))
+    # Enveloppe d'erreur gardée sans `detail.technical`, comme pour une Arène.
+    conn.execute(
+        "UPDATE runs SET error = CASE WHEN error IS NULL THEN NULL"
+        " ELSE json_remove(error, '$.detail.technical') END"
+        " WHERE id = ? OR parent_run_id = ?",
+        (run_id, run_id),
+    )
+
+
 def insert_events(
     conn: sqlite3.Connection, run_id: str, events: Iterable[tuple[int, str, str, str]]
 ) -> None:
@@ -265,10 +292,10 @@ def interrupt_orphans(conn: sqlite3.Connection, now: str) -> list[str]:
     pour chaque racine (`seq` à la suite du dernier écrit), et le message assistant partiel déjà
     reçu. Rend les identifiants touchés."""
     rows = conn.execute(
-        "SELECT id, parent_run_id, conversation_id FROM runs"
+        "SELECT id, parent_run_id, conversation_id, kind, params FROM runs"
         " WHERE status IN ('running', 'awaiting_approval')"
     ).fetchall()
-    for run_id, parent_id, conversation_id in rows:
+    for run_id, parent_id, conversation_id, kind, params in rows:
         conn.execute(
             "UPDATE runs SET status = 'interrupted', ended_at = ? WHERE id = ?", (now, run_id)
         )
@@ -277,13 +304,30 @@ def interrupt_orphans(conn: sqlite3.Connection, now: str) -> list[str]:
         last = conn.execute(
             "SELECT max(seq) FROM run_events WHERE run_id = ?", (run_id,)
         ).fetchone()
-        ended = {"status": "interrupted", "error": None}
+        ended = {"status": "interrupted", "error": _interruption_error(kind, params)}
         insert_events(conn, run_id, [((last[0] or 0) + 1, "run_ended", now, dumps(ended))])
         if conversation_id is not None:
             partial = _partial_message(conn, run_id)
             if not partial.is_empty():
                 insert_message(conn, conversation_id, run_id, "assistant", now, partial)
     return [row[0] for row in rows]
+
+
+def _interruption_error(kind: str, params: str | None) -> dict[str, Any] | None:
+    """Une installation de modèle interrompue dit pourquoi (`pull_failed`, cause `interrupted`,
+    story 5.3) ; les autres runs n'ont pas d'erreur."""
+    if kind != "pull":
+        return None
+    try:
+        tag = str(json.loads(params or "{}").get("tag") or "")
+    except ValueError:
+        tag = ""
+    return pull_failed_envelope(
+        tag or "ce modèle",
+        "interrupted",
+        "run interrompu : serveur arrêté avant run_ended",
+        restarted=True,
+    )
 
 
 def _partial_message(conn: sqlite3.Connection, run_id: str) -> AssistantMessage:

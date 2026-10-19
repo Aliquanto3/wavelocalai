@@ -23,19 +23,23 @@ ORIGINS = ("local", "cloud")
 # Un run encore actif n'est pas compté. Un import (`ingest`) est un parent pur : sans lot
 # d'embedding (fichiers déjà présents, tous en échec) il n'est pas une feuille à compter. L'origine
 # manquante se déduit de la méthode : ecologits estime un modèle distant, codecarbon mesure ce poste.
-_LEAVES_SQL = """
+LEAF_WHERE = """r.ended_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM runs child WHERE child.parent_run_id = r.id)
+  AND r.kind <> 'ingest'"""
+ORIGIN_SQL = "COALESCE(r.origin, CASE r.co2_method WHEN 'ecologits' THEN 'cloud' ELSE 'local' END)"
+
+# `LEAF_WHERE` et `ORIGIN_SQL` sont partagés avec l'historique (`history.py`) : une session close et
+# la session courante comptent exactement les mêmes runs, avec la même origine.
+_LEAVES_SQL = f"""
 SELECT COALESCE(parent.kind, r.kind) AS module,
-       COALESCE(r.origin, CASE r.co2_method WHEN 'ecologits' THEN 'cloud' ELSE 'local' END)
-           AS bucket,
+       {ORIGIN_SQL} AS bucket,
        COUNT(*) AS runs,
        SUM(r.co2_mg IS NULL) AS unmeasurable,
        COALESCE(SUM(r.co2_mg), 0.0) AS mg
 FROM runs r
 LEFT JOIN runs parent ON parent.id = r.parent_run_id
 WHERE r.app_session = ?
-  AND r.ended_at IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM runs child WHERE child.parent_run_id = r.id)
-  AND r.kind <> 'ingest'
+  AND {LEAF_WHERE}
 GROUP BY module, bucket
 """
 

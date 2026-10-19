@@ -86,6 +86,48 @@
       "equivalence": "Pour se représenter l'ordre de grandeur : {value} correspondent à environ {distance} parcourus en voiture (facteur : {factor} g de CO₂ par km ; source : {source}, relevé le {date}).",
       "equivalence_none": "Pour se représenter l'ordre de grandeur, le CO₂ de la session est converti en distance parcourue en voiture (facteur : {factor} g de CO₂ par km ; source : {source}, relevé le {date}). Aucune réponse mesurée pour l'instant.",
       "equivalence_failed": "L'équivalence en distance n'a pas pu être lue."
+    },
+    "reset": {
+      "label": "Remettre le compteur à zéro",
+      "nothing": "Rien à remettre à zéro : aucune réponse dans cette session.",
+      "loading": "Lecture de la session en cours…",
+      "busy": "Remise à zéro en cours…",
+      "done": "Compteur remis à zéro. La session précédente est dans l'historique.",
+      "failed": "Le compteur n'a pas pu être remis à zéro."
+    },
+    "history": {
+      "title": "Historique",
+      "window_label": "Période",
+      "window_7d": "7 jours",
+      "window_30d": "30 jours",
+      "window_all": "Tout",
+      "view_label": "Affichage",
+      "view_chart": "Graphique",
+      "view_table": "Tableau",
+      "loading": "Lecture de l'historique…",
+      "failed": "L'historique n'a pas pu être lu.",
+      "retry": "Réessayer",
+      "empty": "Aucune session mesurée pour l'instant.",
+      "empty_window": "Aucune session sur cette période. Choisissez « Tout » pour voir les sessions plus anciennes.",
+      "current_note": "La session en cours n'apparaît qu'une fois close.",
+      "chart_title": "Émissions par session",
+      "chart_desc": "Une barre par session, en milligrammes de CO₂ (mg), de la plus ancienne à la plus récente. Une session sans mesure garde sa place, marquée « non mesuré », sans barre : {sessions}",
+      "chart_bar": "Session du {start} : {total}.",
+      "axis_x": "Début de la session",
+      "axis_y": "CO₂ (mg)",
+      "unmeasured": "non mesuré",
+      "unit_note": "Une seule unité pour tout le graphique et le tableau : le milligramme (mg).",
+      "see_table": "Voir le tableau",
+      "table_caption": "Émissions de CO₂ par session, en milligrammes",
+      "col_start": "Début",
+      "col_end": "Fin",
+      "col_total": "Total",
+      "col_local": "Local",
+      "col_cloud": "Cloud (estimé)",
+      "col_unmeasurable": "Non mesurables",
+      "not_measured": "non mesuré",
+      "no_cloud": "aucun appel",
+      "no_local": "aucune réponse"
     }
   }
 }
