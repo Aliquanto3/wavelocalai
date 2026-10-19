@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 06:39
+last_updated: 10-19-2026 06:43
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -64,7 +64,7 @@ development_status:
   3-1-l-arène-exécute-plusieurs-modèles-sur-une-même-question-serv: done
   3-2-l-écran-arène-affiche-les-colonnes-en-flux: done
   3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: done
-  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: in-progress
+  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: done
   3-5-le-verdict-local-cloud-est-chiffré: backlog
   3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: backlog
   epic-3-retrospective: optional

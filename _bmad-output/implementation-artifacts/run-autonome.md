@@ -221,3 +221,4 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 06:16 · 4.5 · review · medium corrigé (avertissement cloud à la réouverture), rejeu limité à 3 flux, test de reprise déterministe, test run_busy stabilisé ; report : `conversation_id` dans le détail de `run_busy` (Chat et Discussion) · e6ab8a7
 - 2026-10-19 06:17 · 1.12 · fusion · PR #66 fusionnée · b90056e
 - 2026-10-19 06:39 · 4.3 · contrôles · verts (1017 v2, 298 E2E, 11 integration, 1286 v1) ; master (1.12) fusionné sans conflit de code, 1027 v2, 123 E2E ; PR ouverte · 55a8715
+- 2026-10-19 06:43 · 3.4 · contrôles · verts (971 v2, 307 E2E, 10 integration, 1286 v1) ; master (1.12) fusionné sans conflit de code, 981 v2, 159 E2E ; PR ouverte · a07ddbb
