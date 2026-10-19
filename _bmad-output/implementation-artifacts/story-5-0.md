@@ -2,7 +2,7 @@
 title: 'Découper les fichiers partagés du front et jouer les E2E en CI'
 type: 'chore'
 created: '2026-10-19'
-status: 'ready-for-dev'
+status: 'review'
 baseline_commit: '8d70302'
 context:
   - '{project-root}/AGENTS.md'
@@ -38,3 +38,31 @@ Story technique décidée par Anaël le 2026-10-19 (`run-autonome-mvp.md`, « P�
 - Découper `fr.json` par un petit script jetable (dans le scratchpad, pas dans le dépôt) qui vérifie que l'ensemble fusionné est **identique** à l'ancien (même dictionnaire), et le dire dans le rapport.
 - Pour le CSS, vérifier l'équivalence : même concaténation dans le même ordre que l'ancien fichier (aux commentaires de tête près).
 - Les écrans des Epics 5 à 7 à venir (Sobriété, Modèles, Usages, Agent, Équipe, Évaluation, Banc) n'ont pas à être créés ici ; les fichiers par domaine existent pour ce qui existe déjà.
+
+## Rapport de dev
+
+**Fichiers créés ou déplacés** (tous sous `src/wavelocalai/web/static/`, sauf mention)
+
+- Textes : `i18n/fr/{shell,home,components,chat,discussion,docs,arena}.json` (`shell` porte `app`, `shell`, `modules`, `screens`, `router`, `format`, `errors`, `tabs`, `topbar`) ; `i18n/fr.json` supprimé. `core/i18n.js` déclare `TEXT_FILES` (la seule liste), charge en parallèle (`Promise.all`) et lève une erreur sur une clé de premier niveau en double.
+- CSS : `css/components/{accessibility,button,topbar,status-pill,switch,banner,badge,metric,error,layout,model-picker,run-status,export-menu,data-table,notice,segments,chart,confirm-dialog,source-panel}.css`, liés un à un par `index.html` (et par les deux fixtures E2E) ; `components.css` supprimé. Les CSS d'écran restent à la racine.
+- API : `core/api/{system,models,conversations,arena,rag,runs}.js`, fonctions `<domaine>Api(request)` assemblées par `core/api.js`, qui garde `request`, `ApiError` et `uploadDocuments` (pas de cycle d'import).
+- Routes : `core/routes/{home,arena,documents,agents,sobriety,models}.js` assemblés par `core/registry.js` (`MODULES`, `SCREENS`, `entryScreen`, `findScreen` inchangés).
+- `components/model-picker-option.js` (filtre et ligne d'option) sorti de `wl-model-picker.js` : 666 à 589 lignes. Plus aucun JS du front au-delà de 600 lignes.
+- CI : job `test-v2-e2e` dans `.github/workflows/tests.yml`.
+- Tests : `tests/v2/unit/static_files.py` (lecture des morceaux : catalogue fusionné, CSS des composants, routes, API), `tests/v2/unit/test_static_split.py` (nouveau), et les tests de structure existants réalignés sur ces lectures.
+
+**Équivalence vérifiée** (scripts jetables, hors dépôt)
+
+- Textes : le dictionnaire fusionné des 7 fichiers est identique (`==`) à l'ancien `fr.json` de `8d70302` (15 clés de premier niveau).
+- CSS : les 19 fichiers, dans l'ordre de `index.html`, redonnent exactement les lignes de l'ancien `components.css` (aux lignes vides de jonction près), plus une ligne de commentaire de tête ajoutée à `accessibility.css`.
+- API : mêmes 24 clés et même texte de fonction (aux espaces près) entre l'ancien et le nouvel objet `api`, contrôlés sous Node.
+- Routes : `MODULES` identique (JSON, `load` mis à part) à l'ancien, même ordre.
+
+**Écart à la consigne (CSS)** : un fichier d'entrée en `@import` a d'abord été fait, puis abandonné. axe-core réinjecte la feuille importée en `<style>` dans la page, que `style-src 'self'` refuse : toute la suite d'accessibilité échouait en teardown. `index.html` liste donc les 19 feuilles (liens directs, premier rendu sans importation) ; le test `test_no_stylesheet_imports_another_one` garde la règle, et `test_the_fixtures_load_the_same_component_stylesheets_as_the_shell` aligne les fixtures. Le mode d'emploi CSS est un commentaire en tête de la liste, dans `index.html`.
+
+**Vérifications locales**
+
+- Contrôle rapide vert ; `pytest tests/v2 -q` : 1248 passés, 3 ignorés ; `test_layers.py` vert, aucun import `src.*`.
+- E2E complets : 458 passés, 1 échec (`test_documents.py::test_an_unreachable_embedding_model_fails_the_file_with_its_reason`), qui passe seul (fichier `test_documents.py` entier : 30 passés) : instabilité sous charge, sans lien avec le découpage. Durée de la suite complète : **24 min 51 s** (Windows, Edge, poste chargé par d'autres sessions) ; axe-core sans violation en clair et en sombre.
+
+**Choix du job CI.** Plus de 15 min en un seul bloc : matrice de 3 morceaux (`shard` 0, 1, 2) sur `ubuntu-latest`, Python 3.12, `uv sync --locked`, `python -m playwright install --with-deps chromium` (Playwright 1.64.0 d'`uv.lock`, rien de figé), chaque morceau jouant un fichier de test sur trois (`ls tests/v2/e2e/test_*.py | awk 'NR % 3 == n'`, donc un nouveau fichier est repris sans toucher au workflow). Charge approximative par morceau : 134, 171 et 154 tests. Bloquant (pas de `continue-on-error`), `timeout-minutes: 30`. Non joué en local : l'orchestrateur suit la CI. Points à surveiller : un `pytest.fail` « Chromium introuvable » si l'installation du navigateur échoue ; un test E2E qui dépendrait de Windows ou d'Edge ; l'instabilité de `test_an_unreachable_embedding_model…`.
