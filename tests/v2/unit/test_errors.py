@@ -82,6 +82,20 @@ def test_chat_codes_are_declared_and_none_reuses_a_status_name():
     assert ERRORS["ollama_error"].status == 502
 
 
+def test_timeout_message_names_the_real_delay():
+    # Écart n° 1 : « Délai dépassé (120 s) », partout ; un délai entier sans décimale, sinon à la
+    # française.
+    assert build_envelope("timeout", None, timeout_s=120.0)["message"].startswith(
+        "Délai dépassé (120 s)"
+    )
+    assert build_envelope("timeout", None, timeout_s=300)["message"].startswith(
+        "Délai dépassé (300 s)"
+    )
+    assert build_envelope("timeout", None, timeout_s=0.3)["message"].startswith(
+        "Délai dépassé (0,3 s)"
+    )
+
+
 def test_cloud_codes_name_the_provider_and_the_key_variable():
     detail = {"provider": "groq", "provider_name": "Groq", "key_var": "GROQ_API_KEY"}
     missing = build_envelope("cloud_key_missing", "x", **detail)

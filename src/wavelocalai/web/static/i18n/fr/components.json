@@ -179,6 +179,7 @@
         "interrupted": "Interrompu"
       },
       "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
+      "timeout_note_delay": "Délai dépassé ({seconds} s) pour ce modèle. Les autres continuent.",
       "focus": "Mode focus",
       "expand": "Afficher toute la réponse",
       "collapse": "Réduire la réponse",

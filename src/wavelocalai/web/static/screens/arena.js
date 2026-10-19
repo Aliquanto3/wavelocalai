@@ -36,6 +36,7 @@ import { historyView } from "./arena-history.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
 import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";
+import { showRunAddress, stopFailure } from "./arena-run.js";
 import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
 import { moveTab } from "./arena-tabs.js";
 
@@ -362,6 +363,7 @@ export function mount(host, params = {}) {
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
     results.end(state, runId); // le classement se fige, l'instantané est lu
+    if (state !== "interrupted") showRunAddress(runId); // flux perdu : le run peut durer, on n'y touche pas
     history.refresh();
     runId = null;
     stream = null;
@@ -519,23 +521,14 @@ export function mount(host, params = {}) {
     stopping = true;
     stop.disabled = true;
     renderBanner();
-    try {
-      await api.cancelRun(id);
-    } catch (failure) {
-      if (id !== runId) return;
-      stopping = false;
-      const refocus = stopHadFocus;
-      stopHadFocus = false;
-      error.error = {
-        code: "internal",
-        message:
-          failure instanceof ApiError && failure.envelope
-            ? failure.envelope.message
-            : t("components.run_status.cancel_failed"),
-      };
-      renderBanner();
-      if (refocus) stop.focus(); // de nouveau actif : il reprend le focus
-    }
+    const failed = await stopFailure(id);
+    if (failed === null || id !== runId) return;
+    stopping = false;
+    const refocus = stopHadFocus;
+    stopHadFocus = false;
+    error.error = { code: "internal", message: failed };
+    renderBanner();
+    if (refocus) stop.focus(); // de nouveau actif : il reprend le focus
   }
 
   const onKeydown = (event) => {
@@ -554,7 +547,7 @@ export function mount(host, params = {}) {
     saveDraft(DRAFT, question.value);
     render();
   });
-  onSmallerModel(host, (tag, source) => {
+  const unwatchSmaller = onSmallerModel(host, (tag, source) => {
     announce(t("arena.model_changed", swapModel(picker, source.closest("wl-arena-lane")?.tag, tag)));
     render(); // garde-fou mémoire : le modèle proposé remplace celui de la colonne en échec
   });
@@ -590,6 +583,7 @@ export function mount(host, params = {}) {
   if (params.run_id) reopen.open(params.run_id);
   return () => {
     unwatchCloud();
+    unwatchSmaller();
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     narrow.removeEventListener("change", layout);

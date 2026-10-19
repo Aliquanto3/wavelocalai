@@ -28,6 +28,7 @@ NEW_SCRIPTS = [
     "screens/arena-actions.js",
     "screens/arena-history.js",
     "screens/arena-reopen.js",
+    "screens/arena-run.js",
     "screens/home-demo.js",
     "components/wl-arena-lane.js",
 ]
@@ -95,6 +96,9 @@ def test_the_scenarios_fill_the_question_with_the_four_scenarios_of_the_spec():
     assert CATALOG["components"]["lane"]["timeout_note"] == (
         "Délai dépassé pour ce modèle. Les autres continuent."
     )
+    assert CATALOG["components"]["lane"]["timeout_note_delay"] == (
+        "Délai dépassé ({seconds} s) pour ce modèle. Les autres continuent."
+    )
 
 
 def test_the_model_text_never_reaches_the_dom_as_html():
@@ -115,7 +119,13 @@ def test_the_screen_reads_the_run_stream_once_and_resumes_by_after():
     assert "keepSeq: true" in screen  # masqué : le dernier `seq` reste, la reprise est `?after=`
     assert "allow_cloud: store.get().allowCloud" in screen  # AD-9, sur chaque commande
     assert "run_busy" in screen and "params.run_id" in screen
-    assert screen.count("api.startArena(") == 1 and "api.cancelRun(" in screen
+    assert screen.count("api.startArena(") == 1 and "stopFailure(" in screen
+    assert "api.cancelRun(" in source("screens/arena-run.js")  # l'arrêt, sorti d'`arena.js`
+    assert (
+        "unwatchSmaller()" in screen
+    )  # écart 8.1b : l'écouteur du garde-fou est retiré au démontage
+    assert "history.replaceState" in source("screens/arena-run.js")  # écart n° 7
+    assert len(screen.splitlines()) <= 600
     assert "grid-auto-columns" in source("arena.css")  # deux colonnes visibles, défilement
 
 

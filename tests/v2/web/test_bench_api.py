@@ -195,6 +195,7 @@ async def test_timeout_names_the_real_delay(tmp_path):
         snapshot = await _ended(client, (await _post(client)).json()["run_id"])
     assert snapshot["status"] == "error" and snapshot["error"]["code"] == "timeout"
     assert snapshot["error"]["detail"]["timeout_s"] == 0.3
+    assert snapshot["error"]["message"].startswith("Délai dépassé (0,3 s)")
     assert "format_verdict" not in snapshot
 
 

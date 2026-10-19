@@ -124,7 +124,7 @@ _SPECS = (
     ErrorSpec(
         "timeout",
         504,
-        "Le modèle n'a pas fini de répondre dans le délai prévu.",
+        "Délai dépassé ({timeout_s} s) : le modèle n'a pas fini de répondre.",
         "Réessayez avec un modèle plus petit, ou allongez `lane_timeout_s` dans "
         "`wavelocalai.toml`.",
         ("timeout_s",),
@@ -346,16 +346,23 @@ class _Fill(dict[str, Any]):
         return "le fournisseur" if key == "provider_name" else key
 
 
+def _shown(key: str, value: Any) -> Any:
+    """Valeur d'un `{clé}` à l'écran : décimal à la française (`5,2`) ; un délai entier s'écrit
+    sans décimale (`120`, pas `120,0`)."""
+    if not isinstance(value, float):
+        return value
+    if key == "timeout_s" and value.is_integer():
+        return str(int(value))
+    return str(value).replace(".", ",")
+
+
 def _fill(text: str, detail: dict[str, Any]) -> str:
     """Remplace les `{clé}` de `message` et `action` par les clés machine du `detail` (nom du
     fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi). Un
     nombre décimal s'écrit à la française (`5,2`)."""
     if "{" not in text:
         return text
-    shown = {
-        key: str(value).replace(".", ",") if isinstance(value, float) else value
-        for key, value in detail.items()
-    }
+    shown = {key: _shown(key, value) for key, value in detail.items()}
     return text.format_map(_Fill(shown))
 
 
