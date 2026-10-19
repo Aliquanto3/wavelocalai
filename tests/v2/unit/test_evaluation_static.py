@@ -145,9 +145,9 @@ def test_the_screen_uses_the_shared_contracts_and_creates_none_of_them_again():
     assert 'setAttribute("purpose", "judge")' in code("screens/eval-form.js")
     assert "MAX_MODELS = 4" in code("screens/eval-form.js")
     for name in SCREEN_FILES:
-        assert not re.search(r"function (nextTab|moveTab|screenTabs|isRamGuard)\b", code(name)), (
-            name
-        )
+        assert not re.search(
+            r"function (nextTab|moveTab|screenTabs|isRamGuard)\b", code(name)
+        ), name
 
 
 def test_the_front_computes_no_note_and_no_default_score():
