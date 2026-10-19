@@ -199,7 +199,15 @@ class AgentLoop:
             if not turn.tool_calls:
                 if thought:
                     self._step("think", lane, agent, turn_no, model_s, thought)
-                self._step("answer", lane, agent, turn_no, model_s, text)
+                self._step(
+                    "answer",
+                    lane,
+                    agent,
+                    turn_no,
+                    model_s,
+                    text,
+                    agent_totals=self._totals(agent, tool_calls, started),
+                )
                 if text and stream_answer:
                     self._hub.publish_token(self._root, lane, text, "answer")
                 return LoopOutcome(
@@ -235,7 +243,16 @@ class AgentLoop:
                 conversation.append(ChatMessage("tool", ran.text, tool_call_id=call.id))
         # Borne atteinte : fin propre, la raison est la réponse.
         message = MAX_TURNS_MESSAGE.format(turns=cfg.max_turns)
-        self._step("answer", lane, agent, cfg.max_turns, None, message, stopped="max_turns")
+        self._step(
+            "answer",
+            lane,
+            agent,
+            cfg.max_turns,
+            None,
+            message,
+            stopped="max_turns",
+            agent_totals=self._totals(agent, tool_calls, started),
+        )
         if stream_answer:
             self._hub.publish_token(self._root, lane, message, "answer")
         return LoopOutcome(
@@ -246,6 +263,14 @@ class AgentLoop:
             duration_s=time.perf_counter() - started,
             stopped="max_turns",
         )
+
+    @staticmethod
+    def _totals(agent: str | None, tool_calls: int, started: float) -> dict[str, Any] | None:
+        """`agent_totals` de l'étape `answer` qui clôt un agent d'équipe (story 6.5, D-34) : outils
+        appelés et durée de l'agent. Absent pour l'agent seul."""
+        if agent is None:
+            return None
+        return {"tools": tool_calls, "duration_s": round(time.perf_counter() - started, 3)}
 
     # --- feuilles et étapes --------------------------------------------------------------------
 

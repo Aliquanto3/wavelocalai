@@ -47,10 +47,17 @@ FORBIDDEN_PARAM_KEYS = frozenset(
     {"prompt", "message", "question", "text", "content", "topic", "query", "input"}
 )
 MAX_PARAM_TEXT = 256
+# Un texte saisi plus court qu'ici n'est pas cherché dans les valeurs : un sujet d'un mot (« carbone »)
+# se retrouve par hasard dans un identifiant (équipe `comparaison_carbone`, rôle, outil, modèle).
+MIN_TYPED_MATCH = 20
 
 
 def check_params(params: Mapping[str, Any], typed_text: str | None = None) -> None:
-    """Refuse des `params` qui porteraient du texte saisi (`ValueError`)."""
+    """Refuse des `params` qui porteraient du texte saisi (`ValueError`) : clé réservée, valeur
+    longue, ou valeur qui contient le texte saisi quand il compte `MIN_TYPED_MATCH` caractères."""
+    typed = (typed_text or "").strip()
+    if len(typed) < MIN_TYPED_MATCH:
+        typed = ""
 
     def visit(value: Any, path: str) -> None:
         if isinstance(value, Mapping):
@@ -61,9 +68,7 @@ def check_params(params: Mapping[str, Any], typed_text: str | None = None) -> No
         elif isinstance(value, (list, tuple)):
             for item in value:
                 visit(item, path)
-        elif isinstance(value, str) and (
-            len(value) > MAX_PARAM_TEXT or (typed_text and typed_text in value)
-        ):
+        elif isinstance(value, str) and (len(value) > MAX_PARAM_TEXT or (typed and typed in value)):
             raise ValueError(f"params.{path[:-1]} : texte saisi probable (AD-7)")
 
     visit(params, "")
