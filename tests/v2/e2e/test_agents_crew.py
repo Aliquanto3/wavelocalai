@@ -20,11 +20,13 @@ from .test_agents_solo import (  # noqa: F401 - fixtures et aides de l'écran Ag
     EMAIL,
     MODEL,
     NBSP,
+    RUNS,
     call,
     get_json,
     install_models,
     leave_no_run,
     mail,
+    post_json,
     script,
     smtp,
     warm_up,
@@ -266,6 +268,50 @@ def test_an_unknown_mission_address_says_so_and_offers_a_new_mission(
         "#/agents/equipe"
     )
     assert page.locator(".crew-agent").count() == 0
+
+
+def test_a_server_failure_on_reopen_is_shown_and_not_called_unknown(
+    page_tolerating_failed_requests, server
+):
+    """Revue 6.6 : seul `run_not_found` dit « Mission introuvable » ; une panne dit la sienne."""
+    page = page_tolerating_failed_requests
+    install_models(page)
+    page.route(
+        re.compile(r"/api/runs/panne$"),
+        lambda route: route.fulfill(
+            status=500,
+            content_type="application/json",
+            body=json.dumps({"code": "internal", "message": "Panne du serveur."}),
+        ),
+    )
+    page.goto(f"{server.base_url}/#/agents/equipe/panne")
+    wait_ready(page)
+    expect(page.locator("wl-error[data-code=internal]")).to_contain_text("Panne du serveur.")
+    assert page.locator(".crew-missing").is_hidden()
+
+
+def test_a_running_single_agent_is_said_with_a_link_and_not_joined_as_a_mission(
+    page_tolerating_failed_requests, server
+):
+    """Revue 6.6 : un Agent seul actif (même genre `agent` au hub) n'est pas rejoint comme mission."""
+    crew = open_crew(page_tolerating_failed_requests, server.base_url)  # le 409 du lancement
+    script(crew, server, [{"sleep_s": 30}])
+    started = post_json(
+        server,
+        "/api/agents/runs",
+        {"mode": "solo", "model": "fake:1b", "prompt": "tâche", "tools": [], "allow_cloud": False},
+    )
+    RUNS.append((server.base_url, started["run_id"]))
+    crew.get_by_label("Sujet de la mission").fill(TOPIC)
+    launch(crew).click()
+    busy = crew.locator("p.chat-notice")
+    expect(busy).to_be_visible()
+    expect(busy.get_by_role("link", name="Voir l'Agent seul")).to_have_attribute(
+        "href", "#/agents/seul"
+    )
+    assert rows(crew).count() == 0
+    assert not crew.locator(".crew-report").is_visible()
+    assert crew.get_by_label("Sujet de la mission").input_value() == TOPIC
 
 
 # --- Configurer --------------------------------------------------------------------------------

@@ -31,6 +31,9 @@
     },
     "start_failed": "La mission n'a pas pu être lancée.",
     "joined": "Une mission est déjà en cours : vous la suivez.",
+    "solo_busy": "Un agent seul travaille en ce moment : la mission pourra être lancée quand il aura fini.",
+    "solo_busy_link": "Voir l'Agent seul",
+    "reopen_failed": "La mission n'a pas pu être relue.",
     "track": {
       "title": "Suivi de la mission",
       "empty": "Les agents apparaissent ici dès que la mission démarre.",

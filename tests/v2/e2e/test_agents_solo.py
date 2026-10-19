@@ -126,6 +126,13 @@ def get_json(server, path):
         return json.load(response)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def warmed(server):
+    """Chauffe une fois par module : un test lancé seul sur un serveur neuf garde des délais courts."""
+    warm_up(server)
+    forget_conversations(server.base_url)
+
+
 @pytest.fixture(autouse=True)
 def leave_no_run(server):
     """Un seul run d'agent à la fois : chaque test finit le sien (annulé s'il tourne encore)."""

@@ -70,3 +70,18 @@ deferred:
 - **Contrats réutilisés** : `screenTabs`, `wl-confirm-dialog` (`details`), `wl-step-trace`, `format.js` (`formatTime` ajouté pour le journal), export par route du serveur, `switchFor` d'`agents-tools.js` (exporté). Textes : `i18n/fr/crew.json` (écran, clé `crew`) et `components.team_graph.*` ; CSS : `css/components/team-graph.css` (composant) et `agents-crew.css` (écran). Aucun fichier JS au-delà de 600 lignes (`agents-crew.js`, `-track.js`, `-config.js`).
 - **`wl-chat-thread`** : `summarize` accepte `peak_memory_gb` (« Pic de mémoire », `formatGb`, inconnu jamais 0).
 - **Tests de l'écran Agent seul** : l'onglet « Équipe d'agents » est un lien actif ; `test_shell_static.py` compte 8 écrans `available`.
+
+## Revue
+
+Revue Opus du 2026-10-19 (diff eff6d0c, 7a83bf6, f265e92 au-dessus de c5ca237, puis fusions 82298a7 et origin/master).
+
+| Sévérité | Source | Constat | Issue | Motif |
+|---|---|---|---|---|
+| medium | second avis 1 | `submit` rejoignait tout run `agent` actif sur `409 run_busy` : un Agent seul en cours était suivi comme une mission. | corrigé | `joinBusy` relit le run : mission rejointe si `params.mode === "crew"`, sinon « Un agent seul travaille en ce moment… » avec le lien « Voir l'Agent seul » (`#/agents/seul`), sans suivi ; la lecture du run en échec s'affiche au lieu de rejeter la promesse. Preuve : `test_agents_crew.py::test_a_running_single_agent_is_said_with_a_link_and_not_joined_as_a_mission` (échoue sur l'ancien code). |
+| low | second avis 2 | `wl-team-graph` lisait `this.#states[label]` par la chaîne prototype (rôle `constructor`, `toString`). | corrigé | `Object.hasOwn`. |
+| low | second avis 3 | `MIN_TYPED_MATCH = 20` (`runs/hub.py`). | rejeté | Défense en profondeur : le sujet n'entre jamais dans les `params` (construits par le serveur), et `MAX_PARAM_TEXT` borne les valeurs longues ; déjà accepté en revue 6.5. |
+| low | second avis 4 | `reopen` disait « Mission introuvable » pour toute erreur (réseau, serveur). | corrigé | « introuvable » seulement sur `run_not_found` ou un run qui n'est pas une mission ; sinon l'erreur du serveur (ou « La mission n'a pas pu être relue. »). Preuve : `::test_a_server_failure_on_reopen_is_shown_and_not_called_unknown` (échoue sur l'ancien code). |
+| low | dev, confirmé | `test_agents_solo.py::test_steps_arrive_in_order_…` échouait lancé seul sur un serveur neuf (0 étape en 5 s). | corrigé | Fixture `warmed` de module (`warm_up`, puis conversations oubliées) ; le test passe seul. |
+| low | revue | L'Agent seul (`agents-solo.js`, 6.4) rejoint de même sans vérifier le mode une mission d'équipe active sur `409 run_busy`. | reporté | Hors du diff de la story (écran 6.4) ; à traiter comme ici (`params.mode === "solo"`, sinon lien vers `#/agents/equipe/<run_id>`). |
+| — | revue | Approbation d'email en équipe (`actions=build_actions`), `PUT`/`DELETE` de l'équipe, 5 agents (serveur et bouton), adresse réécrite par `replaceState`, mission rouverte, parité v1 : vérifiés. | aucun défaut | Tests web et E2E de la story passés. |
+| — | revue | Complexité : journal brut en ajout seul, suivi et schéma bornés à 5 agents (signature de rendu), jetons passés à `wl-chat-thread` existant. | aucun constat | Aucun parcours complet par événement sur une structure non bornée. |

@@ -190,7 +190,7 @@ export class WlTeamGraph extends HTMLElement {
         if (vertical) svg.append(this.#arrow(PAD + NODE_W / 2, y - GAP + 4, PAD + NODE_W / 2, y - 4));
         else svg.append(this.#arrow(x - GAP + 4, y + NODE_H / 2, x - 4, y + NODE_H / 2));
       }
-      const state = report ? null : (this.#states[label] ?? "pending");
+      const state = report ? null : (Object.hasOwn(this.#states, label) ? this.#states[label] : "pending");
       svg.append(this.#node(x, y, w, label, { state, report }));
     });
     this.replaceChildren(svg);

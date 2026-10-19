@@ -13,7 +13,9 @@
 // - À la fin d'un run lancé ici, l'adresse est réécrite en `#/agents/equipe/<run_id>`
 //   (`history.replaceState`, décision n° 7 du 2026-10-19) : la mission se rouvre par cette adresse, le
 //   flux la rejoue depuis la base ; un identifiant inconnu dit « Mission introuvable ».
-// - `409 run_busy` : la mission déjà active est rejointe (rejouée depuis le début), sans erreur.
+// - `409 run_busy` : la mission déjà active est rejointe (rejouée depuis le début), sans erreur. Si le run
+//   actif est un Agent seul (même genre `agent` au hub), il n'est pas rejoint : l'écran le dit, avec un
+//   lien vers l'Agent seul.
 // - Écran masqué : le flux se ferme en gardant le dernier `seq`, la validation en attente est refermée
 //   puis rouverte au retour (comme à l'Agent seul).
 
@@ -110,6 +112,8 @@ export function mount(host, params = {}) {
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
   notice.hidden = true;
+  const soloLink = element("a", "", t("crew.solo_busy_link"));
+  soloLink.href = "#/agents/seul";
   const error = document.createElement("wl-error");
   error.setAttribute("alert", "");
   const dialog = document.createElement("wl-confirm-dialog");
@@ -455,7 +459,7 @@ export function mount(host, params = {}) {
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;
       if (failure.status === 409 && busy?.code === "run_busy" && busy.detail?.run_id) {
-        await join(await api.run(busy.detail.run_id), { busy: true });
+        await joinBusy(busy.detail.run_id);
       } else {
         error.error = envelopeOf(failure, "crew.start_failed");
       }
@@ -480,15 +484,43 @@ export function mount(host, params = {}) {
     follow(snapshot.run_id, { here: false });
   }
 
-  async function reopen(id) {
+  // Le run actif qui bloque le lancement : rejoint si c'est une mission, signalé si c'est un Agent seul.
+  async function joinBusy(id) {
+    let snapshot;
     try {
-      const snapshot = await api.run(id);
-      if (snapshot.kind !== "agent" || snapshot.params?.mode !== "crew") throw new Error("not a mission");
-      await join(snapshot);
-    } catch {
+      snapshot = await api.run(id);
+    } catch (failure) {
+      error.error = envelopeOf(failure, "crew.start_failed");
+      return;
+    }
+    if (snapshot.params?.mode === "crew") await join(snapshot, { busy: true });
+    else {
+      notice.replaceChildren(`${t("crew.solo_busy")} `, soloLink);
+      notice.hidden = false;
+    }
+  }
+
+  // « Mission introuvable » seulement si le run n'existe pas ou n'est pas une mission ; une autre erreur
+  // (réseau, serveur) s'affiche comme telle.
+  async function reopen(id) {
+    let snapshot;
+    try {
+      snapshot = await api.run(id);
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.envelope?.code === "run_not_found") {
+        work.hidden = true;
+        missing.hidden = false;
+      } else {
+        error.error = envelopeOf(failure, "crew.reopen_failed");
+      }
+      return;
+    }
+    if (snapshot.kind !== "agent" || snapshot.params?.mode !== "crew") {
       work.hidden = true;
       missing.hidden = false;
+      return;
     }
+    await join(snapshot);
   }
 
   // --- Événements ------------------------------------------------------------------------
