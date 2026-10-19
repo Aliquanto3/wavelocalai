@@ -56,6 +56,10 @@ chunk_size = 800
 chunk_overlap = 100
 embed_batch_size = 16
 max_file_mb = 50
+# Plafonds d'un import (story 4.2) : nombre de fichiers et taille totale, vérifiés par l'écran
+# avant l'envoi puis par la route.
+max_files = 50
+max_import_mb = 500
 
 # Question (story 4.4) : `top_k` extraits cités par réponse ; seuils du libellé de pertinence sur la
 # similarité cosinus (1 - distance), calés sur nomic-embed-text : au moins `relevance_very_close`

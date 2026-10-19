@@ -168,3 +168,11 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 03:15 · run · décision · ordre de l'Epic 4 : 4.8 maintenant, 4.5 après fusion de 4.2, puis 4.6 et 4.7 (leur partie écran vit dans la Discussion de 4.5) · —
 - 2026-10-19 03:16 · 4.8 · dev · lancé (Sonnet high, worktree v2-4-8, depuis master 4635302) · —
 - 2026-10-19 03:16 · 4.2 · fusion master · 3.2 et 4.4 sur master : conflits dans 11 fichiers, résolution confiée au relecteur (Opus) · —
+- 2026-10-19 03:17 · 2.7 · fusion master · 3.2 et 4.4 : conflits `components/index.js` et commentaire de `wl-model-picker.js` (un seul `wl-models-loaded`) ; contrôles lancés · f6ac4bc
+- 2026-10-19 03:18 · 3.3 · second-avis · aucun medium, 5 low (dont juge local indisponible non bloquant) · —
+- 2026-10-19 03:18 · 3.3 · review · lancée (Opus), fusion et ajustement · —
+- 2026-10-19 03:32 · 3.3 · review · juge indisponible ou cloud coupé = « Choisissez un juge », juge lu avant l'envoi ; 865 v2, 57 E2E Arène · a9215b3
+- 2026-10-19 03:37 · 2.7 · contrôles · verts après fusion (900 v2, 226 E2E, 9 integration, 1286 v1) ; poussé · f6ac4bc
+- 2026-10-19 03:37 · 3.3 · fusion master · 4.4 : conflits `streaming.py` (`capture` et `metrics_extra`) et contrat ; 915 v2 ; contrôles lancés · c79c074
+- 2026-10-19 03:37 · 4.2 · fusion master · résolue par le relecteur (11 fichiers, garder les deux) + route planifiée de `test_shell.py` réalignée ; 894 v2 · 869893c
+- 2026-10-19 03:52 · 2.7 · fusion · PR #63 fusionnée · f6e3841
