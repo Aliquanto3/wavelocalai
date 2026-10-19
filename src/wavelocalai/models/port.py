@@ -29,6 +29,11 @@ TpsSource = Literal["ollama_eval", "wallclock"]
 
 @dataclass(frozen=True)
 class ChatMessage:
+    """Message du port. Formats neutres des outils (story 6.1, `ARCHITECTURE-SPINE.md` §Deferred) :
+    un message `assistant` qui a appelé des outils porte `tool_calls = [{"id", "name",
+    "arguments": dict}]` (les `ToolCall` reçus, en dict) ; le résultat d'un appel est un message
+    `tool` dont `content` est le texte du résultat et `tool_call_id` l'`id` de l'appel."""
+
     role: Literal["system", "user", "assistant", "tool"]
     content: str = ""
     tool_calls: list[dict[str, Any]] | None = None
@@ -38,7 +43,9 @@ class ChatMessage:
 @dataclass(frozen=True)
 class ChatRequest:
     messages: list[ChatMessage]
-    tools: list[dict[str, Any]] = field(default_factory=list)  # schéma JSON neutre
+    # Outils proposés au modèle, schéma neutre `{"name", "description", "parameters": <schéma JSON
+    # d'un objet>}` : chaque adaptateur le traduit au format de son fournisseur (story 6.1).
+    tools: list[dict[str, Any]] = field(default_factory=list)
     temperature: float = 0.2
     max_tokens: int | None = None
     think: bool = False
@@ -76,9 +83,15 @@ class TextDelta:
 
 @dataclass(frozen=True)
 class ToolCall:
+    """Appel d'outil demandé par le modèle. `id` est celui du fournisseur (rendu tel quel avec le
+    résultat) ou, pour Ollama qui n'en donne pas, un identifiant unique fabriqué par l'adaptateur.
+    `error` (écart additif à AD-8, story 6.1) : texte en français quand le fournisseur a rendu des
+    arguments illisibles (JSON invalide ou qui n'est pas un objet) ; `arguments` est alors vide."""
+
     id: str
     name: str
     arguments: dict[str, Any]
+    error: str | None = None
 
 
 @dataclass(frozen=True)

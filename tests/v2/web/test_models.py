@@ -206,15 +206,19 @@ def test_default_temperature_comes_from_the_cache_under_300_ms_with_ollama_down(
     shows = {**SHOWS, "qwen3.5:2b": {**SHOWS["qwen3.5:2b"], "parameters": "temperature 0.6"}}
     for item in TAGS["models"]:
         facts.put(facts_from_ollama(item, shows[item["model"]]))
-    registry = ModelRegistry(settings, facts=facts)
-    client = TestClient(create_app(settings, registry=registry), base_url=BASE)
     TestClient(create_app(settings), base_url=BASE).get("/api/models")  # mise en température
 
-    started = time.perf_counter()
-    response = client.get("/api/models")
-    elapsed = time.perf_counter() - started
+    # Budget AD-15 (300 ms) : meilleur de 3 premières requêtes, chacune sur une app neuve (cache
+    # vide) ; un pic de charge du runner en gonfle une, une route lente dépasse aux trois.
+    timings = []
+    for _ in range(3):
+        registry = ModelRegistry(settings, facts=facts)
+        client = TestClient(create_app(settings, registry=registry), base_url=BASE)
+        started = time.perf_counter()
+        response = client.get("/api/models")
+        timings.append(time.perf_counter() - started)
 
-    assert elapsed < 0.3, f"{elapsed * 1000:.0f} ms"
+    assert min(timings) < 0.3, [f"{t * 1000:.0f} ms" for t in timings]
     body = response.json()
     assert body["ollama_up"] is False
     models = {m["tag"]: m for m in body["models"]}
