@@ -117,6 +117,22 @@ def mixed_lanes() -> list[dict]:
     ]
 
 
+def wait_names(page):
+    """Attend la liste des modèles et les noms d'affichage dans les colonnes : une comparaison rouverte
+    reçoit ses colonnes avant `GET /api/models` (elles portent alors l'identifiant, puis le nom)."""
+    wait_for(
+        page,
+        "() => { const pickers = [...document.querySelectorAll('wl-model-picker')];"
+        " const picker = pickers[0];"
+        " return pickers.every((p) => p.loaded) &&"
+        " [...document.querySelectorAll('wl-arena-lane')].every((lane) => {"
+        " const fiche = picker.modelFor(lane.tag); return !fiche || lane.name === fiche.name; }) &&"
+        # Le classement et le tableau se redessinent à l'image suivante : plus aucun identifiant.
+        " [...document.querySelectorAll('.arena-rank-name, .arena-results .wl-table tbody tr > :first-child')]"
+        ".every((cell) => !picker.modelFor(cell.textContent.trim())); }",
+    )
+
+
 def open_replayed(
     page, server, scores, rates=None, co2s=None, lanes=None, viewport=None, models=None
 ):
@@ -129,6 +145,7 @@ def open_replayed(
     wait_ready(page)
     wait_banner(page, "Comparaison terminée")
     page.locator(".arena-results").wait_for(state="visible")
+    wait_names(page)
     return run_id
 
 
