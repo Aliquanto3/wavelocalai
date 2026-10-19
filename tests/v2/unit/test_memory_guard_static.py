@@ -87,6 +87,16 @@ def test_the_new_styles_use_design_tokens_only():
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", block)
 
 
+def test_chat_and_bench_stop_listening_for_the_smaller_model_when_unmounted():
+    """Report d'intégration 8.1 : chat et bench retirent aussi l'écouteur au démontage."""
+    chat = source("screens/chat.js")
+    assert "const unwatchSmaller = onSmallerModel(host," in chat
+    assert "unwatchSmaller();" in chat[chat.rindex("return () => {") :]
+    bench = source("screens/bench.js")
+    assert "onSmallerModel(host," in bench[bench.index("cleanups.push(") :]
+    assert "for (const stop of cleanups) stop();" in bench[bench.rindex("return () => {") :]
+
+
 def test_the_screens_that_listen_for_the_smaller_model_stop_listening_when_unmounted():
     """Revue 7.3 (8.1) : `onSmallerModel` rend le retrait de l'écouteur, appelé au démontage."""
     for name in ("screens/documents.js", "screens/documents-eval.js", "screens/agents-solo.js"):

@@ -238,6 +238,22 @@ def test_stopping_before_the_first_agent_ends_says_there_is_no_report(crew, serv
     )
 
 
+def test_a_return_by_history_to_the_rewritten_address_keeps_the_screen_mounted(crew, server):
+    # Report d'intégration 8.1 : `replaceAddress` accorde la clé du routeur à l'adresse réécrite, sinon
+    # un retour par l'historique sur cette adresse démonte l'écran.
+    mission(crew, server)
+    expect(crew.locator(".crew-agent[data-state=done]")).to_have_count(3, timeout=20000)
+    wait_for(crew, "() => /^#\\/agents\\/equipe\\/[\\w-]+$/.test(location.hash)")
+    address = crew.evaluate("location.hash")
+    crew.evaluate("document.querySelector('.crew-report').dataset.probe = 'live'")
+    crew.evaluate("location.hash = '#/'")
+    wait_for(crew, "() => !document.querySelector('.crew-report')?.offsetParent")
+    crew.go_back()
+    wait_for(crew, f"() => location.hash === '{address}'")
+    wait_for(crew, "() => !!document.querySelector('.crew-report')?.offsetParent")
+    assert crew.locator(".crew-report[data-probe=live]").count() == 1  # pas remonté
+
+
 def test_a_finished_mission_reopens_by_its_address_and_an_unknown_one_is_said(crew, server, page):
     mission(crew, server)
     expect(crew.locator(".crew-agent[data-state=done]")).to_have_count(3, timeout=20000)

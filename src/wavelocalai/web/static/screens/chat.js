@@ -394,7 +394,7 @@ export function mount(host) {
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
   // Garde-fou mémoire : le modèle proposé par le serveur est choisi, sans relancer.
-  onSmallerModel(host, (tag) => {
+  const unwatchSmaller = onSmallerModel(host, (tag) => {
     picker.value = tag;
     applyModelTemperature(); // l'affectation n'émet pas `wl-model-change`
     notice.textContent = t("chat.model_changed", { model: picker.modelFor(tag)?.name ?? tag });
@@ -429,6 +429,7 @@ export function mount(host) {
   applyModelTemperature();
   restore();
   return () => {
+    unwatchSmaller();
     visibility.disconnect();
     stream?.close();
     stream = null;

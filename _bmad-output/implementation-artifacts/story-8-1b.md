@@ -64,3 +64,7 @@ Revue Opus, une passe, sur 141a89c (base ce1aac9, à jour de `master`), avec le 
 Complexité : 0 constat (aucune structure qui grossit n'est parcourue à chaque événement par ce lot).
 
 Tests de la revue : `tests/v2/unit/test_errors.py`, `test_arena_static.py`, `test_bench_static.py`, `test_layers.py`, `tests/v2/web/test_{arena,bench,chat,agent}_api.py`, `test_static.py` (176 passés) ; E2E `test_arena_address.py`, `test_arena.py`, `test_arena_reopen.py`, `test_bench.py` (délai), `test_shell.py`, `test_core.py`, `test_flow1.py` (tous passés).
+
+## Reports d'intégration
+
+- `agents-crew.js` passe par `replaceAddress` (clé du routeur accordée) ; `chat.js` retire son écouteur `onSmallerModel` au démontage (`bench.js` le faisait déjà par `cleanups`). Tests : `test_agents_crew.py` (retour par l'historique), `test_agents_crew_static.py`, `test_memory_guard_static.py`.
