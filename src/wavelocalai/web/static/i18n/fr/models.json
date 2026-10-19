@@ -169,7 +169,7 @@
       "failed": "La fiche du modèle n'a pas pu être lue.",
       "failed_action": "Vérifiez que l'application tourne, puis rouvrez la fiche.",
       "not_found_title": "Modèle introuvable",
-      "not_found_text": "« {tag} » n'est ni installé sur ce poste ni dans le catalogue.",
+      "not_found_text": "« {tag} » n'est ni installé sur ce poste ni dans le catalogue.",
       "back": "Retour à la liste des modèles",
       "open_models": "Ouvrir dans l'écran Modèles",
       "open_button": "Fiche du modèle",
@@ -220,7 +220,7 @@
       "unavailable_title": "Références indisponibles",
       "unavailable_text": "{reason} Les caractéristiques ci-dessus restent valables.",
       "not_published": "Ce modèle n'est pas dans les résultats publiés du banc.",
-      "unit_note": "Un débit « inconnu » signifie que le banc n'a pas pu le mesurer sur ce poste."
+      "unit_note": "Un débit « inconnu » signifie que le banc n'a pas pu le mesurer sur ce poste."
     }
   }
 }

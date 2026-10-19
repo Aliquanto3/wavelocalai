@@ -133,7 +133,9 @@ def test_accuracy_is_the_median_of_the_global_scores_of_the_same_weights(tmp_pat
 
 def test_accuracy_is_never_borrowed_from_another_version_or_missing_data(tmp_path):
     loaded = BenchReferences(_copy(tmp_path)).current()
-    assert loaded.accuracy("other:4b", "d-other:4b-installee") is None  # autres poids : pas de score
+    assert (
+        loaded.accuracy("other:4b", "d-other:4b-installee") is None
+    )  # autres poids : pas de score
     assert loaded.accuracy("small:1b", "d-small:1b") is None  # score `null` : jamais 0
     assert loaded.accuracy("mid:7b", None) is None
     assert loaded.accuracy("inconnu:1b", "x") is None

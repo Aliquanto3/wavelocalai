@@ -299,9 +299,11 @@ def test_only_the_home_chat_arena_document_sobriety_and_models_screens_are_avail
     assert text.count('status: "available"') == 7
     assert text.count('status: "planned"') == len(ROUTES) - 7
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
-    # `#/modeles/<tag>` (fiche, story 5.6) n'existe pas encore : l'écran n'a pas de `param`.
-    assert re.search(r'id: "models",\s*path: "/modeles",\s*status: "available"', text)
-    assert 'param: "tag"' not in text
+    # `#/modeles/<tag>` (fiche d'un modèle, story 5.6) : l'écran Modèles a son `param` de chemin.
+    assert re.search(
+        r'id: "models",\s*path: "/modeles",\s*param: "tag",\s*status: "available"', text
+    )
+    assert text.count('param: "tag"') == 1
     assert re.search(r'id: "documents-chat",\s*path: "/documents",\s*status: "available"', text)
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
     assert re.search(

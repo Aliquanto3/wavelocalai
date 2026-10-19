@@ -111,7 +111,12 @@ def fiche(page):
 
 
 def trait(page, term: str) -> str:
-    return fiche(page).locator("dt", has_text=re.compile(f"^{term}$")).locator("xpath=following-sibling::dd[1]").inner_text()
+    return (
+        fiche(page)
+        .locator("dt", has_text=re.compile(f"^{term}$"))
+        .locator("xpath=following-sibling::dd[1]")
+        .inner_text()
+    )
 
 
 # --- Ouverture -----------------------------------------------------------------------------------
@@ -125,9 +130,12 @@ def test_clicking_a_model_opens_its_card_without_rebuilding_the_screen(models, c
     assert fiche(models).locator("h2").inner_text() == AGENT
     # Le routeur a suivi l'adresse sans remonter l'écran : la disposition marquée est toujours là.
     assert models.locator(".models-layout[data-kept='yes']").count() == 1
-    assert models.get_by_role("link", name=f"Fiche du modèle {AGENT}", exact=True).get_attribute(
-        "aria-current"
-    ) == "true"
+    assert (
+        models.get_by_role("link", name=f"Fiche du modèle {AGENT}", exact=True).get_attribute(
+            "aria-current"
+        )
+        == "true"
+    )
     # Le focus est sur le titre de la fiche.
     wait_for(models, "() => document.activeElement?.matches('.models-fiche h2')")
 
@@ -146,11 +154,15 @@ def test_closing_the_card_goes_back_to_the_plain_list(models):
     assert models.url.endswith("#/modeles")
 
 
-def test_an_unknown_tag_says_so_and_offers_the_way_back(page_tolerating_failed_requests, card_server):
+def test_an_unknown_tag_says_so_and_offers_the_way_back(
+    page_tolerating_failed_requests, card_server
+):
     page = page_tolerating_failed_requests  # le `404` de la fiche est attendu
     page.goto(f"{card_server.base_url}/#/modeles/inconnu%3A1b")
     wait_ready(page)
-    wait_for(page, "() => document.querySelector('.models-fiche')?.textContent.includes('introuvable')")
+    wait_for(
+        page, "() => document.querySelector('.models-fiche')?.textContent.includes('introuvable')"
+    )
     assert "« inconnu:1b » n'est ni installé" in fiche(page).inner_text()
     fiche(page).get_by_role("link", name="Retour à la liste des modèles").click()
     wait_for(page, "() => document.querySelector('.models-fiche')?.hidden === true")
@@ -174,7 +186,9 @@ def test_the_card_shows_its_traits_and_says_unknown_for_a_missing_value(page, ca
 def test_a_model_not_installed_that_does_not_fit_offers_to_install_it_anyway(page, card_server):
     open_card(page, card_server, BIG)
     text = fiche(page).inner_text()
-    assert "n'est pas installé sur ce poste" in text and "Ne tient pas dans la mémoire libre" in text
+    assert (
+        "n'est pas installé sur ce poste" in text and "Ne tient pas dans la mémoire libre" in text
+    )
     button = fiche(page).get_by_role("button", name="Installer quand même")
     assert button.is_visible() and button.get_attribute("aria-disabled") == "false"
     assert re.fullmatch(r"131.072\stokens", trait(page, "Contexte")), trait(page, "Contexte")
@@ -185,7 +199,9 @@ def test_a_model_not_installed_that_does_not_fit_offers_to_install_it_anyway(pag
 # --- Pourquoi ce débit ? -------------------------------------------------------------------------
 
 
-def test_why_this_throughput_explains_the_speed_without_any_calculation_on_screen(page, card_server):
+def test_why_this_throughput_explains_the_speed_without_any_calculation_on_screen(
+    page, card_server
+):
     open_card(page, card_server, AGENT)
     why = fiche(page).locator("details[data-part='why']")
     why.locator("summary").click()
@@ -245,7 +261,9 @@ def test_a_model_the_bench_does_not_measure_says_so(page, card_server):
     assert "n'est pas dans les résultats publiés" in others(page).inner_text()
 
 
-def test_without_the_results_file_the_card_says_what_is_missing(page, card_server, results_restored):
+def test_without_the_results_file_the_card_says_what_is_missing(
+    page, card_server, results_restored
+):
     results_restored.unlink()
     open_card(page, card_server, AGENT)
     text = others(page).inner_text()
@@ -331,7 +349,9 @@ def test_axe_finds_nothing_on_the_open_card_and_the_picker_panel(page, card_serv
     assert_no_axe_violations(page, f"fiche du modèle, thème {theme}")
     page.goto(f"{card_server.base_url}/#/modeles/{urllib.parse.quote(DOCS, safe='')}")
     others(page)
-    wait_for(page, "() => document.querySelector('.models-fiche')?.textContent.includes('Autre version')")
+    wait_for(
+        page, "() => document.querySelector('.models-fiche')?.textContent.includes('Autre version')"
+    )
     assert_no_axe_violations(page, f"fiche, autre version, thème {theme}")
     page.goto(f"{card_server.base_url}/#/arene/chat")
     wait_for(page, "() => !!document.querySelector('.models-card-open')")

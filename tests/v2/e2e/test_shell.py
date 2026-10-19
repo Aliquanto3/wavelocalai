@@ -181,13 +181,13 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
     assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 5
 
 
-# Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.
+# Les routes de la maquette (D-8) encore `planned` : taper l'adresse renvoie à l'Accueil
+# (`#/modeles/<tag>` est livrée par la story 5.6 : `e2e/test_models_card.py`).
 MOCKUP_ROUTES = [
     "#/arene/references",
     "#/arene/banc/run-1",
     "#/documents/evaluation/run-1",
     "#/agents/equipe/run-1",
-    "#/modeles/qwen2.5%3A1.5b",
 ]
 
 

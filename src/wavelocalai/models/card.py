@@ -158,7 +158,8 @@ def _typography(text: str) -> str:
 
 def why_lines(source: CardSource, *, vram_gb: float | None) -> list[str]:
     """Les phrases de « Pourquoi ce débit ? » : paramètres actifs, quantification, mémoire vidéo et
-    mémoire vive, puis le débit mesuré sur ce poste. Aucune valeur inventée : ce qui manque est dit."""
+    mémoire vive, puis le débit mesuré sur ce poste. Aucune valeur inventée : ce qui manque est dit.
+    """
     lines: list[str] = []
     total, active = source.params_total_b, source.params_active_b
     if source.architecture == "moe":
@@ -195,7 +196,9 @@ def why_lines(source: CardSource, *, vram_gb: float | None) -> list[str]:
                 f"Quantification {source.quantization} : {weights} à lire pour chaque token produit."
             )
     elif source.quantization:
-        lines.append(f"Quantification {source.quantization} : la taille des poids n'est pas connue.")
+        lines.append(
+            f"Quantification {source.quantization} : la taille des poids n'est pas connue."
+        )
     else:
         lines.append("La quantification de ce modèle est inconnue.")
     if vram_gb is None:

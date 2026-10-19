@@ -116,7 +116,11 @@ async def test_a_catalog_model_not_installed_carries_whether_it_fits(tmp_path):
     assert card["context_length"] == 131072 and card["reasoning"] is True
     assert card["fits"] is False and card["short_gb"] > 0 and card["required_gb"] > 0
     assert card["why"] is None  # pas installé : rien à expliquer sur ce poste
-    assert (moe["architecture"], moe["params_total_b"], moe["params_active_b"]) == ("moe", 30.0, 3.0)
+    assert (moe["architecture"], moe["params_total_b"], moe["params_active_b"]) == (
+        "moe",
+        30.0,
+        3.0,
+    )
 
 
 async def test_a_cloud_model_has_no_local_figures(tmp_path):
@@ -151,7 +155,9 @@ async def test_other_posts_list_the_pc_pro_first_with_published_figures(tmp_path
     assert pc["pc_pro"] is True and pc["track"] == "think_off"  # la piste sans raisonnement
     assert pc["decode_tok_s"] == 5.2 and pc["load_time_s"] == 2.3
     assert pc["memory"]["gpu_fraction"] is None  # sans carte graphique
-    assert pc["memory"]["ram_peak_gb"] == 6.0 and pc["memory"]["ram_fraction"] == 0.4  # 6144 / 15360
+    assert (
+        pc["memory"]["ram_peak_gb"] == 6.0 and pc["memory"]["ram_fraction"] == 0.4
+    )  # 6144 / 15360
     portable = _row(card, "portable")
     assert portable["memory"]["gpu_fraction"] == 1.0 and portable["memory"]["ram_fraction"] == 0.125
 
@@ -175,7 +181,9 @@ async def test_a_null_stays_unknown_and_is_never_a_zero(tmp_path):
         small = await _card(client, "small:1b")
     row = _row(small, "pc-pro")
     assert row["measured"] is True and row["complete"] is False
-    assert row["decode_tok_s"] is None and row["prefill_tok_s"] is None and row["load_time_s"] is None
+    assert (
+        row["decode_tok_s"] is None and row["prefill_tok_s"] is None and row["load_time_s"] is None
+    )
     assert row["memory"]["ram_peak_gb"] is None and row["memory"]["ram_fraction"] is None
     missing = _row(small, "station")  # aucun résultat sur ce poste
     assert missing["measured"] is False and missing["decode_tok_s"] is None
@@ -219,7 +227,9 @@ async def test_a_file_of_another_schema_is_unavailable_with_its_reason(tmp_path)
         data["schema"] = "qb.results/2"
         bench.write_text(json.dumps(data), encoding="utf-8")
         card = await _card(client, "mid:7b")
-    assert card["references"]["available"] is False and "qb.results/1" in card["references"]["reason"]
+    assert (
+        card["references"]["available"] is False and "qb.results/1" in card["references"]["reason"]
+    )
 
 
 async def test_the_card_follows_a_change_of_the_results_file(tmp_path):

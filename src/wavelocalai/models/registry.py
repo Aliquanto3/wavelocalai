@@ -298,8 +298,10 @@ class ModelRegistry:
         return task
 
     async def start(self) -> None:
-        """Lance le premier rafraîchissement au démarrage du serveur, sans l'attendre."""
+        """Lance le premier rafraîchissement au démarrage du serveur, sans l'attendre, et la première
+        lecture des résultats du banc (hors de la boucle : un gros fichier ne la retient pas)."""
         self._ensure_task()
+        asyncio.get_running_loop().run_in_executor(None, self.bench.current)
 
     async def stop(self) -> None:
         task, self._task = self._task, None
@@ -407,7 +409,9 @@ class ModelRegistry:
             ),
             throughput_tps=medians.get(facts.tag),
             # Précision publiée pour **ces** poids (même empreinte) ; `null` sans mesure (AD-22).
-            accuracy=bench.accuracy(facts.tag, facts.digest) if bench and origin == "local" else None,
+            accuracy=(
+                bench.accuracy(facts.tag, facts.digest) if bench and origin == "local" else None
+            ),
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
         )
@@ -493,7 +497,8 @@ class ModelRegistry:
         """Ce que le registre sait d'un modèle pour sa fiche (story 5.6) : installé (liste d'Ollama et
         `model_facts`), au catalogue sans être installé, ou cloud. Jamais d'attente d'Ollama (AD-15) ;
         `None` si le tag est inconnu. `reclaimable` (mémoire des modèles chargés, comptée libre) n'est
-        appelée que pour un modèle du catalogue. Une valeur qu'aucune source ne donne reste `None` (« inconnu »)."""
+        appelée que pour un modèle du catalogue. Une valeur qu'aucune source ne donne reste `None` (« inconnu »).
+        """
         local = await self._current()
         rec = local.get(tag) or next(
             (r for t, r in local.items() if base_tag(t) == base_tag(tag)), None
