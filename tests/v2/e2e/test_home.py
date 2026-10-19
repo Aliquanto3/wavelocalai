@@ -295,10 +295,11 @@ def test_a_hidden_tab_stops_the_health_retries_and_the_return_restarts_them(
 
 
 def test_planned_modules_have_no_card_on_the_home(home):
-    # L'Arène est livrée (story 2.2) : seul son lien figure ; les modules à venir n'en ont aucun.
-    assert home.locator(".home-module-link").count() == 1
+    # L'Arène (story 2.2) et la Base documentaire (story 4.2) sont livrées : leurs liens seuls
+    # figurent ; les modules à venir n'en ont aucun.
+    assert home.locator(".home-module-link").count() == 2
     assert home.locator('[data-screen="home"] a.home-module-link[href^="#/arene"]').count() == 1
-    assert home.locator('[data-screen="home"] a[href^="#/documents"]').count() == 0
+    assert home.locator('[data-screen="home"] a.home-module-link[href^="#/documents"]').count() == 1
     assert home.locator('[data-screen="home"] a[href^="#/agents"]').count() == 0
     # La barre haute les montre désactivés, avec leur raison.
     assert (
@@ -330,7 +331,9 @@ def mount_second_home(page, every_module: bool = False) -> None:
 def test_an_available_module_gets_a_link_with_its_summary(home):
     mount_second_home(home)
     links = home.locator("#second-home .home-module-link")
-    assert links.count() == 1
+    assert links.count() == 2  # l'Arène, puis les Documents (Base documentaire, story 4.2)
+    assert links.nth(1).get_attribute("href") == "#/documents/base"
+    assert "Interroger ses documents et voir les sources." in links.nth(1).inner_text()
     assert links.first.get_attribute("href") == "#/arene/chat"
     assert "Arène" in links.first.inner_text()
     assert "Comparer plusieurs petits modèles" in links.first.inner_text()

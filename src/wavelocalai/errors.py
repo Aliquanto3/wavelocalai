@@ -129,6 +129,12 @@ _SPECS = (
         "Réessayez ; si cela se répète, redémarrez Ollama ou choisissez un modèle plus petit.",
     ),
     ErrorSpec(
+        "invalid_output",
+        502,
+        "Le modèle n'a pas rendu la sortie structurée demandée.",
+        "Réessayez, ou choisissez un autre modèle pour cet usage.",
+    ),
+    ErrorSpec(
         "ollama_error",
         502,
         "Ollama a refusé la requête.",
@@ -203,6 +209,20 @@ _SPECS = (
         "La base documentaire utilise déjà un autre modèle d'embedding.",
         "Importez avec le modèle de la base, ou videz la base avant d'en changer.",
         ("current", "requested"),
+    ),  # --- question posée à ses documents (story 4.4) ---
+    ErrorSpec(
+        "rag_base_empty",
+        409,
+        "La base documentaire n'a aucun document prêt à interroger.",
+        "Importez au moins un document depuis la Base documentaire (#/documents/base), attendez "
+        "la fin de l'indexation, puis posez de nouveau votre question.",
+    ),
+    ErrorSpec(
+        "chunk_not_found",
+        404,
+        "Cet extrait n'existe plus : son document a été supprimé ou réindexé.",
+        "Relancez la question pour obtenir des extraits à jour.",
+        ("chunk_id",),
     ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}

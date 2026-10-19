@@ -50,7 +50,11 @@ async def test_two_real_local_models_answer_one_after_the_other(real_settings, r
         transport = httpx.ASGITransport(app=app)
         base = f"http://127.0.0.1:{TEST_PORT}"
         async with httpx.AsyncClient(transport=transport, base_url=base) as client:
-            body = {"models": list(TAGS), "prompt": "Réponds par un seul mot : bonjour."}
+            body = {
+                "models": list(TAGS),
+                "prompt": "Réponds par un seul mot : bonjour.",
+                "judge": TAGS[0],  # le défaut peut être un gros modèle : la notation a son test
+            }
             response = await client.post("/api/arena/runs", json=body)
             assert response.status_code == 200, response.text
             run_id = response.json()["run_id"]

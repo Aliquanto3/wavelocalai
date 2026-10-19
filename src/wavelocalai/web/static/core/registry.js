@@ -30,7 +30,13 @@ export const MODULES = [
         status: "available",
         load: () => import("../screens/chat.js"),
       },
-      { id: "arena-compare", path: "/arene/comparer", param: "run_id", status: "planned" },
+      {
+        id: "arena-compare",
+        path: "/arene/comparer",
+        param: "run_id",
+        status: "available",
+        load: () => import("../screens/arena.js"),
+      },
       { id: "arena-bench", path: "/arene/banc", param: "run_id", status: "planned" },
       { id: "arena-references", path: "/arene/references", status: "planned" },
     ],
@@ -40,7 +46,12 @@ export const MODULES = [
     icon: "description",
     screens: [
       { id: "documents-chat", path: "/documents", status: "planned" },
-      { id: "documents-base", path: "/documents/base", status: "planned" },
+      {
+        id: "documents-base",
+        path: "/documents/base",
+        status: "available",
+        load: () => import("../screens/documents-base.js"),
+      },
       {
         id: "documents-evaluation",
         path: "/documents/evaluation",

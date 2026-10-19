@@ -9,6 +9,9 @@
 // Événement : `wl-run-ended` (`detail.status`, `detail.error`). Un flux n'est ouvert que pour le
 // run suivi et se ferme au retrait du composant de la page. Sans Shadow DOM.
 //
+// Pendant `model_loading` (étape « loading »), une phrase prévient que le premier appel est plus
+// long (UX-DR17, « Premier chargement lent ») ; elle disparaît dès que le modèle est chargé.
+//
 // Mode piloté (attribut `driven`) : l'écran lit déjà le flux du run (le dernier `seq` d'un run est
 // unique dans le store, deux lecteurs s'écarteraient les événements) ; il passe chaque enveloppe à
 // `feed(envelope)`, et `abandon()` dit que le flux est perdu. Aucun flux n'est ouvert ici.
@@ -104,11 +107,13 @@ export class WlRunStatus extends HTMLElement {
     const hint = element("span", "help wl-run-hint", t("components.run_status.stop_hint"));
     const error = document.createElement("wl-error");
     error.setAttribute("alert", "");
+    const firstLoad = element("p", "help wl-run-first-load", t("components.run_status.first_load"));
+    firstLoad.hidden = true;
     this.className = "wl-run-status";
     const line = element("div", "wl-run-line");
     line.append(stage, timer, stop, hint);
-    this.replaceChildren(line, error);
-    this.#dom = { stage, timer, stop, hint, error };
+    this.replaceChildren(line, firstLoad, error);
+    this.#dom = { stage, timer, stop, hint, firstLoad, error };
   }
 
   #reset() {
@@ -222,7 +227,7 @@ export class WlRunStatus extends HTMLElement {
   }
 
   #render() {
-    const { stage, stop, hint, error } = this.#dom;
+    const { stage, stop, hint, firstLoad, error } = this.#dom;
     this.hidden = this.#runId === null;
     // L'étape est une région `status` : une réécriture du même texte serait annoncée de nouveau.
     stage.setAttribute("aria-live", this.driven && this.#final ? "off" : "polite");
@@ -234,6 +239,7 @@ export class WlRunStatus extends HTMLElement {
     stop.hidden = !running;
     stop.disabled = this.#cancelling;
     hint.hidden = !running;
+    firstLoad.hidden = !(running && this.#stage === "loading");
     const failure = this.#final?.error;
     if (failure && !error.error) error.error = failure;
     error.hidden = !error.error;

@@ -1,0 +1,489 @@
+/* Écran Arène (story 3.2) : formulaire, bandeau de comparaison, colonnes en flux. Couleurs et
+   rayon viennent de tokens.css seulement. */
+
+/* Formulaire */
+.arena-form {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.arena-scenarios {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.arena-scenarios legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.arena-scenario-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arena-execution {
+  margin: 0;
+}
+
+.arena-actions {
+  align-items: center;
+  margin-top: 0;
+}
+
+.arena-reason {
+  margin: 0;
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.arena-launch {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.arena-launch:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Désactivé : jamais par la seule opacité. */
+.arena-launch:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Bandeau « Comparaison en cours · 2 sur 3 · 0:42 » */
+.arena-banner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 1rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.arena-banner-text {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-banner .help {
+  margin: 0;
+}
+
+.arena-asked {
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* Onglets par modèle (sous 768 px) */
+.arena-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.arena-tab {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: none;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: start;
+}
+
+.arena-tab[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Colonnes : toutes visibles dès 1 440 px, deux à la fois entre 768 et 1 439 px (défilement
+   horizontal), une seule sous 768 px (onglets). */
+.arena-lanes {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 1rem) / 2);
+  gap: 1rem;
+  max-height: min(78vh, 60rem);
+  overflow: auto;
+  align-items: start;
+}
+
+@media (min-width: 1440px) {
+  .arena-lanes {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(var(--lanes, 2), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .arena-lanes {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+  }
+}
+
+/* Mode focus : une colonne agrandie, les autres masquées */
+.arena-lanes[data-focus] {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.arena-lanes[data-focus] .wl-arena-lane:not(.is-focus) {
+  display: none;
+}
+
+.wl-arena-lane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-arena-lane[data-status="timeout"],
+.wl-arena-lane[data-status="failed"] {
+  border-color: var(--color-risk);
+}
+
+/* En-tête collant : nom, origine, statut et mode focus restent lisibles en défilant. */
+.wl-lane-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--color-surface-alt);
+}
+
+.wl-lane-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.wl-lane-name {
+  margin: 0;
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+
+.wl-lane-status {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.wl-lane-focus {
+  justify-self: start;
+}
+
+.wl-lane-focus[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+@media (max-width: 767px) {
+  .wl-lane-focus {
+    display: none;
+  }
+}
+
+.wl-lane-note {
+  margin: 0.5rem 0.75rem 0;
+  font-weight: 600;
+}
+
+.wl-arena-lane wl-error {
+  margin: 0.5rem 0.75rem 0;
+}
+
+/* Réponse : le fil vit dans la colonne, sans cadre ni nom répété ; replié, il suit le flux. */
+.wl-arena-lane .wl-thread-log {
+  max-height: 20rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.wl-arena-lane .wl-msg-who {
+  display: none;
+}
+
+.wl-arena-lane.is-expanded .wl-thread-log,
+.arena-lanes[data-focus] .wl-thread-log {
+  max-height: none;
+}
+
+.wl-lane-expand {
+  align-self: start;
+  margin: 0 0.75rem 0.75rem;
+}
+
+/* Quatre modèles dès 1 440 px : quatre colonnes, réponse repliée sur 4 lignes (D-15). Le texte est
+   borné, pas le fil : les mesures de la colonne restent lisibles. « Afficher toute la réponse » et
+   le mode focus lèvent la limite. */
+@media (min-width: 1440px) {
+  .arena-lanes[data-count="4"]:not([data-focus]) .wl-arena-lane:not(.is-expanded) .wl-thread-log {
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .arena-lanes[data-count="4"]:not([data-focus]) .wl-arena-lane:not(.is-expanded) .wl-msg-text {
+    max-height: 6em; /* repli sans `lh` : 4 lignes à 1,5 */
+    max-height: 4lh;
+    overflow: hidden;
+  }
+}
+
+/* Résumé de la comparaison lancée : remplace la configuration jusqu'à `run_ended` (D-16). */
+.arena-summary {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.arena-summary-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.arena-summary-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.arena-summary-row {
+  display: grid;
+  gap: 0.125rem;
+}
+
+@media (min-width: 768px) {
+  .arena-summary-row {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
+
+.arena-summary-row dt {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.arena-summary-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.arena-summary-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arena-summary-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Notation (story 3.3) : panneau replié « Critères de notation », juge retenu, note par colonne. */
+.arena-judge-panel {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.arena-judge-summary {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.arena-judge-body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.arena-judge-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+.arena-criteria {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.arena-criteria legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-weight: 600;
+}
+
+.arena-criteria-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.arena-criterion {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.arena-criterion-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.75rem;
+  resize: none;
+}
+
+.arena-criterion-remove {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  justify-content: center;
+}
+
+.arena-criteria-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arena-criteria-add:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Juge retenu, sous la question posée */
+.arena-judge-info {
+  margin: 0 0 0.75rem;
+}
+
+.arena-judge-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.arena-judge-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  font-weight: 600;
+}
+
+.arena-judge-alert .icon {
+  color: var(--color-chart-4);
+}
+
+/* Note d'une colonne : /100 et sa raison, ou « Non évalué » et sa raison (jamais 0) */
+.wl-lane-score {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.wl-lane-score p {
+  margin: 0;
+}
+
+.wl-score-label {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-score-line {
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-score-value {
+  font-family: var(--font-metric-value);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wl-score-max {
+  color: var(--color-ink-secondary);
+  font-size: 1.125rem;
+}
+
+.wl-score-none {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.wl-score-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
+.wl-score-reason {
+  overflow-wrap: anywhere;
+}

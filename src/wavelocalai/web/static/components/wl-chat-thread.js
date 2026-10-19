@@ -74,7 +74,8 @@ function setValue(node, value) {
 }
 
 class ChatAnswer {
-  constructor(thread, { name, origin, restored = false }) {
+  constructor(thread, { name, origin, firstToken = false, restored = false }) {
+    this.showFirstToken = firstToken; // colonne de l'Arène : le pied dit aussi le premier token
     this.thread = thread;
     this.restored = restored;
     this.name = name;
@@ -255,6 +256,9 @@ class ChatAnswer {
       metric(t("components.thread.load"), formatDuration(result.load_s)),
       metric(t("components.thread.total"), formatDuration(result.total_s)),
     ];
+    if (this.showFirstToken) {
+      parts.splice(2, 0, metric(t("components.thread.first_token"), formatDuration(result.ttft_s)));
+    }
     if (result.tps_source === "wallclock") {
       const estimated = document.createElement("wl-badge");
       estimated.setAttribute("kind", "estimated");
@@ -321,8 +325,8 @@ export class WlChatThread extends HTMLElement {
     this.scrollToEnd();
   }
 
-  beginAnswer({ name, origin }) {
-    const answer = new ChatAnswer(this, { name, origin });
+  beginAnswer({ name, origin, firstToken = false }) {
+    const answer = new ChatAnswer(this, { name, origin, firstToken });
     this.#answers.add(answer);
     this.#dom.log.append(answer.root);
     this.scrollToEnd();
@@ -379,6 +383,7 @@ export class WlChatThread extends HTMLElement {
   }
 
   _announce(text) {
+    if (this.hasAttribute("silent")) return; // l'écran annonce lui-même (Arène : une seule fin)
     // Vider puis remplir : un même texte est de nouveau annoncé.
     this.#dom.live.textContent = "";
     requestAnimationFrame(() => {

@@ -22,25 +22,24 @@ retire le document en cours. Un contenu déjà présent (même empreinte) n'est 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import sqlite3
-import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, TypeVar
 
 from wavelocalai.config import Settings
-from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
-from wavelocalai.greenops.local_meter import Footprint, LocalMeter, combine
+from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import CANCELLED_CO2, FAILED_CO2, NOT_MEASURED
+from wavelocalai.inference.streaming import CANCELLED_CO2
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import Embedder, ModelRef
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.rag import repo
+from wavelocalai.rag.embedding_leaf import embed_into_leaf
 from wavelocalai.rag.extract import (
     SUPPORTED_SUFFIXES,
     IngestError,
@@ -52,7 +51,7 @@ from wavelocalai.rag.index import VectorIndex
 from wavelocalai.rag.split import ChunkDraft, split_pages
 from wavelocalai.rag.staging import StagedFile, discard_staging
 from wavelocalai.runs.hub import RunHub
-from wavelocalai.runs.models import LeafResult, RunHandle
+from wavelocalai.runs.models import RunHandle
 from wavelocalai.runs.system_bus import SystemBus
 from wavelocalai.store.db import Store, utc_now_iso
 
@@ -300,78 +299,26 @@ class IngestService:
     async def _embed_batch(
         self, run_id: str, embedder: Embedder, texts: list[str]
     ) -> list[list[float]]:
-        tag = embedder.ref.tag
         leaf = await self._hub.create_run(
-            "embedding", models=[tag], parent_run_id=run_id, params={"batch_size": len(texts)}
+            "embedding",
+            models=[embedder.ref.tag],
+            parent_run_id=run_id,
+            params={"batch_size": len(texts)},
         )
         # Annulée avant sa fin, la feuille garde un `co2` sans valeur (AD-10).
         self._hub.declare_leaf(leaf.run_id, CANCELLED_CO2)
-        footprints: list[Footprint] = []
-        started = time.perf_counter()
-        timeout_s = self._settings.delays.lane_timeout_s
-        secrets = self._settings.secret_values()
-        try:
-            # La place est prise par lot, pas par run (AD-14) ; le tracker tourne dedans (AD-11).
-            async with self._slot, self._tracking(footprints):
-                try:
-                    async with asyncio.timeout(timeout_s) as deadline:
-                        vectors = await embedder.embed(texts)
-                except TimeoutError:
-                    if not deadline.expired():
-                        raise
-                    raise ProviderError(
-                        "timeout", f"Aucun embedding après {timeout_s} s.", timeout_s=timeout_s
-                    ) from None
-        except asyncio.CancelledError:
-            await self._amend_cancelled(leaf.run_id, footprints)
-            raise
-        except Exception as exc:
-            error = _leaf_error(exc, secrets)
-            await self._hub.finish_leaf(
-                leaf.run_id,
-                LeafResult(status="error", origin="local", error=error),
-                FAILED_CO2 if footprints else NOT_MEASURED,
-            )
-            await self._announce_carbon()
-            raise
-        footprint = combine(footprints)
-        await self._hub.finish_leaf(
+        # La place est prise par lot, pas par run (AD-14) ; le tracker tourne dedans (AD-11).
+        return await embed_into_leaf(
+            self._hub,
             leaf.run_id,
-            LeafResult(
-                origin="local",
-                total_s=round(time.perf_counter() - started, 6),
-                energy_wh=None if footprint is None else footprint.energy_wh,
-            ),
-            NOT_MEASURED if footprint is None else footprint.co2(),
+            embedder,
+            texts,
+            slot=self._slot,
+            meter=self._meter,
+            timeout_s=self._settings.delays.lane_timeout_s,
+            secrets=self._settings.secret_values(),
+            on_leaf_closed=self._announce_carbon,
         )
-        await self._announce_carbon()
-        return vectors
-
-    @contextlib.asynccontextmanager
-    async def _tracking(self, footprints: list[Footprint]) -> AsyncIterator[None]:
-        """Un tracker CodeCarbon autour du bloc, dans la place du `LocalSlot` ; sa mesure rejoint
-        `footprints` à la sortie, annulation et erreur comprises (`meter.track` ne lève pas)."""
-        if self._meter is None:
-            yield
-            return
-        tracking = None
-        try:
-            async with self._meter.track() as tracking:
-                yield
-        finally:
-            if tracking is not None and tracking.footprint is not None:
-                footprints.append(tracking.footprint)
-
-    async def _amend_cancelled(self, leaf_id: str, footprints: list[Footprint]) -> None:
-        """Le hub a clos la feuille annulée avec le `co2` de remplacement : l'énergie dépensée
-        jusqu'à l'arrêt le remplace (AD-10)."""
-        footprint = combine(footprints)
-        if footprint is None or not footprint.measured:
-            return
-        try:
-            await self._hub.amend_cancelled_leaf(leaf_id, footprint.co2(), footprint.energy_wh)
-        except Exception:  # noqa: BLE001 - aucune mesure n'interrompt un run
-            logger.exception("Mesure d'une feuille annulée non écrite")
 
     # --- publication et nettoyage ------------------------------------------------------------
 
@@ -438,12 +385,3 @@ def _failure(exc: BaseException) -> tuple[str, str | None]:
     if isinstance(exc, AppError):
         return ERRORS[exc.code].message.rstrip("."), exc.technical or exc.code
     return "erreur interne pendant l'indexation", f"{type(exc).__name__}: {exc}"
-
-
-def _leaf_error(exc: Exception, secrets: Sequence[str]) -> dict[str, Any]:
-    """Enveloppe d'AD-18 d'une feuille en erreur ; une exception inattendue devient `internal`."""
-    if isinstance(exc, AppError):
-        declared = ERRORS[exc.code].detail_keys
-        detail = {key: value for key, value in exc.detail.items() if key in declared}
-        return build_envelope(exc.code, exc.technical, secrets, **detail)
-    return build_envelope("internal", f"{type(exc).__name__}: {exc}", secrets)

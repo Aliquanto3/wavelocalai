@@ -111,3 +111,66 @@ BASE_DIM_SQL = (
     " LIMIT 1"
 )
 INTERRUPTED_SQL = "SELECT id, source FROM documents WHERE status = 'indexing'"
+LIST_SQL = (
+    "SELECT id, source, status, chunk_count, page_count, size_bytes, embedding_model, created_at,"
+    " ready_at, run_id, error FROM documents ORDER BY created_at DESC, id"
+)  # tous les statuts : l'écran présente `indexing` et `failed` comme tels
+TOTALS_SQL = (
+    "SELECT COUNT(*) AS documents, COALESCE(SUM(chunk_count), 0) AS chunks FROM documents"
+    " WHERE status = 'ready'"
+)  # ce que la base peut interroger (story 4.4) : les documents `ready` seulement
+
+
+# Question (story 4.4). Base interrogeable : un document `ready` au moins ; son modèle d'embedding
+# (une base = un modèle, AD-16 ; le plus récent si plusieurs, ce qui ne devrait pas arriver).
+READY_BASE_SQL = (
+    "SELECT embedding_model, count(*) AS documents, sum(chunk_count) AS chunks FROM documents"
+    " WHERE status = 'ready' GROUP BY embedding_model ORDER BY max(ready_at) DESC LIMIT 1"
+)
+CHUNK_SQL = (
+    "SELECT c.id, c.document_id, d.source, c.page, c.position, c.text FROM chunks c"
+    " JOIN documents d ON d.id = c.document_id WHERE c.id = ? AND d.status = 'ready'"
+)  # un extrait n'est lisible que si son document est `ready` (AD-16)
+READY_CHUNK_IDS_SQL = (
+    "SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id WHERE d.status = 'ready'"
+)
+
+
+def search_chunks(
+    conn: sqlite3.Connection, index: VectorIndex, vector: Sequence[float], top_k: int
+) -> list[dict[str, Any]]:
+    """Les `top_k` extraits de documents `ready` les plus proches de `vector`, du plus proche, avec
+    leur distance cosinus. Les extraits d'un document encore `indexing` sont déjà dans l'index :
+    la recherche les écarte **avant** de prendre les plus proches (AD-16, jamais de document à
+    moitié indexé), quel que soit leur nombre."""
+    hits = index.search(conn, vector, top_k, among=READY_CHUNK_IDS_SQL)
+    if not hits:
+        return []
+    marks = ",".join("?" * len(hits))
+    rows = {
+        int(row["id"]): row
+        for row in conn.execute(
+            "SELECT c.id, c.document_id, d.source, c.page, c.text FROM chunks c"
+            " JOIN documents d ON d.id = c.document_id"
+            f" WHERE d.status = 'ready' AND c.id IN ({marks})",
+            [chunk_id for chunk_id, _ in hits],
+        )
+    }
+    found: list[dict[str, Any]] = []
+    for chunk_id, distance in hits:
+        row = rows.get(chunk_id)
+        if row is None:  # extrait d'un document non prêt, ou supprimé depuis l'index
+            continue
+        found.append(
+            {
+                "chunk_id": chunk_id,
+                "doc_id": row["document_id"],
+                "document": row["source"],
+                "page": row["page"],
+                "text": row["text"],
+                "distance": distance,
+            }
+        )
+        if len(found) == top_k:
+            break
+    return found

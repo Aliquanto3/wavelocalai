@@ -403,6 +403,10 @@
   --badge-tone: var(--color-chart-4);
 }
 
+.wl-badge-warning {
+  --badge-tone: var(--color-chart-4);
+}
+
 .wl-badge-label {
   padding-inline-start: 0.625rem;
 }
@@ -790,7 +794,162 @@
   margin: 0;
 }
 
+/* Menu « Exporter » (components/export-menu.js, D-3) : un bouton par format dès 768 px, un seul
+   bouton « Exporter » qui ouvre la liste des formats en dessous. */
+.wl-export {
+  position: relative;
+  display: inline-flex;
+}
+
+.wl-export[hidden] {
+  display: none;
+}
+
+.wl-export-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wl-export-narrow {
+  display: none;
+}
+
+.wl-export-list {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-start: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12rem;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  list-style: none;
+}
+
+.wl-export-list[hidden] {
+  display: none;
+}
+
+.wl-export-choice {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@media (max-width: 767.98px) {
+  .wl-export-wide {
+    display: none;
+  }
+
+  .wl-export-narrow {
+    display: block;
+  }
+}
+
 .wl-run-stop:disabled {
   cursor: progress;
   opacity: 0.7;
+}
+
+/* wl-data-table : tableau sémantique, en-têtes triables au clavier */
+.wl-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+}
+
+.wl-table th,
+.wl-table td {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.wl-table thead th {
+  background: var(--color-surface-alt);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.wl-table tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.wl-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.wl-table .wl-table-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wl-table-sort:hover {
+  text-decoration: underline;
+}
+
+/* La flèche n'apparaît que sur la colonne triée ; elle se retourne pour l'ordre croissant. */
+.wl-table-arrow {
+  width: 1.25rem;
+  height: 1.25rem;
+  visibility: hidden;
+}
+
+.wl-table-arrow[data-dir] {
+  visibility: visible;
+}
+
+.wl-table-arrow[data-dir=""] {
+  visibility: hidden;
+}
+
+.wl-table-arrow[data-dir="asc"] {
+  transform: rotate(180deg);
+}
+
+/* `alert-info` : un message qui dit quoi faire, sans erreur (D-11). Une icône, jamais un emoji. */
+.wl-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-notice .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
 }

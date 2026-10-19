@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
+from wavelocalai.evaluation.judge import Judge
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.hardware.memory import MemoryAdvisor
 from wavelocalai.inference.arena import ArenaService
@@ -32,6 +33,7 @@ from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.models.run_stats import SqliteRunStats
 from wavelocalai.rag.index import select_index
 from wavelocalai.rag.ingest import IngestService
+from wavelocalai.rag.query import RagService
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SAMPLE_INTERVAL_S, SystemFeed
 from wavelocalai.store.datadir import ensure_data_dir
@@ -125,6 +127,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        defaults=app.state.defaults,
+        judge=Judge(
+            hub,
+            app.state.local_slot,
+            settings,
+            meter=app.state.meter,
+            bus=app.state.system_feed,
+        ),
+    )
+    index = select_index(store.vec_available)  # le même pour l'import et la question (repli numpy)
+    app.state.rag = RagService(
+        hub,
+        app.state.registry,
+        factory,
+        app.state.local_slot,
+        settings,
+        index,
+        meter=app.state.meter,
+        bus=app.state.system_feed,
     )
     app.state.ingest = IngestService(
         hub,
@@ -132,7 +153,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         factory,
         app.state.local_slot,
         settings,
-        select_index(store.vec_available),
+        index,
         meter=app.state.meter,
         bus=app.state.system_feed,
         fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement
@@ -154,6 +175,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.probe.aclose()
         app.state.chat = None
         app.state.ingest = None
+        app.state.rag = None
         app.state.arena = None
         if owned_client is not None:
             await close_client(owned_client)
@@ -204,6 +226,7 @@ def create_app(
     app.state.meter = meter or LocalMeter.from_settings(settings.carbon)
     app.state.chat = None  # service de chat, créé au démarrage du cycle de vie
     app.state.ingest = None  # service d'ingestion des documents, idem
+    app.state.rag = None  # service de questions aux documents, idem
     app.state.arena = None  # service de l'Arène, idem
     app.state.registry = registry or ModelRegistry(
         settings,

@@ -84,18 +84,31 @@ class DelaySettings(_Section):
 
 
 class RagSettings(_Section):
-    """Base documentaire : découpe, lots d'embedding et plafond d'un fichier (story 4.1)."""
+    """Base documentaire : découpe, lots d'embedding et plafonds d'un import (stories 4.1 et 4.2)."""
 
     chunk_size: int = Field(800, ge=100, le=8000)  # caractères par extrait
     chunk_overlap: int = Field(100, ge=0)
     embed_batch_size: int = Field(16, ge=1, le=256)  # extraits par lot, une feuille `embedding`
     max_file_mb: int = Field(50, ge=1)
+    max_files: int = Field(50, ge=1)  # fichiers par import
+    max_import_mb: int = Field(500, ge=1)  # taille totale d'un import
     embedding_model: str | None = None  # défaut de la base ; sinon le premier installé
+    # Question (story 4.4) : nombre d'extraits cités et seuils du libellé de pertinence (similarité
+    # cosinus, 0 à 1) calés sur le modèle d'embedding par défaut de la base.
+    top_k: int = Field(4, ge=1, le=20)
+    relevance_very_close: float = Field(0.70, gt=0.0, le=1.0)
+    relevance_close: float = Field(0.60, ge=0.0, lt=1.0)
 
     @model_validator(mode="after")
     def _overlap_below_size(self) -> RagSettings:
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap doit rester inférieur à chunk_size")
+        return self
+
+    @model_validator(mode="after")
+    def _thresholds_ordered(self) -> RagSettings:
+        if self.relevance_close >= self.relevance_very_close:
+            raise ValueError("relevance_close doit rester inférieur à relevance_very_close")
         return self
 
 
