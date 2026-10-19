@@ -20,6 +20,7 @@ import pytest
 from .test_arena import (  # noqa: F401  (`cancel_leftover_runs` est une fixture automatique)
     DONE,
     JUDGE_DEFAULT,
+    MODELS,
     NBSP,
     STARTED,
     cancel_leftover_runs,
@@ -30,7 +31,7 @@ from .test_arena import (  # noqa: F401  (`cancel_leftover_runs` est une fixture
     verdict,
     wait_banner,
 )
-from .test_arena_results import co2, ok_lane
+from .test_arena_results import co2, ok_lane, wait_names
 from .test_shell import assert_no_axe_violations, assert_no_horizontal_scroll, wait_for, wait_ready
 
 JUDGE = {"script": verdict(70), "origin": "local"}
@@ -64,6 +65,7 @@ def reopen(page, server, run_id, models=None):
     wait_banner(page, "Comparaison terminée")
     page.locator(".arena-run-actions").wait_for(state="visible")
     wait_for(page, "() => !document.querySelector('.arena-run-actions button').disabled")
+    wait_names(page)
 
 
 def actions(page):
@@ -96,6 +98,24 @@ def test_a_finished_arena_is_rebuilt_from_the_database_without_running_a_model(
     assert "Relancer" in buttons and "Modifier la question" in buttons
     assert "Exporter en CSV" in buttons and "Exporter en Markdown" in buttons
     assert "Effacer la comparaison" in buttons
+
+
+def test_a_reopened_arena_takes_the_display_names_when_the_model_list_arrives_late(page, server):
+    run_id = post_run(page, server, [ok_lane("fake:a", "Alpha"), ok_lane("fake:b", "Bravo")])
+    install_models(page)
+    held = []
+    page.route(re.compile(r"/api/models\?"), lambda route: held.append(route))  # liste retenue
+    page.goto(f"{server.base_url}/#/arene/comparer/{run_id}")
+    wait_ready(page)
+    wait_banner(page, "Comparaison terminée")
+    names = page.locator("wl-arena-lane .wl-lane-name")
+    assert names.all_inner_texts() == ["fake:a", "fake:b"]  # pas de fiche : l'identifiant
+    body = json.dumps({"models": MODELS, "ollama_up": True, "refreshed_at": "2026-10-18T10:00:00Z"})
+    for route in held:
+        route.fulfill(status=200, content_type="application/json", body=body)
+    wait_names(page)
+    assert names.all_inner_texts() == ["Alpha 1B", "Bravo 2B"]
+    assert sorted(page.locator(".arena-rank-name").all_inner_texts()) == ["Alpha 1B", "Bravo 2B"]
 
 
 def test_modify_the_question_takes_the_whole_configuration_back_into_the_form(page, server):
@@ -178,6 +198,8 @@ def test_an_unknown_id_says_result_not_found_with_a_link_to_a_new_comparison(
     alert.get_by_role("link", name="Lancer une nouvelle comparaison").click()
     wait_for(page, "() => location.hash === '#/arene/comparer'")
     page.get_by_role("button", name="Lancer la comparaison").wait_for()
+    # Le routeur remonte l'écran en asynchrone : l'ancien (avec son alerte) reste visible un instant.
+    wait_for(page, "() => !document.querySelector('.arena-missing:not([hidden])')")
     assert page.get_by_role("heading", name="Résultat introuvable").count() == 0
 
 
