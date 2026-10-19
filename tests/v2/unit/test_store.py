@@ -304,3 +304,84 @@ def test_a_failing_purge_does_not_undo_or_fail_the_committed_erase(store, monkey
     monkeypatch.undo()
     store.write(lambda conn: None).result()
     assert store.purge_pending is False
+
+
+# --- copies d'avant migration : une seule, supprimée à l'effacement (AD-13) --------------------
+
+
+def _copies(path: Path) -> list[str]:
+    return sorted(p.name for p in path.parent.glob("*.bak-*"))
+
+
+def test_only_the_last_copy_is_kept_and_the_previous_one_goes_after_the_next_migration(tmp_path):
+    path = tmp_path / "wavelocalai.db"
+    directory = _migrations_dir(tmp_path)
+    migrate(path, directory)
+    assert _copies(path) == []  # base neuve : rien à copier
+    (directory / "0002_a.sql").write_text("CREATE TABLE a (n INTEGER);\n", encoding="utf-8")
+    migrate(path, directory)
+    assert _copies(path) == ["wavelocalai.db.bak-1"]
+    (directory / "0003_b.sql").write_text("CREATE TABLE b (n INTEGER);\n", encoding="utf-8")
+    migrate(path, directory)
+    assert _copies(path) == ["wavelocalai.db.bak-2"]  # celle de la migration 3 : une seule
+    migrate(path, directory)  # rien à migrer : la copie reste, rien n'est supprimé
+    assert _copies(path) == ["wavelocalai.db.bak-2"]
+
+
+def test_a_failed_migration_keeps_its_own_copy_for_the_recovery(tmp_path):
+    path = tmp_path / "wavelocalai.db"
+    directory = _migrations_dir(tmp_path, **{"0002_a.sql": "CREATE TABLE a (n INTEGER);\n"})
+    migrate(path, directory)
+    (directory / "0003_bad.sql").write_text("INSERT INTO absent VALUES (1);\n", encoding="utf-8")
+    with pytest.raises(MigrationError):
+        migrate(path, directory)
+    assert "wavelocalai.db.bak-2" in _copies(path)  # sa copie reste pour la reprise
+
+
+def _database_with_a_copy_holding(tmp_path: Path, text: str) -> Path:
+    """Base migrée de 1 à 2 qui contient `text` : sa copie `.bak-1` le contient aussi."""
+    path = db_path(tmp_path / "data")
+    directory = _migrations_dir(tmp_path)
+    migrate(path, directory)
+    conn = sqlite3.connect(path)
+    conn.execute("INSERT INTO app_sessions VALUES ('s', ?, 'startup')", (text,))
+    conn.commit()
+    conn.close()
+    (directory / "0002_extra.sql").write_text("CREATE TABLE extra (n INTEGER);\n", encoding="utf-8")
+    return path
+
+
+def test_an_erase_removes_the_copy_that_still_holds_the_erased_text(tmp_path):
+    path = _database_with_a_copy_holding(tmp_path, "Aiguille-Unique-7788")
+    store = Store.open(path, tmp_path / "migrations")
+    try:
+        copy = backup_path(path, 1)
+        assert b"Aiguille-Unique-7788" in copy.read_bytes()  # l'état d'avant, texte compris
+        store.write(lambda conn: conn.execute("DELETE FROM app_sessions"), purge=True).result()
+        assert not copy.exists() and _copies(path) == []
+        assert store.purge_pending is False
+    finally:
+        store.close()
+    assert b"Aiguille-Unique-7788" not in path.read_bytes()
+
+
+def test_a_copy_that_cannot_be_removed_keeps_the_purge_due_then_is_removed(tmp_path, monkeypatch):
+    path = _database_with_a_copy_holding(tmp_path, "Aiguille-Unique-9911")
+    store = Store.open(path, tmp_path / "migrations")
+    copy = backup_path(path, 1)
+    real_unlink = Path.unlink
+
+    def locked(self, missing_ok=False):
+        if self.name.endswith(".bak-1"):
+            raise PermissionError("fichier tenu par un autre programme")
+        return real_unlink(self, missing_ok=missing_ok)
+
+    try:
+        monkeypatch.setattr(Path, "unlink", locked)
+        store.write(lambda conn: conn.execute("DELETE FROM app_sessions"), purge=True).result()
+        assert copy.exists() and store.purge_pending is True  # l'effacement est validé, pas fini
+        monkeypatch.undo()
+        store.write(lambda conn: None).result()  # écriture suivante : la suppression est rejouée
+        assert not copy.exists() and store.purge_pending is False
+    finally:
+        store.close()

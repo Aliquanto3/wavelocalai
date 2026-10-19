@@ -20,7 +20,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, TypeVar
 
-from wavelocalai.store.migrate import MIGRATIONS_DIR, migrate
+from wavelocalai.store.migrate import MIGRATIONS_DIR, migrate, remove_backups
 from wavelocalai.store.vec import ensure_vec_table, load_vec
 
 DB_NAME = "wavelocalai.db"
@@ -137,16 +137,22 @@ class Store:
     def _purge_if_pending(self, conn: sqlite3.Connection) -> None:
         if not self.purge_pending:
             return
+        # La copie d'avant migration (`.bak-N`) porte le texte effacé : elle est supprimée aussi.
+        copies_gone = remove_backups(self.path)
         try:
             done = purge_free_space(conn)
         except Exception:  # noqa: BLE001 - l'effacement est déjà validé
             logger.warning("Purge de la base en échec (AD-13) : rejouée plus tard.", exc_info=True)
             return
-        if done:
+        if done and copies_gone:
             self.purge_pending = False
-        else:
+        elif not done:
             logger.warning(
                 "Journal WAL non vidé, un lecteur le tenait (AD-13) : purge rejouée plus tard."
+            )
+        else:
+            logger.warning(
+                "Copie de la base non supprimée (AD-13) : suppression rejouée plus tard."
             )
 
     def write(self, func: Callable[[sqlite3.Connection], T], *, purge: bool = False) -> Future[T]:
