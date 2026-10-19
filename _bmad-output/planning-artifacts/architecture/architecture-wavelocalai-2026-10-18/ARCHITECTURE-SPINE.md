@@ -7,7 +7,7 @@ paradigm: 'ports et adaptateurs (hexagonal) autour d''un hub d''exécutions év�
 scope: 'Paquet src/wavelocalai/ (serveur FastAPI, front natif servi par lui, SQLite), sa coexistence avec la v1 dans le même dépôt, de l''étape 1 à la bascule (étape 8)'
 status: final
 created: '2026-10-18'
-updated: '2026-10-18'
+updated: '2026-10-19'
 binds: [CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-8, CAP-9, CAP-10, CAP-11, CAP-12, CAP-13, CAP-14]
 sources:
   - ../../../specs/spec-wavelocalai-v2/SPEC.md
@@ -107,6 +107,7 @@ Une flèche = « peut importer ». `web/` peut importer tous les paquets ; aucun
   - Reprise par l'en-tête `Last-Event-ID` ou le paramètre `?after=<seq>` : mémoire du hub si le run est actif, base sinon. Si le curseur atteint le dernier `seq` d'un run terminé, réponse `204`. Commentaire de maintien toutes les 15 s (`fastapi.sse.EventSourceResponse` natif, sans sse-starlette).
   - Le front n'ouvre un flux de run que pour les runs de l'écran monté ; en revenant sur un écran, il reprend avec `?after=`. `GET /api/system/stream` (état d'Ollama, système, `carbon_updated`, `runs_active` = liste `{run_id, kind, status}`) utilise la même enveloppe avec `run_id: null`, sans `id:` ni rejeu.
   - Nouvel événement de run : `approval_resolved {approval_id, decision: "approved" | "rejected" | "expired"}` (AD-9).
+  - Accueil (décision du 2026-10-19) : il lit le store rempli par `GET /api/system/stream`, plus **au plus un appel de lecture par carte, lancé après le repère `shell-ready`** (AD-15), jamais en boucle. Cas admis : carte « Démo recommandée » (`GET /api/models`, `GET /api/models/defaults?purpose=arena`) et carte « Documents » (`GET /api/rag/documents`). Aucun champ `rag` n'est ajouté au flux système. Garde-fous : `tests/v2/unit/test_shell_static.py` et `tests/v2/e2e/test_shell.py`.
 
 ### AD-7 — Persistance des événements
 
@@ -136,8 +137,11 @@ ChatChunk   = LoadState(phase: "loading" | "loaded", duration_s)
             | ToolCall(id, name, arguments: dict)
             | Done(ChatResult)
 ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s, total_s,
-              tps, tps_source: "ollama_eval" | "wallclock"
+              tps, tps_source: "ollama_eval" | "wallclock",
+              prefill_s: float | None = None, prefill_tps: float | None = None
 ```
+
+  Les deux champs de prefill (lecture du prompt, `prompt_eval_count / prompt_eval_duration`), optionnels et en fin de `ChatResult`, ne sont renseignés que par l'adaptateur Ollama ; ils restent hors du débit D3 (décision du 2026-10-19).
 
   `Done` est émis une fois, en dernier. Annulation = annulation de la tâche asyncio ; l'adaptateur ferme son flux dans un `finally`. Un refus fournisseur lève `ProviderError(code)` (codes d'`errors.py`). Un adaptateur ne calcule pas de CO₂, n'écrit pas en base et ne lit pas `allow_cloud`. Seul l'adaptateur Ollama (`/api/chat` natif, client async partagé) produit `tps_source = "ollama_eval"` (`eval_count / eval_duration`, D3). Les embeddings sont locaux seulement (Ollama `/api/embed`). Un adaptateur `fake` scriptable, pour `ChatModel` et pour `Embedder` (vecteurs déterministes dérivés du texte, dimension fixe), n'est enregistré que si `Settings.testing` est vrai.
 
@@ -157,7 +161,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 
 - **Binds:** `greenops/`, CAP-6
 - **Prevents:** des SDK instrumentés en douce, deux trackers simultanés, un appel réseau de mesure, un CO₂ vide présenté comme mesuré, un appel bloqué par sa mesure.
-- **Rule:** CodeCarbon mesure chaque run feuille local avec `OfflineEmissionsTracker` (pays et PUE de `Settings`), démarré et arrêté sous le sémaphore Ollama (AD-14), un seul à la fois, `start`/`stop` dans le pool de threads ; un test sans socket le vérifie. Le cloud passe par `ecologits.tracers.utils.llm_impacts(provider=…, model_name=…, output_token_count=…, request_latency=…, electricity_mix_zone=…)`, appelé par arguments nommés après l'appel ; **jamais `EcoLogits.init()`**. Un résultat avec `errors` non vide ou une exception donne `unmeasurable`, raison tirée du code d'erreur. Correspondance : `anthropic`, `mistralai` et `openai` directs ; Groq par une table explicite de `wavelocalai.toml` vers l'entrée `huggingface_hub` du modèle ouvert (ex. `openai/gpt-oss-120b`) ; sans entrée, `unmeasurable`. Un test de contrat fige la signature. Aucune mesure n'interrompt un run.
+- **Rule:** CodeCarbon mesure chaque run feuille local avec `OfflineEmissionsTracker` (pays et PUE de `Settings`), démarré et arrêté sous le sémaphore Ollama (AD-14), un seul à la fois, `start`/`stop` dans le pool de threads ; un test sans socket le vérifie. Le cloud passe par `ecologits.tracers.utils.llm_impacts(provider=…, model_name=…, output_token_count=…, request_latency=…, electricity_mix_zone=None)`, appelé par arguments nommés après l'appel ; `None` retient le mix électrique du centre de données du fournisseur (décision du 2026-10-19) ; **jamais `EcoLogits.init()`**. Un résultat avec `errors` non vide ou une exception donne `unmeasurable`, raison tirée du code d'erreur. Correspondance : `anthropic`, `mistralai` et `openai` directs ; Groq par une table explicite de `wavelocalai.toml` vers l'entrée `huggingface_hub` du modèle ouvert (ex. `openai/gpt-oss-120b`) ; sans entrée, `unmeasurable`. Un test de contrat fige la signature. Aucune mesure n'interrompt un run.
 
 ### AD-12 — Store SQLite et migrations
 
@@ -181,7 +185,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 
 - **Binds:** `config.py`, `store/`, `models/registry.py`, routes de lecture
 - **Prevents:** un réglage d'UI écrit dans un fichier versionné, deux sources pour un même réglage, une route de lecture bloquée par Ollama arrêté.
-- **Rule:** `Settings` (pydantic) se charge une fois au démarrage depuis `wavelocalai.toml` (`tomllib`) puis `.env` (secrets), et ne change plus ; aucun `os.getenv` hors de `config.py`. Ce que l'UI modifie (stratégie RAG, découpe, reranker, défauts choisis) vit dans la table `preferences`, qui prime sur `Settings` pour ces seules clés. L'app n'écrit jamais `wavelocalai.toml`. La sonde Ollama a un délai d'1 s au plus ; son état reste en cache 5 s pour les routes de lecture et 1 s pour la sonde du flux système (2 s), qui dit ainsi « Ollama ne répond pas » en moins de 3 s ; `/api/models` se sert du cache (dernière liste d'Ollama, `model_facts`, catalogue `config/models_catalog.json` en lecture seule) rafraîchi en tâche de fond. Dans `/api/models`, le débit mesuré sur ce poste est la médiane du `tps` des feuilles `ok` en `ollama_eval` de la table `runs` pour ce tag (absent sans run) ; la précision vient de `qb.results/1` à partir de l'étape 5 (`null` avant) ; la méthode CO₂ disponible vaut `codecarbon` en local, `ecologits` pour un fournisseur direct ou un modèle Groq présent dans la table de correspondance, `unmeasurable` sinon. Un test de budget paramétré parcourt toutes les routes `GET` de l'app sans paramètre de chemin, hors flux SSE, et vérifie < 300 ms Ollama injoignable : une route ajoutée y entre d'elle-même.
+- **Rule:** `Settings` (pydantic) se charge une fois au démarrage depuis `wavelocalai.toml` (`tomllib`) puis `.env` (secrets), et ne change plus ; aucun `os.getenv` hors de `config.py`. Ce que l'UI modifie (stratégie RAG, découpe, reranker, défauts choisis) vit dans la table `preferences`, qui prime sur `Settings` pour ces seules clés. L'app n'écrit jamais `wavelocalai.toml`. La sonde Ollama a un délai d'1 s au plus ; son état reste en cache 5 s pour les routes de lecture et 1 s pour la sonde du flux système (2 s ; durées ratifiées, décision du 2026-10-19), qui dit ainsi « Ollama ne répond pas » en moins de 3 s ; `/api/models` se sert du cache (dernière liste d'Ollama, `model_facts`, catalogue `config/models_catalog.json` en lecture seule) rafraîchi en tâche de fond. Dans `/api/models`, le débit mesuré sur ce poste est la médiane du `tps` des feuilles `ok` en `ollama_eval` de la table `runs` pour ce tag (absent sans run) ; la précision vient de `qb.results/1` à partir de l'étape 5 (`null` avant) ; la méthode CO₂ disponible vaut `codecarbon` en local, `ecologits` pour un fournisseur direct ou un modèle Groq présent dans la table de correspondance, `unmeasurable` sinon. Un test de budget paramétré parcourt toutes les routes `GET` de l'app sans paramètre de chemin, hors flux SSE, et vérifie < 300 ms Ollama injoignable : une route ajoutée y entre d'elle-même.
 
 ### AD-16 — Base documentaire
 
@@ -211,7 +215,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 
 - **Binds:** `web/static/`, CAP-1 à CAP-14
 - **Prevents:** des écrans bâtis selon deux motifs, une mesure recalculée dans le navigateur, une bascule cloud qui survit au rechargement.
-- **Rule:** composants partagés = Custom Elements **sans Shadow DOM**, préfixe `wl-` ; écran = module ES qui exporte `mount(host, params)` et rend sa fonction `unmount`, chargé par `import()` à la première visite. Un seul client SSE (`core/sse.js`) et un seul store observable (`core/store.js`), qui garde l'état et le dernier `seq` des runs actifs. La bascule cloud vit dans le store seulement ; `localStorage` ne garde que thème, projection, volets et brouillons. Le front ne calcule aucune mesure, garde-fou mémoire compris (`hardware/` calcule besoin et `fits`) ; seuls le chronomètre et le débit provisoire sont locaux. Textes dans `static/i18n/fr.json`. Aucune dépendance JS tierce, sinon recopiée dans `static/vendor/` avec sa licence.
+- **Rule:** composants partagés = Custom Elements **sans Shadow DOM**, préfixe `wl-` ; écran = module ES qui exporte `mount(host, params)` et rend sa fonction `unmount`, chargé par `import()` à la première visite. Un seul client SSE (`core/sse.js`) et un seul store observable (`core/store.js`), qui garde l'état et le dernier `seq` des runs actifs. La bascule cloud vit dans le store seulement ; `localStorage` ne garde que thème, projection, volets et brouillons. Le front ne calcule aucune mesure, garde-fou mémoire compris (`hardware/` calcule besoin et `fits`) ; seuls le chronomètre et le débit provisoire sont locaux. Textes dans `static/i18n/` (`fr.json`, découpé par écran par la story 5.0 ; décision du 2026-10-19). Aucune dépendance JS tierce, sinon recopiée dans `static/vendor/` avec sa licence.
 
 ### AD-21 — Imports lourds et télémétrie
 
@@ -251,7 +255,7 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 | Python | >=3.11,<3.13 (vérifié avec 3.11.17) |
 | FastAPI (SSE natif `fastapi.sse`) | 0.143.5 |
 | uvicorn | 0.54.0 |
-| pydantic | 2.12.x (`>=2.9.0`, sous 2.13) jusqu'à la bascule : crewai de la v1 exige `pydantic<2.13` ; relevé à la version vérifiée lors de la bascule |
+| pydantic | 2.12.x (`>=2.9.0`, sous 2.13) jusqu'à la bascule : crewai de la v1 exige `pydantic<2.13` ; relevé à la version vérifiée lors de la bascule (8.4) ; décision du 2026-10-19 |
 | ollama (client Python) | 0.6.3 |
 | sqlite-vec | 0.1.9 |
 | ecologits | 0.11.3 (épinglé `>=0.11.3,<0.12`) |
