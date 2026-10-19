@@ -1,7 +1,8 @@
 // Accueil (UX-DR24) : le titre, l'accroche, quatre cartes d'état en direct (Système, Mode,
 // Processeur, Mémoire) et les liens des modules livrés. Les cartes lisent le store, rempli par le
-// flux système (AD-6) ; l'écran ne calcule aucune mesure (AD-20). Seul appel : le résumé de la base
-// documentaire, lu une fois par `GET /api/rag/documents` (jamais en boucle).
+// flux système (AD-6) ; l'écran ne calcule aucune mesure (AD-20). Seuls appels : le résumé de la base
+// documentaire (`GET /api/rag/documents`) et la carte « Références » (`GET /api/references`, story 5.8),
+// lus une fois par affichage, jamais en boucle.
 //
 // - Squelette tant que le premier état du flux n'est pas arrivé, jamais d'écran blanc.
 // - Ollama arrêté : « Indisponible », la marche à suivre et « Réessayer » ; les liens restent actifs.
@@ -30,6 +31,7 @@ import { store } from "../core/store.js";
 import { shellReady } from "../core/shell-ready.js";
 import { recheckOllama } from "../core/system.js";
 import { demoSection } from "./home-demo.js";
+import { referencesCard } from "./home-references.js";
 
 // Ne touche le DOM que si la valeur change : une carte mise à jour toutes les 2 s ne clignote pas.
 function setText(node, text) {
@@ -181,6 +183,7 @@ function renderMemory(card, state) {
 function modulesSection() {
   const items = [];
   const summaries = {};
+  const references = referencesCard(); // carte « Références », à la suite de l'Arène (story 5.8)
   for (const module of MODULES) {
     if (module.id === "home") continue;
     const entry = entryScreen(module);
@@ -199,6 +202,7 @@ function modulesSection() {
     const li = element("li", "home-module");
     li.append(link);
     items.push(li);
+    if (module.id === "arena" && references) items.push(references.el);
   }
   if (items.length === 0) return null;
   const section = element("section", "home-section");
@@ -208,7 +212,7 @@ function modulesSection() {
   const list = element("ul", "home-module-list");
   list.append(...items);
   section.append(title, list);
-  return { section, summaries };
+  return { section, summaries, references };
 }
 
 // « 3 documents indexés · 14 extraits » : les documents prêts seulement (`totals`, D-26).
@@ -257,6 +261,7 @@ export function mount(host) {
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
   async function refreshBase() {
+    modules?.references?.refresh(); // sa propre lecture, masquée sans références publiées
     const node = modules?.summaries.documents;
     if (!node) return;
     await shellReady();
@@ -313,6 +318,7 @@ export function mount(host) {
     visibility.disconnect();
     document.removeEventListener("visibilitychange", onVisibility);
     demo?.dispose();
+    modules?.references?.dispose();
     pause();
     delete host.dataset.live;
     host.replaceChildren();

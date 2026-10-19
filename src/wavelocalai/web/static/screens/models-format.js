@@ -15,10 +15,23 @@ export function paramsText(total, active) {
   return t("models.installed.params_active", { total: totalText, active: formatNumber(active) });
 }
 
-// Nom du modèle puis son tag d'Ollama en petit : le tag est ce qu'on saisit pour l'installer.
+let currentTag = null;
+
+// Le modèle dont la fiche est ouverte (`#/modeles/<tag>`) : son lien porte `aria-current`.
+export function setCurrentCardTag(tag) {
+  currentTag = tag;
+}
+
+// Nom du modèle, lien vers sa fiche (`#/modeles/<tag>`, story 5.6), puis son tag d'Ollama en petit :
+// le tag est ce qu'on saisit pour l'installer.
 export function nameCell(name, tag) {
   const cell = element("span", "models-name");
-  cell.append(element("span", "models-name-text", name));
+  const link = element("a", "models-name-text models-name-link", name);
+  link.href = `#/modeles/${encodeURIComponent(tag)}`;
+  link.dataset.tag = tag;
+  link.setAttribute("aria-label", t("models.card.link_aria", { name }));
+  if (currentTag === tag) link.setAttribute("aria-current", "true");
+  cell.append(link);
   if (name !== tag) cell.append(element("code", "models-tag", tag));
   return cell;
 }

@@ -20,6 +20,11 @@ FILES = (
     "screens/models-delete.js",
     "screens/models-defaults.js",
     "screens/models-rerank.js",
+    "screens/models-card.js",
+    "components/model-card-view.js",
+    "components/model-card-loader.js",
+    "components/model-card-drawer.js",
+    "components/model-card-launcher.js",
 )
 SCREEN = "\n".join(read_static(name) for name in FILES)
 CODE = "\n".join(line for line in SCREEN.splitlines() if not line.lstrip().startswith("//"))
@@ -67,7 +72,7 @@ def test_the_text_file_is_declared_and_the_screen_is_registered_as_available():
     assert '"models",' in read_static("core/i18n.js")
     registry = read_static("core/routes/models.js")
     assert re.search(
-        r'id: "models",\s*path: "/modeles",\s*status: "available",\s*'
+        r'id: "models",\s*path: "/modeles",\s*param: "tag",\s*status: "available",\s*'
         r'load: \(\) => import\("\.\./\.\./screens/models\.js"\)',
         registry,
     )

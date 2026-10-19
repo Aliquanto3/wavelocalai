@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 
 from fastapi import APIRouter, Request, Response
@@ -11,6 +12,7 @@ from wavelocalai.errors import AppError
 from wavelocalai.inference.delete import delete_installed_model
 from wavelocalai.inference.pull import PullService
 from wavelocalai.inference.unload import unload_idle_models
+from wavelocalai.models.card import ModelCard, build_card
 from wavelocalai.models.defaults import ModelDefault, Purpose
 from wavelocalai.models.ollama_ps import loaded_models
 from wavelocalai.models.registry import InstallableList, ModelList
@@ -101,21 +103,49 @@ async def unload_models(request: Request) -> UnloadResult:
     )
 
 
+async def _reclaimable_gb(request: Request) -> float:
+    """Mémoire des modèles chargés, qu'Ollama décharge à la demande : comptée comme libre, comme le
+    garde-fou. Ollama arrêté, la lecture saute (AD-15)."""
+    app = request.app
+    if not app.state.registry.ollama_up:
+        return 0.0
+    loaded = await loaded_models(
+        app.state.settings.ollama.host, timeout_s=1.0, transport=app.state.ollama_transport
+    )
+    return sum(max(0.0, model.size_gb) for model in loaded or [])
+
+
 @router.get("/models/catalog")
 async def installable_models(request: Request) -> InstallableList:
     """Catalogue installable (`config/models_catalog.json`, lecture seule) moins les modèles
     installés (un modèle supprimé y revient), avec la mémoire nécessaire et `fits` de `hardware/`
     (story 5.3). Les modèles chargés, qu'Ollama décharge à la demande, comptent comme mémoire
     libre, comme pour le garde-fou ; Ollama arrêté, la lecture saute (AD-15)."""
+    reclaimable = await _reclaimable_gb(request)
+    return await request.app.state.registry.installable(reclaimable_gb=reclaimable)
+
+
+@router.get("/models/card/{tag:path}")
+async def model_card(tag: str, request: Request) -> ModelCard:
+    """Fiche d'un modèle installé, au catalogue ou cloud (story 5.6) : caractéristiques, « Pourquoi ce
+    débit ? » et « Sur d'autres postes » (`qb.results/1`, AD-22). Tout est calculé ici (AD-20) et sort
+    du cache du registre, du fichier des résultats et de la dernière lecture du GPU : aucun appel
+    d'Ollama avant de répondre (AD-15) : la mémoire des modèles chargés d'un modèle du catalogue est
+    celle du dernier échantillon du flux système. `404 model_not_found` pour un tag inconnu."""
     app = request.app
     registry = app.state.registry
-    loaded = None
-    if registry.ollama_up:
-        loaded = await loaded_models(
-            app.state.settings.ollama.host, timeout_s=1.0, transport=app.state.ollama_transport
-        )
-    reclaimable = sum(max(0.0, model.size_gb) for model in loaded or [])
-    return await registry.installable(reclaimable_gb=reclaimable)
+    sampler = app.state.system_sampler
+
+    async def reclaimable() -> float:
+        return sampler.last_loaded_gb if registry.ollama_up else 0.0
+
+    source = await registry.card_source(tag, reclaimable=reclaimable)
+    if source is None:
+        raise AppError("model_not_found", f"Modèle inconnu : {tag}", tag=tag)
+    bench = await asyncio.to_thread(registry.bench.current)
+    gpu = app.state.system_sampler.last_gpu
+    vram_gb = gpu["memory_total_gb"] if gpu else None
+    return build_card(source, bench, vram_gb=vram_gb)
 
 
 class PullBody(BaseModel):

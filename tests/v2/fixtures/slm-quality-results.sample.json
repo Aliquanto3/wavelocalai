@@ -1,0 +1,520 @@
+{
+ "schema": "qb.results/1",
+ "bench_version": "1.4.0",
+ "set": {
+  "id": "fixture",
+  "set_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+ },
+ "campaigns": [
+  {
+   "id": "c1",
+   "generation_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+   "ollama_version": "0.40.6",
+   "status": "complete",
+   "first_line_at": "2026-10-01T10:00:00Z",
+   "last_line_at": "2026-10-01T18:00:00Z"
+  }
+ ],
+ "machines": [
+  {
+   "id": "station",
+   "label": "Station, 32 Go, GPU 12 Go",
+   "gpu": "GPU 12 Go",
+   "vram_mib": 12288,
+   "ram_mib": 32768,
+   "os": "Linux"
+  },
+  {
+   "id": "pc-pro",
+   "label": "PC pro, 16 Go, sans GPU",
+   "gpu": null,
+   "vram_mib": null,
+   "ram_mib": 15360,
+   "os": "Windows 11"
+  },
+  {
+   "id": "portable",
+   "label": "Portable, 16 Go, GPU 6 Go",
+   "gpu": "GPU 6 Go",
+   "vram_mib": 6144,
+   "ram_mib": 16384,
+   "os": "Windows 11"
+  }
+ ],
+ "models": [
+  {
+   "tag": "mid:7b",
+   "digest": "d-mid:7b",
+   "name": "Moyen 7B",
+   "editor": "Test",
+   "family": "test",
+   "moe": false,
+   "params_total_b": 7.0,
+   "params_active_b": 7.0,
+   "context_length": 32768,
+   "capabilities": [
+    "chat"
+   ],
+   "sources": [
+    {
+     "ref": "https://example.invalid/fixture",
+     "date": "2026-10-01"
+    }
+   ]
+  },
+  {
+   "tag": "small:1b",
+   "digest": "d-small:1b",
+   "name": "Petit 1B",
+   "editor": "Test",
+   "family": "test",
+   "moe": false,
+   "params_total_b": 1.0,
+   "params_active_b": 1.0,
+   "context_length": 32768,
+   "capabilities": [
+    "chat"
+   ],
+   "sources": [
+    {
+     "ref": "https://example.invalid/fixture",
+     "date": "2026-10-01"
+    }
+   ]
+  },
+  {
+   "tag": "other:4b",
+   "digest": "d-other:4b-ancienne",
+   "name": "Autre 4B",
+   "editor": "Test",
+   "family": "test",
+   "moe": false,
+   "params_total_b": 4.0,
+   "params_active_b": 4.0,
+   "context_length": 32768,
+   "capabilities": [
+    "chat"
+   ],
+   "sources": [
+    {
+     "ref": "https://example.invalid/fixture",
+     "date": "2026-10-01"
+    }
+   ]
+  },
+  {
+   "tag": "grand:14b",
+   "digest": "d-grand:14b",
+   "name": "Grand 14B",
+   "editor": "Test",
+   "family": "test",
+   "moe": false,
+   "params_total_b": 14.0,
+   "params_active_b": 14.0,
+   "context_length": 32768,
+   "capabilities": [
+    "chat"
+   ],
+   "sources": [
+    {
+     "ref": "https://example.invalid/fixture",
+     "date": "2026-10-01"
+    }
+   ]
+  }
+ ],
+ "results": [
+  {
+   "model": "mid:7b",
+   "digest": "d-mid:7b",
+   "machine": "pc-pro",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.72,
+     "ci_low": 0.6699999999999999,
+     "ci_high": 0.77,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.72,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 5.2,
+    "prefill_tok_s": 40.0,
+    "load_time_ms": 2300
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 6144,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 4800,
+    "model_vram_mib": 0,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "unavailable",
+    "gpu_power_avg_w": null,
+    "gpu_wh_per_1k_tokens": null
+   }
+  },
+  {
+   "model": "mid:7b",
+   "digest": "d-mid:7b",
+   "machine": "pc-pro",
+   "campaign": "c1",
+   "track": "think_on",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.6,
+     "ci_low": 0.5499999999999999,
+     "ci_high": 0.65,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.6,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 3.0,
+    "prefill_tok_s": 30.0,
+    "load_time_ms": 2400
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 6400,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 4800,
+    "model_vram_mib": 0,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "unavailable",
+    "gpu_power_avg_w": null,
+    "gpu_wh_per_1k_tokens": null
+   }
+  },
+  {
+   "model": "mid:7b",
+   "digest": "d-mid:7b",
+   "machine": "portable",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.71,
+     "ci_low": 0.6599999999999999,
+     "ci_high": 0.76,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.71,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 18.4,
+    "prefill_tok_s": 210.0,
+    "load_time_ms": 1800
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 2048,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 4800,
+    "model_vram_mib": 4800,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "measured",
+    "gpu_power_avg_w": 55.0,
+    "gpu_wh_per_1k_tokens": 0.42
+   }
+  },
+  {
+   "model": "mid:7b",
+   "digest": "d-mid:7b",
+   "machine": "station",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.73,
+     "ci_low": 0.6799999999999999,
+     "ci_high": 0.78,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.73,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 61.0,
+    "prefill_tok_s": 900.0,
+    "load_time_ms": 900
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 1500,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 4800,
+    "model_vram_mib": 4800,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "measured",
+    "gpu_power_avg_w": 120.0,
+    "gpu_wh_per_1k_tokens": 0.31
+   }
+  },
+  {
+   "model": "small:1b",
+   "digest": "d-small:1b",
+   "machine": "pc-pro",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": false,
+   "quality": {
+    "global": {
+     "score": null,
+     "ci_low": null,
+     "ci_high": null,
+     "n_units": 40,
+     "coverage": null,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": null,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": null,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": null,
+    "prefill_tok_s": null,
+    "load_time_ms": null
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": null,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 900,
+    "model_vram_mib": 0,
+    "validated_ctx": null
+   },
+   "energy": {
+    "status": "unvalidated",
+    "gpu_power_avg_w": null,
+    "gpu_wh_per_1k_tokens": null
+   }
+  },
+  {
+   "model": "other:4b",
+   "digest": "d-other:4b-ancienne",
+   "machine": "portable",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.55,
+     "ci_low": 0.5,
+     "ci_high": 0.6000000000000001,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.55,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 25.0,
+    "prefill_tok_s": 300.0,
+    "load_time_ms": 1000
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 1200,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 2500,
+    "model_vram_mib": 2500,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "measured",
+    "gpu_power_avg_w": 50.0,
+    "gpu_wh_per_1k_tokens": 0.2
+   }
+  },
+  {
+   "model": "grand:14b",
+   "digest": "d-grand:14b",
+   "machine": "station",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.8,
+     "ci_low": 0.75,
+     "ci_high": 0.8500000000000001,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.8,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 38.0,
+    "prefill_tok_s": 500.0,
+    "load_time_ms": 2000
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 3000,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 9000,
+    "model_vram_mib": 9000,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "measured",
+    "gpu_power_avg_w": 150.0,
+    "gpu_wh_per_1k_tokens": 0.9
+   }
+  },
+  {
+   "model": "grand:14b",
+   "digest": "d-grand:14b",
+   "machine": "pc-pro",
+   "campaign": "c1",
+   "track": "think_off",
+   "complete": true,
+   "quality": {
+    "global": {
+     "score": 0.78,
+     "ci_low": 0.73,
+     "ci_high": 0.8300000000000001,
+     "n_units": 40,
+     "coverage": 1.0,
+     "truncation_rate": 0.0,
+     "context_exceeded_rate": 0.0
+    },
+    "usages": {
+     "tools": {
+      "score": 0.78,
+      "ci_low": null,
+      "ci_high": null,
+      "n_units": 40,
+      "coverage": 1.0,
+      "truncation_rate": 0.0,
+      "context_exceeded_rate": 0.0
+     }
+    }
+   },
+   "speed": {
+    "decode_tok_s": 2.1,
+    "prefill_tok_s": 12.0,
+    "load_time_ms": 9000
+   },
+   "memory": {
+    "ram_baseline_mib": 4000,
+    "ram_peak_mib": 13000,
+    "vram_baseline_mib": null,
+    "vram_peak_mib": null,
+    "model_size_mib": 9000,
+    "model_vram_mib": 0,
+    "validated_ctx": 8192
+   },
+   "energy": {
+    "status": "unavailable",
+    "gpu_power_avg_w": null,
+    "gpu_wh_per_1k_tokens": null
+   }
+  }
+ ]
+}

@@ -189,30 +189,15 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
     assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 6
 
 
-# Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.
-MOCKUP_ROUTES = [
-    "#/arene/references",
-    "#/modeles/qwen2.5%3A1.5b",
-]
-
-
-@pytest.mark.parametrize(
-    "route",
-    ["#/n-importe-quoi", "#main", *MOCKUP_ROUTES],
-)
-def test_planned_or_unknown_route_goes_back_to_home(page, server, route):
+# Toutes les routes de la maquette (D-8) sont livrées : il ne reste que les adresses inconnues,
+# qui renvoient à l'Accueil.
+@pytest.mark.parametrize("route", ["#/n-importe-quoi", "#main"])
+def test_unknown_route_goes_back_to_home(page, server, route):
     page.goto(f"{server.base_url}/{route}")
     wait_ready(page)
     assert page.evaluate("location.hash") == "#/"
     assert page.title() == "Accueil · WaveLocalAI"
     assert page.get_by_role("heading", level=1).inner_text() == "Accueil"
-
-
-def test_a_planned_mockup_route_has_no_active_link_anywhere(shell):
-    """D-8 : ni l'Accueil ni la barre haute n'ont de lien actif vers une route de la maquette ;
-    les onglets de l'Arène (écrans à venir) sont des liens désactivés, sans `href`."""
-    for prefix in ("#/arene/references",):
-        assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
 
 
 def test_each_route_sets_title_focuses_the_h1_announces_and_is_fast(shell):

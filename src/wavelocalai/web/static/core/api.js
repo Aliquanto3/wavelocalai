@@ -15,6 +15,7 @@ import { conversationsApi } from "./api/conversations.js";
 import { evaluationApi } from "./api/evaluation.js";
 import { modelsApi } from "./api/models.js";
 import { ragApi } from "./api/rag.js";
+import { referencesApi } from "./api/references.js";
 import { runsApi } from "./api/runs.js";
 import { systemApi } from "./api/system.js";
 
@@ -111,6 +112,7 @@ export const api = {
   ...benchApi(request),
   ...evaluationApi(request),
   ...ragApi(request),
+  ...referencesApi(request),
   ...runsApi(request),
   ...agentsApi(request),
 };

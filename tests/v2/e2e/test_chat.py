@@ -214,7 +214,9 @@ def test_the_screen_shows_the_picker_the_creativity_slider_the_field_and_its_hel
     assert chat.locator(".chat-empty").is_visible()
 
 
-def test_the_arena_module_is_available_and_its_other_tabs_are_disabled_with_their_reason(chat):
+def test_the_arena_module_is_available_and_links_all_its_tabs(chat):
+    # Depuis les stories 7.4 (Banc d'essai) et 5.8 (Références), tous les onglets de l'Arène sont
+    # disponibles : aucun n'est plus désactivé.
     link = chat.locator("#module-list a[data-module=arena]")
     assert link.get_attribute("href") == "#/arene/chat"
     assert link.get_attribute("aria-current") == "page"
@@ -222,14 +224,9 @@ def test_the_arena_module_is_available_and_its_other_tabs_are_disabled_with_thei
     assert tabs.get_by_role("link", name="Chat libre").get_attribute("aria-current") == "page"
     arena = tabs.get_by_role("link", name="Arène", exact=True)
     assert arena.get_attribute("href") == "#/arene/comparer"
-    for name in ("Références",):
-        tab = tabs.get_by_role("link", name=name, exact=True)
-        assert tab.get_attribute("aria-disabled") == "true"
-        assert tab.get_attribute("href") is None
-        reason = tab.locator("xpath=following-sibling::span")
-        assert reason.is_visible()
-        assert reason.inner_text() == "Pas encore disponible dans cette préversion"
-        assert tab.get_attribute("aria-describedby") == reason.get_attribute("id")
+    references = tabs.get_by_role("link", name="Références", exact=True)
+    assert references.get_attribute("href") == "#/arene/references"
+    assert references.get_attribute("aria-disabled") is None
 
 
 # --- Flux : premier token, Markdown sûr, raisonnement, pied, annonce -------------------------------

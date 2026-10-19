@@ -265,10 +265,6 @@ ROUTES = [
     "/sobriete",
     "/modeles",
 ]
-# Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
-MOCKUP_ROUTES = {
-    "/arene/references": None,
-}
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
 
@@ -291,19 +287,25 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_only_the_home_chat_arena_bench_document_evaluation_sobriety_models_and_agent_screens_are_available_so_far():
+def test_every_screen_of_the_registry_is_available():
     text = registry_text()
-    assert text.count('status: "available"') == 11
-    assert text.count('status: "planned"') == len(ROUTES) - 11
+    assert text.count('status: "available"') == len(ROUTES)
+    assert text.count('status: "planned"') == 0
     assert re.search(r'id: "agents-solo",\s*path: "/agents/seul",\s*status: "available"', text)
     assert re.search(
         r'id: "agents-crew",\s*path: "/agents/equipe",\s*param: "run_id",\s*status: "available"',
         text,
     )
+    assert re.search(
+        r'id: "arena-bench",\s*path: "/arene/banc",\s*param: "run_id",\s*status: "available"',
+        text,
+    )
     assert re.search(r'id: "sobriety",\s*path: "/sobriete",\s*status: "available"', text)
-    # `#/modeles/<tag>` (fiche, story 5.6) n'existe pas encore : l'écran n'a pas de `param`.
-    assert re.search(r'id: "models",\s*path: "/modeles",\s*status: "available"', text)
-    assert 'param: "tag"' not in text
+    # `#/modeles/<tag>` (fiche d'un modèle, story 5.6) : l'écran Modèles a son `param` de chemin.
+    assert re.search(
+        r'id: "models",\s*path: "/modeles",\s*param: "tag",\s*status: "available"', text
+    )
+    assert text.count('param: "tag"') == 1
     assert re.search(r'id: "documents-chat",\s*path: "/documents",\s*status: "available"', text)
     assert re.search(r'id: "arena-chat",\s*path: "/arene/chat",\s*status: "available"', text)
     assert re.search(
@@ -319,23 +321,9 @@ def test_only_the_home_chat_arena_bench_document_evaluation_sobriety_models_and_
         r'id: "documents-evaluation",\s*path: "/documents/evaluation",\s*param: "run_id",\s*status: "available"',
         text,
     )
-
-
-def test_the_mockup_routes_are_planned_with_their_path_parameter():
-    """D-8 : `#/arene/references` existe, `planned`, sans écran ni `load` (`#/arene/banc/<run_id>` :
-    story 7.4 ; `#/documents/evaluation/<run_id>` : story 7.3 ; `#/agents/equipe/<run_id>` : story 6.5 ;
-    `#/modeles/<tag>` : story 5.6)."""
-    text = registry_text()
-    for path, param in MOCKUP_ROUTES.items():
-        declaration = re.search(
-            r"\{\s*id:\s*\"[\w-]+\",\s*path:\s*\"" + re.escape(path) + r"\",(.*?)\}",
-            text,
-            re.DOTALL,
-        )
-        assert declaration, path
-        body = declaration.group(1)
-        assert 'status: "planned"' in body and "load" not in body, path
-        assert (f'param: "{param}"' in body) == (param is not None), path
+    assert re.search(
+        r'id: "arena-references",\s*path: "/arene/references",\s*status: "available"', text
+    )
 
 
 # --- Icônes (UX-DR3) --------------------------------------------------------------------------
@@ -587,17 +575,23 @@ def test_the_front_computes_no_measure_and_names_no_host():
 def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_text_is_used():
     """Les cartes d'état de l'Accueil lisent le store rempli par le flux (AD-6) et ne calculent rien.
     `home.js` n'appelle que le résumé de la base documentaire (story 4.9) ; la carte « Démo
-    recommandée » (story 3.6, `home-demo.js`) ne lit que la liste des modèles et le défaut `arena`.
-    Les deux attendent le repère `shell-ready` avant d'appeler l'API (AD-15). Le catalogue ne garde
+    recommandée » (story 3.6, `home-demo.js`) ne lit que la liste des modèles et le défaut `arena`,
+    et la carte « Références » (story 5.8, `home-references.js`) que `GET /api/references`.
+    Les trois attendent le repère `shell-ready` avant d'appeler l'API (AD-15). Le catalogue ne garde
     aucun texte `home.*` qu'il n'affiche pas (un texte au pluriel compte par sa base)."""
     text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
     demo = (STATIC / "screens/home-demo.js").read_text(encoding="utf-8")
-    for source in (text, demo):
+    references = (STATIC / "screens/home-references.js").read_text(encoding="utf-8")
+    for source in (text, demo, references):
         assert "fetch(" not in source and "EventSource" not in source
         assert 'from "../core/shell-ready.js"' in source and "await shellReady()" in source
     assert re.findall(r"\bapi\.(?!js)(\w+)", text) == ["documents"]
     assert set(re.findall(r"\bapi\.(\w+)\(", demo)) == {"models", "modelDefaults"}
-    text += demo
+    assert re.findall(r"\bapi\.(\w+)\(", references) == ["references"]
+    assert (
+        'REFERENCES_ICON = "help"' in references and 'icon("swords")' not in references
+    )  # sa propre icône
+    text += demo + references
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
     literal = {key for key in named if "${" not in key}

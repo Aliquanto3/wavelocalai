@@ -24,6 +24,11 @@ export const arenaModule = {
       status: "available",
       load: () => import("../../screens/bench.js"),
     },
-    { id: "arena-references", path: "/arene/references", status: "planned" },
+    {
+      id: "arena-references",
+      path: "/arene/references",
+      status: "available",
+      load: () => import("../../screens/references.js"),
+    },
   ],
 };

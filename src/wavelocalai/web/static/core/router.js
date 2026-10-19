@@ -1,6 +1,7 @@
 // Routeur par `hash` (UX-DR4, AD-20) : liens profonds, bouton Précédent, aucune configuration
 // serveur. Un écran est un module ES qui exporte `mount(host, params)` et rend sa fonction
-// `unmount` ; il est chargé par `import()` à la première visite, puis gardé en mémoire (son nœud
+// `unmount`, et facultativement `update(host, params)` quand seul son paramètre de chemin change
+// (sinon il est démonté puis remonté) ; il est chargé par `import()` à la première visite, puis gardé en mémoire (son nœud
 // est masqué, non détruit) : revenir sur un écran est instantané.
 //
 // À chaque route : `document.title` vaut « <Écran> · WaveLocalAI », le focus va sur le `h1` de
@@ -68,9 +69,16 @@ export function createRouter({ main, announcer, onRoute = () => {} }) {
       // Route supplantée pendant le chargement : ne pas monter un écran qui ne sera pas montré.
       if (mine !== token) return;
       if (entry.mounted && entry.key !== key) {
-        await entry.unmount?.();
-        entry.host.replaceChildren();
-        entry.mounted = false;
+        if (typeof entry.module.update === "function") {
+          // L'écran suit lui-même le changement de paramètre (la fiche d'un modèle, story 5.6) :
+          // il n'est ni démonté ni reconstruit, ses listes et ses installations restent.
+          await entry.module.update(entry.host, params);
+          entry.key = key;
+        } else {
+          await entry.unmount?.();
+          entry.host.replaceChildren();
+          entry.mounted = false;
+        }
       }
       if (!entry.mounted) {
         entry.unmount = (await entry.module.mount(entry.host, params)) ?? null;
