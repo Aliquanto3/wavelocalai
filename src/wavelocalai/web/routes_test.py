@@ -22,6 +22,8 @@ installation factice (`ok`, `fail`, `hang`, octets simulés) et règle la prése
 une fois installé, le reranker chargé est un `FakeReranker` : aucun réseau, aucun modèle.
 `POST /api/test/gpu` fixe l'état du GPU que le flux système publie (`gpu` : nom, mémoire, température,
 bridage thermique ; `null` : aucun GPU, le champ est absent), au lieu de la lecture NVML du poste (5.1).
+`POST /api/test/carbon-sessions` ajoute des sessions closes, datées dans le passé, à l'historique
+carbone (`days_ago`, feuilles `kind`, `origin`, `mg` ou nul ; story 5.2).
 
 `conversation_id` prolonge une conversation. `origin` (`local` ou `cloud`) et `co2` (champ `co2`
 d'AD-10) fixent la mesure de la feuille ; une fois le run terminé, la route publie
@@ -38,6 +40,9 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import shutil
+import sqlite3
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Request
@@ -189,6 +194,70 @@ async def script_gpu(body: ScriptedGpu, request: Request) -> dict[str, bool]:
         state = {"throttle_reasons": [], **state}
     request.app.state.system_sampler.gpu_reader = lambda: state
     return {"gpu": state is not None}
+
+
+class SeededLeaf(BaseModel):
+    kind: Literal["chat", "rag", "agent"] = "chat"
+    origin: Literal["local", "cloud"] = "local"
+    mg: float | None = None  # nul : réponse non mesurable
+
+
+class SeededSession(BaseModel):
+    days_ago: float = Field(ge=0)
+    leaves: list[SeededLeaf] = Field(default_factory=list)
+
+
+class SeededSessions(BaseModel):
+    sessions: list[SeededSession]
+
+
+def _iso(moment: datetime) -> str:
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+@router.post("/carbon-sessions")
+async def seed_carbon_sessions(body: SeededSessions, request: Request) -> dict[str, int]:
+    """Sessions closes du passé, avec leurs feuilles terminées, pour l'historique carbone : la CI ne
+    peut pas attendre sept jours. Chaque session dure cinq minutes ; la session courante n'est pas
+    touchée."""
+    now = datetime.now(UTC)
+
+    def write(conn: sqlite3.Connection) -> int:
+        count = 0
+        for session in body.sessions:
+            started = now - timedelta(days=session.days_ago)
+            session_id = uuid.uuid4().hex
+            conn.execute(
+                "INSERT INTO app_sessions (id, started_at, reason) VALUES (?, ?, 'startup')",
+                (session_id, _iso(started)),
+            )
+            for index, leaf in enumerate(session.leaves):
+                measured = leaf.mg is not None
+                conn.execute(
+                    "INSERT INTO runs (id, kind, app_session, model, status, started_at, ended_at,"
+                    " origin, co2_mg, co2_method, co2_estimated, co2_reason, params)"
+                    " VALUES (?, ?, ?, 'fake:1b', 'ok', ?, ?, ?, ?, ?, ?, ?, '{}')",
+                    (
+                        uuid.uuid4().hex,
+                        leaf.kind,
+                        session_id,
+                        _iso(started + timedelta(seconds=index)),
+                        _iso(started + timedelta(minutes=5)),
+                        leaf.origin,
+                        leaf.mg,
+                        (
+                            ("ecologits" if leaf.origin == "cloud" else "codecarbon")
+                            if measured
+                            else "unmeasurable"
+                        ),
+                        int(leaf.origin == "cloud") if measured else 0,
+                        None if measured else "essai",
+                    ),
+                )
+            count += 1
+        return count
+
+    return {"sessions": await request.app.state.store.awrite(write)}
 
 
 class ScriptedChatModel(BaseModel):
