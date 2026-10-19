@@ -258,7 +258,7 @@ Un seul rayon, `{rounded.DEFAULT}` (12 px, `--radius-sm` de la charte), porté p
 | `badge-cloud` | `st.badge(color="orange")` | « Cloud » + `:material/cloud:` `[ASSUMPTION]`. |
 | `cloud-toggle` | `st.toggle` | Actif en `{colors.primary}`. |
 | `card` | `st.container(border=True)` | Bordure `{colors.line}`, fond du thème ; remplace tout encart en CSS injecté. |
-| `module-link` | `st.page_link` | Icône Material propre au module, jamais partagée. |
+| `module-link` | `st.page_link` | Icône Material propre au module, jamais partagée. v2 : Arène = `swords` (code livré et maquette ; remplace `leaderboard`) ; la carte Références a sa propre icône, distincte de `swords` (décision du 2026-10-19). |
 | `alert-info` · `alert-success` · `alert-warning` · `alert-error` | `st.info` · `st.success` · `st.warning` · `st.error` | Rendu natif, une icône Material au plus, aucun emoji. |
 | `chat-message` | `st.chat_message` | Réponse, puis ligne de métadonnées en `{typography.caption}`. |
 | `sources-expander` | `st.expander` | Natif. |

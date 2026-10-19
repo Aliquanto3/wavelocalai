@@ -1,5 +1,7 @@
 # Décisions d'Anaël du 2026-10-19 (fin du MVP, avant les Epics 5 à 8)
 
+Reporté au contrat le 2026-10-19 (PR à venir) ; ce fichier reste la trace des décisions.
+
 Prises sur recommandation de l'orchestrateur du run autonome, après la préversion 2.0.0a4. Elles **priment** sur les documents de contrat qu'elles amendent, jusqu'à leur report dans ces documents (tâche « Report au contrat » ci-dessous). Les stories des Epics 5 à 8 les appliquent ; ce qui touche du code déjà livré passe dans la story 8.1.
 
 ## AD-6 amendé : appels de l'Accueil
