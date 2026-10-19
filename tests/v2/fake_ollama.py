@@ -77,6 +77,7 @@ class FakeOllama:
     loaded: list[str] = field(default_factory=list)  # `/api/ps`
     ps_fails: str | None = None  # `connect` (refus de connexion) ou `http` (statut 500)
     tags: list[str] = field(default_factory=lambda: ["qwen2.5:1.5b"])
+    parameters: dict[str, str] = field(default_factory=dict)  # tag -> `parameters` de `/api/show`
     chat_requests: list[dict[str, Any]] = field(default_factory=list)
     opened: int = 0
     closed: int = 0
@@ -101,7 +102,11 @@ class FakeOllama:
         if path == "/api/tags":
             return httpx.Response(200, json={"models": [_listed(t) for t in self.tags]})
         if path == "/api/show":
-            return httpx.Response(200, json={"capabilities": ["completion"], "model_info": {}})
+            tag = json.loads(request.content).get("model")
+            shown: dict[str, Any] = {"capabilities": ["completion"], "model_info": {}}
+            if tag in self.parameters:
+                shown["parameters"] = self.parameters[tag]
+            return httpx.Response(200, json=shown)
         assert path == "/api/chat", path
         self.chat_requests.append(json.loads(request.content))
         plan = self.plans.pop(0) if self.plans else Plan([part("ok"), final()])

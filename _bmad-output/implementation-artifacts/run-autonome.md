@@ -160,3 +160,11 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 02:55 · 3.2 · fusion · PR #62 fusionnée · cc37f7b
 - 2026-10-19 02:55 · run · décision · après une fusion de master sans conflit de code (fichiers d'état seulement), suite v2 + E2E de l'écran touché en local, la CI couvre les 3 systèmes ; `checks.sh` complet si un conflit de code est résolu · —
 - 2026-10-19 02:56 · 3.3 · fusion master · 3.2 ajustée : conflits de fond (`arena.js` 659 lignes, `arena.css`, tests, contrat) confiés au dev avec l'ajustement « Choisissez un juge » (Sonnet high) · —
+- 2026-10-19 02:59 · 4.4 · fusion master · 3.2 fusionnée, fichiers d'état seulement ; 874 v2 ; poussé · 5e087cf
+- 2026-10-19 03:13 · 3.3 · fusion master · fusion résolue (arena.js 600 lignes : `arena-form.js`, `arena-summary.js`) · d5f6ff0
+- 2026-10-19 03:13 · 3.3 · dev · ajustement « Choisissez un juge », juge dans le résumé ; 865 v2, 55 E2E Arène, integration juge · 18e4824
+- 2026-10-19 03:13 · 3.3 · second-avis · lancé (Haiku), fusion et ajustement · —
+- 2026-10-19 03:14 · 4.4 · fusion · PR #64 fusionnée · 4635302
+- 2026-10-19 03:15 · run · décision · ordre de l'Epic 4 : 4.8 maintenant, 4.5 après fusion de 4.2, puis 4.6 et 4.7 (leur partie écran vit dans la Discussion de 4.5) · —
+- 2026-10-19 03:16 · 4.8 · dev · lancé (Sonnet high, worktree v2-4-8, depuis master 4635302) · —
+- 2026-10-19 03:16 · 4.2 · fusion master · 3.2 et 4.4 sur master : conflits dans 11 fichiers, résolution confiée au relecteur (Opus) · —

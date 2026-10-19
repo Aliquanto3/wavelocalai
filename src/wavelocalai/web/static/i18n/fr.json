@@ -102,6 +102,9 @@
     }
   },
   "components": {
+    "export_menu": {
+      "label": "Exporter"
+    },
     "badge": {
       "local": "Local",
       "cloud": "Cloud",
@@ -160,6 +163,7 @@
       "elapsed": "Temps écoulé",
       "stop": "Arrêter",
       "stop_hint": "ou touche Échap",
+      "first_load": "Le premier appel charge le modèle en mémoire : de 8 à 26 secondes.",
       "cancel_failed": "L'arrêt n'a pas pu être demandé. Réessayez."
     },
     "thread": {
@@ -216,6 +220,8 @@
     "lead": "Posez une question à un modèle de ce poste et lisez sa réponse au fil de sa rédaction.",
     "creativity": "Créativité",
     "creativity_help": "Bas, les réponses sont régulières et prudentes. Haut, elles sont plus variées, au risque de s'éloigner du sujet.",
+    "creativity_default": "Valeur conseillée pour {model} : {value}.",
+    "creativity_default_fallback": "Valeur par défaut : 0,2 (ce modèle n'en conseille pas).",
     "message": "Écrivez votre message",
     "keys": "Entrée : envoyer · Maj+Entrée : nouvelle ligne · Échap : arrêter",
     "send": "Envoyer",
