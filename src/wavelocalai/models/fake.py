@@ -9,6 +9,9 @@ d'étapes : un `ChatChunk`, un `Sleep`, ou une exception à lever (par ex. `Prov
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import math
+import re
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 
@@ -19,6 +22,7 @@ from wavelocalai.models.port import (
     ChatRequest,
     ChatResult,
     Done,
+    Embedder,
     ModelRef,
     TextDelta,
 )
@@ -74,3 +78,58 @@ class FakeChatModel:
 def fake_models(settings: Settings) -> dict[str, ChatModel]:
     """Modèles factices à enregistrer : aucun hors `Settings.testing`."""
     return {FAKE_REF.tag: FakeChatModel()} if settings.testing else {}
+
+
+# --- Embedder (AD-8) -----------------------------------------------------------------------------
+
+FAKE_EMBED_DIM = 16
+FAKE_EMBED_REF = ModelRef(
+    tag=f"fake-embed:{FAKE_EMBED_DIM}", provider="fake", origin="local", kind="embedding"
+)
+_WORD = re.compile(r"\w+", re.UNICODE)
+
+
+def fake_vector(text: str, dim: int = FAKE_EMBED_DIM) -> list[float]:
+    """Vecteur déterministe d'un texte : sac de mots hachés (SHA-256, stable d'un processus à
+    l'autre) dans `dim` cases, normalisé. Deux textes qui partagent des mots sont proches ; un
+    texte sans mot rend un vecteur unitaire fixe (jamais nul)."""
+    vector = [0.0] * dim
+    for word in _WORD.findall(text.lower()):
+        vector[int.from_bytes(hashlib.sha256(word.encode()).digest()[:4], "big") % dim] += 1.0
+    norm = math.sqrt(sum(x * x for x in vector))
+    if norm == 0.0:
+        vector[0], norm = 1.0, 1.0
+    return [x / norm for x in vector]
+
+
+class FakeEmbedder:
+    """`Embedder` scriptable : vecteurs de `fake_vector`, dimension fixe. `script` : une étape par
+    appel, dans l'ordre (`Sleep` ou une exception à lever) ; sans étape, l'appel réussit.
+    `texts` garde les lots reçus."""
+
+    def __init__(
+        self,
+        script: Sequence[Sleep | BaseException | None] = (),
+        ref: ModelRef = FAKE_EMBED_REF,
+        dim: int = FAKE_EMBED_DIM,
+    ) -> None:
+        self.ref = ref
+        self.dim = dim
+        self.script = list(script)
+        self.texts: list[list[str]] = []
+        self.calls = 0
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        step = self.script[self.calls] if self.calls < len(self.script) else None
+        self.calls += 1
+        self.texts.append(list(texts))
+        if isinstance(step, Sleep):
+            await asyncio.sleep(step.seconds)
+        elif isinstance(step, BaseException):
+            raise step
+        return [fake_vector(text, self.dim) for text in texts]
+
+
+def fake_embedders(settings: Settings) -> dict[str, Embedder]:
+    """Embedders factices à enregistrer : aucun hors `Settings.testing`."""
+    return {FAKE_EMBED_REF.tag: FakeEmbedder()} if settings.testing else {}

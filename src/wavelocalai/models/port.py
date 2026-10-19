@@ -96,3 +96,15 @@ class ChatModel(Protocol):
     ref: ModelRef
 
     def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]: ...
+
+
+@runtime_checkable
+class Embedder(Protocol):
+    """Port d'embedding (AD-8) : vecteurs de textes, locaux seulement (Ollama `/api/embed`).
+
+    Un adaptateur ne mesure pas, ne stocke pas et ne lit pas `allow_cloud`. Il lève
+    `ProviderError(code)` en cas de refus ; un appel annulé se ferme dans son `finally`."""
+
+    ref: ModelRef
+
+    async def embed(self, texts: list[str]) -> list[list[float]]: ...

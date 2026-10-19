@@ -150,3 +150,7 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 01:47 · 1.12 · second-avis · 2 medium (dont 1 rejeté : E2E hors CI), 3 low · —
 - 2026-10-19 01:47 · 1.12 · review · lancée (Opus) · —
 - 2026-10-19 01:48 · 3.2 · contrôles · verts après ajustements (680 v2, 206 E2E, 6 integration, 1286 v1) ; PR #62 mise à jour · f983f4b
+- 2026-10-19 02:01 · 1.12 · review · empreintes des 19 symboles du sprite, CSS `aria-disabled` mort retiré ; flash de thème hors Chromium reporté ; 821 v2 · 1cdca6a
+- 2026-10-19 02:01 · run · report · `test_topbar.py::test_a_restarted_server_is_announced_with_a_reload_button` instable sous charge (4 fois cette nuit, vert seul) : à stabiliser en 8.1 · —
+- 2026-10-19 02:04 · 4.4 · contrôles · verts (862 v2, 172 E2E, 8 integration, 1286 v1) ; PR ouverte · eea4abc
+- 2026-10-19 02:21 · 4.2 · contrôles · verts (832 v2, 202 E2E, 7 integration, 1286 v1) ; PR ouverte · 7e5a119

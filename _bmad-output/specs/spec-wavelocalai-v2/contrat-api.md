@@ -59,7 +59,8 @@ Partout (événement `metrics`, table `runs`, exports) : `{mg: float | null, met
 | `step` | `lane`, `step_id`, `agent`, `kind` (`think`, `tool_call`, `tool_result`, `answer`), outil, arguments, résumé, `artifact_url`, durée ; en mode équipe, l'étape `answer` qui clôt un agent porte `agent_totals {tools, duration_s}` (ligne « Terminé · 3 outils · 41 s », décision D-34) | agents |
 | `approval_required` | `approval_id`, `kind: email`, destinataire, objet, corps ; run en `awaiting_approval` ; réponse par `POST /api/runs/{id}/approvals/{approval_id}` | agent seul |
 | `approval_resolved` | `approval_id`, `decision` (`approved`, `rejected`, `expired`) ; sans réponse en 10 min = `expired` = refus ; annuler le run = refus ; un outil sensible ne s'exécute qu'après `approved` (AD-9) | agent seul |
-| `ingest_progress` | fichier, phase (`extract`, `split`, `embed`), `done`, `total` | Base documentaire |
+| `ingest_progress` | `{file, file_index, file_count, phase, done, total}` ; `phase` : `extract`, `split` (0/1 puis 1/1), `embed` (extraits vectorisés sur le total du fichier) | Base documentaire |
+| `ingest_file_done` | `{file, file_index, file_count, document_id, status, chunks, error}` à la fin de chaque fichier ; `status` : `ready`, `failed` (`error` = enveloppe `ingest_failed` d'AD-18, avec `detail.file` et `detail.reason`) ou `duplicate` (document déjà présent, `document_id` et `chunks` du document existant) ; une annulation n'émet pas d'`ingest_file_done` pour le fichier en cours, qui est retiré | Base documentaire |
 | `pull_progress` | tag ou reranker, octets reçus et totaux, phase | Modèles |
 | `run_ended` | `status` (`ok`, `error`, `cancelled`, `interrupted`), erreur au format unique | tous |
 
