@@ -555,8 +555,8 @@ export class WlModelPicker extends HTMLElement {
     if (model.fits === true) return element("span", "wl-picker-fits", t("components.picker.fits"));
     if (model.fits === false) {
       const text =
-        model.needed_gb != null
-          ? t("components.picker.no_fit_need", { needed: formatGb(model.needed_gb) })
+        model.required_gb != null // le même chiffre que les « nécessaires » d'un refus ram_guard
+          ? t("components.picker.no_fit_need", { needed: formatGb(model.required_gb) })
           : t("components.picker.no_fit");
       const warning = element("span", "wl-picker-warning");
       warning.append(icon("warning"), element("span", "", text));

@@ -9,6 +9,7 @@ dépendance au reste du paquet ; `psutil` est importé au premier appel.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -32,6 +33,12 @@ class FitAssessment:
     needed_gb: float | None
     fits: bool | None
     available_gb: float
+
+    @property
+    def required_gb(self) -> float | None:
+        """Mémoire à avoir de libre (`required_gb`, arrondie au dixième supérieur) : le chiffre
+        « requis » du sélecteur, le même que les « nécessaires » d'un refus `ram_guard`."""
+        return None if self.needed_gb is None else ceil_tenth(required_gb(self.needed_gb))
 
 
 def read_memory() -> MemoryReading:
@@ -87,3 +94,36 @@ class MemoryAdvisor:
             download_bytes=download_bytes,
         )
         return FitAssessment(needed, fits_in_memory(needed, available), available)
+
+
+def required_gb(needed_gb: float) -> float:
+    """Mémoire à avoir de libre pour charger ce besoin : marge de sécurité et réserve système
+    comprises. C'est le chiffre que le garde-fou compare à la mémoire libre, et celui qu'il
+    annonce : « nécessaires » dépasse alors toujours « libres » quand il refuse."""
+    return needed_gb * FIT_MARGIN + SYSTEM_RAM_BUFFER_GB
+
+
+def remaining_need_gb(needed_gb: float, loaded_gb: float) -> float:
+    """Besoin encore à satisfaire : un modèle déjà chargé occupe sa place, que la mémoire libre ne
+    compte plus. Nul quand il est chargé en entier, réduit à l'écart quand il l'est en partie."""
+    return max(0.0, needed_gb - max(0.0, loaded_gb))
+
+
+def shortfall_gb(needed_gb: float, loaded_gb: float, available_gb: float) -> float | None:
+    """`required_gb` du besoin restant si la mémoire libre ne suffit pas, sinon `None` (le modèle
+    passe, y compris chargé : besoin nul, aucune réserve à prévoir)."""
+    remaining = remaining_need_gb(needed_gb, loaded_gb)
+    if remaining <= 0:
+        return None
+    required = required_gb(remaining)
+    return required if required > available_gb else None
+
+
+def ceil_tenth(value: float) -> float:
+    """Arrondi au dixième supérieur : un besoin affiché ne descend jamais sous la mémoire libre."""
+    return math.ceil(value * 10 - 1e-9) / 10
+
+
+def floor_tenth(value: float) -> float:
+    """Arrondi au dixième inférieur : une mémoire libre affichée ne dépasse jamais la réalité."""
+    return math.floor(value * 10 + 1e-9) / 10

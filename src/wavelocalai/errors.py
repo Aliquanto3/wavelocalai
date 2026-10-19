@@ -261,6 +261,14 @@ _SPECS = (
         "ils ne peuvent pas être effacés, donc rien n'a été supprimé.",
         "Relancez l'application avec une version de Python qui charge sqlite-vec, puis "
         "recommencez.",
+    ),  # --- garde-fou mémoire (story 4.8) ---
+    ErrorSpec(
+        "ram_guard",
+        503,
+        "Mémoire insuffisante : {needed_gb} Go nécessaires, {free_gb} Go libres.",
+        "Choisissez un modèle plus petit, ou déchargez les modèles inactifs, puis renvoyez votre "
+        "question.",
+        ("needed_gb", "free_gb", "suggested_model"),
     ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
@@ -286,10 +294,15 @@ class _Fill(dict[str, Any]):
 
 def _fill(text: str, detail: dict[str, Any]) -> str:
     """Remplace les `{clé}` de `message` et `action` par les clés machine du `detail` (nom du
-    fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi)."""
+    fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi). Un
+    nombre décimal s'écrit à la française (`5,2`)."""
     if "{" not in text:
         return text
-    return text.format_map(_Fill(detail))
+    shown = {
+        key: str(value).replace(".", ",") if isinstance(value, float) else value
+        for key, value in detail.items()
+    }
+    return text.format_map(_Fill(shown))
 
 
 def mask_secrets(text: str, extra_secrets: Iterable[str] = ()) -> str:

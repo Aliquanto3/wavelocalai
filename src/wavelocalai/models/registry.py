@@ -82,6 +82,9 @@ class ModelInfo(BaseModel):
     quantization: str | None = None
     context_length: int | None = None
     needed_gb: float | None = None  # mémoire nécessaire (hardware/) ; `null` si inconnue
+    # Mémoire à avoir de libre (besoin × 1,1 + 0,5 Go, dixième supérieur) : « requis » du
+    # sélecteur, même chiffre que `ram_guard.detail.needed_gb` (story 4.8) ; `null` si inconnue.
+    required_gb: float | None = None
     fits: bool | None = None  # `null` : taille inconnue ou modèle non local
     tools_verified: bool = False
     reasoning: bool = False
@@ -98,6 +101,15 @@ class ModelList(BaseModel):
     models: list[ModelInfo]
     ollama_up: bool
     refreshed_at: str | None  # dernier rafraîchissement réussi (ISO 8601 UTC) ; `null` jamais
+
+
+@dataclass(frozen=True)
+class ModelNeed:
+    """Besoin en mémoire d'un modèle local (Go), tel que `hardware/` l'estime."""
+
+    tag: str
+    kind: Kind
+    needed_gb: float
 
 
 @dataclass(frozen=True)
@@ -285,14 +297,11 @@ class ModelRegistry:
             active = None
         else:
             active = total
-        needed = fits = None
+        needed = fits = required = None
         if origin == "local" and self._advisor is not None:
-            assessment = self._advisor.assess(
-                measured_loaded_gb=entry.measured_loaded_gb if entry else None,
-                download_gb=entry.size_gb if entry else None,
-                download_bytes=facts.size_bytes,
-            )
+            assessment = self._assess(facts, entry)
             needed, fits = assessment.needed_gb, assessment.fits
+            required = getattr(assessment, "required_gb", None)
         return ModelInfo(
             tag=facts.tag,
             name=entry.name if entry else facts.tag,
@@ -308,6 +317,7 @@ class ModelRegistry:
             quantization=facts.quantization,
             context_length=facts.context_length or (entry.context_length if entry else None),
             needed_gb=_round(needed),
+            required_gb=required,
             fits=fits,
             tools_verified=caps_tools,
             reasoning=caps_thinking
@@ -319,6 +329,29 @@ class ModelRegistry:
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
         )
+
+    def _assess(self, facts: ModelFacts, entry: CatalogEntry | None) -> FitLike:
+        assert self._advisor is not None
+        return self._advisor.assess(
+            measured_loaded_gb=entry.measured_loaded_gb if entry else None,
+            download_gb=entry.size_gb if entry else None,
+            download_bytes=facts.size_bytes,
+        )
+
+    def memory_needs(self) -> list[ModelNeed]:
+        """Besoin en mémoire des modèles locaux dont il est connu, depuis la dernière liste connue
+        (jamais d'attente d'Ollama) : ce que lit le garde-fou mémoire avant une inférence locale
+        (story 4.8). Un besoin inconnu n'est jamais deviné : le modèle n'y figure pas."""
+        if self._advisor is None:
+            return []
+        needs: list[ModelNeed] = []
+        for rec in self._seed().values():
+            if _origin(rec) != "local":
+                continue
+            needed = self._assess(rec.facts, self._catalog_entry(rec.facts.tag)).needed_gb
+            if needed is not None:
+                needs.append(ModelNeed(rec.facts.tag, _classify(rec.facts), needed))
+        return needs
 
     def _cloud_infos(self) -> list[ModelInfo]:
         infos: list[ModelInfo] = []
