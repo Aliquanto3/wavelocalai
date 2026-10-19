@@ -1,12 +1,14 @@
 // <wl-data-table> : tableau sémantique, triable au clavier (UX-DR13, AD-20). Sans Shadow DOM.
 //
 //   table.caption = "Documents de la base";           // nom accessible du tableau
-//   table.columns = [{ key, label, sortable, numeric, value(row), cell(row) }];
+//   table.columns = [{ key, label, sortable, numeric, className, value(row), cell(row) }];
 //   table.rows = [...];                                // objets quelconques
 //   table.sort = { key: "created_at", dir: "desc" };   // tri initial (facultatif)
 //
 // - `<table>` avec `<caption>`, `<th scope="col">` (colonnes) et `<th scope="row">` (première
 //   colonne). Un en-tête triable est un bouton : Entrée ou Espace trie, `aria-sort` dit l'ordre.
+// - `className` (facultatif) : classe ajoutée à l'en-tête et aux cellules de la colonne (l'écran
+//   Modèles replie ainsi deux colonnes sous 1 024 px).
 // - `value(row)` donne la valeur de tri (nombre ou texte) ; `null` ou `undefined` passe en dernier,
 //   dans les deux ordres. `cell(row)` rend le texte ou le nœud affiché (sinon `value`).
 // - Le tableau garde le focus sur l'en-tête trié (aussi quand ses lignes changent) et annonce
@@ -117,6 +119,7 @@ export class WlDataTable extends HTMLElement {
     const head = element("tr");
     for (const column of this.#columns) {
       const th = element("th", column.numeric ? "wl-table-num" : "");
+      if (column.className) th.classList.add(column.className);
       th.scope = "col";
       if (column.sortable) {
         const active = this.#sort?.key === column.key;
@@ -144,6 +147,7 @@ export class WlDataTable extends HTMLElement {
       const tr = element("tr");
       this.#columns.forEach((column, index) => {
         const cell = element(index === 0 ? "th" : "td", column.numeric ? "wl-table-num" : "");
+        if (column.className) cell.classList.add(column.className);
         if (index === 0) cell.scope = "row";
         const content = column.cell ? column.cell(row) : (column.value ?? ((r) => r[column.key]))(row);
         if (content instanceof Node) cell.append(content);

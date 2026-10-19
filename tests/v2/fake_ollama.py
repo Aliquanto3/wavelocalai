@@ -82,6 +82,8 @@ class FakeOllama:
     generate_refuses: set[str] = field(default_factory=set)  # modèles d'embedding : 400 au generate
     unloaded: list[str] = field(default_factory=list)  # modèles déchargés (`keep_alive: 0`)
     parameters: dict[str, str] = field(default_factory=dict)  # tag -> `parameters` de `/api/show`
+    deleted: list[str] = field(default_factory=list)  # modèles supprimés (`DELETE /api/delete`)
+    delete_status: int | str | None = None  # `/api/delete` : statut d'erreur forcé, ou `connect`
     chat_requests: list[dict[str, Any]] = field(default_factory=list)
     opened: int = 0
     closed: int = 0
@@ -114,6 +116,18 @@ class FakeOllama:
                     ]
                 },
             )
+        if path == "/api/delete":  # story 5.4 : jamais contre le vrai Ollama
+            tag = json.loads(request.content)["model"]
+            if self.delete_status == "connect":
+                raise httpx.ConnectError("refusé", request=request)
+            if self.delete_status is not None:
+                assert isinstance(self.delete_status, int)
+                return httpx.Response(self.delete_status, json={"error": "refus simulé"})
+            if tag not in self.tags:
+                return httpx.Response(404, json={"error": f"model '{tag}' not found"})
+            self.tags.remove(tag)
+            self.deleted.append(tag)
+            return httpx.Response(200)
         if path in ("/api/generate", "/api/embed"):
             body = json.loads(request.content)
             assert body.get("keep_alive") == 0, body

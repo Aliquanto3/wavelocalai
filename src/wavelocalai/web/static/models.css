@@ -1,0 +1,235 @@
+/* Écran Modèles (story 5.3) : barre d'installation, tableaux, progression d'un téléchargement.
+   Couleurs et rayon viennent de tokens.css seulement. */
+
+.models-actions {
+  margin: 0 0 1.5rem;
+}
+
+.models-install-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-install-form label {
+  flex: 1 0 100%;
+  font-weight: 600;
+}
+
+.models-input {
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.models-install-named {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.models-install-named:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Un bouton désactivé reste focalisable (`aria-disabled`) : sa raison est écrite à côté. */
+.models-actions .btn[aria-disabled="true"],
+.models-section .btn[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.models-actions .help,
+.models-section .help {
+  margin: 0.5rem 0 0;
+}
+
+.models-notice {
+  min-height: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+.models-down {
+  margin: 0 0 1rem;
+}
+
+.models-section {
+  margin: 0 0 2rem;
+}
+
+.models-empty {
+  max-width: 45rem;
+}
+
+.models-name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.models-name-text {
+  font-weight: 600;
+}
+
+.models-tag {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+/* Colonnes Usage et Origine : repliées sous 1 024 px, un bouton les affiche (D-43). */
+.models-toggle {
+  display: none;
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 1023px) {
+  .models-toggle {
+    display: inline-flex;
+  }
+
+  .models-installed:not([data-secondary="shown"]) .models-secondary {
+    display: none;
+  }
+}
+
+/* Cellule d'installation : le bouton, ou la progression, ou l'échec sous le bouton. */
+.models-install-cell {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.models-pull-panel {
+  max-width: 32rem;
+  margin: 0.75rem 0 0;
+}
+
+.models-pull-done {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* wl-progress-bytes : barre `primary` sur piste `line`, texte à côté, jamais la barre seule. */
+.wl-progress-bytes {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 14rem;
+}
+
+.wl-progress-text {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-progress-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.wl-progress-bar {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  height: 0.625rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-line);
+  accent-color: var(--color-primary);
+  appearance: none;
+  overflow: hidden;
+}
+
+.wl-progress-bar::-webkit-progress-bar {
+  background: var(--color-line);
+}
+
+.wl-progress-bar::-webkit-progress-value {
+  background: var(--color-primary);
+}
+
+.wl-progress-bar::-moz-progress-bar {
+  background: var(--color-primary);
+}
+
+/* Story 5.4 : « Décharger », « Supprimer » et les modèles proposés par défaut. */
+.models-actions {
+  display: grid;
+  gap: 1rem;
+}
+
+.models-unload-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-unload-box .help {
+  margin: 0;
+}
+
+/* « Supprimer » et sa raison visible (jamais en infobulle seule). */
+.models-delete-cell {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  min-width: 8rem;
+}
+
+.models-delete-cell .help {
+  margin: 0;
+}
+
+.models-default-model {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+
+.models-default-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+}
+
+.models-default-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.models-default-editor {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+
+/* « Usage » d'une ligne des défauts : un mot, jamais coupé au milieu. */
+.models-defaults .wl-table tbody th {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* Le sélecteur ouvert dans une cellule : sa liste s'ouvre dans la cellule (la zone du tableau, qui
+   défile, la rognerait si elle flottait). */
+.models-default-editor .wl-picker-popup {
+  position: static;
+  margin-top: 0.25rem;
+}
+
+.models-default-editor .wl-picker-listbox {
+  max-height: 16rem;
+}
