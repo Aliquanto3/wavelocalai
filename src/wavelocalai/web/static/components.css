@@ -953,3 +953,145 @@
   height: 1.25rem;
   margin-top: 0.125rem;
 }
+
+/* Groupe de segments (components/segments.js) : radiogroup, le choix porte l'icône check. Aplat
+   `primary-fill` sous texte blanc (A19). */
+.wl-seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+}
+
+.wl-seg-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-seg-button + .wl-seg-button {
+  border-inline-start: 1px solid var(--color-gray-graphic);
+}
+
+.wl-seg-button:hover {
+  background: var(--color-surface-alt);
+}
+
+.wl-seg-button .icon {
+  display: none;
+}
+
+.wl-seg-button[aria-checked="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.wl-seg-button[aria-checked="true"] .icon {
+  display: inline-block;
+}
+
+/* wl-chart-svg : nuage de points accessible (components/wl-chart-svg.js). Couleurs : jetons seulement. */
+.wl-chart {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 1rem;
+}
+
+.wl-chart-plot {
+  width: 100%;
+  max-width: 46rem;
+  min-width: 0;
+}
+
+.wl-chart-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-chart-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.wl-chart-axis {
+  stroke: var(--color-ink-secondary);
+  stroke-width: 1.5;
+}
+
+.wl-chart-tick,
+.wl-chart-axis-title,
+.wl-chart-label {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 0.75rem; /* 12 px ; suit le mode projection */
+}
+
+.wl-chart-axis-title,
+.wl-chart-label {
+  font-weight: 600;
+}
+
+/* Le nom d'un point est cerné de la couleur du fond : il reste lisible sur la grille et les points. */
+.wl-chart-label {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+.wl-chart-dot {
+  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+/* CO2 non mesurable : contour en pointillés, sans remplissage (la légende le dit en texte). */
+.wl-chart-dot.is-unknown {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.wl-chart-legend {
+  max-width: 46rem;
+}
+
+.wl-chart-legend-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.wl-chart-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-chart-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wl-chart-size-dot {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.wl-chart-missing {
+  margin: 0;
+}

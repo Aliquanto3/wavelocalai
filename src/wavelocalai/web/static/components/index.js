@@ -10,3 +10,4 @@ export { WlChatThread } from "./wl-chat-thread.js";
 export { exportMenu } from "./export-menu.js";
 export { WlArenaLane } from "./wl-arena-lane.js";
 export { WlDataTable } from "./wl-data-table.js";
+export { WlChartSvg } from "./wl-chart-svg.js";

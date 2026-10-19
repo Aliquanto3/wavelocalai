@@ -108,6 +108,9 @@ export class WlDataTable extends HTMLElement {
     const focused = this.contains(document.activeElement) ? document.activeElement : null;
     if (focused?.classList.contains("wl-table-sort")) this.#refocus ??= focused.dataset.key;
     const refocusWrap = focused?.classList.contains("wl-table-wrap") ?? false;
+    // La position de défilement de la zone remplacée est gardée (lignes mises à jour en direct).
+    const previous = this.#slot.querySelector(".wl-table-wrap");
+    const scroll = previous ? { left: previous.scrollLeft, top: previous.scrollTop } : null;
     const table = element("table", "wl-table");
     table.append(element("caption", "sr-only", this.#caption));
 
@@ -158,8 +161,12 @@ export class WlDataTable extends HTMLElement {
     wrap.setAttribute("aria-label", this.#caption);
     wrap.append(table);
     this.#slot.replaceChildren(wrap);
+    if (scroll) {
+      wrap.scrollLeft = scroll.left;
+      wrap.scrollTop = scroll.top;
+    }
 
-    if (refocusWrap) wrap.focus();
+    if (refocusWrap) wrap.focus({ preventScroll: true });
     if (this.#refocus) {
       this.querySelector(`.wl-table-sort[data-key="${CSS.escape(this.#refocus)}"]`)?.focus();
       this.#refocus = null;
