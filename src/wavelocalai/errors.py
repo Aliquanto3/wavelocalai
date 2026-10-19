@@ -291,6 +291,15 @@ _SPECS = (
         "Choisissez un modèle plus petit, ou déchargez les modèles inactifs, puis renvoyez votre "
         "question.",
         ("needed_gb", "free_gb", "suggested_model"),
+    ),  # --- validation d'une action sensible (story 6.3) ---
+    ErrorSpec(
+        "approval_not_pending",
+        409,
+        "Cette demande de validation n'est plus en attente : elle a déjà reçu une réponse, a "
+        "expiré, ou son exécution est terminée.",
+        "Rouvrez l'exécution pour voir sa décision ; l'email n'est envoyé que si elle porte "
+        "« approuvé ».",
+        ("run_id", "approval_id"),
     ),
     # --- gestion des modèles (story 5.4) ---
     ErrorSpec(

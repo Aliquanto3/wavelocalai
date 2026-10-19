@@ -4,7 +4,8 @@ Un outil est une coroutine `run(arguments) -> texte` et son schéma neutre (`nam
 `parameters` : schéma JSON d'un objet) que les adaptateurs traduisent (`models/tool_format.py`).
 Le registre de l'application porte les outils de la v1 (`builtin.py`, story 6.2), avec leur
 disponibilité, et la route `GET /api/agents/tools` les liste. Un outil `sensitive` ne s'exécute jamais sans approbation
-explicite (AD-9, story 6.3) : en 6.1 la boucle le refuse.
+explicite (AD-9) : la boucle le refuse sans action sensible enregistrée (6.1), sinon elle demande la
+validation de l'utilisateur (`agents/approval.py`, story 6.3).
 """
 
 from __future__ import annotations

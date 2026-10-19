@@ -15,6 +15,12 @@ publiés, `metrics` et chargement publiés), donc mesurée et avec son `co2` com
 - `answer` : la réponse finale, puis son texte en `token` (le texte d'un tour n'est publié qu'une
   fois le tour fini : on ne sait qu'alors s'il appelle des outils).
 
+Un outil `sensitive` (« Envoi d'email », story 6.3) ne s'exécute qu'après la validation de
+l'utilisateur : l'outil prépare, le hub publie `approval_required` et attend (`request_approval`),
+et l'action (`agents/approval.py`) n'est appelée que sur `approved`. Refusé, expiré ou annulé, rien
+n'est exécuté et l'agent reçoit un refus qu'il peut annoncer. Sans action enregistrée pour l'outil,
+la boucle le refuse (6.1).
+
 Un outil qui lève une exception ou dépasse son délai ne casse pas la boucle : l'erreur devient le
 résultat, que le modèle lit et peut contourner. Annuler le run annule la tâche : l'appel de modèle
 (flux fermé dans son `finally`) et l'outil en cours reçoivent `CancelledError`. Le nombre d'appels de
@@ -27,10 +33,11 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from wavelocalai.agents.approval import SensitiveAction
 from wavelocalai.agents.tools import AgentTool, ToolError, ToolOutput
 from wavelocalai.config import Settings
 from wavelocalai.errors import mask_secrets
@@ -48,6 +55,18 @@ NO_RESULT = "(aucun résultat)"
 SENSITIVE_REFUSAL = (
     "L'outil « {tool} » est sensible : il ne s'exécute qu'après une validation explicite de "
     "l'utilisateur, qui n'est pas disponible. Dis à l'utilisateur ce que tu aurais fait."
+)
+APPROVAL_REJECTED = (
+    "L'utilisateur a refusé l'action « {tool} » : elle n'a pas été exécutée et rien n'est parti. "
+    "Annonce-le à l'utilisateur ; ne la redemande pas sans qu'il te le demande."
+)
+APPROVAL_EXPIRED = (
+    "L'utilisateur n'a pas répondu dans le délai ({delay}) : l'action « {tool} » n'a pas été "
+    "exécutée et rien n'est parti. Annonce-le à l'utilisateur, qui pourra te la redemander."
+)
+APPROVAL_SECRET = (
+    "Action « {tool} » refusée avant toute demande à l'utilisateur : le message contient une valeur "
+    "secrète de la configuration. Reformule-le sans elle."
 )
 TOO_MANY_CALLS = (
     "Appel refusé : au plus {limit} appels d'outils par tour, celui-ci n'a pas été exécuté. "
@@ -112,6 +131,7 @@ class AgentLoop:
         meter: LocalMeter | None = None,
         guard: Guard | None = None,
         announce: Callable[[], Awaitable[None]] | None = None,
+        actions: Mapping[str, SensitiveAction] | None = None,
     ) -> None:
         self._hub = hub
         self._root = root_id
@@ -120,6 +140,7 @@ class AgentLoop:
         self._meter = meter
         self._guard = guard
         self._announce = announce
+        self._actions = dict(actions or {})  # actions sensibles, par identifiant d'outil (6.3)
         self._secrets = settings.secret_values()
         self._steps = 0
 
@@ -334,7 +355,10 @@ class AgentLoop:
             known = ", ".join(offered) or "aucun"
             return done(f"Outil inconnu : {call.name}. Outils disponibles : {known}.", True)
         if tool.sensitive:  # AD-9 : jamais d'exécution sans approbation (story 6.3)
-            return done(SENSITIVE_REFUSAL.format(tool=tool.id), True)
+            action = self._actions.get(tool.id)
+            if action is None:
+                return done(SENSITIVE_REFUSAL.format(tool=tool.id), True)
+            return await self._approved(call, tool, action, done)
         timeout_s = self._settings.agents.tool_timeout_s
         deadline = asyncio.timeout(timeout_s)
         try:
@@ -350,3 +374,48 @@ class AgentLoop:
         if isinstance(output, ToolOutput):
             return done(output.text, False, output.artifact_url)
         return done(str(output), False)
+
+    async def _approved(
+        self,
+        call: ToolCall,
+        tool: AgentTool,
+        action: SensitiveAction,
+        done: Callable[..., _ToolRun],
+    ) -> _ToolRun:
+        """Outil sensible : prépare, demande la validation de l'utilisateur (le hub publie
+        `approval_required` et attend), puis exécute **seulement** sur `approved`."""
+        arguments = dict(call.arguments)
+        try:
+            await tool.run(dict(arguments))  # brouillon : refuse les arguments invalides
+            pending = action.prepare(arguments)
+            shown = masked(pending.details, self._secrets)
+            if (
+                shown != pending.details
+            ):  # le texte validé serait masqué, donc différent du texte envoyé
+                return done(APPROVAL_SECRET.format(tool=tool.id), True)
+            expiry_s = self._settings.delays.approval_expiry_s
+            decision = await self._hub.request_approval(
+                self._root, pending.kind, shown, expiry_s=expiry_s, call_id=call.id
+            )
+        except ToolError as exc:
+            return done(str(exc), True)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - l'erreur de la demande est son résultat
+            logger.warning("Validation de %s en échec : %r", tool.id, exc)
+            return done(f"{type(exc).__name__}: {exc}", True)
+        if decision == "rejected":
+            return done(APPROVAL_REJECTED.format(tool=tool.id), True)
+        if decision != "approved":  # `expired`, ou toute décision inconnue : refus
+            delay = f"{expiry_s / 60:g} min" if expiry_s >= 60 else f"{expiry_s:g} s"
+            return done(APPROVAL_EXPIRED.format(tool=tool.id, delay=delay), True)
+        # Pas de `tool_timeout_s` ici : l'envoi tourne dans un fil qu'on ne peut pas interrompre, et
+        # couper l'attente dirait « pas abouti » d'un email qui part quand même (l'agent le
+        # redemanderait). L'action borne elle-même sa durée (délai SMTP de `outbox.py`).
+        try:
+            return done(await pending.execute(), False)
+        except ToolError as exc:
+            return done(str(exc), True)
+        except Exception as exc:  # noqa: BLE001 - l'erreur d'une action est son résultat
+            logger.warning("Action %s en échec : %r", tool.id, exc)
+            return done(f"{type(exc).__name__}: {exc}", True)
