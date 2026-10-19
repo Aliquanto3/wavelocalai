@@ -111,8 +111,10 @@ class _Run:
         parent_id: str | None,
         conversation_id: str | None,
         models: Sequence[str] = (),
+        app_session: str | None = None,
     ):
         self.id = run_id
+        self.app_session = app_session  # la session où le run a commencé (AD-10)
         self.models = tuple(models)
         self.kind = kind
         self.parent_id = parent_id
@@ -248,7 +250,10 @@ class RunHub:
                 {"kind": kind, "models": list(models), "params": params},
             )
         )
-        session = self.app_session_id
+        # Une feuille reste dans la session de son parent : une remise à zéro pendant un run actif
+        # n'envoie pas ses réponses suivantes dans la nouvelle session (le run reste compté là où il
+        # a commencé).
+        session = (parent.app_session if parent is not None else None) or self.app_session_id
 
         def tx(conn: sqlite3.Connection) -> None:
             if new_conversation:
@@ -277,7 +282,7 @@ class RunHub:
             if user_message is not None:  # après le run, que le message référence
                 repo.insert_message(conn, str(conv_id), run_id, "user", now, user_message)
 
-        run = _Run(run_id, kind, parent_run_id, conv_id, models)
+        run = _Run(run_id, kind, parent_run_id, conv_id, models, session)
         if parent is None:
             # Racine réservée pendant l'écriture : pas de course entre deux POST du même genre.
             self._reserved[kind] = run_id
