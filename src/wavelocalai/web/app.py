@@ -24,6 +24,7 @@ from wavelocalai.inference.arena import ArenaService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.memory_guard import MemoryGuard
+from wavelocalai.inference.pull import PullService
 from wavelocalai.models.cloud import HttpClientFactory
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.factory import ModelFactory
@@ -174,6 +175,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.rag_base = RagBaseService(
         hub, app.state.registry, settings, index, app.state.preferences, app.state.reranker
     )
+    app.state.pull = PullService(
+        hub, app.state.registry, settings, transport=app.state.ollama_transport
+    )
     await app.state.ingest.recover()  # documents restés `indexing` après un arrêt brutal
     await app.state.registry.start()  # premier rafraîchissement des modèles, sans l'attendre
     # Fiche machine préchauffée hors de la boucle (NVML est lent) : la première lecture est prête.
@@ -194,6 +198,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.rag = None
         app.state.rag_base = None
         app.state.arena = None
+        app.state.pull = None
         if owned_client is not None:
             await close_client(owned_client)
             app.state.ollama_client = None
@@ -250,6 +255,7 @@ def create_app(
     app.state.rag = None  # service de questions aux documents, idem
     app.state.rag_base = None  # service de gestion de la base (supprimer, vider, régler), idem
     app.state.arena = None  # service de l'Arène, idem
+    app.state.pull = None  # service d'installation des modèles (run `pull`), idem
     # Reranker local (story 4.7, AD-17) : ne charge ni n'importe rien tant qu'aucune question ne le
     # demande ; jamais de téléchargement.
     app.state.reranker = RerankerService(

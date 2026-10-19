@@ -155,7 +155,13 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
         and documents.get_attribute("aria-disabled") is None
     )
 
-    for index in range(3, len(MODULES)):
+    models = links.nth(5)  # Modèles : disponible depuis la story 5.3 (installation)
+    assert (
+        models.get_attribute("href") == "#/modeles"
+        and models.get_attribute("aria-disabled") is None
+    )
+
+    for index in range(3, len(MODULES) - 1):
         link = links.nth(index)
         assert link.evaluate("el => el.tagName") == "A"
         assert link.get_attribute("href") is None
@@ -166,7 +172,7 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
             "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
         )
         assert reason == PLANNED_REASON
-    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 3
+    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 4
 
 
 # Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.
@@ -196,7 +202,7 @@ def test_a_planned_mockup_route_has_no_active_link_anywhere(shell):
     les onglets de l'Arène (écrans à venir) sont des liens désactivés, sans `href`."""
     for prefix in ("#/arene/references", "#/arene/banc", "#/documents/evaluation"):
         assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
-    for prefix in ("#/agents/equipe", "#/modeles"):
+    for prefix in ("#/agents/equipe",):
         assert shell.locator(f'a[href^="{prefix}"]').count() == 0, prefix
 
 
