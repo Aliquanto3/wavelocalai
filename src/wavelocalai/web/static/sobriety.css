@@ -158,6 +158,84 @@
   cursor: pointer;
 }
 
+/* En-tête de la section carbone : titre et « Remettre le compteur à zéro » (story 5.2) */
+.sob-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+}
+
+.sob-section-head h2:focus-visible {
+  outline: 3px solid var(--color-primary);
+}
+
+.sob-reset {
+  display: grid;
+  max-width: 24rem;
+  justify-items: start;
+  gap: 0.25rem;
+}
+
+.sob-reset p {
+  margin: 0;
+}
+
+.sob-reset p:empty,
+.sob-reset p[hidden] {
+  display: none;
+}
+
+/* Désactivé : jamais par la seule opacité, la raison est écrite dessous. */
+.sob-reset-button:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Historique par session close (story 5.2) */
+.sob-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.sob-controls [hidden] {
+  display: none;
+}
+
+.sob-history {
+  max-width: 60rem;
+  min-width: 0;
+}
+
+.sob-history-body,
+.sob-history .wl-chart,
+.sob-history .wl-data-table {
+  min-width: 0;
+}
+
+.sob-history-note {
+  margin: 0.75rem 0 0;
+}
+
+.sob-history-note[hidden] {
+  display: none;
+}
+
+.sob-history-failed {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+.sob-history .sob-empty {
+  margin: 0;
+}
+
 /* Repliés */
 .sob-details {
   max-width: 60rem;

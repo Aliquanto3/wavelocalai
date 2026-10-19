@@ -8,7 +8,8 @@
 // - Session sans réponse : « Aucune réponse mesurée dans cette session », jamais « 0 mg ». Session
 //   sans réponse mesurée mais avec des non-mesurables : elles sont dites à part.
 // - « non mesurables » est un lien qui déplie « Comment ces chiffres sont calculés » (`onMethod`).
-// - « Remettre le compteur à zéro » et l'historique relèvent de la story 5.2.
+// - L'en-tête de la section porte « Remettre le compteur à zéro » (`sobriety-reset.js`, story 5.2),
+//   passé en `actions` ; `sessionIsEmpty` dit quand la session n'a aucune réponse comptée.
 
 import { element, icon } from "../core/dom.js";
 import { co2Group, formatInteger, plural } from "../core/format.js";
@@ -29,9 +30,17 @@ function sortedModules(byModule) {
     .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
-export function buildCarbon({ onMethod, methodId }) {
+// Aucune réponse comptée, mesurée ou non : le compteur est déjà à zéro (jamais « 0 mg » à l'écran).
+export function sessionIsEmpty(carbon) {
+  return (carbon?.measured_runs ?? 0) === 0 && (carbon?.unmeasurable_runs ?? 0) === 0;
+}
+
+export function buildCarbon({ onMethod, methodId, actions }) {
   const title = element("h2", "", t("sobriety.carbon.title"));
   title.id = "sob-carbon-title";
+  title.tabIndex = -1; // le focus y revient après une remise à zéro (le bouton se désactive)
+  const head = element("div", "sob-section-head");
+  head.append(title, actions);
 
   const bar = element("span", "sob-skeleton");
   bar.append(element("span", "sr-only", t("sobriety.loading")));
@@ -66,7 +75,7 @@ export function buildCarbon({ onMethod, methodId }) {
   box.append(bar, empty, onlyUnmeasurable, content);
   const section = element("section", "sob-section");
   section.setAttribute("aria-labelledby", title.id);
-  section.append(title, box);
+  section.append(head, box);
 
   function render(state) {
     const carbon = state.carbon;
@@ -129,5 +138,5 @@ export function buildCarbon({ onMethod, methodId }) {
     }
   }
 
-  return { section, render };
+  return { section, render, title };
 }

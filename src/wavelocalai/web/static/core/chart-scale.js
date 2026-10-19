@@ -129,3 +129,25 @@ export function layoutLabels(items, bounds, unit = 1, measure = null) {
   }
   return result;
 }
+
+// --- Graphique en barres (historique carbone, story 5.2) -----------------------------------------
+
+// Bandes d'un graphique en barres : une par barre, réparties de `left` à `right`. Une barre occupe
+// `1 - gap` de sa bande, au plus `maxWidth` ; `center(index)` est le milieu de la bande.
+export function barBands(count, left, right, { gap = 0.3, maxWidth = 56 } = {}) {
+  const step = count > 0 ? (right - left) / count : right - left;
+  return { step, width: Math.min(maxWidth, step * (1 - gap)), center: (index) => left + step * (index + 0.5) };
+}
+
+// Hauteur d'une barre en pixels : proportionnelle à la valeur sur l'axe (0 à `axisMax`) ; une valeur
+// non nulle garde au moins `minPx` (une barre trop basse disparaîtrait). Nulle ou absente : 0.
+export function barHeight(value, axisMax, plotHeight, minPx = 2) {
+  if (typeof value !== "number" || !Number.isFinite(value) || !(value > 0) || !(axisMax > 0)) return 0;
+  return Math.max(minPx, Math.min(plotHeight, (value / axisMax) * plotHeight));
+}
+
+// Une étiquette d'abscisse toutes les `n` barres, pour qu'aucune ne chevauche sa voisine : `n` est le
+// plus petit entier tel que `n` bandes de `step` px contiennent une étiquette de `labelWidth` px.
+export function labelStride(step, labelWidth, gap = 8) {
+  return step > 0 ? Math.max(1, Math.ceil((labelWidth + gap) / step)) : 1;
+}
