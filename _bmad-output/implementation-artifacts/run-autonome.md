@@ -1,4 +1,4 @@
-# Run autonome — plan et état (MVP v2, Epics 1 à 4)
+# Run autonome — plan et état (v2, Epics 1 à 8)
 
 Fichier lu par `/agent-cost-kit:avancement-run`. Le détail du run (règles, outils, décisions, préversions et recettes, reports par story) reste dans `run-autonome-mvp.md` ; ce fichier-ci porte le périmètre, les vagues et le journal daté.
 
@@ -6,8 +6,7 @@ Fichier lu par `/agent-cost-kit:avancement-run`. Le détail du run (règles, out
 
 | Périmètre | Epics | Note |
 |---|---|---|
-| Dans le run | Epics 1 à 4 | MVP de la v2 ; préversions 2.0.0a1 à 2.0.0a4, une par epic (tag et release par Anaël après recette) |
-| Hors run | Epics 5 à 8 | reportés à un run ultérieur (décision d'Anaël du 2026-10-19 vers 8 h 40 : budget de tokens ; projet non urgent). Plan des vagues V15 à V25 gardé ci-dessous pour la reprise |
+| Dans le run | Epics 1 à 8 | MVP (Epics 1 à 4) fusionné, préversions a1 à a4 (tag et release par Anaël après recette) ; Epics 5 à 8 : reprise du 2026-10-19 vers 13 h 30 (consigne d'Anaël) : V15 à V25 ci-dessous ; préversions 2.0.0a5 (5.8), a6 (6.6), a7 (7.4), version dans le manifeste seulement |
 | Hors run | Story 8.4 | « La v2 remplace la v1 » : revient à Anaël |
 
 ## Règles fixes
@@ -340,3 +339,83 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 12:06 · run · fin · run arrêté à la fin de l'Epic 4 (décision d'Anaël) ; Epics 5 à 8 reportés · —
 - 2026-10-19 12:29 · run · décision · Anaël : Ollama disponible (pauses ponctuelles), Groq à 0 et mistral-large-latest vérifié par l'API (PR #81), sprite accepté, `uv sync` du dépôt principal fait · —
 - 2026-10-19 12:32 · run · décision · Anaël : recommandations acceptées, consignées dans `decisions-2026-10-19.md` (PR #82) ; passe « report au contrat » ajoutée en V15 · —
+- 2026-10-19 12:44 · run · report · `tests/v2/web/test_models.py::test_ollama_down_answers_from_cache_under_300_ms` instable sur le runner Windows (430 ms) : même traitement que `test_read_budget` en 8.1 ; job de la PR #81 relancé · —
+- 2026-10-19 12:48 · run · report · runner Windows 3.12 lent le 19 à midi : `test_models.py::test_ollama_down_answers_from_cache_under_300_ms` (430-456 ms) et `test_real_launch.py` (498 ms) dépassent 300 ms, y compris sur master (commit d'état 17a3f3e) ; à traiter en 8.1 comme `test_read_budget` (meilleur de 3) ; jobs relancés · —
+- 2026-10-19 13:27 · run · fusion · PR #84 (budgets au meilleur de 3, 3aa8314), #81 (prix, 8d70302), #82 (décisions, 0b3d4ca), #83 (état, c996fbf) fusionnées ; prêt pour la reprise des Epics 5 à 8 · —
+- 2026-10-19 13:31 · run · décision · Anaël : reprise des Epics 5 à 8 (sauf 8.4) ; V15 = 5.0 seule côté code + passe « Report au contrat » ; préversions a5, a6, a7 dans le manifeste seulement · —
+- 2026-10-19 13:33 · 5.0 · dev · lancé (Sonnet high, worktree `v2-5-0`, branche `feat/v2-decoupe-front`, spec `story-5-0.md` rédigée par l'orchestrateur : 5.0 absente d'epics.md) · —
+- 2026-10-19 13:33 · report au contrat · dev · lancé (Opus, `bmad-spec`, worktree `report-contrat`, branche `docs/report-contrat-2026-10-19`) · —
+- 2026-10-19 13:41 · report au contrat · PR · #85 ouverte (6 documents ; variantes : 4 modèles aussi refusés côté serveur en 7.3, icône Références laissée à la 5.8, aucune route inventée pour les listes passées) · fe031e3
+- 2026-10-19 13:56 · report au contrat · fusion · PR #85 fusionnée ; V16 débloquée côté contrat (attend la 5.0) · f783ae9
+- 2026-10-19 14:29 · 5.0 · dev · fini (1248 v2, 458/459 E2E en 25 min, 1 aléa sous charge vert seul ; CSS listé dans `index.html` sans `@import` (CSP d'axe), job E2E en 3 morceaux ; `wl-model-picker.js` 589 lignes) ; master (#85) fusionné · 52ec5b0
+- 2026-10-19 14:29 · 5.0 · second-avis · lancé (Haiku) · —
+- 2026-10-19 14:35 · 5.0 · second-avis · aucun high ; 1 medium (E2E `test_an_unreachable_embedding_model_fails_the_file_with_its_reason` instable dans un job bloquant) ; 3 low (garde de doublons de clés sans test dédié, budget 300 ms non remesuré avec 19 feuilles, commentaires périmés) · —
+- 2026-10-19 14:35 · 5.0 · review · lancée (Opus) · —
+- 2026-10-19 14:46 · 5.0 · review · medium corrigé (course E2E : le test attend la ligne en échec après le résumé, aussi dans `test_a_failed_file_says_why`), commentaires corrigés ; test de doublons de clés déjà présent ; budget 300 ms vert en local · 13bcd36
+- 2026-10-19 14:46 · 5.0 · contrôles · lancés · 13bcd36
+- 2026-10-19 14:49 · 5.1 · dev · lancé (Sonnet high, worktree `v2-5-1`, `feat/v2-sobriete` empilée sur la 5.0 revue ; spec rédigée par l'agent) · 13bcd36
+- 2026-10-19 14:49 · 5.3 · dev · lancé (Sonnet high, worktree `v2-5-3`, `feat/v2-modeles-installer` empilée sur la 5.0 ; téléchargement simulé) · 13bcd36
+- 2026-10-19 14:49 · 6.1 · dev · lancé (Sonnet high, worktree `v2-6-1`, `feat/v2-agent-serveur` empilée sur la 5.0) · 13bcd36
+- 2026-10-19 15:01 · 5.0 · contrôles · verts (181 E2E ciblés, 12 integration) ; PR ouverte, file de fusion · 13bcd36
+- 2026-10-19 15:17 · 5.0 · CI · rouge : 2 E2E sur ubuntu (`test_arena_results` tri au clavier : noms de modèles pas encore chargés ; `test_arena_reopen` id inconnu : assert 1 == 0) ; jobs relancés, correctif lancé (Sonnet) · 13bcd36
+- 2026-10-19 15:17 · 6.1 · dev · fini (21 API, 15 formats d'outils, integration Ollama réelle) ; écart à trancher en revue : réponse finale en un seul `token` (pas de flux jeton par jeton) · 5852d80
+- 2026-10-19 15:17 · 6.1 · second-avis · lancé (Haiku) · —
+- 2026-10-19 15:27 · 6.1 · second-avis · aucun high/medium ; 5 low (appels Mistral sans id fusionnés, id fabriqué `call_` pour Mistral, arguments d'outil et exception journalisée sans masquage des secrets, pas de plafond d'appels par tour) · —
+- 2026-10-19 15:27 · 6.1 · review · lancée (Opus) · —
+- 2026-10-19 15:30 · 5.1 · dev · fini (écran Sobriété, champ `gpu` du flux système, `GET /api/carbon/method` ; 27 E2E Sobriété) ; « Remettre à zéro » reporté à la 5.2 (route de la 5.2) ; équivalence voiture 142 g/km (ADEME 2025, à confirmer par Anaël) · 16e2d8a
+- 2026-10-19 15:30 · 5.1 · second-avis · lancé (Haiku) · —
+- 2026-10-19 15:31 · 7.1 · dev · lancé (Sonnet high, worktree `v2-7-1`, `feat/v2-evaluation-serveur` empilée sur la 5.0 ; place libre de la V16, serveur seul) · 13bcd36
+- 2026-10-19 15:36 · 5.1 · second-avis · aucun high ; 1 medium (écart n° 16 couvert par les décisions, bouton « Remettre à zéro » renvoyé à la 5.2 qui porte la route) ; 4 low (`formatDistance` 0 mm / 1 km, E2E du lien désactivé par mutation du registre, motifs de bridage NVML perdus en silence, lecteur GPU qui lève) · —
+- 2026-10-19 15:36 · 5.1 · review · lancée (Opus) · —
+- 2026-10-19 15:36 · 6.1 · review · lows 1 à 3 corrigés (appels Mistral sans id, id à 9 caractères alphanumériques, arguments masqués), 4 rejeté (journaux déjà masqués), 5 reporté en 6.2 ; réponse finale gardée en un seul `token` (préambules requalifiés pires en démo) : consigne écrite pour la 6.4, à confirmer par Anaël à sa recette · 2f3db79
+- 2026-10-19 15:36 · 6.1 · contrôles · lancés · 2f3db79
+- 2026-10-19 15:45 · 5.0 · correctif CI · défaut produit corrigé (Arène rouverte : colonnes nommées par l'identifiant si `run_started` précède `GET /api/models`, classement figé jamais redessiné → `wl-lane-rename`) + course de test (`test_arena_reopen`) ; 48 E2E ×3 verts ; poussé sur la PR #86 · a9d9dae
+- 2026-10-19 15:47 · 5.3 · dev · fini (catalogue installable, `POST /api/models/pull` simulé, écran Modèles ; 19 E2E, integration en lecture seule) ; écart conservateur : `fits` sans VRAM ni cache KV (règle du garde-fou 4.8), à trancher par Anaël · 665ba74
+- 2026-10-19 15:47 · 5.3 · second-avis · lancé (Haiku) · —
+- 2026-10-19 15:48 · 6.2 · dev · lancé (Sonnet high, worktree `v2-6-2`, `feat/v2-agent-outils` empilée sur la 6.1 revue) · 2f3db79
+- 2026-10-19 15:48 · 5.1 · review · medium corrigé (spec : n° 16 couvert, bouton en 5.2), `formatDistance(0)` « 0 m », lecteur GPU qui lève rattrapé ; 2 low rejetés ; 53 E2E · 2dcadab
+- 2026-10-19 15:48 · 5.2 · dev · lancé (Sonnet high, worktree `v2-5-2`, `feat/v2-historique-carbone` empilée sur la 5.1 revue ; même écran, à la suite) · 2dcadab
+- 2026-10-19 15:50 · 6.1 · contrôles · verts (181 E2E ciblés, 13 integration) ; PR après fusion de la 5.0 (pile) · 2f3db79
+- 2026-10-19 15:50 · 5.1 · contrôles · lancés · 2dcadab
+- 2026-10-19 15:52 · 5.3 · second-avis · aucun vrai téléchargement possible en test ; 1 medium (`fits` sans VRAM ni cache KV, écart déclaré pour Anaël) ; 5 low (route `#/modeles/<tag>` retirée, journal du hub gonflé par la progression, 5xx d'Ollama en `interrupted`, docstrings, arrêt du pull à la déconnexion non vérifié) · —
+- 2026-10-19 15:52 · 5.3 · review · lancée (Opus) · —
+- 2026-10-19 15:58 · 7.1 · dev · fini (`POST /api/rag/eval/runs`, fidélité et pertinence par juge, migration `0006_evaluations.sql`, 30 API, integration Ollama) ; pas de route de liste des évaluations (à faire en 7.3) · 6d821e0
+- 2026-10-19 15:58 · 7.1 · second-avis · lancé (Haiku) · —
+- 2026-10-19 15:59 · 5.0 · fusion · PR #86 fusionnée ; E2E désormais en CI (job bloquant, 3 morceaux) : plus de `e2e_master.sh` · d51572e
+- 2026-10-19 16:00 · 6.1 · PR · ouverte (master avec la 5.0 fusionné sans conflit), file de fusion · 4b98320
+- 2026-10-19 16:01 · 5.3 · review · medium trouvé et corrigé (refus d'Ollama annoncé « redémarrage du serveur »), progression à 1/s et relecture du hub par tranche, docstring ; route `#/modeles/<tag>` et 5xx gardés ; `fits` sans VRAM/KV et arrêt du pull à l'annulation pour Anaël · 2dbb19d
+- 2026-10-19 16:01 · 5.4 · dev · lancé (Sonnet high, worktree `v2-5-4`, `feat/v2-modeles-gerer` empilée sur la 5.3 revue ; même écran, à la suite) · 2dbb19d
+- 2026-10-19 16:05 · 7.1 · second-avis · aucun high/medium ; 3 low (« non évaluées » compte les questions pas encore notées, troncature à 12 000 caractères non dite, juge = modèle évalué) · —
+- 2026-10-19 16:05 · 7.1 · review · lancée (Opus) après fusion de master (5.0 finale) · —
+- 2026-10-19 16:06 · 6.2 · dev · fini (9 outils de la v1 copiés et adaptés, dossier de travail confiné, `GET /api/agents/tools`, `GET /api/outputs/{name}`, plafond de 8 appels par tour ; email `sensitive` en brouillon seulement ; integration Ollama) · f57f435
+- 2026-10-19 16:06 · 6.2 · second-avis · lancé (Haiku) · —
+- 2026-10-19 16:06 · 5.1 · contrôles · verts (207 E2E ciblés, 12 integration) ; master fusionné sans conflit ; PR ouverte · 98e0bc4
+- 2026-10-19 16:06 · 5.3 · contrôles · lancés · 2dbb19d
+- 2026-10-19 16:11 · 6.2 · second-avis · aucune évasion trouvée, dépendances dans `uv.lock` ; 7 low (`LAZY_ONLY` sans pandas/matplotlib/numexpr…, noms réservés COM¹/LPT¹/CONIN$, OSError qui expose le chemin, jonctions non détectées en 3.11, bidi dans les noms, fil qui continue après délai, écrasement d'un fichier produit) · —
+- 2026-10-19 16:11 · 6.2 · review · lancée (Opus) après fusion de la 6.1 à jour de master · —
+- 2026-10-19 16:19 · 6.1 · CI · rouge : 2 tests instables sur master (`test_default_temperature…under_300_ms` 336-459 ms ; E2E `test_arena_verdict` verdict rouvert ≠ direct) ; jobs relancés ; correctif `fix/v2-tests-instables-ci` lancé (Sonnet) · 4b98320
+- 2026-10-19 16:19 · 5.3 · contrôles · verts (170 E2E ciblés, 13 integration) ; master fusionné sans conflit ; PR ouverte · 1faee5f
+- 2026-10-19 16:19 · 7.1 · review · medium corrigé (route `GET /api/rag/eval/runs` pour la 7.3, décision n° 14), `pending` distinct de « non évalué », `run_not_found` neutre ; troncature reportée en 7.2 ; juge = modèle évalué rejeté (visible par `judge`) · 75cbda1
+- 2026-10-19 16:19 · 7.1 · contrôles · lancés · 75cbda1
+- 2026-10-19 16:19 · 7.2 · dev · lancé (Sonnet high, worktree `v2-7-2`, `feat/v2-jeu-fixe` empilée sur la 7.1 revue ; story mixte : relecture des verdicts par Anaël, décision Q4) · 75cbda1
+- 2026-10-19 16:22 · 6.2 · review · 5 low corrigés (couches : pandas/matplotlib/numexpr/func_timeout/psutil, noms réservés, OSError sans chemin absolu, jonctions en 3.11, caractères invisibles) ; 2 rejetés (fil après délai, écrasement comme la v1) ; pandas justifié (oracle v1 identique) · 19a01bd
+- 2026-10-19 16:23 · 5.1 · fusion · PR #88 fusionnée · 75ea21e
+- 2026-10-19 16:28 · 7.1 · contrôles · verts (74 E2E ciblés, 13 integration) ; master (5.1) fusionné sans conflit ; PR ouverte · 3e301f3
+- 2026-10-19 16:28 · 6.2 · contrôles · lancés · 19a01bd
+- 2026-10-19 16:31 · correctif · PR · ouverte (verdict de l'Arène rouverte non renommé : défaut produit ; budget de la température au meilleur de 3) · 2642fad
+- 2026-10-19 16:33 · 5.2 · dev · fini (`GET /api/carbon/history`, `POST /api/carbon/session/reset`, historique en barres, bouton désactivé sur session vide n° 16 ; correctif du hub : feuille enfant dans la session du run racine ; 55 E2E) · f11a5e5
+- 2026-10-19 16:33 · 5.2 · second-avis · lancé (Haiku) · —
+- 2026-10-19 16:33 · 6.3 · dev · lancé (Sonnet high, worktree `v2-6-3`, `feat/v2-email-validation` empilée sur la 6.2 revue ; SMTP factice seulement) · 19a01bd
+- 2026-10-19 16:35 · 6.1 · fusion master · conflit `contrat-api.md` (ligne Sobriété de la 5.1 + ligne Agent de la 6.1) résolu ; poussé · 096863e
+- 2026-10-19 16:35 · 7.1 · PR · #90 ouverte · 3e301f3
+- 2026-10-19 16:35 · 6.2 · contrôles · verts (74 E2E ciblés, 14 integration) ; PR après la fusion de la 6.1 · 19a01bd
+- 2026-10-19 16:35 · 5.3 · fusion master · conflits avec la 5.1 (`i18n.js`, `index.html`, comptes d'écrans des tests, contrat) confiés à un agent (Sonnet) ; E2E rouge de la PR #89 à diagnostiquer · —
+- 2026-10-19 16:38 · 5.2 · second-avis · aucun high/medium, correctif du hub sûr ; 5 low (insécables, double lecture de l'historique non bornée, course de la remise à zéro, lecture au montage onglet masqué, écarts déclarés) · —
+- 2026-10-19 16:38 · 5.2 · review · lancée (Opus) après fusion de master (5.1 finale) · —
+- 2026-10-19 16:40 · 7.2 · dev · fini (12 cas inventés, 40 verdicts proposés à relire par Anaël, rejeu du juge, raison de troncature) ; mesure : juge `qwen2.5:1.5b` 72-75 % d'accord, moins qu'un juge « toujours appuyée » (78 %) → juge par défaut non informatif, pour Anaël ; écart Q4 (pas de verdicts d'un modèle cloud fort) · 525b21a
+- 2026-10-19 16:40 · 7.2 · attente humaine · relecture des verdicts du jeu fixe par Anaël (`tests/v2/fixtures/eval/cases.json`, ~30 min) ; la story avance (revue, PR) en attendant · 525b21a
+- 2026-10-19 16:40 · 7.2 · second-avis · lancé (Haiku) · —
+- 2026-10-19 16:45 · 7.2 · second-avis · 1 medium (seuil d'accord 0,65 jamais bloquant, sous la référence « toujours appuyée ») ; 4 low (attendu de précision calculé par la même formule, garde de relecture au niveau du fichier, troncatures silencieuses à 400 caractères, erreur httpx non rattrapée en mesure) · —
+- 2026-10-19 16:45 · 7.2 · review · lancée (Opus) après fusion de la 7.1 à jour de master · —
+- 2026-10-19 16:48 · 5.3 · fusion master · conflits avec la 5.1 résolus (les deux écrans gardés, comptes recalculés, 145 E2E) ; E2E rouge de #89 = défaut de master corrigé par #91 ; poussé · 3bf7ff2
+- 2026-10-19 16:49 · run · état · fichiers d'état mis à jour (contexte de l'orchestrateur proche de 200 k) ; PR d'état · —
