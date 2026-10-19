@@ -102,7 +102,8 @@
   },
   "format": {
     "unknown": "inconnu",
-    "not_evaluated": "non évalué"
+    "not_evaluated": "non évalué",
+    "money_below": "moins de {value}"
   },
   "errors": {
     "ollama_down": {
@@ -623,6 +624,29 @@
       "def_co2": "CO₂ : émissions de la réponse ; mesurées en local, estimées pour un modèle cloud, « non mesurable » quand la mesure n'a pas pu se faire.",
       "same_unit": "Tous les CO₂ de cette comparaison sont exprimés en {unit}.",
       "not_applicable": "sans objet"
+    },
+    "verdict": {
+      "title": "Verdict local et cloud",
+      "help": "Calculé par le serveur à la fin de la comparaison, d'après le meilleur modèle local et le meilleur modèle cloud notés.",
+      "unavailable": "Le verdict local et cloud n'a pas pu être lu. Rouvrez la comparaison pour réessayer.",
+      "score": "Écart de note",
+      "score_local": "{local} ({localScore}) devance {cloud} ({cloudScore}) de {gap}.",
+      "score_cloud": "{cloud} ({cloudScore}) devance {local} ({localScore}) de {gap}.",
+      "score_tie": "{local} et {cloud} sont à égalité ({localScore}).",
+      "points_one": "1 point",
+      "points_many": "{count} points",
+      "cost": "Coût pour {requests} requêtes de même taille",
+      "cost_text": "{local} en local ; {cloud} avec {name}.",
+      "cost_unknown": "inconnu",
+      "price_date": "Prix relevés le {date}.",
+      "price_source": "Source : {source}.",
+      "price_no_date": "Aucune date de relevé : la table de prix n'est pas renseignée.",
+      "co2": "CO₂ par réponse",
+      "co2_text": "{local} en local ; {cloud} avec {name}.",
+      "data": "Données restées sur le poste",
+      "data_one": "Les questions et les réponses d'un modèle local n'ont pas quitté ce poste.",
+      "data_many": "Les questions et les réponses de {count} modèles locaux n'ont pas quitté ce poste.",
+      "data_judge_cloud": "Le juge est un modèle cloud : les réponses des modèles locaux lui ont été envoyées pour être notées."
     }
   }
 }

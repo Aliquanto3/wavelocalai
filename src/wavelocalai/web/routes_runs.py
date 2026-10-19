@@ -98,7 +98,9 @@ async def cancel_run(run_id: str, request: Request) -> CancelResult:
 
 @router.get("/runs/{run_id}")
 async def get_run(run_id: str, request: Request) -> dict[str, Any]:
-    snapshot = await run_snapshot(request.app.state.store, run_id)
+    snapshot = await run_snapshot(
+        request.app.state.store, run_id, request.app.state.settings.cloud.prices
+    )
     if snapshot is None:
         raise AppError("not_found", f"Run {run_id} inconnu.")
     return snapshot
