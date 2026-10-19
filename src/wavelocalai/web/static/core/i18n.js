@@ -7,7 +7,7 @@
 // Mode d'emploi : une story qui livre un écran écrit ses textes dans son propre fichier
 // (`i18n/fr/<écran>.json`, clé de premier niveau `<écran>`) et ajoute son nom à `TEXT_FILES`
 // ci-dessous, la seule liste. Deux fichiers qui portent la même clé de premier niveau font échouer
-// `tests/v2/unit/test_i18n_files.py` (jamais d'écrasement silencieux) ; le chargement échoue aussi.
+// `tests/v2/unit/test_static_split.py` (jamais d'écrasement silencieux) ; le chargement échoue aussi.
 
 const ATTRIBUTES = [
   ["i18nAriaLabel", "aria-label"],

@@ -192,9 +192,11 @@ def test_a_failed_file_says_why_with_the_technical_details_folded_and_the_others
     protected = row(page, "secret.pdf")
     assert "mot de passe" in protected.locator("wl-error .wl-error-message").inner_text()
     assert row(page, "bon.txt").locator(".docs-import-state").inner_text() == "1 extrait ajouté"
+    # Le résumé précède la relecture du tableau : attendre les deux lignes en échec d'abord.
+    failed = page.locator("wl-data-table .docs-status[data-status=failed]")
+    failed.nth(1).wait_for()
     # Un fichier en échec n'est jamais compté parmi les documents prêts.
     assert page.locator(".docs-count").last.inner_text() == "1 document prêt · 1 extrait"
-    failed = page.locator("wl-data-table .docs-status[data-status=failed]")
     assert failed.count() == 2
     assert (
         "le fichier est vide" in failed.first.inner_text()
@@ -225,7 +227,11 @@ def test_an_unreachable_embedding_model_fails_the_file_with_its_reason(docs):
     assert (
         "Le fichier n'a pas pu être indexé" in row(page, "a.txt").locator("wl-error").inner_text()
     )
-    assert page.locator("wl-data-table .docs-status[data-status=failed]").count() == 1
+    # Le résumé est écrit avant la relecture du tableau (`endRun` puis `refresh()`) : attendre la
+    # ligne en échec plutôt que la compter tout de suite.
+    failed = page.locator("wl-data-table .docs-status[data-status=failed]")
+    failed.first.wait_for()
+    assert failed.count() == 1
 
 
 # --- Annulation, retour sur l'écran, rechargement, 409 --------------------------------------------
