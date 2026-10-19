@@ -59,8 +59,16 @@ class Server:
     process: subprocess.Popen
 
 
+# Échéance de démarrage d'un serveur : un poste saturé (CI Windows, run parallèle) a mis plus de
+# 30 s ; l'attente s'arrête dès que `/api/health` répond, un serveur sain ne la consomme pas.
+START_TIMEOUT_S = 90.0
+
+
 def _wait_healthy(
-    base_url: str, process: subprocess.Popen, log_path: Path, timeout_s: float = 30.0
+    base_url: str,
+    process: subprocess.Popen,
+    log_path: Path,
+    timeout_s: float = START_TIMEOUT_S,
 ) -> None:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
