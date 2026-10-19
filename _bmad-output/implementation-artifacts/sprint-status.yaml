@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 20:06
+last_updated: 10-19-2026 22:00
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -88,9 +88,9 @@ development_status:
   5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: done
   5-4-décharger-supprimer-un-modèle-et-choisir-ses-défauts: done
   5-5-récupérer-le-reranker-depuis-l-écran-modèles: done
-  5-6-la-fiche-modèle-explique-son-débit-et-ce-qu-il-donne-sur-d-a: in-progress
+  5-6-la-fiche-modèle-explique-son-débit-et-ce-qu-il-donne-sur-d-a: done
   5-7-les-défauts-agent-et-rag-s-appuient-sur-le-banc: backlog
-  5-8-quel-modèle-pour-quel-usage-préversion-2-0-0a5: in-progress
+  5-8-quel-modèle-pour-quel-usage-préversion-2-0-0a5: done
   epic-5-retrospective: optional
 
   epic-6: in-progress
@@ -99,7 +99,7 @@ development_status:
   6-3-aucun-email-ne-part-sans-validation-explicite: done
   6-4-l-écran-agent-seul-montre-chaque-étape-et-demande-la-validat: done
   6-5-une-équipe-d-agents-mène-une-mission-l-un-après-l-autre-serv: done
-  6-6-l-écran-équipe-d-agents-montre-le-schéma-la-trace-et-le-rapp: in-progress
+  6-6-l-écran-équipe-d-agents-montre-le-schéma-la-trace-et-le-rapp: done
   epic-6-retrospective: optional
 
   epic-7: in-progress

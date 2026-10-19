@@ -14,7 +14,7 @@ const ATTRIBUTES = [
   ["i18nTitle", "title"],
 ];
 
-// Les fichiers de `static/i18n/fr/` (sans `.json`), chargés en parallèle.
+// Les fichiers de `static/i18n/fr/` (sans `.json`), repli du document unique.
 export const TEXT_FILES = [
   "shell",
   "home",
@@ -35,7 +35,16 @@ export const TEXT_FILES = [
 let texts = {};
 const warned = new Set();
 
-export async function loadTexts(base = "/static/i18n/fr") {
+// Un seul document, assemblé par le serveur depuis ces fichiers (`GET /static/i18n/fr.json`) : une
+// requête au lieu de quatorze avant le rendu (budget de 300 ms, AD-15).
+async function loadBundle(base) {
+  const response = await fetch(`${base}.json`);
+  if (!response.ok) throw new Error(`Catalogue de textes indisponible (${response.status}).`);
+  return response.json();
+}
+
+// Repli (serveur sans le document assemblé) : un fichier par domaine, fusionnés ici.
+async function loadFiles(base) {
   const files = await Promise.all(
     TEXT_FILES.map(async (name) => {
       const response = await fetch(`${base}/${name}.json`);
@@ -50,7 +59,15 @@ export async function loadTexts(base = "/static/i18n/fr") {
       merged[key] = part[key];
     }
   }
-  texts = merged;
+  return merged;
+}
+
+export async function loadTexts(base = "/static/i18n/fr") {
+  try {
+    texts = await loadBundle(base);
+  } catch {
+    texts = await loadFiles(base);
+  }
 }
 
 function lookup(key) {

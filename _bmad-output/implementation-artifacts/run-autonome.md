@@ -567,3 +567,36 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 20:19 · 6.5 · fusion master · conflits avec la 6.3 (`service.py`, `routes_agents.py` rejoués par rerere, contrat) ; 90 tests agents verts ; poussé sur #96 · 6d220a9
 - 2026-10-19 20:24 · 8.1 · intégration · faite (6.4, 6.6, 5.8, 7.4 sur master ; 12 écrans `available`, plus aucune route `planned` ; 1853 unit+web, 166/167 E2E) ; **régression cumulée : la coquille dépasse 300 ms (`ready` 335-370 ms, 14 fichiers de textes et ~50 feuilles de style au démarrage), à traiter en premier dans la 8.1** · 33d97a1
 - 2026-10-19 20:25 · run · état · fichiers d'état à jour pour un /clear avant l'Epic 8 ; outils `queue2.sh`, `contrat_both.sh`, `pull_etat.sh` copiés dans `_outils` · —
+- 2026-10-19 20:29 · 6.6 · contrôles · verts (250 E2E ciblés, 17 integration) ; PR après #105 et #96 · 88d53e4
+- 2026-10-19 20:37 · 6.5 · fusion · PR #96 fusionnée · 8cecc5d
+- 2026-10-19 20:42 · 5.5 · fusion · PR #103 fusionnée · 62087a1
+- 2026-10-19 20:42 · 6.4 · CI · rouge (test statique de l'Évaluation exigeait « evaluation » en dernier fichier de textes) ; corrigé comme dans la 7.4, poussé sur #105 · c37d85f
+- 2026-10-19 20:42 · 7.4 · fusion master · conflit de contrat ; poussé sur #104 · 2e3e084
+- 2026-10-19 20:44 · 5.6 · fusion master · sans conflit · —
+- 2026-10-19 20:44 · 5.6 · PR · #107 ouverte · —
+- 2026-10-19 20:54 · 7.4 · fusion · PR #104 fusionnée (a7 à poser après a5 et a6) · 5974936
+- 2026-10-19 20:54 · 5.8 · contrôles · lancés · ed2ab1b
+- 2026-10-19 21:04 · 5.8 · contrôles · verts (242 E2E ciblés, `test_shell` 300 ms vert en relance seule, 17 integration) ; PR après #107 · ed2ab1b
+- 2026-10-19 21:08 · 6.4 · fusion master · conflits avec la 7.4 et la 6.5 (`snapshot.py` : `totals` + `mission` + banc ; `i18n.js` ; 10 écrans `available` ; contrat) ; 1277 unit+web, 88 E2E verts ; poussé sur #105 · 87a7516
+- 2026-10-19 21:09 · 8.1 · statut · remise à faire (seule la branche d'intégration est prête ; dev après le /clear) · —
+- 2026-10-19 21:23 · 8.1 · décision · Anaël ajoute à la 8.1 : contrat découpé par story et comptes d'écrans des tests lus dans le registre (moins de conflits entre PR parallèles) · —
+- 2026-10-19 21:25 · run · décision · essai du levier 3 (PR par pile) sur 6.4 + 6.6 et 5.6 + 5.8 seulement ; bilan dans les apprentissages de fin de projet · —
+- 2026-10-19 21:25 · 5.6 · CI · rouge (`test_shell` 300 ms : la régression cumulée apparaît maintenant sur une PR seule) · —
+- 2026-10-19 21:25 · 8.1 · dev · lancé, premier point seulement : budget de 300 ms de la coquille (Sonnet high, worktree `v2-8-1`), commit à part pour une PR dédiée sur master · 33d97a1
+- 2026-10-19 21:26 · 5.6 · PR · #107 fermée au profit d'une PR « 5.6 + 5.8 » (essai du levier 3) · —
+- 2026-10-19 21:26 · 5.8 · fusion 5.6 et master · conflits (comptes d'écrans, `index.html`) confiés à un agent (Sonnet) · —
+- 2026-10-19 21:27 · 6.4 · CI · rouge (E2E morceau 0, budget de la coquille) après relance ; PR #105 fermée au profit d'une PR « 6.4 + 6.6 » (essai du levier 3) · —
+- 2026-10-19 21:27 · 6.6 · fusion 6.4 et master · 5 conflits confiés à un agent (Sonnet) · —
+- 2026-10-19 21:36 · 5.8 · fusion 5.6 et master · faite (10 écrans `available`, `test_chat_static` réaligné) ; 1829 unit+web, 123/124 E2E (seul échec : budget de la coquille, correctif en cours) ; PR « 5.6 + 5.8 » après le correctif du budget · be62d5c
+- 2026-10-19 21:37 · état · fusion · PR #106 fusionnée · e69119f
+- 2026-10-19 21:41 · 6.6 · fusion 6.4 et master · faite par l'agent (11 écrans `available`, `service.py` avec `build_actions` de la mission, doublons du contrat retirés) ; 1787 unit+web, 132 E2E · 748fa4f
+- 2026-10-19 21:41 · 6.4 + 6.6 · PR · #108 ouverte (essai d'une PR par pile) · 748fa4f
+- 2026-10-19 21:51 · 8.1 · dev · budget de la coquille fait (cascade de découvertes de modules : document de textes unique `/static/i18n/fr.json` et `modulepreload` du graphe ; `shell-ready` 320-342 → 143 ms) · 1d70820
+- 2026-10-19 21:51 · 8.1 · PR · #109 ouverte (correctif du budget seul, sur master) · 2d3038d
+- 2026-10-19 21:51 · 8.1 · second-avis · lancé (Haiku) sur #109 · —
+- 2026-10-19 21:52 · 8.1 · second-avis · #109 : aucun high/medium ; 6 low (`..` hors de la racine au démarrage, chemin hors `static/`, commentaires dans le graphe, lecture unique au démarrage, pas d'ETag, `TEXT_FILES` à la main et repli qui masque une panne) · —
+- 2026-10-19 21:52 · 8.1 · review · lancée (Opus) sur #109 · —
+- 2026-10-19 21:53 · 6.4 + 6.6 · fusion · PR #108 fusionnée du premier coup (essai du levier 3 : 1 run au lieu de 2 à 4) · f59781b
+- 2026-10-19 22:00 · 5.6 + 5.8 · fusion master · tests de la coquille repris de la branche d'intégration (12 écrans, aucune route `planned`), onglets de l'Arène réalignés ; 1261 unit, 116 E2E (budget de la coquille : #109) · 28041da
+- 2026-10-19 22:00 · 5.6 + 5.8 · PR · #110 ouverte (essai d'une PR par pile) · 28041da
+- 2026-10-19 22:10 · 8.1 · review · #109 : 0 high/medium ; 5 low corrigés (imports hors de `static/` ignorés, commentaires retirés, ETag et 304 sur `GET /` et `fr.json`, texte du preload) ; budget sur master 287-301 ms → 123-161 ms ; branche rebasée sur master et poussée (`--force-with-lease`) · e87fe34
