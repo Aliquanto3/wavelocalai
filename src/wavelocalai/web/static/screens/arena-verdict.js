@@ -15,6 +15,10 @@ import { element } from "../core/dom.js";
 import { co2Group, formatDate, formatInteger, formatMoney, formatNumber, formatScore } from "../core/format.js";
 import { t } from "../core/i18n.js";
 
+const ACTIVE = ["running", "awaiting_approval"]; // statuts non terminaux de l'instantané
+const RETRIES = 20;
+const RETRY_MS = 150;
+
 function co2Text(co2, group) {
   if (co2 === null || co2 === undefined) return t("arena.results.not_measured");
   if (typeof co2.mg !== "number") return t("components.thread.co2_unmeasurable");
@@ -116,21 +120,30 @@ export function verdictView(uid, nameOf) {
     el,
     reset,
     // Lit l'instantané du run terminé ; sans `verdict`, la section reste cachée.
+    // Le hub publie `run_ended` juste avant d'écrire le statut final en base : tant que
+    // l'instantané dit encore le run actif, il est relu (quelques fois, à intervalle court).
     async load(runId) {
       const mine = ++ticket;
-      let snapshot;
-      try {
-        snapshot = await api.run(runId);
-      } catch {
-        if (mine !== ticket) return;
+      const unavailable = () => {
         body.replaceChildren(element("p", "help arena-verdict-unavailable", t("arena.verdict.unavailable")));
         help.hidden = true;
         el.hidden = false;
-        return;
+      };
+      let snapshot;
+      try {
+        for (let attempt = 0; ; attempt += 1) {
+          snapshot = await api.run(runId);
+          if (mine !== ticket) return;
+          if (!ACTIVE.includes(snapshot?.status) || attempt >= RETRIES) break;
+          await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
+          if (mine !== ticket) return;
+        }
+        if (ACTIVE.includes(snapshot?.status)) unavailable();
+        else if (snapshot?.verdict) render(snapshot.verdict);
+        else reset();
+      } catch {
+        if (mine === ticket) unavailable();
       }
-      if (mine !== ticket) return;
-      if (snapshot?.verdict) render(snapshot.verdict);
-      else reset();
     },
   };
 }

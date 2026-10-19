@@ -85,7 +85,7 @@ class PriceTable(_Section):
     est valide ; le verdict dit alors le coût « inconnu » avec sa raison (jamais 0).
     """
 
-    currency: str = Field("EUR", min_length=3, max_length=3)
+    currency: str = Field("EUR", pattern=r"^[A-Z]{3}$")  # code ISO 4217 : lu par `Intl`
     retrieved_at: date | None = None
     source: str | None = None
     models: dict[str, ModelPrice] = Field(default_factory=dict)

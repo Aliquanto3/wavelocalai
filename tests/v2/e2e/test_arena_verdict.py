@@ -258,6 +258,27 @@ def test_the_screen_shows_what_the_server_says_and_computes_nothing(page, priced
     assert shown["Données restées sur le poste"].startswith("Le juge est un modèle cloud")
 
 
+def test_a_snapshot_read_before_the_final_status_is_written_is_read_again(page, priced):
+    # Le hub publie `run_ended` avant d'écrire le statut final : la première lecture peut encore
+    # dire `running`, sans verdict. L'écran relit au lieu de cacher la section.
+    open_arena(page, priced, cloud=[NUAGE])
+    reads = []
+
+    def on_snapshot(route):
+        response = route.fetch()
+        data = response.json()
+        reads.append(data["status"])
+        if len(reads) == 1:
+            data["status"], data["verdict"] = "running", None
+        route.fulfill(response=response, body=json.dumps(data))
+
+    page.route(re.compile(r"/api/runs/[^/]+$"), on_snapshot)
+    compare(page, "Nuage 70B")
+    verdict_section(page).wait_for(state="visible")
+    assert len(reads) >= 2
+    assert page.locator(".arena-verdict-row").count() == 4
+
+
 def test_a_failed_snapshot_read_says_so_without_a_verdict(page_tolerating_failed_requests, priced):
     page = page_tolerating_failed_requests
     open_arena(page, priced, cloud=[NUAGE])

@@ -70,3 +70,12 @@ Preuves : `tests/v2/unit/test_verdict.py` (calcul, config), `tests/v2/web/test_a
 Voir `deferred` : table de prix à remplir par Anaël (source et date à relever), verdict non figé en base, tokens de raisonnement.
 
 Tests : `tests/v2` 1010 réussis (hors E2E, désélectionnés par défaut) ; E2E sur Edge : `-m e2e -k "arena or core or home"` 153 réussis (dont les 11 de `test_arena_verdict.py`, axe-core clair et sombre à 320 px et 1 440 px) ; contrôle rapide propre.
+
+## Revue
+
+Revue Opus (une passe) sur 763a122, avec la liste du second avis (Haiku).
+
+- medium · second avis · corrigé : le hub publie `run_ended` avant d'écrire le statut final (`runs/hub.py`, `_close`), et l'instantané ne donne `verdict` que pour `ok` ; une lecture à `run_ended` pouvait voir `running` et cacher la section jusqu'à la réouverture. Correctif côté écran (le hub, partagé, n'est pas touché) : `arena-verdict.js` relit l'instantané tant que son statut est actif (20 fois au plus, toutes les 150 ms), puis dit « n'a pas pu être lu » s'il l'est encore. Preuve : `test_a_snapshot_read_before_the_final_status_is_written_is_read_again` (E2E, échoue sans le correctif).
+- low · second avis · corrigé : une devise de trois chiffres passait `PriceTable` et `Intl.NumberFormat` aurait levé, section cachée sans message. `currency` exige désormais un code ISO 4217 en majuscules (`^[A-Z]{3}$`) ; le rendu passe aussi dans le `try` de `load` (une erreur de mise en forme affiche « n'a pas pu être lu »). Preuve : `test_a_price_table_needs_a_date_and_a_source` (« 978 », « eur »).
+- low · second avis · rejeté : le garde-fou statique « l'écran ne calcule rien » est une heuristique, mais la relecture d'`arena-verdict.js` confirme qu'il ne fait aucune opération sur montants, notes ou prix, et `test_the_screen_shows_what_the_server_says_and_computes_nothing` (instantané réécrit) le prouve au navigateur ; un analyseur JS n'apporterait rien de plus ici.
+- Relecture propre : critères 1 à 7 couverts ; couches respectées (`runs/verdict.py` pur, aucune importation web) ; aucun appel réseau nouveau ; `_scores` lit les `judge_score` du run une fois par lecture (O(n), pas de structure qui grossit par événement). Complexité : 0 constat. `screens/arena.js` est à 600 lignes (une ligne modifiée, taille inchangée) : à découper avant d'y ajouter quoi que ce soit.

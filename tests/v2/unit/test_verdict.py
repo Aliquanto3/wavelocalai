@@ -91,6 +91,8 @@ def test_a_price_table_is_read_from_the_toml_with_its_date(tmp_path):
         '[cloud.prices]\nretrieved_at = 2026-03-04\nsource = "x"\n[cloud.prices.models]\n'
         '"a/b" = { input_per_mtok = -1, output_per_mtok = 1 }\n',
         '[cloud.prices]\ncurrency = "euro"\n',
+        '[cloud.prices]\ncurrency = "978"\n',  # trois chiffres : `Intl.NumberFormat` lèverait
+        '[cloud.prices]\ncurrency = "eur"\n',
     ],
 )
 def test_a_price_table_needs_a_date_and_a_source(tmp_path, content):
