@@ -217,6 +217,46 @@ async def test_an_arena_lane_that_does_not_fit_fails_alone_with_its_envelope(tmp
         assert tokens and set(tokens) == {"small:1b"}  # la lane refusée n'a rien généré
 
 
+async def test_a_local_judge_that_does_not_fit_leaves_the_score_not_evaluated(tmp_path):
+    a, b = _fake("small:1b", "Salut"), _fake("mid:2b", "Bonjour")
+    judge = _fake("big:7b", "jamais")
+    needs = [
+        ModelNeed("big:7b", "chat", 6.0),
+        ModelNeed("small:1b", "chat", 1.0),
+        ModelNeed("mid:2b", "chat", 1.5),
+    ]
+    async with guarded_app(tmp_path, needs, 3.0, a, b, judge) as (app, client):
+        response = await client.post(
+            "/api/arena/runs",
+            json={
+                "models": ["small:1b", "mid:2b"],
+                "prompt": "Une question.",
+                "allow_cloud": False,
+                "judge": "big:7b",
+            },
+        )
+        assert response.status_code == 200, response.text
+        run_id = response.json()["run_id"]
+        snapshot = await _wait_ended(client, run_id, timeout=5.0)
+        events = await _events_of(client, run_id)
+    assert snapshot["status"] == "ok"
+    assert judge.requests == []  # le juge refusé n'est jamais appelé
+    got = {e["data"]["lane"]: e["data"] for e in events if e["type"] == "judge_score"}
+    assert set(got) == {"small:1b", "mid:2b"}
+    assert all(
+        g["score"] is None and g["reason"] == "non évalué : juge indisponible" for g in got.values()
+    )
+    done = {
+        e["data"]["lane"]
+        for e in events
+        if e["type"] == "lane_status" and e["data"]["status"] == "done"
+    }
+    assert done == {"small:1b", "mid:2b"}  # la notation refusée ne fait pas échouer les lanes
+    kids = [c for c in snapshot["children"] if c["kind"] == "judge"]
+    assert kids and all(k["status"] == "error" for k in kids)
+    assert all(k["error"]["code"] == "ram_guard" for k in kids if k.get("error"))
+
+
 # --- Question RAG -------------------------------------------------------------------------------
 
 

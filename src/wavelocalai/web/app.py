@@ -139,6 +139,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings,
             meter=app.state.meter,
             bus=app.state.system_feed,
+            guard=guard,
         ),
     )
     index = select_index(store.vec_available)  # le même pour l'import et la question (repli numpy)

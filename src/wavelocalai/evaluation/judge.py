@@ -29,7 +29,7 @@ from wavelocalai.inference.judge_port import (
     JudgeVerdict,
 )
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import NOT_MEASURED, Guard, stream_into_run
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest
 from wavelocalai.models.structured import parse_structured
 from wavelocalai.runs.hub import RunHub
@@ -95,12 +95,17 @@ class Judge:
         settings: Settings,
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
+        guard: Guard | None = None,
     ) -> None:
         self._hub = hub
         self._slot = slot
         self._settings = settings
         self._meter = meter  # sans compteur, le CO2 d'un juge local n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
+        # Garde-fou mémoire d'un juge local (story 4.8) : le juge est choisi à part et se charge
+        # après les lanes, moment où la mémoire est la plus entamée. Un refus `ram_guard` rend
+        # « non évalué » (juge indisponible), sans charger le modèle ni bloquer l'Arène.
+        self._guard = guard
 
     async def _announce_carbon(self) -> None:
         """`carbon_updated` après chaque feuille (AD-10) : la notation en est une."""
@@ -139,6 +144,7 @@ class Judge:
             meter=self._meter,
             on_leaf_closed=self._announce_carbon,
             capture=captured,
+            guard=self._guard,
         )
         if result.status != "ok":
             code = (result.error or {}).get("code")
