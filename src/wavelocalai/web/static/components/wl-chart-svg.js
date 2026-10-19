@@ -10,6 +10,8 @@
 //     missing: "…" | null,                 // phrase des modèles non placés
 //   };
 //
+// - Un graphique qui porte `bars` (au lieu de `points`) est tracé en barres par `chart-bars.js`
+//   (historique carbone, story 5.2) : même titre, même description, même bouton « Voir le tableau ».
 // - Les couleurs sont les jetons `chart-1` à `chart-4` (CSS) ; chaque point garde son contour
 //   d'encre et son nom écrit : aucune information ne tient à la couleur seule.
 // - Les axes partent de 0 (`core/chart-scale.js`) : jamais resserrés sur un seul point.
@@ -19,6 +21,7 @@
 import { element } from "../core/dom.js";
 import { formatInteger, formatNumber } from "../core/format.js";
 import { bubbleRadius, layoutLabels, legendSizes, linearAxis } from "../core/chart-scale.js";
+import { barsSvg } from "./chart-bars.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const BASE_MARGIN = { left: 52, right: 16, top: 14, bottom: 50 };
@@ -98,12 +101,18 @@ export class WlChartSvg extends HTMLElement {
     if (seeTable) this.#button.textContent = seeTable.label;
     this.#missing.hidden = !chart?.missing;
     this.#missing.textContent = chart?.missing ?? "";
-    if (!chart || !chart.points.length) {
+    if (!chart || !(chart.bars ?? chart.points).length) {
       this.#plot.replaceChildren();
       this.#legend.replaceChildren();
       return;
     }
     this.#width = Math.round(this.#plot.clientWidth);
+    if (chart.bars) {
+      const unit = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+      this.#plot.replaceChildren(barsSvg(chart, { uid: this.#uid, width: this.#width, unit }));
+      this.#legend.replaceChildren(...(chart.note ? [element("p", "help", chart.note)] : []));
+      return;
+    }
     this.#plot.replaceChildren(this.#svg(chart));
     this.#legend.replaceChildren(...this.#legendNodes(chart));
   }

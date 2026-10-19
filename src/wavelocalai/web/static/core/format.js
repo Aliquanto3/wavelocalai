@@ -147,6 +147,14 @@ export function formatDateTime(iso) {
   return intl("datetime", options, Intl.DateTimeFormat).format(date);
 }
 
+// Date et heure ISO sans l'année -> « 18 oct., 14:32 » (étiquette d'abscisse : les sessions récentes).
+export function formatShortDateTime(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return formatUnknown();
+  const options = { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
+  return intl("short-datetime", options, Intl.DateTimeFormat).format(date);
+}
+
 // Score sur 100 ; sans score, « non évalué » (jamais 0/100).
 export function formatScore(score) {
   if (!isMeasure(score)) return t("format.not_evaluated");
