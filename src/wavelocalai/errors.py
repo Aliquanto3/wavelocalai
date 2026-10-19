@@ -292,6 +292,29 @@ _SPECS = (
         "question.",
         ("needed_gb", "free_gb", "suggested_model"),
     ),
+    # --- gestion des modèles (story 5.4) ---
+    ErrorSpec(
+        "model_in_use",
+        409,
+        "{tag} est employé par une réponse en cours : il n'a pas été supprimé.",
+        "Attendez la fin de la réponse (ou arrêtez-la), puis recommencez.",
+        ("tag", "run_id"),
+    ),
+    ErrorSpec(
+        "model_not_eligible",
+        422,
+        "{tag} ne peut pas servir à cet usage : le choix n'a pas été enregistré.",
+        "Choisissez un modèle de la liste proposée pour cet usage.",
+        ("tag", "purpose"),
+    ),
+    ErrorSpec(
+        "model_delete_failed",
+        502,
+        "Ollama n'a pas supprimé {tag}.",
+        "La liste des modèles est inchangée. Réessayez ; le détail technique dit ce qu'Ollama a "
+        "répondu.",
+        ("tag",),
+    ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
 

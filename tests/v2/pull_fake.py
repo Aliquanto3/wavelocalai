@@ -128,10 +128,16 @@ class ThreadedOllama:
     def __init__(self, port: int) -> None:
         self.port = port
         self.sizes: dict[str, int] = {}  # tag -> octets ; les modèles installés
+        self.params: dict[str, str] = (
+            {}
+        )  # tag -> `parameter_size` d'Ollama (« 7B »), « 1.5B » sinon
+        self.tools: set[str] = set()  # tags dont `/api/show` dit `tools` (agent éligible)
         self.scripts: list[list[Any]] = []
         self.pull_requests: list[str] = []
         self.pull_dropped = 0  # flux coupés par le client (annulation)
         self.loaded: list[str] = []
+        self.deleted: list[str] = []  # modèles supprimés par `DELETE /api/delete` (story 5.4)
+        self.unloaded: list[str] = []  # modèles déchargés (`keep_alive: 0`)
         self._stop = False
         self._httpd: Any = None
 
@@ -140,10 +146,14 @@ class ThreadedOllama:
 
     def reset(self, installed: dict[str, int] | None = None) -> None:
         self.sizes = dict(installed or {})
+        self.params = {}
+        self.tools = set()
         self.scripts = []
         self.pull_requests = []
         self.pull_dropped = 0
         self.loaded = []
+        self.deleted = []
+        self.unloaded = []
 
     def start(self) -> None:
         import http.server
@@ -173,7 +183,7 @@ class ThreadedOllama:
                                     "size": size,
                                     "details": {
                                         "family": "qwen2",
-                                        "parameter_size": "1.5B",
+                                        "parameter_size": owner.params.get(tag, "1.5B"),
                                         "quantization_level": "Q4_K_M",
                                     },
                                 }
@@ -196,11 +206,32 @@ class ThreadedOllama:
             def do_POST(self):  # noqa: N802
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
                 if self.path == "/api/show":
-                    self._json({"capabilities": ["completion"], "model_info": {}})
+                    caps = ["completion", *(["tools"] if body.get("model") in owner.tools else [])]
+                    self._json({"capabilities": caps, "model_info": {}})
                 elif self.path == "/api/pull":
                     self._pull(str(body.get("model", "")))
+                elif self.path in ("/api/generate", "/api/embed") and body.get("keep_alive") == 0:
+                    tag = str(body.get("model", ""))  # « Décharger » (story 5.4)
+                    owner.unloaded.append(tag)
+                    if tag in owner.loaded:
+                        owner.loaded.remove(tag)
+                    self._json({"model": tag, "done": True})
                 else:
                     self.send_error(404)
+
+            def do_DELETE(self):  # noqa: N802
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+                tag = str(body.get("model", ""))
+                if self.path != "/api/delete" or tag not in owner.sizes:
+                    self.send_error(404)
+                    return
+                del owner.sizes[tag]
+                owner.deleted.append(tag)
+                if tag in owner.loaded:
+                    owner.loaded.remove(tag)
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
             def _write(self, data: bytes) -> bool:
                 try:

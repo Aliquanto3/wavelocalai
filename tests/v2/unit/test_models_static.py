@@ -16,6 +16,9 @@ FILES = (
     "screens/models-pull.js",
     "screens/models-progress.js",
     "screens/models-format.js",
+    "screens/models-unload.js",
+    "screens/models-delete.js",
+    "screens/models-defaults.js",
 )
 SCREEN = "\n".join(read_static(name) for name in FILES)
 CODE = "\n".join(line for line in SCREEN.splitlines() if not line.lstrip().startswith("//"))
@@ -37,6 +40,9 @@ def test_every_screen_text_exists_and_every_catalog_text_is_used():
         used |= {key for key in declared if key.startswith(prefix)}
     # Textes à choisir entre deux clés : `t(cond ? "models.a" : "models.b")`.
     used |= set(re.findall(r"""["'](models\.[\w.]+)["']""", SCREEN))
+    # Textes au pluriel : `plural("models.a.b", n)` lit `models.a.b_one` et `models.a.b_other`.
+    for base in re.findall(r"""plural\(\s*["'](models\.[\w.]+)["']""", SCREEN):
+        used = (used - {base}) | {f"{base}_one", f"{base}_other"}
     assert used == declared
 
 
@@ -78,7 +84,7 @@ def test_no_call_to_the_api_leaves_before_the_shell_is_ready():
     main = read_static("screens/models.js")
     assert 'import { shellReady } from "../core/shell-ready.js"' in main
     read = main[main.index("async function read()") :]
-    assert read.index("await shellReady()") < read.index("api.models(false)")
+    assert read.index("await shellReady()") < read.index("api.models(allowCloud)")
     # Seul l'écran appelle les listes ; le contrôleur d'installation n'appelle que sur un clic.
     assert "api.models(" not in read_static("screens/models-pull.js")
     assert "api.pullModel(" in read_static("screens/models-pull.js")

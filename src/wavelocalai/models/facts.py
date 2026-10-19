@@ -48,6 +48,11 @@ class FactsStore(Protocol):
         """Dernière ligne connue de chaque tag (liste à servir Ollama arrêté)."""
         ...
 
+    def delete_tag(self, tag: str) -> None:
+        """Efface toutes les lignes d'un tag (un modèle supprimé du poste, story 5.4) : il ne
+        réapparaît plus quand la liste est reconstruite sans Ollama."""
+        ...
+
 
 class InMemoryFactsStore:
     def __init__(self) -> None:
@@ -58,6 +63,10 @@ class InMemoryFactsStore:
 
     def put(self, facts: ModelFacts) -> None:
         self._rows[(facts.tag, facts.digest)] = facts
+
+    def delete_tag(self, tag: str) -> None:
+        for key in [key for key in self._rows if key[0] == tag]:
+            del self._rows[key]
 
     def latest_per_tag(self) -> list[ModelFacts]:
         latest: dict[str, ModelFacts] = {}

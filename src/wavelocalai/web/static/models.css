@@ -162,3 +162,74 @@
 .wl-progress-bar::-moz-progress-bar {
   background: var(--color-primary);
 }
+
+/* Story 5.4 : « Décharger », « Supprimer » et les modèles proposés par défaut. */
+.models-actions {
+  display: grid;
+  gap: 1rem;
+}
+
+.models-unload-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-unload-box .help {
+  margin: 0;
+}
+
+/* « Supprimer » et sa raison visible (jamais en infobulle seule). */
+.models-delete-cell {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  min-width: 8rem;
+}
+
+.models-delete-cell .help {
+  margin: 0;
+}
+
+.models-default-model {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+
+.models-default-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+}
+
+.models-default-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.models-default-editor {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+
+/* « Usage » d'une ligne des défauts : un mot, jamais coupé au milieu. */
+.models-defaults .wl-table tbody th {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* Le sélecteur ouvert dans une cellule : sa liste s'ouvre dans la cellule (la zone du tableau, qui
+   défile, la rognerait si elle flottait). */
+.models-default-editor .wl-picker-popup {
+  position: static;
+  margin-top: 0.25rem;
+}
+
+.models-default-editor .wl-picker-listbox {
+  max-height: 16rem;
+}

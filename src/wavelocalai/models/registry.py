@@ -257,6 +257,18 @@ class ModelRegistry:
         """Force le prochain `list_models` à relire Ollama (après un `pull` ou une suppression)."""
         self._attempted_at = None
 
+    async def forget(self, tag: str, *, wait_s: float = 8.0) -> None:
+        """Un modèle supprimé du poste (story 5.4) : ses lignes `model_facts` sont purgées (il ne
+        réapparaît plus quand la liste est reconstruite sans Ollama), il quitte aussitôt la liste en
+        mémoire, puis Ollama est relu (au plus `wait_s`) pour que la liste soit juste à la réponse.
+        """
+        await asyncio.to_thread(self._facts.delete_tag, tag)
+        if self._local is not None:
+            self._local.pop(tag, None)
+        self.invalidate()
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self.refresh(), wait_s)
+
     def _ensure_task(self) -> asyncio.Task[None]:
         loop = asyncio.get_running_loop()
         task = self._task

@@ -15,7 +15,9 @@
 // - Cloud coupé alors qu'un modèle cloud est choisi : il est retiré, le composant le dit en texte
 //   et propose le défaut local.
 //
-// Attributs : `purpose` (défaut `chat`), `multi`, `label`. Propriétés : `values` (liste choisie),
+// Attributs : `purpose` (défaut `chat`), `multi`, `label`, `eligible-only` (ne propose que les
+// modèles éligibles à l'usage, liste du serveur dans les défauts : un modèle inéligible n'est pas
+// proposé plutôt que refusé à l'enregistrement, décision du 2026-10-19). Propriétés : `values` (liste choisie),
 // `value` (premier choix, ou ""), `loaded` (la liste est arrivée), `ollamaUp`, `localReadyCount`
 // (modèles locaux listés et disponibles, `null` avant la première liste). Événements :
 // `wl-model-change` (`detail.values`, le choix change) et `wl-models-loaded` (après chaque
@@ -34,7 +36,7 @@ let counter = 0;
 const FITS_RANK = (model) => (model.fits === true ? 0 : model.fits == null ? 1 : 2);
 
 export class WlModelPicker extends HTMLElement {
-  static observedAttributes = ["purpose", "label", "multi"];
+  static observedAttributes = ["purpose", "label", "multi", "eligible-only"];
 
   #uid = `wl-picker-${++counter}`;
   #known = new Map(); // tag -> modèle (cumulé : savoir l'origine d'un modèle qui disparaît de la liste)
@@ -311,7 +313,10 @@ export class WlModelPicker extends HTMLElement {
       Number(defaults.has(b.tag)) - Number(defaults.has(a.tag)) ||
       FITS_RANK(a) - FITS_RANK(b) ||
       a.name.localeCompare(b.name, "fr-FR");
-    const shown = this.#models.filter((model) => matchesQuery(model, this.#query));
+    const eligible = this.hasAttribute("eligible-only") ? new Set(this.#defaults?.eligible ?? []) : null;
+    const shown = this.#models.filter(
+      (model) => (eligible === null || eligible.has(model.tag)) && matchesQuery(model, this.#query),
+    );
     const local = shown.filter((model) => model.origin !== "cloud").sort(order);
     const cloud = store.get().allowCloud
       ? shown.filter((model) => model.origin === "cloud").sort(order)
@@ -439,7 +444,7 @@ export class WlModelPicker extends HTMLElement {
     if (!options.length) {
       empty.textContent = this.#query
         ? t("components.picker.empty", { query: this.#query })
-        : t("components.picker.none");
+        : t(this.hasAttribute("eligible-only") ? "components.picker.none_eligible" : "components.picker.none");
       input.removeAttribute("aria-activedescendant");
       live.textContent = empty.textContent;
       return;
