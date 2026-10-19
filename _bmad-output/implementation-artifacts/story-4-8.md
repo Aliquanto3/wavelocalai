@@ -26,12 +26,6 @@ deferred:
     location: src/wavelocalai/inference/memory_guard.py
     severity: medium
   - summary: >-
-      Arène locale : les lanes passent l'une après l'autre dans la place, et chacune est jugée contre la RAM libre **du moment**, alors que le modèle de la lane précédente reste chargé (Ollama le décharge de lui-même quand il manque de place). Sur un poste de 16 Go, une lane peut être refusée à tort après une grosse lane. Pistes : compter comme libre la mémoire des modèles chargés inactifs (mais « Décharger » perd alors son rôle), ou décharger le modèle précédent entre deux lanes.
-    evidence: |-
-      `inference/arena.py::_run_lane` (le garde-fou est appelé dans `_attempt`, à chaque lane).
-    location: src/wavelocalai/inference/arena.py
-    severity: medium
-  - summary: >-
       Écart §7(d) n° 13 (« message de `ram_guard` adapté à l'import »), non tranché : variante la plus conservatrice, **l'import et l'embedding ne sont pas gardés** (seul l'appel de génération l'est ; le modèle d'embedding est petit) et le message est celui du chat. Si Anaël veut un refus à l'import, il faut un texte propre (« Mémoire insuffisante pour indexer… ») et un `ram_guard` sur la feuille `embedding` d'`IngestService`.
     evidence: |-
       `inference/memory_guard.py` (docstring), `rag/embedding_leaf.py` (pas d'appel au garde-fou).
@@ -69,9 +63,9 @@ Avant toute génération locale (chat, lane d'Arène, réponse d'une question RA
 
 ## Règles écrites
 
-**Besoin chiffré** (`hardware/memory.py`). `needed_gb` du modèle (empreinte mesurée du catalogue, sinon taille du catalogue ou d'Ollama × 1,25) ; mémoire requise = `needed_gb × 1,1 + 0,5 Go`. Le modèle passe si requis ≤ mémoire disponible (psutil `available`). Un modèle présent dans `/api/ps` passe toujours. Un besoin inconnu ne bloque jamais.
+**Besoin chiffré** (`hardware/memory.py`). `needed_gb` du modèle (empreinte mesurée du catalogue, sinon taille du catalogue ou d'Ollama × 1,25) ; mémoire requise = `needed_gb × 1,1 + 0,5 Go`. Le modèle passe si requis ≤ mémoire disponible (psutil `available`), puis, à défaut, si requis ≤ mémoire disponible + mémoire des autres modèles chargés (inactifs : le garde-fou tient la place « Ollama local », et Ollama les décharge à la demande ; correctif de revue). Un modèle présent dans `/api/ps` passe toujours. Un besoin inconnu ne bloque jamais.
 
-**Modèle proposé.** Parmi les modèles de conversation locaux au besoin connu, autres que le modèle refusé : ceux qui passent (mêmes règles, déjà chargés compris), le plus gros besoin brut d'abord, puis l'ordre alphabétique du tag ; `null` s'il n'y en a aucun.
+**Modèle proposé.** Parmi les modèles de conversation locaux au besoin connu, au besoin brut inférieur à celui du modèle refusé (correctif de revue) : ceux qui passent (mêmes règles, déjà chargés compris), le plus gros besoin brut d'abord, puis l'ordre alphabétique du tag ; `null` s'il n'y en a aucun.
 
 ## Contrat laissé à la 4.5 (écran Discussion)
 
@@ -112,3 +106,21 @@ Le rendu de `ram_guard` est **déjà réutilisable** : l'écran Discussion n'éc
 
 - 2026-10-19 · dev : spec, code, tests unitaires, web, E2E (Edge) et intégration réelle verts ; déchargement réel limité à `qwen2.5:1.5b` chargé par le test (aucun autre modèle n'était chargé).
 - 2026-10-19 · décision de conception : un modèle listé par `/api/ps` a un besoin **nul** (et non « réduit à l'écart » par différence avec l'estimation) : la taille mesurée par Ollama est inférieure à l'estimation `taille × 1,25`, la différence aurait refusé un modèle prêt.
+
+## Revue
+
+Revue Opus du 2026-10-19 (une passe, liste du second avis Haiku reprise point par point).
+
+- high · second avis n° 1 · corrigé · Un modèle resté chargé (keep_alive) n'était pas compté comme récupérable : la lane d'Arène suivant une grosse lane, ou un chat qui change de modèle, était refusé à tort sur le poste de 16 Go (critère « aucun blocage à tort »). `MemoryGuard` ajoute à la mémoire libre celle des autres modèles de `/api/ps` (tous inactifs : le garde-fou tient la place « Ollama local », embeddings compris ; Ollama évince un modèle inactif à la demande) ; `free_gb` est cette mémoire-là. Tests `test_an_idle_loaded_model_counts_as_free_memory`, `test_a_refusal_counts_the_idle_models_in_the_free_memory`, `test_an_arena_lane_after_a_big_lane_is_not_refused_while_ollama_can_evict_it` (rouges sans le correctif). Report de l'Arène retiré des `deferred`.
+- medium · second avis n° 2 · corrigé · « Prendre un modèle plus petit » pouvait proposer un modèle chargé plus gros. `_largest_fitting` n'accepte qu'un besoin brut inférieur à celui du modèle refusé (`test_the_suggestion_is_never_bigger_than_the_refused_model`).
+- medium · second avis n° 3 · corrigé · Le sélecteur affichait le besoin brut (« 21,4 Go requis ») et le refus la mémoire à avoir de libre (× 1,1 + 0,5) pour le même modèle. `GET /api/models` expose `required_gb` (même calcul que `ram_guard.detail.needed_gb`, `FitAssessment.required_gb`), le sélecteur l'affiche ; `contrat-api.md` le dit. `test_registry`, E2E `test_picker`.
+- medium → low · second avis n° 4 · corrigé · `active_models()` photographié une fois avant la boucle de déchargement : relu avant chaque modèle (`test_unloading_rereads_the_active_runs_before_each_model`). Impact réel faible (un `keep_alive: 0` sur un modèle en cours ne coupe pas la génération dans Ollama, il le décharge à la fin), correctif d'une ligne.
+- medium → low · second avis n° 5 · rejeté · Décharger aussi les modèles d'autres clients du démon est le périmètre d'epics.md (« décharge les modèles Ollama sans run actif ») : l'app ne voit pas les autres clients. Le rechargement par `/api/generate` sans prompt n'arrive que si le modèle est évincé entre la lecture de `/api/ps` et l'appel (fenêtre de quelques millisecondes), et `keep_alive: 0` le décharge aussitôt.
+- low · second avis n° 6 · corrigé · Question renvoyée après un refus : deux messages `user` identiques consécutifs partaient au modèle. `ChatService._request` n'en garde qu'un (l'historique garde les deux envois). `test_a_question_resent_after_a_refusal_is_read_once_by_the_model`.
+- low · second avis n° 7 · rejeté · Inatteignable : la racine d'une Arène se termine en `ok` même si toutes ses lanes échouent, un `ram_guard` n'apparaît que dans un `wl-error` de `wl-arena-lane`, dont `tag` est défini.
+- low · second avis n° 8 · rejeté · `remaining_need_gb` et le paramètre `loaded_gb` de `shortfall_gb` restent testés et documentent la règle « besoin réduit à l'écart » du critère ; sans effet en production.
+- medium · revue · reporté · Sur Linux, les poids d'un modèle chargé par `mmap` sont en partie dans le cache de pages, déjà compté par psutil `available` : ajouter leur taille peut surestimer la mémoire libre (garde-fou plus permissif, jamais un refus à tort). Sous Windows (persona), une page mappée en mémoire de travail n'est pas « disponible » : pas de double compte. Vérification à faire sur un poste Linux de 16 Go : charger un 7B, lire `available` avant et après, puis lancer un 4B à mémoire juste.
+- low · revue · reporté · Dans un refus, « Décharger les modèles inactifs » ne change plus la décision du garde-fou (leur mémoire est déjà comptée) ; le bouton reste exigé par le critère et utile hors refus (écran Modèles). À trancher avec Anaël : garder le bouton, ou le masquer quand aucun modèle inactif n'est chargé.
+- Complexité : 0 constat. `active_models()` parcourt les runs actifs à chaque modèle déchargé (runs retirés à la fin, clic manuel) ; `memory_needs()` parcourt la liste des modèles une fois par génération locale.
+
+Tests après correctifs : `pytest tests/v2` 921 passés, 1 sauté ; E2E Edge `-m e2e -k "chat or arena or memory or picker"` 108 passés ; intégration `-m integration -k memory` : étapes 1 et 2 vertes contre Ollama réel, étape 3 (déchargement) sautée car `qwen2.5:1.5b` était déjà chargé par un autre processus (aucun modèle déchargé par la revue) ; contrôle rapide propre.

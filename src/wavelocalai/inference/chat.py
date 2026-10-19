@@ -154,8 +154,17 @@ class ChatService:
 
     async def _request(self, handle: RunHandle, temperature: float) -> ChatRequest:
         """Toute la conversation, le message qui vient d'être écrit compris. Un message assistant
-        vide (run annulé avant le premier jeton) est écarté."""
+        vide (run annulé avant le premier jeton) est écarté, ainsi qu'une question restée sans
+        réponse que la personne a renvoyée telle quelle (refus `ram_guard`, story 4.8) : le modèle
+        ne la lit qu'une fois."""
         assert handle.conversation_id is not None
         stored = await self._hub.conversation_messages(handle.conversation_id)
-        messages = [ChatMessage(m.role, m.content) for m in stored if m.content]  # type: ignore[arg-type]
+        messages: list[ChatMessage] = []
+        for m in stored:
+            if not m.content:
+                continue
+            message = ChatMessage(m.role, m.content)  # type: ignore[arg-type]
+            if message.role == "user" and messages and messages[-1] == message:
+                continue  # la même question, renvoyée après un échec sans réponse
+            messages.append(message)
         return ChatRequest(messages=messages, temperature=temperature)

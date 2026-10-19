@@ -278,3 +278,55 @@ async def test_unloading_says_ollama_is_down():
         await unload_idle_models(HOST, dict, transport=httpx.MockTransport(refuse))
     assert raised.value.code == "ollama_down"
     assert await unload_model(HOST, "a:1b", transport=httpx.MockTransport(refuse)) is False
+
+
+# --- Revue : modèles inactifs, suggestion plus petite, déchargement relu -----------------------
+
+
+async def test_an_idle_loaded_model_counts_as_free_memory():
+    """`a:7b` reste chargé (keep_alive) après la lane ou le chat précédent : Ollama l'évincera pour
+    `b:4b`. 3,0 Go libres + 5,0 Go inactifs couvrent les 4,9 Go requis : aucun refus à tort."""
+    ps = Ps(LoadedModel("a:7b", size_gb=5.0, vram_gb=0.0))
+    needs = Needs(ModelNeed("a:7b", "chat", 6.0), ModelNeed("b:4b", "chat", 4.0))
+    await guard(needs, 3.0, ps).check(local("b:4b"))
+    assert ps.reads == 1
+
+
+async def test_a_refusal_counts_the_idle_models_in_the_free_memory():
+    # 1,0 Go libre + 2,0 Go inactifs (MID) = 3,0 Go : BIG (5,12 Go) ne tient toujours pas.
+    ps = Ps(LoadedModel(MID.tag, size_gb=2.0, vram_gb=0.0))
+    with pytest.raises(AppError) as raised:
+        await guard(Needs(BIG, MID, SMALL), 1.0, ps).check(local(BIG.tag))
+    assert raised.value.detail == {"needed_gb": 5.2, "free_gb": 3.0, "suggested_model": MID.tag}
+
+
+async def test_the_suggestion_is_never_bigger_than_the_refused_model():
+    """Un modèle chargé tient toujours, mais « Prendre un modèle plus petit » ne propose jamais un
+    modèle au besoin supérieur ou égal à celui du modèle refusé."""
+    huge = ModelNeed("huge:32b", "chat", 20.0)
+    ps = Ps(LoadedModel(huge.tag, size_gb=0.5, vram_gb=0.0))  # chargé (mesure basse)
+    with pytest.raises(AppError) as raised:
+        await guard(Needs(huge, BIG, SMALL), 0.8, ps).check(local(BIG.tag))
+    assert raised.value.detail["suggested_model"] == SMALL.tag  # 0,8 + 0,5 Go : SMALL tient
+    # Rien de plus petit ne tient : aucune proposition plutôt qu'un modèle plus gros.
+    with pytest.raises(AppError) as raised:
+        await guard(Needs(huge, BIG), 0.5, ps).check(local(BIG.tag))
+    assert raised.value.detail["suggested_model"] is None
+
+
+async def test_unloading_rereads_the_active_runs_before_each_model():
+    """Un run lancé pendant la boucle (après le premier déchargement) garde son modèle."""
+    transport, calls = _ollama(["a:1b", "b:2b"])
+    busy: dict[str, str] = {}
+
+    def active() -> dict[str, str]:
+        snapshot = dict(busy)
+        busy["b:2b"] = "run-late"  # le run démarre juste après la première lecture
+        return snapshot
+
+    report = await unload_idle_models(
+        HOST, active, reader=reader(5.0), transport=transport, settle_s=0.1
+    )
+    assert report.unloaded == ["a:1b"]
+    assert report.kept == [{"tag": "b:2b", "run_id": "run-late"}]
+    assert all(body["model"] != "b:2b" for _, body in calls)

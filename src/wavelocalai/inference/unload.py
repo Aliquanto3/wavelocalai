@@ -44,11 +44,13 @@ async def unload_idle_models(
     loaded = await loaded_models(host, timeout_s=2.0, transport=transport)
     if loaded is None:
         raise AppError("ollama_down", "Ollama ne répond pas à /api/ps.")
-    busy = active_models()
     unloaded: list[str] = []
     kept: list[dict[str, str]] = []
     failed: list[str] = []
     for model in loaded:
+        # Relu à chaque modèle : un run lancé pendant la boucle (un déchargement peut durer) garde
+        # le sien.
+        busy = active_models()
         if model.tag in busy:
             kept.append({"tag": model.tag, "run_id": busy[model.tag]})
         elif await unload_model(host, model.tag, transport=transport):

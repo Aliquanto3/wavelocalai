@@ -288,3 +288,90 @@ async def test_unload_says_ollama_is_down_with_the_standard_envelope(served):
     response = await client.post("/api/models/unload")
     assert response.status_code == 503
     assert response.json()["code"] == "ollama_down"
+
+
+# --- Revue : lane précédente encore chargée, question renvoyée ----------------------------------
+
+
+class _Loading(FakeChatModel):
+    """Modèle simulé qui reste chargé après sa réponse (keep_alive d'Ollama) : il entre dans
+    `/api/ps` et la mémoire libre du poste baisse d'autant."""
+
+    def __init__(self, tag: str, size_gb: float, ps: list[LoadedModel], *words: str) -> None:
+        super().__init__([TextDelta(w) for w in words], ModelRef(tag, "fake", "local", "chat"))
+        self._size, self._ps = size_gb, ps
+
+    async def stream(self, request):
+        self._ps.append(LoadedModel(self.ref.tag, size_gb=self._size, vram_gb=0.0))
+        async for chunk in super().stream(request):
+            yield chunk
+
+
+async def test_an_arena_lane_after_a_big_lane_is_not_refused_while_ollama_can_evict_it(tmp_path):
+    """Poste de 7,5 Go libres : la lane `big:7b` (7,1 Go requis) passe et reste chargée (5,0 Go) ;
+    la lane suivante `mid:4b` (4,9 Go requis) ne voit que 2,5 Go libres, mais Ollama évincera
+    `big:7b`, inactif : elle passe aussi."""
+    config = make_settings(tmp_path, environ={"WAVELOCALAI_TESTING": "1"})
+    ps: list[LoadedModel] = []
+    big = _Loading("big:7b", 5.0, ps, "Grande")
+    mid = _Loading("mid:4b", 3.6, ps, "Moyenne")
+    refs = [*fake_models(config).values(), *fake_embedders(config).values(), big, mid]
+    registry = ModelRegistry(config, extra_refs={m.ref.tag: m.ref for m in refs})
+    app = create_app(config, registry=registry)
+    app.state.models.update({m.ref.tag: m for m in (big, mid)})
+    needs = [ModelNeed("big:7b", "chat", 6.0), ModelNeed("mid:4b", "chat", 4.0)]
+
+    class Needs:
+        def memory_needs(self):
+            return list(needs)
+
+    async def loaded():
+        return list(ps)
+
+    def memory():
+        return MemoryReading(total_gb=16.0, available_gb=7.5 - sum(m.size_gb for m in ps))
+
+    app.state.memory_guard = MemoryGuard(Needs(), config.ollama.host, reader=memory, loaded=loaded)
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=BASE) as client:
+            response = await client.post(
+                "/api/arena/runs",
+                json={"models": ["big:7b", "mid:4b"], "prompt": "Q ?", "allow_cloud": False},
+            )
+            assert response.status_code == 200, response.text
+            run_id = response.json()["run_id"]
+            await _wait_ended(client, run_id, timeout=5.0)
+            events = await _events_of(client, run_id)
+    ends = {
+        e["data"]["lane"]: e["data"]["status"]
+        for e in events
+        if e["type"] == "lane_status" and e["data"]["status"] in ("failed", "done")
+    }
+    assert ends == {"big:7b": "done", "mid:4b": "done"}, events
+
+
+async def test_a_question_resent_after_a_refusal_is_read_once_by_the_model(tmp_path):
+    """Refus `ram_guard`, puis la personne prend le modèle proposé et renvoie sa question : le
+    modèle ne la lit qu'une fois (l'historique, lui, garde les deux envois)."""
+    server = ollama(plans=[Plan([part("Réponse"), final()])])
+    async with chat_app(tmp_path, server) as (app, client):
+        first = (await _chat(client, "big:7b", "Ma question")).json()
+        await _wait_ended(client, first["run_id"])
+        again = await client.post(
+            "/api/chat/runs",
+            json={
+                "model": "mid:2b",
+                "message": "Ma question",
+                "temperature": 0.2,
+                "allow_cloud": False,
+                "conversation_id": first["conversation_id"],
+            },
+        )
+        assert again.status_code == 200, again.text
+        assert (await _wait_ended(client, again.json()["run_id"]))["status"] == "ok"
+        sent = server.chat_requests[-1]["messages"]
+        assert [(m["role"], m["content"]) for m in sent] == [("user", "Ma question")]
+        conversation = (await client.get(f"/api/conversations/{first['conversation_id']}")).json()
+        users = [m["content"] for m in conversation["messages"] if m["role"] == "user"]
+        assert users == ["Ma question", "Ma question"]

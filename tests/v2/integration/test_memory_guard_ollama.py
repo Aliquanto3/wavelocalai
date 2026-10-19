@@ -112,12 +112,20 @@ async def test_real_ps_a_loaded_model_is_never_blocked_and_an_unloaded_one_is(
             else:  # d'autres modèles servent peut-être : on ne décharge que le nôtre
                 assert await unload_model(host, TAG)
             await _wait_unloaded(host)
+            # Les modèles chargés par d'autres comptent comme libres (Ollama évince un modèle
+            # inactif à la demande) : avec eux, le refus n'est plus garanti.
+            others = await loaded_models(host, timeout_s=3.0) or []
+            idle_gb = sum(model.size_gb for model in others if model.tag != TAG)
             events = await _ended_events(client, "Réponds par un seul mot : salut.")
             ended = events[-1]["data"]
+            if idle_gb and ended["status"] == "ok":
+                pytest.skip(f"{idle_gb:.1f} Go de modèles inactifs suffisent : aucun refus")
             assert ended["status"] == "error", ended
             error = ended["error"]
             assert error["code"] == "ram_guard"
-            assert error["detail"]["free_gb"] == 0.1
+            assert error["detail"]["free_gb"] >= 0.1  # libre + modèles inactifs
+            if not idle_gb:
+                assert error["detail"]["free_gb"] == 0.1
             assert error["detail"]["needed_gb"] > 0.1
             assert error["message"].startswith("Mémoire insuffisante : ")
             assert error["detail"]["suggested_model"] != TAG

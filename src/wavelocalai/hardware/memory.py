@@ -34,6 +34,12 @@ class FitAssessment:
     fits: bool | None
     available_gb: float
 
+    @property
+    def required_gb(self) -> float | None:
+        """Mémoire à avoir de libre (`required_gb`, arrondie au dixième supérieur) : le chiffre
+        « requis » du sélecteur, le même que les « nécessaires » d'un refus `ram_guard`."""
+        return None if self.needed_gb is None else ceil_tenth(required_gb(self.needed_gb))
+
 
 def read_memory() -> MemoryReading:
     """Mémoire vive totale et disponible, lues par psutil."""
