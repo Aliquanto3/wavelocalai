@@ -25,11 +25,8 @@ export const TEXT_FILES = [
   "arena",
   "models",
   "sobriety",
-<<<<<<< HEAD
-  "agents",
-=======
   "evaluation",
->>>>>>> origin/master
+  "agents",
 ];
 
 let texts = {};

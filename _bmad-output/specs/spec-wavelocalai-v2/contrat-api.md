@@ -126,14 +126,13 @@ Noms de champs fixés par la story serveur 7.1 (décision du 2026-10-19, écart 
 - **Brouillon invalide** : adresse sans `@`, plusieurs destinataires (virgule, point-virgule, espace, chevrons), saut de ligne dans l'adresse ou l'objet (injection d'en-tête), objet de plus de 200 ou corps de plus de 10 000 caractères = `tool_result` en échec **sans** demande de validation. Un message qui contient une valeur secrète de la configuration (mot de passe SMTP, clé d'API) est refusé de même : le texte montré serait masqué, donc différent de celui envoyé.
 - **Envoi** (`agents/outbox.py`, seul module SMTP) : texte brut UTF-8, `From` = `SMTP_USER`, STARTTLS exigé (TLS implicite sur le port 465) avant d'envoyer le mot de passe ; seul un serveur local (`127.0.0.1`, `localhost`, `::1`) peut s'en passer. Échecs en `tool_result` (`failed: true`, sans le mot de passe) : authentification refusée, destinataire refusé, serveur injoignable ou sans chiffrement, délai de 30 s. Le mot de passe SMTP reste un secret masqué partout (événements, étapes, instantané, résultats rendus au modèle).
 
-<<<<<<< HEAD
 ### Agents (story 6.4)
 
 - **Totaux d'une tâche** (AD-20) : l'instantané `GET /api/runs/{id}` d'un run `agent` porte `totals {turns, steps, duration_s, co2}` : `turns` = appels de modèle (feuilles `generation`), `steps` = événements `step` publiés, `duration_s` = de `started_at` à `ended_at` (`null` tant que la tâche tourne), `co2` = somme des feuilles, au format du champ `co2` (AD-10) : `unmeasurable` (`mg: null`, `reason`) dès qu'une feuille n'est pas mesurée, jamais une somme partielle ; `estimated` si une feuille l'est ; `null` sans feuille. Le pied de la réponse de l'écran Agent seul le lit à `run_ended` et le met en forme, sans rien additionner (D-31).
 - **Réponse en un bloc** : variante conservatrice de la 6.1 gardée ; l'écran le dit (« La réponse de l'agent s'affiche d'un bloc, à la fin de sa dernière étape ») et `wl-run-status` annonce « Réflexion… » pendant l'attente.
 - **Route de test** : `POST /api/test/chat-model` (et `POST /api/test/runs`) accepte l'étape de script `{"tool_call": {"id", "name", "arguments"}}`, un script par appel de modèle dans `scripts`.
 - **Lectures et commandes de l'écran** : `GET /api/agents/tools`, `GET /api/models/defaults?purpose=agent`, `POST /api/agents/runs`, `POST /api/runs/{id}/approvals/{approval_id}`, `GET /api/runs/{id}` (totaux), `GET /api/conversations/{id}.md` (« Télécharger », sans `blob:`), `DELETE /api/conversations/{id}`.
-=======
+
 ### Modèles : installation (story 5.3)
 
 Ajouts de la story 5.3 à ce fichier, dans leur propre sous-section (les autres stories des Modèles y ajoutent la leur).
@@ -153,7 +152,6 @@ Ajouts de la story 5.4 à ce fichier, dans leur propre sous-section.
 - `DELETE /api/models/defaults/{purpose}` (`204`, idempotent) : « Revenir au choix automatique », efface la préférence. Déclarée avant `DELETE /api/models/{tag}`, dont le chemin l'avalerait.
 - `DELETE /api/models/{tag}` (écriture, `Origin` contrôlée ; `tag` avec ses `/`, `hf.co/utilisateur/depot:Q4`) rend `{tag, freed_gb, reverted: [purpose]}` : le modèle est déchargé s'il l'était, supprimé par Ollama (`DELETE /api/delete`, `404` d'Ollama = déjà fait), ses lignes `model_facts` sont purgées (il ne réapparaît pas à un démarrage à froid sans Ollama), il quitte la liste (un modèle du catalogue y revient), et les usages dont il était le défaut choisi reviennent à la règle automatique (`reverted`, la préférence est effacée : réinstallé, il ne redevient pas défaut sans un nouveau geste). `freed_gb` est sa taille dans la liste. Publie aussitôt un `system_state`. Refus : `409 model_in_use` (`detail.tag`, `detail.run_id` : un run racine ou feuille actif l'emploie, y compris un run lancé pendant la suppression : le contrôle est refait avant l'appel d'Ollama), `404 model_not_found` (tag inconnu, cloud ou distant), `503 ollama_down`, `502 model_delete_failed` (`detail.tag`, `detail.technical` : ce qu'Ollama a répondu ; la liste est inchangée). Jamais appelée par une lecture ni au démarrage.
 - Codes d'erreur ajoutés à `errors.py` (en fin de liste) : `model_in_use` (409), `model_not_eligible` (422), `model_delete_failed` (502).
->>>>>>> origin/master
 
 ## Par écran
 
