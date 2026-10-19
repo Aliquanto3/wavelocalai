@@ -371,3 +371,41 @@ async def test_a_refused_recipient_and_an_unreachable_server_are_failed_results(
             assert (await _finished(client, run_id))["status"] == "ok"
             events = await _events(app, run_id)
     assert "injoignable" in _result(events)["summary"] and smtp.connections == 0
+
+
+async def test_a_crew_agent_asks_for_the_same_approval_as_a_single_agent(tmp_path):
+    """Point d'intégration 6.3 / 6.5 : la boucle d'un agent d'équipe porte les actions sensibles."""
+    crews = {
+        "version": 1,
+        "crews": {
+            "courrier": {
+                "label": "Courrier",
+                "agents": [{"role": "Courrier", "goal": "Écrire", "tools": ["send_email"]}],
+            }
+        },
+    }
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "agent_crews.json").write_text(json.dumps(crews), encoding="utf-8")
+    async with mail_app(tmp_path) as (app, client, smtp):
+        model = turns(app, [call("c1", "send_email", **ARGS)], ["Rapport : email parti."])
+        body = {"mode": "crew", "crew": "courrier", "topic": "Sujet", "model": "fake:1b"}
+        started = await client.post("/api/agents/runs", json={**body, "allow_cloud": False})
+        assert started.status_code == 200, started.text
+        run_id = started.json()["run_id"]
+        required = (await _wait_for(app, run_id, "approval_required"))["data"]
+        assert required["destinataire"] == ARGS["to"] and smtp.messages == []
+        snapshot = (await client.get(f"/api/runs/{run_id}")).json()
+        assert snapshot["status"] == "awaiting_approval"
+        answered = await _answer(client, run_id, required["approval_id"], "approved")
+        assert answered.status_code == 200
+        snapshot = await _finished(client, run_id)
+        events = await _events(app, run_id)
+
+    assert snapshot["status"] == "ok" and len(smtp.messages) == 1
+    assert any(
+        e["type"] == "step"
+        and e["data"].get("agent") == "Courrier"
+        and e["data"]["kind"] == "tool_result"
+        for e in events
+    )
+    assert model.requests

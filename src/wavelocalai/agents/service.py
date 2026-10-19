@@ -191,6 +191,7 @@ class AgentService:
                     meter=self._meter,
                     guard=self._guard,
                     announce=self._announce_carbon,
+                    actions=build_actions(self._settings),
                 ),
                 sample_s=cfg.memory_sample_s,
                 result_chars=cfg.result_chars,
