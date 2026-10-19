@@ -154,3 +154,16 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 02:01 · run · report · `test_topbar.py::test_a_restarted_server_is_announced_with_a_reload_button` instable sous charge (4 fois cette nuit, vert seul) : à stabiliser en 8.1 · —
 - 2026-10-19 02:04 · 4.4 · contrôles · verts (862 v2, 172 E2E, 8 integration, 1286 v1) ; PR ouverte · eea4abc
 - 2026-10-19 02:21 · 4.2 · contrôles · verts (832 v2, 202 E2E, 7 integration, 1286 v1) ; PR ouverte · 7e5a119
+- 2026-10-19 02:41 · 3.2 · fusion master · master (4.1) fusionné, fichiers d'état en conflit seulement ; 824 v2, 36 E2E Arène ; poussé · 5f90bc7
+- 2026-10-19 02:41 · 4.2 · CI · rouge macOS (test d'annulation web de la 4.1, même course) ; test corrigé et poussé · daa31c6
+- 2026-10-19 02:41 · 1.12 · contrôles · verts (821 v2, 196 E2E, 7 integration, 1286 v1) · 1cdca6a
+- 2026-10-19 02:55 · 3.2 · fusion · PR #62 fusionnée · cc37f7b
+- 2026-10-19 02:55 · run · décision · après une fusion de master sans conflit de code (fichiers d'état seulement), suite v2 + E2E de l'écran touché en local, la CI couvre les 3 systèmes ; `checks.sh` complet si un conflit de code est résolu · —
+- 2026-10-19 02:56 · 3.3 · fusion master · 3.2 ajustée : conflits de fond (`arena.js` 659 lignes, `arena.css`, tests, contrat) confiés au dev avec l'ajustement « Choisissez un juge » (Sonnet high) · —
+- 2026-10-19 02:59 · 4.4 · fusion master · 3.2 fusionnée, fichiers d'état seulement ; 874 v2 ; poussé · 5e087cf
+- 2026-10-19 03:13 · 3.3 · fusion master · fusion résolue (arena.js 600 lignes : `arena-form.js`, `arena-summary.js`) · d5f6ff0
+- 2026-10-19 03:13 · 3.3 · dev · ajustement « Choisissez un juge », juge dans le résumé ; 865 v2, 55 E2E Arène, integration juge · 18e4824
+- 2026-10-19 03:13 · 3.3 · second-avis · lancé (Haiku), fusion et ajustement · —
+- 2026-10-19 03:14 · 4.4 · fusion · PR #64 fusionnée · 4635302
+- 2026-10-19 03:15 · run · décision · ordre de l'Epic 4 : 4.8 maintenant, 4.5 après fusion de 4.2, puis 4.6 et 4.7 (leur partie écran vit dans la Discussion de 4.5) · —
+- 2026-10-19 03:16 · 4.8 · dev · lancé (Sonnet high, worktree v2-4-8, depuis master 4635302) · —

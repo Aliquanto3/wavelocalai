@@ -101,6 +101,8 @@ export const api = {
   startChat: (body) => request("/api/chat/runs", { method: "POST", body }),
   // Documents de la base (tous statuts), totaux des prêts et plafonds d'un import.
   documents: () => request("/api/rag/documents"),
+  // Lance une comparaison de 2 à 4 modèles ; `allow_cloud` vient du store, sur chaque commande (AD-9).
+  startArena: (body) => request("/api/arena/runs", { method: "POST", body }),
   // Conversations (AD-5, AD-13) : les plus récentes d'un genre, une conversation, son effacement,
   // et l'adresse de ses exports (`json`, `md`), téléchargés par un lien et non par `fetch`.
   conversations: (kind, limit = 1) =>
