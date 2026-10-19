@@ -232,3 +232,22 @@ def test_without_the_extension_the_store_says_so_and_numpy_serves_the_search(tmp
         assert not [t for t in _tables(opened) if t.startswith("chunks_vec")]
     finally:
         opened.close()
+
+
+def test_clear_empties_the_index_and_keeps_it_usable(store, index):
+    _fill(store, index)
+    store.write(lambda conn: index.clear(conn)).result()
+    conn = sqlite3.connect(store.path)
+    try:
+        assert index.count(conn) == 0 if isinstance(index, NumpyIndex) else True
+    finally:
+        conn.close()
+    assert _search(store, index, "le chat dort") == []
+    if isinstance(index, SqliteVecIndex):  # la table vec0 est recréée, vide
+        assert "chunks_vec_16" in _tables(store)
+    _fill(store, index, ids=(1, 3))
+    assert {i for i, _ in _search(store, index, "le chat dort")} == {1, 3}
+
+
+def test_only_the_sqlite_vec_index_is_persistent():
+    assert SqliteVecIndex.persistent is True and NumpyIndex.persistent is False

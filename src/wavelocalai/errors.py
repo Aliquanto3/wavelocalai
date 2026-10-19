@@ -217,6 +217,36 @@ _SPECS = (
         "Cet extrait n'existe plus : son document a été supprimé ou réindexé.",
         "Relancez la question pour obtenir des extraits à jour.",
         ("chunk_id",),
+    ),  # --- gestion de la base documentaire (story 4.3) ---
+    ErrorSpec(
+        "embedding_change_needs_clear",
+        409,
+        "Changer de modèle d'embedding rendrait inutilisables les extraits déjà indexés.",
+        "Videz d'abord la base documentaire, puis enregistrez le nouveau modèle et réimportez "
+        "vos documents.",
+        ("current", "requested"),
+    ),
+    ErrorSpec(
+        "base_count_stale",
+        409,
+        "La base documentaire a changé depuis son dernier affichage : rien n'a été supprimé.",
+        "Relisez le contenu de la base, puis demandez de nouveau à la vider.",
+        ("expected", "actual"),
+    ),
+    ErrorSpec(
+        "base_in_use",
+        409,
+        "Un import ou une question utilise la base documentaire : rien n'a été modifié.",
+        "Attendez la fin de l'import ou de la réponse (ou arrêtez-la), puis recommencez.",
+        ("run_id", "kind"),
+    ),
+    ErrorSpec(
+        "vector_index_lost",
+        409,
+        "Les vecteurs de la base documentaire ne sont plus en mémoire : sqlite-vec n'est pas "
+        "disponible sur ce poste, et l'index de repli est perdu à chaque redémarrage.",
+        "Videz la base documentaire et réimportez vos documents, ou utilisez une version de "
+        "Python qui charge sqlite-vec pour que la base survive aux redémarrages.",
     ),
 )
 ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
