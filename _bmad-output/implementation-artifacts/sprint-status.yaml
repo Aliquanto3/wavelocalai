@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 06:43
+last_updated: 10-19-2026 07:08
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -65,7 +65,7 @@ development_status:
   3-2-l-écran-arène-affiche-les-colonnes-en-flux: done
   3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: done
   3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: done
-  3-5-le-verdict-local-cloud-est-chiffré: backlog
+  3-5-le-verdict-local-cloud-est-chiffré: in-progress
   3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: backlog
   epic-3-retrospective: optional
 
@@ -77,11 +77,12 @@ development_status:
   4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: in-progress
   4-6-chercher-autrement-hyde-self-rag-et-citer-ses-sources: backlog
   4-7-reclasser-les-extraits-avec-un-reranker-local-s-il-est-là: backlog
-  4-8-le-garde-fou-mémoire-chiffre-le-besoin-réel-et-garde-la-ques: in-progress
+  4-8-le-garde-fou-mémoire-chiffre-le-besoin-réel-et-garde-la-ques: done
   4-9-jouer-le-flow-2-de-bout-en-bout-et-clore-le-mvp-préversion-2: backlog
   epic-4-retrospective: optional
 
   epic-5: backlog
+  5-0-découper-les-fichiers-partagés-du-front: backlog
   5-1-l-écran-sobriété-montre-la-machine-et-la-session-en-direct: backlog
   5-2-retrouver-l-historique-carbone-et-ouvrir-une-nouvelle-sessio: backlog
   5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: backlog
