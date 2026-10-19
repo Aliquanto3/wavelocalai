@@ -161,7 +161,13 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
         and sobriety.get_attribute("aria-disabled") is None
     )
 
-    for index in (3, 5):  # Agents et Modèles : à venir
+    agents = links.nth(3)  # Agents : disponible depuis la story 6.4 (Agent seul)
+    assert (
+        agents.get_attribute("href") == "#/agents/seul"
+        and agents.get_attribute("aria-disabled") is None
+    )
+
+    for index in (5,):  # Modèles : à venir
         link = links.nth(index)
         assert link.evaluate("el => el.tagName") == "A"
         assert link.get_attribute("href") is None
@@ -172,7 +178,7 @@ def test_six_modules_planned_ones_are_disabled_focusable_links_with_a_visible_re
             "el => document.getElementById(el.getAttribute('aria-describedby')).innerText"
         )
         assert reason == PLANNED_REASON
-    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 4
+    assert shell.get_by_text(PLANNED_REASON).filter(visible=True).count() == len(MODULES) - 5
 
 
 # Les routes de la maquette (D-8) sont `planned` : taper l'adresse renvoie à l'Accueil.

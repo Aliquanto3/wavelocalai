@@ -9,7 +9,9 @@ d'étapes, chacune un objet à une clé principale :
 - `{"load": "loading" | "loaded", "duration_s": 0.1}` : l'état de chargement ;
 - `{"fail": "<code d'errors.py>", "technical": "…", "detail": {…}}` : une `ProviderError`, avec
   les clés machine déclarées avec son code (`ram_guard` : `needed_gb`, `free_gb`, …) ;
-- `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un).
+- `{"done": {…champs de ChatResult…}}` : le résultat final (sinon le `fake` en émet un) ;
+- `{"tool_call": {"id": "…", "name": "…", "arguments": {…}}}` : un appel d'outil du modèle (agents,
+  story 6.4) ; un script par appel de modèle se donne par `scripts` (`POST /api/test/chat-model`).
 
 `POST /api/test/embedder` règle le `FakeEmbedder` de la même façon (story 4.2).
 `POST /api/test/chat-model` fixe le script du `fake` pour les prochaines commandes réelles
@@ -54,6 +56,7 @@ from wavelocalai.models.port import (
     LoadState,
     ModelRef,
     TextDelta,
+    ToolCall,
 )
 from wavelocalai.models.registry import ModelRegistry
 from wavelocalai.rag.rerank import FakeReranker
@@ -96,10 +99,13 @@ def parse_script(items: list[dict[str, Any]]) -> list[Step]:
                 )
             elif "done" in item:
                 steps.append(Done(ChatResult(**item["done"])))
+            elif "tool_call" in item:
+                call = item["tool_call"]
+                steps.append(ToolCall(str(call["id"]), str(call["name"]), dict(call["arguments"])))
             else:
                 raise ValueError("étape inconnue")
-        except (ValueError, TypeError) as exc:
-            raise AppError("invalid_request", f"script[{index}] : {exc}") from None
+        except (ValueError, TypeError, KeyError) as exc:
+            raise AppError("invalid_request", f"script[{index}] : {exc!r}") from None
     return steps
 
 

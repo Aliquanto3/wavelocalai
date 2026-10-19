@@ -75,3 +75,17 @@
 .switch input:checked ~ .switch-check {
   opacity: 1;
 }
+
+/* Indisponible (D-6, DESIGN.md) : `aria-disabled` (focalisable, la bascule est refusée par le script),
+   piste en pointillés `line`, libellé `ink-secondary` ; la raison reste en légende visible. */
+.switch:has(input[aria-disabled="true"]) {
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.switch input[aria-disabled="true"] {
+  border-style: dashed;
+  border-color: var(--color-gray-graphic);
+  background: var(--color-surface-alt);
+  cursor: not-allowed;
+}

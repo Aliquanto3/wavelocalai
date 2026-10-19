@@ -1,7 +1,11 @@
 // <wl-confirm-dialog> (UX-DR12, AD-20) : confirmation d'une action destructrice dans un `<dialog>`
 // natif. Titre en question, conséquence chiffrée, focus sur « Annuler » (jamais sur l'action).
 //
-//   const confirmed = await dialog.ask({ title, consequence, confirmLabel, cancelLabel? });
+//   const confirmed = await dialog.ask({ title, consequence, confirmLabel, cancelLabel?, details? });
+//
+// `details` (facultatif) : `[{ label, value, long? }]`, ce que la personne valide, sous le titre
+// (destinataire, objet, corps d'un email, story 6.4) ; une valeur `long` est en lecture seule,
+// défilable au clavier. `consequence` vient après, en rappel.
 //
 // `ask` rend `true` (confirmé) ou `false` (« Annuler », Échap, `close()`). Le message de résultat,
 // au même verbe que le bouton de confirmation, est affiché par l'appelant. Le focus revient à
@@ -25,6 +29,8 @@ export class WlConfirmDialog extends HTMLElement {
     dialog.setAttribute("aria-describedby", `${id}-consequence`);
     const title = element("h2", "wl-dialog-title");
     title.id = `${id}-title`;
+    const details = element("div", "wl-dialog-details");
+    details.hidden = true;
     const consequence = element("p", "wl-dialog-consequence");
     consequence.id = `${id}-consequence`;
     const actions = element("div", "wl-dialog-actions");
@@ -33,9 +39,9 @@ export class WlConfirmDialog extends HTMLElement {
     const confirm = element("button", "btn wl-dialog-confirm");
     confirm.type = "button";
     actions.append(cancel, confirm);
-    dialog.append(title, consequence, actions);
+    dialog.append(title, details, consequence, actions);
     this.replaceChildren(dialog);
-    this.#dom = { dialog, title, consequence, cancel, confirm };
+    this.#dom = { dialog, title, details, consequence, cancel, confirm, id };
 
     cancel.addEventListener("click", () => this.#close(false));
     confirm.addEventListener("click", () => this.#close(true));
@@ -55,10 +61,11 @@ export class WlConfirmDialog extends HTMLElement {
     if (this.#dom?.dialog.open || this.#resolve) this.#close(value);
   }
 
-  ask({ title, consequence, confirmLabel, cancelLabel }) {
+  ask({ title, consequence, confirmLabel, cancelLabel, details = [] }) {
     this.connectedCallback();
     const { dialog, title: heading, consequence: text, cancel, confirm } = this.#dom;
     heading.textContent = title;
+    this.#showDetails(details);
     text.textContent = consequence ?? "";
     cancel.textContent = cancelLabel ?? t("components.confirm.cancel");
     confirm.textContent = confirmLabel;
@@ -69,6 +76,26 @@ export class WlConfirmDialog extends HTMLElement {
       if (!dialog.open) dialog.showModal();
       cancel.focus();
     });
+  }
+
+  #showDetails(details) {
+    const { details: list, id } = this.#dom;
+    list.hidden = details.length === 0;
+    list.replaceChildren(
+      ...details.map(({ label, value, long = false }, index) => {
+        const term = element("p", "wl-dialog-term", label);
+        term.id = `${id}-term-${index}`;
+        const body = element("div", long ? "wl-dialog-value wl-dialog-long" : "wl-dialog-value", value);
+        if (long) {
+          body.tabIndex = 0; // une zone qui défile se lit au clavier
+          body.setAttribute("role", "group");
+          body.setAttribute("aria-labelledby", term.id);
+        }
+        const field = element("div", "wl-dialog-field");
+        field.append(term, body);
+        return field;
+      }),
+    );
   }
 
   #close(value) {
