@@ -7,6 +7,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from wavelocalai.errors import error_texts
 from wavelocalai.web.app import create_app
 from wavelocalai.web.routes_static import STATIC_DIR, module_graph, render_index, text_catalog
 
@@ -104,6 +105,7 @@ def test_texts_are_served_as_one_document_made_of_the_files_per_screen(client):
     expected = {}
     for path in sorted((STATIC_DIR / "i18n" / "fr").glob("*.json")):
         expected.update(json.loads(path.read_text(encoding="utf-8")))
+    expected["errors"] = error_texts()  # généré depuis errors.py : source unique des textes (C9)
     assert response.json() == expected
 
 

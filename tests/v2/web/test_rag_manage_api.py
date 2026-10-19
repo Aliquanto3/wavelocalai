@@ -326,6 +326,9 @@ async def test_the_settings_start_from_the_toml_defaults(served):
     assert body["embedding_model"] is None
     assert body["base"] == {"embedding_model": None, "documents": 0, "chunks": 0}
     assert body["strategies"] == ["naive", "hyde", "self_rag"]
+    assert (
+        body["verify_min_params_b"] == 3.0
+    )  # seuil de l'avertissement « vérification peu fiable »
     assert body["limits"]["chunk_size"] == {"min": 100, "max": 8000}
     assert body["limits"]["top_k"] == {"min": 1, "max": 20}
     # sqlite-vec chargé : index persistant ; sans l'extension (CI macOS), repli en mémoire.

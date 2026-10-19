@@ -242,6 +242,7 @@ async def test_a_slow_lane_times_out_and_a_failing_lane_fails_while_the_others_f
         e for e in events if e["type"] == "lane_status" and e["data"]["status"] == "timeout"
     )
     assert timeout["data"]["lane"] == "fake:slow" and timeout["data"]["error"]["code"] == "timeout"
+    assert timeout["data"]["error"]["message"].startswith("Délai dépassé (0,2 s)")
     failed = next(
         e for e in events if e["type"] == "lane_status" and e["data"]["status"] == "failed"
     )

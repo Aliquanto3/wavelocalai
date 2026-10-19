@@ -26,6 +26,7 @@ import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { t } from "../core/i18n.js";
+import { replaceAddress } from "../core/router.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
@@ -324,7 +325,7 @@ export function mount(host, params = {}) {
     notice.hidden = true;
     missing.hidden = true;
     work.hidden = false;
-    if (rewrite && location.hash.startsWith(`${BASE}/`)) history.replaceState(null, "", BASE);
+    if (rewrite && location.hash.startsWith(`${BASE}/`)) replaceAddress(BASE);
     render();
   }
 
@@ -370,7 +371,7 @@ export function mount(host, params = {}) {
       reportNote.hidden = false;
     }
     if (startedHere && !host.hidden && location.hash === BASE) {
-      history.replaceState(null, "", `${BASE}/${encodeURIComponent(ended)}`);
+      replaceAddress(`${BASE}/${encodeURIComponent(ended)}`);
     }
     if (!reply) return;
     if (conversationId) reply.actions.append(exportLink(conversationId));

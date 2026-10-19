@@ -287,10 +287,15 @@ def test_registry_declares_the_routes_of_the_contract_and_the_six_modules():
     assert len(registry_screens()) == len(set(registry_screens())) == len(ROUTES)
 
 
-def test_every_screen_of_the_registry_is_available():
+def test_every_screen_of_the_registry_declares_its_state_and_an_available_one_has_its_loader():
+    """Les comptes viennent du registre (`core/routes/*.js`), pas d'un nombre écrit ici (décision du
+    2026-10-19) : livrer un écran ne change pas ce test. Un écran `available` a son `load`, un
+    écran `planned` n'en a pas (le routeur le montre désactivé, avec sa raison)."""
     text = registry_text()
-    assert text.count('status: "available"') == len(ROUTES)
-    assert text.count('status: "planned"') == 0
+    available = text.count('status: "available"')
+    planned = text.count('status: "planned"')
+    assert available + planned == len(registry_screens())  # aucun autre état
+    assert len(re.findall(r"^\s*load: ", text, re.MULTILINE)) == available
     assert re.search(r'id: "agents-solo",\s*path: "/agents/seul",\s*status: "available"', text)
     assert re.search(
         r'id: "agents-crew",\s*path: "/agents/equipe",\s*param: "run_id",\s*status: "available"',
@@ -534,15 +539,6 @@ def flat_keys(value, prefix: str) -> list[str]:
             key for name, child in value.items() for key in flat_keys(child, f"{prefix}.{name}")
         ]
     return [prefix]
-
-
-def test_the_ollama_down_text_mirrors_errors_py():
-    from wavelocalai.errors import ERRORS
-
-    spec = ERRORS["ollama_down"]
-    mirror = catalog()["errors"]["ollama_down"]
-    assert mirror["message"] == spec.message
-    assert mirror["action"] == spec.action.replace("`", "")  # le front n'affiche pas le Markdown
 
 
 def test_no_script_reads_or_writes_the_cloud_switch_in_storage():

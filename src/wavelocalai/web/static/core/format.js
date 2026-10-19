@@ -30,6 +30,12 @@ export function formatUnknown() {
   return t("format.unknown");
 }
 
+// Délai en secondes, exact et écrit comme le serveur (`errors.py`) : 120 ; 1234 ; 0,3. Jamais
+// arrondi : c'est la valeur de `wavelocalai.toml` que l'utilisateur ira chercher.
+export function formatDelay(seconds) {
+  return String(seconds).replace(".", ",");
+}
+
 // Nombre à trois chiffres significatifs au plus : 0,66 ; 13,8 ; 128.
 export function formatNumber(value) {
   if (!isMeasure(value)) return formatUnknown();

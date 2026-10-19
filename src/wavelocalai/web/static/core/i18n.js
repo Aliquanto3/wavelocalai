@@ -1,5 +1,7 @@
 // Textes de l'interface (AD-20) : un fichier par domaine dans static/i18n/fr/, fusionnés ici sous
 // les mêmes clés qu'un catalogue unique (`t("home.lead")` ne dépend pas du fichier qui la porte).
+// Les textes d'erreur (`errors.<code>.message` et `.action`) ne sont dans aucun fichier : le serveur
+// les génère depuis `errors.py` et les ajoute au document assemblé (source unique).
 // Le HTML garde son texte français (la page se lit même si ce module échoue) ; `data-i18n`,
 // `data-i18n-aria-label` et `data-i18n-title` nomment la clé qui le remplace, et un test compare
 // les deux.

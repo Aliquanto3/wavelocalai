@@ -124,7 +124,7 @@ _SPECS = (
     ErrorSpec(
         "timeout",
         504,
-        "Le modèle n'a pas fini de répondre dans le délai prévu.",
+        "Délai dépassé ({timeout_s} s) : le modèle n'a pas fini de répondre.",
         "Réessayez avec un modèle plus petit, ou allongez `lane_timeout_s` dans "
         "`wavelocalai.toml`.",
         ("timeout_s",),
@@ -346,16 +346,26 @@ class _Fill(dict[str, Any]):
         return "le fournisseur" if key == "provider_name" else key
 
 
+_TIMEOUT_WITHOUT_DELAY = "Délai dépassé : le modèle n'a pas fini de répondre."
+
+
+def _shown(key: str, value: Any) -> Any:
+    """Valeur d'un `{clé}` à l'écran : décimal à la française (`5,2`) ; un délai entier s'écrit
+    sans décimale (`120`, pas `120,0`)."""
+    if not isinstance(value, float):
+        return value
+    if key == "timeout_s" and value.is_integer():
+        return str(int(value))
+    return str(value).replace(".", ",")
+
+
 def _fill(text: str, detail: dict[str, Any]) -> str:
     """Remplace les `{clé}` de `message` et `action` par les clés machine du `detail` (nom du
     fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi). Un
     nombre décimal s'écrit à la française (`5,2`)."""
     if "{" not in text:
         return text
-    shown = {
-        key: str(value).replace(".", ",") if isinstance(value, float) else value
-        for key, value in detail.items()
-    }
+    shown = {key: _shown(key, value) for key, value in detail.items()}
     return text.format_map(_Fill(shown))
 
 
@@ -391,6 +401,31 @@ class AppError(Exception):
         self.detail = detail
 
 
+_HIGH_PUNCTUATION = re.compile(r" (?=[;:!?»])|(?<=«) ")
+
+
+def _french_spaces(text: str) -> str:
+    """Espace insécable avant « ; : ! ? » » et après « « » : la règle typographique des textes
+    d'interface (EXPERIENCE.md), appliquée aux textes générés comme à ceux des fichiers."""
+    return _HIGH_PUNCTUATION.sub(" ", text)
+
+
+def error_texts() -> dict[str, dict[str, str]]:
+    """Catalogue des textes d'erreur pour le front, **généré** depuis `ERRORS` : `{code: {message,
+    action}}`. Source unique des textes (C9) : le serveur l'ajoute au catalogue de textes sous la clé
+    `errors`, et le front les lit par `t("errors.<code>.message")` ; aucun fichier `i18n/fr/*.json`
+    ne les recopie. Les `{marqueurs}` restent à remplir par le front ; le Markdown (accents graves
+    des commandes) est retiré, le front n'affiche pas de Markdown ; les espaces avant la
+    ponctuation haute sont insécables."""
+    return {
+        code: {
+            "message": _french_spaces(spec.message),
+            "action": _french_spaces(spec.action.replace("`", "")),
+        }
+        for code, spec in ERRORS.items()
+    }
+
+
 def build_envelope(
     code: str,
     technical: str | None = None,
@@ -405,9 +440,14 @@ def build_envelope(
     if unknown:
         raise ValueError(f"Clés de detail non déclarées pour {code} : {sorted(unknown)}")
     body = {"technical": technical, **detail}
+    message = (
+        _TIMEOUT_WITHOUT_DELAY  # émetteur sans délai connu : pas de « (timeout_s s) » à l'écran
+        if code == "timeout" and not isinstance(detail.get("timeout_s"), int | float)
+        else _fill(spec.message, detail)
+    )
     return {
         "code": spec.code,
-        "message": _fill(spec.message, detail),
+        "message": message,
         "action": _fill(spec.action, detail),
         "detail": _mask_value(body, tuple(secrets)),
     }

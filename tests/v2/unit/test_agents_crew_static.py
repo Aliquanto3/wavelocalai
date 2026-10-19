@@ -78,5 +78,5 @@ def test_the_screen_answers_an_approval_only_through_the_shared_dialog_and_rewri
     screen = read("screens/agents-crew.js")
     assert "createApproval(" in screen and "answerApproval" not in screen
     # fin de run ; nouvelle mission lancée depuis une adresse de mission
-    assert screen.count("history.replaceState(") == 2
+    assert "history.replaceState(" not in screen and screen.count("replaceAddress(") == 2
     assert "location.hash === BASE" in screen

@@ -288,6 +288,7 @@ async def test_a_delay_exceeded_ends_in_timeout_with_the_settings_delay(tmp_path
         assert (await _ended(client, started["run_id"]))["status"] == "error"
         error = (await _events(client, started["run_id"]))[-1]["data"]["error"]
         assert error["code"] == "timeout" and error["detail"]["timeout_s"] == 0.3
+        assert error["message"].startswith("Délai dépassé (0,3 s)")
         assert server.closed == 1 and not app.state.local_slot.busy
 
 

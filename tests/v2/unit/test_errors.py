@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from wavelocalai.errors import ERRORS, AppError, build_envelope, mask_secrets
@@ -82,6 +84,27 @@ def test_chat_codes_are_declared_and_none_reuses_a_status_name():
     assert ERRORS["ollama_error"].status == 502
 
 
+def test_timeout_message_names_the_real_delay():
+    # Écart n° 1 : « Délai dépassé (120 s) », partout ; un délai entier sans décimale, sinon à la
+    # française.
+    assert build_envelope("timeout", None, timeout_s=120.0)["message"].startswith(
+        "Délai dépassé (120 s)"
+    )
+    assert build_envelope("timeout", None, timeout_s=300)["message"].startswith(
+        "Délai dépassé (300 s)"
+    )
+    assert build_envelope("timeout", None, timeout_s=0.3)["message"].startswith(
+        "Délai dépassé (0,3 s)"
+    )
+    # Revue 8.1b : sans délai connu, jamais « (timeout_s s) ».
+    assert build_envelope("timeout", None)["message"] == (
+        "Délai dépassé : le modèle n'a pas fini de répondre."
+    )
+    assert build_envelope("timeout", None, timeout_s=1234)["message"].startswith(
+        "Délai dépassé (1234 s)"
+    )
+
+
 def test_cloud_codes_name_the_provider_and_the_key_variable():
     detail = {"provider": "groq", "provider_name": "Groq", "key_var": "GROQ_API_KEY"}
     missing = build_envelope("cloud_key_missing", "x", **detail)
@@ -116,3 +139,44 @@ def test_run_not_found_is_a_404_and_arena_busy_a_409_that_name_the_run():
         envelope = build_envelope(code, "détail", run_id="abc")
         assert envelope["detail"]["run_id"] == "abc"
         assert envelope["message"] and envelope["action"] and "{" not in envelope["message"]
+
+
+# --- Source unique des textes d'erreur du front (C9) -----------------------------------------
+
+
+def test_error_texts_are_generated_from_the_closed_list_without_markdown():
+    from wavelocalai.errors import ERRORS, error_texts
+
+    texts = error_texts()
+    assert set(texts) == set(ERRORS)
+    for code, spec in ERRORS.items():
+        plain = {k: v.replace(" ", " ") for k, v in texts[code].items()}
+        assert plain["message"] == spec.message
+        assert plain["action"] == spec.action.replace("`", "")
+        assert "`" not in texts[code]["action"]
+        assert not re.search(r" [;:!?»]|« ", texts[code]["message"] + texts[code]["action"])
+    assert texts["ollama_down"]["action"].startswith("Lancez Ollama (application ou ollama serve)")
+
+
+def test_no_text_file_declares_the_generated_errors_key():
+    """Le front lit `errors.*` du catalogue généré : aucun `i18n/fr/*.json` ne le recopie."""
+    import json
+
+    from wavelocalai.web.routes_static import STATIC_DIR
+
+    for path in (STATIC_DIR / "i18n" / "fr").glob("*.json"):
+        assert "errors" not in json.loads(path.read_text(encoding="utf-8")), path.name
+
+
+def test_a_text_file_that_redeclares_errors_stops_the_assembly(tmp_path):
+    import pytest
+
+    from wavelocalai.web.routes_static import text_catalog
+
+    folder = tmp_path / "i18n" / "fr"
+    folder.mkdir(parents=True)
+    (folder / "a.json").write_text(
+        '{"errors": {"ollama_down": {"message": "x"}}}', encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="errors"):
+        text_catalog(tmp_path)

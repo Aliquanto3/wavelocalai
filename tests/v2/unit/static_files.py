@@ -28,12 +28,17 @@ def text_file_names() -> list[str]:
 
 
 def catalog() -> dict:
-    """Le catalogue de textes entier : les fichiers de `i18n/fr/` fusionnés, sans écrasement."""
+    """Le catalogue de textes entier, tel que le front le lit : les fichiers de `i18n/fr/` fusionnés,
+    sans écrasement, plus les textes d'erreur générés depuis `errors.py` (source unique, C9)."""
+    from wavelocalai.errors import error_texts
+
     merged: dict = {}
     for path in sorted(TEXTS.glob("*.json")):
         for key, value in json.loads(path.read_text(encoding="utf-8")).items():
             assert key not in merged, f"clé « {key} » déclarée deux fois ({path.name})"
             merged[key] = value
+    assert "errors" not in merged, "la clé `errors` est générée depuis errors.py"
+    merged["errors"] = error_texts()
     return merged
 
 

@@ -390,3 +390,37 @@ async def test_only_the_delete_route_and_the_default_writes_reach_ollama_for_a_r
         await client.delete("/api/models/defaults/chat")
         await client.post("/api/models/unload")
     assert server.deleted == [] and server.tags == TAGS
+
+
+async def test_a_run_cannot_start_on_a_model_while_it_is_being_deleted(tmp_path, monkeypatch):
+    """Verrou par modèle (8.1) : la suppression a passé le contrôle d'usage et attend Ollama ; un
+    run qui démarre alors sur ce modèle est refusé au démarrage, au lieu de se retrouver sans
+    modèle. Les autres modèles démarrent normalement."""
+    import asyncio
+
+    from wavelocalai.errors import AppError
+    from wavelocalai.inference import delete as delete_module
+
+    server = ollama()
+    async with manage_app(tmp_path, server) as (app, client, _r):
+        in_ollama, release = asyncio.Event(), asyncio.Event()
+        real = delete_module.delete_model
+
+        async def slow_delete(host, tag, **kwargs):
+            in_ollama.set()  # le contrôle d'usage est passé : « mid:7b » n'est employé par personne
+            await release.wait()
+            return await real(host, tag, **kwargs)
+
+        monkeypatch.setattr(delete_module, "delete_model", slow_delete)
+        deleting = asyncio.create_task(client.delete("/api/models/mid:7b"))
+        await in_ollama.wait()
+        with pytest.raises(AppError) as refused:
+            await app.state.hub.create_run("chat", models=["mid:7b"], user_message="Q ?")
+        assert refused.value.code == "model_not_found"
+        other = await app.state.hub.create_run("chat", models=["small:1b"], user_message="Q ?")
+        await app.state.hub.cancel(other.run_id)
+        release.set()
+        response = await deleting
+        assert response.status_code == 200, response.text
+        assert server.deleted == ["mid:7b"]
+        assert app.state.hub.active_runs() == []  # aucun run n'est resté sur le modèle supprimé

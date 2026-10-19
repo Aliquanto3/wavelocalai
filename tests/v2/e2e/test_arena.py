@@ -988,7 +988,7 @@ def test_a_lane_in_timeout_and_a_lane_in_failure_do_not_stop_the_others(arena, s
         arena,
         server,
         {
-            "fake:a": [{"text": "Début"}, {"fail": "timeout"}],
+            "fake:a": [{"text": "Début"}, {"fail": "timeout", "detail": {"timeout_s": 120}}],
             "fake:b": [{"text": "Partiel"}, {"fail": "ollama_error", "technical": "boum"}],
             "fake:c": [{"text": "Complet"}, {"done": DONE}],
         },
@@ -998,7 +998,7 @@ def test_a_lane_in_timeout_and_a_lane_in_failure_do_not_stop_the_others(arena, s
     assert status_of(arena, "fake:a") == "Délai dépassé"
     assert (
         lane(arena, "fake:a").locator(".wl-lane-note").inner_text()
-        == "Délai dépassé pour ce modèle. Les autres continuent."
+        == "Délai dépassé (120 s) pour ce modèle. Les autres continuent."  # écart n° 1
     )
     assert status_of(arena, "fake:b") == "Échec"
     assert lane(arena, "fake:b").locator("wl-error").inner_text().strip()  # message et action

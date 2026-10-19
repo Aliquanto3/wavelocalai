@@ -21,6 +21,7 @@
 // de réponse. Le chiffre affiché est celui du serveur (AD-20). Sans Shadow DOM.
 
 import { element, icon } from "../core/dom.js";
+import { formatDelay } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import "./wl-badge.js";
 import "./wl-chat-thread.js";
@@ -254,7 +255,12 @@ export class WlArenaLane extends HTMLElement {
     statusText.textContent = t(`components.lane.status.${status}`);
     statusIcon.querySelector("use").setAttribute("href", `/static/icons.svg#i-${STATUS_ICON[status]}`);
     if (status === "timeout") {
-      note.textContent = t("components.lane.timeout_note");
+      // « Délai dépassé (120 s) » : le délai réel, celui du serveur (`detail.timeout_s`).
+      const seconds = error?.detail?.timeout_s;
+      note.textContent =
+        typeof seconds === "number" && Number.isFinite(seconds)
+          ? t("components.lane.timeout_note_delay", { seconds: formatDelay(seconds) })
+          : t("components.lane.timeout_note");
       note.hidden = false;
       errorBox.error = null;
     } else if (status === "failed" && error) {

@@ -204,6 +204,7 @@ async def delete_model_route(tag: str, request: Request) -> DeleteResult:
         registry=app.state.registry,
         defaults=app.state.defaults,
         active_models=(lambda: {}) if hub is None else hub.active_models,
+        deleting=None if hub is None else hub.deleting_model,  # verrou par modèle
         transport=app.state.ollama_transport,
     )
     await _publish_system_state(app)

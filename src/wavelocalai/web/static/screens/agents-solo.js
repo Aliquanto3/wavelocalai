@@ -116,6 +116,8 @@ export function mount(host) {
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
   notice.hidden = true;
+  const crewLink = element("a", "", t("agents.crew_busy_link"));
+  crewLink.href = "#/agents/equipe";
   const error = document.createElement("wl-error");
   error.setAttribute("alert", "");
   const dialog = document.createElement("wl-confirm-dialog");
@@ -327,10 +329,9 @@ export function mount(host) {
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;
       if (failure.status === 409 && busy?.code === "run_busy" && busy.detail?.run_id) {
-        // Une tâche tourne déjà : on la rejoint, sans erreur. Le texte reste dans le champ.
-        startOver();
-        say(t("agents.joined"));
-        join(busy.detail.run_id);
+        // Une tâche tourne déjà : on la rejoint, sans erreur, si c'est un Agent seul. Le texte reste
+        // dans le champ.
+        await joinBusy(busy.detail.run_id);
       } else {
         error.error = envelopeOf(failure);
       }
@@ -340,15 +341,25 @@ export function mount(host) {
     }
   }
 
-  // La conversation de la tâche rejointe, pour « Télécharger » (lue une fois, sans bloquer le flux).
-  function join(id) {
-    follow(id);
-    api
-      .run(id)
-      .then((snapshot) => {
-        conversationId ??= snapshot.conversation_id ?? null;
-      })
-      .catch(() => {});
+  // Le run actif qui bloque le lancement : rejoint si c'est un Agent seul, signalé (avec un lien) si
+  // c'est une mission d'équipe (même genre `agent` au hub : seul `params.mode` les distingue).
+  async function joinBusy(id) {
+    let snapshot;
+    try {
+      snapshot = await api.run(id);
+    } catch (failure) {
+      error.error = envelopeOf(failure);
+      return;
+    }
+    if (snapshot.params?.mode === "solo") {
+      conversationId ??= snapshot.conversation_id ?? null; // pour « Télécharger »
+      startOver();
+      say(t("agents.joined"));
+      follow(id);
+    } else {
+      notice.replaceChildren(`${t("agents.crew_busy")} `, crewLink);
+      notice.hidden = false;
+    }
   }
 
   async function clearConversation() {
@@ -392,7 +403,7 @@ export function mount(host) {
   input.addEventListener("input", () => saveDraft(DRAFT, input.value));
   clear.addEventListener("click", clearConversation);
   // Garde-fou mémoire : le modèle proposé par le serveur est choisi, sans relancer.
-  onSmallerModel(host, (tag) => {
+  const unwatchSmaller = onSmallerModel(host, (tag) => {
     picker.value = tag;
     render(); // l'affectation n'émet pas `wl-model-change`
     say(t("agents.model_changed", { model: picker.modelFor(tag)?.name ?? tag }));
@@ -421,6 +432,7 @@ export function mount(host) {
   render();
   tools.load().then(render);
   return () => {
+    unwatchSmaller();
     visibility.disconnect();
     stream?.close();
     stream = null;

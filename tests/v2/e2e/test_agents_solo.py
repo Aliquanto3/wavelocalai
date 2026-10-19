@@ -855,6 +855,39 @@ def test_a_task_already_running_elsewhere_is_joined_without_an_error(
     assert step_labels(agent)[0] == "Appel de l'outil Calculatrice"
 
 
+def test_a_running_team_mission_is_said_with_a_link_and_not_joined_as_a_solo_task(
+    page_tolerating_failed_requests, server
+):
+    """Revue 6.6 (8.1) : une mission d'équipe active (même genre `agent` au hub) n'est pas rejointe
+    par l'Agent seul ; seul `params.mode` les distingue."""
+    agent = open_agent(page_tolerating_failed_requests, server.base_url)
+    script(agent, server, [{"sleep_s": 30}])
+    started = post_json(
+        server,
+        "/api/agents/runs",
+        {
+            "mode": "crew",
+            "crew": "etude_concurrentielle",
+            "topic": "Une mission",
+            "model": "fake:1b",
+            "allow_cloud": False,
+        },
+    )
+    RUNS.append((server.base_url, started["run_id"]))
+    ask(agent, "Ma tâche")
+    notice = agent.locator("p.chat-notice")
+    expect(notice).to_be_visible()
+    expect(notice).to_contain_text(
+        f"Une mission d'équipe travaille en ce moment{NBSP}: l'agent seul pourra être lancé"
+    )
+    expect(notice.get_by_role("link", name="Voir la mission d'équipe")).to_have_attribute(
+        "href", "#/agents/equipe"
+    )
+    assert agent.locator("wl-error:visible").count() == 0
+    assert steps(agent).count() == 0 and agent.locator(".wl-msg-assistant").count() == 0
+    assert field(agent).input_value() == "Ma tâche"
+
+
 def test_the_steps_panel_is_on_the_right_from_1024px_and_always_open_below(agent):
     agent.set_viewport_size({"width": 1440, "height": 900})
     panel = agent.get_by_role("complementary", name="Étapes")

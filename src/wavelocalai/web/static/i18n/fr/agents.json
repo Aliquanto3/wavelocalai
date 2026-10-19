@@ -31,6 +31,8 @@
     "no_model": "Aucun modèle n'est choisi.",
     "no_model_action": "Choisissez un modèle dans la liste, puis envoyez de nouveau votre tâche.",
     "joined": "Une tâche est déjà en cours : vous la suivez. Votre texte est resté dans le champ.",
+    "crew_busy": "Une mission d'équipe travaille en ce moment : l'agent seul pourra être lancé quand elle aura fini.",
+    "crew_busy_link": "Voir la mission d'équipe",
     "start_failed": "La tâche n'a pas pu être lancée.",
     "model_changed": "Modèle choisi : {model}. Renvoyez votre tâche, elle est restée dans le champ.",
     "steps": {

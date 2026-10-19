@@ -48,6 +48,16 @@ def wait_pill(page, text: str, timeout_s: float = 10.0) -> float:
     return time.monotonic() - started
 
 
+def wait_identity(page, timeout_s: float = 30.0) -> None:
+    """Attend que la page connaisse l'identité du serveur (`/api/health` lu) : sans elle, un
+    redémarrage ne se voit pas (la pastille, elle, peut venir du flux avant la santé)."""
+    wait_for(
+        page,
+        "() => import('/static/core/store.js').then((m) => m.store.get().instanceId !== null)",
+        timeout_s,
+    )
+
+
 def open_panel(page, button_id: str, panel_id: str):
     page.locator(f"#{button_id}").click()
     panel = page.locator(f"#{panel_id}")
@@ -161,10 +171,16 @@ def test_retry_asks_again_and_reports_the_new_state(backend, fake_ollama, page):
     retry = panel.get_by_role("button", name="Réessayer")
 
     fake_ollama.start()
-    retry.click()
-    assert panel.locator("#ollama-retry").inner_text() == "Vérification en cours…"
+    # C8 : « Réessayer » force une sonde (écriture), sans attendre l'échéance du cache de 5 s des
+    # routes de lecture : la réponse dit déjà qu'Ollama répond.
+    with page.expect_response(lambda r: r.url.endswith("/api/system/ollama/recheck")) as sent:
+        retry.click()
+    answer = sent.value
+    assert answer.request.method == "POST" and answer.ok
+    assert answer.json()["up"] is True and answer.json()["settled"] is True
     wait_pill(page, OLLAMA_UP, timeout_s=5)
     assert panel.locator("#ollama-retry").inner_text() == "Réessayer"
+    assert panel.locator("#ollama-state").inner_text() == "Disponible"
 
 
 def test_the_pill_panel_closes_with_escape_and_hands_the_focus_back(bar):
@@ -386,6 +402,7 @@ def test_a_restarted_server_is_announced_with_a_reload_button(
     page.goto(f"{server.base_url}/")
     wait_ready(page)
     wait_pill(page, OLLAMA_DOWN)
+    wait_identity(page)  # sinon, sous charge, l'arrêt vient avant la lecture de santé
     wait_for(page, "() => document.getElementById('restart-banner').hidden")
 
     backend.stop()
