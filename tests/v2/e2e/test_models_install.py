@@ -149,6 +149,7 @@ def test_the_screen_lists_what_is_installed_and_what_can_be_installed(models):
     assert [h.inner_text() for h in models.locator("h2:not(.wl-dialog-title)").all()] == [
         "Sur ce poste",
         "Modèles proposés par défaut",
+        "Reclassement des extraits",
         "Catalogue installable",
     ]
     installed = models.locator(".models-installed tbody tr")

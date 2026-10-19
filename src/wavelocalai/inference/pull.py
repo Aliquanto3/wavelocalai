@@ -121,6 +121,9 @@ class _Throttle:
         self._pending = None
 
 
+ProgressThrottle = _Throttle  # aussi employé par l'installation du reranker
+
+
 class PullService:
     def __init__(
         self,
