@@ -22,16 +22,18 @@ import re
 import pytest
 from axe_playwright_python.sync_playwright import Axe
 
-from .test_arena import JUDGE_DEFAULT, MODELS as ARENA_MODELS, wait_banner
+from .test_arena import JUDGE_DEFAULT
+from .test_arena import MODELS as ARENA_MODELS
+from .test_arena import wait_banner
 from .test_arena_reopen import post_run
 from .test_arena_results import mixed_lanes, wait_names
+from .test_chat import DONE as CHAT_DONE
+from .test_chat import MODEL as CHAT_MODEL
 from .test_chat import (
-    DONE as CHAT_DONE,
-    MODEL as CHAT_MODEL,
     ask,
     forget_conversations,
-    scripted as chat_scripted,
 )
+from .test_chat import scripted as chat_scripted
 from .test_picker import LOCAL, model
 from .test_shell import assert_no_axe_violations, wait_for, wait_ready
 
