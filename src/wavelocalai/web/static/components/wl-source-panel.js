@@ -123,7 +123,7 @@ export class WlSourcePanel extends HTMLElement {
 
   #build() {
     if (this.#dom) return;
-    this.className = "wl-source-panel";
+    this.classList.add("wl-source-panel"); // garde les classes posées par l'écran
     this.#wide = matchMedia(WIDE);
     const root = element("details", "wl-sources");
     const summary = element("summary", "wl-sources-summary");
@@ -219,7 +219,8 @@ export class WlSourcePanel extends HTMLElement {
       } catch (failure) {
         if (failure instanceof ApiError && failure.envelope?.code === "chunk_not_found") {
           item.replaceChildren(head, ...this.#goneNodes(source)); // le texte n'existe plus
-          this.#items.delete(source.n);
+          // Liste remplacée pendant la requête : l'entrée n de la nouvelle liste reste.
+          if (this.#items.get(source.n)?.toggle === toggle) this.#items.delete(source.n);
         } else {
           problem.error =
             failure instanceof ApiError && failure.envelope

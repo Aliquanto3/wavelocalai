@@ -105,4 +105,15 @@ deferred:
 
 ## Revue
 
-(à remplir par le second avis et le reviewer)
+Revue Opus, une passe, sur la liste du second avis (Haiku).
+
+- medium · second avis · corrigé : conversation rouverte avec un modèle cloud, `picker.value` n'émet pas `wl-model-change`, l'avertissement AD-9 manquait ; `restore()` appelle `updateCloudNote()`. Test E2E `test_a_reopened_conversation_with_a_cloud_model_warns_too`, rouge avant le correctif.
+- low · second avis · reporté : `409 run_busy` rejoint sans `conversationId`, la question suivante ouvre une autre conversation. Même motif que l'écran Chat (`chat.js`) ; `run_busy` ne porte que `run_id`. À traiter dans les deux écrans en ajoutant `conversation_id` au détail de `run_busy` (contrat d'API).
+- low · second avis · corrigé : `wl-source-panel` écrasait la classe `docs-chat-sources` (`className =`), la règle de grille dès 1 024 px ne s'appliquait pas ; `classList.add`. Assertion `gridRowEnd == span 2` dans le test du panneau.
+- low · second avis · corrigé : `panel.clear()` sans `refreshButtons()` laissait `aria-pressed="true"` sur l'ancienne réponse jusqu'à l'événement `sources`.
+- low · second avis · corrigé : rejeu des runs d'une conversation rouverte en parallèle sans limite ; au plus 3 flux à la fois (`replayAll`), le délai de 10 s compte depuis la connexion de chaque rejeu.
+- low · second avis · corrigé : `#items.delete(n)` après un `chunk_not_found` périmé pouvait retirer l'entrée de la nouvelle liste ; suppression seulement si l'entrée est encore celle du bouton.
+- low (test) · second avis · corrigé : la reprise par `?after=` est prouvée en cours de flux (run encore `running` au retour, « deux » manqué pendant le masquage puis reçu).
+- low (test) · reviewer · corrigé : `test_a_question_already_running_is_joined_without_an_error` instable (1 échec sur 3) : `restore()` pouvait reprendre le run lancé par le test et la question n'était pas envoyée. L'écran pose `data-restored` une fois la conversation relue ; `open_screen` et `reload_screen` l'attendent.
+- Complexité : 0 constat (`refreshButtons` parcourt les réponses une fois par événement `sources` ou clic, pas par token).
+

@@ -34,6 +34,9 @@ import "../components/index.js";
 const DRAFT = "documents";
 const STRATEGIES = ["naive"]; // HyDE et Self-RAG arrivent avec la story 4.6
 const REPLAY_TIMEOUT_MS = 10_000;
+// Flux rejoués à la fois : sous la limite de connexions HTTP/1.1 du navigateur (6 par hôte), le
+// délai de chaque rejeu ne compte qu'à partir de sa propre connexion.
+const REPLAY_CONCURRENCY = 3;
 let counter = 0;
 
 function envelopeOf(error, message) {
@@ -71,6 +74,20 @@ function replay(runId) {
       { maxAttempts: 2 },
     );
   });
+}
+
+// Les runs rejoués, au plus `REPLAY_CONCURRENCY` à la fois : Map run_id -> { sources, metrics }.
+async function replayAll(ids) {
+  const results = new Map();
+  const queue = [...ids];
+  const worker = async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      results.set(id, await replay(id));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(REPLAY_CONCURRENCY, queue.length) }, worker));
+  return results;
 }
 
 export function mount(host) {
@@ -351,14 +368,12 @@ export function mount(host) {
   }
 
   async function showConversation(view) {
-    const finished = new Map();
+    const ids = new Set();
     for (const message of view.messages) {
       const run = message.run;
-      if (run && run.status !== "running" && !finished.has(run.run_id)) finished.set(run.run_id, null);
+      if (run && run.status !== "running") ids.add(run.run_id);
     }
-    await Promise.all(
-      [...finished.keys()].map(async (id) => finished.set(id, await replay(id))),
-    );
+    const finished = await replayAll(ids);
     // Une personne qui a déjà écrit n'est pas dérangée par la conversation d'avant.
     if (conversationId !== null || running() || pending || !thread.empty) return false;
     conversationId = view.id;
@@ -392,7 +407,10 @@ export function mount(host) {
       return; // pas d'historique lisible : l'écran reste vide, sans erreur
     }
     if (!(await showConversation(view))) return;
-    if (view.model) picker.value = view.model;
+    if (view.model) {
+      picker.value = view.model;
+      updateCloudNote(); // le setter n'émet pas `wl-model-change` : l'avertissement cloud (AD-9)
+    }
     if (view.active_run_id) follow(view.active_run_id);
     render();
   }
@@ -434,6 +452,7 @@ export function mount(host) {
       current = register({ name: chosen?.name ?? model, sources: [], node: answer, button: null });
       displayed = null;
       panel.clear(); // les sources de la réponse d'avant ne sont pas celles de cette question
+      refreshButtons(); // plus aucun « Afficher les sources » n'est enfoncé
       follow(started.run_id);
     } catch (failure) {
       const busy = failure instanceof ApiError ? failure.envelope : null;
@@ -521,7 +540,12 @@ export function mount(host) {
 
   render();
   updateCloudNote();
-  refreshBase().then(restore);
+  // `data-restored` : la conversation d'avant a été relue (ou il n'y en avait pas).
+  refreshBase()
+    .then(restore)
+    .finally(() => {
+      host.dataset.restored = "";
+    });
   return () => {
     visibility.disconnect();
     stream?.close();

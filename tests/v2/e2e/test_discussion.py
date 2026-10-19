@@ -119,12 +119,21 @@ def open_screen(page, server) -> None:
     page.goto(f"{server.base_url}/{URL}")
     wait_ready(page)
     wait_for(page, "() => document.querySelector('wl-model-picker')?.value === 'fake:1b'")
+    wait_restored(page)
 
 
 def reload_screen(page) -> None:
     page.reload()
     wait_ready(page)
     wait_for(page, "() => document.querySelector('wl-model-picker')?.value === 'fake:1b'")
+    wait_restored(page)
+
+
+def wait_restored(page) -> None:
+    """La conversation d'avant est relue : un run lancé ensuite n'est plus pris pour elle."""
+    wait_for(
+        page, "() => document.querySelector(\"[data-screen='documents-chat'][data-restored]\")"
+    )
 
 
 def field(page):
@@ -239,6 +248,53 @@ def test_a_cloud_model_warns_that_the_extracts_leave_the_machine(backend, page):
     page.locator("[data-screen='documents-chat'] .wl-picker-input").click()
     page.get_by_role("option", name=re.compile("Factice 1B")).click()
     note.wait_for(state="hidden")
+
+
+def test_a_reopened_conversation_with_a_cloud_model_warns_too(backend, page):
+    """Le modèle de la conversation rouverte est posé sans `wl-model-change` : l'avertissement du
+    cloud (AD-9) doit apparaître quand même, alors que le modèle par défaut est local."""
+    server = backend.start()
+    import_docs(page, server, **{"chats.txt": txt(CATS)})
+    script_model(page, server, *ANSWER)
+    started = post(
+        page,
+        server,
+        "/api/rag/runs",
+        data={"question": QUESTION, "model": "fake:1b", "strategy": "naive"},
+    )
+    wait_run(page, server, started["run_id"])
+    local = {**MODEL, "tag": "local:1b", "name": "Local 1B"}
+    as_cloud = {**MODEL, "origin": "cloud", "provider": "openai"}  # le front le croit cloud
+
+    def on_models(route):
+        listed = [local, *([as_cloud] if "allow_cloud=true" in route.request.url else [])]
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {"models": listed, "ollama_up": True, "refreshed_at": "2026-10-19T10:00:00Z"}
+            ),
+        )
+
+    def on_defaults(route):
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {"purpose": "rag", "tags": ["local:1b"], "reason": REASON, "source": "rule"}
+            ),
+        )
+
+    page.route(re.compile(r"/api/models\?"), on_models)
+    page.route(re.compile(r"/api/models/defaults\?"), on_defaults)
+    page.goto(f"{server.base_url}/#/")
+    wait_ready(page)
+    page.get_by_label("Autoriser le cloud").check()
+    page.evaluate("location.hash = '#/documents'")
+    wait_for(page, "() => document.querySelector('wl-model-picker')?.selected?.tag === 'fake:1b'")
+    note = page.locator("[data-screen='documents-chat'] .docs-cloud-note")
+    note.wait_for()
+    assert "les extraits retrouvés dans vos documents lui sont envoyés" in note.inner_text()
 
 
 # --- Une question : étapes, sources avant la réponse, passage, pied ----------------------------
@@ -424,6 +480,9 @@ def test_the_panel_is_always_open_beside_the_answer_from_1024px_and_collapsed_be
         "() => document.querySelector(\"[data-screen='documents-chat'] details.wl-sources\").open",
     )
     assert box(panel)["x"] > box(thread)["x"] + box(thread)["width"] - 1  # à droite
+    # La classe de l'écran survit à celle du composant : le panneau couvre les deux rangées.
+    host = page.locator("[data-screen='documents-chat'] wl-source-panel")
+    assert host.evaluate("el => getComputedStyle(el).gridRowEnd") == "span 2"
     panel.locator("summary").click(force=True)  # aucun bouton de repli
     assert panel.evaluate("el => el.open") is True
     assert panel.locator("summary").get_attribute("tabindex") == "-1"
@@ -454,9 +513,9 @@ def test_leaving_and_coming_back_resumes_the_stream_by_after(docs, traffic):
         page,
         server,
         {"text": "Un"},
-        {"sleep_s": 0.8},
+        {"sleep_s": 1.0},
         {"text": " deux"},
-        {"sleep_s": 0.8},
+        {"sleep_s": 4},
         {"text": " trois"},
     )
     ask(page)
@@ -465,14 +524,24 @@ def test_leaving_and_coming_back_resumes_the_stream_by_after(docs, traffic):
         "() => document.querySelector(\"[data-screen='documents-chat'] .wl-msg-assistant .wl-md\")"
         "?.textContent.includes('Un')",
     )
+    run_id = page.evaluate(
+        "() => document.querySelector(\"[data-screen='documents-chat'] wl-run-status\").runId"
+    )
     page.evaluate("location.hash = '#/documents/base'")
     page.locator('[data-screen="documents-base"]').wait_for(state="visible")
-    page.wait_for_timeout(2500)  # la génération continue sans l'écran, et se termine
+    page.wait_for_timeout(1800)  # « deux » est émis pendant que l'écran est masqué
     page.evaluate("location.hash = '#/documents'")
+    # Reprise EN COURS de flux : « deux » (manqué, masqué) revient alors que le run tourne encore.
+    wait_for(
+        page,
+        "() => document.querySelector(\"[data-screen='documents-chat'] .wl-msg-assistant .wl-md\")"
+        "?.textContent.includes('deux')",
+    )
+    assert run_status(page, server, run_id) == "running"
+    assert any(re.search(r"/events\?after=\d+", url) for url in traffic.api_calls())
     wait_done(page)
     text = page.locator(".wl-msg-assistant .wl-md").inner_text().strip()
     assert text == "Un deux trois"  # rien de perdu, rien de répété
-    assert any(re.search(r"/events\?after=\d+", url) for url in traffic.api_calls())
 
 
 # --- Refus du serveur : base vidée entre-temps, question déjà en cours ---------------------------
