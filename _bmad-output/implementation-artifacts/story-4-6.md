@@ -27,7 +27,7 @@ deferred:
     location: _bmad-output/specs/spec-wavelocalai-v2/contrat-api.md
     severity: low
   - summary: >-
-      `search: {top_k, max_top_k}` de `GET /api/rag/documents` est un palliatif : l'écran lit le nombre d'extraits par défaut et son plafond là, faute de `GET /api/rag/settings` (story 4.3, en parallèle). Quand la 4.3 fusionne, `documents-settings.js::configure` doit lire `GET /api/rag/settings` (modèle de représentation, découpe, nombre d'extraits, stratégie par défaut) et `search` peut disparaître ; la stratégie par défaut du serveur n'est pas encore lue (l'écran démarre sur « Recherche directe »).
+      Résolu à la fusion avec la 4.3 : le palliatif `search: {top_k, max_top_k}` de `GET /api/rag/documents` est retiré ; l'écran Discussion lit `GET /api/rag/settings` (`top_k`, `strategy`, `limits.top_k.max`) et démarre sur la stratégie par défaut enregistrée. `top_k` de la question prime sur le réglage de l'écran Base, qui prime sur le `.toml`.
     evidence: |-
       `web/routes_rag.py::SearchDefaults`, `screens/documents.js::refreshBase`.
     location: src/wavelocalai/web/routes_rag.py
@@ -74,7 +74,7 @@ Dans `rag/strategies.py` (règles pures) et `rag/query.py` (orchestration) :
 
 - `RagService._ask` : appel silencieux (`stream_into_run(capture=)`, comme la notation de l'Arène) dans une feuille `generation` créée à la demande (`_leaf`) et déclarée annulée par défaut ; un parent clos (annulation) lève `CancelledError`. `_embedding_leaf` sert la feuille créée au départ à la première recherche, une nouvelle ensuite.
 - `RunHub.answer_text(run_id)` : texte de réponse accumulé d'un run racine actif (jetons en attente versés), lu par le service pour vérifier les marqueurs.
-- Front : `screens/documents-settings.js` (réglages), `documents-citations.js` (marqueurs en boutons), `documents-replay.js` (rejeu extrait de `documents.js`, qui reste sous 600 lignes) ; `wl-chat-thread` gagne `answer.decorator` (appelé après chaque rendu Markdown) et `answer.refresh()` ; `wl-source-panel` gagne `highlight(n)` et l'événement `wl-source-link` ; `wl-run-status` gagne les étapes `hypothesizing` et `verifying` (`first-stage="hypothesizing"`). Le bouton `[n]` a pour nom « [1] source 1, chats.txt » (le texte visible d'abord, WCAG 2.5.3).
+- Front : `screens/documents-chat-settings.js` (réglages avancés ; `documents-settings.js` est celui de l'écran Base, 4.3), `documents-citations.js` (marqueurs en boutons), `documents-replay.js` (rejeu extrait de `documents.js`, qui reste sous 600 lignes) ; `wl-chat-thread` gagne `answer.decorator` (appelé après chaque rendu Markdown) et `answer.refresh()` ; `wl-source-panel` gagne `highlight(n)` et l'événement `wl-source-link` ; `wl-run-status` gagne les étapes `hypothesizing` et `verifying` (`first-stage="hypothesizing"`). Le bouton `[n]` a pour nom « [1] source 1, chats.txt » (le texte visible d'abord, WCAG 2.5.3).
 - Test seulement : `FakeChatModel.scripts` et `POST /api/test/chat-model {scripts}` rendent un script par appel (réponse hypothétique, notation, reformulation, réponse) ; le script par appel repart du premier à chaque réglage.
 - Réaligné : `test_discussion.py` (le texte d'une réponse se lit sans le complément `.sr-only` du bouton `[1]`, trois options de stratégie), `test_rag_run_api.py` (`hyde` n'est plus une stratégie refusée), `test_rag_list_api.py` (`search`).
 
