@@ -410,7 +410,9 @@ class RagService:
     async def _ask(self, run: _Rag, request: ChatRequest, secrets: Sequence[str]) -> str | None:
         """Un appel de modèle de la stratégie, **silencieux** (rien n'est publié dans le flux) et en
         feuille `generation` du run, mesurée comme les autres. Rend le texte, ou `None` si l'appel
-        échoue ou ne rend rien : la stratégie a alors son repli."""
+        échoue ou ne rend rien : la stratégie a alors son repli. Le garde-fou mémoire (story 4.8)
+        s'applique comme à la réponse : son refus `ram_guard` termine le run en erreur (le modèle
+        ne tiendrait pas plus pour la réponse), au lieu d'un repli silencieux."""
         leaf_id = await self._leaf(run, "generation", run.model.ref.tag)
         captured: list[str] = []
         result = await stream_into_run(
@@ -426,8 +428,13 @@ class RagService:
             meter=self._meter,
             on_leaf_closed=self._announce_carbon,
             capture=captured,
+            guard=self._guard,
         )
         if result.status != "ok":
+            error = result.error or {}
+            if error.get("code") == "ram_guard":
+                detail = {k: v for k, v in (error.get("detail") or {}).items() if k != "technical"}
+                raise AppError("ram_guard", (error.get("detail") or {}).get("technical"), **detail)
             logger.warning(
                 "Appel de stratégie %s en échec (%s)",
                 run.strategy,

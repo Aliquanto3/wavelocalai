@@ -36,7 +36,19 @@ def test_the_grade_request_numbers_every_excerpt_and_cuts_a_long_one():
     user = request.messages[1].content
     assert "[1]\npremier" in user and "[2]\n" + "x" * GRADE_EXCERPT_CHARS in user
     assert "x" * (GRADE_EXCERPT_CHARS + 1) not in user
-    assert user.endswith("Question : Q ?") and request.temperature == 0.0
+    assert "\n\nQuestion : Q ?\n\n" in user and request.temperature == 0.0
+    # Gabarit d'une ligne par extrait (revue 4.6 : sans lui, un petit modèle ne note que le 1).
+    assert user.endswith(
+        "exactement 2 lignes, de 1 à 2, une par extrait :\n1 : oui ou non\n2 : oui ou non"
+    )
+
+
+def test_the_grade_budget_grows_with_the_number_of_excerpts():
+    """Revue 4.6 : 64 jetons coupaient la notation de 20 extraits (« 13 : non »… jamais écrits),
+    et les rangs sans verdict étaient gardés. Chaque ligne « 20 : non » compte 5 à 6 jetons."""
+    twenty = grade_request("Q ?", [_item(n, 0.1) for n in range(1, 21)]).max_tokens
+    assert twenty >= 7 * 20
+    assert grade_request("Q ?", [_item(1, 0.1)]).max_tokens >= 64
 
 
 @pytest.mark.parametrize(
@@ -75,6 +87,11 @@ def test_a_rewrite_names_the_last_formulation_only_when_it_differs():
         ("", ""),
         ("   \n  ", ""),
         ("x" * (REWRITE_MAX_CHARS + 50), "x" * REWRITE_MAX_CHARS),
+        # Préambule d'un petit modèle (revue 4.6) : retiré, ou sa ligne sautée.
+        ("Voici la question reformulée : Où dort le chat ?", "Où dort le chat ?"),
+        ("Voici la question reformulée :\n« Où dort le chat ? »", "Où dort le chat ?"),
+        ("**Reformulation :** Où dort le chat ?", "Où dort le chat ?"),
+        ("Quel ratio : chats ou chiens ?", "Quel ratio : chats ou chiens ?"),
     ],
 )
 def test_a_rewritten_question_is_the_first_clean_line(text, expected):
