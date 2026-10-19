@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
 
 from wavelocalai.errors import ERRORS, AppError, ProviderError, build_envelope
@@ -166,6 +166,7 @@ async def stream_into_run(
     meter: LocalMeter | None = None,
     on_leaf_closed: Callable[[], Awaitable[None]] | None = None,
     capture: list[str] | None = None,
+    metrics_extra: Mapping[str, object] | None = None,
 ) -> LeafResult:
     """Joue une génération sur le run `run_id` jusqu'à sa fin ; rend le `LeafResult` passé à
     `hub.finish_leaf` (statut `ok` ou `error`, l'erreur d'AD-18).
@@ -195,6 +196,9 @@ async def stream_into_run(
     `capture` : appel **silencieux** (une notation, story 3.3). Le texte de réponse est ajouté à
     cette liste (vidée à chaque tentative) et rien n'est publié dans le flux du parent : ni jetons,
     ni chargement, ni `metrics`, ni `retry`. La feuille reste mesurée et close comme les autres.
+
+    `metrics_extra` : champs ajoutés à l'événement `metrics` de la feuille (le RAG y met la durée de
+    la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux.
     """
     try:
         return await _play(
@@ -212,6 +216,7 @@ async def stream_into_run(
             meter,
             on_phase,
             capture,
+            metrics_extra,
         )
     finally:
         if on_leaf_closed is not None:
@@ -236,6 +241,7 @@ async def _play(
     meter: LocalMeter | None,
     on_phase: PhaseCallback | None,
     capture: list[str] | None = None,
+    metrics_extra: Mapping[str, object] | None = None,
 ) -> LeafResult:
     lane = model.ref.tag
     origin = model.ref.origin
@@ -299,7 +305,9 @@ async def _play(
             logger.warning("Estimation du CO2 impossible : %r", exc)
             co2 = Co2(mg=None, method="unmeasurable", reason="l'estimation a échoué")
     if capture is None:
-        hub.publish(stream_id, "metrics", _metrics(lane, result, origin, co2, footprint))
+        metrics = _metrics(lane, result, origin, co2, footprint)
+        metrics.update({k: v for k, v in (metrics_extra or {}).items() if k not in metrics})
+        hub.publish(stream_id, "metrics", metrics)
     leaf = LeafResult(
         origin=origin,
         input_tokens=result.input_tokens,

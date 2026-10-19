@@ -202,3 +202,20 @@ class Store:
         self, sql: str, params: Sequence[Any] = (), *, vec: bool = False
     ) -> list[sqlite3.Row]:
         return await asyncio.to_thread(partial(self.read, sql, params, vec=vec))
+
+    def read_with(self, func: Callable[[sqlite3.Connection], T], *, vec: bool = False) -> T:
+        """Plusieurs lectures sur une même connexion courte, en lecture seule (recherche vectorielle
+        puis lecture des extraits trouvés, sur le même état de la base)."""
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.row_factory = sqlite3.Row
+            _pragmas(conn)
+            if vec:
+                load_vec(conn)
+            conn.execute("PRAGMA query_only=ON")
+            return func(conn)
+        finally:
+            conn.close()
+
+    async def aread_with(self, func: Callable[[sqlite3.Connection], T], *, vec: bool = False) -> T:
+        return await asyncio.to_thread(partial(self.read_with, func, vec=vec))

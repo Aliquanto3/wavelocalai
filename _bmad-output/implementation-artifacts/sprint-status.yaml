@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-19-2026 02:21
+last_updated: 10-19-2026 02:41
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -47,7 +47,7 @@ development_status:
   1-9-la-barre-haute-dit-l-état-d-ollama-du-cloud-et-du-co₂-en-dir: done
   1-10-choisir-un-modèle-au-clavier-et-suivre-l-étape-d-un-run: done
   1-11-l-accueil-dit-en-5-secondes-si-la-démo-peut-partir: done
-  1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: in-progress
+  1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
