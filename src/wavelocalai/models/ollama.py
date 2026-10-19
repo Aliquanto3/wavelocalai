@@ -42,6 +42,7 @@ from wavelocalai.models.port import (
     TextDelta,
     ToolCall,
 )
+from wavelocalai.models.structured import StructuredCheck
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -131,6 +132,7 @@ class OllamaChatModel:
         ttft_s: float | None = None
         final: Any = None
         calls = 0
+        structured = StructuredCheck(request.response_schema)
         try:
             upstream = await self._client.chat(
                 model=tag,
@@ -154,6 +156,7 @@ class OllamaChatModel:
                 if content:
                     fragments += 1
                     text_chars += len(content)
+                    structured.add(content)
                     yield TextDelta(content, "answer")
                 for call in chunk_field(message, "tool_calls") or ():
                     function = chunk_field(call, "function")
@@ -185,6 +188,7 @@ class OllamaChatModel:
                 "generation_interrupted",
                 f"Flux Ollama clos sans fragment final ({fragments} reçus)",
             )
+        structured.done()  # `format` : sortie structurée vérifiée avant `Done`
         load_s = chunk_field(final, "load_duration")
         if loading:  # réponse vide : le chargement est annoncé fini à la fin
             yield LoadState("loaded", round(float(load_s) / 1e9, 3) if load_s else None)

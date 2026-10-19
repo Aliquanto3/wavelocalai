@@ -277,7 +277,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Interrupteur « Autoriser le cloud » */
+/* Interrupteur en bascule `wl-switch` (D-6, DESIGN.md) : « Autoriser le cloud », « Mode projection ».
+   Piste bordée `ink-secondary` (3:1 au moins sur le fond) sur `surface-alt`, curseur `surface` ;
+   activé : piste `primary-fill` et icône `check` dans le curseur. Le libellé est toujours à côté :
+   l'état ne se lit jamais par la seule couleur. L'état indisponible de DESIGN.md (`aria-disabled`,
+   piste en pointillés `line`) arrivera avec son premier consommateur, qui devra aussi bloquer la
+   bascule : `aria-disabled` seul n'empêche pas de cocher. */
 .switch {
   display: inline-flex;
   align-items: center;
@@ -287,15 +292,23 @@
   cursor: pointer;
 }
 
+.switch-box {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 2.75rem;
+  height: 1.5rem;
+}
+
 .switch input {
   appearance: none;
-  position: relative;
-  flex: none;
-  width: 2.5rem;
-  height: 1.5rem;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   margin: 0;
+  border: 1px solid var(--color-ink-secondary);
   border-radius: var(--radius-full);
-  background: var(--color-gray-graphic);
+  background: var(--color-surface-alt);
   cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -303,21 +316,43 @@
 .switch input::before {
   content: "";
   position: absolute;
-  top: 0.125rem;
-  left: 0.125rem;
-  width: 1.25rem;
-  height: 1.25rem;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.0625rem;
+  height: 1.0625rem;
   border-radius: 50%;
   background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-ink-secondary);
   transition: transform 0.15s;
 }
 
 .switch input:checked {
-  background: var(--color-primary);
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
 }
 
 .switch input:checked::before {
-  transform: translateX(1rem);
+  box-shadow: none;
+  transform: translateX(1.25rem);
+}
+
+/* Icône `check` dans le curseur : visible seulement activé (forme, pas couleur seule). */
+.switch-check {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.0625rem;
+  height: 1.0625rem;
+  padding: 0.0625rem;
+  box-sizing: border-box;
+  color: var(--color-primary-fill);
+  opacity: 0;
+  transform: translateX(1.25rem);
+  pointer-events: none;
+}
+
+.switch input:checked ~ .switch-check {
+  opacity: 1;
 }
 
 /* Bandeaux sous la barre haute */
@@ -368,6 +403,10 @@
   --badge-tone: var(--color-chart-4);
 }
 
+.wl-badge-warning {
+  --badge-tone: var(--color-chart-4);
+}
+
 .wl-badge-label {
   padding-inline-start: 0.625rem;
 }
@@ -410,6 +449,7 @@
   font-size: var(--text-metric-value);
   font-weight: 700;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .wl-metric-unit {
@@ -914,6 +954,41 @@
   margin-top: 0.125rem;
 }
 
+/* Groupe de segments (components/segments.js) : radiogroup, le choix porte l'icône check. Aplat
+   `primary-fill` sous texte blanc (A19). */
+.wl-seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+}
+
+.wl-seg-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-seg-button + .wl-seg-button {
+  border-inline-start: 1px solid var(--color-gray-graphic);
+}
+
+.wl-seg-button:hover {
+  background: var(--color-surface-alt);
+}
+
+.wl-seg-button .icon {
+  display: none;
+}
+
+.wl-seg-button[aria-checked="true"] {
 /* wl-source-panel : les sources d'une réponse sur documents (UX-DR11, D-21, D-22) */
 .wl-sources {
   min-width: 0;
@@ -1024,6 +1099,80 @@
   font-weight: 600;
 }
 
+.wl-seg-button[aria-checked="true"] .icon {
+  display: inline-block;
+}
+
+/* wl-chart-svg : nuage de points accessible (components/wl-chart-svg.js). Couleurs : jetons seulement. */
+.wl-chart {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 1rem;
+}
+
+.wl-chart-plot {
+  width: 100%;
+  max-width: 46rem;
+  min-width: 0;
+}
+
+.wl-chart-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-chart-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.wl-chart-axis {
+  stroke: var(--color-ink-secondary);
+  stroke-width: 1.5;
+}
+
+.wl-chart-tick,
+.wl-chart-axis-title,
+.wl-chart-label {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 0.75rem; /* 12 px ; suit le mode projection */
+}
+
+.wl-chart-axis-title,
+.wl-chart-label {
+  font-weight: 600;
+}
+
+/* Le nom d'un point est cerné de la couleur du fond : il reste lisible sur la grille et les points. */
+.wl-chart-label {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+.wl-chart-dot {
+  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+/* CO2 non mesurable : contour en pointillés, sans remplissage (la légende le dit en texte). */
+.wl-chart-dot.is-unknown {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.wl-chart-legend {
+  max-width: 46rem;
+}
+
+.wl-chart-legend-title {
 .wl-source-gone {
   display: flex;
   align-items: center;
@@ -1032,6 +1181,28 @@
   font-weight: 600;
 }
 
+.wl-chart-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-chart-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wl-chart-size-dot {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.wl-chart-missing {
+  margin: 0;
 .wl-source-gone .icon {
   width: 1.25rem;
   height: 1.25rem;

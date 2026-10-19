@@ -5,6 +5,14 @@
 //   lane.setStatus(status, error)          `lane_status` : waiting, loading, generating, judging,
 //                                          done, timeout, failed, cancelled (interrupted : flux perdu)
 //   lane.token(text, channel)  lane.retry(reason)  lane.metrics(data)
+//   lane.setJudge({ single_judge, unreliable })   l'événement `judge` : fiabilité des notes
+//   lane.name  lane.origin  lane.status  lane.score  lane.result   lus par le classement (story 3.4) ;
+//                                          chaque changement de statut, de note ou de mesures émet
+//                                          `wl-lane-change` (bulle), jamais à chaque token
+//   lane.setScore({ score, reason })       `judge_score` : note /100 et sa raison, ou « Non évalué »
+//                                          avec sa raison (`score` nul : jamais 0). Une colonne qui
+//                                          finit en `timeout`, `failed`, `cancelled` ou `interrupted`
+//                                          n'a pas de `judge_score` : elle dit « Non évalué » et pourquoi.
 //
 // La réponse est un `wl-chat-thread` muet (une seule annonce de fin, faite par l'écran) : rendu
 // Markdown, débit provisoire puis mesures du serveur (premier token compris). Le thread ne
@@ -46,6 +54,14 @@ function badgeKind(origin) {
   return ["local", "cloud"].includes(origin) ? origin : "unknown";
 }
 
+// « non évalué : réponse vide » -> « Réponse vide » : l'étiquette « Non évalué » le dit déjà.
+export function reasonText(reason) {
+  const text = String(reason ?? "")
+    .replace(/^\s*non évalué\s*:\s*/i, "")
+    .trim();
+  return text ? text[0].toLocaleUpperCase("fr-FR") + text.slice(1) : "";
+}
+
 export class WlArenaLane extends HTMLElement {
   #uid = `wl-lane-${++counter}`;
   #info = { tag: "", name: "", origin: "unknown" };
@@ -53,6 +69,8 @@ export class WlArenaLane extends HTMLElement {
   #answer = null;
   #ended = false;
   #result = null;
+  #score = null; // { score, reason } du `judge_score`
+  #judge = { single: false, unreliable: false };
   #dom = null;
 
   setup({ tag, name, origin }) {
@@ -66,6 +84,24 @@ export class WlArenaLane extends HTMLElement {
 
   get status() {
     return this.#status;
+  }
+
+  get name() {
+    return this.#info.name;
+  }
+
+  // L'origine mesurée (événement `metrics`) prime sur celle du sélecteur.
+  get origin() {
+    return this.#result?.origin ?? this.#info.origin;
+  }
+
+  // Les mesures du serveur (événement `metrics`), ou `null` tant qu'il n'en a pas publié.
+  get result() {
+    return this.#result;
+  }
+
+  #changed() {
+    this.dispatchEvent(new CustomEvent("wl-lane-change", { bubbles: true }));
   }
 
   get thread() {
@@ -100,6 +136,8 @@ export class WlArenaLane extends HTMLElement {
     const head = element("div", "wl-lane-head");
     head.append(title, status, focus);
 
+    const scoreBox = element("div", "wl-lane-score");
+    scoreBox.hidden = true;
     const note = element("p", "wl-lane-note");
     note.hidden = true;
     const error = document.createElement("wl-error");
@@ -118,14 +156,84 @@ export class WlArenaLane extends HTMLElement {
       if (!open) thread.scrollToEnd();
     });
 
-    this.replaceChildren(head, note, error, thread, expand);
+    this.replaceChildren(head, scoreBox, note, error, thread, expand);
     thread.querySelector("[role=log]")?.setAttribute(
       "aria-label",
       t("components.lane.label", { model: this.#info.name }),
     );
-    this.#dom = { name, badge, statusIcon, statusText, status, focus, note, error, thread, expand };
+    this.#dom = {
+      name,
+      badge,
+      statusIcon,
+      statusText,
+      status,
+      focus,
+      scoreBox,
+      note,
+      error,
+      thread,
+      expand,
+    };
     this.#renderHead();
     this.#renderStatus();
+    this.#renderScore();
+  }
+
+  // La note du juge, ou « Non évalué » avec sa raison (jamais 0). Un statut final sans note
+  // (délai, échec, arrêt, flux perdu) dit pourquoi la réponse n'est pas évaluée.
+  #renderScore() {
+    const { scoreBox } = this.#dom;
+    let shown = this.#score;
+    if (!shown && FINAL.has(this.#status)) {
+      shown = { score: null, reason: t(`components.lane.not_evaluated_status.${this.#status}`) };
+    }
+    scoreBox.hidden = !shown;
+    if (!shown) {
+      scoreBox.replaceChildren();
+      return;
+    }
+    const scored = typeof shown.score === "number";
+    scoreBox.dataset.scored = String(scored);
+    const label = element("p", "wl-score-label", t("components.lane.score_label"));
+    const line = element("p", "wl-score-line");
+    if (scored) {
+      line.append(element("span", "wl-score-value", String(shown.score)), element("span", "wl-score-max", "/100"));
+    } else {
+      line.append(element("span", "wl-score-none", t("components.lane.not_evaluated")));
+    }
+    const parts = [label, line];
+    if (scored) {
+      const flags = element("p", "wl-score-flags");
+      const single = document.createElement("wl-badge");
+      single.setAttribute("kind", "single-judge");
+      flags.append(single);
+      if (this.#judge.unreliable) {
+        const weak = document.createElement("wl-badge");
+        weak.setAttribute("kind", "unreliable");
+        flags.append(weak);
+      }
+      parts.push(flags);
+    }
+    const reason = reasonText(shown.reason);
+    if (reason) parts.push(element("p", "wl-score-reason", reason));
+    scoreBox.replaceChildren(...parts);
+  }
+
+  // `judge` : « un seul juge » et « note peu fiable » accompagnent les notes (jamais « non évalué »).
+  setJudge({ single_judge: single = false, unreliable = false } = {}) {
+    this.#judge = { single: single === true, unreliable: unreliable === true };
+    if (this.#dom) this.#renderScore();
+  }
+
+  setScore(data) {
+    const score = Number.isInteger(data?.score) && data.score >= 0 && data.score <= 100 ? data.score : null;
+    this.#score = { score, reason: data?.reason ?? "" };
+    if (this.#dom) this.#renderScore();
+    this.#changed();
+  }
+
+  get score() {
+    return this.#score;
   }
 
   #renderHead() {
@@ -178,7 +286,9 @@ export class WlArenaLane extends HTMLElement {
     if (STARTED.has(status)) this.#ensureAnswer();
     this.#status = status;
     this.#renderStatus(error);
+    this.#renderScore();
     if (status in END_STATUS) this.#end(status);
+    this.#changed();
   }
 
   #end(status) {
@@ -213,11 +323,15 @@ export class WlArenaLane extends HTMLElement {
     this.#result = data ?? null;
     this.#answer?.metrics(data);
     if (this.#dom) this.#renderHead(); // l'origine mesurée prime sur celle du sélecteur
+    this.#changed();
   }
 
-  // Le flux est perdu sans statut final : la réponse partielle reste, dite « interrompue ».
+  // Le flux est perdu sans statut final : la réponse partielle reste, dite « interrompue ». Une
+  // colonne en notation (`judging`, réponse déjà close) ne reste pas « Notation » : notée, elle est
+  // terminée ; sans `judge_score`, elle est interrompue et dit « Non évalué » avec la raison.
   interrupt() {
-    if (!this.#ended) this.setStatus("interrupted");
+    if (this.#status === "judging") this.setStatus(this.#score ? "done" : "interrupted");
+    else if (!this.#ended) this.setStatus("interrupted");
   }
 
   get ended() {

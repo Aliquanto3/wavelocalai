@@ -7,26 +7,33 @@
 // - L'écran reste en mémoire quand on va ailleurs (le routeur le masque) : masqué, il ferme son flux
 //   en gardant le dernier `seq` ; de retour, il rouvre par `?after=<seq>`, sans perte ni doublon.
 // - `409 run_busy` : le run actif est rejoint (rejoué depuis le début) s'il est une Arène.
-//   `#/arene/comparer/<run_id>` suit de même un run existant. La notation (statut `judging`) est
-//   seulement affichée en statut ; la note et les critères sont la story 3.3, le classement la 3.4.
+//   `#/arene/comparer/<run_id>` suit de même un run existant.
+// - Notation (story 3.3) : le panneau « Critères de notation » (`arena-judge.js`) envoie `judge` et
+//   `criteria` ; sans juge, Lancer est désactivé (« Choisissez un juge ») et le résumé dit le juge
+//   (`arena-summary.js`). L'événement `judge` dit sa fiabilité, `judge_score` pose la note /100 (ou
+//   « Non évalué » et sa raison) dans la colonne. Classement, matrice, tableau : `arena-results.js`.
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
 //   horizontal et en-têtes collants, et un mode focus par colonne.
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
 //   `localStorage` seulement (`core/drafts.js`).
 
 import { api, ApiError } from "../core/api.js";
-import { element, icon } from "../core/dom.js";
+import { element } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatClock } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
+import { noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { resultsView } from "./arena-results.js";
+import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
+import { nextTab } from "./arena-tabs.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
 const MAX_MODELS = 4;
-const SCENARIOS = ["popularize", "extract", "summarize", "translate"];
 const TERMINAL = new Set(["done", "timeout", "failed", "cancelled", "interrupted"]);
 const NARROW = "(max-width: 767px)";
 const TICK_MS = 250;
@@ -48,21 +55,7 @@ export function mount(host, params = {}) {
   questionLabel.htmlFor = question.id;
   question.value = loadDraft(DRAFT) || t("arena.scenario.popularize.prompt");
 
-  const scenarios = element("fieldset", "arena-scenarios");
-  scenarios.append(element("legend", "", t("arena.scenarios")));
-  const scenarioRow = element("div", "arena-scenario-row");
-  for (const id of SCENARIOS) {
-    const button = element("button", "btn", t(`arena.scenario.${id}.label`));
-    button.type = "button";
-    button.addEventListener("click", () => {
-      question.value = t(`arena.scenario.${id}.prompt`);
-      saveDraft(DRAFT, question.value);
-      render();
-      question.focus();
-    });
-    scenarioRow.append(button);
-  }
-  scenarios.append(scenarioRow, element("p", "help", t("arena.scenarios_help")));
+  const scenarios = scenarioFieldset(question, DRAFT, () => render());
 
   const picker = document.createElement("wl-model-picker");
   picker.setAttribute("purpose", "arena");
@@ -70,6 +63,7 @@ export function mount(host, params = {}) {
   picker.setAttribute("label", t("arena.models"));
   const execution = element("p", "help arena-execution", t("arena.execution"));
 
+  const judging = judgePanel(uid);
   const launch = element("button", "btn arena-launch", t("arena.launch"));
   launch.type = "submit";
   launch.setAttribute("aria-describedby", `${uid}-reason`);
@@ -78,23 +72,12 @@ export function mount(host, params = {}) {
   const actions = element("div", "chat-actions arena-actions");
   actions.append(launch, reason);
   const form = element("form", "arena-form");
-  form.append(questionLabel, question, scenarios, picker, execution, actions);
+  form.append(questionLabel, question, scenarios, picker, execution, judging.el, actions);
 
-  // Sans modèle local prêt (D-11) : `alert-info` qui dit quoi faire, au-dessus du formulaire.
-  const noLocal = element("p", "wl-notice wl-notice-info");
-  noLocal.setAttribute("role", "status");
-  const noLocalText = element("span", "");
-  noLocal.append(icon("info"), noLocalText); // masqué ou non par `render()`, dès le montage
+  const noLocal = noLocalNotice();
 
   // Pendant l'exécution, la configuration est remplacée par ce résumé (D-16), jusqu'à `run_ended`.
-  const summaryTitle = element("h2", "arena-summary-title", t("arena.summary.title"));
-  summaryTitle.tabIndex = -1; // reçoit le focus quand le formulaire se retire
-  const summaryList = element("dl", "arena-summary-list");
-  const summary = element("section", "arena-summary");
-  summary.setAttribute("aria-labelledby", `${uid}-summary-title`);
-  summaryTitle.id = `${uid}-summary-title`;
-  summary.hidden = true;
-  summary.append(summaryTitle, summaryList);
+  const summary = summaryView(uid);
 
   const notice = element("p", "chat-notice");
   notice.setAttribute("role", "status");
@@ -115,6 +98,7 @@ export function mount(host, params = {}) {
 
   const asked = element("p", "arena-asked");
   asked.hidden = true;
+  const info = judgeInfo();
   const tabs = element("div", "arena-tabs");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("arena.tabs"));
@@ -124,25 +108,30 @@ export function mount(host, params = {}) {
   lanesEl.setAttribute("aria-label", t("arena.lanes"));
   lanesEl.tabIndex = 0; // une zone qui défile se lit au clavier
   lanesEl.hidden = true;
+  const results = resultsView(uid, lanesEl); // classement, matrice et tableau (story 3.4)
   const live = element("div", "sr-only");
   live.setAttribute("role", "status");
   live.setAttribute("aria-live", "polite");
   live.setAttribute("aria-atomic", "true");
+  const scoreLive = scoreAnnouncer();
 
   host.replaceChildren(
     element("h1", "", t("screens.arena-compare")),
     screenTabs("arena", "arena-compare"),
     element("p", "lead", t("arena.lead")),
-    noLocal,
+    noLocal.el,
     form,
-    summary,
+    summary.el,
     notice,
     error,
     banner,
     asked,
+    info.el,
     tabs,
     lanesEl,
+    results.el,
     live,
+    scoreLive.el,
   );
 
   // --- État ------------------------------------------------------------------------------
@@ -159,6 +148,9 @@ export function mount(host, params = {}) {
   let stopHadFocus = false; // Arrêter avait le focus avant d'être désactivé (il le perd alors)
   let wasHidden = host.hidden;
   let askedText = ""; // la question du run suivi (événement `question`), pour le résumé
+  let askedCriteria = []; // les critères de la question (vide : ceux du serveur)
+  let judgeFlags = { single_judge: false, unreliable: false }; // fiabilité des notes (`judge`)
+  let runJudge = null; // le juge du run suivi : { name, origin }, ou { none: true } (résumé)
   const narrow = window.matchMedia(NARROW);
 
   const running = () => runId !== null;
@@ -179,7 +171,7 @@ export function mount(host, params = {}) {
   const availableChoices = () =>
     picker.values.filter((tag) => picker.modelFor(tag)?.available !== false).length;
 
-  // Prérequis du lancement, la première raison l'emporte (la 3.3 y ajoute le juge, une ligne).
+  // Prérequis du lancement, la première raison l'emporte.
   const launchChecks = [
     () => (running() || pending ? t("arena.busy") : ""),
     () =>
@@ -189,6 +181,7 @@ export function mount(host, params = {}) {
     () => (picker.values.length < MIN_MODELS ? t("arena.need_models") : ""),
     () => (picker.values.length > MAX_MODELS ? t("arena.too_many") : ""),
     () => (question.value.trim() ? "" : t("arena.need_question")),
+    () => (judging.ready() ? "" : t("arena.judge.need_judge")),
   ];
 
   function launchReason() {
@@ -199,46 +192,25 @@ export function mount(host, params = {}) {
     return "";
   }
 
-  // Les lignes du résumé affiché pendant l'exécution : [libellé, contenu]. La 3.3 y ajoute le juge.
+  // Les lignes du résumé affiché pendant l'exécution : question, modèles, juge (D-16).
   const summaryRows = [
     () => [t("arena.summary.question"), askedText],
-    () => {
-      const models = element("ul", "arena-summary-models");
-      for (const [tag, entry] of lanes) {
-        const item = element("li", "arena-summary-model");
-        const badge = document.createElement("wl-badge");
-        badge.setAttribute("kind", ["local", "cloud"].includes(entry.origin) ? entry.origin : "unknown");
-        item.append(element("span", "", entry.name), badge);
-        item.dataset.tag = tag;
-        models.append(item);
-      }
-      return [t("arena.summary.models"), models];
-    },
+    () => modelsRow(lanes),
+    () => judgeRow(runJudge),
   ];
-
-  function renderSummary() {
-    summaryList.replaceChildren(
-      ...summaryRows.map((row) => {
-        const [label, content] = row();
-        const item = element("div", "arena-summary-row");
-        item.append(element("dt", "", label), element("dd", ""));
-        item.lastElementChild.append(content);
-        return item;
-      }),
-    );
-  }
 
   // Écran de configuration, ou résumé tant que le run n'a pas dit `run_ended` (D-16). Le focus suit
   // la partie qui se retire : titre du résumé, ou bandeau (à défaut la question) au retour.
   function renderMode() {
     const showSummary = running();
-    const leaving = showSummary ? form : summary;
+    const leaving = showSummary ? form : summary.el;
     const lost = !leaving.hidden && leaving.contains(document.activeElement);
     form.hidden = showSummary;
-    summary.hidden = !showSummary;
+    summary.el.hidden = !showSummary;
     asked.hidden = showSummary || askedText === "";
-    if (showSummary) renderSummary();
-    if (lost) focusAfter(showSummary ? summaryTitle : null);
+    info.hold(showSummary);
+    if (showSummary) summary.render(summaryRows);
+    if (lost) focusAfter(showSummary ? summary.title : null);
   }
 
   const focusAfter = (target) => (target ?? (banner.hidden ? question : bannerText)).focus();
@@ -246,9 +218,9 @@ export function mount(host, params = {}) {
   // Ollama arrêté garde le message du sélecteur ; pendant un run, le résumé a la place.
   function renderNoLocal() {
     const missing = noLocalReady() && picker.ollamaUp && !running();
-    noLocal.hidden = !missing;
+    noLocal.el.hidden = !missing;
     const cloud = store.get().allowCloud ? "on" : "off";
-    if (missing) noLocalText.textContent = t(`arena.no_local_cloud_${cloud}`);
+    if (missing) noLocal.text.textContent = t(`arena.no_local_cloud_${cloud}`);
   }
 
   function render() {
@@ -294,6 +266,12 @@ export function mount(host, params = {}) {
     asked.hidden = true;
     askedText = "";
     activeTab = null;
+    askedCriteria = [];
+    judgeFlags = { single_judge: false, unreliable: false };
+    runJudge = null;
+    info.clear();
+    scoreLive.clear();
+    results.reset();
   }
 
   function setAsked(text) {
@@ -312,6 +290,7 @@ export function mount(host, params = {}) {
     const el = document.createElement("wl-arena-lane");
     el.id = `${uid}-lane-${index}`;
     el.setup({ tag, name: fiche?.name ?? tag, origin: fiche?.origin ?? "unknown" });
+    el.setJudge(judgeFlags);
     const tab = element("button", "arena-tab");
     tab.type = "button";
     tab.id = `${uid}-tab-${index}`;
@@ -346,13 +325,7 @@ export function mount(host, params = {}) {
   }
 
   function onTabKey(event, tag) {
-    const order = [...lanes.keys()];
-    const at = order.indexOf(tag);
-    const moves = { ArrowRight: 1, ArrowLeft: -1 };
-    let next = null;
-    if (event.key in moves) next = order[(at + moves[event.key] + order.length) % order.length];
-    else if (event.key === "Home") next = order[0];
-    else if (event.key === "End") next = order[order.length - 1];
+    const next = nextTab(event.key, [...lanes.keys()], tag);
     if (next === null) return;
     event.preventDefault();
     selectTab(next, true);
@@ -401,6 +374,7 @@ export function mount(host, params = {}) {
     for (const { el } of lanes.values()) el.interrupt(); // aucune colonne sans état final
     for (const tag of lanes.keys()) updateTab(tag);
     finalState = state;
+    results.end(state); // le classement se fige
     runId = null;
     stream = null;
     stopping = false;
@@ -433,7 +407,26 @@ export function mount(host, params = {}) {
       renderBanner();
       renderMode();
     },
-    question: (data) => setAsked(data?.text ?? ""),
+    question: (data) => {
+      setAsked(data?.text ?? "");
+      askedCriteria = Array.isArray(data?.criteria) ? data.criteria : [];
+    },
+    judge: (data) => {
+      judgeFlags = { single_judge: data?.single_judge === true, unreliable: data?.unreliable === true };
+      for (const { el } of lanes.values()) el.setJudge(judgeFlags);
+      const name = data?.model
+        ? (judging.picker.modelFor(data.model)?.name ?? picker.modelFor(data.model)?.name ?? data.model)
+        : "";
+      runJudge = data?.model ? { name, origin: data.origin } : { none: true };
+      info.show(data, { name, criteria: askedCriteria });
+      renderMode();
+    },
+    judge_score: (data) => {
+      const entry = lanes.get(data?.lane);
+      if (!entry) return;
+      entry.el.setScore(data);
+      scoreLive.add(entry.name, entry.el.score, judgeFlags.unreliable);
+    },
     lane_status: (data) => {
       const el = laneOf(data);
       if (!el) return;
@@ -497,14 +490,19 @@ export function mount(host, params = {}) {
     pending = true; // pas de second envoi (bouton ni Entrée) pendant la requête
     render();
     try {
-      const started = await api.startArena({
+      const command = {
         models,
         prompt: question.value,
+        criteria: judging.criteria(),
         allow_cloud: store.get().allowCloud,
-      });
+      };
+      const chosenJudge = judging.chosen(); // lu avant l'envoi ; absent : le défaut du serveur
+      if (chosenJudge) command.judge = chosenJudge.tag;
+      const started = await api.startArena(command);
       buildLanes(models);
       lanesEl.hidden = false;
       setAsked(question.value);
+      runJudge = chosenJudge; // le résumé le dit jusqu'à l'événement `judge`
       follow(started.run_id);
       announce(t("arena.announce.started", { count: models.length }));
     } catch (failure) {
@@ -521,7 +519,7 @@ export function mount(host, params = {}) {
     } finally {
       pending = false;
       render();
-      if (running()) summaryTitle.focus(); // Lancer s'est retiré avec le formulaire
+      if (running()) summary.title.focus(); // Lancer s'est retiré avec le formulaire
       else if (refocus) launch.focus();
     }
   }
@@ -569,6 +567,7 @@ export function mount(host, params = {}) {
     render();
   });
   picker.addEventListener("wl-model-change", render);
+  for (const type of ["wl-model-change", "wl-models-loaded"]) judging.picker.addEventListener(type, render);
   picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?
   narrow.addEventListener("change", layout);
 
@@ -587,9 +586,10 @@ export function mount(host, params = {}) {
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
 
-  render();
+  const unwatchCloud = store.select((state) => state.allowCloud, render); // rend tout de suite
   if (params.run_id) follow(params.run_id);
   return () => {
+    unwatchCloud();
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     narrow.removeEventListener("change", layout);

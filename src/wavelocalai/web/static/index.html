@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/static/screens.css">
   <link rel="stylesheet" href="/static/chat.css">
   <link rel="stylesheet" href="/static/arena.css">
+  <link rel="stylesheet" href="/static/arena-results.css">
   <link rel="stylesheet" href="/static/documents.css">
   <link rel="modulepreload" href="/static/main.js">
   <link rel="modulepreload" href="/static/core/i18n.js">
@@ -70,7 +71,10 @@
 
       <div class="tool tool-cloud" id="cloud-tool">
         <label class="switch">
-          <input type="checkbox" role="switch" id="cloud-switch" aria-describedby="cloud-help">
+          <span class="switch-box">
+            <input type="checkbox" role="switch" id="cloud-switch" aria-describedby="cloud-help">
+            <svg class="icon switch-check" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-check"/></svg>
+          </span>
           <span data-i18n="topbar.cloud.label">Autoriser le cloud</span>
         </label>
         <button class="btn icon-btn" id="cloud-help-button" type="button" aria-expanded="false" aria-controls="cloud-help" aria-label="Aide sur l'autorisation du cloud" data-i18n-aria-label="topbar.cloud.help_button">
@@ -111,8 +115,15 @@
             <legend data-i18n="shell.display.theme">Thème</legend>
             <label class="choice"><input type="radio" name="theme" value="light"><span data-i18n="shell.display.light">Clair</span></label>
             <label class="choice"><input type="radio" name="theme" value="dark"><span data-i18n="shell.display.dark">Sombre</span></label>
+            <label class="choice"><input type="radio" name="theme" value="system"><span data-i18n="shell.display.system">Système</span></label>
           </fieldset>
-          <label class="choice"><input type="checkbox" name="projection" aria-describedby="projection-help"><span data-i18n="shell.display.projection">Mode projection</span></label>
+          <label class="switch">
+            <span class="switch-box">
+              <input type="checkbox" role="switch" name="projection" aria-describedby="projection-help">
+              <svg class="icon switch-check" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-check"/></svg>
+            </span>
+            <span data-i18n="shell.display.projection">Mode projection</span>
+          </label>
           <p class="help" id="projection-help" data-i18n="shell.display.projection_help">Texte agrandi pour la salle ; le pied de page est masqué.</p>
         </div>
       </div>

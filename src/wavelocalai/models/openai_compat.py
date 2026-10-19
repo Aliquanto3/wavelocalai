@@ -30,6 +30,7 @@ from wavelocalai.models.cloud import (
     translate_error,
 )
 from wavelocalai.models.port import ChatChunk, ChatRequest, Done, ModelRef, TextDelta
+from wavelocalai.models.structured import StructuredCheck
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -73,6 +74,17 @@ class OpenAICompatChatModel:
             options["temperature"] = request.temperature
         if request.max_tokens is not None:
             options["max_completion_tokens"] = request.max_tokens
+        if request.response_schema is not None:
+            options["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "schema": request.response_schema,
+                    # `strict` : OpenAI seulement (Groq ne le garantit pas sur tous ses modèles) ;
+                    # la sortie est vérifiée ici dans tous les cas.
+                    "strict": self.ref.provider == "openai",
+                },
+            }
         return options
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
@@ -96,6 +108,7 @@ class OpenAICompatChatModel:
         finish: str | None = None
         input_tokens: int | None = None
         output_tokens: int | None = None
+        structured = StructuredCheck(request.response_schema)
         try:
             upstream = await client.chat.completions.create(
                 model=model_of(self.ref.tag),
@@ -123,6 +136,7 @@ class OpenAICompatChatModel:
                 if isinstance(content, str) and content:
                     clock.note(content)
                     fragments += 1
+                    structured.add(content)
                     yield TextDelta(content, "answer")
                 finish = _field(choice, "finish_reason") or finish
         except asyncio.CancelledError:
@@ -135,6 +149,7 @@ class OpenAICompatChatModel:
         finally:
             await close_quietly(upstream)
             await close_quietly(client)
+        structured.done()
         yield Done(
             clock.result(
                 finish_reason=finish, input_tokens=input_tokens, output_tokens=output_tokens

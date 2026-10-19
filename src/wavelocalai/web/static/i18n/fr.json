@@ -13,6 +13,7 @@
       "theme": "Thème",
       "light": "Clair",
       "dark": "Sombre",
+      "system": "Système",
       "projection": "Mode projection",
       "projection_help": "Texte agrandi pour la salle ; le pied de page est masqué."
     },
@@ -31,6 +32,7 @@
     "arena-chat": "Chat libre",
     "arena-compare": "Arène",
     "arena-bench": "Banc d'essai",
+    "arena-references": "Références",
     "documents-chat": "Discussion",
     "documents-base": "Base documentaire",
     "documents-evaluation": "Évaluation de la qualité",
@@ -83,6 +85,13 @@
       "total": "sur {total}"
     },
     "modules_title": "Modules",
+    "modules_long": {
+      "arena": "Arène des modèles",
+      "documents": "Assistant documentaire",
+      "agents": "Agents autonomes",
+      "sobriety": "Sobriété et matériel",
+      "models": "Installation et choix par usage"
+    },
     "modules": {
       "arena": "Comparer plusieurs petits modèles sur une question : qualité, vitesse et CO₂.",
       "documents": "Interroger ses documents et voir les sources.",
@@ -112,7 +121,8 @@
       "indicative": "indicatif",
       "single_judge": "un seul juge",
       "estimated": "estimé",
-      "unmeasurable": "non mesurable"
+      "unmeasurable": "non mesurable",
+      "unreliable": "note peu fiable"
     },
     "metric": {
       "help_for": "Aide sur {label}",
@@ -236,7 +246,15 @@
       "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
       "focus": "Mode focus",
       "expand": "Afficher toute la réponse",
-      "collapse": "Réduire la réponse"
+      "collapse": "Réduire la réponse",
+      "score_label": "Note du juge",
+      "not_evaluated": "Non évalué",
+      "not_evaluated_status": {
+        "timeout": "délai dépassé",
+        "failed": "échec du modèle",
+        "cancelled": "comparaison arrêtée",
+        "interrupted": "comparaison interrompue"
+      }
     }
   },
   "tabs": {
@@ -439,7 +457,8 @@
       "title": "Comparaison",
       "question": "Question",
       "models": "Modèles comparés",
-      "judge": "Juge"
+      "judge": "Juge",
+      "no_judge": "Aucun juge"
     },
     "busy": "Une comparaison est en cours",
     "start_failed": "La comparaison n'a pas pu être lancée.",
@@ -460,10 +479,91 @@
       "ok": "Comparaison terminée : {done} réponses sur {total}.",
       "cancelled": "Comparaison arrêtée.",
       "interrupted": "Comparaison interrompue.",
-      "error": "Comparaison en échec."
+      "error": "Comparaison en échec.",
+      "score": "{name} : note {score} sur 100.",
+      "score_unreliable": "{name} : note {score} sur 100, peu fiable.",
+      "not_evaluated": "{name} : non évalué, {reason}."
     },
     "other_run": "Un autre calcul est en cours (un chat, par exemple) : attendez qu'il se termine ou arrêtez-le, puis lancez la comparaison.",
     "run_failed": "La comparaison a échoué côté serveur. Relancez-la ; si le problème persiste, signalez-le.",
-    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré."
+    "run_unknown": "Cette comparaison est introuvable. Elle a peut-être été effacée, ou le serveur a redémarré.",
+    "judge": {
+      "panel": "Critères de notation",
+      "label": "Juge",
+      "need_judge": "Choisissez un juge",
+      "help": "Le juge note chaque réponse sur 100. Le cloud n'est jamais le juge sans « Autoriser le cloud ».",
+      "weak_help": "Un juge de moins de 4 milliards de paramètres actifs donne une note peu fiable.",
+      "current": "Juge retenu : {name}",
+      "criteria_legend": "Critères envoyés au juge",
+      "criterion_label": "Critère {n}",
+      "criterion_remove": "Retirer le critère {n}",
+      "add": "Ajouter un critère",
+      "reset": "Rétablir les critères par défaut",
+      "criteria_help": "Au plus {max} critères de {chars} caractères. Sans critère, le juge applique : {defaults}.",
+      "criteria_full": "Huit critères au plus : retirez-en un pour en ajouter.",
+      "defaults": {
+        "accuracy": "exactitude",
+        "relevance": "pertinence",
+        "clarity": "clarté"
+      },
+      "info_judge": "Juge : {name}",
+      "info_criteria": "Critères : {list}",
+      "unreliable_alert": "Note peu fiable : le juge a moins de 4 milliards de paramètres actifs, ou sa taille est inconnue. Choisissez un juge plus gros pour un classement plus sûr.",
+      "none_alert": "Aucun juge n'est disponible : les réponses ne sont pas évaluées, et une réponse non évaluée ne vaut jamais 0."
+    },
+    "results": {
+      "title": "Classement",
+      "help_live": "Le classement se construit au fil des notes et se fige à la fin de la comparaison.",
+      "help_frozen": "Classement figé.",
+      "none_yet": "Aucune note pour l'instant.",
+      "partial_cancelled": "Comparaison arrêtée : le classement ne vaut que pour les modèles déjà notés.",
+      "partial_interrupted": "Comparaison interrompue : le classement ne vaut que pour les modèles déjà notés.",
+      "partial_error": "Comparaison en échec : le classement ne vaut que pour les modèles déjà notés.",
+      "rank": "Rang",
+      "tie": "ex æquo",
+      "fact_score": "Note",
+      "fact_rate": "Débit",
+      "fact_co2": "CO₂",
+      "unranked": "Non évalués, sans rang",
+      "not_evaluated_line": "Non évalué : {reason}",
+      "not_evaluated_cell": "non évalué : {reason}",
+      "reason_unknown": "aucune note reçue",
+      "pending_one": "1 modèle n'est pas encore noté.",
+      "pending_many": "{count} modèles ne sont pas encore notés.",
+      "in_progress": "en cours",
+      "not_measured": "non mesuré"
+    },
+    "chart": {
+      "title": "Qualité, débit et CO₂",
+      "segment_label": "Affichage des résultats",
+      "matrix": "Matrice",
+      "table": "Tableau",
+      "svg_title": "Note du juge et débit de chaque modèle, taille du point selon le CO₂",
+      "svg_desc": "Nuage de points. En abscisse, le débit en tokens par seconde ; en ordonnée, la note du juge sur 100 ; la taille du point indique le CO₂ de la réponse. {points}",
+      "point": "{name} : {score}, {rate}, {co2}.",
+      "x_axis": "Débit (tokens/s)",
+      "y_axis": "Note du juge (/100)",
+      "see_table": "Voir le tableau",
+      "size_legend": "Taille du point : CO₂ de la réponse",
+      "size_unmeasurable": "Contour en pointillés : CO₂ non mesurable",
+      "not_plotted": "Non placés sur la matrice : {names}.",
+      "empty": "La matrice apparaît dès qu'un modèle est noté.",
+      "nothing_placed": "Aucun modèle n'a à la fois une note et un débit : la matrice reste vide. Le tableau les liste tous.",
+      "caption": "Résultats de la comparaison, une ligne par modèle",
+      "col_model": "Modèle",
+      "col_origin": "Origine",
+      "col_score": "Note",
+      "col_rate": "Débit",
+      "col_co2": "CO₂",
+      "col_load": "Chargement",
+      "col_total": "Durée totale",
+      "defs_title": "Que mesure chaque colonne ?",
+      "def_score": "Note : donnée sur 100 par un juge selon les critères choisis ; « non évalué » quand elle est impossible, jamais 0.",
+      "def_rate": "Débit : tokens produits par seconde pendant la génération, mesuré par Ollama, chargement exclu.",
+      "def_load": "Chargement : temps passé à mettre le modèle en mémoire, compté à part.",
+      "def_co2": "CO₂ : émissions de la réponse ; mesurées en local, estimées pour un modèle cloud, « non mesurable » quand la mesure n'a pas pu se faire.",
+      "same_unit": "Tous les CO₂ de cette comparaison sont exprimés en {unit}.",
+      "not_applicable": "sans objet"
+    }
   }
 }
