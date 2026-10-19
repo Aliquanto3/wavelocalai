@@ -85,6 +85,8 @@
       "total": "sur {total}"
     },
     "modules_title": "Modules",
+    "documents_indexed_one": "{n} document indexé",
+    "documents_indexed_other": "{n} documents indexés",
     "modules_long": {
       "arena": "Arène des modèles",
       "documents": "Assistant documentaire",

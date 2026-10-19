@@ -567,14 +567,17 @@ def test_the_front_computes_no_measure_and_names_no_host():
 # --- Accueil (story 1.11) ---------------------------------------------------------------------
 
 
-def test_the_home_screen_reads_the_store_only_and_every_home_text_is_used():
-    """L'Accueil n'appelle pas l'API (AD-6 : les cartes lisent le store rempli par le flux), ne
-    calcule rien, et le catalogue ne garde aucun texte `home.*` qu'il n'affiche pas."""
+def test_the_home_screen_reads_the_store_and_one_base_summary_and_every_home_text_is_used():
+    """Les cartes de l'Accueil lisent le store rempli par le flux (AD-6) ; son seul appel à l'API est
+    le résumé de la base documentaire (story 4.9) ; il ne calcule rien, et le catalogue ne garde
+    aucun texte `home.*` qu'il n'affiche pas (un texte au pluriel compte par sa base)."""
     text = (STATIC / "screens/home.js").read_text(encoding="utf-8")
-    assert "fetch(" not in text and "api." not in text and "EventSource" not in text
+    assert "fetch(" not in text and "EventSource" not in text
+    assert re.findall(r"\bapi\.(?!js)(\w+)", text) == ["documents"]
     named = set(re.findall(r"""["'`](home\.[\w.${}]+)["'`]""", text))
     prefixes = {key.split("${")[0] for key in named if "${" in key}
     literal = {key for key in named if "${" not in key}
+    literal |= {f"{key}_{form}" for key in literal for form in ("one", "other")}
     orphans = [
         key
         for key in flat_keys(catalog()["home"], "home")

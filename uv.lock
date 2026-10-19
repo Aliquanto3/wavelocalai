@@ -4662,7 +4662,7 @@ wheels = [
 
 [[package]]
 name = "wavelocalai"
-version = "2.0.0a2"
+version = "2.0.0a4"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
