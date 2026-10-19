@@ -144,6 +144,9 @@ class AgentSettings(_Section):
     result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
     # Outils d'un tour (story 6.2) : au-delà, l'appel n'est pas exécuté et l'agent reçoit le refus.
     max_tool_calls_per_turn: int = Field(8, ge=1, le=64)
+    memory_sample_s: float = Field(
+        1.0, gt=0
+    )  # relevé de la mémoire pendant une mission (story 6.5)
     max_input_mb: int = Field(20, ge=1)  # taille d'un fichier que les outils acceptent de lire
 
 
