@@ -238,7 +238,13 @@ async def test_two_models_answer_on_the_same_extracts_then_the_judge_scores_thre
         assert [v["verdict"] for v in faith["verdicts"]] == ["appuyée", "appuyée", "non appuyée"]
         assert [v["claim"] for v in faith["verdicts"]] == CLAIMS
         assert [v["support"] for v in faith["verdicts"]] == [1, 1, None]
-        assert faith["aggregate"] == {"score": 67, "evaluated": 1, "not_evaluated": 0, "total": 1}
+        assert faith["aggregate"] == {
+            "score": 67,
+            "evaluated": 1,
+            "not_evaluated": 0,
+            "pending": 0,
+            "total": 1,
+        }
         assert "2 affirmations sur 3 appuyées" in faith["reason"]
         rel = _metric(events, lane, "relevance")
         assert rel["score"] == _relevance_expected() and rel["questions"] == RETRIEVED
@@ -282,8 +288,17 @@ async def test_a_set_of_questions_gives_a_mean_and_the_detail_by_question(tmp_pa
     assert snapshot["status"] == "ok" and len(_of(events, "sources")) == 2
     first, second = (_metric(events, "fake:a", "faithfulness", i) for i in (0, 1))
     assert first["question_count"] == second["question_count"] == 2
-    assert first["aggregate"]["evaluated"] == 1 and first["aggregate"]["not_evaluated"] == 1
-    assert second["aggregate"] == {"score": 67, "evaluated": 2, "not_evaluated": 0, "total": 2}
+    # En cours : la deuxième question n'est pas « non évaluée », elle attend sa note.
+    assert first["aggregate"] == {
+        "score": 67, "evaluated": 1, "not_evaluated": 0, "pending": 1, "total": 2
+    }  # fmt: skip
+    assert second["aggregate"] == {
+        "score": 67,
+        "evaluated": 2,
+        "not_evaluated": 0,
+        "pending": 0,
+        "total": 2,
+    }
     assert {m["question_index"] for m in _of(events, "metrics", lane="fake:a")} == {0, 1}
     assert snapshot["summary"]["fake:a"]["relevance"]["total"] == 2
     assert [r["question_index"] for r in snapshot["evaluations"]][:2] == [0, 0]
@@ -305,7 +320,13 @@ async def test_a_partly_unscored_set_says_how_many_questions_were_not_evaluated(
         _, snapshot, events = await _run(client, ["fake:a"], QUESTIONS, judge="fake:j")
     second = _metric(events, "fake:a", "faithfulness", 1)
     assert second["score"] is None and second["reason"] == "non évalué : juge indisponible"
-    assert second["aggregate"] == {"score": 67, "evaluated": 1, "not_evaluated": 1, "total": 2}
+    assert second["aggregate"] == {
+        "score": 67,
+        "evaluated": 1,
+        "not_evaluated": 1,
+        "pending": 0,
+        "total": 2,
+    }
     assert snapshot["summary"]["fake:a"]["faithfulness"] == second["aggregate"]
     rows = [r for r in snapshot["evaluations"] if r["metric"] == "faithfulness"]
     assert [r["score"] for r in rows] == [67, None]
@@ -633,6 +654,26 @@ async def test_erasing_an_evaluation_removes_its_text_and_scores_and_keeps_the_r
         data = path.read_bytes()
         assert SECRET_QUESTION.encode() not in data, path.name  # ni dans le .db ni dans le -wal
         assert ANSWER.encode() not in data, path.name
+
+
+async def test_past_evaluations_are_listed_newest_first_without_the_erased_ones(tmp_path):
+    """Décision n° 14 : la 7.3 liste les évaluations passées, les plus récentes d'abord."""
+    judge = SchemaJudge()
+    async with eval_app(tmp_path, local("fake:a", ANSWER), judge) as (_, client):
+        first, _, _ = await _run(client, ["fake:a"], [SECRET_QUESTION], judge="fake:j")
+        second, _, _ = await _run(client, ["fake:a"], QUESTIONS, judge="fake:j")
+        listed = (await client.get("/api/rag/eval/runs")).json()["runs"]
+        assert [r["run_id"] for r in listed] == [second, first]
+        assert listed[0]["models"] == ["fake:a"]  # une feuille par question, un modèle listé
+        assert listed[0]["question_count"] == 2 and listed[0]["question"] == QUESTIONS[0]
+        assert listed[0]["status"] == "ok" and listed[0]["ended_at"]
+        limited = (await client.get("/api/rag/eval/runs?limit=1")).json()["runs"]
+        assert [r["run_id"] for r in limited] == [second]
+        assert (await client.get("/api/rag/eval/runs?limit=0")).status_code == 422
+        assert (await client.delete(f"/api/rag/eval/runs/{first}")).status_code == 204
+        after = (await client.get("/api/rag/eval/runs")).json()["runs"]
+        assert [r["run_id"] for r in after] == [second]  # effacée : plus rien à rouvrir
+        assert (await client.get("/api/arena/runs")).json()["runs"] == []  # pas une Arène
 
 
 async def test_erasing_refuses_an_active_or_foreign_run(tmp_path):

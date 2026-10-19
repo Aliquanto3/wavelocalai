@@ -611,7 +611,7 @@ class EvaluationService:
                 "verdicts": detail.get("verdicts"),
                 "questions": detail.get("questions"),
                 "useful": detail.get("useful"),
-                "aggregate": aggregate(seen.values(), len(ev.questions)),
+                "aggregate": aggregate(seen.values(), len(ev.questions), settled=False),
             },
         )
 

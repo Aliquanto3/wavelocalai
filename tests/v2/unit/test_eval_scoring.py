@@ -159,10 +159,18 @@ def test_the_mean_only_counts_the_scored_questions_and_says_how_many_are_missing
         "score": 70,
         "evaluated": 2,
         "not_evaluated": 1,
+        "pending": 0,
         "total": 3,
     }
     assert aggregate([None, None], 2)["score"] is None  # aucune note : pas de 0
-    assert aggregate([80], 8) == {"score": 80, "evaluated": 1, "not_evaluated": 7, "total": 8}
+    # Run terminé : les 7 questions sans ligne ne seront plus notées (évaluation arrêtée).
+    assert aggregate([80], 8) == {
+        "score": 80, "evaluated": 1, "not_evaluated": 7, "pending": 0, "total": 8
+    }  # fmt: skip
+    # En cours : elles attendent leur note, elles ne sont pas « non évaluées ».
+    assert aggregate([80, None], 8, settled=False) == {
+        "score": 80, "evaluated": 1, "not_evaluated": 1, "pending": 6, "total": 8
+    }  # fmt: skip
     assert aggregate([0, 1], 2)["score"] == 1  # 0,5 arrondi à la moitié supérieure
 
 
@@ -176,8 +184,10 @@ def test_summary_and_missing_rows_cover_every_model_question_and_metric():
     assert set(summary) == {"a", "b"} and set(summary["a"]) == set(METRICS)
     assert summary["a"]["faithfulness"]["score"] == 90
     assert summary["a"]["relevance"] == {
-        "score": None, "evaluated": 0, "not_evaluated": 2, "total": 2
+        "score": None, "evaluated": 0, "not_evaluated": 2, "pending": 0, "total": 2
     }  # fmt: skip
+    live = summarize(rows, ["a", "b"], 2, settled=False)["a"]["relevance"]
+    assert (live["not_evaluated"], live["pending"]) == (1, 1)
     missing = missing_rows(rows, ["a", "b"], 2)
     assert len(missing) == 2 * 2 * 3 - 2
     assert all(m["score"] is None and m["reason"] == NOT_EVALUATED_STOPPED for m in missing)

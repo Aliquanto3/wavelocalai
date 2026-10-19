@@ -5,6 +5,8 @@
   tels quels à tous les modèles ; le juge note la fidélité, la pertinence et la précision du contexte.
   Le flux se lit par `GET /api/runs/{id}/events` (`eval_metric`, AD-6), le résultat et sa version
   partielle par `GET /api/runs/{id}` (`partial`). Plus de 4 modèles : `422 invalid_request`.
+- `GET /api/rag/eval/runs?limit=` : les évaluations passées, les plus récentes d'abord, sans les
+  évaluations effacées (décision n° 14, pour la story 7.3).
 - `DELETE /api/rag/eval/runs/{id}` : efface les notes et le texte (`evaluations`, `run_events`) et
   garde les lignes `runs` comme registre carbone ; `409 run_busy` si l'évaluation est active. Le hub
   écrit, rien ici.
@@ -14,7 +16,9 @@ Toute la logique est dans `evaluation/` ; `build_service` n'est que le câblage 
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI, Request
+from typing import Annotated, Any
+
+from fastapi import APIRouter, FastAPI, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
@@ -30,6 +34,7 @@ from wavelocalai.inference.streaming import Guard
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.rag.eval_base import EvalRetrieval
 from wavelocalai.rag.index import VectorIndex
+from wavelocalai.runs.eval_snapshot import list_eval_runs
 from wavelocalai.runs.hub import RunHub
 
 router = APIRouter(prefix="/api")
@@ -95,6 +100,16 @@ async def start_eval_run(body: EvalBody, request: Request) -> EvalStarted:
         raise AppError("internal", "Le service d'évaluation n'est pas démarré.")
     handle = await service.start(EvalCommand(**body.model_dump()))
     return EvalStarted(run_id=handle.run_id)
+
+
+@router.get("/rag/eval/runs")
+async def eval_runs(
+    request: Request, limit: Annotated[int, Query(ge=1, le=100)] = 20
+) -> dict[str, Any]:
+    store = request.app.state.store
+    if store is None:  # hors du cycle de vie : rien à lister
+        return {"runs": []}
+    return {"runs": await list_eval_runs(store, limit)}
 
 
 @router.delete("/rag/eval/runs/{run_id}", status_code=204)

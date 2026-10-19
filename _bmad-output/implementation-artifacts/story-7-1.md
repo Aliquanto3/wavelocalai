@@ -26,7 +26,7 @@ deferred:
     location: _bmad-output/specs/spec-wavelocalai-v2/contrat-api.md
     severity: low
   - summary: >-
-      Pas de route de liste des évaluations passées (`GET /api/rag/eval/runs`) : le critère 7.1 ne la demande pas, mais la story 7.3 doit « lister les évaluations passées, les plus récentes d'abord » (décision n° 14 du 2026-10-19). À ajouter par la 7.3 (comme `list_arena_runs` pour l'Arène : `runs/snapshot.py`, `eval_questions` lu dans le flux), ou par une passe serveur avant elle.
+      Résolu en revue (`GET /api/rag/eval/runs`, `runs/eval_snapshot.py::list_eval_runs`, consigné au contrat). Constat d'origine : pas de route de liste des évaluations passées (`GET /api/rag/eval/runs`) : le critère 7.1 ne la demande pas, mais la story 7.3 doit « lister les évaluations passées, les plus récentes d'abord » (décision n° 14 du 2026-10-19). À ajouter par la 7.3 (comme `list_arena_runs` pour l'Arène : `runs/snapshot.py`, `eval_questions` lu dans le flux), ou par une passe serveur avant elle.
     evidence: |-
       `decisions-2026-10-19.md` n° 14 ; `runs/snapshot.py::list_arena_runs` (modèle à suivre).
     location: _bmad-output/planning-artifacts/epics.md
@@ -38,7 +38,7 @@ deferred:
     location: src/wavelocalai/web/app.py
     severity: low
   - summary: >-
-      Le texte de `run_not_found` (`errors.py`) parle de « comparaison » : il s'affiche tel quel pour une évaluation (ou un banc) introuvable. À reformuler en 7.3 et 7.4 (code inchangé, texte neutre).
+      Résolu en revue (texte d'action neutre, code inchangé). Constat d'origine : le texte de `run_not_found` (`errors.py`) parlait de « comparaison » : il s'affiche tel quel pour une évaluation (ou un banc) introuvable. À reformuler en 7.3 et 7.4 (code inchangé, texte neutre).
     evidence: |-
       `src/wavelocalai/errors.py` (`run_not_found`).
     location: src/wavelocalai/errors.py
@@ -96,3 +96,16 @@ Ciblé (poste partagé : ni `tests/v2` complet ni E2E ; la CI lance la suite). `
 ## Journal
 
 - 2026-10-19 · dev : spec, migration 0006, service d'évaluation (fidélité, pertinence, précision du contexte), routes, instantané partiel, effacement, contrat, tests.
+- 2026-10-19 · revue (Opus) : quatre constats traités, voir « Revue ».
+
+## Revue
+
+Une passe, sur `588a180` (master fusionné). Tests : `tests/v2/unit` et `tests/v2/web` (1 213 verts, 1 sauté ; `test_real_shutdown.py::test_shutdown_with_open_streams...` a dépassé sa borne de 4 s sous charge, vert seul), `test_eval_ollama.py` sur le vrai Ollama (vert, 18 s), contrôle rapide propre.
+
+- low · second avis n° 1 · corrigé · `aggregate` comptait « non évaluée » une question pas encore notée (en cours de run, « 7 non évaluées » dès la première note). Ajout de `pending` (en attente) dans `eval_metric.aggregate` et `summary` ; dans un run terminé, `pending` vaut 0 et une question jamais notée reste « non évaluée » (évaluation arrêtée). Contrat mis à jour ; tests `test_eval_scoring.py`, `test_eval_api.py::test_a_set_of_questions_...`.
+- low · second avis n° 2 · reporté (7.2) · une réponse de plus de 12 000 caractères est notée sur son début et une réponse de plus de 10 affirmations sur les 10 premières, sans que `reason` le dise. Même règle que le juge de l'Arène ; à dire dans la raison (ou un champ `truncated`) quand le jeu fixe de la 7.2 fixera les invites.
+- low · second avis n° 3 · rejeté · le juge par défaut peut être un modèle évalué : l'événement `judge` (`model`, `chosen`, `unreliable`) le dit déjà, comme dans l'Arène ; l'écran (7.3) peut le signaler en comparant `judge.model` aux lanes. Pas de règle d'exclusion dans les décisions.
+- medium · dev (point ouvert) · corrigé · pas de route de liste des évaluations passées, exigée par la 7.3 (décision n° 14) : `GET /api/rag/eval/runs?limit=` ajoutée sur le modèle de `list_arena_runs` (sans les effacées, plus récentes d'abord, `question_count` et première question tronquée), consignée au contrat ; test `test_past_evaluations_are_listed_newest_first_without_the_erased_ones`.
+- low · dev (point ouvert) · corrigé · l'action de `run_not_found` parlait de « comparaison » : texte neutre (« Relancez l'exécution, ou rouvrez un résultat depuis la liste des résultats précédents de l'écran. »), aucun test ni écran ne lisait l'ancien texte (l'Arène affiche son propre lien).
+- Complexité : 0 constat (`_record` agrège au plus 20 questions par événement ; `summarize` et `missing_rows` bornés à 4 × 20 × 3 notes).
+- Vérifié sans défaut : effacement AD-13 (feuilles `judge` et `embedding` filles de la racine, purge du `-wal`), annulation (tâches annulées avant la clôture, aucune note « juge indisponible » écrite par un parent qui se clôt), `BASE_KINDS`, `Judge.score` inchangé (tests `test_arena_*` verts), bornes, `response_schema` relu par `parse_structured`, couches (`test_layers.py`).

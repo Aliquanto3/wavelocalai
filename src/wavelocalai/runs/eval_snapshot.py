@@ -20,16 +20,21 @@ NOT_EVALUATED_STOPPED = "non évalué : évaluation arrêtée"
 PARTIAL_STATUSES = ("cancelled", "interrupted", "error")  # terminé sans avoir tout noté
 
 
-def aggregate(scores: Iterable[int | None], total: int) -> dict[str, Any]:
+def aggregate(scores: Iterable[int | None], total: int, *, settled: bool = True) -> dict[str, Any]:
     """Moyenne des notes présentes (entier de 0 à 100, `None` sans note) sur `total` questions :
-    `{score, evaluated, not_evaluated, total}`. `not_evaluated` compte les questions sans note,
-    celles qui n'ont pas encore de ligne comprises ; `score` est `None` sans aucune note."""
-    present = [s for s in scores if s is not None]
+    `{score, evaluated, not_evaluated, pending, total}`. `scores` : une valeur par question déjà
+    traitée (`None` = non évaluée). Pendant l'évaluation (`settled=False`), une question pas encore
+    traitée est `pending`, pas « non évaluée » ; une fois le run terminé, elle ne sera plus notée
+    (évaluation arrêtée) et compte dans `not_evaluated`. `score` est `None` sans aucune note."""
+    seen = list(scores)
+    present = [s for s in seen if s is not None]
     mean = None if not present else int(sum(present) / len(present) + 0.5)
+    unseen = max(total - len(seen), 0)
     return {
         "score": mean,
         "evaluated": len(present),
-        "not_evaluated": max(total - len(present), 0),
+        "not_evaluated": len(seen) - len(present) + (unseen if settled else 0),
+        "pending": 0 if settled else unseen,
         "total": total,
     }
 
@@ -66,7 +71,11 @@ async def eval_record(store: Store, run_id: str) -> dict[str, Any]:
 
 
 def summarize(
-    rows: Sequence[dict[str, Any]], lanes: Sequence[str], question_count: int
+    rows: Sequence[dict[str, Any]],
+    lanes: Sequence[str],
+    question_count: int,
+    *,
+    settled: bool = True,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """`{lane: {metric: aggregate}}` pour chaque modèle évalué et chaque métrique."""
     return {
@@ -74,6 +83,7 @@ def summarize(
             metric: aggregate(
                 (r["score"] for r in rows if r["lane"] == lane and r["metric"] == metric),
                 question_count,
+                settled=settled,
             )
             for metric in METRICS
         }
@@ -140,9 +150,53 @@ async def eval_snapshot_fields(store: Store, snapshot: dict[str, Any]) -> dict[s
         "config": config,
         "partial": partial,
         "evaluations": rows,
-        "summary": summarize(rows, lanes, count),
+        "summary": summarize(rows, lanes, count, settled=settled),
         "judge": record["judge"],
     }
     if partial:
         fields["missing"] = missing_rows(rows, lanes, count) if config is not None else []
     return fields
+
+
+async def list_eval_runs(store: Store, limit: int = 20, excerpt: int = 200) -> list[dict[str, Any]]:
+    """Les évaluations les plus récentes d'abord, pour les rouvrir (décision n° 14, story 7.3) :
+    identifiant, statut, dates, modèles évalués (ordre de départ), nombre de questions et début de
+    la première. Une évaluation effacée n'y figure plus (rien à rouvrir), comme pour l'Arène."""
+    rows = await store.aread(
+        "SELECT r.id, r.status, r.started_at, r.ended_at,"
+        " (SELECT data FROM run_events e WHERE e.run_id = r.id AND e.type = 'eval_questions'"
+        "  LIMIT 1) AS questions"
+        " FROM runs r WHERE r.kind = 'eval' AND r.parent_run_id IS NULL"
+        " AND (r.status IN ('running', 'awaiting_approval')"
+        "  OR EXISTS (SELECT 1 FROM run_events e WHERE e.run_id = r.id))"
+        " ORDER BY r.started_at DESC, r.rowid DESC LIMIT ?",
+        (limit,),
+    )
+    if not rows:
+        return []
+    marks = ",".join("?" * len(rows))
+    leaves = await store.aread(
+        f"SELECT parent_run_id, model FROM runs WHERE kind = 'generation'"  # noqa: S608
+        f" AND parent_run_id IN ({marks}) ORDER BY started_at, rowid",
+        tuple(row["id"] for row in rows),
+    )
+    models: dict[str, dict[str, None]] = {}  # une feuille par modèle et question : sans doublon
+    for leaf in leaves:
+        models.setdefault(leaf["parent_run_id"], {})[leaf["model"]] = None
+    runs = []
+    for row in rows:
+        questions = (
+            (json.loads(row["questions"]).get("questions") or []) if row["questions"] else []
+        )
+        runs.append(
+            {
+                "run_id": row["id"],
+                "status": row["status"],
+                "started_at": row["started_at"],
+                "ended_at": row["ended_at"],
+                "models": list(models.get(row["id"], {})),
+                "question_count": len(questions),
+                "question": (questions[0] if questions else "")[:excerpt],
+            }
+        )
+    return runs
