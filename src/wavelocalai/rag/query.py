@@ -40,14 +40,15 @@ from wavelocalai.rag import repo
 from wavelocalai.rag.embedding_leaf import embed_into_leaf, leaf_error
 from wavelocalai.rag.index import VectorIndex
 from wavelocalai.rag.passage import pick_passage, relevance_label, similarity
+from wavelocalai.rag.settings import STRATEGIES, effective
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import Co2, RunHandle
 from wavelocalai.runs.system_bus import SystemBus
 from wavelocalai.store.db import Store
+from wavelocalai.store.preferences import PreferenceStore
 
 logger = logging.getLogger("wavelocalai.rag")
 
-STRATEGIES = ("naive",)
 TEMPERATURE = 0.1  # une réponse qui s'appuie sur des extraits : peu de créativité
 NOT_STARTED_CO2 = Co2(
     mg=None, method="unmeasurable", reason="réponse non lancée : la recherche a échoué"
@@ -79,6 +80,7 @@ class _Rag:
     generation_leaf_id: str
     question: str
     strategy: str
+    top_k: int
 
 
 def build_sources(
@@ -128,6 +130,7 @@ class RagService:
         *,
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
+        preferences: PreferenceStore | None = None,
         guard: Guard | None = None,
     ) -> None:
         self._hub = hub
@@ -137,6 +140,7 @@ class RagService:
         self._slot = slot
         self._settings = settings
         self._index = index
+        self._preferences = preferences  # `top_k` choisi à l'écran (AD-15), prime sur le .toml
         self._meter = meter  # sans compteur, le CO2 d'une feuille locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
         self._guard = guard  # garde-fou mémoire de la réponse locale (story 4.8)
@@ -161,7 +165,8 @@ class RagService:
         embedder = self._factory.embedder(
             self._registry.resolve_embedder(base[0]["embedding_model"])
         )
-        rag = self._settings.rag
+        await self._check_vectors(base[0]["chunks"])
+        top_k = effective(self._settings.rag, self._preferences).top_k
         handle = await self._hub.create_run(
             "rag",
             models=[ref.tag],
@@ -169,7 +174,7 @@ class RagService:
                 "strategy": command.strategy,
                 "allow_cloud": command.allow_cloud,
                 "embedding_model": embedder.ref.tag,
-                "top_k": rag.top_k,
+                "top_k": top_k,
                 "temperature": TEMPERATURE,
             },
             user_message=command.question,
@@ -198,12 +203,27 @@ class RagService:
             generation.run_id,
             command.question,
             command.strategy,
+            top_k,
         )
         task = asyncio.create_task(self._run(rag_run), name=f"wavelocalai-rag-{handle.run_id}")
         self._hub.attach_task(handle.run_id, task)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return handle
+
+    async def _check_vectors(self, chunks: int) -> None:
+        """Refus explicite d'une base dont les vecteurs ont disparu : avec l'index de repli (sans
+        sqlite-vec), ils vivent en mémoire et ne survivent pas à un redémarrage. La question
+        trouverait zéro extrait et le dirait faussement « aucun document prêt ». Lève
+        `vector_index_lost`."""
+        if self._index.persistent:
+            return
+        vectors = await self._store.aread_with(lambda conn: self._index.count(conn))
+        if vectors < int(chunks or 0):
+            raise AppError(
+                "vector_index_lost",
+                f"{vectors} vecteurs en mémoire pour {chunks} extraits prêts (index de repli).",
+            )
 
     # --- le run --------------------------------------------------------------------------------
 
@@ -271,7 +291,7 @@ class RagService:
         self._step(root, run.strategy, "embedding", embedded - started)
         rag = self._settings.rag
         found = await self._store.aread_with(
-            lambda conn: repo.search_chunks(conn, self._index, vectors[0], rag.top_k),
+            lambda conn: repo.search_chunks(conn, self._index, vectors[0], run.top_k),
             vec=self._store.vec_available,
         )
         searched = time.perf_counter()

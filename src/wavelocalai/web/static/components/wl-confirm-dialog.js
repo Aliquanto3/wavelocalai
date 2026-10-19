@@ -1,0 +1,86 @@
+// <wl-confirm-dialog> (UX-DR12, AD-20) : confirmation d'une action destructrice dans un `<dialog>`
+// natif. Titre en question, conséquence chiffrée, focus sur « Annuler » (jamais sur l'action).
+//
+//   const confirmed = await dialog.ask({ title, consequence, confirmLabel, cancelLabel? });
+//
+// `ask` rend `true` (confirmé) ou `false` (« Annuler », Échap, `close()`). Le message de résultat,
+// au même verbe que le bouton de confirmation, est affiché par l'appelant. Le focus revient à
+// l'élément qui l'avait avant l'ouverture, s'il est encore dans la page. Sans Shadow DOM.
+
+import { element } from "../core/dom.js";
+import { t } from "../core/i18n.js";
+
+let counter = 0;
+
+export class WlConfirmDialog extends HTMLElement {
+  #dom = null;
+  #resolve = null;
+  #returnFocus = null;
+
+  connectedCallback() {
+    if (this.#dom) return;
+    const id = `wl-confirm-${++counter}`;
+    const dialog = element("dialog", "wl-dialog");
+    dialog.setAttribute("aria-labelledby", `${id}-title`);
+    dialog.setAttribute("aria-describedby", `${id}-consequence`);
+    const title = element("h2", "wl-dialog-title");
+    title.id = `${id}-title`;
+    const consequence = element("p", "wl-dialog-consequence");
+    consequence.id = `${id}-consequence`;
+    const actions = element("div", "wl-dialog-actions");
+    const cancel = element("button", "btn wl-dialog-cancel", t("components.confirm.cancel"));
+    cancel.type = "button";
+    const confirm = element("button", "btn wl-dialog-confirm");
+    confirm.type = "button";
+    actions.append(cancel, confirm);
+    dialog.append(title, consequence, actions);
+    this.replaceChildren(dialog);
+    this.#dom = { dialog, title, consequence, cancel, confirm };
+
+    cancel.addEventListener("click", () => this.#close(false));
+    confirm.addEventListener("click", () => this.#close(true));
+    // Échap (événement `cancel` du dialogue) ferme comme « Annuler ».
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      this.#close(false);
+    });
+  }
+
+  get open() {
+    return this.#dom?.dialog.open ?? false;
+  }
+
+  // Ferme le dialogue ouvert comme « Annuler » (ou avec `value`) ; sans effet s'il est fermé.
+  close(value = false) {
+    if (this.#dom?.dialog.open || this.#resolve) this.#close(value);
+  }
+
+  ask({ title, consequence, confirmLabel, cancelLabel }) {
+    this.connectedCallback();
+    const { dialog, title: heading, consequence: text, cancel, confirm } = this.#dom;
+    heading.textContent = title;
+    text.textContent = consequence ?? "";
+    cancel.textContent = cancelLabel ?? t("components.confirm.cancel");
+    confirm.textContent = confirmLabel;
+    this.#returnFocus = document.activeElement;
+    this.#resolve?.(false); // une seconde demande referme la première comme « Annuler »
+    return new Promise((resolve) => {
+      this.#resolve = resolve;
+      if (!dialog.open) dialog.showModal();
+      cancel.focus();
+    });
+  }
+
+  #close(value) {
+    const { dialog } = this.#dom;
+    if (dialog.open) dialog.close();
+    const resolve = this.#resolve;
+    this.#resolve = null;
+    resolve?.(value);
+    const back = this.#returnFocus;
+    this.#returnFocus = null;
+    if (back?.isConnected && typeof back.focus === "function") back.focus();
+  }
+}
+
+if (!customElements.get("wl-confirm-dialog")) customElements.define("wl-confirm-dialog", WlConfirmDialog);

@@ -27,6 +27,8 @@ BATCH = 500  # identifiants par requête (limite de variables de SQLite)
 
 
 class VectorIndex(Protocol):
+    persistent: bool  # les vecteurs survivent à un redémarrage (vrai pour sqlite-vec)
+
     def add(
         self, conn: sqlite3.Connection, ids: Sequence[int], vectors: Sequence[Sequence[float]]
     ) -> None:
@@ -55,6 +57,11 @@ class VectorIndex(Protocol):
         """Nombre de vecteurs (de cette dimension, ou de toutes)."""
         ...
 
+    def clear(self, conn: sqlite3.Connection) -> None:
+        """Vide l'index (« Vider la base », AD-13) : la table vec0 est supprimée puis recréée, pas
+        vidée ligne à ligne, pour qu'aucun vecteur ne reste dans ses pages."""
+        ...
+
 
 def _blob(vector: Sequence[float]) -> bytes:
     return struct.pack(f"{len(vector)}f", *vector)
@@ -71,6 +78,8 @@ def _check_batch(ids: Sequence[int], vectors: Sequence[Sequence[float]]) -> int:
 
 class SqliteVecIndex:
     """Tables vec0 du fichier SQLite (extension sqlite-vec chargée dans la connexion)."""
+
+    persistent = True
 
     def add(
         self, conn: sqlite3.Connection, ids: Sequence[int], vectors: Sequence[Sequence[float]]
@@ -115,9 +124,18 @@ class SqliteVecIndex:
         names = list(tables.values()) if dim is None else [tables[dim]] if dim in tables else []
         return sum(conn.execute(f"SELECT count(*) FROM {name}").fetchone()[0] for name in names)
 
+    def clear(self, conn: sqlite3.Connection) -> None:
+        # Supprimer puis recréer (AD-13) : `DROP TABLE` libère les pages de la table et de ses
+        # tables d'ombre, le `VACUUM` qui suit les réécrit sans les vecteurs.
+        for dim, table in vec_tables(conn).items():
+            conn.execute(f"DROP TABLE {table}")
+            ensure_vec_table(conn, dim)
+
 
 class NumpyIndex:
     """Repli en mémoire (tests) : produit scalaire de vecteurs normalisés, sans extension."""
+
+    persistent = False
 
     def __init__(self) -> None:
         self._vectors: dict[int, tuple[int, object]] = {}  # id -> (dim, tableau normalisé)
@@ -165,6 +183,10 @@ class NumpyIndex:
     def count(self, conn: sqlite3.Connection, dim: int | None = None) -> int:
         with self._lock:
             return sum(1 for d, _ in self._vectors.values() if dim is None or d == dim)
+
+    def clear(self, conn: sqlite3.Connection) -> None:
+        with self._lock:
+            self._vectors.clear()
 
 
 def select_index(vec_available: bool) -> VectorIndex:

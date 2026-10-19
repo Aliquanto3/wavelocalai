@@ -17,6 +17,8 @@
 // - `409 run_busy` : l'import actif est rejoint, sans erreur affichée.
 // - La fin de l'import est annoncée une seule fois (zone polie), par une phrase qui dit le nombre
 //   d'extraits ajoutés, de documents, et de fichiers en échec.
+// - Supprimer un document, vider la base (`wl-confirm-dialog`) : `documents-manage.js` ; réglages :
+//   `documents-settings.js` (story 4.3).
 
 import { api, ApiError, request, uploadDocuments } from "../core/api.js";
 import { element } from "../core/dom.js";
@@ -25,6 +27,8 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import "../components/index.js";
+import { createManage } from "./documents-manage.js";
+import { createSettings } from "./documents-settings.js";
 import { ImportRow, plural } from "./documents-import-row.js";
 
 const MB = 1024 * 1024;
@@ -86,10 +90,25 @@ export function mount(host) {
 
   const tableTitle = element("h2", "", t("docs.table_title"));
   const count = element("p", "docs-count");
+  const clearButton = element("button", "btn docs-clear", t("docs.clear"));
+  clearButton.type = "button";
+  const tableHead = element("div", "docs-table-head");
+  tableHead.append(count, clearButton);
   const table = document.createElement("wl-data-table");
   const tableSection = element("section", "docs-section");
   tableSection.hidden = true;
-  tableSection.append(tableTitle, count, table);
+  tableSection.append(tableTitle, tableHead, table);
+
+  // Supprimer, vider, régler (story 4.3) : les fonctions lues plus bas ne servent qu'à l'usage.
+  const dialog = document.createElement("wl-confirm-dialog");
+  const manage = createManage({
+    dialog,
+    problem,
+    getData: () => data,
+    refresh: () => refresh(),
+    fallbackFocus: () => choose,
+  });
+  const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
 
   host.replaceChildren(
     element("h1", "", t("screens.documents-base")),
@@ -98,11 +117,14 @@ export function mount(host) {
     drop,
     notice,
     problem,
+    manage.status,
     summary,
     imports,
     loading,
     empty,
     tableSection,
+    settings.el,
+    dialog,
   );
 
   // --- État ------------------------------------------------------------------------------
@@ -117,7 +139,7 @@ export function mount(host) {
   let tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
   let wasHidden = host.hidden;
   let listFailed = false; // la liste n'a pas pu être lue (le message d'erreur le dit)
-  let refreshing = false;
+  let refreshing = null; // la lecture en cours (une promesse), sinon `null`
   let refreshAgain = false;
 
   const busy = () => uploading !== null || runId !== null;
@@ -177,6 +199,12 @@ export function mount(host) {
       cell: statusCell,
     },
   ];
+  COLUMNS.push({
+    key: "actions",
+    label: t("docs.col_actions"),
+    sortable: false,
+    cell: (doc) => manage.deleteButton(doc),
+  });
   table.caption = t("docs.table_caption");
   table.columns = COLUMNS;
   table.sort = { key: "created_at", dir: "desc" };
@@ -204,8 +232,8 @@ export function mount(host) {
       cancelFocused = false;
     }
     if (refocus) choose.focus();
+    table.rows = documents; // vide : plus aucune ligne (donc plus de bouton « Supprimer » caché)
     if (documents.length > 0) {
-      table.rows = documents;
       count.textContent = [
         plural("docs.docs", data.totals.documents),
         plural("docs.chunks", data.totals.chunks),
@@ -213,34 +241,37 @@ export function mount(host) {
     }
   }
 
-  async function refresh() {
-    // Une lecture à la fois ; une demande arrivée pendant la lecture en déclenche une de plus.
+  function refresh() {
+    // Une lecture à la fois ; une demande arrivée pendant la lecture en déclenche une de plus, et
+    // son appelant attend la fin de toutes (le rendu est alors à jour).
     if (refreshing) {
       refreshAgain = true;
-      return;
+      return refreshing;
     }
-    refreshing = true;
-    try {
-      do {
-        refreshAgain = false;
-        try {
-          data = await api.documents();
-          listFailed = false;
-          if (problem.error?.code === "list_failed") problem.error = null;
-        } catch {
-          problem.error = {
-            code: "list_failed",
-            message: t("docs.list_failed"),
-            action: t("docs.list_failed_action"),
-          };
-          listFailed = true; // ni « base vide » ni liste périmée présentée comme à jour
-        }
-        render();
-      } while (refreshAgain);
-    } finally {
-      refreshing = false;
-    }
-    return data;
+    refreshing = (async () => {
+      try {
+        do {
+          refreshAgain = false;
+          try {
+            data = await api.documents();
+            listFailed = false;
+            if (problem.error?.code === "list_failed") problem.error = null;
+          } catch {
+            problem.error = {
+              code: "list_failed",
+              message: t("docs.list_failed"),
+              action: t("docs.list_failed_action"),
+            };
+            listFailed = true; // ni « base vide » ni liste périmée présentée comme à jour
+          }
+          render();
+        } while (refreshAgain);
+      } finally {
+        refreshing = null;
+      }
+      return data;
+    })();
+    return refreshing;
   }
 
   function addRow(key, name) {
@@ -287,6 +318,7 @@ export function mount(host) {
     summary.textContent = sentence(status); // une seule annonce, à la fin
     render();
     refresh();
+    settings.load(); // le modèle de la base est celui du premier import
   }
 
   // --- Flux ------------------------------------------------------------------------------
@@ -445,6 +477,14 @@ export function mount(host) {
     });
   }
 
+  // « Vider » (bouton du tableau ou de l'erreur de réglage) ; les réglages se relisent ensuite.
+  async function clearBase() {
+    const cleared = await manage.clearBase();
+    if (cleared) settings.load();
+    return cleared;
+  }
+  clearButton.addEventListener("click", clearBase);
+
   const stopRun = (id) =>
     api.cancelRun(id).catch(() => (importCancel.disabled = false));
 
@@ -509,6 +549,7 @@ export function mount(host) {
     } else {
       if (runId) openStream(runId);
       refresh();
+      settings.load();
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -516,6 +557,7 @@ export function mount(host) {
   // --- Premier affichage -----------------------------------------------------------------
   render();
   refresh().then((loaded) => adoptActiveRun(loaded, false));
+  settings.load();
 
   return () => {
     visibility.disconnect();
