@@ -61,3 +61,29 @@ async def loaded_models(
         return parse_ps(response.json())
     except Exception:  # noqa: BLE001 - toute panne = pas d'information
         return None
+
+
+async def unload_model(
+    host: str,
+    tag: str,
+    *,
+    timeout_s: float = 10.0,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> bool:
+    """Décharge un modèle de la mémoire d'Ollama (`keep_alive: 0`), sans rien lui faire générer.
+
+    `/api/generate` pour un modèle de conversation, `/api/embed` pour un modèle d'embedding (le
+    premier le refuse). Vrai si Ollama a accepté ; jamais d'exception.
+    """
+    try:
+        async with httpx.AsyncClient(
+            base_url=host.rstrip("/"), timeout=timeout_s, transport=transport, trust_env=False
+        ) as client:
+            response = await client.post("/api/generate", json={"model": tag, "keep_alive": 0})
+            if response.status_code == 400:  # modèle d'embedding : « does not support generate »
+                response = await client.post(
+                    "/api/embed", json={"model": tag, "input": "", "keep_alive": 0}
+                )
+        return response.is_success
+    except Exception:  # noqa: BLE001 - toute panne = non déchargé
+        return False

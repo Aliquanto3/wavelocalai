@@ -98,6 +98,15 @@ class ModelList(BaseModel):
 
 
 @dataclass(frozen=True)
+class ModelNeed:
+    """Besoin en mémoire d'un modèle local (Go), tel que `hardware/` l'estime."""
+
+    tag: str
+    kind: Kind
+    needed_gb: float
+
+
+@dataclass(frozen=True)
 class _Local:
     facts: ModelFacts
     remote: bool
@@ -282,11 +291,7 @@ class ModelRegistry:
             active = total
         needed = fits = None
         if origin == "local" and self._advisor is not None:
-            assessment = self._advisor.assess(
-                measured_loaded_gb=entry.measured_loaded_gb if entry else None,
-                download_gb=entry.size_gb if entry else None,
-                download_bytes=facts.size_bytes,
-            )
+            assessment = self._assess(facts, entry)
             needed, fits = assessment.needed_gb, assessment.fits
         return ModelInfo(
             tag=facts.tag,
@@ -311,6 +316,29 @@ class ModelRegistry:
             co2_method="codecarbon" if origin == "local" else "unmeasurable",
             in_catalog=entry is not None,
         )
+
+    def _assess(self, facts: ModelFacts, entry: CatalogEntry | None) -> FitLike:
+        assert self._advisor is not None
+        return self._advisor.assess(
+            measured_loaded_gb=entry.measured_loaded_gb if entry else None,
+            download_gb=entry.size_gb if entry else None,
+            download_bytes=facts.size_bytes,
+        )
+
+    def memory_needs(self) -> list[ModelNeed]:
+        """Besoin en mémoire des modèles locaux dont il est connu, depuis la dernière liste connue
+        (jamais d'attente d'Ollama) : ce que lit le garde-fou mémoire avant une inférence locale
+        (story 4.8). Un besoin inconnu n'est jamais deviné : le modèle n'y figure pas."""
+        if self._advisor is None:
+            return []
+        needs: list[ModelNeed] = []
+        for rec in self._seed().values():
+            if _origin(rec) != "local":
+                continue
+            needed = self._assess(rec.facts, self._catalog_entry(rec.facts.tag)).needed_gb
+            if needed is not None:
+                needs.append(ModelNeed(rec.facts.tag, _classify(rec.facts), needed))
+        return needs
 
     def _cloud_infos(self) -> list[ModelInfo]:
         infos: list[ModelInfo] = []

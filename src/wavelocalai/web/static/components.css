@@ -453,6 +453,26 @@
   margin: 0 0 0.5rem;
 }
 
+/* Garde-fou mémoire (story 4.8) : les deux actions sous le message, puis l'aide et le résultat */
+.wl-error-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.wl-error-help,
+.wl-error-result {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-error-result {
+  color: var(--color-ink);
+}
+
 .wl-error-details summary {
   cursor: pointer;
   font-family: var(--font-caption);

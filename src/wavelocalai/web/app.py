@@ -6,8 +6,9 @@ import asyncio
 import contextlib
 import logging
 import uuid
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
@@ -17,10 +18,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from wavelocalai.config import Settings, get_version
 from wavelocalai.errors import ERRORS, AppError, build_envelope
 from wavelocalai.greenops.local_meter import LocalMeter
-from wavelocalai.hardware.memory import MemoryAdvisor
+from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading, read_memory
 from wavelocalai.inference.arena import ArenaService
 from wavelocalai.inference.chat import ChatService
 from wavelocalai.inference.local_slot import LocalSlot
+from wavelocalai.inference.memory_guard import MemoryGuard
 from wavelocalai.models.cloud import HttpClientFactory
 from wavelocalai.models.defaults import ModelDefaults
 from wavelocalai.models.factory import ModelFactory
@@ -109,6 +111,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     factory = ModelFactory(
         client, app.state.models, app.state.embedders, settings, app.state.cloud_http
     )
+    guard: MemoryGuard = app.state.memory_guard
     app.state.chat = ChatService(
         hub,
         app.state.registry,
@@ -117,6 +120,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        guard=guard,
     )
     app.state.arena = ArenaService(
         hub,
@@ -126,6 +130,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        guard=guard,
     )
     index = select_index(store.vec_available)  # le même pour l'import et la question (repli numpy)
     app.state.rag = RagService(
@@ -137,6 +142,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         index,
         meter=app.state.meter,
         bus=app.state.system_feed,
+        guard=guard,
     )
     app.state.ingest = IngestService(
         hub,
@@ -184,6 +190,8 @@ def create_app(
     ollama_client: AsyncClient | None = None,
     cloud_http: Mapping[str, HttpClientFactory] | None = None,
     meter: LocalMeter | None = None,
+    ollama_transport: httpx.AsyncBaseTransport | None = None,
+    memory_reader: Callable[[], MemoryReading] | None = None,
 ) -> FastAPI:
     """Crée l'app ; `disable_telemetry` s'exécute avant (AD-19, AD-21).
 
@@ -193,7 +201,9 @@ def create_app(
     générations (celui du lanceur ; sinon l'app crée le sien au démarrage de son cycle de vie).
     `cloud_http` : fabriques de client HTTP des SDK cloud par fournisseur (tests : faux transport).
     `meter` : compteur CodeCarbon des réponses locales (AD-11), construit sur le pays et le PUE de
-    `Settings` par défaut.
+    `Settings` par défaut. `ollama_transport` : transport HTTP des lectures d'`/api/ps` et des
+    déchargements (tests : faux Ollama) ; `memory_reader` : lecture de la mémoire du poste du
+    garde-fou et de la route de déchargement (tests : mémoire simulée).
     """
     disable_telemetry(settings.env_file)
     app = FastAPI(
@@ -227,7 +237,16 @@ def create_app(
         },
         facts=SqliteFactsStore(lambda: app.state.store),
         run_stats=SqliteRunStats(lambda: app.state.store),
-        advisor=MemoryAdvisor(),
+        advisor=MemoryAdvisor(memory_reader or read_memory),
+    )
+    # Garde-fou mémoire des inférences locales et déchargement des modèles (story 4.8).
+    app.state.ollama_transport = ollama_transport
+    app.state.memory_reader = memory_reader or read_memory
+    app.state.memory_guard = MemoryGuard(
+        app.state.registry,
+        settings.ollama.host,
+        reader=app.state.memory_reader,
+        transport=ollama_transport,
     )
     # Préférences de l'UI (table `preferences`, 0003) : sur la base du store, comme `model_facts`.
     app.state.defaults = ModelDefaults(
@@ -248,7 +267,7 @@ def create_app(
         cache_s=min(settings.ollama.probe_cache_s, SAMPLE_INTERVAL_S / 2),
     )
     app.state.system_sampler = SystemSampler(
-        stream_probe, settings.ollama.host, lambda: app.state.hub
+        stream_probe, settings.ollama.host, lambda: app.state.hub, ps_transport=ollama_transport
     )
     app.state.system_feed = SystemFeed(app.state.system_sampler.sample)  # port SystemBus (AD-6)
     app.add_middleware(

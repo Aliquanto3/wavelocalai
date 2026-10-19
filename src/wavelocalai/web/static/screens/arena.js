@@ -19,9 +19,11 @@ import { element, icon } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatClock } from "../core/format.js";
 import { t } from "../core/i18n.js";
+import { onSmallerModel, swapModel } from "../core/ram-guard.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
+import { nextTab } from "../core/tab-keys.js";
 
 const DRAFT = "arena";
 const MIN_MODELS = 2;
@@ -346,13 +348,7 @@ export function mount(host, params = {}) {
   }
 
   function onTabKey(event, tag) {
-    const order = [...lanes.keys()];
-    const at = order.indexOf(tag);
-    const moves = { ArrowRight: 1, ArrowLeft: -1 };
-    let next = null;
-    if (event.key in moves) next = order[(at + moves[event.key] + order.length) % order.length];
-    else if (event.key === "Home") next = order[0];
-    else if (event.key === "End") next = order[order.length - 1];
+    const next = nextTab(event.key, [...lanes.keys()], tag);
     if (next === null) return;
     event.preventDefault();
     selectTab(next, true);
@@ -567,6 +563,10 @@ export function mount(host, params = {}) {
   question.addEventListener("input", () => {
     saveDraft(DRAFT, question.value);
     render();
+  });
+  onSmallerModel(host, (tag, source) => {
+    announce(t("arena.model_changed", swapModel(picker, source.closest("wl-arena-lane")?.tag, tag)));
+    render(); // garde-fou mémoire : le modèle proposé remplace celui de la colonne en échec
   });
   picker.addEventListener("wl-model-change", render);
   picker.addEventListener("wl-models-loaded", render); // la liste est arrivée : un modèle local est-il prêt ?

@@ -22,7 +22,7 @@ from wavelocalai.greenops.cloud_estimate import estimate_cloud_co2
 from wavelocalai.greenops.local_meter import LocalMeter
 from wavelocalai.greenops.session import announce_carbon_updated
 from wavelocalai.inference.local_slot import LocalSlot
-from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, stream_into_run
+from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, Guard, stream_into_run
 from wavelocalai.models.cloud import model_of, provider_of
 from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest, ChatResult
@@ -71,6 +71,7 @@ class ChatService:
         settings: Settings,
         meter: LocalMeter | None = None,
         bus: SystemBus | None = None,
+        guard: Guard | None = None,
     ) -> None:
         self._hub = hub
         self._registry = registry
@@ -79,6 +80,7 @@ class ChatService:
         self._settings = settings
         self._meter = meter  # sans compteur, le CO2 d'une réponse locale n'est pas mesuré
         self._bus = bus  # sans bus, `carbon_updated` n'est pas publié
+        self._guard = guard  # garde-fou mémoire d'une réponse locale (story 4.8)
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
 
     async def start(self, command: ChatCommand) -> RunHandle:
@@ -132,6 +134,7 @@ class ChatService:
             retry_interrupted=True,
             meter=self._meter,
             on_leaf_closed=self._announce_carbon,
+            guard=self._guard,
         )
 
     def _cloud_estimator(self, model: ChatModel) -> Callable[[ChatResult], Co2] | None:
