@@ -119,3 +119,6 @@ outputs/*.md
 
 # Compteur d'échecs du contrôle rapide (agent-cost-kit)
 .claude/cost-kit/.blocages
+
+# Mesures de coût locales (/agent-cost-kit:mesurer-couts)
+mesures-couts/

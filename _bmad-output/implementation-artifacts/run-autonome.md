@@ -48,8 +48,8 @@ Vagues planifiées par fichiers touchés (décision d'Anaël du 2026-10-19) : de
 
 | Vague | Stories en parallèle | Après |
 |---|---|---|
-| V15 | 5.0 ★ | 5.0 ← 4.9 |
-| V16 | 5.1 · 5.3 · 6.1 | 5.1 ← 5.0 ; 5.3 ← 5.0 ; 6.1 ← 5.0 |
+| V15 | 5.0 ★ · report au contrat (`bmad-spec`, Opus, docs seulement) | 5.0 ← 4.9 ; report ← décisions-2026-10-19 (PR #82) |
+| V16 | 5.1 · 5.3 · 6.1 | 5.1 ← 5.0, report ; 5.3 ← 5.0, report ; 6.1 ← 5.0, report |
 | V17 | 5.2 · 5.4 · 6.2 | 5.2 ← 5.1 ; 5.4 ← 5.3 ; 6.2 ← 6.1 |
 | V18 | 5.5 · 5.7 (mixte) · 6.3 | 5.5 ← 5.4 ; 5.7 ← 5.4 ; 6.3 ← 6.2 |
 | V19 | 5.6 · 6.5 · 7.1 | 5.6 ← 5.5 ; 6.5 ← 6.1 ; 7.1 ← 4.4 |
@@ -338,3 +338,5 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-19 11:52 · 4.9 · PR · #79 ouverte (master avec 4.7 finale fusionné, 408 tests ciblés verts), file de fusion · 47ee04f
 - 2026-10-19 12:06 · 4.9 · fusion · PR #79 fusionnée ; Epic 4 terminé, MVP terminé, préversion 2.0.0a4 (tag et release en attente d'Anaël) · de1288c
 - 2026-10-19 12:06 · run · fin · run arrêté à la fin de l'Epic 4 (décision d'Anaël) ; Epics 5 à 8 reportés · —
+- 2026-10-19 12:29 · run · décision · Anaël : Ollama disponible (pauses ponctuelles), Groq à 0 et mistral-large-latest vérifié par l'API (PR #81), sprite accepté, `uv sync` du dépôt principal fait · —
+- 2026-10-19 12:32 · run · décision · Anaël : recommandations acceptées, consignées dans `decisions-2026-10-19.md` (PR #82) ; passe « report au contrat » ajoutée en V15 · —
