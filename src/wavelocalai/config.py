@@ -111,6 +111,15 @@ class DelaySettings(_Section):
     approval_expiry_s: float = Field(600.0, gt=0)
 
 
+class AgentSettings(_Section):
+    """Boucle d'outils des agents (story 6.1)."""
+
+    max_turns: int = Field(10, ge=1, le=50)  # appels de modèle au plus par tâche (fin propre)
+    tool_timeout_s: float = Field(60.0, gt=0)  # délai d'un outil ; dépassé, l'agent reçoit l'erreur
+    summary_chars: int = Field(500, ge=50)  # taille du `summary` d'une étape publiée
+    result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
+
+
 class RagSettings(_Section):
     """Base documentaire : découpe, lots d'embedding et plafonds d'un import (stories 4.1 et 4.2)."""
 
@@ -157,6 +166,7 @@ class Settings(BaseModel):
     cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
     rag: RagSettings = RagSettings()
+    agents: AgentSettings = AgentSettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
     base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)

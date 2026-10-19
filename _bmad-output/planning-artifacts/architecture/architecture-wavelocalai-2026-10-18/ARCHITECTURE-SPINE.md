@@ -349,7 +349,8 @@ flowchart LR
 
 - **Détail des colonnes** de chaque table : fixé par la migration de la story qui crée la table, dans le cadre d'AD-5, AD-10, AD-12 et du diagramme ci-dessus.
 - **Liste des codes d'erreur** : chaque story ajoute les siens à `errors.py` (AD-18).
-- **Formats d'appel d'outils** et protocole de l'équipe : story Agents (étape 6), dans le port d'AD-8.
+- **Formats d'appel d'outils** (story 6.1, levé) : le port parle un format neutre (`ChatRequest.tools = [{name, description, parameters}]`, message `assistant` avec `tool_calls = [{id, name, arguments}]`, message `tool` avec `tool_call_id`, `ToolCall(id, name, arguments, error?)` dans le flux) que chaque adaptateur traduit (`models/tool_format.py`, vérifié sur les SDK verrouillés) : Ollama, OpenAI-compatible et Mistral en `{type: "function", function}`, Anthropic en `tool_use` / `tool_result`. La boucle `agents/loop.py` publie l'événement `step` ; son format est dans `contrat-api.md` §Agents (story 6.1).
+- **Protocole de l'équipe** : story 6.5, dans le port d'AD-8.
 - **Borne haute de Python** : à la bascule (AD-1).
 - **Résidu vectoriel dans le blob vec0** après suppression par `rowid` : à vérifier par le test d'octets de la story RAG ; « Vider » n'est pas concerné (AD-13).
 - **Moteur llama-server** : hors plan jusqu'à la fin de l'étape 8 (spec).

@@ -26,7 +26,7 @@ from typing import Any
 
 from wavelocalai.config import CLOUD_KEY_VARS
 from wavelocalai.errors import ERRORS, ProviderError, mask_secrets
-from wavelocalai.models.port import ChatMessage, ChatResult
+from wavelocalai.models.port import ChatResult
 
 logger = logging.getLogger("wavelocalai.models")
 
@@ -162,16 +162,6 @@ def translate_error(
         logger.warning("%s a signalé une erreur dans le flux.", detail["provider_name"])
         return _error("cloud_error", technical, provider)
     return exc
-
-
-def chat_text_messages(messages: list[ChatMessage]) -> list[dict[str, str]]:
-    """Messages `system` / `user` / `assistant` au format commun (Chat Completions). Les messages
-    d'outils attendent la story des agents : ils ne sont pas envoyés."""
-    return [
-        {"role": m.role, "content": m.content}
-        for m in messages
-        if m.role in ("system", "user", "assistant") and m.content
-    ]
 
 
 class WallClock:
