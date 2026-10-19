@@ -148,6 +148,21 @@ def build_request(question: str, sources: list[dict[str, Any]]) -> ChatRequest:
     )
 
 
+async def check_vectors(store: Store, index: VectorIndex, chunks: int) -> None:
+    """Refus explicite d'une base dont les vecteurs ont disparu : avec l'index de repli (sans
+    sqlite-vec), ils vivent en mémoire et ne survivent pas à un redémarrage. La question
+    trouverait zéro extrait et le dirait faussement « aucun document prêt ». Lève
+    `vector_index_lost`. Partagé par la question et l'évaluation de la qualité (story 7.1)."""
+    if index.persistent:
+        return
+    vectors = await store.aread_with(lambda conn: index.count(conn))
+    if vectors < int(chunks or 0):
+        raise AppError(
+            "vector_index_lost",
+            f"{vectors} vecteurs en mémoire pour {chunks} extraits prêts (index de repli).",
+        )
+
+
 class RagService:
     def __init__(
         self,
@@ -251,18 +266,7 @@ class RagService:
         return handle
 
     async def _check_vectors(self, chunks: int) -> None:
-        """Refus explicite d'une base dont les vecteurs ont disparu : avec l'index de repli (sans
-        sqlite-vec), ils vivent en mémoire et ne survivent pas à un redémarrage. La question
-        trouverait zéro extrait et le dirait faussement « aucun document prêt ». Lève
-        `vector_index_lost`."""
-        if self._index.persistent:
-            return
-        vectors = await self._store.aread_with(lambda conn: self._index.count(conn))
-        if vectors < int(chunks or 0):
-            raise AppError(
-                "vector_index_lost",
-                f"{vectors} vecteurs en mémoire pour {chunks} extraits prêts (index de repli).",
-            )
+        await check_vectors(self._store, self._index, chunks)
 
     # --- le run --------------------------------------------------------------------------------
 

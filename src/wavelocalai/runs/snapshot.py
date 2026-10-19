@@ -3,7 +3,8 @@
 Lecture seule sur la base : le hub y écrit le statut à la clôture, et les métriques n'existent que
 sur les feuilles. Un run composite rend ses feuilles dans `children`. Ce qui se calcule sur un run
 terminé y figure aussi, pas dans le flux : le `verdict` local/cloud d'une Arène (story 3.5), sa
-`config` (de quoi la relancer ou la modifier) et `erased` (story 3.6). La liste des Arènes
+`config` (de quoi la relancer ou la modifier) et `erased` (story 3.6). Une évaluation (story 7.1)
+porte ses notes, leur résumé et `partial` (`runs/eval_snapshot.py`). La liste des Arènes
 (`GET /api/arena/runs`) est lue ici aussi.
 """
 
@@ -14,6 +15,7 @@ import sqlite3
 from typing import Any
 
 from wavelocalai.config import PriceTable
+from wavelocalai.runs.eval_snapshot import eval_snapshot_fields
 from wavelocalai.runs.verdict import build_verdict
 from wavelocalai.store.db import Store
 
@@ -147,6 +149,8 @@ async def run_snapshot(
             if snapshot["status"] == "ok"
             else None
         )
+    elif snapshot["kind"] == "eval":  # notes, résumé et partiel d'une évaluation (story 7.1)
+        snapshot.update(await eval_snapshot_fields(store, snapshot))
     return snapshot
 
 
