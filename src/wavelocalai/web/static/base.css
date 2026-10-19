@@ -118,3 +118,11 @@ input {
 :root[data-projection="true"] .footer {
   display: none;
 }
+
+/* Sous 480 px, la valeur agrandie ne tient plus dans une carte : on la réduit (320 px sans
+   défilement horizontal, projection comprise). */
+@media (max-width: 480px) {
+  :root[data-projection="true"] {
+    --text-metric-value: 2rem;
+  }
+}

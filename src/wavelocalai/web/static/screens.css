@@ -11,7 +11,7 @@
 /* Quatre cartes d'état : une rangée quand la fenêtre le permet, sinon deux puis une colonne. */
 .home-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
   gap: 1rem;
 }
 
@@ -87,7 +87,7 @@
 /* Liens des modules livrés */
 .home-module-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
   gap: 1rem;
   margin: 0;
   padding: 0;
@@ -111,7 +111,7 @@
 }
 
 .home-module-link .icon {
-  grid-row: span 2;
+  grid-row: span 3;
   color: var(--color-primary);
 }
 
@@ -119,6 +119,13 @@
   font-family: var(--font-heading);
   font-weight: 700;
   text-decoration: underline;
+}
+
+.home-module-long {
+  grid-column: 2;
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
 }
 
 .home-module-summary {

@@ -3,6 +3,7 @@ textes, routes et icônes. Aucun navigateur : les parcours vivent dans `tests/v2
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from html.parser import HTMLParser
@@ -251,6 +252,7 @@ ROUTES = [
     "/arene/chat",
     "/arene/comparer",
     "/arene/banc",
+    "/arene/references",
     "/documents",
     "/documents/base",
     "/documents/evaluation",
@@ -259,6 +261,14 @@ ROUTES = [
     "/sobriete",
     "/modeles",
 ]
+# Routes de la maquette (D-8) : déclarées `planned`, avec leur paramètre de chemin quand elles en ont.
+MOCKUP_ROUTES = {
+    "/arene/references": None,
+    "/arene/banc": "run_id",
+    "/documents/evaluation": "run_id",
+    "/agents/equipe": "run_id",
+    "/modeles": "tag",
+}
 MODULE_IDS = ["home", "arena", "documents", "agents", "sobriety", "models"]
 
 
@@ -294,6 +304,22 @@ def test_only_the_home_chat_arena_and_document_base_screens_are_available_so_far
     )
 
 
+def test_the_mockup_routes_are_planned_with_their_path_parameter():
+    """D-8 : `#/arene/references`, `#/arene/banc/<run_id>`, `#/documents/evaluation/<run_id>`,
+    `#/agents/equipe/<run_id>` et `#/modeles/<tag>` existent, `planned`, sans écran ni `load`."""
+    text = registry_text()
+    for path, param in MOCKUP_ROUTES.items():
+        declaration = re.search(
+            r"\{\s*id:\s*\"[\w-]+\",\s*path:\s*\"" + re.escape(path) + r"\",(.*?)\}",
+            text,
+            re.DOTALL,
+        )
+        assert declaration, path
+        body = declaration.group(1)
+        assert 'status: "planned"' in body and "load" not in body, path
+        assert (f'param: "{param}"' in body) == (param is not None), path
+
+
 # --- Icônes (UX-DR3) --------------------------------------------------------------------------
 
 
@@ -311,6 +337,133 @@ def test_every_icon_the_html_names_exists_in_the_sprite():
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     used = set(re.findall(r"icons\.svg#(i-[\w-]+)", html))
     assert used and used <= sprite_ids()
+
+
+ROUNDED_VIEWBOX = "0 -960 960 960"  # Material Symbols : grille de 960 unités, origine en haut
+
+
+def used_icons() -> set[str]:
+    """Les symboles que le front nomme : HTML (`icons.svg#i-…`), `icon("…")`, `setIcon(…, "…")`,
+    `icon: "…"` du registre et de `wl-badge`."""
+    used: set[str] = set()
+    for path in text_files(suffixes={".js", ".html"}):
+        text = path.read_text(encoding="utf-8")
+        used |= {f"i-{name}" for name in re.findall(r"""icon\(\s*["']([\w-]+)["']""", text)}
+        used |= {
+            f"i-{name}" for name in re.findall(r"""setIcon\([^,()]+,\s*["']([\w-]+)["']""", text)
+        }
+        used |= {f"i-{name}" for name in re.findall(r"""icon:\s*["']([\w-]+)["']""", text)}
+        used |= set(re.findall(r"icons\.svg#(i-[\w-]+)", text))
+    return used
+
+
+def symbol_viewboxes(sprite: str) -> dict[str, str]:
+    return dict(re.findall(r'<symbol id="(i-[\w-]+)" viewBox="([^"]+)"', sprite))
+
+
+# Exceptions connues : 8 symboles Material Icons (Filled, viewBox 0 0 24 24) ajoutés au sprite par la
+# story 3.2, faute de jeu Rounded hors ligne. À remplacer par le sprite officiel Material Symbols
+# Rounded fourni par Anaël ; la liste ne doit que se réduire (test_the_pending_list_does_not_grow).
+PENDING_ROUNDED = {
+    "i-hourglass-empty": "6767bcdf2d5c3f8c",
+    "i-sync": "9e23c1e9bdf79082",
+    "i-edit": "0176e05c86e47df0",
+    "i-gavel": "d972ac796b422edf",
+    "i-timer": "0776b3cda138c889",
+    "i-block": "f5021ac956f4e62f",
+    "i-open-in-full": "a4294de3eab5dbef",
+    "i-close-fullscreen": "703592e1185ac599",
+}
+
+
+def icon_problems(sprite: str, used: set[str]) -> list[str]:
+    """Écarts entre le sprite et le front (D-2) : symbole absent, tracé qui n'est pas Rounded."""
+    boxes = symbol_viewboxes(sprite)
+    problems = [f"{name} utilisé mais absent du sprite" for name in sorted(used - set(boxes))]
+    problems += [
+        f"{name} : viewBox {box}, pas un Material Symbols Rounded ({ROUNDED_VIEWBOX})"
+        for name, box in sorted(boxes.items())
+        if box != ROUNDED_VIEWBOX and name not in PENDING_ROUNDED
+    ]
+    return problems
+
+
+def test_every_icon_the_front_uses_is_in_the_sprite_and_the_sprite_is_rounded_only():
+    """D-2 : chaque symbole utilisé existe, et le sprite n'a que des Material Symbols Rounded
+    (aucun tracé Material Icons Filled, `viewBox` de 24 unités, comme ceux de la maquette)."""
+    used = used_icons()
+    assert {"i-check", "i-home", "i-swords", "i-info", "i-palette"} <= used  # le relevé voit tout
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    assert icon_problems(sprite, used) == []
+
+
+def test_the_pending_list_does_not_grow():
+    """Aucun symbole de plus n'entre dans les exceptions sans qu'on modifie ce test exprès."""
+    assert len(PENDING_ROUNDED) == 8
+    assert all(name.startswith("i-") for name in PENDING_ROUNDED)
+
+
+def test_the_icon_check_sees_a_filled_symbol_and_a_missing_one():
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    filled = '<symbol id="i-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></symbol>'
+    problems = icon_problems(sprite + filled, used_icons() | {"i-stop", "i-hourglass"})
+    assert any("i-stop : viewBox 0 0 24 24" in line for line in problems)
+    assert "i-hourglass utilisé mais absent du sprite" in problems
+
+
+# Empreinte (SHA-256, 16 premiers caractères) du contenu de chaque symbole, relevée sur le sprite
+# importé avec la coquille (5990111) depuis le jeu Rounded officiel. Le `viewBox` seul ne distingue
+# pas Rounded d'Outlined ou de Sharp (même grille) : l'empreinte fige les tracés relus, et tout
+# symbole ajouté ou retouché fait échouer le test tant que son empreinte n'est pas ajoutée ici, avec
+# sa provenance (jeu Rounded officiel, jamais redessiné à la main) dans le message de commit.
+ROUNDED_FINGERPRINTS = {
+    "i-home": "8011eaf63beeb77e",
+    "i-swords": "896d66cbff1e56a8",
+    "i-description": "5d922af9fa65834a",
+    "i-smart-toy": "c602ac3f494d956b",
+    "i-eco": "75d8e21877b60ddc",
+    "i-deployed-code": "62bac9fc448fbaf5",
+    "i-menu": "fbeaa0c7baea715d",
+    "i-close": "2a69e4a659d670be",
+    "i-palette": "ca2b014aecd55a94",
+    "i-expand-more": "442351dfefd1f8da",
+    "i-computer": "50f05750f97d3a78",
+    "i-cloud": "39125432fa536bc9",
+    "i-help": "7dc8a6c3bb8032d5",
+    "i-dark-mode": "76cfeeaa4e1d0ead",
+    "i-light-mode": "3fe46ba9ad3dd7b7",
+    "i-check": "1619ea10ae9d3506",
+    "i-info": "7d70043c7e03bb0e",
+    "i-warning": "0198206a704fb1e8",
+    "i-error": "725321bbd8fbf4d8",
+}
+
+
+def symbol_fingerprints(sprite: str) -> dict[str, str]:
+    return {
+        name: hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+        for name, body in re.findall(r'<symbol id="(i-[\w-]+)"[^>]*>(.*?)</symbol>', sprite, re.S)
+    }
+
+
+def test_every_sprite_symbol_matches_its_reviewed_rounded_fingerprint():
+    """D-2 : le `viewBox` ne prouve pas la variante Rounded ; chaque tracé doit être l'un de ceux
+    relus à l'import. Un symbole nouveau ou modifié exige d'ajouter son empreinte en connaissance
+    de cause (le sprite officiel complet reste à fournir, voir story 1.12)."""
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    assert symbol_fingerprints(sprite) == {**ROUNDED_FINGERPRINTS, **PENDING_ROUNDED}
+
+
+def test_the_fingerprint_check_sees_a_retouched_symbol():
+    sprite = (STATIC / "icons.svg").read_text(encoding="utf-8")
+    retouched = sprite.replace('d="M', 'd="M1 ', 1)
+    assert symbol_fingerprints(retouched) != ROUNDED_FINGERPRINTS
+
+
+def test_icons_license_names_the_provenance():
+    license_text = (STATIC / "icons.LICENSE.txt").read_text(encoding="utf-8")
+    assert "Material Symbols" in license_text and "Rounded" in license_text
+    assert "Google LLC" in license_text and "Apache License" in license_text
 
 
 def test_sprite_is_monochrome_and_inherits_the_text_color():
@@ -429,3 +582,47 @@ def test_the_home_screen_reads_the_store_only_and_every_home_text_is_used():
     assert orphans == [], f"textes de l'Accueil jamais utilisés : {orphans}"
     assert "visibilitychange" in text
     assert "visibilitychange" in (STATIC / "core/system.js").read_text(encoding="utf-8")
+
+
+# --- Interrupteurs en bascule et thème (story 1.12) -------------------------------------------
+
+
+def test_every_checkbox_of_the_shell_is_a_wl_switch_with_the_check_in_its_thumb():
+    """D-6 : « Autoriser le cloud » et « Mode projection » sont des `role="switch"` au même rendu
+    `wl-switch` (`label.switch` > `.switch-box` > case + icône `check`), jamais une case nue."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert len(re.findall(r'type="checkbox"', html)) == len(re.findall(r'role="switch"', html)) == 2
+    boxes = re.findall(
+        r'<label class="switch">\s*<span class="switch-box">\s*<input type="checkbox" role="switch"'
+        r"[^>]*>\s*<svg class=\"icon switch-check\"[^>]*><use href=\"/static/icons\.svg#i-check\"/>"
+        r"</svg>\s*</span>",
+        html,
+    )
+    assert len(boxes) == 2
+
+
+def test_the_switch_css_follows_the_wl_switch_tokens_of_design_md():
+    css = (STATIC / "components.css").read_text(encoding="utf-8")
+
+    def rule(selector: str) -> str:
+        found = re.search(re.escape(selector) + r"\s*\{(.*?)\}", css, re.DOTALL)
+        assert found, selector
+        return found.group(1)
+
+    track = rule(".switch input")
+    assert "var(--color-ink-secondary)" in track and "var(--color-surface-alt)" in track
+    assert "var(--radius-full)" in track
+    assert "var(--color-primary-fill)" in rule(".switch input:checked")
+    assert "var(--color-surface)" in rule(".switch input::before")
+
+
+def test_the_theme_module_offers_light_dark_and_system_with_light_as_the_default():
+    text = (STATIC / "core/theme.js").read_text(encoding="utf-8")
+    assert 'THEMES = ["light", "dark", "system"]' in text
+    assert "prefers-color-scheme: dark" in text and '"change"' in text
+    assert 'return THEMES.includes(stored) ? stored : "light"' in text
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert re.findall(r'name="theme" value="(\w+)"', html) == ["light", "dark", "system"]
+    # Aucun troisième jeu de jetons : `tokens.css` n'a que `:root` et `data-theme="dark"`.
+    tokens = (STATIC / "tokens.css").read_text(encoding="utf-8")
+    assert 'data-theme="system"' not in tokens and "prefers-color-scheme" not in tokens

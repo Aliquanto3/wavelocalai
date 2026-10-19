@@ -174,12 +174,14 @@ function modulesSection() {
   for (const module of MODULES) {
     if (module.id === "home") continue;
     const entry = entryScreen(module);
-    if (!entry || entry.param) continue;
+    if (!entry) continue;
     const link = element("a", "home-module-link");
     link.href = `#${entry.path}`;
+    // Nom court du menu en titre, nom long en sous-titre, puis la phrase de résumé (D-10).
     link.append(
       icon(module.icon),
       element("span", "home-module-name", t(`modules.${module.id}`)),
+      element("span", "home-module-long", t(`home.modules_long.${module.id}`)),
       element("span", "home-module-summary", t(`home.modules.${module.id}`)),
     );
     const li = element("li", "home-module");
