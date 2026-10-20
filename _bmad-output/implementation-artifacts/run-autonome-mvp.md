@@ -74,6 +74,8 @@ Le run s'arrête à la fin de l'Epic 4 (4.9 fusionnée, préversion 2.0.0a4) : E
 
 - **État au 2026-10-20 vers 0 h 55** : fusionnées #112 (préversions a5, a6, a7, manifeste seulement), #113 (8.3), #114 (8.1, trois lots en une PR par pile, une relance). En cours : 8.2 (`feat/v2-accessibilite`, worktree `v2-8-2`, empilée sur la 8.1) en revue Opus ; ensuite fusion de `origin/master`, `checks.sh v2-8-2`, PR. B16 : focus sur le `h1` au premier chargement (critère de la 1.8), à confirmer par Anaël. Instable vu en CI : `test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model` (focus après suppression, Ubuntu).
 
+- **Fin du run (2026-10-20 vers 2 h 30)** : #116 (8.2) fusionnée. Epics 5 à 8 terminés sauf 5.7 (reportée après le run) et 8.4 (Anaël). Ollama libéré (Anaël prévenu à 2 h 07). Instables vus en CI, à stabiliser : `test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model`, `test_model_card_api.py::test_the_card_answers_under_300_ms_with_ollama_down`. Pour Anaël : 13 abandons à confirmer dans `docs/parite-v1-v2.md` ; recette manuelle de la grille RGAA (R1 à R8, projection) et B16 ; job `test-v2-e2e` bloquant sur PR contre la décision Q6 ; tags et releases 2.0.0a5 à a7.
+
 ## Contrats partagés en cours
 
 Noms, modules et constantes décidés pour plusieurs stories ; à citer dans chaque prompt, à réutiliser plutôt qu'à recréer.

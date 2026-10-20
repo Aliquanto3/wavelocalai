@@ -649,3 +649,14 @@ Convention : `- AAAA-MM-JJ HH:MM · story · étape · résultat · commit`. Ét
 - 2026-10-20 00:52 · 8.1 · CI · rouge (E2E Ubuntu morceau 0 : `test_models_manage` focus après suppression, instable) · —
 - 2026-10-20 00:52 · 8.1 · CI · verte après relance du job · —
 - 2026-10-20 00:52 · 8.1 · fusion · PR #114 fusionnée (PR par pile, 3 lots : 1 relance) · 4808553
+- 2026-10-20 00:52 · état · PR · #115 ouverte · —
+- 2026-10-20 00:54 · état · fusion · PR #115 fusionnée · a8e9694
+- 2026-10-20 01:14 · 8.2 · review · 4 medium corrigés (contrastes incomplets calculés par le test, états attendus par écran, contenu coupé compté, B16 : focus sur le `h1` au premier chargement), 4 low dont 3 corrigés · 2a809b5
+- 2026-10-20 01:14 · 8.2 · contrôles · lancés (complets) · —
+- 2026-10-20 02:07 · 8.2 · contrôles · verts (722 E2E complets, 1945 v2, 1286 v1, 19 integration) · fbd6094
+- 2026-10-20 02:07 · run · Ollama · Anaël prévenu : le run n'en a plus besoin · —
+- 2026-10-20 02:07 · 8.2 · PR · #116 ouverte · fbd6094
+- 2026-10-20 02:27 · 8.2 · CI · rouge (Tests v2 Ubuntu 3.11 : `test_model_card_api` 300 ms, instable) · —
+- 2026-10-20 02:27 · 8.2 · CI · verte après relance du job · —
+- 2026-10-20 02:27 · 8.2 · fusion · PR #116 fusionnée · 2de4df1
+- 2026-10-20 02:27 · run · fin · 8.1, 8.2, 8.3 fusionnées ; suite E2E complète jouée sur l'arbre de master (contrôles complets de la 8.2 après fusion de master : 722 E2E) ; 8.4 laissée à Anaël · —
