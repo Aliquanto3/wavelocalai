@@ -30,7 +30,7 @@
     "installed": {
       "title": "Sur ce poste",
       "caption": "Modèles installés sur ce poste",
-      "empty": "Aucun modèle installé sur ce poste. Installez-en un depuis le catalogue ci-dessous.",
+      "empty": "Aucun modèle installé sur ce poste. Installez-en un depuis la section « Catalogue installable ».",
       "col_name": "Nom",
       "col_origin": "Origine",
       "col_usage": "Usage",
@@ -219,7 +219,7 @@
       "unknown_version_installed_note": "L'empreinte du fichier installé n'est pas connue : les mesures publiées ne peuvent pas être rattachées à une version précise.",
       "no_pc_pro": "Le banc ne publie aucun poste de 16 Go sans carte graphique : le PC pro n'apparaît pas dans ce tableau.",
       "unavailable_title": "Références indisponibles",
-      "unavailable_text": "{reason} Les caractéristiques ci-dessus restent valables.",
+      "unavailable_text": "{reason} Les caractéristiques de la fiche restent valables.",
       "not_published": "Ce modèle n'est pas dans les résultats publiés du banc.",
       "unit_note": "Un débit « inconnu » signifie que le banc n'a pas pu le mesurer sur ce poste."
     }

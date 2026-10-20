@@ -144,8 +144,14 @@ def test_landmarks_language_and_skip_link(shell):
         assert shell.get_by_role(landmark).count() == 1, landmark
     assert shell.locator("h1").filter(visible=True).count() == 1
 
-    shell.keyboard.press("Tab")
+    # B16 (revue 8.2) : au chargement, le focus est sur le `h1` ; le lien d'évitement se rejoint
+    # en remontant (Maj+Tab).
+    wait_for(shell, "() => document.activeElement.localName === 'h1'")
     skip = shell.get_by_role("link", name="Aller au contenu")
+    for _ in range(60):
+        shell.keyboard.press("Shift+Tab")
+        if skip.evaluate("el => el === document.activeElement"):
+            break
     assert skip.evaluate("el => el === document.activeElement")
     assert skip.bounding_box()["y"] >= 0  # visible quand il a le focus
     shell.keyboard.press("Enter")

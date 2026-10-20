@@ -194,6 +194,9 @@
     },
     "confirm": {
       "cancel": "Annuler"
+    },
+    "markdown": {
+      "new_window": "S'ouvre dans une nouvelle fenêtre"
     }
   }
 }

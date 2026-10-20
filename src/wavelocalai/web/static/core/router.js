@@ -4,9 +4,10 @@
 // (sinon il est démonté puis remonté) ; il est chargé par `import()` à la première visite, puis gardé en mémoire (son nœud
 // est masqué, non détruit) : revenir sur un écran est instantané.
 //
-// À chaque route : `document.title` vaut « <Écran> · WaveLocalAI », le focus va sur le `h1` de
-// l'écran et une annonce polie le dit. Une route inconnue ou `planned` renvoie à l'Accueil.
-// Au chargement de la page, le focus reste en tête (lien d'évitement, puis navigation).
+// À chaque route, premier chargement compris (critère de la story 1.8, décision B16 de la revue 8.2) :
+// `document.title` vaut « <Écran> · WaveLocalAI », le focus va sur le `h1` de l'écran et une annonce
+// polie le dit. Le lien d'évitement reste le premier élément focalisable du document, atteint par
+// Maj+Tab depuis le `h1`. Une route inconnue ou `planned` renvoie à l'Accueil.
 
 import { findScreen } from "./registry.js";
 import { t } from "./i18n.js";
@@ -127,8 +128,8 @@ export function createRouter({ main, announcer, onRoute = () => {} }) {
     // Une ancre qui n'est pas une route (`#main`) est ignorée, sauf au chargement de la page :
     // il faut alors un écran, donc l'Accueil (branche « inconnue » ci-dessous).
     if (path === null && !first) return;
-    const focus = !first;
     first = false;
+    const focus = true;
     const found = path === null ? null : findScreen(path);
     if (found && found.screen.status === "available") {
       await show(found.screen, found.params, { focus });

@@ -268,7 +268,7 @@ def test_without_the_results_file_the_card_says_what_is_missing(
     open_card(page, card_server, AGENT)
     text = others(page).inner_text()
     assert "Références indisponibles" in text and "pas synchronisé" in text
-    assert "Les caractéristiques ci-dessus restent valables" in text
+    assert "Les caractéristiques de la fiche restent valables" in text
     assert fiche(page).locator("h2").inner_text() == AGENT  # le reste de la fiche s'affiche
     assert trait(page, "Architecture") == "Dense"
 

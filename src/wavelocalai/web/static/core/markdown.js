@@ -8,6 +8,8 @@
 // non fermé = code jusqu'à la fin, comme pendant le flux), code en ligne, gras, italique, liens
 // `http:`, `https:` et `mailto:` seulement (les autres restent du texte). Tableaux et images : texte.
 
+import { t } from "./i18n.js";
+
 const BLOCK_TAGS = new Set(["P", "UL", "OL", "LI", "BLOCKQUOTE"]);
 const FENCE = /^ {0,3}(`{3,}|~{3,})\s*[\w+#.-]*\s*$/;
 const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
@@ -65,6 +67,7 @@ function appendInline(parent, source) {
         link.href = href;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
+        link.title = t("components.markdown.new_window"); // RGAA 13.2 : la nouvelle fenêtre est annoncée
         appendInline(link, found.label);
         parent.append(link);
       }

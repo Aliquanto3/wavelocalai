@@ -161,8 +161,9 @@ export class WlTeamGraph extends HTMLElement {
       "aria-labelledby": `${this.#uid}-title ${this.#uid}-desc`,
       "data-orientation": vertical ? "vertical" : "horizontal",
     });
-    // Largeur propre (px) : le schéma ne grossit pas au-delà de sa taille de dessin.
-    svg.style.maxWidth = `${width}px`;
+    // Largeur propre, en rem (16 px = 1 rem au réglage par défaut) : le schéma ne grossit pas au-delà de sa
+    // taille de dessin, mais il suit le texte : mode projection et taille de texte du navigateur.
+    svg.style.maxWidth = `${width / 16}rem`;
     const order = [...roles, t("components.team_graph.report_short")];
     const desc = roles.join(t("components.team_graph.then")) + t("components.team_graph.then_report");
     const marker = svgElement("marker", {
