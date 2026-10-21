@@ -31,7 +31,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope, pull_failed_envelope
 from wavelocalai.inference.pull import PROGRESS_INTERVAL_S, ProgressThrottle, progress_data
 from wavelocalai.models.ollama_pull import PullUpdate
-from wavelocalai.rag.rerank import RerankerService, install_marker, missing_extra_reason
+from wavelocalai.rag.rerank import RerankerService, fastembed_missing_reason, install_marker
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import RunHandle
 from wavelocalai.telemetry import disable_telemetry
@@ -66,7 +66,7 @@ async def fetch_in_subprocess(model: str, cache: Path, env_file: str | Path | No
         await process.wait()
         raise
     if process.returncode == 2:
-        raise RerankerFetchError(missing_extra_reason())
+        raise RerankerFetchError(fastembed_missing_reason())
     if process.returncode != 0:
         lines = stderr.decode("utf-8", errors="replace").strip().splitlines()
         raise RerankerFetchError(lines[-1] if lines else f"code de sortie {process.returncode}")

@@ -78,7 +78,7 @@ def load_fastembed(model: str, cache: Path, env_file: str | Path | None = None) 
     try:
         from fastembed.rerank.cross_encoder import TextCrossEncoder
     except ImportError:
-        raise RerankerUnavailableError(missing_extra_reason()) from None
+        raise RerankerUnavailableError(fastembed_missing_reason()) from None
     try:
         encoder = TextCrossEncoder(model_name=model, cache_dir=str(cache), local_files_only=True)
     except ValueError as exc:
@@ -88,7 +88,7 @@ def load_fastembed(model: str, cache: Path, env_file: str | Path | None = None) 
     return _Fastembed(encoder)
 
 
-def missing_extra_reason() -> str:
+def fastembed_missing_reason() -> str:
     """fastembed est une dépendance de base (D-R6) : n'arrive que si l'installation est cassée."""
     return "fastembed n'est pas disponible (réinstallez les dépendances : uv sync)"
 

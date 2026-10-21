@@ -117,3 +117,17 @@ Après `uv sync` seul, le bouton télécharge directement le modèle par le run 
   (`uvx black@25.12.0`) de 3 fichiers touchés par les corrections ci-dessus.
 - Pas de suite complète ni d'E2E (consigne de la story) ; pas d'Ollama utilisé.
 - Reports : aucun — tout le périmètre de l'AC est couvert dans cette story.
+
+## Revue
+
+Rebasée sur `origin/master` (3ac97cb, 9.1 et 9.6 fusionnées) sans conflit ; `uv lock --check` vert.
+
+- medium · second avis · rejeté (exception consignée) · `docs/maquette-v2/` (`donnees/modeles.json`, `js/screens/modeles.js`) cite encore `uv sync --extra rerank` : prototype gelé de la PR #58, instantané historique, non modifié par décision de l'orchestrateur ; ce n'est ni l'interface ni la doc de l'app.
+- medium · second avis · corrigé · `EXPERIENCE.md` (§Modèles, « Reclassement des extraits ») décrivait encore le bouton désactivé sans l'option `rerank` : remplacé par le comportement actuel (actif dès `uv sync`, désactivé seulement pendant une autre installation).
+- medium · second avis · corrigé · `contrat-api.md` (§Base documentaire) citait « extra `rerank` absent » parmi les causes de `reranker.reason` : retiré, aligné sur `contrat/5-5.md` amendé.
+- low · second avis · corrigé · `pile-technique.md` (ligne RAG) : fastembed en dépendance de base, cache rempli par le bouton de l'écran Modèles. `epics.md` : seul le renvoi « AD-1 » de l'AC 9.5 passe à AD-2 ; l'historique des stories livrées n'est pas réécrit.
+- low · second avis · rejeté · `status()` ne vérifie plus que fastembed est importable : sans fastembed et sans modèle en cache, l'écran dit « Non installé » et le run `pull` échoue avec « fastembed n'est pas disponible (… uv sync) » (code 2 du processus) ; modèle en cache et fastembed cassé, le premier chargement échoue et la raison est gardée. Environnement cassé seulement, message déjà clair : pas de `find_spec` à chaque lecture d'état.
+- low · second avis · corrigé · `missing_extra_reason()` renommée `fastembed_missing_reason()` (`rerank.py`, `rerank_pull.py`).
+- low · second avis · corrigé · README : « depuis la story 9.5 » retiré (numéro interne dans le README public).
+- info · reviewer · sans suite · la CI (`uv sync --locked`) installe désormais fastembed : `test_the_real_fastembed_never_reaches_the_network_...` n'est plus sauté et tourne sur les trois OS (vert en local, garde réseau en place) ; aucun autre test n'atteint le vrai `TextCrossEncoder` hors `local_files_only` (doublures de `sys.modules` complètes dans `test_rag_rerank_pull.py`).
+- Complexité : 0 constat (aucune structure qui grossit touchée).

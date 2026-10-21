@@ -2045,7 +2045,7 @@ So that je n'aie pas à relancer l'installation avec une option.
 **Then** fastembed passe de l'extra `rerank` aux `dependencies`, à une version vérifiée sur PyPI et par installation réelle ; `uv.lock` est régénéré ; la taille du `.venv` avant et après est consignée dans la story
 **And** l'extra `rerank` est retiré, ainsi que tout texte d'interface, doc et test qui cite `uv sync --extra rerank`
 **And** les imports restent paresseux, `disable_telemetry()` reste avant fastembed, `tests/v2/unit/test_layers.py` est vert
-**And** la spine (AD-17, règle de coexistence AD-1) est amendée par `bmad-architecture`
+**And** la spine (AD-17, règle de coexistence AD-2) est amendée par `bmad-architecture`
 
 ### Story 9.6 : Maquette de la nouvelle mise en page (humaine)
 

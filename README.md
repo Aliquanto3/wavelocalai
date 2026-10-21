@@ -321,7 +321,7 @@ Certaines télémétries dépendent de plusieurs variables, dont chacune suffit 
 
 ### Reranker local de la v2 (optionnel)
 
-La v2 (`wavelocalai-v2`, port 8502) peut reclasser les extraits trouvés avec un reranker local (fastembed, ONNX), dépendance de base depuis la story 9.5 (`uv sync` seul suffit). **Elle ne télécharge jamais rien d'elle-même** : le reranker ne sert que s'il est déjà dans le dossier `data/models/fastembed` (sous le dossier de données de `wavelocalai.toml`). Sans lui, la recherche garde l'ordre des vecteurs, et « Réglages avancés » de la Discussion dit pourquoi (« Reclassement indisponible : … »).
+La v2 (`wavelocalai-v2`, port 8502) peut reclasser les extraits trouvés avec un reranker local (fastembed, ONNX), installé avec les autres dépendances (`uv sync` seul suffit). **Elle ne télécharge jamais rien d'elle-même** : le reranker ne sert que s'il est déjà dans le dossier `data/models/fastembed` (sous le dossier de données de `wavelocalai.toml`). Sans lui, la recherche garde l'ordre des vecteurs, et « Réglages avancés » de la Discussion dit pourquoi (« Reclassement indisponible : … »).
 
 Pour le récupérer, un seul geste explicite : le bouton « Installer le reranker » de l'écran Modèles, qui lance un run `pull` (barre de progression, annulable) et remplit le cache. Pour le faire hors de l'interface, en ligne de commande :
 
