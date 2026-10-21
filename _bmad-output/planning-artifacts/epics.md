@@ -1930,6 +1930,194 @@ So that il n'existe plus qu'une application à installer et à maintenir.
 **When** on publie
 **Then** `version = "2.0.0"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0`, release GitHub avec notes ; le topic GitHub du projet passe à `status-deployed`
 
+## Epic 9 : Retours de la recette du 2026-10-21
+
+Corrige ce que la première recette humaine de la v2 (préversion 2.0.0a7) a relevé, avant la bascule (story 8.4). Source : `sprint-change-proposal-2026-10-21.md` (décisions D-R4-a, D-R6). Préversion 2.0.0a8 en fin d'epic.
+
+### Story 9.1 : Le lanceur ouvre l'application dans le navigateur
+
+As a utilisateur qui lance l'application,
+I want que le navigateur s'ouvre tout seul sur l'application,
+So that je n'aie pas à taper l'URL locale.
+
+**Gouverné par :** AD-23. **Source :** R1.
+
+**Acceptance Criteria:**
+
+**Given** `uv run wavelocalai-v2` (le nom passe à `wavelocalai` à la story 8.4)
+**When** le serveur écoute
+**Then** le navigateur par défaut s'ouvre une seule fois sur `http://127.0.0.1:<port>/`, après que le port répond, jamais avant
+**And** `--no-browser` et le réglage `[server] open_browser = false` l'empêchent ; les tests, la CI et les E2E lancent le serveur sans navigateur
+
+**Given** aucun navigateur ou une session sans affichage
+**When** l'ouverture échoue
+**Then** l'URL est écrite dans la console et le journal, et le serveur continue
+
+### Story 9.2 : L'Arène arrête un modèle qui tourne en boucle, automatiquement ou à la demande
+
+As a utilisateur de l'Arène,
+I want qu'un modèle qui se répète soit arrêté, et pouvoir arrêter moi-même une colonne,
+So that les autres modèles soient notés sans attendre le délai de 300 s.
+
+**Gouverné par :** AD-6, AD-7, AD-10. **Source :** R2 (`tev1:0.8b`, question sur la photosynthèse).
+
+**Acceptance Criteria:**
+
+**Given** une comparaison
+**When** une colonne génère
+**Then** la requête porte un plafond `arena.max_tokens` (réglable dans `wavelocalai.toml`) ; une colonne qui l'atteint finit avec `stopped_reason: "max_tokens"`, sa réponse partielle gardée et **notée**
+
+**Given** une sortie qui se répète (même fragment final répété au-delà d'un seuil, par exemple 4 fois au moins sur une fenêtre de 200 caractères ou plus ; seuil et fenêtre réglables)
+**When** le détecteur la voit
+**Then** la génération s'arrête avec `stopped_reason: "loop"`, la réponse partielle est notée, et la colonne affiche « Arrêté : le modèle se répétait »
+**And** un jeu de tests garde les faux positifs à zéro sur des listes, des tableaux Markdown et du code
+
+**Given** une colonne en cours
+**When** l'utilisateur clique « Arrêter ce modèle »
+**Then** `POST /api/runs/{lane_run_id}/stop` arrête cette colonne seule (`stopped_reason: "user"`) ; les autres continuent ; la réponse partielle est gardée et notée, à la différence de l'annulation qui ne note rien
+**And** le CO₂ et le débit de la colonne arrêtée restent mesurés (AD-10)
+
+**Given** les contrats
+**When** la story est livrée
+**Then** `contrat-api.md` documente la route et `stopped_reason` dans `lane_status`, EXPERIENCE.md l'état « arrêté », les exports CSV et Markdown de l'Arène portent la raison
+**And** les tests de l'Arène (`tests/v2/web/`, `tests/v2/e2e/`, composant `wl-arena-lane`) sont réalignés
+
+### Story 9.3 : On voit le juge de l'Arène travailler
+
+As a utilisateur de l'Arène,
+I want voir le juge charger puis noter chaque réponse,
+So that je sache que la notation avance et combien il en reste.
+
+**Gouverné par :** AD-6, AD-7. **Source :** R3. **Après :** 9.2 (mêmes fichiers).
+
+**Acceptance Criteria:**
+
+**Given** des colonnes terminées
+**When** le juge note
+**Then** le serveur publie `judge_progress` `{judge, phase: queued|loading|scoring, lane, position, total}`
+**And** un bandeau du juge, au-dessus des colonnes, affiche « Juge : <modèle> · chargement » puis « Notation 2 sur 3 · <colonne> » avec le temps écoulé
+**And** chaque colonne distingue « En file pour la notation » de « Notation en cours »
+
+**Given** une comparaison sans juge, ou un juge en panne
+**When** la notation devrait commencer
+**Then** le bandeau le dit sans compteur, et les notes restent « non évalué » avec leur raison
+**And** `contrat-api.md` documente l'événement ; tests de l'Arène réalignés
+
+### Story 9.4 : Installer le modèle de représentation depuis la Base documentaire
+
+As a utilisateur de la Base documentaire,
+I want installer le modèle d'embedding depuis l'écran,
+So that je n'aie pas à ouvrir un terminal avant d'importer mes documents.
+
+**Gouverné par :** AD-17. **Source :** R5.
+
+**Acceptance Criteria:**
+
+**Given** aucun modèle d'embedding installé
+**When** on ouvre la Base documentaire
+**Then** un encart d'alerte l'annonce avant tout import, propose « Installer nomic-embed-text » avec sa taille et le fait qu'il télécharge, et la zone d'import est désactivée avec sa raison
+
+**Given** l'encart
+**When** on clique
+**Then** le run `pull` de l'écran Modèles (même route, même composant de progression, « Annuler » compris) installe le modèle ; à la fin, l'encart disparaît et le modèle devient le défaut de représentation
+**And** le tag proposé est vérifié par une installation réelle pendant la story, pas de mémoire ; le message de `errors.py` (code d'embedding absent) renvoie à ce bouton plutôt qu'à une commande
+
+**Given** Ollama absent
+**When** on ouvre l'écran
+**Then** le bouton est désactivé avec la raison existante
+
+### Story 9.5 : fastembed est installé d'office, le bouton du reranker fonctionne
+
+As a utilisateur de l'écran Modèles,
+I want installer le reranker d'un clic,
+So that je n'aie pas à relancer l'installation avec une option.
+
+**Gouverné par :** AD-1, AD-4, AD-17 (amendé, décision D-R6). **Source :** R6.
+
+**Acceptance Criteria:**
+
+**Given** `uv sync` seul
+**When** on ouvre l'écran Modèles
+**Then** « Installer le reranker » est actif et ne fait que télécharger le modèle (run `pull`)
+
+**Given** `pyproject.toml`
+**When** la story est livrée
+**Then** fastembed passe de l'extra `rerank` aux `dependencies`, à une version vérifiée sur PyPI et par installation réelle ; `uv.lock` est régénéré ; la taille du `.venv` avant et après est consignée dans la story
+**And** l'extra `rerank` est retiré, ainsi que tout texte d'interface, doc et test qui cite `uv sync --extra rerank`
+**And** les imports restent paresseux, `disable_telemetry()` reste avant fastembed, `tests/v2/unit/test_layers.py` est vert
+**And** la spine (AD-17, règle de coexistence AD-1) est amendée par `bmad-architecture`
+
+### Story 9.6 : Maquette de la nouvelle mise en page (humaine)
+
+As a Anaël,
+I want valider une maquette de la nouvelle mise en page avant tout code,
+So that la refonte de tous les écrans parte d'une direction acceptée.
+
+**Gouverné par :** DESIGN.md, EXPERIENCE.md, story 8.2. **Source :** R4, décision D-R4-a.
+
+**Acceptance Criteria:**
+
+**Given** les retours R4
+**When** la maquette est produite
+**Then** elle montre en 1920, 1440, 1280 et 390 px, en clair et en sombre, au moins le Banc d'essai, l'Arène (formulaire et résultats), la Base documentaire et Modèles
+**And** elle porte une grille à deux colonnes au-delà de 1 400 px environ (saisie et choix du modèle à gauche ; réglages repliés, aperçu et résultats à droite)
+**And** le prompt (police normale, grand champ), le ou les modèles (cartes de choix) et le bouton principal sont mis en avant, visibles sans défilement en 1920 px
+**And** les réglages secondaires sont discrets, leurs intertitres plus petits que les champs qu'ils regroupent
+**And** la couleur guide l'œil : icônes Material colorées par module, aplats légers de la palette Wavestone sur les zones d'action, aucun emoji ; contrastes conformes à la story 8.2
+
+**Given** la maquette
+**When** Anaël la valide
+**Then** ses décisions sont consignées, et DESIGN.md (§Brand 4, §Layout, §Typography) et EXPERIENCE.md sont amendés avant la story 9.7
+
+### Story 9.7 : Fondation de la mise en page et écrans de l'Arène
+
+As a utilisateur sur grand écran,
+I want des écrans de l'Arène qui guident l'œil et utilisent la largeur,
+So that je voie l'essentiel sans défiler.
+
+**Gouverné par :** maquette 9.6, DESIGN.md amendé. **Après :** 9.3, 9.6.
+
+**Acceptance Criteria:**
+
+**Given** la maquette validée
+**When** on l'implémente
+**Then** `tokens.css` et `base.css` portent la grille responsive, la nouvelle échelle de titres et de libellés et les couleurs d'icônes ; Chat libre, Arène, Banc d'essai et Références suivent la maquette
+**And** les tests de la story 8.2 (contrastes calculés, `h1` focalisé, contenu coupé, projection) restent verts ; les captures E2E sont réalignées
+
+### Story 9.8 : Documents et Agents suivent la nouvelle mise en page
+
+As a utilisateur sur grand écran,
+I want les mêmes repères visuels dans Documents et Agents,
+So that toute l'application se lise de la même façon.
+
+**Gouverné par :** maquette 9.6. **Après :** 9.7.
+
+**Acceptance Criteria:**
+
+**Given** la fondation de 9.7
+**When** on l'applique
+**Then** Discussion, Base documentaire, Évaluation de la qualité, Agent seul et Équipe d'agents suivent la maquette
+**And** même critère de tests que 9.7
+
+### Story 9.9 : Modèles, Sobriété et Accueil suivent la nouvelle mise en page (préversion 2.0.0a8)
+
+As a utilisateur sur grand écran,
+I want des écrans Modèles, Sobriété et Accueil plus compacts et lisibles,
+So that je voie plus de choses en un regard.
+
+**Gouverné par :** maquette 9.6. **Après :** 9.7.
+
+**Acceptance Criteria:**
+
+**Given** la fondation de 9.7
+**When** on l'applique
+**Then** Modèles, Sobriété et Accueil suivent la maquette ; l'écran Modèles n'exige plus de défiler sur toute sa hauteur pour atteindre le reranker et le catalogue
+**And** même critère de tests que 9.7
+
+**Given** l'Epic 9 terminée et `tests/v2` vert
+**When** on publie
+**Then** `version = "2.0.0a8"` dans `pyproject.toml` et `uv.lock`, tag annoté `v2.0.0a8` et release GitHub avec notes
+
 ## À ajouter aux stories du MVP
 
 Critères proposés pour les stories 2.x à 4.x, tirés des reports (a) de `reports-v2-inventaire.md`. Le run autonome du MVP les implémente en ce moment : il décide de les intégrer à la story concernée avant son développement, ou de les laisser à la story 8.1. Les éléments (a) déjà couverts par un critère existant (A2, A3, A5 à A9, A11, A12, A15, A17, A22, A23, A27, A31) ne sont pas répétés.
