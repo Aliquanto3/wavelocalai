@@ -181,8 +181,8 @@
       "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
       "timeout_note_delay": "Délai dépassé ({seconds} s) pour ce modèle. Les autres continuent.",
       "stopped": {
-        "max_tokens": "Arrêté : longueur maximale atteinte",
-        "loop": "Arrêté : le modèle se répétait",
+        "max_tokens": "Arrêté : longueur maximale atteinte",
+        "loop": "Arrêté : le modèle se répétait",
         "user": "Arrêté à la demande"
       },
       "stop_model": "Arrêter ce modèle",

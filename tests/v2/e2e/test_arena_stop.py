@@ -32,7 +32,7 @@ def test_a_lane_that_hits_max_tokens_shows_the_stopped_status_and_keeps_the_othe
     )
     launch(arena)
     wait_banner(arena, "Comparaison terminée")
-    assert status_of(arena, "fake:a") == "Arrêté : longueur maximale atteinte"
+    assert status_of(arena, "fake:a") == "Arrêté : longueur maximale atteinte"
     assert lane(arena, "fake:a").locator(".wl-md").inner_text().strip() == "Un mot"
     assert status_of(arena, "fake:b") == "Terminé"  # fin naturelle : jamais une raison d'arrêt
 
@@ -51,7 +51,7 @@ def test_a_repeating_lane_is_stopped_with_the_loop_status_while_the_other_lane_f
     )
     launch(arena)
     wait_banner(arena, "Comparaison terminée")
-    assert status_of(arena, "fake:a") == "Arrêté : le modèle se répétait"
+    assert status_of(arena, "fake:a") == "Arrêté : le modèle se répétait"
     text_a = lane(arena, "fake:a").locator(".wl-md").inner_text().strip()
     assert len(text_a) < len(sentence) * 8  # arrêtée avant la fin du script
     assert status_of(arena, "fake:b") == "Terminé"
