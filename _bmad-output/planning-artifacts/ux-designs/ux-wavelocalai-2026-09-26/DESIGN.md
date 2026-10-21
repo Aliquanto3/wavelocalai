@@ -181,7 +181,7 @@ WaveLocalAI est un démonstrateur Wavestone : il prouve, mesures à l'appui, qu'
 1. **Les chiffres sont les héros.** Débit, CO₂ et latence portent la plus grande taille de la page (`{typography.metric-value}`).
 2. **Une seule couleur d'action.** Violet `{colors.primary}` pour agir, vert pour « local, sobre, réussi », rouge `{colors.risk}` pour le risque seulement.
 3. **La souveraineté se voit.** Le badge Local/Cloud est l'**élément signature** : sobre, répété, porteur du propos. Le reste de l'interface s'efface.
-4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception. v2 (décision D-2) : **Material Symbols Rounded** officiels, sous-ensemble en sprite `icons.svg` avec sa licence ; les tracés Material Icons (Filled) de la maquette n'entrent pas dans le front.
+4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception. v2 (décision D-2) : **Material Symbols Rounded** officiels, sous-ensemble en sprite `icons.svg` avec sa licence ; les tracés Material Icons (Filled) de la maquette n'entrent pas dans le front. Maquette validée (story 9.6, décision d'Anaël du 2026-10-21) : sur l'écran de configuration d'un module, l'icône du module est **colorée par module**, posée sur une pastille de sa propre couleur à 8 % (`.icon-mod`) — Arène `chart-1` (violet), Banc d'essai `chart-3` (bleu), Base documentaire `chart-2` (vert), Modèles `amber-strong` (`#A66E00` en clair, `chart-4` en sombre, jeton à poser par la story 9.7, voir `docs/maquette-v2-mise-en-page/DECISIONS.md`). Les icônes d'état (succès, erreur, arrêt) restent les couleurs sémantiques existantes (`risk`, `accent-green`) ; l'icône seule porte la couleur sémantique, jamais le texte qui l'accompagne (ex. « Arrêté : … » reste en `{colors.ink}`).
 
 **Implémentation.** Streamlit 1.x, composants natifs uniquement : aucun framework CSS, aucun `<style>` injecté, aucun hex dans le code des pages. Les tokens passent par `.streamlit/config.toml` :
 
@@ -218,6 +218,7 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 - **Badges.** `badge-local` vert et `badge-cloud` orange utilisent les couleurs natives de `st.badge` (`[ASSUMPTION]`), dont le contraste est vérifié à l'axe-core au matin. Orange = attention, les données sortent de la machine ; jamais de rouge.
 - **Graphiques.** `chart-4` clair fait 2,95:1 sur blanc : il n'encode jamais seul une valeur, ses points sont étiquetés.
 - Aucune couleur ne porte seule une information : badge, succès, erreur et série ont toujours un libellé.
+- **Icônes par module (v2, maquette story 9.6, décision d'Anaël du 2026-10-21).** Sur sa pastille à 8 % (`.icon-mod`) : Arène `chart-1` (4,93:1 clair, 4,10:1 sombre), Banc d'essai `chart-3` (3,71:1 / 4,91:1), Base documentaire `chart-2` (3,12:1 clair — marge étroite, 5,76:1 sombre). Pour Modèles, `chart-4` clair ne tient pas 3:1 sur sa pastille (2,74:1) : un jeton dédié, `amber-strong` (`#A66E00` clair, `chart-4` sombre), le remplace et tient 3,92:1 ; il sert aussi au liseré et à l'icône de l'encart d'alerte « modèle de représentation manquant » de la Base documentaire (3,85:1 clair sur le fond de l'encart). Jeton et classes `.icon-mod` à poser par la story 9.7 (`tokens.css`/`screens.css`) ; valeurs détaillées et méthode de calcul : `docs/maquette-v2-mise-en-page/DECISIONS.md` §2.
 
 ## Typography
 
@@ -229,6 +230,8 @@ Une seule famille pour le texte et les titres : **Aptos**, appelée par son nom 
 | `{typography.metric-value}` | valeur de `st.metric` | Plus gros chiffre de la page ; débit, CO₂ et durées passent par là, pas par du gras. |
 | `{typography.caption}` | `st.caption` | Métadonnées et légendes. |
 | `{typography.body}` | texte | Ni majuscules d'insistance ni gras décoratif. |
+| `{typography.section-label}` (v2, maquette story 9.6, décision d'Anaël du 2026-10-21) | — | Intertitre de section repliée ou de bloc (« Réglages », « Scénario ») : **13 px** (`0.8125rem`), majuscules, espacé (`letter-spacing: 0.04em`), `{colors.ink-secondary}`. Jeton `--text-section-label` à poser par la story 9.7. |
+| `{typography.field-label}` (v2, maquette story 9.6, décision d'Anaël du 2026-10-21) | — | Libellé d'un champ mis en avant (prompt, choix du modèle) : **17 px** (`1.0625rem`), gras, toujours plus grand que `{typography.section-label}` (ratio ~1,3) et au moins aussi grand que `{typography.body}`. Jeton `--text-field-label` à poser par la story 9.7. |
 
 ## Layout & Spacing
 
@@ -236,6 +239,7 @@ Une seule famille pour le texte et les titres : **Aptos**, appelée par son nom 
 - Largeurs par `width=` (pas `use_container_width`, déprécié) et par les ratios de `st.columns`.
 - **Accueil :** une colonne hiérarchisée — en-tête, bandeau d'état (une rangée de `metric`), liste des modules. Pas de grille de cartes.
 - **Module :** titre, onglets (`st.tabs`), réglages en barre latérale, rangée de `metric` au-dessus du détail des résultats.
+- **v2, écran de configuration (Banc d'essai, Arène formulaire ; maquette story 9.6, décision d'Anaël du 2026-10-21).** Dès **1 400 px** environ (`min-width` du cadre), grille à deux colonnes : colonne principale flexible (**480 px au moins**) à gauche pour la saisie et le choix du modèle, colonne secondaire (**320 à 400 px**) à droite pour les réglages repliés (`<details>`), l'aperçu et les résultats. En dessous de 1 400 px, une seule colonne, dans le même ordre (saisie puis réglages). Pendant l'exécution, la configuration se replie en résumé (inchangé, voir EXPERIENCE.md) ; les résultats (lanes de l'Arène, tableau) occupent alors la largeur pleine, hors de cette grille à deux colonnes — l'écran de résultats de l'Arène n'y entre jamais, même avant le lancement d'un nouveau run (le bandeau du juge et les colonnes de réponse gardent leur propre grille, D-15). Zones d'action (navigation courante, carte ou pastille choisie, bandeau du juge) : aplat léger de `{colors.primary}` à **8 % en clair**, de `{colors.primary-dark}` à **10 % en sombre** (jeton `--color-action-tint` à poser par la story 9.7) ; le texte posé dessus reste `{colors.ink}` (≥ 16:1), le violet n'y sert qu'aux icônes, entourages et soulignés. Les pastilles ou segments choisis suivent `wl-pill-selected` (aplat `{colors.primary-fill}`, texte blanc), pas cet aplat.
 
 ## Elevation & Depth
 

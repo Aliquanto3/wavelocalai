@@ -2,7 +2,7 @@
 title: 'Maquette de la nouvelle mise en page'
 type: 'docs'
 created: '2026-10-21'
-status: 'review'
+status: 'done'
 baseline_commit: 'ba606cb'
 context:
   - '{project-root}/AGENTS.md'
@@ -10,8 +10,7 @@ context:
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-10-21.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/EXPERIENCE.md'
-warnings:
-  - 'En attente de la validation d''Anaël : DESIGN.md et EXPERIENCE.md ne sont amendés qu''après son accord (story 9.6, deuxième critère), avant la story 9.7.'
+warnings: []
 deferred: []
 ---
 
@@ -83,3 +82,20 @@ Revue (Opus, une passe, base `ba606cb` à jour, aucun rebase nécessaire). Const
 | 14 | low | reviewer | `<pre>` de la sortie JSON débordant sa carte | Corrigé : `white-space: pre-wrap` |
 
 Vérification finale (Edge headless, captures hors dépôt) : 0 erreur console, 0 requête externe, aucun débord ; bouton principal à 1920 px visible dans une fenêtre 1920×1080 (bas à 550 px pour le Banc d'essai, 377 px pour l'Arène formulaire). Complexité : 0 constat (page statique, aucune structure qui grossit). Questions à Anaël : 3 et 5 précisées (jeton `amber-strong`, aplat 8 % / 10 %), aucune ajoutée.
+
+## Validation
+
+Anaël, 2026-10-21 : « elle est mieux que l'existant, partons dessus » — maquette validée, les six recommandations de `DECISIONS.md` §4 retenues telles quelles.
+
+Amendements reportés dans `DESIGN.md` et `EXPERIENCE.md`, à jour des corrections de la revue (texte « Arrêté » en encre, pastilles choisies en `primary-fill` + texte blanc, zone désactivée sans opacité, aplats 8 % clair / 10 % sombre, pastille d'icône à 8 %) :
+
+- `DESIGN.md` §Brand, point 4 : icônes colorées par module, pastille à 8 %, règle « icône seule porte la couleur sémantique, jamais le texte ».
+- `DESIGN.md` §Layout & Spacing : grille à deux colonnes dès 1 400 px sur les écrans de configuration, aplat des zones d'action (8 % clair / 10 % sombre).
+- `DESIGN.md` §Typography : `{typography.section-label}` (13 px) et `{typography.field-label}` (17 px).
+- `DESIGN.md` §Colors : table des contrastes des icônes par module et du jeton `amber-strong`.
+- `EXPERIENCE.md` Arène : bandeau du juge, statut « Arrêté » en texte `ink`.
+- `EXPERIENCE.md` Base documentaire : encart d'alerte modèle de représentation manquant, zone de dépôt désactivée.
+
+Aucun jeton ni classe n'est posé dans le code par cette story (`tokens.css`, `base.css`, `screens.css` non modifiés) : le test de dérive `tests/v2/unit/test_shell_static.py::test_tokens_css_mirrors_design_md` reste vert, les nouveaux jetons sont documentés comme « à poser » dans `DESIGN.md` et dans `DECISIONS.md` §6 (« Pour les stories 9.7 à 9.9 »), avec l'écran → story qui les posera.
+
+Fichiers modifiés : `_bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/DESIGN.md`, `_bmad-output/planning-artifacts/ux-designs/ux-wavelocalai-2026-09-26/EXPERIENCE.md`, `docs/maquette-v2-mise-en-page/DECISIONS.md`, `_bmad-output/implementation-artifacts/story-9-6.md`.

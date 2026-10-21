@@ -59,7 +59,9 @@ Détail du calcul : `tests/v2/e2e/test_accessibilite.py` (fonctions `_luminance`
 ### `EXPERIENCE.md` — Base documentaire (`#/documents/base`)
 > Ajouter : « Sans modèle de représentation installé, un encart d'alerte (icône `warning` et liseré `amber-strong`) précède tout le reste de l'écran : il annonce l'absence du modèle, propose "Installer nomic-embed-text" avec sa taille, et la zone de dépôt reste visible mais désactivée avec la raison en légende. »
 
-## 4. Questions à trancher par Anaël
+## 4. Décisions d'Anaël (2026-10-21) : recommandations retenues
+
+Anaël a validé la maquette le 2026-10-21 (« elle est mieux que l'existant, partons dessus ») et retient les six recommandations ci-dessous telles quelles, aux valeurs issues de la revue (§1-§2, déjà à jour sur les corrections de la revue). Le brouillon d'amendements du §3 est appliqué à `DESIGN.md` et `EXPERIENCE.md` dans ce même commit, avant la story 9.7.
 
 1. **Point de bascule de la grille.** 1 400 px pile, ou une valeur ronde côté implémentation comme 1 408 px (88 × 16, aligné sur une grille de 8) ? *Recommandation : 1 400 px, lisible dans la story et déjà la valeur citée partout.*
 2. **Largeur de la colonne droite.** Fixe entre 320 et 400 px (retenu), ou proportionnelle (1/3 de la largeur disponible, comme `wl-side-panel`) ? *Recommandation : fixe, plus stable visuellement entre 1 440 et 1 920 px, où un tiers deviendrait trop large.*
@@ -71,3 +73,23 @@ Détail du calcul : `tests/v2/e2e/test_accessibilite.py` (fonctions `_luminance`
 ## 5. Captures de vérification
 
 Prises par Playwright (Edge headless), stockées hors dépôt (scratchpad de la session) : fenêtres de 1920 et 1440 px, les 4 largeurs simulées (1920, 1440, 1280, 390), clair et sombre, les cinq écrans. Aucune erreur console, aucune requête hors du fichier, aucun débord horizontal dans le cadre ni dans la page (le cadre mis à l'échelle prend sa taille réduite, sans défilement interne) ; en 390 px, les tableaux passent en lignes étiquetées. Bouton principal à 1920 px dans une fenêtre 1920×1080 : bas à 550 px (Banc d'essai) et 377 px (Arène formulaire). Hauteur de l'écran Modèles à 1920 px : environ 1 295 px (3 900 px dans la version actuelle).
+
+## 6. Pour les stories 9.7 à 9.9
+
+`DESIGN.md` et `EXPERIENCE.md` décrivent désormais la mise en page validée, mais aucun jeton ni aucune classe n'a été posé dans le code (`tests/v2` reste vert : le test de dérive `test_tokens_css_mirrors_design_md` n'accepte dans le front matter de `DESIGN.md` que les jetons déjà dans `tokens.css`). Ce qui reste à poser, par fichier :
+
+| Fichier | À créer / changer |
+|---|---|
+| `tokens.css` | `--color-icon-arena` (= `--color-chart-1`), `--color-icon-bench` (= `--color-chart-3`), `--color-icon-documents` (= `--color-chart-2`), `--color-amber-strong` (`#A66E00` clair, `--color-chart-4` sombre), `--color-icon-models` (= `--color-amber-strong`), `--color-action-tint` (`rgba(69, 29, 199, 0.08)` clair, `rgba(126, 101, 233, 0.10)` sombre), `--text-section-label` (`0.8125rem`), `--text-field-label` (`1.0625rem`) — puis ajouter les 8 clés correspondantes au front matter `colors:`/`typography:` de `DESIGN.md` dans la même PR (le test de dérive exige les deux à la fois). |
+| `base.css` | Classes génériques réutilisables entre écrans : `.icon-mod` (+ variantes `.arena`/`.bench`/`.docs`/`.models`, pastille `color-mix(... 8%, surface)`), `.section-label` / `.field-label`, grille à deux colonnes de configuration (`min-width: 1400px`, colonne gauche `minmax(480px, 1fr)`, colonne droite `minmax(320px, 400px)`), `.judge-banner`, `.alert-warning` (liseré `amber-strong`), zone désactivée (bordure pointillés + `surface-alt`, jamais `opacity`). |
+| `screens.css` | Par écran : grille deux-colonnes posée sur le conteneur de configuration ; bandeau du juge et statut « Arrêté » (Arène résultats) ; encart d'alerte modèle de représentation manquant + zone de dépôt désactivée (Base documentaire). |
+
+Écran → story qui le livre (Epic 9, stories restantes) :
+
+| Story | Écrans |
+|---|---|
+| 9.7 | Chat libre, Arène (formulaire et résultats), Banc d'essai, Références |
+| 9.8 | Discussion, Base documentaire, Évaluation, Agent seul, Équipe |
+| 9.9 | Modèles, Sobriété, Accueil |
+
+Chaque story ne pose que les jetons et classes que ses écrans utilisent ; `--color-icon-arena`/`--color-icon-bench` et la grille deux-colonnes sont donc posés par 9.7, `--color-amber-strong`/`--color-icon-documents` par 9.8, et aucun jeton nouveau n'est attendu de 9.9 (Modèles réutilise `amber-strong` déjà posé par 9.8).
