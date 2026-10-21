@@ -1020,7 +1020,8 @@ def test_stop_cancels_every_lane_and_keeps_the_partial_answers(arena, server):
     )
     launch(arena)
     lane(arena, "fake:a").locator(".wl-md").filter(has_text="Partiel").wait_for()
-    arena.get_by_role("button", name="Arrêter").click()
+    # Scopé au bandeau (story 9.2 : chaque colonne porte aussi son propre « Arrêter ce modèle »).
+    arena.locator(".arena-banner").get_by_role("button", name="Arrêter").click()
     wait_banner(arena, "Comparaison arrêtée")
     # Arrêter disparaît avec le run : le focus passe au bandeau, pas au corps de la page.
     assert arena.evaluate("document.activeElement.className") == "arena-banner-text"

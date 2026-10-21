@@ -402,6 +402,9 @@ async def start_scripted_arena(body: ScriptedArena, request: Request) -> ArenaSt
         bus=state.system_feed,
         judge=scorer,
     )
+    # `POST /api/runs/{lane_run_id}/stop` (story 9.2) lit `app.state.arena` : le remplacer pour que
+    # ce service scripté réponde à l'arrêt d'une lane, comme le service réel le ferait en usage.
+    state.arena = service
     handle = await service.start(
         ArenaCommand(
             models=[lane.tag for lane in body.lanes],
