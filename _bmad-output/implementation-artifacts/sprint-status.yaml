@@ -114,3 +114,15 @@ development_status:
   8-2-tous-les-écrans-sont-accessibles-et-lisibles-en-projection: done
   8-3-la-parité-avec-la-v1-est-listée-et-la-suite-e2e-est-complète: done
   epic-8-retrospective: optional
+
+  epic-9: backlog
+  9-1-le-lanceur-ouvre-l-application-dans-le-navigateur: backlog
+  9-2-l-arène-arrête-un-modèle-qui-tourne-en-boucle: backlog
+  9-3-on-voit-le-juge-de-l-arène-travailler: backlog
+  9-4-installer-le-modèle-de-représentation-depuis-la-base-documentai: backlog
+  9-5-fastembed-est-installé-d-office-le-bouton-du-reranker-fonctionne: backlog
+  9-6-maquette-de-la-nouvelle-mise-en-page-humaine: backlog
+  9-7-fondation-de-la-mise-en-page-et-écrans-de-l-arène: backlog
+  9-8-documents-et-agents-suivent-la-nouvelle-mise-en-page: backlog
+  9-9-modèles-sobriété-et-accueil-suivent-la-nouvelle-mise-en-page: backlog
+  epic-9-retrospective: optional
