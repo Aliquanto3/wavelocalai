@@ -226,6 +226,7 @@ Comportements fixés par la maquette `docs/maquette-v2/` et les décisions d'Ana
 - Bouton « Lancer la comparaison » désactivé avec sa raison visible : « Choisissez au moins 2 modèles », « Choisissez 4 modèles au plus », « Saisissez une question », « Choisissez un juge ».
 - Sans modèle local prêt (arrivée depuis l'Accueil, D-11) : `alert-info` qui dit quoi faire (installer un modèle depuis Modèles, ou autoriser le cloud), lancement désactivé avec la raison.
 - Chronomètre au format « 0:42 » (UX-DR20) ; « un seul juge » toujours affiché avec les notes ; aucune étiquette « le plus petit des trois » ; à la fin d'un run, l'adresse est réécrite vers `…/<run_id>` (`history.replaceState`) (décision du 2026-10-19).
+- Maquette validée (story 9.6, décision d'Anaël du 2026-10-21) : au-dessus des colonnes, un bandeau (`.judge-banner`, aplat `--color-action-tint`) affiche « Juge : <modèle> · Notation N sur M » pendant la notation (icône `gavel`, texte en `{colors.ink}`). Une colonne arrêtée automatiquement affiche « Arrêté : le modèle se répétait » en texte `{colors.ink}` gras (icône `block` seule en `{colors.risk}`, jamais le texte sur blanc, conforme à la règle DESIGN.md) ; sa réponse partielle reste affichée et notée.
 
 ### Références (`#/arene/references`)
 
@@ -249,6 +250,7 @@ Comportements fixés par la maquette `docs/maquette-v2/` et les décisions d'Ana
 - Un document en échec figure aussi dans le tableau, statut « Échec » avec sa raison, et garde « Supprimer » ; il ne compte pas dans le nombre de documents indexés (D-26).
 - « Supprimer » ouvre `wl-confirm-dialog` comme « Vider » : titre « Supprimer « note-cadrage.docx » ? », conséquence « 14 extraits seront retirés de la base. Cette action est irréversible. » (pour un document en échec : « Ce document n'a pas été indexé : aucun extrait n'est retiré. »), focus sur « Annuler », issue « Document supprimé : note-cadrage.docx. 14 extraits retirés de la base. » ; « Annuler » annonce « Suppression annulée » (D-24).
 - Pendant un import, « Supprimer » et « Vider » sont désactivés avec leur raison en légende, au lieu d'afficher le `409 base_in_use`, qui reste côté serveur (décision du 2026-10-19).
+- Maquette validée (story 9.6, décision d'Anaël du 2026-10-21) : sans modèle de représentation installé, un encart d'alerte (`alert-warning`, icône `warning` et liseré `amber-strong`, voir DESIGN.md) précède tout le reste de l'écran. Il annonce l'absence du modèle (« Aucun modèle de représentation installé. Installez nomic-embed-text (274 Mo) pour pouvoir importer vos documents. ») avec le bouton « Installer nomic-embed-text » ; la zone de dépôt reste visible mais désactivée (bordure en pointillés, fond `{colors.surface-alt}`, texte `{colors.ink-secondary}`, jamais par la seule opacité) avec la raison en légende.
 
 ## Écrans v2 des Epics 5 à 7
 
