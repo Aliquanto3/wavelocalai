@@ -35,7 +35,7 @@ uv sync
 uv run wavelocalai-v2
 ```
 
-L'interface s'ouvre sur http://127.0.0.1:8502 (le port 8501 reste à la v1) : le serveur n'écoute que sur la machine locale. Options : `--port`, `--data-dir` (dossier des données, `data/` par défaut) et `--config` (un fichier `wavelocalai.toml`). Un modèle local reste à télécharger (`ollama pull qwen2.5:1.5b`) ; l'écran Modèles sait aussi les installer.
+Le navigateur par défaut s'ouvre tout seul sur http://127.0.0.1:8502 (le port 8501 reste à la v1) dès que le port répond : le serveur n'écoute que sur la machine locale. Options : `--port`, `--data-dir` (dossier des données, `data/` par défaut), `--config` (un fichier `wavelocalai.toml`) et `--no-browser` (n'ouvre pas le navigateur ; ou le réglage `[server] open_browser = false` de `wavelocalai.toml`). Si l'ouverture échoue (pas de navigateur, session sans affichage), l'URL est affichée dans la console et le serveur continue. Un modèle local reste à télécharger (`ollama pull qwen2.5:1.5b`) ; l'écran Modèles sait aussi les installer.
 
 Tests de la v2 : `uv run python -m pytest tests/v2` (sans Ollama) ; les parcours dans un navigateur (`tests/v2/e2e`, marqueur `e2e`) se lancent avec `-m e2e` et tournent chaque nuit sur Linux dans la CI (voir `AGENTS.md`).
 

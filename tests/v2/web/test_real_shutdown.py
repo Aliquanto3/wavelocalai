@@ -35,7 +35,16 @@ def _launch(port: int, data_dir, ollama_port: int) -> subprocess.Popen:
     }
     flags = subprocess.CREATE_NEW_PROCESS_GROUP if WINDOWS else 0  # Ctrl+Break visé
     return subprocess.Popen(  # noqa: S603
-        [sys.executable, "-m", "wavelocalai", "--port", str(port), "--data-dir", str(data_dir)],
+        [
+            sys.executable,
+            "-m",
+            "wavelocalai",
+            "--port",
+            str(port),
+            "--data-dir",
+            str(data_dir),
+            "--no-browser",
+        ],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
