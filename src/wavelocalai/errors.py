@@ -222,7 +222,7 @@ _SPECS = (
         "no_embedding_model",
         404,
         "Aucun modèle d'embedding n'est installé sur ce poste.",
-        "Installez-le depuis le bouton « Installer nomic-embed-text » de la Base documentaire, "
+        "Ouvrez la Base documentaire et cliquez sur « Installer nomic-embed-text », "
         "puis réessayez.",
     ),
     ErrorSpec(

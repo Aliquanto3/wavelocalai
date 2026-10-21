@@ -7,9 +7,8 @@
 //   seul modèle est proposé ici, jamais une liste.
 // - Un clic installe par le même run `pull` que l'écran Modèles (`models-pull.js`, `pull` partagé) :
 //   même route, même composant de progression, « Annuler » compris (AD-17, un seul geste télécharge).
-// - À la fin (succès), l'encart disparaît dès que les réglages relus listent le modèle installé ; il
-//   devient alors le défaut de représentation sans autre action (aucun modèle de base n'est encore
-//   choisi, et c'est désormais le seul installé : AC epics 9.4).
+// - À la fin (succès), le modèle installé est enregistré comme défaut de représentation
+//   (`PUT /api/rag/settings`), puis l'encart disparaît dès que les réglages relus le listent.
 // - Ollama absent : le bouton est désactivé avec la raison existante (AD-20, état du flux système).
 
 import { api } from "../core/api.js";
@@ -35,8 +34,16 @@ export function createEmbeddingAlert({ host, say, onChange, onInstalled }) {
     nameOf: () => TAG,
     say,
     onChange: render,
-    onEnded: ({ status }) => {
+    onEnded: async ({ status }) => {
       if (status !== "ok") return;
+      // Le modèle installé devient le défaut enregistré (préférence, AD-15) : jamais un « premier
+      // installé » implicite, ni un modèle du `.toml` absent du poste. Base déjà liée à un autre
+      // modèle (`embedding_change_needs_clear`) : le réglage reste celui de la base.
+      try {
+        await api.saveRagSettings({ embedding_model: TAG });
+      } catch {
+        // la relecture ci-dessous montre l'état réel
+      }
       load();
       onInstalled();
     },

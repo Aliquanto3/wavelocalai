@@ -140,4 +140,14 @@ Modèles (AD-17).
 
 ## Revue
 
-En attente.
+Revue Opus du 2026-10-21, sur `origin/master` à jour (4472c5c, pas de rebase nécessaire), second avis Haiku repris point par point.
+
+- medium · second avis 1 · corrigé : le modèle installé ne devenait le défaut que par la règle implicite « premier installé » (et un modèle du `.toml` absent du poste l'emportait). À la fin du `pull`, l'encart enregistre `embedding_model = nomic-embed-text` par `PUT /api/rag/settings` (API existante, préférence AD-15), puis relit ; base déjà liée à un autre modèle : le 409 est ignoré et la relecture montre l'état réel.
+- medium · second avis 2 · corrigé : l'E2E assert `settings["embedding_model"] == "nomic-embed-text"` ; vérifié qu'il échoue sans le correctif.
+- low · second avis 3 · rejeté : avant la première lecture des réglages, un import resterait refusé par le serveur (`no_embedding_model`, `ingest._pick_model`) ; bloquer la zone de dépôt pendant cette lecture désactiverait l'import à chaque ouverture de l'écran pour tous les postes équipés.
+- low · second avis 5 · rejeté : « Annuler » vient du composant partagé `models-pull.js`, déjà cliqué dans `test_models_install.py` ; l'E2E prouve qu'il est présent dans l'encart.
+- low · second avis 8 · noté : « 274 Mo » est un texte fixe de `docs.json` (le modèle n'est pas dans le catalogue), mesuré par l'installation réelle ci-dessus ; à remesurer si le tag proposé change.
+- low · second avis 9 · corrigé : le message `no_embedding_model` (reçu aussi par la Discussion) dit où trouver le bouton : « Ouvrez la Base documentaire et cliquez sur « Installer nomic-embed-text », puis réessayez. »
+- low · second avis 10 · corrigé : le filtre `is_baseline_file` de `.secrets.baseline` n'était pas nécessaire (hook detect-secrets vert sur les fichiers de la story avec la baseline de master) ; baseline remise à l'identique de master. Le `pragma: allowlist secret` du test reste nécessaire (le hook signale la ligne sans lui).
+- info · second avis 11 · reporté à l'orchestrateur : `test_rag_run_api.py::test_a_cloud_model_needs_allow_cloud` échoue seul aussi sur `origin/master` en local (délai de 5 s de `_ended` dépassé) ; CI de master verte, sans lien avec la story.
+- Complexité : 0 constat (aucune structure qui grossit pendant l'exécution).

@@ -126,6 +126,9 @@ def test_clicking_installs_through_the_models_pull_route_and_the_alert_disappear
         f"() => fetch('{server.base_url}/api/rag/settings').then(r => r.json())"
     )
     assert settings["embedding_models"] == [{"tag": TAG, "name": TAG}]
+    # Le modèle installé devient le défaut enregistré (préférence), pas un « premier installé »
+    # implicite (AC epics 9.4).
+    assert settings["embedding_model"] == TAG
 
 
 def test_without_ollama_the_install_button_is_disabled_with_the_reason(tmp_path, page):
