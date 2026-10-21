@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 
@@ -37,6 +38,7 @@ from wavelocalai.inference.judge_port import (
     LaneJudge,
 )
 from wavelocalai.inference.local_slot import LocalSlot
+from wavelocalai.inference.loop_detector import LoopDetector
 from wavelocalai.inference.streaming import CANCELLED_CO2, NOT_MEASURED, Guard, stream_into_run
 from wavelocalai.models.defaults import ModelDefaults, is_weak_judge
 from wavelocalai.models.factory import ModelFactory
@@ -45,6 +47,8 @@ from wavelocalai.models.port import (
     ChatMessage,
     ChatModel,
     ChatRequest,
+    ChatResult,
+    Done,
     ModelRef,
     TextDelta,
 )
@@ -85,22 +89,122 @@ class ArenaCommand:
     allow_cloud: bool = False
 
 
+#: `ChatResult.finish_reason` -> `stopped_reason` de `lane_status` (story 9.2). `length` est la
+#: valeur commune des adaptateurs (AD-8, `models/cloud.py`) quand `arena.max_tokens` est atteint ;
+#: `loop` et `user` sont synthétisés par `_RecordingModel` (détecteur de boucle, arrêt manuel).
+STOPPED_REASON = {"length": "max_tokens", "loop": "loop", "user": "user"}
+
+
 class _RecordingModel:
     """Enveloppe d'un `ChatModel` qui garde le texte de réponse de la tentative en cours, pour
-    le juge. Chaque appel de `stream` repart de zéro (relance comprise)."""
+    le juge, et peut l'arrêter avant la fin (story 9.2) : une boucle détectée (`loop_detector`) ou
+    une demande externe (`request_stop`, bouton « Arrêter ce modèle ») ferme le flux de l'adaptateur
+    (comme une annulation, AD-8) et synthétise un `Done` à partir de ce qui a déjà été reçu, avec un
+    débit approché sur l'horloge (`tps_source: "wallclock"`) : la mesure CodeCarbon, elle, tourne
+    pendant tout l'appel et n'est pas affectée (AD-10, AD-11). Chaque appel de `stream` repart de
+    zéro (relance comprise) ; `stop_reason` dit la raison d'un arrêt, posée au premier `Done`, réel
+    ou synthétique."""
 
-    def __init__(self, model: ChatModel) -> None:
+    def __init__(self, model: ChatModel, loop_detector: LoopDetector | None = None) -> None:
         self.ref = model.ref
         self._model = model
+        self._loop_detector = loop_detector
         self.answer: list[str] = []
+        self.stop_reason: str | None = None  # "max_tokens" | "loop" | "user"
+        self._requested: str | None = None  # arrêt demandé en cours de route (`request_stop`)
+        self._stop_event = asyncio.Event()  # réveille l'attente du prochain jeton (arrêt réactif)
+
+    def request_stop(self, reason: str) -> None:
+        """Demande l'arrêt de la tentative en cours, même pendant l'attente d'un jeton (le modèle
+        « réfléchit ») : `stream` court-circuite cette attente dès que l'événement se lève, sans
+        attendre le prochain jeton. Sans effet si déjà demandé."""
+        if self._requested is None:
+            self._requested = reason
+            self._stop_event.set()
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         self.answer.clear()
+        self.stop_reason = None
+        self._requested = None
+        self._stop_event.clear()
+        start = time.monotonic()
+        first_token_at: float | None = None
+        stopping: str | None = None
         async with contextlib.aclosing(self._model.stream(request)) as upstream:
-            async for chunk in upstream:
+            iterator = upstream.__aiter__()
+            while True:
+                chunk = await self._next_or_stop(iterator)
+                if chunk is None:  # fin naturelle, ou arrêt demandé avant le prochain jeton
+                    stopping = stopping or self._requested
+                    break
                 if isinstance(chunk, TextDelta) and chunk.channel == "answer":
+                    if first_token_at is None:
+                        first_token_at = time.monotonic()
                     self.answer.append(chunk.text)
+                    if self._loop_detector is not None and self._loop_detector.feed(
+                        "".join(self.answer)
+                    ):
+                        stopping = "loop"
+                elif isinstance(chunk, Done):
+                    reason = STOPPED_REASON.get(chunk.result.finish_reason)
+                    if reason is not None:
+                        self.stop_reason = reason
+                if stopping is None and self._requested is not None:
+                    stopping = self._requested
                 yield chunk
+                if stopping is not None:
+                    break
+        if stopping is not None:
+            yield self._synthetic_done(stopping, start, first_token_at)
+
+    async def _next_or_stop(self, iterator: AsyncIterator[ChatChunk]) -> ChatChunk | None:
+        """Le prochain jeton de l'adaptateur, ou `None` si le flux est fini ou si l'arrêt a été
+        demandé en premier (même pendant l'attente, pas seulement entre deux jetons) : la tâche
+        d'attente du jeton est alors annulée, fermant l'appel sous-jacent comme une annulation
+        (AD-8)."""
+        next_chunk = asyncio.ensure_future(iterator.__anext__())
+        stop_wait = asyncio.ensure_future(self._stop_event.wait())
+        try:
+            done, _pending = await asyncio.wait(
+                {next_chunk, stop_wait}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if next_chunk not in done:
+                return None
+            try:
+                return next_chunk.result()
+            except StopAsyncIteration:
+                return None
+        finally:
+            for task in (next_chunk, stop_wait):
+                if not task.done():
+                    task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
+                    await task
+
+    def _synthetic_done(self, reason: str, start: float, first_token_at: float | None) -> Done:
+        """`Done` d'un arrêt avant la fin naturelle : jetons estimés (4 caractères, comme l'estimation
+        cloud de secours), débit sur l'horloge depuis le premier jeton (hors attente, comme D3)."""
+        now = time.monotonic()
+        text = "".join(self.answer)
+        output_tokens = (len(text) // 4) or (1 if text else 0)
+        if first_token_at is None:
+            ttft_s = eval_s = tps = None
+        else:
+            ttft_s = max(first_token_at - start, 0.0)
+            eval_s = max(now - first_token_at, 1e-3)
+            tps = round(output_tokens / eval_s, 2) if output_tokens else 0.0
+        self.stop_reason = reason
+        return Done(
+            ChatResult(
+                finish_reason=reason,
+                output_tokens=output_tokens or None,
+                ttft_s=round(ttft_s, 3) if ttft_s is not None else None,
+                eval_s=round(eval_s, 3) if eval_s is not None else None,
+                total_s=round(now - start, 3),
+                tps=tps,
+                tps_source="wallclock",
+            )
+        )
 
 
 @dataclass
@@ -148,6 +252,8 @@ class ArenaService:
         self._defaults = defaults  # défaut `judge` ; sans lui, seul un juge nommé note
         self._judge = judge  # sans service de notation, les notes sont « non évalué »
         self._tasks: set[asyncio.Task[None]] = set()  # références fortes jusqu'à la fin
+        # Lanes en cours, par `run_id` de feuille : `request_stop` (story 9.2, « Arrêter ce modèle »).
+        self._active_lanes: dict[str, _Lane] = {}
 
     async def start(self, command: ArenaCommand) -> RunHandle:
         """Crée la racine et ses feuilles, rend `{run_id}` aussitôt ; les lanes suivent en tâches.
@@ -160,7 +266,14 @@ class ArenaService:
         if self._judge is None:  # sans service de notation, aucun juge n'est annoncé
             judge_ref = None
         judge_info = await self._judge_info(judge_ref, command.allow_cloud)
-        models = [_RecordingModel(self._factory.chat_model(ref)) for ref in refs]
+        arena_settings = self._settings.arena
+        models = [
+            _RecordingModel(
+                self._factory.chat_model(ref),
+                LoopDetector(arena_settings.loop_min_repeats, arena_settings.loop_window_chars),
+            )
+            for ref in refs
+        ]
         # Construit avant la racine : une erreur ici ne laisse pas d'Arène active (`run_busy`).
         judge_model = self._factory.chat_model(judge_ref) if judge_ref else None
         root = await self._hub.create_run(
@@ -185,7 +298,9 @@ class ArenaService:
                 )
                 # Annulée avant même sa première tentative, la feuille garde un `co2` (AD-10).
                 self._hub.declare_leaf(leaf.run_id, CANCELLED_CO2)
-                arena.lanes.append(_Lane(model, leaf.run_id))
+                lane = _Lane(model, leaf.run_id)
+                arena.lanes.append(lane)
+                self._active_lanes[leaf.run_id] = lane
         except BaseException:
             error = build_envelope("internal", "Création des lanes de l'Arène impossible.")
             await self._hub.finish_run(root.run_id, "error", error=error)
@@ -199,7 +314,11 @@ class ArenaService:
             self._judge_event(judge_ref, judge_info, named=named_judge is not None),
         )
         for lane in arena.lanes:  # les colonnes existent avant le premier jeton
-            self._hub.publish(root.run_id, "lane_status", {"lane": lane.tag, "status": "waiting"})
+            self._hub.publish(
+                root.run_id,
+                "lane_status",
+                {"lane": lane.tag, "status": "waiting", "run_id": lane.run_id},
+            )
         self._hub.set_cancel_hook(root.run_id, lambda: self._cancel_unfinished(arena))
         task = asyncio.create_task(
             self._orchestrate(arena, command.prompt), name=f"wavelocalai-arena-{root.run_id}"
@@ -208,6 +327,16 @@ class ArenaService:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return root
+
+    def request_stop(self, lane_run_id: str) -> bool:
+        """Arrête la lane d'`id` `lane_run_id` seule (« Arrêter ce modèle ») : les autres continuent,
+        la réponse partielle est gardée et notée (`stopped_reason: "user"`), à la différence de
+        `RunHub.cancel` qui ne note rien. Rend `False` si la lane est inconnue ou déjà terminée."""
+        lane = self._active_lanes.get(lane_run_id)
+        if lane is None or lane.status in TERMINAL:
+            return False
+        lane.model.request_stop("user")
+        return True
 
     async def _default_judge(self, allow_cloud: bool) -> ModelRef | None:
         """Défaut `judge` (plus gros local qui tient, ou cloud autorisé) ; `None` sans service de
@@ -283,7 +412,11 @@ class ArenaService:
     # --- exécution -----------------------------------------------------------------------------
 
     async def _orchestrate(self, arena: _Arena, prompt: str) -> None:
-        request = ChatRequest([ChatMessage("user", prompt)], temperature=TEMPERATURE)
+        request = ChatRequest(
+            [ChatMessage("user", prompt)],
+            temperature=TEMPERATURE,
+            max_tokens=self._settings.arena.max_tokens,
+        )
         tasks: list[asyncio.Task[None]] = []
         try:
             for lane in arena.lanes:
@@ -348,7 +481,9 @@ class ArenaService:
             except asyncio.CancelledError:
                 self._set_status(arena, lane, "cancelled")
                 raise
-            self._set_status(arena, lane, "done")
+            # Arrêt automatique (plafond, boucle) ou manuel (story 9.2) : la réponse partielle est
+            # notée comme une réponse complète (`_judge_lane` ci-dessus), `stopped_reason` le dit.
+            self._set_status(arena, lane, "done", stopped_reason=lane.model.stop_reason)
         else:
             code = (leaf.error or {}).get("code")
             self._set_status(arena, lane, "timeout" if code == "timeout" else "failed", leaf.error)
@@ -393,17 +528,27 @@ class ArenaService:
             await announce_carbon_updated(self._bus, self._hub.store, session_id)
 
     def _set_status(
-        self, arena: _Arena, lane: _Lane, status: str, error: dict[str, object] | None = None
+        self,
+        arena: _Arena,
+        lane: _Lane,
+        status: str,
+        error: dict[str, object] | None = None,
+        stopped_reason: str | None = None,
     ) -> None:
         """Publie le `lane_status` d'une lane ; un état final ne change plus, un état répété
-        n'est pas republié."""
+        n'est pas republié. `stopped_reason` (story 9.2) accompagne une lane `done` arrêtée avant sa
+        fin naturelle (`max_tokens`, `loop`, `user`), jamais une lane qui a fini d'elle-même."""
         if lane.status in TERMINAL or lane.status == status:
             return
         lane.status = status
-        data: dict[str, object] = {"lane": lane.tag, "status": status}
+        data: dict[str, object] = {"lane": lane.tag, "status": status, "run_id": lane.run_id}
         if error is not None:
             data["error"] = error
+        if stopped_reason is not None:
+            data["stopped_reason"] = stopped_reason
         self._hub.publish(arena.run_id, "lane_status", data)
+        if status in TERMINAL:  # au-delà, un arrêt manuel ne trouve plus la lane (story 9.2)
+            self._active_lanes.pop(lane.run_id, None)
 
     def _cancel_unfinished(self, arena: _Arena) -> None:
         """Crochet du hub, juste avant `run_ended` : les lanes inachevées passent à `cancelled`."""

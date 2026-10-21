@@ -17,9 +17,9 @@
 //   question » reprennent sa configuration dans le formulaire (`wl-arena-reuse`), « Effacer » vide
 //   l'écran (`wl-arena-erased`).
 // - Sous 768 px, une colonne à la fois (onglets par modèle) ; sinon toutes, avec défilement
-//   horizontal et en-têtes collants, et un mode focus par colonne.
-// - `allow_cloud` du store accompagne chaque commande ; le brouillon de la question vit dans
-//   `localStorage` seulement (`core/drafts.js`).
+//   horizontal, en-têtes collants et un mode focus par colonne ; « Arrêter ce modèle » (story 9.2,
+//   `wl-lane-stop`) arrête une seule lane, notée, à la différence du bandeau « Arrêter » du run.
+// - `allow_cloud` du store accompagne chaque commande ; le brouillon vit dans `localStorage` seul.
 
 import { api, ApiError } from "../core/api.js";
 import { element } from "../core/dom.js";
@@ -36,7 +36,7 @@ import { historyView } from "./arena-history.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
 import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";
-import { showRunAddress, stopFailure } from "./arena-run.js";
+import { showRunAddress, stopFailure, stopLaneFailure } from "./arena-run.js";
 import { judgeRow, modelsRow, summaryView } from "./arena-summary.js";
 import { moveTab } from "./arena-tabs.js";
 
@@ -420,7 +420,8 @@ export function mount(host, params = {}) {
     lane_status: (data) => {
       const el = laneOf(data);
       if (!el) return;
-      el.setStatus(data.status, data.error ?? null);
+      if (data.run_id) el.setRunId(data.run_id); // « Arrêter ce modèle » (story 9.2)
+      el.setStatus(data.status, data.error ?? null, data.stopped_reason ?? null);
       updateTab(data.lane);
       renderBanner();
     },
@@ -530,6 +531,11 @@ export function mount(host, params = {}) {
     renderBanner();
     if (refocus) stop.focus(); // de nouveau actif : il reprend le focus
   }
+
+  lanesEl.addEventListener("wl-lane-stop", async ({ detail: { runId: laneRunId } }) => {
+    const failed = laneRunId && (await stopLaneFailure(laneRunId));
+    if (failed) error.error = { code: "internal", message: failed };
+  });
 
   const onKeydown = (event) => {
     if (event.key === "Escape" && !event.defaultPrevented && running() && !host.hidden) {

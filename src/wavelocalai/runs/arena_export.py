@@ -27,6 +27,7 @@ CSV_COLUMNS = (
     "model",
     "origin",
     "status",
+    "stopped_reason",
     "score",
     "reason",
     "tps",
@@ -59,6 +60,9 @@ DEFINITIONS = {
     "co2": "mg de CO2 équivalent ; `method` dit comment (codecarbon : mesuré sur ce poste, ecologits : "
     "estimé pour un modèle distant, unmeasurable : non mesurable, avec sa `reason`). Jamais 0 pour "
     "un inconnu.",
+    "stopped_reason": "Présent si la lane a été arrêtée avant sa fin naturelle : `max_tokens` "
+    "(plafond de jetons atteint), `loop` (répétition détectée) ou `user` (bouton « Arrêter ce "
+    "modèle »). La réponse partielle reste notée.",
 }
 _FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
 
@@ -73,6 +77,7 @@ def _lane_rows(snapshot: Mapping[str, Any], record: Mapping[str, Any], digests: 
             "model": child["model"],
             "origin": metrics.get("origin"),
             "status": lane.get("status") or child["status"],
+            "stopped_reason": lane.get("stopped_reason"),
             "score": score.get("score"),
             "reason": score.get("reason"),
             "tps": metrics.get("tps"),
@@ -169,6 +174,7 @@ def to_csv(document: Mapping[str, Any]) -> str:
                     row["model"],
                     row["origin"],
                     row["status"],
+                    row["stopped_reason"],
                     row["score"],
                     row["reason"],
                     row["tps"],
@@ -224,6 +230,19 @@ def _score_text(row: Mapping[str, Any]) -> str:
     return f"{row['score']}/100"
 
 
+# Libellé de `stopped_reason` (story 9.2) dans l'export Markdown ; le CSV garde le code (`max_tokens`,
+# `loop`, `user`), relisible par un tableur.
+_STOPPED_LABELS = {
+    "max_tokens": "longueur maximale atteinte",
+    "loop": "arrêtée : le modèle se répétait",
+    "user": "arrêtée à la demande",
+}
+
+
+def _stopped_text(row: Mapping[str, Any]) -> str:
+    return _STOPPED_LABELS.get(row.get("stopped_reason") or "", "non")
+
+
 def to_markdown(document: Mapping[str, Any]) -> str:
     arena, proof = document["arena"], document["proof"]
     lines = [
@@ -242,8 +261,8 @@ def to_markdown(document: Mapping[str, Any]) -> str:
         "",
         "## Résultats",
         "",
-        "| Modèle | Origine | Note | Débit | CO2 | Chargement | Durée |",
-        "|---|---|---|---|---|---|---|",
+        "| Modèle | Origine | Note | Débit | CO2 | Chargement | Durée | Arrêt |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for row in document["models"]:
         source = TPS_SOURCES.get(row["tps_source"] or "", "source inconnue")
@@ -256,6 +275,7 @@ def to_markdown(document: Mapping[str, Any]) -> str:
             _co2_text(row["co2"]),
             _num(row["load_s"], "s") or "non mesuré",
             _num(row["total_s"], "s") or "non mesuré",
+            _stopped_text(row),
         ]
         lines.append("| " + " | ".join(_escape(cell) for cell in cells) + " |")
     lines += ["", "## Preuve de la mesure", ""]

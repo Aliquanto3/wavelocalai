@@ -2,8 +2,13 @@
 // statut en texte et icône, mode focus), puis la réponse du modèle, qui se remplit au fil du flux.
 //
 //   lane.setup({ tag, name, origin })      avant l'insertion dans la page
-//   lane.setStatus(status, error)          `lane_status` : waiting, loading, generating, judging,
-//                                          done, timeout, failed, cancelled (interrupted : flux perdu)
+//   lane.setStatus(status, error, stoppedReason)   `lane_status` : waiting, loading, generating,
+//                                          judging, done, timeout, failed, cancelled (interrupted :
+//                                          flux perdu) ; `stoppedReason` (story 9.2, `max_tokens`,
+//                                          `loop` ou `user`) accompagne un `done` arrêté avant sa
+//                                          fin naturelle : note sous le statut, icône en `--color-risk`.
+//   lane.setRunId(runId)                   l'identifiant de la feuille (`lane_status.run_id`), pour
+//                                          le bouton « Arrêter ce modèle » (`wl-lane-stop`, bulle)
 //   lane.token(text, channel)  lane.retry(reason)  lane.metrics(data)
 //   lane.setJudge({ single_judge, unreliable })   l'événement `judge` : fiabilité des notes
 //   lane.name  lane.origin  lane.status  lane.score  lane.result   lus par le classement (story 3.4) ;
@@ -49,6 +54,7 @@ const END_STATUS = {
 };
 const STARTED = new Set(["loading", "generating"]);
 const FINAL = new Set(["timeout", "failed", "cancelled", "interrupted"]); // un statut final ne change plus
+const IN_PROGRESS = new Set(["waiting", "loading", "generating", "judging"]); // « Arrêter ce modèle »
 let counter = 0;
 
 function badgeKind(origin) {
@@ -67,12 +73,20 @@ export class WlArenaLane extends HTMLElement {
   #uid = `wl-lane-${++counter}`;
   #info = { tag: "", name: "", origin: "unknown" };
   #status = "waiting";
+  #stoppedReason = null; // `max_tokens` | `loop` | `user` (story 9.2), posé par `setStatus`
   #answer = null;
   #ended = false;
   #result = null;
   #score = null; // { score, reason } du `judge_score`
   #judge = { single: false, unreliable: false };
   #dom = null;
+  #runId = null; // identifiant de la feuille (`lane_status.run_id`, story 9.2)
+
+  // L'écran le pose depuis `lane_status.run_id` : le bouton « Arrêter ce modèle » en a besoin.
+  setRunId(runId) {
+    this.#runId = runId || null;
+    if (this.#dom) this.#renderStop();
+  }
 
   setup({ tag, name, origin }) {
     this.#info = { tag, name: name || tag, origin: origin || "unknown" };
@@ -135,10 +149,19 @@ export class WlArenaLane extends HTMLElement {
       const on = focus.getAttribute("aria-pressed") !== "true";
       this.dispatchEvent(new CustomEvent("wl-lane-focus", { bubbles: true, detail: { on, tag: this.tag } }));
     });
+    const stop = element("button", "btn wl-lane-stop", t("components.lane.stop_model"));
+    stop.type = "button";
+    stop.hidden = true;
+    stop.addEventListener("click", () => {
+      stop.disabled = true; // un seul envoi : le statut final le masquera
+      this.dispatchEvent(
+        new CustomEvent("wl-lane-stop", { bubbles: true, detail: { tag: this.tag, runId: this.#runId } }),
+      );
+    });
     const title = element("div", "wl-lane-title");
     title.append(name, badge);
     const head = element("div", "wl-lane-head");
-    head.append(title, status, focus);
+    head.append(title, status, stop, focus);
 
     const scoreBox = element("div", "wl-lane-score");
     scoreBox.hidden = true;
@@ -171,6 +194,7 @@ export class WlArenaLane extends HTMLElement {
       statusIcon,
       statusText,
       status,
+      stop,
       focus,
       scoreBox,
       note,
@@ -181,6 +205,14 @@ export class WlArenaLane extends HTMLElement {
     this.#renderHead();
     this.#renderStatus();
     this.#renderScore();
+    this.#renderStop();
+  }
+
+  // Visible tant que la lane est en cours ; désactivé tant que sa feuille (`setRunId`) n'est pas
+  // connue (la commande ne peut pas encore la désigner).
+  #renderStop() {
+    this.#dom.stop.hidden = !IN_PROGRESS.has(this.#status);
+    this.#dom.stop.disabled = !this.#runId;
   }
 
   // La note du juge, ou « Non évalué » avec sa raison (jamais 0). Un statut final sans note
@@ -252,8 +284,18 @@ export class WlArenaLane extends HTMLElement {
     const { statusIcon, statusText, note, error: errorBox } = this.#dom;
     const status = this.#status;
     this.dataset.status = status;
-    statusText.textContent = t(`components.lane.status.${status}`);
-    statusIcon.querySelector("use").setAttribute("href", `/static/icons.svg#i-${STATUS_ICON[status]}`);
+    // Arrêt avant la fin naturelle (story 9.2, maquette résultats, story 9.6) : la ligne de statut
+    // dit « Arrêté : … » (icône `block` seule en `--color-risk`, texte en encre gras, jamais
+    // « Terminé » ni « Échec ») ; `[data-stopped-reason]` porte la couleur de l'icône (`arena.css`).
+    const stopped = status === "done" ? this.#stoppedReason : null;
+    statusText.textContent = stopped
+      ? t(`components.lane.stopped.${stopped}`)
+      : t(`components.lane.status.${status}`);
+    statusIcon
+      .querySelector("use")
+      .setAttribute("href", `/static/icons.svg#i-${stopped ? "block" : STATUS_ICON[status]}`);
+    if (stopped) this.dataset.stoppedReason = stopped;
+    else delete this.dataset.stoppedReason;
     if (status === "timeout") {
       // « Délai dépassé (120 s) » : le délai réel, celui du serveur (`detail.timeout_s`).
       const seconds = error?.detail?.timeout_s;
@@ -290,12 +332,14 @@ export class WlArenaLane extends HTMLElement {
     return this.#answer;
   }
 
-  setStatus(status, error = null) {
+  setStatus(status, error = null, stoppedReason = null) {
     if (!(status in STATUS_ICON) || FINAL.has(this.#status)) return;
     if (STARTED.has(status)) this.#ensureAnswer();
     this.#status = status;
+    this.#stoppedReason = stoppedReason || null;
     this.#renderStatus(error);
     this.#renderScore();
+    this.#renderStop();
     if (status in END_STATUS) this.#end(status);
     this.#changed();
   }

@@ -210,6 +210,20 @@ class RagSettings(_Section):
         return self
 
 
+class ArenaSettings(_Section):
+    """Plafond de jetons et détecteur de boucle de l'Arène (story 9.2) : un modèle qui tourne en
+    boucle, ou qui atteint `max_tokens`, est arrêté avant le délai de lane (`delays.lane_timeout_s`),
+    sa réponse partielle gardée et notée (`stopped_reason` de `lane_status`)."""
+
+    max_tokens: int = Field(
+        800, ge=16
+    )  # plafond par requête de lane ; fin `stopped_reason: "max_tokens"`
+    # Détecteur de répétition : le même fragment final répété au moins `loop_min_repeats` fois sur
+    # une fenêtre d'au moins `loop_window_chars` caractères arrête la lane (`stopped_reason: "loop"`).
+    loop_min_repeats: int = Field(4, ge=2)
+    loop_window_chars: int = Field(200, ge=20)
+
+
 class Settings(BaseModel):
     """Réglages du serveur ; immuables une fois chargés."""
 
@@ -221,6 +235,7 @@ class Settings(BaseModel):
     carbon: CarbonSettings = CarbonSettings()
     cloud: CloudSettings = CloudSettings()
     delays: DelaySettings = DelaySettings()
+    arena: ArenaSettings = ArenaSettings()
     rag: RagSettings = RagSettings()
     agents: AgentSettings = AgentSettings()
     smtp: SmtpSettings = SmtpSettings()

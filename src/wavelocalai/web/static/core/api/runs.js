@@ -1,4 +1,4 @@
-// Appels « runs » : instantané et annulation d'un run, tous écrans confondus.
+// Appels « runs » : instantané, annulation et arrêt d'une lane, tous écrans confondus.
 
 export function runsApi(request) {
   return {
@@ -6,5 +6,9 @@ export function runsApi(request) {
     run: (runId) => request(`/api/runs/${encodeURIComponent(runId)}`),
     cancelRun: (runId) =>
       request(`/api/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
+    // Arrête une seule lane de l'Arène (story 9.2) : garde et note sa réponse partielle, à la
+    // différence de `cancelRun` qui annule tout un run sans rien noter.
+    stopLane: (laneRunId) =>
+      request(`/api/runs/${encodeURIComponent(laneRunId)}/stop`, { method: "POST" }),
   };
 }
