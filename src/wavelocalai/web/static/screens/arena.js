@@ -34,6 +34,7 @@ import { reuseConfig } from "./arena-actions.js";
 import { envelopeOf, forgetErased, launchReasonOf, noLocalNotice, scenarioFieldset } from "./arena-form.js";
 import { historyView } from "./arena-history.js";
 import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { judgeBannerView } from "./arena-judge-banner.js";
 import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";
 import { showRunAddress, stopFailure, stopLaneFailure } from "./arena-run.js";
@@ -101,6 +102,7 @@ export function mount(host, params = {}) {
   const asked = element("p", "arena-asked");
   asked.hidden = true;
   const info = judgeInfo();
+  const progress = judgeBannerView(); // bandeau du juge, au-dessus des colonnes (story 9.3)
   const tabs = element("div", "arena-tabs");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("arena.tabs"));
@@ -132,6 +134,7 @@ export function mount(host, params = {}) {
     banner,
     asked,
     info.el,
+    progress.el,
     tabs,
     lanesEl,
     results.el,
@@ -160,10 +163,7 @@ export function mount(host, params = {}) {
   const narrow = window.matchMedia(NARROW);
 
   const running = () => runId !== null;
-  const count = () => ({
-    done: [...lanes.values()].filter(({ el }) => TERMINAL.has(el.status)).length,
-    total: lanes.size,
-  });
+  const count = () => ({ done: [...lanes.values()].filter(({ el }) => TERMINAL.has(el.status)).length, total: lanes.size });
 
   function announce(text) {
     live.textContent = ""; // vider puis remplir : un même texte est de nouveau annoncé
@@ -216,10 +216,7 @@ export function mount(host, params = {}) {
     renderMode();
   }
 
-  function elapsed() {
-    if (startMs === null) return 0;
-    return Math.max(0, ((endMs ?? Date.now()) - startMs) / 1000);
-  }
+  const elapsed = () => (startMs === null ? 0 : Math.max(0, ((endMs ?? Date.now()) - startMs) / 1000));
 
   function renderBanner() {
     banner.hidden = lanes.size === 0 && !running();
@@ -231,9 +228,7 @@ export function mount(host, params = {}) {
     hint.hidden = !running();
   }
 
-  function startTicker() {
-    ticker ??= setInterval(renderBanner, TICK_MS);
-  }
+  const startTicker = () => (ticker ??= setInterval(renderBanner, TICK_MS));
 
   function stopTicker() {
     clearInterval(ticker);
@@ -254,6 +249,7 @@ export function mount(host, params = {}) {
     judgeFlags = { single_judge: false, unreliable: false };
     runJudge = null;
     info.clear();
+    progress.reset();
     scoreLive.clear();
     results.reset();
   }
@@ -369,6 +365,7 @@ export function mount(host, params = {}) {
     stream = null;
     stopping = false;
     stopTicker();
+    progress.end(); // story 9.3 : l'horloge du juge s'arrête avec le run
     renderBanner();
     render();
     if (stopFocused) focusAfter(null);
@@ -409,10 +406,13 @@ export function mount(host, params = {}) {
         : "";
       runJudge = data?.model ? { name, origin: data.origin } : { none: true };
       info.show(data, { name, criteria: askedCriteria });
+      progress.setJudge(data, name);
       renderMode();
     },
+    judge_progress: (data) => (progress.progress(data, (tag) => lanes.get(tag)?.name), laneOf(data)?.setJudgeProgress(data.phase)), // story 9.3
     judge_score: (data) => {
       const entry = lanes.get(data?.lane);
+      progress.score(data); // story 9.3 : le bandeau du juge
       if (!entry) return;
       entry.el.setScore(data);
       scoreLive.add(entry.name, entry.el.score, judgeFlags.unreliable);
@@ -593,7 +593,7 @@ export function mount(host, params = {}) {
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     narrow.removeEventListener("change", layout);
-    stopTicker();
+    stopTicker(); progress.reset(); // aucun minuteur après l'écran, celui du juge compris (story 9.3)
     stream?.close();
     stream = null;
   };

@@ -14,6 +14,7 @@ from wavelocalai.errors import AppError, ProviderError
 from wavelocalai.evaluation.judge import DEFAULT_CRITERIA, JUDGE_SCHEMA
 from wavelocalai.models.defaults import ModelDefault
 from wavelocalai.models.fake import Sleep
+from wavelocalai.models.port import LoadState
 from wavelocalai.models.registry import ModelInfo, ModelList
 
 from .test_arena_api import (
@@ -41,6 +42,14 @@ def scores(events) -> dict[str, dict]:
 
 def judge_event(events) -> dict:
     return next(e["data"] for e in events if e["type"] == "judge")
+
+
+def progress_events(events, lane: str | None = None) -> list[dict]:
+    return [
+        e["data"]
+        for e in events
+        if e["type"] == "judge_progress" and (lane is None or e["data"]["lane"] == lane)
+    ]
 
 
 class StubDefaults:
@@ -301,6 +310,120 @@ async def test_cancelling_during_judging_cancels_the_lane_and_the_judge_leaf(tmp
     assert not [e for e in events if e["type"] == "judge_score" and e["data"]["score"] == 0]
     judge_kids = [c for c in snapshot["children"] if c["kind"] == "judge"]
     assert judge_kids and all(k["status"] == "cancelled" for k in judge_kids)
+
+
+async def test_judge_progress_is_published_queued_then_scoring_with_position_and_total(tmp_path):
+    """Story 9.3 : `queued` juste avant la place, `scoring` pendant la notation elle-même (le juge
+    `fake:j` ne charge pas, pas de `loading` ici) ; `position`/`total` comptent les deux colonnes.
+    """
+    a, b = local("fake:a", say("Les ", "plantes")), local("fake:b", say("Elles mangent"))
+    judge = local("fake:j", [verdict(72)[0], verdict(60)[0]])
+    async with arena_app(tmp_path, a, b, judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    positions = set()
+    for lane in ("fake:a", "fake:b"):
+        phases = progress_events(events, lane)
+        assert [p["phase"] for p in phases] == ["queued", "scoring"]
+        # Rang d'arrivée chez le juge : stable pour une colonne, distinct d'une colonne à l'autre.
+        assert len({p["position"] for p in phases}) == 1, phases
+        positions.add(phases[0]["position"])
+        assert all(p["total"] == 2 and p["judge"] == "fake:j" for p in phases), phases
+        assert index(events, "lane_status", lane, "judging") < index(events, "judge_progress", lane)
+        assert index(events, "judge_progress", lane) < index(events, "judge_score", lane)
+    assert positions == {1, 2}
+
+
+async def test_judge_progress_reports_loading_when_the_judge_warms_up(tmp_path):
+    """Revue 9.3 : ordre réel queued -> loading -> scoring (aucun `scoring` avant le chargement)."""
+    a = local("fake:a", say("A"))
+    judge = local("fake:j", [LoadState("loading"), LoadState("loaded", 0.2), *verdict(80)])
+    async with arena_app(tmp_path, a, local("fake:b", say("B")), judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    for lane in ("fake:a", "fake:b"):
+        assert [p["phase"] for p in progress_events(events, lane)] == [
+            "queued",
+            "loading",
+            "scoring",
+        ]
+
+
+async def test_a_warm_judge_that_reads_a_long_prompt_is_already_scoring(tmp_path):
+    """Revue 9.3 : juge en mémoire (aucun chargement annoncé) qui tarde à son premier fragment :
+    `scoring` part après le délai de grâce, avant la note."""
+    judge = local("fake:j", [Sleep(0.6), *verdict(80)])
+    async with arena_app(tmp_path, local("fake:a", say("A")), local("fake:b", say("B")), judge) as (
+        _,
+        client,
+    ):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert [p["phase"] for p in progress_events(events, "fake:a")] == ["queued", "scoring"]
+
+
+async def test_a_down_judge_publishes_only_queued(tmp_path):
+    judge = local("fake:j", [ProviderError("ollama_down", "Ollama éteint")])
+    async with arena_app(tmp_path, local("fake:a", say("A")), local("fake:b", say("B")), judge) as (
+        _,
+        client,
+    ):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert [p["phase"] for p in progress_events(events, "fake:a")] == ["queued"]
+    assert scores(events)["fake:a"]["reason"] == "non évalué : juge indisponible"
+
+
+async def test_the_total_counts_only_columns_that_will_be_scored(tmp_path):
+    """Revue 9.3 : une colonne en échec ou à réponse vide sort du `total` ; les colonnes encore
+    chez le juge republient leur phase avec le total corrigé."""
+    a = local("fake:a", say("A"))
+    b = local("fake:b", [Sleep(0.5), ProviderError("ollama_error", "refus")])
+    c = local("fake:c", [Sleep(0.5)])  # réponse vide
+    # Juge cloud, sans place : il note pendant que b et c génèrent encore.
+    judge = cloud("fake/j", [Sleep(1.5), *verdict(70)])
+    async with arena_app(tmp_path, a, b, c, judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", "fake:c", judge="fake/j")).json()[
+            "run_id"
+        ]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    progress = progress_events(events, "fake:a")
+    assert [(p["phase"], p["total"]) for p in progress] == [
+        ("queued", 3),  # b et c génèrent encore
+        ("scoring", 3),
+        ("scoring", 2),  # b en échec
+        ("scoring", 1),  # c sans réponse
+    ]
+    assert progress_events(events, "fake:b") == progress_events(events, "fake:c") == []
+
+
+async def test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_judge(tmp_path):
+    a, b = local("fake:a", []), local("fake:b", say("B"))
+    async with arena_app(tmp_path, a, b) as (_, client):  # pas de juge
+        run_id = (await _post(client, "fake:a", "fake:b")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert progress_events(events) == []
+    judge = local("fake:j", verdict(50))
+    async with arena_app(tmp_path, a, b, judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert progress_events(events, "fake:a") == []  # réponse vide : le juge n'est pas dérangé
+    b = progress_events(events, "fake:b")
+    # La réponse vide de `fake:a` peut sortir du total pendant que `fake:b` attend : sa phase est
+    # alors republiée avec le total corrigé (revue 9.3).
+    phases = [p["phase"] for p in b]
+    assert [x for i, x in enumerate(phases) if i == 0 or x != phases[i - 1]] == [
+        "queued",
+        "scoring",
+    ]
+    assert b[-1]["total"] == 1
 
 
 async def test_without_a_scoring_service_a_named_judge_is_not_announced(tmp_path):

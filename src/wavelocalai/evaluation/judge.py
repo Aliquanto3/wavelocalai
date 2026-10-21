@@ -13,8 +13,10 @@ raison : jamais 0 pour un inconnu.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 
 from wavelocalai.config import Settings
@@ -27,11 +29,12 @@ from wavelocalai.inference.judge_port import (
     NOT_EVALUATED_EMPTY,
     NOT_EVALUATED_INVALID,
     NOT_EVALUATED_UNAVAILABLE,
+    JudgePhaseCallback,
     JudgeVerdict,
 )
 from wavelocalai.inference.local_slot import LocalSlot
 from wavelocalai.inference.streaming import NOT_MEASURED, Guard, stream_into_run
-from wavelocalai.models.port import ChatMessage, ChatModel, ChatRequest
+from wavelocalai.models.port import ChatChunk, ChatMessage, ChatModel, ChatRequest, LoadState
 from wavelocalai.models.structured import parse_structured
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.system_bus import SystemBus
@@ -86,6 +89,66 @@ def build_request(question: str, criteria: Sequence[str], answer: str) -> ChatRe
     )
 
 
+# Un juge local qui n'a rien dit après ce délai (aucun `LoadState("loading")`) est déjà en mémoire :
+# il lit l'invite, la notation a commencé (story 9.3). `/api/ps` répond bien plus vite en local.
+LOAD_GRACE_S = 0.25
+
+
+class _PhasedModel:
+    """Enveloppe du juge qui dit ses phases de `judge_progress` (story 9.3), dans l'ordre réel :
+    `loading` (seulement si l'adaptateur annonce un chargement), puis `scoring` (chargement fini,
+    premier fragment, ou délai de grâce écoulé sans chargement annoncé ; aussitôt pour un juge
+    cloud). Le flux n'est appelé qu'une fois la place locale prise : la phase `queued` qui précède
+    est celle de l'appelant. Une phase n'est dite qu'une fois de suite, jamais `scoring` avant
+    `loading` sur une même tentative (sauf `/api/ps` plus lent que `LOAD_GRACE_S`)."""
+
+    def __init__(self, model: ChatModel, on_phase: JudgePhaseCallback) -> None:
+        self.ref = model.ref
+        self._model = model
+        self._on_phase = on_phase
+
+    async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
+        said: str | None = None
+
+        def say(phase: str) -> None:
+            nonlocal said
+            if phase != said:
+                said = phase
+                self._on_phase(phase)
+
+        upstream = aiter(self._model.stream(request))
+        try:
+            if self.ref.origin != "local":
+                say("scoring")  # pas de chargement à attendre
+            first = asyncio.ensure_future(anext(upstream))
+            try:
+                done, _ = await asyncio.wait({first}, timeout=LOAD_GRACE_S)
+                if not done:
+                    say("scoring")  # déjà en mémoire : le juge lit l'invite
+                chunk = await first
+            except StopAsyncIteration:
+                return
+            except BaseException:
+                first.cancel()  # annulation ou délai : l'appel en cours est abandonné avec le flux
+                with contextlib.suppress(BaseException):
+                    await first
+                raise
+            while True:
+                if isinstance(chunk, LoadState) and chunk.phase == "loading":
+                    say("loading")
+                else:
+                    say("scoring")
+                yield chunk
+                try:
+                    chunk = await anext(upstream)
+                except StopAsyncIteration:
+                    return
+        finally:
+            aclose = getattr(upstream, "aclose", None)
+            if aclose is not None:
+                await aclose()
+
+
 def verdict_from_text(text: str) -> JudgeVerdict:
     try:
         value = parse_structured(text, JUDGE_SCHEMA)
@@ -130,19 +193,29 @@ class Judge:
         question: str,
         criteria: Sequence[str],
         answer: str,
+        on_phase: JudgePhaseCallback | None = None,
     ) -> JudgeVerdict:
         if not answer.strip():
             return JudgeVerdict(None, NOT_EVALUATED_EMPTY)  # inutile de déranger le juge
-        reply = await self.ask(parent_run_id, judge, build_request(question, criteria, answer))
+        reply = await self.ask(
+            parent_run_id, judge, build_request(question, criteria, answer), on_phase=on_phase
+        )
         if reply.text is None:
             return JudgeVerdict(None, reply.reason)
         return verdict_from_text(reply.text)
 
-    async def ask(self, parent_run_id: str, judge: ChatModel, request: ChatRequest) -> JudgeReply:
+    async def ask(
+        self,
+        parent_run_id: str,
+        judge: ChatModel,
+        request: ChatRequest,
+        on_phase: JudgePhaseCallback | None = None,
+    ) -> JudgeReply:
         """Un appel silencieux du juge, en feuille `judge` du run `parent_run_id` : rend le texte de
         sa réponse, ou `text=None` avec la raison « non évalué » (juge indisponible, sortie
         invalide). Ne lève que pour une annulation. Sert la notation de l'Arène (`score`) et celle
-        de l'évaluation de la qualité (story 7.1), qui lui passent leurs propres invites."""
+        de l'évaluation de la qualité (story 7.1), qui lui passent leurs propres invites.
+        `on_phase` (story 9.3) : `loading` (juge à charger) puis `scoring`, voir `_PhasedModel`."""
         try:
             leaf = await self._hub.create_run(
                 "judge", models=[judge.ref.tag], parent_run_id=parent_run_id
@@ -153,7 +226,7 @@ class Judge:
         result = await stream_into_run(
             self._hub,
             leaf.run_id,
-            judge,
+            judge if on_phase is None else _PhasedModel(judge, on_phase),
             request,
             secrets=self._settings.secret_values(),
             co2=NOT_MEASURED,
