@@ -56,10 +56,13 @@
   margin: 0 0 1rem;
 }
 
-/* État du reclassement par un reranker local (story 4.7) : une ligne discrète. */
+/* État du reclassement par un reranker local (story 4.7) : une ligne discrète. La raison d'absence
+   (story 9.5) peut inclure un chemin de cache long et sans espaces : `overflow-wrap` l'empêche de
+   déborder à 320 px. */
 .docs-rerank {
   margin: 0;
   color: var(--color-ink-secondary);
+  overflow-wrap: anywhere;
 }
 
 .docs-card {
