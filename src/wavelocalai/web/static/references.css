@@ -43,9 +43,9 @@
   font-weight: 600;
 }
 
+/* Intertitre (story 9.7, `.section-label` de base.css : échelle et couleur). */
 .ref-group-title {
   margin-top: 0.5rem;
-  font-weight: 700;
 }
 
 .ref-group {

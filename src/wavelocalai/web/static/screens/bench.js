@@ -16,7 +16,7 @@
 //   gardant le dernier `seq` ; de retour, il le rouvre par `?after=<seq>`.
 
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { formatDelay } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { onSmallerModel } from "../core/ram-guard.js";
@@ -78,7 +78,7 @@ export function mount(host, params = {}) {
   live.setAttribute("aria-atomic", "true");
 
   host.replaceChildren(
-    element("h1", "", t("screens.arena-bench")),
+    moduleTitle("timer", "bench", t("screens.arena-bench")),
     screenTabs("arena", "arena-bench"),
     element("p", "lead", t("bench.lead")),
     missing,

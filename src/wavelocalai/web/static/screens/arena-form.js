@@ -2,9 +2,10 @@
 
 import { ApiError } from "../core/api.js";
 import { element, icon } from "../core/dom.js";
-import { saveDraft } from "../core/drafts.js";
+import { loadDraft, saveDraft } from "../core/drafts.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
+import { judgePanel } from "./arena-judge.js";
 
 export const SCENARIOS = ["popularize", "extract", "summarize", "translate"];
 const MIN_MODELS = 2;
@@ -76,4 +77,36 @@ export function forgetErased(question, prompt) {
   if (!prompt || question.value !== prompt) return;
   question.value = "";
   question.dispatchEvent(new Event("input")); // brouillon effacé, raison du lancement recalculée
+}
+
+// Construit le formulaire : question et modèles à gauche, notation et lancement à droite (story 9.7,
+// grille à deux colonnes dès 1400px, `.two-col`/`.col-right` de base.css).
+export function buildForm(uid, draft, onRender) {
+  const questionLabel = element("label", "chat-input-label field-label", t("arena.question"));
+  const question = element("textarea", "chat-input arena-question");
+  question.id = `${uid}-question`;
+  question.rows = 3;
+  questionLabel.htmlFor = question.id;
+  question.value = loadDraft(draft) || t("arena.scenario.popularize.prompt");
+  const scenarios = scenarioFieldset(question, draft, onRender);
+  const picker = document.createElement("wl-model-picker");
+  picker.setAttribute("purpose", "arena");
+  picker.setAttribute("multi", "");
+  picker.setAttribute("label", t("arena.models"));
+  const execution = element("p", "help arena-execution", t("arena.execution"));
+  const judging = judgePanel(uid);
+  const launch = element("button", "btn arena-launch", t("arena.launch"));
+  launch.type = "submit";
+  launch.setAttribute("aria-describedby", `${uid}-reason`);
+  const reason = element("p", "help arena-reason");
+  reason.id = `${uid}-reason`;
+  const actions = element("div", "chat-actions arena-actions");
+  actions.append(launch, reason);
+  const form = element("form", "arena-form two-col");
+  const left = element("div", "stack");
+  left.append(questionLabel, question, scenarios, picker);
+  const right = element("div", "col-right");
+  right.append(judging.el, execution, actions);
+  form.append(left, right);
+  return { form, question, scenarios, picker, execution, judging, launch, reason, actions };
 }

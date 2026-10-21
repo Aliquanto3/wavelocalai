@@ -136,7 +136,8 @@ def test_the_launch_button_is_a_primary_fill_surface_with_a_visible_reason():
     block = re.search(r"\.arena-launch \{(.*?)\}", css, re.DOTALL)
     assert block and "var(--color-primary-fill)" in block.group(1)
     assert "var(--color-primary)" not in block.group(1)  # A19 : jamais le violet de texte
-    assert "aria-describedby" in source("screens/arena.js")
+    # Formulaire construit par `buildForm` (story 9.7, grille à deux colonnes, arena-form.js).
+    assert "aria-describedby" in source("screens/arena-form.js")
 
 
 def test_the_arena_css_is_linked_and_the_front_files_stay_under_the_size_budget():

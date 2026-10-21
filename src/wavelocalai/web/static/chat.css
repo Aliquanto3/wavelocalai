@@ -30,8 +30,10 @@
   background: var(--color-line);
 }
 
+/* Aplat léger (story 9.7, zone d'action courante). */
 .screen-tab-link[aria-current="page"] {
   border-bottom-color: var(--color-primary);
+  background: var(--color-action-tint);
 }
 
 .screen-tab-link[aria-disabled="true"] {

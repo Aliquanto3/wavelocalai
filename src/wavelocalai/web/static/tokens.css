@@ -21,6 +21,16 @@
   --color-chart-3: #2F7FD8;
   --color-chart-4: #C98A00;
 
+  /* Couleur d'icône par module (story 9.7, maquette docs/maquette-v2-mise-en-page/). */
+  --color-icon-arena: var(--color-chart-1);
+  --color-icon-bench: var(--color-chart-3);
+  --color-icon-documents: var(--color-chart-2);
+  --color-amber-strong: #A66E00; /* dédié : chart-4 clair ne tient pas 3:1, voir DECISIONS.md */
+  --color-icon-models: var(--color-amber-strong);
+
+  /* Aplat léger de la primaire sur les zones d'action (nav courante, bandeau du juge, carte choisie). */
+  --color-action-tint: rgba(69, 29, 199, 0.08);
+
   --radius: 12px;
   --radius-full: 9999px;
 
@@ -30,8 +40,11 @@
   --font-metric-value: Aptos, Inter, sans-serif;
   --font-caption: Aptos, Inter, sans-serif;
 
-  /* Rampe typographique (absente de DESIGN.md, non comparée par le test de dérive). */
+  /* Rampe typographique (absente de DESIGN.md sauf section-label/field-label, non comparée par le
+     test de dérive pour les autres). */
+  --text-section-label: 0.8125rem; /* intertitres "Réglages", "Scénario"... */
   --text-body: 1rem;
+  --text-field-label: 1.0625rem; /* libellé des champs mis en avant (prompt, modèle) */
   --text-caption: 0.875rem;
   --text-heading: 1.75rem;
   --text-metric-value: 2.5rem;
@@ -55,4 +68,10 @@
   --color-chart-2: #12A564;
   --color-chart-3: #3B86DB;
   --color-chart-4: #B07800;
+  --color-icon-arena: var(--color-chart-1);
+  --color-icon-bench: var(--color-chart-3);
+  --color-icon-documents: var(--color-chart-2);
+  --color-amber-strong: var(--color-chart-4);
+  --color-icon-models: var(--color-amber-strong);
+  --color-action-tint: rgba(126, 101, 233, 0.10);
 }

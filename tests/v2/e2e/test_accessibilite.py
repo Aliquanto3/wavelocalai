@@ -856,3 +856,34 @@ def test_interface_component_tokens_keep_three_to_one_on_both_surfaces(app, them
         for surface in ("surface", "surface-alt"):
             ratio = contrast(tokens[name], tokens[surface])
             assert ratio >= 3, f"{theme} : {name} sur {surface} = {ratio:.2f}:1"
+
+
+def _mix(color: str, surface: str, percent: float) -> str:
+    """`color-mix(in srgb, color <percent>%, surface)` (base.css `.icon-mod`) : mélange linéaire des
+    composantes sRGB non linéarisées, comme le fait le navigateur."""
+    channels = []
+    for i in (1, 3, 5):
+        fg = int(color[i : i + 2], 16)
+        bg = int(surface[i : i + 2], 16)
+        channels.append(round(fg * percent / 100 + bg * (1 - percent / 100)))
+    return "#" + "".join(f"{value:02X}" for value in channels)
+
+
+@pytest.mark.parametrize("theme", ["clair", "sombre"])
+def test_module_icon_tokens_keep_three_to_one_on_their_own_pastille(app, theme):
+    """Icône de module sur sa pastille (story 9.7, `.icon-mod`, base.css, 8% du fond) : au moins 3:1,
+    table recalculée de `docs/maquette-v2-mise-en-page/DECISIONS.md` §2."""
+    apply_mode(app, theme)
+    tokens = app.evaluate(
+        """() => {
+            const style = getComputedStyle(document.documentElement);
+            const read = (name) => style.getPropertyValue(`--color-${name}`).trim();
+            return Object.fromEntries(['icon-arena', 'icon-bench', 'icon-documents', 'icon-models',
+                'surface'].map((name) => [name, read(name)]));
+        }"""
+    )
+    surface = tokens["surface"]
+    for name in ("icon-arena", "icon-bench", "icon-documents", "icon-models"):
+        pastille = _mix(tokens[name], surface, 8)
+        ratio = contrast(tokens[name], pastille)
+        assert ratio >= 3, f"{theme} : {name} sur sa pastille = {ratio:.2f}:1"

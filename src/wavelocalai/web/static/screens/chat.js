@@ -58,7 +58,7 @@ export function mount(host) {
   slider.step = "0.05";
   slider.value = String(FALLBACK_TEMPERATURE);
   slider.setAttribute("aria-describedby", `${uid}-creativity-help`);
-  const sliderLabel = element("label", "chat-slider-label", t("chat.creativity"));
+  const sliderLabel = element("label", "chat-slider-label section-label", t("chat.creativity"));
   sliderLabel.htmlFor = slider.id;
   const sliderValue = element("output", "chat-slider-value", formatNumber(FALLBACK_TEMPERATURE));
   sliderValue.htmlFor = slider.id;
@@ -88,7 +88,7 @@ export function mount(host) {
   input.rows = 3;
   input.value = loadDraft(DRAFT);
   input.setAttribute("aria-describedby", `${uid}-keys`);
-  const inputLabel = element("label", "chat-input-label", t("chat.message"));
+  const inputLabel = element("label", "chat-input-label field-label", t("chat.message"));
   inputLabel.htmlFor = input.id;
   const keys = element("p", "help", t("chat.keys"));
   keys.id = `${uid}-keys`;
