@@ -37,6 +37,16 @@ retrieved_at = 2026-10-19
 lane_timeout_s = 300.0    # délai d'une lane d'Arène, depuis l'acquisition du sémaphore (local)
 approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut refus
 
+[arena]
+# Arrêt automatique ou à la demande d'une lane qui tourne en boucle (story 9.2). `max_tokens` plafonne
+# chaque requête de lane (fin `stopped_reason: "max_tokens"`). Le détecteur de boucle arrête une lane
+# dont le même fragment final revient au moins `loop_min_repeats` fois sur une fenêtre d'au moins
+# `loop_window_chars` caractères (`stopped_reason: "loop"`) ; dans les deux cas, et pour l'arrêt manuel
+# (« Arrêter ce modèle »), la réponse partielle est gardée et notée.
+max_tokens = 800
+loop_min_repeats = 4
+loop_window_chars = 200
+
 [cloud.models]
 # Modèles cloud proposés par fournisseur, une fois la clé présente dans `.env` ET `allow_cloud`
 # demandé (listes fixes : aucun fournisseur n'est appelé pour les lister). Identifiant exposé :

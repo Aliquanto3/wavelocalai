@@ -1,9 +1,13 @@
-"""Routes des runs : flux SSE rejouable, annulation, instantané (AD-5, AD-6).
+"""Routes des runs : flux SSE rejouable, annulation, arrêt d'une lane, instantané (AD-5, AD-6).
 
 `GET /api/runs/{id}/events` suit un run : trame `id: <seq>` + `data: <enveloppe>` sans champ
 `event:`, reprise par `Last-Event-ID` ou `?after=` (mémoire du hub si le run est actif, base
 sinon), `204` si le curseur a déjà atteint la fin d'un run terminé, commentaire de maintien toutes
 les 15 s par `fastapi.sse.EventSourceResponse`.
+
+`POST /api/runs/{id}/stop` (story 9.2, Arène) arrête une seule lane (« Arrêter ce modèle ») : sa
+réponse partielle est gardée et notée (`stopped_reason: "user"` dans `lane_status`), à la
+différence de `POST /api/runs/{id}/cancel` qui annule un run (et ses enfants) sans rien noter.
 """
 
 from __future__ import annotations
@@ -96,6 +100,23 @@ async def cancel_run(run_id: str, request: Request) -> CancelResult:
     cancelled = await hub.cancel(run_id)
     state = await stream_state(store, run_id)
     return CancelResult(run_id=run_id, cancelled=cancelled, status=state[0] if state else "")
+
+
+class StopResult(BaseModel):
+    run_id: str
+    stopped: bool  # faux si la lane était déjà terminée, ou si aucune Arène ne la porte
+    status: str
+
+
+@router.post("/runs/{run_id}/stop")
+async def stop_lane(run_id: str, request: Request) -> StopResult:
+    store = request.app.state.store
+    if await stream_state(store, run_id) is None:
+        raise AppError("run_not_found", f"Run {run_id} inconnu.", run_id=run_id)
+    arena = request.app.state.arena
+    stopped = arena.request_stop(run_id) if arena is not None else False
+    state = await stream_state(store, run_id)
+    return StopResult(run_id=run_id, stopped=stopped, status=state[0] if state else "")
 
 
 @router.get("/runs/{run_id}")

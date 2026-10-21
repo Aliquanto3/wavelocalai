@@ -171,6 +171,16 @@
   border-color: var(--color-risk);
 }
 
+/* Arrêt avant la fin naturelle (story 9.2) : icône en couleur risk, texte en encre (`.wl-lane-note`,
+   maquette résultats) ; jamais la bordure de `timeout`/`failed`, ce n'est pas un échec. */
+.wl-arena-lane[data-stopped-reason] .wl-lane-status .icon {
+  color: var(--color-risk);
+}
+
+.wl-lane-stop {
+  justify-self: start;
+}
+
 /* En-tête collant : nom, origine, statut et mode focus restent lisibles en défilant. */
 .wl-lane-head {
   position: sticky;

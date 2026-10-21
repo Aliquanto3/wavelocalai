@@ -41,7 +41,8 @@ def test_the_address_is_not_rewritten_while_the_run_goes_on(arena, server):
     launch(arena)
     wait_banner(arena, "Comparaison en cours")
     assert arena.evaluate("location.hash") == "#/arene/comparer"
-    arena.get_by_role("button", name="Arrêter").click()
+    # Scopé au bandeau (story 9.2 : chaque colonne en cours porte aussi « Arrêter ce modèle »).
+    arena.locator(".arena-banner").get_by_role("button", name="Arrêter").click()
     wait_banner(arena, "Comparaison arrêtée")
     wait_for(arena, f"() => location.hash === '#/arene/comparer/{STARTED[-1][1]}'")
 

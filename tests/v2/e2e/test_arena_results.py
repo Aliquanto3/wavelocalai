@@ -282,7 +282,8 @@ def test_a_partial_comparison_says_the_ranking_only_holds_for_the_scored_models(
     wait_ready(page)
     wait_for(page, "() => document.querySelectorAll('.arena-rank-item').length === 1")
     assert page.locator(".arena-rank-pending").inner_text() == "1 modèle n'est pas encore noté."
-    page.get_by_role("button", name="Arrêter").click()
+    # Scopé au bandeau (story 9.2 : chaque colonne en cours porte aussi « Arrêter ce modèle »).
+    page.locator(".arena-banner").get_by_role("button", name="Arrêter").click()
     wait_banner(page, "Comparaison arrêtée")
     partial = page.locator(".arena-results-partial")
     assert partial.inner_text().replace(NBSP, " ") == (

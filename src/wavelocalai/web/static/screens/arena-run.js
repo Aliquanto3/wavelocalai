@@ -1,10 +1,13 @@
-// Deux gestes sur le run suivi par l'Arène, sortis de `arena.js` (600 lignes au plus par fichier) :
+// Trois gestes sur le run suivi par l'Arène, sortis de `arena.js` (600 lignes au plus par fichier) :
 //
 //   showRunAddress(runId)   à la fin d'un run, l'adresse devient `#/arene/comparer/<run_id>` (écart
 //                           n° 7), sans entrée d'historique de plus : un rechargement ou un lien
 //                           rouvre cette comparaison (`arena-reopen.js`) ;
 //   await stopFailure(id)   demande l'arrêt du run ; rend `null` si le serveur l'a pris, sinon le
-//                           message à afficher.
+//                           message à afficher ;
+//   await stopLaneFailure(laneRunId)   arrête une seule lane (story 9.2, « Arrêter ce modèle ») ; sa
+//                           réponse partielle est gardée et notée, à la différence de `stopFailure`
+//                           ci-dessus qui arrête toute l'Arène sans rien noter. Même rendu.
 
 import { api, ApiError } from "../core/api.js";
 import { t } from "../core/i18n.js";
@@ -24,6 +27,17 @@ export function showRunAddress(runId) {
 export async function stopFailure(id) {
   try {
     await api.cancelRun(id);
+    return null;
+  } catch (failure) {
+    return failure instanceof ApiError && failure.envelope
+      ? failure.envelope.message
+      : t("components.run_status.cancel_failed");
+  }
+}
+
+export async function stopLaneFailure(laneRunId) {
+  try {
+    await api.stopLane(laneRunId);
     return null;
   } catch (failure) {
     return failure instanceof ApiError && failure.envelope
