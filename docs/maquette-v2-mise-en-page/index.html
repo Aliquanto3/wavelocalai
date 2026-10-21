@@ -30,7 +30,8 @@
   --color-icon-arena: var(--color-chart-1);
   --color-icon-bench: var(--color-chart-3);
   --color-icon-documents: var(--color-chart-2);
-  --color-icon-models: #A66E00; /* dédié : chart-4 clair ne tient pas 3:1, voir DECISIONS.md */
+  --color-amber-strong: #A66E00; /* dédié : chart-4 clair ne tient pas 3:1, voir DECISIONS.md */
+  --color-icon-models: var(--color-amber-strong);
 
   /* Nouveau : aplat léger de la primaire sur les zones d'action */
   --color-action-tint: rgba(69, 29, 199, 0.08);
@@ -68,7 +69,8 @@
   --color-icon-arena: var(--color-chart-1);
   --color-icon-bench: var(--color-chart-3);
   --color-icon-documents: var(--color-chart-2);
-  --color-icon-models: var(--color-chart-4);
+  --color-amber-strong: var(--color-chart-4);
+  --color-icon-models: var(--color-amber-strong);
   --color-action-tint: rgba(126, 101, 233, 0.10);
 }
 @media (prefers-color-scheme: dark) {
@@ -90,7 +92,8 @@
     --color-icon-arena: var(--color-chart-1);
     --color-icon-bench: var(--color-chart-3);
     --color-icon-documents: var(--color-chart-2);
-    --color-icon-models: var(--color-chart-4);
+    --color-amber-strong: var(--color-chart-4);
+    --color-icon-models: var(--color-amber-strong);
     --color-action-tint: rgba(126, 101, 233, 0.10);
   }
 }
@@ -128,8 +131,9 @@ svg.ico { width: 1.25em; height: 1.25em; vertical-align: -0.2em; fill: currentCo
 .note { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-left: auto; }
 
 /* ---- Cadre mis à l'échelle ---- */
-.stage { padding: 1.5rem 1rem; overflow-x: auto; }
-.scaler { margin: 0 auto; transform-origin: top center; }
+.stage { padding: 1.5rem 1rem; overflow-x: hidden; }
+.scaler { margin: 0 auto; }
+#frame { transform-origin: top left; }
 #frame {
   background: var(--color-surface);
   color: var(--color-ink);
@@ -149,14 +153,17 @@ svg.ico { width: 1.25em; height: 1.25em; vertical-align: -0.2em; fill: currentCo
   padding: 0.35rem 0.6rem; border-radius: var(--radius);
   color: var(--color-ink-secondary); text-decoration: none; font-size: var(--text-caption);
 }
-#frame .shell-top nav a[aria-current="page"] { background: var(--color-action-tint); color: var(--color-primary); font-weight: 600; }
+#frame .shell-top nav a[aria-current="page"] { background: var(--color-action-tint); color: var(--color-ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--color-primary); }
+#frame .shell-top nav a[aria-current="page"] svg { color: var(--color-primary); }
 #frame .shell-top .mode { margin-left: auto; font-size: var(--text-caption); color: var(--color-ink-secondary); }
 
 main.screen { padding: 1.25rem 1.5rem 2rem; }
 .lead { color: var(--color-ink-secondary); margin: 0 0 1.25rem; max-width: 62ch; }
 
 /* ---- Grille à deux colonnes (≥1400px, pilotée par data-width du cadre) ---- */
-.two-col { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.two-col > * { min-width: 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 #frame[data-width="1920"] .two-col,
 #frame[data-width="1440"] .two-col {
   grid-template-columns: minmax(480px, 1fr) minmax(320px, 400px);
@@ -199,7 +206,7 @@ select.plain, input.plain {
   font-size: var(--text-caption); padding: 0.3rem 0.7rem; border-radius: var(--radius-full);
   border: 1px solid var(--color-line); color: var(--color-ink); background: var(--color-surface);
 }
-.chip[aria-pressed="true"] { background: var(--color-action-tint); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--color-primary-fill); border-color: var(--color-primary-fill); color: var(--color-on-primary); font-weight: 600; }
 
 /* Cartes de choix de modèle */
 .model-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.6rem; }
@@ -242,18 +249,29 @@ select.plain, input.plain {
   display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.85rem 1rem;
   border-radius: var(--radius); border: 1px solid var(--color-line); margin-bottom: 1rem;
 }
-.alert-warning { background: color-mix(in srgb, var(--color-chart-4) 12%, var(--color-surface)); border-color: var(--color-chart-4); }
+.alert-warning { background: color-mix(in srgb, var(--color-chart-4) 12%, var(--color-surface)); border-color: var(--color-amber-strong); }
 .alert-info { background: var(--color-action-tint); border-color: var(--color-primary); }
-.alert .icon { flex: none; color: var(--color-chart-4); }
+.alert .icon { flex: none; color: var(--color-amber-strong); }
 .alert-info .icon { color: var(--color-primary); }
 .alert p { margin: 0 0 0.5rem; }
 
 .icon-mod { border-radius: var(--radius); padding: 0.4rem; display: inline-flex; }
-.icon-mod.arena { color: var(--color-icon-arena); background: color-mix(in srgb, var(--color-icon-arena) 14%, transparent); }
-.icon-mod.bench { color: var(--color-icon-bench); background: color-mix(in srgb, var(--color-icon-bench) 14%, transparent); }
-.icon-mod.docs { color: var(--color-icon-documents); background: color-mix(in srgb, var(--color-icon-documents) 14%, transparent); }
-.icon-mod.models { color: var(--color-icon-models); background: color-mix(in srgb, var(--color-icon-models) 14%, transparent); }
+.icon-mod.arena { color: var(--color-icon-arena); background: color-mix(in srgb, var(--color-icon-arena) 8%, var(--color-surface)); }
+.icon-mod.bench { color: var(--color-icon-bench); background: color-mix(in srgb, var(--color-icon-bench) 8%, var(--color-surface)); }
+.icon-mod.docs { color: var(--color-icon-documents); background: color-mix(in srgb, var(--color-icon-documents) 8%, var(--color-surface)); }
+.icon-mod.models { color: var(--color-icon-models); background: color-mix(in srgb, var(--color-icon-models) 8%, var(--color-surface)); }
 
+.table-wrap { max-width: 100%; overflow-x: auto; }
+/* Mobile : chaque ligne devient un bloc étiqueté, sans colonne coupée */
+#frame[data-width="390"] table.wl-table,
+#frame[data-width="390"] table.wl-table tbody,
+#frame[data-width="390"] table.wl-table caption { display: block; }
+#frame[data-width="390"] table.wl-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+#frame[data-width="390"] table.wl-table tr { display: block; padding: 0.4rem 0; border-bottom: 1px solid var(--color-line); }
+#frame[data-width="390"] table.wl-table td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.2rem 0; border: 0; }
+#frame[data-width="390"] table.wl-table td::before { content: attr(data-label); color: var(--color-ink-secondary); font-size: var(--text-caption); }
+.dropzone-disabled { border-style: dashed; background: var(--color-surface-alt); }
+.dropzone-disabled .field-label, .dropzone-disabled p { color: var(--color-ink-secondary); }
 table.wl-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.wl-table caption { text-align: left; font-size: var(--text-caption); color: var(--color-ink-secondary); padding-bottom: 0.4rem; }
 table.wl-table th, table.wl-table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--color-line); }
@@ -264,16 +282,17 @@ table.wl-table th { font-size: var(--text-caption); color: var(--color-ink-secon
 .lane .lane-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
 .lane .lane-head .name { font-weight: 600; }
 .lane .status { font-size: var(--text-caption); color: var(--color-ink-secondary); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.3rem; }
-.lane .status.stopped { color: var(--color-risk); }
+.lane .status.stopped { color: var(--color-ink); font-weight: 600; }
 .lane .status.stopped svg { color: var(--color-risk); }
 .lane .response { font-size: 0.9rem; color: var(--color-ink); }
 .lane .score { margin-top: 0.5rem; font-weight: 700; }
 
 .judge-banner {
   display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.9rem;
-  border-radius: var(--radius); background: var(--color-action-tint); color: var(--color-primary);
+  border-radius: var(--radius); background: var(--color-action-tint); color: var(--color-ink);
   font-size: 0.9rem; margin-bottom: 0.9rem;
 }
+.judge-banner svg { color: var(--color-primary); }
 .badge-local { background: color-mix(in srgb, var(--color-accent-green) 22%, var(--color-surface)); color: var(--color-ink); border-radius: var(--radius-full); padding: 0.1rem 0.55rem; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem; }
 
 details.collapsed-settings { border: 1px solid var(--color-line); border-radius: var(--radius); padding: 0.6rem 0.85rem; background: var(--color-surface); }
@@ -380,9 +399,9 @@ function screenBench() {
       <div class="card">
         <span class="field-label">Modèle</span>
         <div class="model-cards">
-          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Qwen3.6 2B</div><div class="meta">2 B · Local</div></div>
-          <div class="model-card"><div class="name">Llama3.2 3B</div><div class="meta">3 B · Local</div></div>
-          <div class="model-card"><div class="name">Gemma3 4B</div><div class="meta">4 B · Local</div></div>
+          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Qwen 3.5 2B</div><div class="meta">2,3 B · Local</div></div>
+          <div class="model-card"><div class="name">Llama 3.2 3B</div><div class="meta">3,2 B · Local</div></div>
+          <div class="model-card"><div class="name">Granite 4.2 3B</div><div class="meta">3,7 B · Local</div></div>
         </div>
       </div>
     </div>
@@ -424,7 +443,7 @@ function screenArenaForm() {
         <span class="field-label">Question</span>
         <div class="chip-row">
           <span class="chip" aria-pressed="false">Vulgarisation</span>
-          <span class="chip" aria-pressed="true">Extraction JSON</span>
+          <span class="chip" aria-pressed="true">${icon('check')} Extraction JSON</span>
           <span class="chip" aria-pressed="false">Résumé</span>
           <span class="chip" aria-pressed="false">Traduction</span>
         </div>
@@ -434,21 +453,21 @@ function screenArenaForm() {
         <span class="field-label">Modèles à comparer</span>
         <p class="lead" style="margin:0 0 0.6rem">Les modèles locaux passent l'un après l'autre (mémoire) ; les modèles cloud en parallèle.</p>
         <div class="model-cards">
-          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Qwen3.6 2B</div><div class="meta">2 B · Local</div></div>
-          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Llama3.2 3B</div><div class="meta">3 B · Local</div></div>
-          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Gemma3 4B</div><div class="meta">4 B · Local</div></div>
-          <div class="model-card"><div class="name">GPT-5 mini</div><div class="meta">Cloud</div></div>
+          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Qwen 3.5 2B</div><div class="meta">2,3 B · Local</div></div>
+          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Llama 3.2 3B</div><div class="meta">3,2 B · Local</div></div>
+          <div class="model-card selected"><span class="pick">${icon('check')}</span><div class="name">Granite 4.2 3B</div><div class="meta">3,7 B · Local</div></div>
+          <div class="model-card"><div class="name">gpt-oss-120b (Groq)</div><div class="meta">Cloud</div></div>
         </div>
       </div>
     </div>
     <div class="col-right">
       <details class="collapsed-settings">
         <summary>Critères de notation</summary>
-        <p style="font-size:0.9rem;margin:0.5rem 0">Juge : <strong>Gemma3 12B</strong></p>
+        <p style="font-size:0.9rem;margin:0.5rem 0">Juge : <strong>Gemma 4 12B</strong></p>
         <div class="chip-row">
-          <span class="chip" aria-pressed="true">exactitude</span>
-          <span class="chip" aria-pressed="true">pertinence</span>
-          <span class="chip" aria-pressed="true">clarté</span>
+          <span class="chip" aria-pressed="true">${icon('check')} exactitude</span>
+          <span class="chip" aria-pressed="true">${icon('check')} pertinence</span>
+          <span class="chip" aria-pressed="true">${icon('check')} clarté</span>
         </div>
         <button class="btn btn-secondary" type="button" style="font-size:var(--text-caption)">Ajouter un critère</button>
       </details>
@@ -465,42 +484,42 @@ function screenArenaForm() {
 function screenArenaResults() {
   return `
   <h1>${icon('swords','icon-mod arena')} Arène</h1>
-  <p class="lead" style="margin-bottom:0.5rem">Question : « Extrais le nom, la date et le montant, en JSON strict. » · Modèles : Qwen3.6 2B, Llama3.2 3B, Gemma3 4B · Juge : Gemma3 12B
+  <p class="lead" style="margin-bottom:0.5rem">Question : « Extrais le nom, la date et le montant, en JSON strict. » · Modèles : Qwen 3.5 2B, Llama 3.2 3B, Granite 4.2 3B · Juge : Gemma 4 12B
     <button class="btn btn-secondary" type="button" style="margin-left:0.75rem">Modifier la question</button>
   </p>
-  <div class="judge-banner">${icon('gavel')} Juge : Gemma3 12B · Notation 2 sur 3 · 0:42</div>
+  <div class="judge-banner">${icon('gavel')} Juge : Gemma 4 12B · Notation 2 sur 3 · 0:42</div>
   <div class="lane-grid">
     <div class="lane">
-      <div class="lane-head"><span class="name">Qwen3.6 2B</span><span class="badge-local">Local</span></div>
+      <div class="lane-head"><span class="name">Qwen 3.5 2B</span><span class="badge-local">Local</span></div>
       <div class="status">${icon('check')} Terminé</div>
       <div class="response">{"nom":"Marie Durand","date":"2026-09-14","montant":1250}</div>
       <div class="score">86 / 100</div>
     </div>
     <div class="lane">
-      <div class="lane-head"><span class="name">Llama3.2 3B</span><span class="badge-local">Local</span></div>
+      <div class="lane-head"><span class="name">Llama 3.2 3B</span><span class="badge-local">Local</span></div>
       <div class="status stopped">${icon('block')} Arrêté : le modèle se répétait</div>
       <div class="response">Le document concerne Marie Durand... Marie Durand... Marie Durand (réponse partielle gardée)</div>
       <div class="score">62 / 100</div>
     </div>
     <div class="lane">
-      <div class="lane-head"><span class="name">Gemma3 4B</span><span class="badge-local">Local</span></div>
-      <div class="status">${icon('check')} Notation en cours</div>
+      <div class="lane-head"><span class="name">Granite 4.2 3B</span><span class="badge-local">Local</span></div>
+      <div class="status">${icon('gavel')} Notation</div>
       <div class="response">{"nom": "Marie Durand", "date": "14/09/2026", "montant": "1250 euros"}</div>
       <div class="score">—</div>
     </div>
   </div>
   <div class="card" style="margin-top:1rem">
     <div class="chip-row" role="radiogroup" aria-label="Affichage des résultats">
-      <span class="chip" aria-pressed="true">Matrice</span>
+      <span class="chip" aria-pressed="true">${icon('check')} Matrice</span>
       <span class="chip" aria-pressed="false">Tableau</span>
     </div>
     <table class="wl-table">
       <caption>Résultats de la comparaison, une ligne par modèle</caption>
       <thead><tr><th>Modèle</th><th>Note</th><th>Débit</th><th>CO₂</th></tr></thead>
       <tbody>
-        <tr><td>Qwen3.6 2B</td><td>86</td><td>41 tok/s</td><td>5 mg</td></tr>
-        <tr><td>Llama3.2 3B</td><td>62</td><td>29 tok/s</td><td>9 mg</td></tr>
-        <tr><td>Gemma3 4B</td><td>non évalué : en cours</td><td>22 tok/s</td><td>14 mg</td></tr>
+        <tr><td>Qwen 3.5 2B</td><td>86</td><td>41 tok/s</td><td>5 mg</td></tr>
+        <tr><td>Llama 3.2 3B</td><td>62</td><td>29 tok/s</td><td>9 mg</td></tr>
+        <tr><td>Granite 4.2 3B</td><td>non évalué : en cours</td><td>22 tok/s</td><td>14 mg</td></tr>
       </tbody>
     </table>
   </div>`;
@@ -520,7 +539,7 @@ function screenDocsBase() {
           <button class="btn btn-primary" type="button">Installer nomic-embed-text</button>
         </div>
       </div>
-      <div class="card" aria-disabled="true" style="opacity:0.6">
+      <div class="card dropzone-disabled" aria-disabled="true">
         <p class="field-label">Déposer des fichiers</p>
         <p style="color:var(--color-ink-secondary);font-size:0.9rem">Installez un modèle de représentation avant d'importer.</p>
       </div>
@@ -567,9 +586,9 @@ function screenModels() {
       <caption>Modèles installés sur ce poste</caption>
       <thead><tr><th>Nom</th><th>Taille</th><th>Tient en mémoire</th><th>Chargé</th><th>Actions</th></tr></thead>
       <tbody>
-        <tr><td>Qwen3.6 2B</td><td>1,4 Go</td><td>Oui</td><td>Oui</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
-        <tr><td>Llama3.2 3B</td><td>2,0 Go</td><td>Oui</td><td>Non</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
-        <tr><td>Gemma3 4B</td><td>2,8 Go</td><td>Oui</td><td>Non</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
+        <tr><td>Qwen 3.5 2B</td><td>2,7 Go</td><td>Oui</td><td>Oui</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
+        <tr><td>Llama 3.2 3B</td><td>2,0 Go</td><td>Oui</td><td>Non</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
+        <tr><td>Granite 4.2 3B</td><td>2,2 Go</td><td>Oui</td><td>Non</td><td><button class="btn btn-secondary">Supprimer</button></td></tr>
       </tbody>
     </table>
   </div>
@@ -579,9 +598,9 @@ function screenModels() {
       <caption>Modèles que l'on peut installer sur ce poste</caption>
       <thead><tr><th>Nom</th><th>Mémoire nécessaire</th><th>Tient en mémoire</th><th>Installation</th></tr></thead>
       <tbody>
-        <tr><td>qwen3.6:7b</td><td>4,7 Go</td><td>Oui</td><td><button class="btn btn-secondary">Installer</button></td></tr>
-        <tr><td>phi4-mini</td><td>2,5 Go</td><td>Oui</td><td><button class="btn btn-secondary">Installer</button></td></tr>
-        <tr><td>mixtral:8x7b</td><td>26 Go</td><td>Non : il manque 10 Go</td><td><button class="btn btn-secondary">Installer quand même</button></td></tr>
+        <tr><td>qwen3.5:9b</td><td>6,6 Go</td><td>Oui</td><td><button class="btn btn-secondary">Installer</button></td></tr>
+        <tr><td>phi4-mini:3.8b</td><td>2,5 Go</td><td>Oui</td><td><button class="btn btn-secondary">Installer</button></td></tr>
+        <tr><td>qwen3.6:35b-a3b</td><td>23 Go</td><td>Non : il manque 7 Go</td><td><button class="btn btn-secondary">Installer quand même</button></td></tr>
       </tbody>
     </table>
   </div>
@@ -591,11 +610,11 @@ function screenModels() {
       <caption>Modèle proposé par défaut pour chaque usage</caption>
       <thead><tr><th>Usage</th><th>Modèle</th><th>Raison</th></tr></thead>
       <tbody>
-        <tr><td>Conversation</td><td>Qwen3.6 2B</td><td>Choix automatique</td></tr>
+        <tr><td>Conversation</td><td>Qwen 3.5 2B</td><td>Choix automatique</td></tr>
         <tr><td>Arène</td><td>3 modèles locaux</td><td>Choix automatique</td></tr>
-        <tr><td>Juge</td><td>Gemma3 12B</td><td>Choix automatique</td></tr>
-        <tr><td>Documents</td><td>Qwen3.6 2B</td><td>Choix automatique</td></tr>
-        <tr><td>Agent</td><td>Llama3.2 3B</td><td>Choix automatique</td></tr>
+        <tr><td>Juge</td><td>Gemma 4 12B</td><td>Choix automatique</td></tr>
+        <tr><td>Documents</td><td>Qwen 3.5 2B</td><td>Choix automatique</td></tr>
+        <tr><td>Agent</td><td>Llama 3.2 3B</td><td>Choix automatique</td></tr>
       </tbody>
     </table>
   </div>`;
@@ -619,6 +638,17 @@ const stage = document.querySelector('.stage');
 
 function render() {
   screenRoot.innerHTML = SCREENS[selScreen.value]();
+  screenRoot.querySelectorAll('table.wl-table').forEach((table) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+    const heads = [...table.querySelectorAll('thead th')].map((th) => th.textContent);
+    table.querySelectorAll('tbody tr').forEach((tr) => {
+      [...tr.children].forEach((td, i) => td.setAttribute('data-label', heads[i] || ''));
+    });
+  });
+  rescale();
 }
 
 function applyWidth() {
@@ -628,12 +658,16 @@ function applyWidth() {
   rescale();
 }
 
+/* Le cadre garde sa largeur simulée ; transform ne change pas la boîte de mise en page,
+   donc le conteneur prend la taille mise à l'échelle pour ne créer aucun défilement. */
 function rescale() {
-  const available = stage.clientWidth - 8;
-  const w = frame.getBoundingClientRect().width || WIDTHS[selWidth.value];
+  const cs = getComputedStyle(stage);
+  const available = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const w = WIDTHS[selWidth.value];
   const scale = Math.min(1, available / w);
-  scaler.style.transform = scale < 1 ? `scale(${scale})` : 'none';
-  scaler.style.width = w + 'px';
+  frame.style.transform = scale < 1 ? `scale(${scale})` : 'none';
+  scaler.style.width = (w * scale) + 'px';
+  scaler.style.height = (frame.offsetHeight * scale) + 'px';
 }
 
 function applyTheme(dark) {
@@ -648,6 +682,7 @@ btnTheme.addEventListener('click', () => {
   applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
 });
 window.addEventListener('resize', rescale);
+new ResizeObserver(rescale).observe(frame);
 
 applyTheme(false);
 applyWidth();
