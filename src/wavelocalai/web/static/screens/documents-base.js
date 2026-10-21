@@ -104,9 +104,7 @@ export function mount(host) {
   tableSection.hidden = true;
   tableSection.append(tableTitle, lockNote, tableHead, table);
 
-  // --- État ------------------------------------------------------------------------------
-  // Déclaré avant l'encart d'embedding ci-dessous : son `onChange` peut appeler `render()`
-  // tout de suite (abonnement au flux système), qui lit `data` et les autres variables d'état.
+  // --- État (avant l'encart d'embedding, dont `onChange` appelle `render()` dès sa création) --
   const rows = new Map(); // file_index -> ImportRow
   let data = null; // dernière réponse de GET /api/rag/documents
   let runId = null; // l'import suivi, tant qu'il n'est pas terminé
@@ -139,9 +137,7 @@ export function mount(host) {
   const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
 
   // Aucun modèle de représentation installé (story 9.4) : encart d'alerte, même run `pull` (AD-17).
-  // Déclaré avant l'appel : l'abonnement au flux système (`store.select`) appelle `onChange` tout de
-  // suite, donc `render()` peut s'exécuter avant la fin de cette construction (variable encore à
-  // `undefined`, jamais une variable non initialisée).
+  // `let` séparé : `store.select` appelle `onChange`, donc `render()`, pendant la construction.
   let embeddingAlert;
   embeddingAlert = createEmbeddingAlert({
     host,
@@ -239,9 +235,7 @@ export function mount(host) {
     renderLimits();
     const importing = busy();
     const lockedNow = locked();
-    // `embeddingAlert` peut valoir `undefined` : son abonnement au flux système peut appeler
-    // `render()` pendant sa propre construction, avant l'affectation de la variable ci-dessus.
-    const noEmbedding = embeddingAlert ? embeddingAlert.blocksImport : false;
+    const noEmbedding = embeddingAlert ? embeddingAlert.blocksImport : false; // `undefined` en construction
     choose.disabled = emptyAction.disabled = importing || noEmbedding;
     input.disabled = drop.dataset.blocked = noEmbedding;
     busyHelp.hidden = !importing;
@@ -572,8 +566,8 @@ export function mount(host) {
   document.addEventListener("drop", guard);
 
   // --- Écran masqué puis revu ------------------------------------------------------------
-  // Le routeur masque l'écran sans le démonter : on ferme le flux (l'indexation continue sur le
-  // serveur), et au retour on reprend après le dernier `seq` reçu.
+  // Masqué sans être démonté : on ferme le flux (l'indexation continue), on reprend au dernier `seq`.
+  const loadSettings = () => (settings.load(), embeddingAlert.load());
   const visibility = new MutationObserver(() => {
     if (host.hidden === wasHidden) return;
     wasHidden = host.hidden;
@@ -584,8 +578,7 @@ export function mount(host) {
     } else {
       if (runId) openStream(runId);
       refresh();
-      settings.load();
-      embeddingAlert.load();
+      loadSettings();
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -593,8 +586,7 @@ export function mount(host) {
   // --- Premier affichage -----------------------------------------------------------------
   render();
   refresh().then((loaded) => adoptActiveRun(loaded, false));
-  settings.load();
-  embeddingAlert.load();
+  loadSettings();
 
   return () => {
     visibility.disconnect();
