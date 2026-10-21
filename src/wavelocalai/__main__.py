@@ -68,6 +68,8 @@ def _open_browser_when_ready(url: str, port: int, stop: threading.Event) -> None
             break
         time.sleep(BROWSER_PROBE_INTERVAL_S)
     else:
+        if not stop.is_set():  # le port n'a pas répondu à temps : l'URL, faute de navigateur
+            _write_url_instead(url)
         return
     if stop.is_set():
         return
@@ -77,8 +79,12 @@ def _open_browser_when_ready(url: str, port: int, stop: threading.Event) -> None
     except Exception:  # noqa: BLE001 — l'ouverture ne doit jamais faire tomber le serveur
         logger.exception("Ouverture du navigateur en échec")
     if not opened:
-        print(f"wavelocalai-v2 : ouvrez {url} dans votre navigateur.", file=sys.stderr)
-        logger.warning("Ouverture automatique du navigateur impossible : %s", url)
+        _write_url_instead(url)
+
+
+def _write_url_instead(url: str) -> None:
+    print(f"wavelocalai-v2 : ouvrez {url} dans votre navigateur.", file=sys.stderr)
+    logger.warning("Ouverture automatique du navigateur impossible : %s", url)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

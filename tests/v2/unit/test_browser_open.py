@@ -86,6 +86,19 @@ def test_open_exception_is_caught_and_logged_without_crashing(monkeypatch, caplo
     assert any("navigateur" in record.message.lower() for record in caplog.records)
 
 
+def test_probe_timeout_writes_the_url_without_opening(monkeypatch, capsys, caplog):
+    port = closed_port()  # rien n'écoute : la sonde expire
+    url = f"http://127.0.0.1:{port}/"
+    calls: list[str] = []
+    monkeypatch.setattr(launcher.webbrowser, "open", lambda u: (calls.append(u), True)[1])
+    monkeypatch.setattr(launcher, "BROWSER_PROBE_TIMEOUT_S", 0.3)
+    caplog.set_level(logging.WARNING)
+    _open_browser_when_ready(url, port, threading.Event())
+    assert calls == []
+    assert url in capsys.readouterr().err
+    assert any(url in record.message for record in caplog.records)
+
+
 class _ThreadSpy:
     """Remplace `threading.Thread` dans `__main__` : capture l'appel au lieu de lancer un fil."""
 

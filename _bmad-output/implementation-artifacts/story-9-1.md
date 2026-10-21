@@ -38,10 +38,21 @@ deferred: []
 ## Écarts et variantes conservatrices
 
 - Le guet tourne dans un fil dédié démarré juste avant l'appel bloquant à `serve()`, plutôt que dans `serve()` lui-même : `web/server.py` reste le seul module à importer uvicorn/FastAPI (AD-4, AD-19), et `__main__.py` n'importe que `socket`, `threading`, `time`, `webbrowser` (stdlib). `tests/v2/unit/test_layers.py` reste vert.
-- Fenêtre de sonde bornée à 30 s (`BROWSER_PROBE_TIMEOUT_S`) : si le port ne répond jamais (serveur qui ne démarre pas), le fil s'arrête sans ouvrir de navigateur plutôt que d'attendre indéfiniment ; aucun critère ne demande explicitement cette borne, ajoutée par prudence (le fil est de toute façon `daemon=True` et arrêté par `stop_browser.set()` dès la sortie de `serve()`).
+- Fenêtre de sonde bornée à 30 s (`BROWSER_PROBE_TIMEOUT_S`) : si le port ne répond jamais (serveur qui ne démarre pas), le fil s'arrête sans ouvrir de navigateur, en écrivant l'URL sur la console et dans le journal comme pour un échec d'ouverture (`test_probe_timeout_writes_the_url_without_opening`), plutôt que d'attendre indéfiniment ; aucun critère ne demande explicitement cette borne, ajoutée par prudence (le fil est de toute façon `daemon=True` et arrêté par `stop_browser.set()` dès la sortie de `serve()`).
 
 ## Rapport de dev
 
 - Tests ciblés : `tests/v2/unit` (1310 passés, 6 ignorés), `tests/v2/web/test_real_launch.py`, `tests/v2/web/test_real_shutdown.py`, `tests/v2/web/test_lifecycle.py` (6 passés) — tous verts, aucun navigateur ouvert.
 - Contrôle rapide (`uv run python .claude/cost-kit/controle_rapide.py`) : propre.
 - Pas de suite complète ni de lancement des E2E Playwright (hors périmètre des contrôles demandés pour cette story).
+
+## Revue
+
+Revue Opus du 2026-10-21, base à jour (`origin/master` = `ba606cb`, pas de rebase nécessaire).
+
+- medium · second avis 1 · corrigé : sonde expirée (30 s) sans rien écrire. `_open_browser_when_ready` écrit désormais l'URL sur la console et dans le journal dans ce cas aussi (`_write_url_instead`), test `test_probe_timeout_writes_the_url_without_opening`. L'URL d'écoute était déjà toujours écrite au démarrage (`logger.info`, console et fichier), vérifié par un lancement réel `--no-browser`.
+- medium · second avis 2 · rejeté : `propagate = False` laissé par `setup_logging` n'empêche pas `caplog` de capter les messages ; vérifié en plaçant avant `test_browser_open.py` un test qui met `propagate = False`, puis `test_main.py`, `test_cloud_adapters.py` et `test_datadir.py` : tout passe.
+- low · second avis 3 · rejeté : la sonde ne réussit que si uvicorn écoute (`bind_socket` lie sans `listen`) ; un échec de `serve()` arrête le fil via `stop_browser`, et le fil est `daemon`.
+- low · second avis 4 · rejeté : `webbrowser.open` qui renvoie `True` sans navigateur reste possible, mais l'URL est écrite au démarrage dans la console et le journal, quel que soit le résultat.
+- low · second avis 5 · corrigé : spec réalignée avec le constat 1 (section « Écarts »).
+- Complexité : 0 constat (aucune structure qui grossit).
