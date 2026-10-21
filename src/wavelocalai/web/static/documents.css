@@ -56,6 +56,59 @@
   margin: 0 0 1rem;
 }
 
+/* Aucun modèle de représentation installé (story 9.4) : précède tout le reste de l'écran, comme
+   les autres avertissements (`.models-card-warning`, `.arena-judge-alert`), même liseré d'accent. */
+.docs-embedding-alert {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: start;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.docs-embedding-alert .icon {
+  grid-row: 1;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--color-chart-4);
+}
+
+.docs-embedding-alert h2 {
+  grid-column: 2;
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.docs-embedding-alert p,
+.docs-embedding-alert button,
+.docs-embedding-alert-progress {
+  grid-column: 2;
+  margin: 0;
+}
+
+.docs-embedding-alert .docs-reason {
+  color: var(--color-ink-secondary);
+}
+
+.docs-embedding-alert button[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Zone de dépôt désactivée faute de modèle de représentation : jamais par la seule opacité
+   (EXPERIENCE.md, Base documentaire). */
+.docs-drop[data-blocked="true"] {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+}
+
 /* État du reclassement par un reranker local (story 4.7) : une ligne discrète. La raison d'absence
    (story 9.5) peut inclure un chemin de cache long et sans espaces : `overflow-wrap` l'empêche de
    déborder à 320 px. */

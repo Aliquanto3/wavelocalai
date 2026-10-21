@@ -13,6 +13,7 @@ from wavelocalai.models.factory import ModelFactory
 from wavelocalai.models.fake import (
     FAKE_EMBED_DIM,
     FAKE_EMBED_REF,
+    FAKE_REF,
     FakeEmbedder,
     Sleep,
     fake_embedders,
@@ -115,6 +116,19 @@ def test_fake_embedders_only_exist_when_testing(tmp_path):
     assert list(on) == [FAKE_EMBED_REF.tag] and on[FAKE_EMBED_REF.tag].ref == FAKE_EMBED_REF
     assert FAKE_EMBED_REF.kind == "embedding" and FAKE_EMBED_REF.origin == "local"
     assert fake_models(make_settings(tmp_path)) == {}
+
+
+def test_testing_no_fake_embedder_simulates_a_machine_without_any_embedding(tmp_path):
+    # E2E (story 9.4) : l'encart « aucun modèle de représentation » sans toucher au `fake` du chat.
+    settings = make_settings(
+        tmp_path,
+        environ={
+            "WAVELOCALAI_TESTING": "1",
+            "WAVELOCALAI_TESTING_NO_FAKE_EMBEDDER": "1",
+        },
+    )
+    assert fake_embedders(settings) == {}
+    assert list(fake_models(settings)) == [FAKE_REF.tag]  # le chat `fake` reste disponible
 
 
 def test_the_factory_gives_the_fake_then_ollama_and_nothing_else():

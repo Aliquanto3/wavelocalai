@@ -90,6 +90,7 @@ class RagBaseService:
         index: VectorIndex,
         preferences: PreferenceStore,
         reranker: RerankerService | None = None,
+        fallback_model: str | None = None,
     ) -> None:
         self._reranker = reranker  # son état figure dans les réglages (story 4.7)
         self._hub = hub
@@ -98,6 +99,7 @@ class RagBaseService:
         self._settings = settings
         self._index = index
         self._preferences = preferences
+        self._fallback_model = fallback_model  # dernier recours (modèle `fake` des tests)
 
     # --- supprimer, vider ----------------------------------------------------------------------
 
@@ -193,6 +195,7 @@ class RagBaseService:
             self._registry,
             self._index,
             self._reranker,
+            self._fallback_model,
         )
 
     def _toml_embedder(self) -> str | None:
@@ -251,6 +254,7 @@ async def _settings_view(
     registry: ModelRegistry | None,
     index: VectorIndex | None,
     reranker: RerankerService | None,
+    fallback_model: str | None = None,
 ) -> dict[str, Any]:
     tun = effective(settings.rag, preferences)
     rerank = reranker.status() if reranker is not None else None
@@ -267,6 +271,8 @@ async def _settings_view(
     if registry is not None:
         listed = (await registry.list_models()).models
         models = [{"tag": m.tag, "name": m.name} for m in listed if m.kind == "embedding"]
+    if not models and fallback_model:  # dernier recours (modèle `fake` des tests, story 9.4)
+        models = [{"tag": fallback_model, "name": fallback_model}]
     return {
         "embedding_model": tun.embedding_model,
         "chunk_size": tun.chunk_size,
@@ -294,6 +300,9 @@ async def offline_settings_view(
     preferences: PreferenceStore | None,
     registry: ModelRegistry | None,
     reranker: RerankerService | None = None,
+    fallback_model: str | None = None,
 ) -> dict[str, Any]:
     """La vue des réglages hors du cycle de vie de l'app (pas de store ni d'index)."""
-    return await _settings_view(settings, preferences, None, registry, None, reranker)
+    return await _settings_view(
+        settings, preferences, None, registry, None, reranker, fallback_model
+    )

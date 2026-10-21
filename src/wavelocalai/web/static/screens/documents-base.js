@@ -27,6 +27,7 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import "../components/index.js";
+import { createEmbeddingAlert } from "./documents-embedding-alert.js";
 import { createManage } from "./documents-manage.js";
 import { createSettings } from "./documents-settings.js";
 import { ImportRow, plural } from "./documents-import-row.js";
@@ -103,37 +104,7 @@ export function mount(host) {
   tableSection.hidden = true;
   tableSection.append(tableTitle, lockNote, tableHead, table);
 
-  // Supprimer, vider, régler (story 4.3) : les fonctions lues plus bas ne servent qu'à l'usage.
-  const dialog = document.createElement("wl-confirm-dialog");
-  const manage = createManage({
-    dialog,
-    problem,
-    getData: () => data,
-    refresh: () => refresh(),
-    fallbackFocus: () => choose,
-    isLocked: () => locked(),
-    lockId: lockNote.id,
-  });
-  const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
-
-  host.replaceChildren(
-    element("h1", "", t("screens.documents-base")),
-    screenTabs("documents", "documents-base"),
-    element("p", "lead", t("docs.lead")),
-    drop,
-    notice,
-    problem,
-    manage.status,
-    summary,
-    imports,
-    loading,
-    empty,
-    tableSection,
-    settings.el,
-    dialog,
-  );
-
-  // --- État ------------------------------------------------------------------------------
+  // --- État (avant l'encart d'embedding, dont `onChange` appelle `render()` dès sa création) --
   const rows = new Map(); // file_index -> ImportRow
   let data = null; // dernière réponse de GET /api/rag/documents
   let runId = null; // l'import suivi, tant qu'il n'est pas terminé
@@ -151,6 +122,48 @@ export function mount(host) {
   const busy = () => uploading !== null || runId !== null;
   // Un import tourne ici, ou un document est encore `indexing` (lancé depuis un autre onglet).
   const locked = () => busy() || (data?.documents ?? []).some((doc) => doc.status === "indexing");
+
+  // Supprimer, vider, régler (story 4.3) : les fonctions lues plus bas ne servent qu'à l'usage.
+  const dialog = document.createElement("wl-confirm-dialog");
+  const manage = createManage({
+    dialog,
+    problem,
+    getData: () => data,
+    refresh: () => refresh(),
+    fallbackFocus: () => choose,
+    isLocked: () => locked(),
+    lockId: lockNote.id,
+  });
+  const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
+
+  // Aucun modèle de représentation installé (story 9.4) : encart d'alerte, même run `pull` (AD-17).
+  // `let` séparé : `store.select` appelle `onChange`, donc `render()`, pendant la construction.
+  let embeddingAlert;
+  embeddingAlert = createEmbeddingAlert({
+    host,
+    say: (text) => ((notice.textContent = text), (notice.hidden = false)),
+    onChange: () => render(),
+    onInstalled: () => settings.load(), // le modèle fraîchement installé devient le défaut de la liste
+  });
+  drop.insertBefore(embeddingAlert.dropReasonNode, input);
+
+  host.replaceChildren(
+    element("h1", "", t("screens.documents-base")),
+    screenTabs("documents", "documents-base"),
+    element("p", "lead", t("docs.lead")),
+    embeddingAlert.el,
+    drop,
+    notice,
+    problem,
+    manage.status,
+    summary,
+    imports,
+    loading,
+    empty,
+    tableSection,
+    settings.el,
+    dialog,
+  );
 
   // --- Rendu -----------------------------------------------------------------------------
   function renderLimits() {
@@ -222,8 +235,9 @@ export function mount(host) {
     renderLimits();
     const importing = busy();
     const lockedNow = locked();
-    choose.disabled = importing;
-    emptyAction.disabled = importing;
+    const noEmbedding = embeddingAlert ? embeddingAlert.blocksImport : false; // `undefined` en construction
+    choose.disabled = emptyAction.disabled = importing || noEmbedding;
+    input.disabled = drop.dataset.blocked = noEmbedding;
     busyHelp.hidden = !importing;
     lockNote.hidden = !lockedNow;
     clearButton.disabled = lockedNow;
@@ -409,7 +423,7 @@ export function mount(host) {
 
   async function startImport(list) {
     const files = Array.from(list ?? []);
-    if (files.length === 0 || busy()) return;
+    if (files.length === 0 || busy() || embeddingAlert.blocksImport) return;
     problem.error = null;
     notice.hidden = true;
     const limits = data?.limits;
@@ -552,18 +566,19 @@ export function mount(host) {
   document.addEventListener("drop", guard);
 
   // --- Écran masqué puis revu ------------------------------------------------------------
-  // Le routeur masque l'écran sans le démonter : on ferme le flux (l'indexation continue sur le
-  // serveur), et au retour on reprend après le dernier `seq` reçu.
+  // Masqué sans être démonté : on ferme le flux (l'indexation continue), on reprend au dernier `seq`.
+  const loadSettings = () => (settings.load(), embeddingAlert.load());
   const visibility = new MutationObserver(() => {
     if (host.hidden === wasHidden) return;
     wasHidden = host.hidden;
+    embeddingAlert.setHidden(wasHidden);
     if (wasHidden) {
       stream?.close({ keepSeq: true });
       stream = null;
     } else {
       if (runId) openStream(runId);
       refresh();
-      settings.load();
+      loadSettings();
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -571,7 +586,7 @@ export function mount(host) {
   // --- Premier affichage -----------------------------------------------------------------
   render();
   refresh().then((loaded) => adoptActiveRun(loaded, false));
-  settings.load();
+  loadSettings();
 
   return () => {
     visibility.disconnect();
@@ -580,5 +595,6 @@ export function mount(host) {
     uploading?.abort();
     stream?.close();
     stream = null;
+    embeddingAlert.dispose();
   };
 }

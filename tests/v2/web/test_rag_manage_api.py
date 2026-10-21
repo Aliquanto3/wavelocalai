@@ -25,7 +25,9 @@ from .conftest import served  # noqa: F401 - fixture
 
 BASE = f"http://127.0.0.1:{TEST_PORT}"
 OTHER = ModelRef("fake-other:8", "fake", "local", "embedding")
-SECRET = "Zorglub-quarante-deux-licornes"
+SECRET = (
+    "Zorglub-quarante-deux-licornes"  # pragma: allowlist secret - texte de test, masquage AD-18
+)
 SECOND = "Moustique-mauve-et-pelican-rieur"
 CATS = "Le chat domestique dort sur le canapé du salon. Il ronronne quand on le caresse."
 CARS = "La voiture électrique recharge sa batterie sur une borne rapide."
@@ -333,7 +335,9 @@ async def test_the_settings_start_from_the_toml_defaults(served):
     assert body["limits"]["top_k"] == {"min": 1, "max": 20}
     # sqlite-vec chargé : index persistant ; sans l'extension (CI macOS), repli en mémoire.
     assert body["index"] == {"persistent": app.state.store.vec_available}
-    assert body["embedding_models"] == []  # Ollama injoignable : aucun modèle installé listé
+    # Ollama injoignable : aucun modèle Ollama listé, mais le `fake` des tests sert de dernier
+    # recours (story 9.4) : l'écran ne voit donc jamais « aucun embedding » en mode `testing`.
+    assert body["embedding_models"] == [{"tag": FAKE_EMBED_REF.tag, "name": FAKE_EMBED_REF.tag}]
 
 
 async def test_a_put_keeps_the_other_fields_and_applies_to_the_next_import_and_question(served):
