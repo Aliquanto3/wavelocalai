@@ -14,6 +14,7 @@ from wavelocalai.errors import AppError, ProviderError
 from wavelocalai.evaluation.judge import DEFAULT_CRITERIA, JUDGE_SCHEMA
 from wavelocalai.models.defaults import ModelDefault
 from wavelocalai.models.fake import Sleep
+from wavelocalai.models.port import LoadState
 from wavelocalai.models.registry import ModelInfo, ModelList
 
 from .test_arena_api import (
@@ -41,6 +42,14 @@ def scores(events) -> dict[str, dict]:
 
 def judge_event(events) -> dict:
     return next(e["data"] for e in events if e["type"] == "judge")
+
+
+def progress_events(events, lane: str | None = None) -> list[dict]:
+    return [
+        e["data"]
+        for e in events
+        if e["type"] == "judge_progress" and (lane is None or e["data"]["lane"] == lane)
+    ]
 
 
 class StubDefaults:
@@ -301,6 +310,54 @@ async def test_cancelling_during_judging_cancels_the_lane_and_the_judge_leaf(tmp
     assert not [e for e in events if e["type"] == "judge_score" and e["data"]["score"] == 0]
     judge_kids = [c for c in snapshot["children"] if c["kind"] == "judge"]
     assert judge_kids and all(k["status"] == "cancelled" for k in judge_kids)
+
+
+async def test_judge_progress_is_published_queued_then_scoring_with_position_and_total(tmp_path):
+    """Story 9.3 : `queued` juste avant la place, `scoring` pendant la notation elle-même (le juge
+    `fake:j` ne charge pas, pas de `loading` ici) ; `position`/`total` comptent les deux colonnes.
+    """
+    a, b = local("fake:a", say("Les ", "plantes")), local("fake:b", say("Elles mangent"))
+    judge = local("fake:j", [verdict(72)[0], verdict(60)[0]])
+    async with arena_app(tmp_path, a, b, judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    for lane, position in (("fake:a", 1), ("fake:b", 2)):
+        phases = progress_events(events, lane)
+        assert [p["phase"] for p in phases] == ["queued", "scoring"]
+        assert all(
+            p["position"] == position and p["total"] == 2 and p["judge"] == "fake:j" for p in phases
+        )
+        assert index(events, "lane_status", lane, "judging") < index(events, "judge_progress", lane)
+        assert index(events, "judge_progress", lane) < index(events, "judge_score", lane)
+
+
+async def test_judge_progress_reports_loading_when_the_judge_warms_up(tmp_path):
+    a = local("fake:a", say("A"))
+    judge = local("fake:j", [LoadState("loading"), LoadState("loaded", 0.2), *verdict(80)])
+    async with arena_app(tmp_path, a, local("fake:b", say("B")), judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    # `scoring` part optimiste à la prise de la place (comme `lane_status: generating`), avant même
+    # le premier chargement ; `loading` dit le chargement réel, puis `scoring` reprend une fois chargé.
+    assert "loading" in [p["phase"] for p in progress_events(events, "fake:a")]
+
+
+async def test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_judge(tmp_path):
+    a, b = local("fake:a", []), local("fake:b", say("B"))
+    async with arena_app(tmp_path, a, b) as (_, client):  # pas de juge
+        run_id = (await _post(client, "fake:a", "fake:b")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert progress_events(events) == []
+    judge = local("fake:j", verdict(50))
+    async with arena_app(tmp_path, a, b, judge) as (_, client):
+        run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert progress_events(events, "fake:a") == []  # réponse vide : le juge n'est pas dérangé
+    assert [p["phase"] for p in progress_events(events, "fake:b")] == ["queued", "scoring"]
 
 
 async def test_without_a_scoring_service_a_named_judge_is_not_announced(tmp_path):

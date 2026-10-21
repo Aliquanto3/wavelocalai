@@ -240,6 +240,11 @@ class _Arena:
     criteria: Sequence[str] = ()
     judge: ChatModel | None = None  # `None` : aucun juge disponible, les notes sont « non évalué »
     lanes: list[_Lane] = field(default_factory=list)
+    # `judge_progress` (story 9.3) : `judge_total` = nombre de colonnes de la comparaison, fixé au
+    # départ (une réponse vide n'appelle pas le juge mais reste comptée dans ce total affiché) ;
+    # `judge_done` = colonnes déjà en file ou notées par le juge, la prochaine `position`.
+    judge_total: int = 0
+    judge_done: int = 0
 
 
 class ArenaService:
@@ -305,6 +310,7 @@ class ArenaService:
             command.prompt,
             list(command.criteria),
             judge_model,
+            judge_total=len(refs),
         )
         try:
             for model in models:
@@ -508,7 +514,9 @@ class ArenaService:
 
         Une réponse vide, un juge absent ou en panne et une sortie invalide donnent `score: null`
         et une raison, jamais 0. Le juge est un run enfant à part : la lane reste `judging` tant
-        qu'il attend la place locale ou la note."""
+        qu'il attend la place locale ou la note. `judge_progress` (story 9.3) accompagne cette
+        attente puis la notation ; une réponse vide ou un service de notation absent ne publient
+        aucun `judge_progress` (le juge n'est jamais dérangé ni annoncé)."""
         answer = "".join(lane.model.answer)
         if not answer.strip():
             verdict = JudgeVerdict(None, NOT_EVALUATED_EMPTY)
@@ -516,9 +524,16 @@ class ArenaService:
             verdict = JudgeVerdict(None, NOT_EVALUATED_UNAVAILABLE)
         else:
             self._set_status(arena, lane, "judging")
+            arena.judge_done += 1
+            position = arena.judge_done
+
+            def progress(phase: str) -> None:
+                self._judge_progress(arena, lane, phase, position)
+
+            progress("queued")
             try:
                 verdict = await self._judge.score(
-                    arena.run_id, arena.judge, arena.prompt, arena.criteria, answer
+                    arena.run_id, arena.judge, arena.prompt, arena.criteria, answer, progress
                 )
             except asyncio.CancelledError:
                 raise
@@ -533,6 +548,23 @@ class ArenaService:
                 "score": verdict.score,
                 "reason": verdict.reason,
                 "judge": arena.judge.ref.tag if arena.judge else None,
+            },
+        )
+
+    def _judge_progress(self, arena: _Arena, lane: _Lane, phase: str, position: int) -> None:
+        """Publie `judge_progress` (story 9.3) : `queued` juste avant la place (appelé par
+        `_judge_lane`), `loading` et `scoring` relayés depuis `LaneJudge.score` (chargement du
+        juge, puis notation elle-même). `position`/`total` comptent les colonnes qui passent par le
+        juge (une réponse vide ne le dérange pas et n'a pas de `position`)."""
+        self._hub.publish(
+            arena.run_id,
+            "judge_progress",
+            {
+                "judge": arena.judge.ref.tag if arena.judge else None,
+                "phase": phase,
+                "lane": lane.tag,
+                "position": position,
+                "total": arena.judge_total,
             },
         )
 

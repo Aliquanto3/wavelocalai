@@ -118,7 +118,11 @@
       "info_judge": "Juge : {name}",
       "info_criteria": "Critères : {list}",
       "unreliable_alert": "Note peu fiable : le juge a moins de 4 milliards de paramètres actifs, ou sa taille est inconnue. Choisissez un juge plus gros pour un classement plus sûr.",
-      "none_alert": "Aucun juge n'est disponible : les réponses ne sont pas évaluées, et une réponse non évaluée ne vaut jamais 0."
+      "none_alert": "Aucun juge n'est disponible : les réponses ne sont pas évaluées, et une réponse non évaluée ne vaut jamais 0.",
+      "banner_none": "Comparaison sans juge : les réponses ne sont pas évaluées.",
+      "banner_down": "Juge indisponible : les réponses ne sont pas évaluées.",
+      "banner_loading": "Juge : {name} · chargement",
+      "banner_scoring": "Notation {position} sur {total} · {lane} · {clock}"
     },
     "results": {
       "title": "Classement",

@@ -11,6 +11,9 @@
 //                                          le bouton « Arrêter ce modèle » (`wl-lane-stop`, bulle)
 //   lane.token(text, channel)  lane.retry(reason)  lane.metrics(data)
 //   lane.setJudge({ single_judge, unreliable })   l'événement `judge` : fiabilité des notes
+//   lane.setJudgeProgress(phase)           `judge_progress` (story 9.3, `queued`|`loading`|`scoring`
+//                                          -> « En file pour la notation » ou « Notation en cours »),
+//                                          sans effet hors du statut `judging`
 //   lane.name  lane.origin  lane.status  lane.score  lane.result   lus par le classement (story 3.4) ;
 //                                          chaque changement de statut, de note ou de mesures émet
 //                                          `wl-lane-change` (bulle), jamais à chaque token
@@ -78,6 +81,7 @@ export class WlArenaLane extends HTMLElement {
   #ended = false;
   #result = null;
   #score = null; // { score, reason } du `judge_score`
+  #judgePhase = null; // "queued" | "scoring" (story 9.3), posé par `setJudgeProgress`
   #judge = { single: false, unreliable: false };
   #dom = null;
   #runId = null; // identifiant de la feuille (`lane_status.run_id`, story 9.2)
@@ -280,6 +284,15 @@ export class WlArenaLane extends HTMLElement {
     this.dataset.tag = this.#info.tag;
   }
 
+  // `judge_progress` (story 9.3) : « En file pour la notation » tant que le juge n'a pas commencé à
+  // travailler sur cette colonne (en attente de la place ou en chargement), « Notation en cours »
+  // une fois qu'il génère la note. Sans effet hors du statut `judging`.
+  setJudgeProgress(phase) {
+    if (this.#status !== "judging") return;
+    this.#judgePhase = phase === "scoring" ? "scoring" : "queued";
+    if (this.#dom) this.#renderStatus();
+  }
+
   #renderStatus(error = null) {
     const { statusIcon, statusText, note, error: errorBox } = this.#dom;
     const status = this.#status;
@@ -290,7 +303,9 @@ export class WlArenaLane extends HTMLElement {
     const stopped = status === "done" ? this.#stoppedReason : null;
     statusText.textContent = stopped
       ? t(`components.lane.stopped.${stopped}`)
-      : t(`components.lane.status.${status}`);
+      : status === "judging"
+        ? t(`components.lane.judging_phase.${this.#judgePhase ?? "queued"}`)
+        : t(`components.lane.status.${status}`);
     statusIcon
       .querySelector("use")
       .setAttribute("href", `/static/icons.svg#i-${stopped ? "block" : STATUS_ICON[status]}`);
@@ -336,6 +351,7 @@ export class WlArenaLane extends HTMLElement {
     if (!(status in STATUS_ICON) || FINAL.has(this.#status)) return;
     if (STARTED.has(status)) this.#ensureAnswer();
     this.#status = status;
+    this.#judgePhase = status === "judging" ? "queued" : null;
     this.#stoppedReason = stoppedReason || null;
     this.#renderStatus(error);
     this.#renderScore();

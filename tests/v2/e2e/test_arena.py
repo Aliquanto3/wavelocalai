@@ -743,9 +743,11 @@ def test_a_column_shows_notation_then_its_score_its_reason_and_the_one_judge_lab
     )
     launch(arena)
     wait_for(arena, "() => document.querySelectorAll('wl-arena-lane').length === 2")
+    # Story 9.3 : la colonne distingue « En file pour la notation » de « Notation en cours ».
     wait_for(
         arena,
-        "() => [...document.querySelectorAll('.wl-lane-status-text')].some((n) => n.textContent === 'Notation')",
+        "() => [...document.querySelectorAll('.wl-lane-status-text')]"
+        ".some((n) => ['En file pour la notation', 'Notation en cours'].includes(n.textContent))",
     )
     assert score_of(arena, "fake:a").is_hidden()  # pas de note avant l'arrivée de `judge_score`
     wait_banner(arena, "Comparaison terminée")
@@ -784,6 +786,44 @@ def test_a_column_shows_notation_then_its_score_its_reason_and_the_one_judge_lab
         "Alpha 1B : note 72 sur 100, peu fiable.",
         "Bravo 2B : note 72 sur 100, peu fiable.",
     ]
+
+
+def judge_banner(page):
+    return page.locator(".arena-judge-banner")
+
+
+def test_the_judge_banner_shows_loading_then_scoring_n_of_total_then_ends(arena, server):
+    """Story 9.3 : « Juge : <modèle> · chargement » dès le juge connu, puis « Notation N sur M ·
+    <colonne> » pendant la notation (le juge prend la place avant même son premier jeton, D3) ;
+    chaque colonne distingue « En file pour la notation » de « Notation en cours ». Le juge local
+    s'attarde une seconde sur chaque note : la notation de `fake:a` (position 1 sur 2) reste visible
+    pendant que `fake:b` attend encore la place, en file."""
+    slow = [{"sleep_s": 0.3}, {"text": "mot"}, {"done": DONE}]
+    scripted(
+        arena,
+        server,
+        {"fake:a": slow, "fake:b": slow},
+        judge={"script": [{"sleep_s": 1.0}, *verdict(72)], "origin": "local"},
+    )
+    launch(arena)
+    judge_banner(arena).filter(has_text="chargement").wait_for()  # avant toute notation
+    judge_banner(arena).filter(has_text="Notation 1 sur 2").wait_for()
+    assert "Alpha 1B" in judge_banner(arena).inner_text()
+    # `fake:a` note (une seule place locale) : `fake:b` attend encore, en file, pas en notation.
+    assert status_of(arena, "fake:a") == "Notation en cours"
+    assert status_of(arena, "fake:b") == "En file pour la notation"
+    wait_banner(arena, "Comparaison terminée")
+    assert "Notation 2 sur 2" in judge_banner(arena).inner_text()  # fige au dernier état connu
+
+
+def test_the_judge_banner_says_no_judge_without_a_counter(page, server):
+    install_models(page, judge_tags=())
+    run_id = start_run(page, server, {})
+    page.goto(f"{server.base_url}/#/arene/comparer/{run_id}")
+    wait_ready(page)
+    wait_banner(page, "Comparaison terminée")
+    text = judge_banner(page).inner_text()
+    assert "sans juge" in text and "sur" not in text
 
 
 def test_a_column_in_notation_when_the_stream_is_lost_says_not_evaluated_interrupted(arena):

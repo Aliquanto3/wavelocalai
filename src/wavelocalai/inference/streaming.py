@@ -176,6 +176,10 @@ async def _consume(
                     capture.append(chunk.text)
                 elif isinstance(chunk, Done):
                     result = chunk.result
+                # `model_loading` / `model_loaded` restent tus (appel silencieux) ; `on_phase`, lui,
+                # est relayé (judge_progress, story 9.3) : un appelant qui le passe veut la phase.
+                elif isinstance(chunk, LoadState) and on_phase is not None:
+                    on_phase("loading" if chunk.phase == "loading" else "generating")
             elif isinstance(chunk, TextDelta):
                 hub.publish_token(run_id, lane, chunk.text, chunk.channel)
             elif isinstance(chunk, LoadState):
@@ -241,7 +245,10 @@ async def stream_into_run(
 
     `capture` : appel **silencieux** (une notation, story 3.3). Le texte de réponse est ajouté à
     cette liste (vidée à chaque tentative) et rien n'est publié dans le flux du parent : ni jetons,
-    ni chargement, ni `metrics`, ni `retry`. La feuille reste mesurée et close comme les autres.
+    ni chargement (`model_loading`/`model_loaded`), ni `metrics`, ni `retry`. La feuille reste
+    mesurée et close comme les autres. `on_phase` continue d'être appelé (`loading`/`generating`)
+    même en appel silencieux : le juge de l'Arène s'en sert pour `judge_progress` (story 9.3) sans
+    publier le chargement dans le flux.
 
     `metrics_extra` : champs ajoutés à l'événement `metrics` de la feuille (le RAG y met la durée de
     la recherche, `retrieval_s`) ; ils ne remplacent jamais un champ du flux. Une fonction reçoit

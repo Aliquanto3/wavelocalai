@@ -7,7 +7,7 @@ que l'application câble au démarrage. Un verdict sans note (`score` nul) dit t
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -17,6 +17,11 @@ DEFAULT_CRITERIA = ("exactitude", "pertinence", "clarté")  # quand l'appelant n
 NOT_EVALUATED_EMPTY = "non évalué : réponse vide"
 NOT_EVALUATED_UNAVAILABLE = "non évalué : juge indisponible"
 NOT_EVALUATED_INVALID = "non évalué : sortie du juge invalide"
+
+# Phases de `judge_progress` (story 9.3) publiées pendant un appel du juge : `loading` (chargement
+# du modèle en mémoire), `scoring` (le juge travaille, chargé ou non). `queued` (en attente de la
+# place locale) est publié par l'appelant, avant même le premier appel.
+JudgePhaseCallback = Callable[[str], None]
 
 
 @dataclass(frozen=True)
@@ -37,7 +42,10 @@ class LaneJudge(Protocol):
         question: str,
         criteria: Sequence[str],
         answer: str,
+        on_phase: JudgePhaseCallback | None = None,
     ) -> JudgeVerdict:
         """Note `answer` ; ne lève que pour une annulation. Une panne du juge, une sortie invalide
-        ou une réponse vide donnent un verdict sans note et sa raison."""
+        ou une réponse vide donnent un verdict sans note et sa raison. `on_phase` (story 9.3) reçoit
+        `loading` puis `scoring` ; jamais appelé pour une réponse vide (le juge n'est pas dérangé).
+        """
         ...

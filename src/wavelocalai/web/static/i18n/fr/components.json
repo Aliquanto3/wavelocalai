@@ -178,6 +178,10 @@
         "cancelled": "Arrêté",
         "interrupted": "Interrompu"
       },
+      "judging_phase": {
+        "queued": "En file pour la notation",
+        "scoring": "Notation en cours"
+      },
       "timeout_note": "Délai dépassé pour ce modèle. Les autres continuent.",
       "timeout_note_delay": "Délai dépassé ({seconds} s) pour ce modèle. Les autres continuent.",
       "stopped": {

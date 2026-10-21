@@ -27,6 +27,7 @@ from wavelocalai.inference.judge_port import (
     NOT_EVALUATED_EMPTY,
     NOT_EVALUATED_INVALID,
     NOT_EVALUATED_UNAVAILABLE,
+    JudgePhaseCallback,
     JudgeVerdict,
 )
 from wavelocalai.inference.local_slot import LocalSlot
@@ -86,6 +87,15 @@ def build_request(question: str, criteria: Sequence[str], answer: str) -> ChatRe
     )
 
 
+def _scoring_phase(on_phase: JudgePhaseCallback | None) -> JudgePhaseCallback | None:
+    """Traduit les phases de `stream_into_run` (`loading`, `generating`) en celles de
+    `judge_progress` (story 9.3) : `generating` -> `scoring` (le juge travaille, chargé ou non,
+    dès la prise de la place ou le départ de l'appel cloud)."""
+    if on_phase is None:
+        return None
+    return lambda phase: on_phase("loading" if phase == "loading" else "scoring")
+
+
 def verdict_from_text(text: str) -> JudgeVerdict:
     try:
         value = parse_structured(text, JUDGE_SCHEMA)
@@ -130,19 +140,29 @@ class Judge:
         question: str,
         criteria: Sequence[str],
         answer: str,
+        on_phase: JudgePhaseCallback | None = None,
     ) -> JudgeVerdict:
         if not answer.strip():
             return JudgeVerdict(None, NOT_EVALUATED_EMPTY)  # inutile de déranger le juge
-        reply = await self.ask(parent_run_id, judge, build_request(question, criteria, answer))
+        reply = await self.ask(
+            parent_run_id, judge, build_request(question, criteria, answer), on_phase=on_phase
+        )
         if reply.text is None:
             return JudgeVerdict(None, reply.reason)
         return verdict_from_text(reply.text)
 
-    async def ask(self, parent_run_id: str, judge: ChatModel, request: ChatRequest) -> JudgeReply:
+    async def ask(
+        self,
+        parent_run_id: str,
+        judge: ChatModel,
+        request: ChatRequest,
+        on_phase: JudgePhaseCallback | None = None,
+    ) -> JudgeReply:
         """Un appel silencieux du juge, en feuille `judge` du run `parent_run_id` : rend le texte de
         sa réponse, ou `text=None` avec la raison « non évalué » (juge indisponible, sortie
         invalide). Ne lève que pour une annulation. Sert la notation de l'Arène (`score`) et celle
-        de l'évaluation de la qualité (story 7.1), qui lui passent leurs propres invites."""
+        de l'évaluation de la qualité (story 7.1), qui lui passent leurs propres invites.
+        `on_phase` (story 9.3) : `loading` puis `scoring`, traduits depuis `stream_into_run`."""
         try:
             leaf = await self._hub.create_run(
                 "judge", models=[judge.ref.tag], parent_run_id=parent_run_id
@@ -161,6 +181,7 @@ class Judge:
             slot=self._slot,
             timeout_s=self._settings.delays.lane_timeout_s,
             publish_to=parent_run_id,
+            on_phase=_scoring_phase(on_phase),
             meter=self._meter,
             on_leaf_closed=self._announce_carbon,
             capture=captured,
