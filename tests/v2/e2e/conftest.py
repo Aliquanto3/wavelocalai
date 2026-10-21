@@ -136,6 +136,7 @@ class Backend:
                 str(self.port),
                 "--data-dir",
                 str(self.data_dir),
+                "--no-browser",
                 *(["--config", str(self.config)] if self.config else []),
             ],
             env=env,

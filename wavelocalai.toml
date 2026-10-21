@@ -5,6 +5,8 @@
 [server]
 # 8501 reste à la v1. Écoute sur 127.0.0.1 seulement (AD-19).
 port = 8502
+# Ouvre le navigateur par défaut une fois le port prêt (story 9.1) ; `--no-browser` l'emporte.
+open_browser = true
 
 [data]
 # Dossier des données (base, journaux, caches). Relatif à ce fichier.

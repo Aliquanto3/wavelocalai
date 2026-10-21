@@ -59,6 +59,8 @@ class _Section(BaseModel):
 
 class ServerSettings(_Section):
     port: int = Field(DEFAULT_PORT, ge=1, le=65535)
+    # Ouverture automatique du navigateur au démarrage (story 9.1) ; `--no-browser` l'emporte.
+    open_browser: bool = True
 
 
 class DataSettings(_Section):
