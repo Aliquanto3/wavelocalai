@@ -1,5 +1,5 @@
-"""Encart « Aucun modèle de représentation installé », Base documentaire (story 9.4) dans un vrai
-navigateur, sur le vrai serveur.
+"""Encart « La représentation vectorielle n'est pas installée », Base documentaire (story 9.4) dans
+un vrai navigateur, sur le vrai serveur.
 
 Le modèle proposé est installé par le même faux Ollama HTTP (`ThreadedOllama`, `/api/pull` en flux
 scripté) que l'installation d'un modèle de l'écran Modèles (`test_models_install.py`) : aucun vrai
@@ -30,9 +30,7 @@ def alert(page):
 
 
 def install_button(page):
-    return alert(page).get_by_role(
-        "button", name="Installer le modèle de représentation nomic-embed-text"
-    )
+    return alert(page).get_by_role("button", name="Installer nomic-embed-text")
 
 
 @pytest.fixture
@@ -58,7 +56,10 @@ def test_the_alert_precedes_the_screen_and_disables_the_drop_zone(backend_with_o
     page.goto(f"{server.base_url}/{URL}")
     wait_ready(page)
     alert(page).wait_for()
-    assert alert(page).locator("h2").inner_text() == "Aucun modèle de représentation installé"
+    assert (
+        alert(page).locator("h2").inner_text()
+        == "La représentation vectorielle n’est pas installée"
+    )
     assert f"nomic-embed-text (274{NBSP}Mo)" in alert(page).locator("p").first.inner_text()
     # Ollama est connu « debout » par le flux système un instant après l'ouverture de l'écran.
     wait_for(

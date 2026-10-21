@@ -104,6 +104,27 @@ export function mount(host) {
   tableSection.hidden = true;
   tableSection.append(tableTitle, lockNote, tableHead, table);
 
+  // --- État ------------------------------------------------------------------------------
+  // Déclaré avant l'encart d'embedding ci-dessous : son `onChange` peut appeler `render()`
+  // tout de suite (abonnement au flux système), qui lit `data` et les autres variables d'état.
+  const rows = new Map(); // file_index -> ImportRow
+  let data = null; // dernière réponse de GET /api/rag/documents
+  let runId = null; // l'import suivi, tant qu'il n'est pas terminé
+  let stream = null;
+  let uploading = null; // AbortController de l'envoi en cours
+  let sent = false; // le corps de l'envoi en cours est parti : l'abandonner n'arrêterait pas le run
+  let cancelPending = false; // Annuler demandé après l'envoi du corps : le run sera arrêté
+  let cancelFocused = false; // Annuler activé avec le focus (désactivé, le bouton le perd)
+  let tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
+  let wasHidden = host.hidden;
+  let listFailed = false; // la liste n'a pas pu être lue (le message d'erreur le dit)
+  let refreshing = null; // la lecture en cours (une promesse), sinon `null`
+  let refreshAgain = false;
+
+  const busy = () => uploading !== null || runId !== null;
+  // Un import tourne ici, ou un document est encore `indexing` (lancé depuis un autre onglet).
+  const locked = () => busy() || (data?.documents ?? []).some((doc) => doc.status === "indexing");
+
   // Supprimer, vider, régler (story 4.3) : les fonctions lues plus bas ne servent qu'à l'usage.
   const dialog = document.createElement("wl-confirm-dialog");
   const manage = createManage({
@@ -118,7 +139,11 @@ export function mount(host) {
   const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
 
   // Aucun modèle de représentation installé (story 9.4) : encart d'alerte, même run `pull` (AD-17).
-  const embeddingAlert = createEmbeddingAlert({
+  // Déclaré avant l'appel : l'abonnement au flux système (`store.select`) appelle `onChange` tout de
+  // suite, donc `render()` peut s'exécuter avant la fin de cette construction (variable encore à
+  // `undefined`, jamais une variable non initialisée).
+  let embeddingAlert;
+  embeddingAlert = createEmbeddingAlert({
     host,
     say: (text) => ((notice.textContent = text), (notice.hidden = false)),
     onChange: () => render(),
@@ -143,25 +168,6 @@ export function mount(host) {
     settings.el,
     dialog,
   );
-
-  // --- État ------------------------------------------------------------------------------
-  const rows = new Map(); // file_index -> ImportRow
-  let data = null; // dernière réponse de GET /api/rag/documents
-  let runId = null; // l'import suivi, tant qu'il n'est pas terminé
-  let stream = null;
-  let uploading = null; // AbortController de l'envoi en cours
-  let sent = false; // le corps de l'envoi en cours est parti : l'abandonner n'arrêterait pas le run
-  let cancelPending = false; // Annuler demandé après l'envoi du corps : le run sera arrêté
-  let cancelFocused = false; // Annuler activé avec le focus (désactivé, le bouton le perd)
-  let tally = { docs: 0, chunks: 0, failed: 0, duplicate: 0 };
-  let wasHidden = host.hidden;
-  let listFailed = false; // la liste n'a pas pu être lue (le message d'erreur le dit)
-  let refreshing = null; // la lecture en cours (une promesse), sinon `null`
-  let refreshAgain = false;
-
-  const busy = () => uploading !== null || runId !== null;
-  // Un import tourne ici, ou un document est encore `indexing` (lancé depuis un autre onglet).
-  const locked = () => busy() || (data?.documents ?? []).some((doc) => doc.status === "indexing");
 
   // --- Rendu -----------------------------------------------------------------------------
   function renderLimits() {
@@ -233,7 +239,9 @@ export function mount(host) {
     renderLimits();
     const importing = busy();
     const lockedNow = locked();
-    const noEmbedding = embeddingAlert.blocksImport;
+    // `embeddingAlert` peut valoir `undefined` : son abonnement au flux système peut appeler
+    // `render()` pendant sa propre construction, avant l'affectation de la variable ci-dessus.
+    const noEmbedding = embeddingAlert ? embeddingAlert.blocksImport : false;
     choose.disabled = emptyAction.disabled = importing || noEmbedding;
     input.disabled = drop.dataset.blocked = noEmbedding;
     busyHelp.hidden = !importing;

@@ -61,7 +61,6 @@ export function createEmbeddingAlert({ host, say, onChange, onInstalled }) {
   const text = element("p", "", t("docs.embedding_alert_text", { size: t("docs.embedding_alert_size") }));
   const button = element("button", "btn docs-embedding-alert-install", t("docs.embedding_alert_install"));
   button.type = "button";
-  button.setAttribute("aria-label", t("docs.embedding_alert_install_aria"));
   const reason = element("p", "help docs-reason");
   reason.id = "docs-embedding-alert-reason";
   button.setAttribute("aria-describedby", reason.id);
