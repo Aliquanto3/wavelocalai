@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-18-2026 14:09
-last_updated: 10-20-2026 02:07
+last_updated: 10-21-2026 16:37
 project: wavelocalai
 project_key: NOKEY
 tracking_system: file-system
@@ -115,13 +115,13 @@ development_status:
   8-3-la-parité-avec-la-v1-est-listée-et-la-suite-e2e-est-complète: done
   epic-8-retrospective: optional
 
-  epic-9: backlog
-  9-1-le-lanceur-ouvre-l-application-dans-le-navigateur: backlog
-  9-2-l-arène-arrête-un-modèle-qui-tourne-en-boucle: backlog
-  9-3-on-voit-le-juge-de-l-arène-travailler: backlog
-  9-4-installer-le-modèle-de-représentation-depuis-la-base-documentai: backlog
-  9-5-fastembed-est-installé-d-office-le-bouton-du-reranker-fonctionne: backlog
-  9-6-maquette-de-la-nouvelle-mise-en-page-humaine: backlog
+  epic-9: in-progress
+  9-1-le-lanceur-ouvre-l-application-dans-le-navigateur: done
+  9-2-l-arène-arrête-un-modèle-qui-tourne-en-boucle: done
+  9-3-on-voit-le-juge-de-l-arène-travailler: in-progress
+  9-4-installer-le-modèle-de-représentation-depuis-la-base-documentai: done
+  9-5-fastembed-est-installé-d-office-le-bouton-du-reranker-fonctionne: done
+  9-6-maquette-de-la-nouvelle-mise-en-page-humaine: done
   9-7-fondation-de-la-mise-en-page-et-écrans-de-l-arène: backlog
   9-8-documents-et-agents-suivent-la-nouvelle-mise-en-page: backlog
   9-9-modèles-sobriété-et-accueil-suivent-la-nouvelle-mise-en-page: backlog
