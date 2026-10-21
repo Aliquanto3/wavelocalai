@@ -76,6 +76,7 @@ LANE_STATUSES = (
     "cancelled",
 )
 TERMINAL = frozenset({"done", "timeout", "failed", "cancelled"})
+PRE_JUDGE = frozenset({"waiting", "loading", "generating"})  # réponse pas encore finie
 
 
 @dataclass(frozen=True)
@@ -240,11 +241,12 @@ class _Arena:
     criteria: Sequence[str] = ()
     judge: ChatModel | None = None  # `None` : aucun juge disponible, les notes sont « non évalué »
     lanes: list[_Lane] = field(default_factory=list)
-    # `judge_progress` (story 9.3) : `judge_total` = nombre de colonnes de la comparaison, fixé au
-    # départ (une réponse vide n'appelle pas le juge mais reste comptée dans ce total affiché) ;
-    # `judge_done` = colonnes déjà en file ou notées par le juge, la prochaine `position`.
+    # `judge_progress` (story 9.3) : `judge_done` = colonnes passées au juge (la dernière
+    # `position`) ; `judge_total` = dernier `total` publié ; `judge_live` = colonnes chez le juge
+    # (dernière phase et position), republiées quand le total baisse.
     judge_total: int = 0
     judge_done: int = 0
+    judge_live: dict[str, tuple[_Lane, str, int]] = field(default_factory=dict)
 
 
 class ArenaService:
@@ -310,7 +312,6 @@ class ArenaService:
             command.prompt,
             list(command.criteria),
             judge_model,
-            judge_total=len(refs),
         )
         try:
             for model in models:
@@ -540,6 +541,8 @@ class ArenaService:
             except Exception:  # noqa: BLE001 - un juge qui casse ne casse pas la lane
                 logger.exception("Notation de %s en échec", lane.tag)
                 verdict = JudgeVerdict(None, NOT_EVALUATED_UNAVAILABLE)
+            finally:
+                arena.judge_live.pop(lane.tag, None)
         self._hub.publish(
             arena.run_id,
             "judge_score",
@@ -553,9 +556,13 @@ class ArenaService:
 
     def _judge_progress(self, arena: _Arena, lane: _Lane, phase: str, position: int) -> None:
         """Publie `judge_progress` (story 9.3) : `queued` juste avant la place (appelé par
-        `_judge_lane`), `loading` et `scoring` relayés depuis `LaneJudge.score` (chargement du
-        juge, puis notation elle-même). `position`/`total` comptent les colonnes qui passent par le
-        juge (une réponse vide ne le dérange pas et n'a pas de `position`)."""
+        `_judge_lane`), puis `loading` (juge froid) et `scoring` relayés depuis `LaneJudge.score`.
+        `position` : rang d'arrivée de la colonne chez le juge. `total` : colonnes qui seront
+        notées, celles déjà passées au juge plus celles qui génèrent encore ; une colonne en échec,
+        en délai ou à réponse vide n'y entre pas (le total peut donc baisser, voir
+        `_refresh_judge_total`)."""
+        arena.judge_live[lane.tag] = (lane, phase, position)
+        arena.judge_total = self._judge_total(arena)
         self._hub.publish(
             arena.run_id,
             "judge_progress",
@@ -567,6 +574,19 @@ class ArenaService:
                 "total": arena.judge_total,
             },
         )
+
+    @staticmethod
+    def _judge_total(arena: _Arena) -> int:
+        return arena.judge_done + sum(1 for lane in arena.lanes if lane.status in PRE_JUDGE)
+
+    def _refresh_judge_total(self, arena: _Arena) -> None:
+        """Une colonne finie sans passer par le juge (échec, délai, réponse vide) fait baisser le
+        `total` : les colonnes encore chez le juge republient leur phase avec le nouveau total."""
+        if not arena.judge_live or self._judge_total(arena) == arena.judge_total:
+            return
+        for lane, phase, position in list(arena.judge_live.values()):
+            if lane.status == "judging":
+                self._judge_progress(arena, lane, phase, position)
 
     async def _announce_carbon(self) -> None:
         """`carbon_updated` après chaque feuille (AD-10), annulation comprise."""
@@ -596,6 +616,7 @@ class ArenaService:
         self._hub.publish(arena.run_id, "lane_status", data)
         if status in TERMINAL:  # au-delà, un arrêt manuel ne trouve plus la lane (story 9.2)
             self._active_lanes.pop(lane.run_id, None)
+            self._refresh_judge_total(arena)
 
     def _cancel_unfinished(self, arena: _Arena) -> None:
         """Crochet du hub, juste avant `run_ended` : les lanes inachevées passent à `cancelled`."""

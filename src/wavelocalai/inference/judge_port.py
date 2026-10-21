@@ -18,9 +18,9 @@ NOT_EVALUATED_EMPTY = "non évalué : réponse vide"
 NOT_EVALUATED_UNAVAILABLE = "non évalué : juge indisponible"
 NOT_EVALUATED_INVALID = "non évalué : sortie du juge invalide"
 
-# Phases de `judge_progress` (story 9.3) publiées pendant un appel du juge : `loading` (chargement
-# du modèle en mémoire), `scoring` (le juge travaille, chargé ou non). `queued` (en attente de la
-# place locale) est publié par l'appelant, avant même le premier appel.
+# Phases de `judge_progress` (story 9.3) dites pendant un appel du juge, dans l'ordre : `loading`
+# (chargement du modèle en mémoire, juge local froid seulement), puis `scoring` (le juge lit l'invite
+# et génère la note). `queued` (en attente de la place locale) est publié par l'appelant, avant.
 JudgePhaseCallback = Callable[[str], None]
 
 
@@ -46,6 +46,7 @@ class LaneJudge(Protocol):
     ) -> JudgeVerdict:
         """Note `answer` ; ne lève que pour une annulation. Une panne du juge, une sortie invalide
         ou une réponse vide donnent un verdict sans note et sa raison. `on_phase` (story 9.3) reçoit
-        `loading` puis `scoring` ; jamais appelé pour une réponse vide (le juge n'est pas dérangé).
+        `loading` (juge froid) puis `scoring` ; jamais appelé pour une réponse vide (le juge n'est
+        pas dérangé) ni pour un juge injoignable avant sa première réponse.
         """
         ...

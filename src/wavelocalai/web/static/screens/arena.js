@@ -365,6 +365,7 @@ export function mount(host, params = {}) {
     stream = null;
     stopping = false;
     stopTicker();
+    progress.end(); // story 9.3 : l'horloge du juge s'arrête avec le run
     renderBanner();
     render();
     if (stopFocused) focusAfter(null);
@@ -408,11 +409,10 @@ export function mount(host, params = {}) {
       progress.setJudge(data, name);
       renderMode();
     },
-    judge_progress: (data) => (progress.update(data, (tag) => lanes.get(tag)?.name ?? tag), lanes.get(data?.lane)?.el.setJudgeProgress(data?.phase)), // story 9.3
+    judge_progress: (data) => (progress.progress(data, (tag) => lanes.get(tag)?.name), laneOf(data)?.setJudgeProgress(data.phase)), // story 9.3
     judge_score: (data) => {
       const entry = lanes.get(data?.lane);
-      if (typeof data?.score === "number") progress.scored();
-      else if (String(data?.reason ?? "").includes("juge indisponible")) progress.unavailable();
+      progress.score(data); // story 9.3 : le bandeau du juge
       if (!entry) return;
       entry.el.setScore(data);
       scoreLive.add(entry.name, entry.el.score, judgeFlags.unreliable);
@@ -593,7 +593,7 @@ export function mount(host, params = {}) {
     visibility.disconnect();
     document.removeEventListener("keydown", onKeydown);
     narrow.removeEventListener("change", layout);
-    stopTicker();
+    stopTicker(); progress.reset(); // aucun minuteur après l'écran, celui du juge compris (story 9.3)
     stream?.close();
     stream = null;
   };

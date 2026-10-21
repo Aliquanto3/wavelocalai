@@ -104,3 +104,30 @@ n'appelle pas le juge et n'a pas de `judge_progress`).
 
 - Refonte visuelle complète du bandeau et des colonnes (classes, disposition) : story 9.7, comme prévu
   par la maquette validée.
+
+## Revue
+
+Revue Opus (une passe, base `origin/master` 7001b34, à jour). Correctif racine : un seul modèle
+d'état du bandeau (`arena-judge-banner.js` : colonnes chez le juge, phase et horloge par colonne,
+panne, fin), et l'ordre réel des phases tiré du flux du juge (`_PhasedModel`, `evaluation/judge.py`)
+au lieu du relais `on_phase` de `streaming.py`, rendu à son état d'avant la story.
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| high | second avis 1 | `scoring` publié à la prise de place avant `loading` ; bandeau bloqué sur « chargement » pendant toute la génération | corrigé : séquence `queued` -> `loading` (juge froid) -> `scoring` (chargement fini, premier fragment, ou 0,25 s sans chargement annoncé ; aussitôt en cloud) ; bandeau « en attente des réponses » avant la notation, « chargement » seulement en phase `loading` |
+| high | second avis 2 | colonne qui recule de « Notation en cours » à « En file » | corrigé : `setJudgeProgress` monotone, phase remise à zéro seulement au changement de statut |
+| high | second avis 3 | panne après une note réussie jamais affichée | corrigé : « Juge indisponible » dès la dernière note « juge indisponible », jusqu'à une phase `loading`/`scoring` ou une note réussie ; ni compteur ni horloge |
+| high | second avis 4 | minuteur jamais arrêté (fin, démontage, nouvelle comparaison) | corrigé : minuteur actif seulement tant qu'une colonne est chargée ou notée ; `end()` dans `finish`, `reset()` dans `clearLanes` et au démontage ; E2E qui compte les minuteurs (`COUNT_JUDGE_CLOCKS`) |
+| high | second avis 5 | horloge dans la région live (annonce chaque seconde) | corrigé : horloge `aria-hidden` à part, la région n'annonce que les étapes |
+| medium | second avis 6 | `total = len(refs)` compte les colonnes en échec | corrigé : `total` = colonnes passées au juge + colonnes qui génèrent encore ; baisse republiée pour les colonnes chez le juge ; documenté dans `contrat-api.md` |
+| medium | second avis 7 | juge cloud en parallèle : « Notation N » saute d'une colonne à l'autre | corrigé : « Notation : k sur N · m en cours » dès deux colonnes notées à la fois ; documenté dans `EXPERIENCE.md` |
+| low | second avis 8 | relais `on_phase` en silencieux : l'Évaluation publiait `lane_status: loading` | corrigé : relais retiré de `streaming.py` (comportement de l'Évaluation inchangé depuis master) |
+| low | second avis 9 | panne détectée par sous-chaîne française | corrigé : constante `JUDGE_UNAVAILABLE`, égalité exacte, vérifiée contre `NOT_EVALUATED_UNAVAILABLE` |
+| low | second avis 10 | `startedAt` jamais remis à zéro | corrigé : horloge par phase et par colonne |
+| medium | revue | E2E d'origine attendait « Notation 2 sur 2 » figé à la fin et un `scoring` avant `loading` | corrigé : tests web (ordre exact, juge chaud, juge injoignable, total qui baisse), unitaires (`test_arena_judge_banner_static.py`) et E2E réalignés |
+| low | revue | juge injoignable : `queued` seul publié, la colonne reste « En file » jusqu'à sa note | accepté : la note « juge indisponible » arrive aussitôt |
+| — | revue | Complexité : 0 constat (`active` et colonnes bornées à 4, aucun parcours d'une structure qui grossit) | — |
+
+Report : `/api/ps` plus lent que 0,25 s sur une machine chargée ferait publier `scoring` puis
+`loading` (la colonne ne recule pas, le bandeau repasse à « chargement ») ; à vérifier avec un vrai
+Ollama et un juge froid (`tests/v2/integration/test_judge_ollama.py`, puis l'Arène à l'écran).

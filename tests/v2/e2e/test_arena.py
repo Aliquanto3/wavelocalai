@@ -792,28 +792,72 @@ def judge_banner(page):
     return page.locator(".arena-judge-banner")
 
 
-def test_the_judge_banner_shows_loading_then_scoring_n_of_total_then_ends(arena, server):
-    """Story 9.3 : « Juge : <modèle> · chargement » dès le juge connu, puis « Notation N sur M ·
-    <colonne> » pendant la notation (le juge prend la place avant même son premier jeton, D3) ;
-    chaque colonne distingue « En file pour la notation » de « Notation en cours ». Le juge local
-    s'attarde une seconde sur chaque note : la notation de `fake:a` (position 1 sur 2) reste visible
-    pendant que `fake:b` attend encore la place, en file."""
-    slow = [{"sleep_s": 0.3}, {"text": "mot"}, {"done": DONE}]
+# Compte les minuteurs actifs de l'horloge du juge (`renderClock`), pour prouver qu'aucun ne reste.
+COUNT_JUDGE_CLOCKS = """(() => {
+  const live = new Map();
+  const set = window.setInterval.bind(window);
+  const clear = window.clearInterval.bind(window);
+  window.setInterval = (fn, ms, ...rest) => {
+    const id = set(fn, ms, ...rest);
+    live.set(id, String(fn));
+    return id;
+  };
+  window.clearInterval = (id) => {
+    live.delete(id);
+    clear(id);
+  };
+  window.__judgeClocks = () => [...live.values()].filter((s) => s.includes("renderClock")).length;
+})();"""
+
+
+def judge_clocks(page) -> int:
+    return page.evaluate("() => window.__judgeClocks()")
+
+
+def test_the_judge_banner_shows_loading_then_scoring_n_of_total_then_ends(page, server):
+    """Story 9.3, revue : « en attente des réponses » pendant la génération, « Juge : <modèle> ·
+    chargement » pendant le chargement réel du juge, puis « Notation N sur M · <colonne> » ;
+    l'horloge est hors de la région live, un seul minuteur tourne et aucun ne reste à la fin.
+    Chaque colonne distingue « En file pour la notation » de « Notation en cours »."""
+    page.add_init_script(COUNT_JUDGE_CLOCKS)
+    open_arena(page, server)
+    arena = page
+    slow = [{"sleep_s": 0.6}, {"text": "mot"}, {"done": DONE}]
+    cold = [{"load": "loading"}, {"sleep_s": 1.0}, {"load": "loaded"}, {"sleep_s": 1.0}]
     scripted(
         arena,
         server,
         {"fake:a": slow, "fake:b": slow},
-        judge={"script": [{"sleep_s": 1.0}, *verdict(72)], "origin": "local"},
+        judge={"script": [*cold, *verdict(72)], "origin": "local"},
     )
     launch(arena)
-    judge_banner(arena).filter(has_text="chargement").wait_for()  # avant toute notation
+    judge_banner(arena).filter(has_text="en attente des réponses").wait_for()
+    judge_banner(arena).filter(has_text="chargement").wait_for()
+    assert status_of(arena, "fake:a") == "En file pour la notation"  # le juge se charge
     judge_banner(arena).filter(has_text="Notation 1 sur 2").wait_for()
     assert "Alpha 1B" in judge_banner(arena).inner_text()
+    live = judge_banner(arena).locator("[aria-live]")
+    assert live.inner_text().startswith("Notation 1 sur 2") and ":" not in live.inner_text()
+    assert judge_banner(arena).locator("[aria-hidden=true]", has_text=":").count() == 1  # horloge
     # `fake:a` note (une seule place locale) : `fake:b` attend encore, en file, pas en notation.
     assert status_of(arena, "fake:a") == "Notation en cours"
     assert status_of(arena, "fake:b") == "En file pour la notation"
+    assert judge_clocks(arena) == 1
     wait_banner(arena, "Comparaison terminée")
-    assert "Notation 2 sur 2" in judge_banner(arena).inner_text()  # fige au dernier état connu
+    assert "notation terminée" in judge_banner(arena).inner_text()
+    assert judge_clocks(arena) == 0  # minuteur arrêté avec le run
+
+
+def test_a_down_judge_is_said_without_a_counter_nor_a_clock(page, server):
+    """Revue 9.3 : juge injoignable, « Juge indisponible » sans compteur, aucun minuteur."""
+    page.add_init_script(COUNT_JUDGE_CLOCKS)
+    open_arena(page, server)
+    scripted(page, server, {}, judge={"script": [{"fail": "ollama_down"}], "origin": "local"})
+    launch(page)
+    wait_banner(page, "Comparaison terminée")
+    text = judge_banner(page).inner_text()
+    assert "Juge indisponible" in text and "sur" not in text
+    assert judge_clocks(page) == 0
 
 
 def test_the_judge_banner_says_no_judge_without_a_counter(page, server):

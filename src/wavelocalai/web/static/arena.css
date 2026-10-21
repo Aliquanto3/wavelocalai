@@ -431,6 +431,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.arena-judge-banner-clock {
+  margin-inline-start: auto; /* horloge à droite, hors de la région live */
+  color: var(--color-ink-secondary);
+}
+
 /* Juge retenu, sous la question posée */
 .arena-judge-info {
   margin: 0 0 0.75rem;
