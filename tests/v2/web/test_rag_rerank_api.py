@@ -1,8 +1,9 @@
-"""Reclassement des extraits par un reranker local, s'il est là (story 4.7), de bout en bout.
+"""Reclassement des extraits par un reranker local, s'il est là (story 4.7 ; fastembed en dépendance
+de base depuis la story 9.5, D-R6), de bout en bout.
 
 Comme `test_rag_strategies_api.py` : l'app est la vraie, seuls l'embedding, le modèle de réponse et
 le reranker sont factices (`Settings.testing`, `POST /api/test/reranker`). Aucun modèle de reranker
-n'est présent ni téléchargé : sans l'extra `rerank` (la CI) ou sans le cache, il est indisponible.
+n'est présent ni téléchargé : sans le cache, il est indisponible.
 """
 
 from __future__ import annotations
@@ -147,7 +148,6 @@ async def test_a_model_that_cannot_be_loaded_is_remembered_and_never_downloaded(
         loads.append((model, cache))
         raise rerank.RerankerUnavailableError(f"le modèle {model} n'a pas pu être chargé")
 
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
     monkeypatch.setattr(rerank, "_model_in_cache", lambda model, cache: True)
     monkeypatch.setattr(service, "_loader", loader)
     assert service.status().available  # le dossier est là : le chargement tranche

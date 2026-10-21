@@ -1,12 +1,11 @@
-"""Récupérer le reranker depuis l'écran Modèles (story 5.5, AD-17) : run `pull`, progression, échec,
-annulation, un seul `pull` à la fois, aucun téléchargement sans l'extra. L'app est la vraie ; le
-téléchargement est factice (`POST /api/test/reranker-install`, `FakeFetcher`) : aucun réseau, aucun
-modèle, jamais un vrai téléchargement."""
+"""Récupérer le reranker depuis l'écran Modèles (story 5.5, AD-17 ; fastembed en dépendance de base
+depuis la story 9.5, D-R6) : run `pull`, progression, échec, annulation, un seul `pull` à la fois.
+L'app est la vraie ; le téléchargement est factice (`POST /api/test/reranker-install`, `FakeFetcher`) :
+aucun réseau, aucun modèle, jamais un vrai téléchargement."""
 
 from __future__ import annotations
 
 import asyncio
-import socket
 
 from wavelocalai.rag import rerank, rerank_pull
 
@@ -39,35 +38,12 @@ async def _reranker_settings(client):
     return (await client.get("/api/rag/settings")).json()["reranker"]
 
 
-async def test_settings_say_whether_the_extra_is_installed_and_why_the_model_is_missing(served):
+async def test_settings_say_why_the_model_is_missing(served):
     _, client = served
-    await _install(client, extra=False)
-    off = await _reranker_settings(client)
-    assert off["available"] is False and off["extra_installed"] is False and off["reason"]
-    await _install(client, extra=True)
+    await _install(client)
     missing = await _reranker_settings(client)
-    assert missing["available"] is False and missing["extra_installed"] is True
+    assert missing["available"] is False
     assert "dossier de cache" in missing["reason"]
-
-
-async def test_without_the_extra_nothing_is_started_and_nothing_is_downloaded(served, monkeypatch):
-    app, client = served
-    service = app.state.reranker
-    service.extra_override = False
-
-    async def no_process(*args, **kwargs):
-        raise AssertionError("un processus de téléchargement a été lancé")
-
-    def no_network(*args, **kwargs):
-        raise AssertionError("accès réseau sans l'extra")
-
-    monkeypatch.setattr(rerank_pull.asyncio, "create_subprocess_exec", no_process)
-    monkeypatch.setattr(socket.socket, "connect", no_network)
-    response = await client.post(URL)  # le vrai service, son vrai téléchargeur
-    assert response.status_code == 422
-    body = response.json()
-    assert body["code"] == "invalid_request" and "uv sync --extra rerank" in str(body["detail"])
-    assert (await _reranker_settings(client))["extra_installed"] is False
 
 
 async def test_the_pull_reports_bytes_and_ends_ok_then_the_reranker_serves_without_restart(served):

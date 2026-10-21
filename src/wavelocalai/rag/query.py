@@ -16,7 +16,7 @@ partent donc avant le premier `token`. Étapes : `naive` = `embedding`, `search`
 Quand un reranker local est là (story 4.7, `rag/rerank.py`), chaque recherche prend plus de
 candidats que `top_k`, l'étape `search` porte `reranking: true` et une étape `rerank` (`candidates`,
 `kept`) suit : le reranker note les candidats contre la question et ne garde que les `top_k`
-meilleurs. Sans reranker (extra, modèle absent ou en échec) rien n'est publié de plus : la raison
+meilleurs. Sans reranker (modèle absent ou en échec) rien n'est publié de plus : la raison
 vient de `GET /api/rag/settings`. Le calcul du reclassement (CPU, thread) n'a pas de feuille : AD-10
 ne mesure que les `embedding` et `generation`.
 

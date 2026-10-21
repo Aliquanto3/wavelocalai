@@ -31,7 +31,7 @@ from wavelocalai.config import Settings
 from wavelocalai.errors import AppError, build_envelope, pull_failed_envelope
 from wavelocalai.inference.pull import PROGRESS_INTERVAL_S, ProgressThrottle, progress_data
 from wavelocalai.models.ollama_pull import PullUpdate
-from wavelocalai.rag.rerank import RerankerService, install_marker, missing_extra_reason
+from wavelocalai.rag.rerank import RerankerService, fastembed_missing_reason, install_marker
 from wavelocalai.runs.hub import RunHub
 from wavelocalai.runs.models import RunHandle
 from wavelocalai.telemetry import disable_telemetry
@@ -39,7 +39,6 @@ from wavelocalai.telemetry import disable_telemetry
 logger = logging.getLogger("wavelocalai.rag")
 
 GIB = 1024**3
-UV_SYNC = "`uv sync --extra rerank`"
 
 
 class RerankerFetchError(Exception):
@@ -67,7 +66,7 @@ async def fetch_in_subprocess(model: str, cache: Path, env_file: str | Path | No
         await process.wait()
         raise
     if process.returncode == 2:
-        raise RerankerFetchError(missing_extra_reason())
+        raise RerankerFetchError(fastembed_missing_reason())
     if process.returncode != 0:
         lines = stderr.decode("utf-8", errors="replace").strip().splitlines()
         raise RerankerFetchError(lines[-1] if lines else f"code de sortie {process.returncode}")
@@ -133,13 +132,10 @@ class RerankerPullService:
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def start(self) -> RunHandle:
-        """Crée le run `pull` du reranker et rend `{run_id}` aussitôt. `invalid_request` si l'extra
-        « rerank » manque (rien n'est tenté) ou si le modèle est déjà installé ; `run_busy` si une
-        installation tourne."""
+        """Crée le run `pull` du reranker et rend `{run_id}` aussitôt. `invalid_request` si le modèle
+        est déjà installé ; `run_busy` si une installation tourne."""
         status = self._reranker.status()
         model = self._reranker.model
-        if not status.extra_installed:
-            raise AppError("invalid_request", f"Installez l'option de reclassement : {UV_SYNC}.")
         if status.available:
             raise AppError("invalid_request", f"Le reranker {model} est déjà installé.")
         handle = await self._hub.create_run(

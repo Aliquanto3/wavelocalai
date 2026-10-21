@@ -81,11 +81,10 @@ dependencies = [
     "ecologits>=0.11.3,<0.12",
     "sqlite-vec==0.1.9",
     "python-multipart>=0.0.32",
+    # Reranker de la v2 (story 9.5, décision D-R6 du 2026-10-21) : dépendance de base, jamais
+    # téléchargée par le code (`local_files_only=True`), seulement par le bouton de l'écran Modèles.
+    "fastembed>=0.9.0",
 ]
-
-[project.optional-dependencies]
-# Reranker de la v2 (hors chemin par défaut) : uv sync --extra rerank
-rerank = ["fastembed>=0.9.0"]
 
 [project.scripts]
 wavelocalai = "src.app.launcher:main"

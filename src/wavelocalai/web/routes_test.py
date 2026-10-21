@@ -20,8 +20,8 @@ d'étapes, chacune un objet à une clé principale :
 `reverse`, `delay_s`), ou le déclare indisponible (`absent`, avec sa `reason`) ; `GET` rend les
 calculs qu'il a faits (story 4.7).
 `POST /api/test/reranker-install` remplace l'installation du reranker (écran Modèles, story 5.5) par une
-installation factice (`ok`, `fail`, `hang`, octets simulés) et règle la présence de l'extra « rerank » ;
-une fois installé, le reranker chargé est un `FakeReranker` : aucun réseau, aucun modèle.
+installation factice (`ok`, `fail`, `hang`, octets simulés) ; une fois installé, le reranker chargé est
+un `FakeReranker` : aucun réseau, aucun modèle.
 `POST /api/test/gpu` fixe l'état du GPU que le flux système publie (`gpu` : nom, mémoire, température,
 bridage thermique ; `null` : aucun GPU, le champ est absent), au lieu de la lecture NVML du poste (5.1).
 `POST /api/test/carbon-sessions` ajoute des sessions closes, datées dans le passé, à l'historique
@@ -305,7 +305,6 @@ async def script_reranker(body: ScriptedReranker, request: Request) -> dict[str,
 
 
 class ScriptedRerankerInstall(BaseModel):
-    extra: bool = True  # l'extra « rerank » est présent
     mode: Literal["ok", "fail", "hang"] = "ok"
     total_bytes: int = Field(default=1_000_000_000, ge=0)
     steps: int = Field(default=4, ge=1, le=100)
@@ -318,7 +317,7 @@ class ScriptedRerankerInstall(BaseModel):
 async def script_reranker_install(
     body: ScriptedRerankerInstall, request: Request
 ) -> dict[str, Any]:
-    """Une installation du reranker factice : l'état du reranker repart de zéro (extra réglé, cache vide)."""
+    """Une installation du reranker factice : l'état du reranker repart de zéro (cache vide)."""
     app = request.app
     service = app.state.reranker
     fake = FakeFetcher(
@@ -328,7 +327,6 @@ async def script_reranker_install(
         step_delay_s=body.step_delay_s,
         reason=body.reason,
     )
-    service.extra_override = body.extra
     service.use_loader(lambda model, cache, env_file: FakeReranker())
     service.refresh()
     shutil.rmtree(model_folder(service.cache, service.model), ignore_errors=True)

@@ -1,12 +1,11 @@
-// « Reclassement des extraits » de l'écran Modèles (story 5.5, AD-5, AD-17, UX-DR27) : le reranker
-// local que la recherche documentaire emploie pour remettre les extraits dans l'ordre de pertinence.
+// « Reclassement des extraits » de l'écran Modèles (story 5.5, AD-5, AD-17, UX-DR27 ; fastembed en
+// dépendance de base depuis la story 9.5, D-R6) : le reranker local que la recherche documentaire
+// emploie pour remettre les extraits dans l'ordre de pertinence.
 //
-// L'état vient de `GET /api/rag/settings` (`reranker: {model, available, reason, extra_installed}`) ;
-// le front ne le devine pas et ne calcule rien (AD-20). Trois états :
+// L'état vient de `GET /api/rag/settings` (`reranker: {model, available, reason}`) ; le front ne le
+// devine pas et ne calcule rien (AD-20). Trois états :
 // - « Installé » : rien à faire ;
-// - « Non installé » avec la raison du serveur et « Installer le reranker » ; sans l'extra « rerank »
-//   le bouton reste focalisable mais désactivé (`aria-disabled`), la raison écrite à côté, et aucun
-//   appel n'est fait : « Installez l'option de reclassement : uv sync --extra rerank » ;
+// - « Non installé » avec la raison du serveur et « Installer le reranker », actif dès `uv sync` seul ;
 // - « Installation en cours » : la barre de progression chiffrée et « Annuler » du run `pull`, que ce
 //   module n'écrit pas (`models-pull.js`) : il en range seulement le nœud ici.
 // Un clic est le seul geste qui télécharge (AD-17). Une autre installation en cours désactive le
@@ -16,7 +15,7 @@ import { element } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 
 export function createRerank({ pull, onInstall }) {
-  let settings = null; // { model, available, reason, extra_installed } ; null : pas encore lu
+  let settings = null; // { model, available, reason } ; null : pas encore lu
   let unknown = false; // la lecture a échoué
 
   const title = element("h2", "", t("models.rerank.title"));
@@ -26,7 +25,6 @@ export function createRerank({ pull, onInstall }) {
   status.setAttribute("role", "status");
   const reason = element("p", "help models-reason");
   reason.id = "models-rerank-reason";
-  const command = element("code", "models-rerank-command", t("models.rerank.extra_command"));
   const button = element("button", "btn models-install-reranker", t("models.rerank.install"));
   button.type = "button";
   button.setAttribute("aria-describedby", reason.id);
@@ -41,12 +39,9 @@ export function createRerank({ pull, onInstall }) {
     onInstall(settings.model);
   });
 
-  // Pourquoi « Installer le reranker » est désactivé, ou null : le texte, ou le texte et la commande.
+  // Pourquoi « Installer le reranker » est désactivé, ou null.
   function blockedReason() {
-    if (settings.extra_installed === false) return { text: t("models.rerank.extra_missing"), command: true };
-    if (pull.busy) {
-      return { text: t("models.rerank.busy", { tag: pull.activeTag ?? "…" }), command: false };
-    }
+    if (pull.busy) return t("models.rerank.busy", { tag: pull.activeTag ?? "…" });
     return null;
   }
 
@@ -81,7 +76,7 @@ export function createRerank({ pull, onInstall }) {
       ? t("models.rerank.status_installing")
       : t("models.rerank.status_off");
     button.hidden = installing;
-    download.hidden = installing || settings.extra_installed === false;
+    download.hidden = installing;
     const blocked = installing ? null : blockedReason();
     button.setAttribute("aria-disabled", String(blocked !== null));
     button.setAttribute("aria-label", t("models.rerank.install_aria", { model: settings.model }));
@@ -89,8 +84,7 @@ export function createRerank({ pull, onInstall }) {
       reason.textContent = "";
       reason.hidden = true;
     } else if (blocked !== null) {
-      reason.replaceChildren(blocked.text);
-      if (blocked.command) reason.append(" ", command);
+      reason.textContent = blocked;
       reason.hidden = false;
     } else {
       // Non installé : la raison dite par le serveur (extra présent, modèle absent du cache).

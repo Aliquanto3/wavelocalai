@@ -4674,6 +4674,7 @@ dependencies = [
     { name = "ecologits" },
     { name = "einops" },
     { name = "fastapi" },
+    { name = "fastembed" },
     { name = "func-timeout" },
     { name = "gputil" },
     { name = "graphviz" },
@@ -4721,11 +4722,6 @@ dependencies = [
     { name = "xlrd" },
 ]
 
-[package.optional-dependencies]
-rerank = [
-    { name = "fastembed" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "axe-playwright-python" },
@@ -4752,7 +4748,7 @@ requires-dist = [
     { name = "ecologits", specifier = ">=0.11.3,<0.12" },
     { name = "einops" },
     { name = "fastapi", specifier = "==0.143.5" },
-    { name = "fastembed", marker = "extra == 'rerank'", specifier = ">=0.9.0" },
+    { name = "fastembed", specifier = ">=0.9.0" },
     { name = "func-timeout" },
     { name = "gputil", specifier = ">=1.4.0" },
     { name = "graphviz", specifier = ">=0.20.1" },
@@ -4799,7 +4795,6 @@ requires-dist = [
     { name = "watchdog", specifier = ">=4.0.0" },
     { name = "xlrd", specifier = ">=2.0.1" },
 ]
-provides-extras = ["rerank"]
 
 [package.metadata.requires-dev]
 dev = [
