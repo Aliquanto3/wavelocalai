@@ -138,3 +138,23 @@ voie à la story 9.3 (même fichiers).
   « arrêté » (couleurs, mise en page) reste pour la story 9.7, comme demandé ; cette story réutilise
   les composants existants (ligne de statut `.wl-lane-status`, icône `block` en `--color-risk`, comme
   `cancelled`), sans nouveau statut de lane.
+
+## Revue
+
+Revue Opus (une passe), base `origin/master` 4472c5c à jour (pas de rebase). Second avis Haiku repris point par point.
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| high | second avis 1 | Arrêt demandé sur une lane `waiting` perdu : `stream()` remettait `_requested` à `None`, la colonne tournait en entier. | Corrigé : l'arrêt vaut pour toute la lane ; demandé avant le début, la tentative finit aussitôt sans appeler l'adaptateur (réponse vide, « non évalué », `stopped_reason: "user"`). Tests `test_a_stop_requested_before_the_attempt_starts_skips_the_call`, `test_stopping_a_waiting_lane_finishes_it_at_once_not_evaluated`. |
+| medium | revue | En `judging`, `POST …/stop` rendait `stopped: true` sans effet, et le bouton restait visible (EXPERIENCE.md le promettait pendant la notation). | Corrigé : `request_stop` rend `False` une fois la génération finie ; bouton masqué en notation (`IN_PROGRESS` de `wl-arena-lane.js`), EXPERIENCE.md réaligné. |
+| high | second avis 2 | `finish_reason` Anthropic brut non normalisé. | Rejeté : `WallClock.result` (`models/cloud.py`) passe par `normalize_finish` pour Anthropic, Mistral et openai_compat (`max_tokens`, `length`, `model_length` -> `length`, vérifié à l'exécution) ; Ollama rend `done_reason: "length"` au plafond `num_predict`. |
+| medium | second avis 3 | Période maximale = fenêtre analysée / 4 (200 car.) : un paragraphe répété de plus de 200 caractères n'était jamais vu. | Corrigé : périodes jusqu'à `MAX_PERIOD_CHARS` (1000), fenêtre bornée à `min_repeats × 1000`. Test sur un paragraphe de ~400 car. répété 4 fois. |
+| medium | second avis 4 | Faux positifs confirmés (l'ancien code déclenchait) sur une matrice de zéros, une grille ASCII, un CSV et un tableau Markdown de lignes identiques, des objets JSON identiques, des lignes de code identiques. | Corrigé : le fragment répété doit compter au moins 50 % de lettres (`MIN_LETTER_RATIO`). Six cas ajoutés au jeu de faux positifs. |
+| medium | second avis 5 | Arrêt au moment du `Done` naturel : `Done` synthétique « user » émis après le réel, dont il écrasait les métriques. | Corrigé : pas de `Done` synthétique après un `Done` réel. Test `test_a_stop_after_the_real_done_keeps_its_metrics_and_is_refused`. |
+| medium | revue | Relance d'une lane (`retry_interrupted`) : le détecteur gardait la longueur vérifiée de la tentative précédente et restait aveugle jusqu'à la dépasser. | Corrigé : `LoopDetector.reset()` à chaque tentative. Test `test_loop_detector_reset_forgets_the_previous_attempt`. |
+| low | second avis 6 | `await task` sous `suppress(CancelledError)` pouvait avaler l'annulation de la lane. | Corrigé : `asyncio.wait` sur les tâches annulées, qui laisse remonter une annulation externe. |
+| low | second avis 7 | `stopped_reason` au milieu de `CSV_COLUMNS`. | Corrigé : dernière colonne. Test d'export CSV et Markdown ajouté (le critère « les exports portent la raison » n'avait pas de test). |
+| low | second avis 8 / Complexité | `"".join(self.answer)` à chaque jeton : O(n²) sur la réponse. | Corrigé : `LoopDetector.feed` reçoit le morceau, garde une fin bornée et n'assemble qu'au pas de vérification (O(fenêtre) par vérification ; pire cas mesuré 2 ms sur 4 000 car. de zéros). |
+| low | second avis 9 | Boucle à compteur variable (« Étape 1… Étape 2… ») non détectée. | Rejeté (accepté par conception) : documenté dans `loop_detector.py`, le plafond `arena.max_tokens` la borne. |
+
+Tests : `test_loop_detector.py` (17), `test_arena_stop_api.py` (9), `test_arena_export.py` (7), unit Arène / adaptateurs cloud / config / couches, web Arène (4 fichiers), E2E `test_arena_stop.py` (4) et `test_arena.py` (57) sur Edge ; contrôle rapide propre. Pas d'essai réel avec Ollama.

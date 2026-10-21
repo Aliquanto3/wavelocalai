@@ -191,3 +191,26 @@ def test_a_configured_key_is_masked_everywhere_in_the_document():
     for text in (to_csv(doc), to_markdown(doc), str(doc)):
         assert KEY not in text
     assert "***" in to_markdown(doc)
+
+
+def test_the_exports_carry_the_stopped_reason_of_a_lane_stopped_early():
+    # Story 9.2 : la raison d'arrêt (`lane_status.stopped_reason`) va dans le document, en dernière
+    # colonne du CSV (les colonnes existantes ne bougent pas) et dans la colonne « Arrêt » du
+    # Markdown ; une lane finie d'elle-même n'en a pas.
+    lanes = {
+        "qwen2.5:1.5b": {"status": "done", "stopped_reason": "loop"},
+        "openai/gpt": {"status": "done"},
+    }
+    doc = document(record={**RECORD, "lanes": lanes})
+    assert [m["stopped_reason"] for m in doc["models"]] == ["loop", None]
+    rows = list(csv.reader(io.StringIO(to_csv(doc).lstrip("﻿"))))
+    assert rows[0][-1] == "stopped_reason" and rows[0][:5] == [
+        "run_id",
+        "question",
+        "model",
+        "origin",
+        "status",
+    ]
+    assert rows[1][-1] == "loop" and rows[2][-1] == ""
+    markdown = to_markdown(doc)
+    assert "| Arrêt |" in markdown and "arrêtée : le modèle se répétait" in markdown

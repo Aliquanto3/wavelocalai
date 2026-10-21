@@ -54,7 +54,7 @@ const END_STATUS = {
 };
 const STARTED = new Set(["loading", "generating"]);
 const FINAL = new Set(["timeout", "failed", "cancelled", "interrupted"]); // un statut final ne change plus
-const IN_PROGRESS = new Set(["waiting", "loading", "generating", "judging"]); // « Arrêter ce modèle »
+const IN_PROGRESS = new Set(["waiting", "loading", "generating"]); // « Arrêter ce modèle » : pas en notation
 let counter = 0;
 
 function badgeKind(origin) {

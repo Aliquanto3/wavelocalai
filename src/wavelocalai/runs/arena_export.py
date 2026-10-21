@@ -27,7 +27,6 @@ CSV_COLUMNS = (
     "model",
     "origin",
     "status",
-    "stopped_reason",
     "score",
     "reason",
     "tps",
@@ -51,6 +50,7 @@ CSV_COLUMNS = (
     "machine_accelerator",
     "app_version",
     "exported_at",
+    "stopped_reason",  # story 9.2 : en fin, sans décaler les colonnes existantes
 )
 DEFINITIONS = {
     "score": "Note sur 100 donnée par le juge ; `null` pour « non évalué », jamais 0 ; `reason` dit "
@@ -174,7 +174,6 @@ def to_csv(document: Mapping[str, Any]) -> str:
                     row["model"],
                     row["origin"],
                     row["status"],
-                    row["stopped_reason"],
                     row["score"],
                     row["reason"],
                     row["tps"],
@@ -198,6 +197,7 @@ def to_csv(document: Mapping[str, Any]) -> str:
                     accelerator,
                     document["app_version"],
                     document["exported_at"],
+                    row["stopped_reason"],
                 )
             ]
         )

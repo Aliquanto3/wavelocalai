@@ -102,8 +102,10 @@ class _RecordingModel:
     (comme une annulation, AD-8) et synthétise un `Done` à partir de ce qui a déjà été reçu, avec un
     débit approché sur l'horloge (`tps_source: "wallclock"`) : la mesure CodeCarbon, elle, tourne
     pendant tout l'appel et n'est pas affectée (AD-10, AD-11). Chaque appel de `stream` repart de
-    zéro (relance comprise) ; `stop_reason` dit la raison d'un arrêt, posée au premier `Done`, réel
-    ou synthétique."""
+    zéro (relance comprise), sauf un arrêt demandé, qui vaut pour toutes les tentatives : demandé
+    avant le début (lane en attente de la place locale), il finit la tentative aussitôt, sans appeler
+    l'adaptateur (réponse vide, « non évalué »). `stop_reason` dit la raison d'un arrêt : celle du
+    `Done` réel (`length` -> `max_tokens`) ou celle du `Done` synthétique, jamais les deux."""
 
     def __init__(self, model: ChatModel, loop_detector: LoopDetector | None = None) -> None:
         self.ref = model.ref
@@ -111,50 +113,59 @@ class _RecordingModel:
         self._loop_detector = loop_detector
         self.answer: list[str] = []
         self.stop_reason: str | None = None  # "max_tokens" | "loop" | "user"
-        self._requested: str | None = None  # arrêt demandé en cours de route (`request_stop`)
+        self._requested: str | None = None  # arrêt demandé (`request_stop`), pour toute la lane
         self._stop_event = asyncio.Event()  # réveille l'attente du prochain jeton (arrêt réactif)
+        self._generated = False  # vrai dès qu'une tentative est allée au bout (`Done` émis)
 
-    def request_stop(self, reason: str) -> None:
-        """Demande l'arrêt de la tentative en cours, même pendant l'attente d'un jeton (le modèle
-        « réfléchit ») : `stream` court-circuite cette attente dès que l'événement se lève, sans
-        attendre le prochain jeton. Sans effet si déjà demandé."""
+    def request_stop(self, reason: str) -> bool:
+        """Demande l'arrêt de la génération, même pendant l'attente d'un jeton (le modèle
+        « réfléchit ») : `stream` court-circuite cette attente dès que l'événement se lève. `False`
+        si la génération est déjà finie (notation en cours) : il n'y a plus rien à arrêter."""
+        if self._generated:
+            return False
         if self._requested is None:
             self._requested = reason
             self._stop_event.set()
+        return True
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         self.answer.clear()
         self.stop_reason = None
-        self._requested = None
-        self._stop_event.clear()
+        if self._loop_detector is not None:
+            self._loop_detector.reset()
         start = time.monotonic()
+        if self._requested is not None:  # arrêtée avant même de commencer : aucun appel
+            self._generated = True
+            yield self._synthetic_done(self._requested, start, None)
+            return
         first_token_at: float | None = None
         stopping: str | None = None
+        finished = False  # `Done` réel reçu : pas de `Done` synthétique après lui
         async with contextlib.aclosing(self._model.stream(request)) as upstream:
             iterator = upstream.__aiter__()
             while True:
                 chunk = await self._next_or_stop(iterator)
                 if chunk is None:  # fin naturelle, ou arrêt demandé avant le prochain jeton
-                    stopping = stopping or self._requested
+                    stopping = None if finished else stopping or self._requested
                     break
                 if isinstance(chunk, TextDelta) and chunk.channel == "answer":
                     if first_token_at is None:
                         first_token_at = time.monotonic()
                     self.answer.append(chunk.text)
-                    if self._loop_detector is not None and self._loop_detector.feed(
-                        "".join(self.answer)
-                    ):
+                    if self._loop_detector is not None and self._loop_detector.feed(chunk.text):
                         stopping = "loop"
                 elif isinstance(chunk, Done):
-                    reason = STOPPED_REASON.get(chunk.result.finish_reason)
-                    if reason is not None:
-                        self.stop_reason = reason
-                if stopping is None and self._requested is not None:
+                    finished = True
+                    self._generated = True
+                    self.stop_reason = STOPPED_REASON.get(chunk.result.finish_reason)
+                    stopping = None
+                if stopping is None and not finished and self._requested is not None:
                     stopping = self._requested
                 yield chunk
                 if stopping is not None:
                     break
         if stopping is not None:
+            self._generated = True
             yield self._synthetic_done(stopping, start, first_token_at)
 
     async def _next_or_stop(self, iterator: AsyncIterator[ChatChunk]) -> ChatChunk | None:
@@ -175,11 +186,15 @@ class _RecordingModel:
             except StopAsyncIteration:
                 return None
         finally:
-            for task in (next_chunk, stop_wait):
-                if not task.done():
-                    task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
-                    await task
+            pending = {task for task in (next_chunk, stop_wait) if not task.done()}
+            for task in pending:
+                task.cancel()
+            if pending:
+                # `asyncio.wait` ne relance pas l'annulation des tâches attendues : une annulation
+                # de la lane elle-même (hub, délai) remonte, au lieu d'être avalée ici.
+                await asyncio.wait(pending)
+            if next_chunk.done() and not next_chunk.cancelled():
+                next_chunk.exception()  # lue : pas d'avertissement « exception never retrieved »
 
     def _synthetic_done(self, reason: str, start: float, first_token_at: float | None) -> Done:
         """`Done` d'un arrêt avant la fin naturelle : jetons estimés (4 caractères, comme l'estimation
@@ -331,12 +346,12 @@ class ArenaService:
     def request_stop(self, lane_run_id: str) -> bool:
         """Arrête la lane d'`id` `lane_run_id` seule (« Arrêter ce modèle ») : les autres continuent,
         la réponse partielle est gardée et notée (`stopped_reason: "user"`), à la différence de
-        `RunHub.cancel` qui ne note rien. Rend `False` si la lane est inconnue ou déjà terminée."""
+        `RunHub.cancel` qui ne note rien. Rend `False` si la lane est inconnue, terminée ou
+        déjà en notation (plus rien à générer)."""
         lane = self._active_lanes.get(lane_run_id)
         if lane is None or lane.status in TERMINAL:
             return False
-        lane.model.request_stop("user")
-        return True
+        return lane.model.request_stop("user")
 
     async def _default_judge(self, allow_cloud: bool) -> ModelRef | None:
         """Défaut `judge` (plus gros local qui tient, ou cloud autorisé) ; `None` sans service de

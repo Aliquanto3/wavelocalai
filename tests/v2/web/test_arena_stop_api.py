@@ -238,3 +238,89 @@ async def test_stopping_an_unknown_run_id_is_run_not_found(tmp_path):
     async with arena_app(tmp_path) as (app, client):
         result = await client.post("/api/runs/does-not-exist/stop")
         assert result.status_code == 404 and result.json()["code"] == "run_not_found"
+
+
+# --- Revue de la story 9.2 : arrêt en attente, arrêt après la fin, `Done` unique -------------
+
+
+async def _drain(model, request):
+    return [chunk async for chunk in model.stream(request)]
+
+
+async def test_a_stop_requested_before_the_attempt_starts_skips_the_call():
+    from wavelocalai.inference.arena import _RecordingModel
+    from wavelocalai.models.port import ChatMessage, ChatRequest
+
+    fake = local("fake:a", say("jamais"))
+    model = _RecordingModel(fake)
+    assert model.request_stop("user") is True  # lane encore en attente de la place locale
+    chunks = await _drain(model, ChatRequest([ChatMessage("user", "Q")]))
+    assert fake.opened == 0  # l'adaptateur n'est pas appelé : rien à charger ni à générer
+    assert [type(c) for c in chunks] == [Done]
+    assert chunks[0].result.finish_reason == "user" and model.stop_reason == "user"
+    assert model.answer == []
+
+
+async def test_a_stop_after_the_real_done_keeps_its_metrics_and_is_refused():
+    from wavelocalai.inference.arena import _RecordingModel
+    from wavelocalai.models.port import ChatMessage, ChatRequest
+
+    real = Done(ChatResult(finish_reason="stop", output_tokens=2, tps=42.0, tps_source="native"))
+    model = _RecordingModel(local("fake:a", [*say("A "), real]))
+    chunks = []
+    async for chunk in model.stream(ChatRequest([ChatMessage("user", "Q")])):
+        chunks.append(chunk)
+        if isinstance(chunk, Done):
+            model.request_stop("user")  # clic arrivé pile au `Done` naturel
+    dones = [c for c in chunks if isinstance(c, Done)]
+    assert dones == [real]  # pas de `Done` synthétique qui écraserait les métriques réelles
+    assert model.stop_reason is None
+    assert model.request_stop("user") is False  # génération finie : plus rien à arrêter
+
+
+async def test_stopping_a_waiting_lane_finishes_it_at_once_not_evaluated(tmp_path):
+    a = local("fake:a", [TextDelta("A "), Sleep(0.5), TextDelta("fin")])
+    b = local("fake:b", say("jamais"))  # attend la place locale tenue par A
+    async with arena_app(tmp_path, a, b) as (app, client):
+        run_id = (
+            await client.post(
+                "/api/arena/runs",
+                json={
+                    "models": ["fake:a", "fake:b"],
+                    "prompt": "Explique.",
+                    "allow_cloud": True,
+                    "judge": "fake:a",
+                },
+            )
+        ).json()["run_id"]
+        events = await _until(
+            app,
+            run_id,
+            lambda ev: any(e["type"] == "token" and e["data"]["lane"] == "fake:a" for e in ev),
+        )
+        assert statuses(events, "fake:b")[-1] == "waiting"
+        result = await client.post(f"/api/runs/{_lane_run_id(events, 'fake:b')}/stop")
+        assert result.json()["stopped"] is True
+        await _ended(client, run_id)
+        events = await _events(client, run_id)
+    assert b.opened == 0  # jamais lancée : l'arrêt demandé en attente n'est pas perdu
+    done_b = [
+        e["data"]
+        for e in events
+        if e["type"] == "lane_status"
+        and e["data"]["lane"] == "fake:b"
+        and e["data"]["status"] == "done"
+    ]
+    assert done_b and done_b[0]["stopped_reason"] == "user"
+    score_b = next(
+        e["data"] for e in events if e["type"] == "judge_score" and e["data"]["lane"] == "fake:b"
+    )
+    assert score_b["score"] is None  # réponse vide : « non évalué », jamais 0
+    done_a = next(
+        e["data"]
+        for e in events
+        if e["type"] == "lane_status"
+        and e["data"]["lane"] == "fake:a"
+        and e["data"]["status"] == "done"
+    )
+    assert "stopped_reason" not in done_a  # l'autre lane va au bout
