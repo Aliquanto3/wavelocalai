@@ -137,5 +137,8 @@ class FakeEmbedder:
 
 
 def fake_embedders(settings: Settings) -> dict[str, Embedder]:
-    """Embedders factices à enregistrer : aucun hors `Settings.testing`."""
-    return {FAKE_EMBED_REF.tag: FakeEmbedder()} if settings.testing else {}
+    """Embedders factices à enregistrer : aucun hors `Settings.testing`, et aucun non plus avec
+    `testing_no_fake_embedder` (E2E, story 9.4 : simuler un poste sans aucun embedding)."""
+    if not settings.testing or settings.testing_no_fake_embedder:
+        return {}
+    return {FAKE_EMBED_REF.tag: FakeEmbedder()}

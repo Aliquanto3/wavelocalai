@@ -27,6 +27,7 @@ import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import "../components/index.js";
+import { createEmbeddingAlert } from "./documents-embedding-alert.js";
 import { createManage } from "./documents-manage.js";
 import { createSettings } from "./documents-settings.js";
 import { ImportRow, plural } from "./documents-import-row.js";
@@ -116,10 +117,20 @@ export function mount(host) {
   });
   const settings = createSettings({ onClear: () => clearBase(), say: manage.say });
 
+  // Aucun modèle de représentation installé (story 9.4) : encart d'alerte, même run `pull` (AD-17).
+  const embeddingAlert = createEmbeddingAlert({
+    host,
+    say: (text) => ((notice.textContent = text), (notice.hidden = false)),
+    onChange: () => render(),
+    onInstalled: () => settings.load(), // le modèle fraîchement installé devient le défaut de la liste
+  });
+  drop.insertBefore(embeddingAlert.dropReasonNode, input);
+
   host.replaceChildren(
     element("h1", "", t("screens.documents-base")),
     screenTabs("documents", "documents-base"),
     element("p", "lead", t("docs.lead")),
+    embeddingAlert.el,
     drop,
     notice,
     problem,
@@ -222,8 +233,9 @@ export function mount(host) {
     renderLimits();
     const importing = busy();
     const lockedNow = locked();
-    choose.disabled = importing;
-    emptyAction.disabled = importing;
+    const noEmbedding = embeddingAlert.blocksImport;
+    choose.disabled = emptyAction.disabled = importing || noEmbedding;
+    input.disabled = drop.dataset.blocked = noEmbedding;
     busyHelp.hidden = !importing;
     lockNote.hidden = !lockedNow;
     clearButton.disabled = lockedNow;
@@ -409,7 +421,7 @@ export function mount(host) {
 
   async function startImport(list) {
     const files = Array.from(list ?? []);
-    if (files.length === 0 || busy()) return;
+    if (files.length === 0 || busy() || embeddingAlert.blocksImport) return;
     problem.error = null;
     notice.hidden = true;
     const limits = data?.limits;
@@ -557,6 +569,7 @@ export function mount(host) {
   const visibility = new MutationObserver(() => {
     if (host.hidden === wasHidden) return;
     wasHidden = host.hidden;
+    embeddingAlert.setHidden(wasHidden);
     if (wasHidden) {
       stream?.close({ keepSeq: true });
       stream = null;
@@ -564,6 +577,7 @@ export function mount(host) {
       if (runId) openStream(runId);
       refresh();
       settings.load();
+      embeddingAlert.load();
     }
   });
   visibility.observe(host, { attributes: true, attributeFilter: ["hidden"] });
@@ -572,6 +586,7 @@ export function mount(host) {
   render();
   refresh().then((loaded) => adoptActiveRun(loaded, false));
   settings.load();
+  embeddingAlert.load();
 
   return () => {
     visibility.disconnect();
@@ -580,5 +595,6 @@ export function mount(host) {
     uploading?.abort();
     stream?.close();
     stream = null;
+    embeddingAlert.dispose();
   };
 }

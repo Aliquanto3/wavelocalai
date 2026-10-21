@@ -109,6 +109,15 @@
     "embed_changed": "Modèle de représentation changé : {{name}}. Vous pouvez importer vos documents.",
     "settings_extracts_one": "{n} extrait lu",
     "settings_extracts_other": "{n} extraits lus",
-    "index_volatile": "L'index de recherche de ce poste est en mémoire (sqlite-vec n'est pas chargé) : après un redémarrage du serveur, les documents devront être réimportés."
+    "index_volatile": "L'index de recherche de ce poste est en mémoire (sqlite-vec n'est pas chargé) : après un redémarrage du serveur, les documents devront être réimportés.",
+    "embedding_alert_title": "Aucun modèle de représentation installé",
+    "embedding_alert_text": "Installez nomic-embed-text ({size}) pour pouvoir importer vos documents : il transforme chaque extrait en vecteur pour la recherche.",
+    "embedding_alert_size": "274 Mo",
+    "embedding_alert_install": "Installer nomic-embed-text",
+    "embedding_alert_install_aria": "Installer le modèle de représentation nomic-embed-text",
+    "embedding_alert_download_help": "Le téléchargement se fait une seule fois, à votre clic, dans le dossier de données de l'application.",
+    "embedding_alert_busy": "Une installation est en cours ({tag}).",
+    "embedding_alert_ollama_down": "Ollama ne répond pas : démarrez-le pour installer un modèle.",
+    "embedding_alert_drop_reason": "Aucun modèle de représentation n'est installé : utilisez « Installer nomic-embed-text » ci-dessus."
   }
 }

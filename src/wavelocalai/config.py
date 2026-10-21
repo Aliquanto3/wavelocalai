@@ -47,6 +47,9 @@ ENV_OVERRIDES: dict[str, tuple[str, str]] = {
     "SMTP_PASSWORD": ("smtp", "password"),
 }
 TESTING_VAR = "WAVELOCALAI_TESTING"
+# E2E seulement (story 9.4) : simule un poste sans aucun modèle d'embedding, même en `testing`
+# (le `fake` ne sert plus de dernier recours), pour prouver l'encart d'alerte sans modèle réel.
+NO_FAKE_EMBEDDER_VAR = "WAVELOCALAI_TESTING_NO_FAKE_EMBEDDER"
 
 
 class ConfigError(Exception):
@@ -223,6 +226,7 @@ class Settings(BaseModel):
     smtp: SmtpSettings = SmtpSettings()
     api_keys: dict[str, SecretStr] = Field(default_factory=dict)
     testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
+    testing_no_fake_embedder: bool = False  # E2E (story 9.4) : aucun embedding, même `fake`
     base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)
     env_file: Path | None = None  # `.env` lu (et passé à `disable_telemetry`)
 
@@ -304,6 +308,10 @@ def load_settings(
         if (value := (values.get(var) or "").strip())
     }
     data["testing"] = (values.get(TESTING_VAR) or "").strip().lower() in {"1", "true"}
+    data["testing_no_fake_embedder"] = (values.get(NO_FAKE_EMBEDDER_VAR) or "").strip().lower() in {
+        "1",
+        "true",
+    }
     data["base_dir"] = toml_file.resolve().parent
     data["env_file"] = dotenv_file
     if overrides:

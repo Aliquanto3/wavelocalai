@@ -204,7 +204,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         preferences=app.state.preferences,
     )
     app.state.rag_base = RagBaseService(
-        hub, app.state.registry, settings, index, app.state.preferences, app.state.reranker
+        hub,
+        app.state.registry,
+        settings,
+        index,
+        app.state.preferences,
+        app.state.reranker,
+        fallback_model=next(iter(app.state.embedders), None),  # le `fake`, `testing` seulement
     )
     app.state.pull = PullService(
         hub, app.state.registry, settings, transport=app.state.ollama_transport

@@ -222,7 +222,7 @@ _SPECS = (
         "no_embedding_model",
         404,
         "Aucun modèle d'embedding n'est installé sur ce poste.",
-        "Installez un modèle d'embedding dans Ollama (par exemple `ollama pull nomic-embed-text`), "
+        "Installez-le depuis le bouton « Installer nomic-embed-text » de la Base documentaire, "
         "puis réessayez.",
     ),
     ErrorSpec(
