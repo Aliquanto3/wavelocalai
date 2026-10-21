@@ -39,7 +39,6 @@ from wavelocalai.telemetry import disable_telemetry
 logger = logging.getLogger("wavelocalai.rag")
 
 GIB = 1024**3
-UV_SYNC = "`uv sync --extra rerank`"
 
 
 class RerankerFetchError(Exception):
@@ -133,13 +132,10 @@ class RerankerPullService:
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def start(self) -> RunHandle:
-        """Crée le run `pull` du reranker et rend `{run_id}` aussitôt. `invalid_request` si l'extra
-        « rerank » manque (rien n'est tenté) ou si le modèle est déjà installé ; `run_busy` si une
-        installation tourne."""
+        """Crée le run `pull` du reranker et rend `{run_id}` aussitôt. `invalid_request` si le modèle
+        est déjà installé ; `run_busy` si une installation tourne."""
         status = self._reranker.status()
         model = self._reranker.model
-        if not status.extra_installed:
-            raise AppError("invalid_request", f"Installez l'option de reclassement : {UV_SYNC}.")
         if status.available:
             raise AppError("invalid_request", f"Le reranker {model} est déjà installé.")
         handle = await self._hub.create_run(

@@ -40,9 +40,15 @@ def test_fetch_downloads_into_the_given_cache_without_local_files_only(monkeypat
     assert order == ["telemetry"]
 
 
-def test_fetch_exit_codes_say_extra_missing_or_the_first_error_line(monkeypatch, tmp_path, capsys):
+def test_fetch_exit_codes_say_fastembed_missing_or_the_first_error_line(
+    monkeypatch, tmp_path, capsys
+):
+    """fastembed est une dépendance de base (story 9.5) : le code reste défensif sur `ImportError`."""
     monkeypatch.setattr(rerank_fetch, "disable_telemetry", lambda env=None: None)
     monkeypatch.setitem(sys.modules, "fastembed", None)  # `import` lève ImportError
+    monkeypatch.setitem(
+        sys.modules, "fastembed.rerank.cross_encoder", None
+    )  # déjà importé ailleurs
     assert rerank_fetch.main(["x", MODEL, str(tmp_path)]) == 2
 
     class Broken:
@@ -114,7 +120,7 @@ async def test_the_subprocess_runs_the_fetch_module_and_reports_failures(monkeyp
         return FakeProcess(2)
 
     monkeypatch.setattr(rerank_pull.asyncio, "create_subprocess_exec", missing)
-    with pytest.raises(rerank_pull.RerankerFetchError, match="rerank"):
+    with pytest.raises(rerank_pull.RerankerFetchError, match="fastembed"):
         await rerank_pull.fetch_in_subprocess(MODEL, tmp_path)
 
 

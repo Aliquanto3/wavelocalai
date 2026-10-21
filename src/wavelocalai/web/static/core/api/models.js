@@ -14,8 +14,9 @@ export function modelsApi(request) {
     // Installe un modèle : run racine `pull`, `{run_id}` aussitôt ; la progression se lit par le flux
     // du run. `409 run_busy` (`detail.run_id`) : une installation tourne déjà (story 5.3).
     pullModel: (tag) => request("/api/models/pull", { method: "POST", body: { tag } }),
-    // Installe le reranker local (modèle fastembed, extra « rerank ») : le même run racine `pull`,
-    // `{run_id}` aussitôt ; `409 run_busy` si une installation tourne, `422` sans l'extra (story 5.5).
+    // Installe le reranker local (modèle fastembed, dépendance de base depuis la story 9.5) : le même
+    // run racine `pull`, `{run_id}` aussitôt ; `409 run_busy` si une installation tourne, `422` si le
+    // modèle est déjà là (story 5.5).
     pullReranker: () => request("/api/models/reranker/pull", { method: "POST" }),
     // Fiche d'un modèle (story 5.6) : caractéristiques, « Pourquoi ce débit ? » et « Sur d'autres
     // postes » (résultats du banc), tout calculé par le serveur. `404 model_not_found` si inconnu.

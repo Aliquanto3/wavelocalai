@@ -69,7 +69,7 @@ Une flèche = « peut importer ». `web/` peut importer tous les paquets ; aucun
 
 - **Binds:** pyproject, `uv.lock`, lanceurs, `src/`
 - **Prevents:** une v2 qui dépend du `src/core/` de la v1 (et fausse le banc ou bloque l'archivage), deux lanceurs qui se marchent dessus, deux environnements.
-- **Rule:** la v2 n'importe jamais `src.*` et la v1 n'importe jamais `wavelocalai` : ce qui est repris est copié puis adapté. Le paquet s'importe sous le nom `wavelocalai` grâce à `[tool.hatch.build] dev-mode-dirs = [".", "src"]` : **installation éditable seulement** jusqu'à la bascule (testé : `import wavelocalai`, `import src.core` et le script résolvent). Un seul `pyproject.toml`, un seul `uv.lock` : dépendances v2 dans `dependencies`, fastembed dans l'extra `rerank`. La v1 garde le script `wavelocalai` ; la v2 se lance par `wavelocalai-v2` (`wavelocalai.__main__:main`). À la bascule, les noms s'échangent, les dépendances de la v1 sortent et `packages` passe à `src/wavelocalai`.
+- **Rule:** la v2 n'importe jamais `src.*` et la v1 n'importe jamais `wavelocalai` : ce qui est repris est copié puis adapté. Le paquet s'importe sous le nom `wavelocalai` grâce à `[tool.hatch.build] dev-mode-dirs = [".", "src"]` : **installation éditable seulement** jusqu'à la bascule (testé : `import wavelocalai`, `import src.core` et le script résolvent). Un seul `pyproject.toml`, un seul `uv.lock` : dépendances v2 dans `dependencies`, fastembed compris depuis la story 9.5 (amendement, décision D-R6, 2026-10-21 : fastembed sort de l'extra `rerank`, qui n'existe plus). La v1 garde le script `wavelocalai` ; la v2 se lance par `wavelocalai-v2` (`wavelocalai.__main__:main`). À la bascule, les noms s'échangent, les dépendances de la v1 sortent et `packages` passe à `src/wavelocalai`.
 
 ### AD-3 — Une seule version par dépôt [ADOPTED]
 
@@ -195,9 +195,9 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 
 ### AD-17 — Téléchargements et reranker [ADOPTED]
 
-- **Binds:** CAP-9, CAP-10, extra `rerank`
-- **Prevents:** un téléchargement au milieu d'une démo, un RAG cassé sans l'extra.
-- **Rule:** aucun téléchargement implicite ; seules deux actions explicites de l'utilisateur téléchargent, chacune en run `pull` : installer un modèle Ollama, récupérer le modèle du reranker. Ollama n'ayant pas d'API de reranking, le reranker est fastembed (extra `rerank`), chargé avec `local_files_only=True` depuis le `cache_dir` du dossier de données. Extra absent, modèle absent ou `ValueError` au chargement : le RAG tourne sans reranker et l'écran dit pourquoi. Jusqu'à l'écran Modèles (étape 5), qui porte le run `pull` du reranker, celui-ci ne sert que si son cache est déjà rempli ; le README dit comment le remplir.
+- **Binds:** CAP-9, CAP-10
+- **Prevents:** un téléchargement au milieu d'une démo, un RAG cassé sans son modèle.
+- **Rule:** aucun téléchargement implicite ; seules deux actions explicites de l'utilisateur téléchargent, chacune en run `pull` : installer un modèle Ollama, récupérer le modèle du reranker. Ollama n'ayant pas d'API de reranking, le reranker est fastembed (dépendance de base depuis la story 9.5, décision D-R6, 2026-10-21 — amendement, remplace « extra `rerank` »), chargé avec `local_files_only=True` depuis le `cache_dir` du dossier de données. Modèle absent ou `ValueError` au chargement : le RAG tourne sans reranker et l'écran dit pourquoi. Dès `uv sync` seul, le bouton « Installer le reranker » de l'écran Modèles porte le run `pull` du reranker, seul téléchargement.
 
 ### AD-18 — Erreurs
 
@@ -259,10 +259,10 @@ ChatResult  = finish_reason, input_tokens, output_tokens, ttft_s, load_s, eval_s
 | ollama (client Python) | 0.6.3 |
 | sqlite-vec | 0.1.9 |
 | ecologits | 0.11.3 (épinglé `>=0.11.3,<0.12`) |
-| fastembed (extra `rerank`) | 0.9.0 |
+| fastembed (dépendance de base depuis la story 9.5) | 0.9.0 |
 | SQLite (embarqué par CPython via uv) | 3.53.1 |
 
-Versions vérifiées le 2026-10-18 par installation réelle (uv) et sur PyPI ; les SDK `openai`, `anthropic`, `mistralai`, `codecarbon`, `pypdf`, `python-docx`, déjà au `pyproject`, se revérifient à la story qui les utilise.
+Versions vérifiées le 2026-10-18 par installation réelle (uv) et sur PyPI ; les SDK `openai`, `anthropic`, `mistralai`, `codecarbon`, `pypdf`, `python-docx`, déjà au `pyproject`, se revérifient à la story qui les utilise. fastembed revérifié le 2026-10-21 (story 9.5, D-R6) : toujours 0.9.0 sur PyPI, installation réelle confirmée.
 
 ## Structural Seed
 
@@ -319,7 +319,7 @@ flowchart LR
 | Exploitation | Choix |
 | --- | --- |
 | Environnement | un seul : le poste de l'utilisateur, un processus mono-utilisateur ; aucun hébergement |
-| Installation | `uv sync` (+ `--extra rerank` en option), éditable ; aucun Node |
+| Installation | `uv sync`, éditable ; aucun Node |
 | Port | 8502 par défaut (8501 reste à la v1), configurable |
 | Données | dossier configurable, défaut `data/` ; alerte au démarrage s'il est sous OneDrive |
 | Redémarrage | `instance_id` nouveau à chaque démarrage ; runs en cours → `run_ended` `interrupted` |

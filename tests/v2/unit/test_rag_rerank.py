@@ -138,11 +138,10 @@ def test_a_value_error_at_load_is_an_unavailable_reranker_with_its_reason(
 def test_the_real_fastembed_never_reaches_the_network_with_an_empty_or_partial_cache(
     monkeypatch, tmp_path
 ):
-    """Le chemin réel de fastembed (extra `rerank`) : cache vide, puis dossier du modèle présent mais
-    incomplet. Aucune connexion hors de la machine (le bouclage local d'asyncio reste permis) ;
-    l'échec est une indisponibilité avec sa raison. Saute sans l'extra (CI, `uv sync` par défaut).
+    """Le chemin réel de fastembed (dépendance de base depuis la story 9.5) : cache vide, puis dossier
+    du modèle présent mais incomplet. Aucune connexion hors de la machine (le bouclage local d'asyncio
+    reste permis) ; l'échec est une indisponibilité avec sa raison.
     """
-    pytest.importorskip("fastembed")
     attempts = []
     connect, getaddrinfo = socket.socket.connect, socket.getaddrinfo
     local = ("127.0.0.1", "::1", "localhost")
@@ -172,10 +171,12 @@ def test_the_real_fastembed_never_reaches_the_network_with_an_empty_or_partial_c
     assert attempts == []
 
 
-def test_a_missing_extra_is_an_unavailable_reranker(monkeypatch, tmp_path):
+def test_fastembed_not_importable_is_an_unavailable_reranker(monkeypatch, tmp_path):
+    """Cas défensif (environnement cassé) : fastembed est une dépendance de base depuis la story 9.5,
+    donc n'arrive plus en usage normal, mais `load_fastembed` reste défensif sur `ImportError`."""
     monkeypatch.setitem(sys.modules, "fastembed", None)  # `import` lève ImportError
     monkeypatch.setitem(sys.modules, "fastembed.rerank.cross_encoder", None)
-    with pytest.raises(RerankerUnavailableError, match="extra « rerank »"):
+    with pytest.raises(RerankerUnavailableError, match="fastembed n'est pas disponible"):
         load_fastembed(MODEL, tmp_path)
 
 
@@ -190,24 +191,13 @@ def service(tmp_path, loader=None, **kwargs):
     return RerankerService(MODEL, cache_dir(tmp_path), loader=loader or (lambda *a: None), **kwargs)
 
 
-def test_the_status_names_the_missing_extra_first(monkeypatch, tmp_path):
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: False)
-    status = service(tmp_path).status()
-    assert status.available is False and status.model == MODEL
-    assert status.reason == "l'extra « rerank » n'est pas installé (uv sync --extra rerank)"
-
-
-def test_the_status_names_the_missing_model_and_its_cache(monkeypatch, tmp_path):
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
+def test_the_status_names_the_missing_model_and_its_cache(tmp_path):
     status = service(tmp_path).status()
     assert status.available is False
     assert MODEL in status.reason and str(cache_dir(tmp_path)) in status.reason
 
 
-def test_a_model_folder_in_the_cache_makes_the_reranker_available_without_loading_it(
-    monkeypatch, tmp_path
-):
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
+def test_a_model_folder_in_the_cache_makes_the_reranker_available_without_loading_it(tmp_path):
     loads = []
     svc = service(tmp_path, loader=lambda *a: loads.append(a))
     (cache_dir(tmp_path) / "models--jinaai--jina-reranker-v2-base-multilingual").mkdir(parents=True)
@@ -216,7 +206,6 @@ def test_a_model_folder_in_the_cache_makes_the_reranker_available_without_loadin
 
 
 async def test_the_model_is_loaded_once_in_a_thread_and_scores_come_back(monkeypatch, tmp_path):
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
     monkeypatch.setattr(rerank, "_model_in_cache", lambda model, cache: True)
     loads = []
     threads = []
@@ -240,7 +229,6 @@ async def test_the_model_is_loaded_once_in_a_thread_and_scores_come_back(monkeyp
 
 
 async def test_a_load_failure_is_kept_and_never_retried(monkeypatch, tmp_path):
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
     monkeypatch.setattr(rerank, "_model_in_cache", lambda model, cache: True)
     calls = []
 
@@ -262,7 +250,6 @@ async def test_a_question_cancelled_during_the_first_load_does_not_start_a_secon
 ):
     # Revue 4.7 : le chargement (~1 Go) est partagé ; l'annulation de la question qui l'a lancé
     # ne l'interrompt pas, et la question suivante l'attend au lieu d'en lancer un second.
-    monkeypatch.setattr(rerank, "_extra_installed", lambda: True)
     monkeypatch.setattr(rerank, "_model_in_cache", lambda model, cache: True)
     loads = []
     release = threading.Event()

@@ -1,8 +1,9 @@
-"""Écran Modèles, « Reclassement des extraits » (story 5.5) dans un vrai navigateur, sur le vrai serveur.
+"""Écran Modèles, « Reclassement des extraits » (story 5.5 ; fastembed en dépendance de base depuis la
+story 9.5, D-R6) dans un vrai navigateur, sur le vrai serveur.
 
 Aucun vrai téléchargement : l'installation du reranker est factice (`POST /api/test/reranker-install` :
-octets simulés, l'extra « rerank » réglé à volonté, un `FakeReranker` une fois « installé »). Ollama est
-le faux de `test_models_install.py`. Un vrai téléchargement du reranker est une recette d'Anaël.
+octets simulés, un `FakeReranker` une fois « installé »). Ollama est le faux de `test_models_install.py`.
+Un vrai téléchargement du reranker est une recette d'Anaël.
 """
 
 from __future__ import annotations
@@ -50,31 +51,10 @@ def status(page) -> str:
     return page.locator(STATUS).inner_text()
 
 
-def test_without_the_extra_the_button_is_disabled_with_its_reason_and_nothing_is_downloaded(
-    screen, models_server
-):
-    arrange(screen, models_server, extra=False)
-    assert status(screen) == "Non installé"
-    button = screen.locator(BUTTON)
-    assert button.get_attribute("aria-disabled") == "true"
-    reason = screen.locator("#models-rerank-reason")
-    assert (
-        reason.inner_text() == f"Installez l'option de reclassement{NBSP}: uv sync --extra rerank"
-    )
-    assert reason.locator("code").inner_text() == "uv sync --extra rerank"
-    assert button.get_attribute("aria-describedby") == "models-rerank-reason"
-    button.focus()
-    assert button.evaluate("el => el === document.activeElement")  # désactivé mais focalisable
-    button.dispatch_event("click")
-    screen.wait_for_timeout(300)
-    assert downloads(screen, models_server) == 0
-    assert screen.locator(f"{SECTION} .wl-progress-bytes").count() == 0
-
-
 def test_a_missing_model_says_not_installed_with_the_servers_reason_and_downloads_nothing_unasked(
     screen, models_server
 ):
-    arrange(screen, models_server, extra=True)
+    arrange(screen, models_server)
     assert status(screen) == "Non installé"
     assert screen.locator("#models-rerank-reason").inner_text().startswith(f"Raison{NBSP}: ")
     assert screen.locator(BUTTON).get_attribute("aria-disabled") == "false"
@@ -85,7 +65,7 @@ def test_a_missing_model_says_not_installed_with_the_servers_reason_and_download
 def test_installing_shows_the_bytes_blocks_the_other_installs_then_says_installed(
     screen, models_server
 ):
-    arrange(screen, models_server, extra=True, total_bytes=2 * 1024**3, steps=4, step_delay_s=0.5)
+    arrange(screen, models_server, total_bytes=2 * 1024**3, steps=4, step_delay_s=0.5)
     screen.locator(BUTTON).click()
     wait_for(
         screen,
@@ -114,7 +94,7 @@ def test_installing_shows_the_bytes_blocks_the_other_installs_then_says_installe
 
 
 def test_cancelling_leaves_the_reranker_not_installed(screen, models_server):
-    arrange(screen, models_server, extra=True, mode="hang", step_delay_s=0.05)
+    arrange(screen, models_server, mode="hang", step_delay_s=0.05)
     screen.locator(BUTTON).click()
     wait_for(
         screen,
@@ -129,9 +109,7 @@ def test_cancelling_leaves_the_reranker_not_installed(screen, models_server):
 def test_a_failed_download_shows_pull_failed_in_the_section_and_can_be_retried(
     screen, models_server
 ):
-    arrange(
-        screen, models_server, extra=True, mode="fail", step_delay_s=0.05, reason="disque plein"
-    )
+    arrange(screen, models_server, mode="fail", step_delay_s=0.05, reason="disque plein")
     screen.locator(BUTTON).click()
     screen.locator(f"{SECTION} wl-error").wait_for()
     assert status(screen) == "Non installé"
@@ -141,7 +119,7 @@ def test_a_failed_download_shows_pull_failed_in_the_section_and_can_be_retried(
 
 
 def test_leaving_the_screen_and_coming_back_resumes_the_reranker_progress(screen, models_server):
-    arrange(screen, models_server, extra=True, mode="hang", step_delay_s=0.05)
+    arrange(screen, models_server, mode="hang", step_delay_s=0.05)
     screen.locator(BUTTON).click()
     wait_for(
         screen,
@@ -159,14 +137,14 @@ def test_leaving_the_screen_and_coming_back_resumes_the_reranker_progress(screen
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_axe_finds_nothing_in_the_section_without_the_extra_installing_and_failing(
+def test_axe_finds_nothing_in_the_section_not_installed_installing_and_failing(
     screen, models_server, theme
 ):
     screen.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
-    arrange(screen, models_server, extra=False)
+    arrange(screen, models_server)
     screen.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
-    assert_no_axe_violations(screen, f"reranker sans extra, thème {theme}")
-    arrange(screen, models_server, extra=True, mode="hang", step_delay_s=0.05)
+    assert_no_axe_violations(screen, f"reranker non installé, thème {theme}")
+    arrange(screen, models_server, mode="hang", step_delay_s=0.05)
     screen.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
     screen.locator(BUTTON).click()
     wait_for(

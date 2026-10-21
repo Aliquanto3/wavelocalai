@@ -5,7 +5,7 @@ fastembed dans le `cache_dir` du dossier de données (le seul téléchargement d
 pour vérifier qu'il est lisible. Un processus à part, tué à l'annulation : un téléchargement de
 `huggingface_hub` ne s'interrompt pas dans un thread, et le chargement du modèle (~1 Go) ne reste pas
 dans la mémoire de l'application. Code de sortie : 0 réussi ; 1 échec (dernière ligne de l'erreur sur
-`stderr`) ; 2 extra « rerank » absent.
+`stderr`) ; 2 fastembed introuvable (environnement cassé : dépendance de base depuis la story 9.5).
 """
 
 from __future__ import annotations
@@ -25,7 +25,10 @@ def main(argv: list[str]) -> int:
     try:
         from fastembed.rerank.cross_encoder import TextCrossEncoder
     except ImportError:
-        print("l'extra « rerank » n'est pas installé", file=sys.stderr)
+        print(
+            "fastembed n'est pas disponible (réinstallez les dépendances : uv sync)",
+            file=sys.stderr,
+        )
         return 2
     try:
         TextCrossEncoder(model_name=model, cache_dir=cache)  # télécharge, puis charge

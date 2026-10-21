@@ -108,8 +108,6 @@
       "unknown": "L'état du reclassement n'a pas pu être lu. Rechargez la page.",
       "install": "Installer le reranker",
       "install_aria": "Installer le reranker {model}",
-      "extra_missing": "Installez l'option de reclassement :",
-      "extra_command": "uv sync --extra rerank",
       "busy": "Une installation est en cours ({tag}).",
       "download_help": "Le téléchargement se fait une seule fois, à votre clic, dans le dossier de données de l'application.",
       "done": "Reranker installé. La recherche documentaire reclasse désormais les extraits.",

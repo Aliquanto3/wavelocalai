@@ -1,8 +1,9 @@
-"""Le vrai reranker fastembed, s'il est déjà dans le cache du dossier de données (story 4.7).
+"""Le vrai reranker fastembed, s'il est déjà dans le cache du dossier de données (story 4.7 ; fastembed
+en dépendance de base depuis la story 9.5, D-R6).
 
-Ce test ne télécharge rien : il saute si l'extra `rerank` n'est pas installé ou si le modèle n'est
-pas dans `data/models/fastembed` (ou le dossier de `WAVELOCALAI_RERANK_CACHE`). Pour le jouer :
-`uv sync --extra rerank`, puis remplir le cache comme l'explique le README (« Reranker local »).
+Ce test ne télécharge rien : il saute si le modèle n'est pas dans `data/models/fastembed` (ou le
+dossier de `WAVELOCALAI_RERANK_CACHE`). Pour le jouer : remplir le cache comme l'explique le README
+(« Reranker local »), par exemple via le bouton « Installer le reranker » de l'écran Modèles.
 """
 
 from __future__ import annotations

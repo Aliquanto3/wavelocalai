@@ -1,12 +1,14 @@
 """Reclassement des extraits par un reranker local, s'il est là (story 4.7, AD-17, AD-21).
 
-Ollama n'a pas d'API de reranking : le reranker est un modèle ONNX que fastembed charge (extra
-`rerank`, `uv sync --extra rerank`). **Aucun téléchargement** : le modèle n'est chargé qu'avec
-`local_files_only=True`, depuis le `cache_dir` du dossier de données (`<données>/models/fastembed`).
-Extra absent, modèle absent du cache ou `ValueError` au chargement : la recherche se fait sans
-reclassement, et `RerankerService.status()` dit pourquoi (« Reclassement indisponible : <raison> »).
-Remplir le cache est une action explicite : le bouton « Installer le reranker » de l'écran Modèles
-(run `pull`, `rag/rerank_pull.py`, story 5.5), seul téléchargement du reranker.
+Ollama n'a pas d'API de reranking : le reranker est un modèle ONNX que fastembed charge, dépendance
+de base depuis la story 9.5 (décision D-R6, 2026-10-21). **Aucun téléchargement** : le modèle n'est
+chargé qu'avec `local_files_only=True`, depuis le `cache_dir` du dossier de données
+(`<données>/models/fastembed`). Modèle absent du cache ou `ValueError` au chargement : la recherche se
+fait sans reclassement, et `RerankerService.status()` dit pourquoi (« Reclassement indisponible :
+<raison> »). `fastembed` introuvable (environnement cassé) reste un cas défensif du code, plus un
+chemin attendu en usage normal. Remplir le cache est une action explicite : le bouton « Installer le
+reranker » de l'écran Modèles (run `pull`, `rag/rerank_pull.py`, story 5.5), seul téléchargement du
+reranker.
 
 Copié puis adapté de `src/core/rag/models_factory.py` de la v1 (un `CrossEncoder` de
 sentence-transformers, chargé hors ligne d'abord puis, en repli, depuis le Hub : la v2 n'a pas ce
@@ -19,7 +21,6 @@ Imports lourds : `fastembed` n'est importé que dans `load_fastembed`, après `d
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import logging
 import time
 from collections.abc import Callable, Sequence
@@ -57,7 +58,6 @@ class RerankerStatus:
     model: str
     available: bool
     reason: str | None  # présent quand `available` est faux
-    extra_installed: bool = True  # l'extra « rerank » est là : le modèle peut être installé
 
 
 class _Fastembed:
@@ -71,8 +71,9 @@ class _Fastembed:
 def load_fastembed(model: str, cache: Path, env_file: str | Path | None = None) -> Reranker:
     """Charge le reranker depuis le cache, sans jamais le télécharger (`local_files_only=True`).
 
-    Lève `RerankerUnavailableError` : extra absent (`ImportError`), modèle absent du cache ou illisible
-    (`ValueError`, que fastembed lève quand il ne trouve pas le modèle hors ligne)."""
+    Lève `RerankerUnavailableError` : fastembed introuvable (`ImportError`, cas défensif seulement
+    depuis que c'est une dépendance de base), modèle absent du cache ou illisible (`ValueError`, que
+    fastembed lève quand il ne trouve pas le modèle hors ligne)."""
     disable_telemetry(env_file)  # juste avant l'import de fastembed (AD-21)
     try:
         from fastembed.rerank.cross_encoder import TextCrossEncoder
@@ -88,15 +89,12 @@ def load_fastembed(model: str, cache: Path, env_file: str | Path | None = None) 
 
 
 def missing_extra_reason() -> str:
-    return "l'extra « rerank » n'est pas installé (uv sync --extra rerank)"
+    """fastembed est une dépendance de base (D-R6) : n'arrive que si l'installation est cassée."""
+    return "fastembed n'est pas disponible (réinstallez les dépendances : uv sync)"
 
 
 def _first_line(exc: BaseException) -> str:
     return (str(exc).strip().splitlines() or [type(exc).__name__])[0][:200]
-
-
-def _extra_installed() -> bool:
-    return importlib.util.find_spec("fastembed") is not None
 
 
 def install_marker(cache: Path, model: str) -> Path:
@@ -144,9 +142,6 @@ class RerankerService:
         self._reranker: Reranker | None = None
         self._failure: str | None = None
         self._loading: asyncio.Task[None] | None = None  # le chargement unique, partagé
-        self.extra_override: bool | None = (
-            None  # tests seulement : l'extra « rerank » présent ou non
-        )
 
     def preset(self, reranker: Reranker | None = None, reason: str | None = None) -> None:
         """Tests seulement : un reranker déjà chargé, ou une indisponibilité fixée par `reason`."""
@@ -159,17 +154,14 @@ class RerankerService:
         return self._reranker
 
     def status(self) -> RerankerStatus:
-        extra = _extra_installed() if self.extra_override is None else self.extra_override
         if self._reranker is not None:
-            return RerankerStatus(self.model, True, None, extra)
+            return RerankerStatus(self.model, True, None)
         if self._failure is not None:
-            return RerankerStatus(self.model, False, self._failure, extra)
-        if not extra:
-            return RerankerStatus(self.model, False, missing_extra_reason(), False)
+            return RerankerStatus(self.model, False, self._failure)
         if not _model_in_cache(self.model, self.cache):
             reason = f"le modèle {self.model} n'est pas dans le dossier de cache {self.cache}"
-            return RerankerStatus(self.model, False, reason, True)
-        return RerankerStatus(self.model, True, None, True)
+            return RerankerStatus(self.model, False, reason)
+        return RerankerStatus(self.model, True, None)
 
     def use_loader(self, loader: Loader) -> None:
         """Tests seulement : un autre chargeur (un faux reranker au lieu de fastembed)."""
