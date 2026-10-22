@@ -100,3 +100,24 @@ front seulement).
 
 Rien : le périmètre de la story est couvert en entier (les 5 écrans listés par `epics.md` et
 `DECISIONS.md` §6).
+
+## Revue
+
+Base à jour (633bf1b, aucun rebase nécessaire).
+
+| Sévérité | Source | Constat | Suite |
+|---|---|---|---|
+| medium | revue | `.zone-disabled` sans effet sur le fond du dépôt : `.docs-drop` (documents.css, chargé après base.css, même spécificité) repose `background: var(--color-surface)` ; la zone bloquée ne se distinguait plus que par la couleur des paragraphes (régression par rapport à l'ancien `[data-blocked]`) | Corrigé : `.docs-drop.zone-disabled` (fond `surface-alt`, texte secondaire) ; E2E `test_documents_embedding.py` vérifie `.alert-warning`, `.zone-disabled` posée puis retirée, et un fond différent de la zone active (échoue sans le correctif) |
+| medium | second avis 1 | Trois échecs de `test_accessibilite.py` classés instables sans relance prouvée | Écarté après relance isolée : axe `systeme-clair` (dont /documents/base), défilement `projection-sombre-zoom 200 %`, focus du `h1` après changement de route : verts. Aussi verts : axe `sombre`, projection, contrastes des composants et des pastilles, un `h1` par écran, espacement du texte `[1440]`. `text_spacing…[320]` échoue par intermittence sur /modeles, à l'identique sur master (3 échecs sur 4) : hors story |
+| low | second avis 2 | `max-width: 48rem` de `.eval-form` retiré : formulaire pleine largeur entre 768 et 1399 px | Accepté : les grilles des autres écrans (Agents) n'ont pas de plafond non plus ; à juger en recette |
+| low | second avis 3 | `.col-right` (flex) sur le `<fieldset>` des outils | Écarté : Chromium gère le flex sur `fieldset` ; la légende rendue sort du flux flex et garde sa marge de 0,5rem |
+| low | second avis 4 | Discussion, Évaluation, Agents sans maquette dédiée | Acté : DECISIONS.md §6 ne couvre que quatre modules ; traitement documenté dans « Périmètre » |
+| low | second avis 5 | Classes génériques non assertées par les tests | Corrigé pour la Base documentaire (voir le medium) ; `.two-col` des formulaires et `.icon-mod` des `h1` restent à vérifier en recette |
+| low | second avis 6 | Icône Agents en `.icon-mod.arena` | Acté (choix documenté, aucun jeton dédié dans la maquette) |
+| low | revue | Espacements cumulés dans les piles : marge propre de `.docs-drop` (1,5rem) plus `gap` de `.stack`, aide du modèle d'Agent seul à 1rem du sélecteur (gap) au lieu de 0,25rem | Laissé à la recette visuelle (cosmétique) |
+
+Complexité : 0 constat (story purement CSS/DOM, aucune structure qui grossit).
+
+Recette : à 1400 px et plus, deux colonnes sur Base documentaire, Évaluation, Agent seul et Équipe ;
+en dessous, une colonne dans le même ordre ; zone de dépôt grisée (fond) quand l'encart ambre est
+visible ; espacements des piles.

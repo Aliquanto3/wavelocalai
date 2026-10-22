@@ -93,7 +93,12 @@
 }
 
 /* Zone de dépôt désactivée faute de modèle de représentation : `.zone-disabled` (base.css, story
-   9.8, jamais la seule opacité) ; `data-blocked` reste posé pour les tests (E2E). */
+   9.8, jamais la seule opacité) ; `data-blocked` reste posé pour les tests (E2E). `.docs-drop`, chargé
+   après base.css, repose son propre fond : il faut redire celui de la zone désactivée ici. */
+.docs-drop.zone-disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+}
 
 /* État du reclassement par un reranker local (story 4.7) : une ligne discrète. La raison d'absence
    (story 9.5) peut inclure un chemin de cache long et sans espaces : `overflow-wrap` l'empêche de
