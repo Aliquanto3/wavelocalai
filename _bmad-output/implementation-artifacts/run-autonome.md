@@ -42,7 +42,7 @@ Ordre d'exécution (une à la fois) : 9.6 (maquette, préparée en premier pour 
 ## Décisions et points d'attente
 
 - 9.6 validée par Anaël le 2026-10-21 (recommandations de DECISIONS.md §4 retenues) ; amendements de DESIGN.md et EXPERIENCE.md sur la PR #119, fusionnée avant 9.7.
-- Tests instables au temps vus en CI (sans lien avec les stories) : `test_lane_timeout_counts_from_the_slot_not_from_the_wait` (macOS) et `test_the_card_answers_under_300_ms_with_ollama_down` (Windows) ; relance du job seulement, à signaler en fin de run. Local seulement : `test_rag_run_api.py::test_a_cloud_model_needs_allow_cloud` échoue seul sur master sur ce poste (délai de 5 s de `_ended`), vert en CI.
+- Tests instables au temps vus en CI (sans lien avec les stories) : `test_lane_timeout_counts_from_the_slot_not_from_the_wait` (macOS) et `test_the_card_answers_under_300_ms_with_ollama_down` (Windows) ; relance du job seulement, à signaler en fin de run. Local seulement : `test_rag_run_api.py::test_a_cloud_model_needs_allow_cloud` échoue seul sur master sur ce poste (délai de 5 s de `_ended`), vert en CI. Aussi `test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model` (E2E Linux, focus).
 
 ## Journal
 
@@ -102,3 +102,14 @@ Ordre d'exécution (une à la fois) : 9.6 (maquette, préparée en premier pour 
 - 2026-10-21 16:18 · 9.3 · dev · lancé (Sonnet high, worktree `v2-9-3`, branche `feat/v2-9-3-juge` empilée sur 9.2 e416767) · —
 - 2026-10-21 16:37 · 9.2 · CI · verte · e416767
 - 2026-10-21 16:37 · 9.2 · fusion · PR #123 fusionnée (fin de la vague V0) · 3339538
+- 2026-10-21 17:21 · 9.3 · dev · fini (judge_progress, bandeau du juge, sous-statuts de colonne ; E2E Arène 59 verts) ; rebasée sur master 7001b34 · 1e0f576
+- 2026-10-21 17:25 · 9.3 · second-avis · 5 high (bandeau bloqué sur « chargement », colonne qui repasse en file, panne après une note ignorée, minuteur jamais arrêté, horloge dans la région live), 2 medium, 3 low · —
+- 2026-10-21 17:25 · 9.3 · review · lancé (Opus) · —
+- 2026-10-21 18:23 · 9.3 · review · fini (5 high, 3 medium, 3 low corrigés ; modèle d'état unique du bandeau ; à vérifier en recette : juge froid réel) · f016867
+- 2026-10-21 18:23 · 9.3 · PR · #125 ouverte · f016867
+- 2026-10-21 18:24 · 9.7 · dev · lancé (Sonnet high, worktree `v2-9-7`, branche `feat/v2-9-7-mise-en-page` empilée sur 9.3 f016867) · —
+- 2026-10-21 18:57 · 9.3 · CI · rouge (E2E Linux : test_models_manage.py focus après suppression, écran Modèles non touché par 9.3) ; job relancé · f016867
+- 2026-10-21 19:07 · 9.3 · CI · verte après relance · f016867
+- 2026-10-21 19:07 · 9.3 · fusion · PR #125 fusionnée · 3f9e9a2
+- 2026-10-21 19:15 · 9.7 · dev · fini (jetons par module, classes génériques dans base.css, Chat, Arène, Banc d'essai et Références habillés ; heure du commit) · 782f512
+- 2026-10-22 07:27 · run · reprise · journal commité (PR chore/etat-run), puis 9.7 : rebase sur 3f9e9a2, second-avis, revue · —

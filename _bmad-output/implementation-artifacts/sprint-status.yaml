@@ -118,11 +118,11 @@ development_status:
   epic-9: in-progress
   9-1-le-lanceur-ouvre-l-application-dans-le-navigateur: done
   9-2-l-arène-arrête-un-modèle-qui-tourne-en-boucle: done
-  9-3-on-voit-le-juge-de-l-arène-travailler: in-progress
+  9-3-on-voit-le-juge-de-l-arène-travailler: done
   9-4-installer-le-modèle-de-représentation-depuis-la-base-documentai: done
   9-5-fastembed-est-installé-d-office-le-bouton-du-reranker-fonctionne: done
   9-6-maquette-de-la-nouvelle-mise-en-page-humaine: done
-  9-7-fondation-de-la-mise-en-page-et-écrans-de-l-arène: backlog
+  9-7-fondation-de-la-mise-en-page-et-écrans-de-l-arène: review
   9-8-documents-et-agents-suivent-la-nouvelle-mise-en-page: backlog
   9-9-modèles-sobriété-et-accueil-suivent-la-nouvelle-mise-en-page: backlog
   epic-9-retrospective: optional
