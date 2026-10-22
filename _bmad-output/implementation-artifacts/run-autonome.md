@@ -113,3 +113,28 @@ Ordre d'exécution (une à la fois) : 9.6 (maquette, préparée en premier pour 
 - 2026-10-21 19:07 · 9.3 · fusion · PR #125 fusionnée · 3f9e9a2
 - 2026-10-21 19:15 · 9.7 · dev · fini (jetons par module, classes génériques dans base.css, Chat, Arène, Banc d'essai et Références habillés ; heure du commit) · 782f512
 - 2026-10-22 07:27 · run · reprise · journal commité (PR chore/etat-run), puis 9.7 : rebase sur 3f9e9a2, second-avis, revue · —
+- 2026-10-22 07:31 · 9.7 · second-avis · 2 medium (classe `stack` sans règle CSS : espacement perdu dans les colonnes de l'Arène et du Banc ; captures E2E non réalignées), 5 low · —
+- 2026-10-22 07:31 · 9.7 · review · lancé (Opus) · —
+- 2026-10-22 11:09 · 9.7 · review · agent coupé par le chien de garde (600 s sans sortie ; travail non commité intact) ; relancé avec son contexte · —
+- 2026-10-22 12:08 · 9.7 · review · fini (2 medium + 3 low corrigés, dont `stack` et icône de module sur Chat et Références ; 2 low écartés ; 2 tests E2E réalignés sur les intertitres en majuscules ; captures du README reportées en recette) · 9c79ec8
+- 2026-10-22 12:08 · 9.7 · PR · #127 ouverte · 9c79ec8
+- 2026-10-22 13:19 · 9.7 · CI · verte (12 contrôles) · 9c79ec8
+- 2026-10-22 13:19 · 9.7 · fusion · PR #127 fusionnée · 633bf1b
+- 2026-10-22 13:20 · 9.8 · dev · lancé (Sonnet high, worktree `v2-9-8`, branche `feat/v2-9-8-documents-agents`) · —
+- 2026-10-22 14:45 · 9.8 · dev · fini (Discussion, Base documentaire, Évaluation, Agent seul, Équipe ; icône Agents = arena ; E2E des écrans verts) · bbaca4f
+- 2026-10-22 14:50 · 9.8 · second-avis · 1 medium (échecs E2E d'accessibilité sur /documents/base classés instables sans relance isolée prouvée), 5 low · —
+- 2026-10-22 14:50 · 9.8 · review · lancé (Opus) · —
+- 2026-10-22 15:21 · 9.8 · review · fini (1 medium corrigé : fond de `.zone-disabled` écrasé par `.docs-drop`, E2E ajouté ; échecs d'accessibilité relancés seuls, verts ; low à la recette : largeur de l'Évaluation, espacements des piles) · 58eb41e
+- 2026-10-22 15:21 · 9.8 · PR · #128 ouverte · 58eb41e
+- 2026-10-22 15:39 · 9.8 · CI · verte (12 contrôles) · 58eb41e
+- 2026-10-22 15:39 · 9.8 · fusion · PR #128 fusionnée · 3380be0
+- 2026-10-22 15:40 · 9.9 · dev · lancé (Sonnet high, worktree `v2-9-9`, branche `feat/v2-9-9-modeles-sobriete-accueil` ; inclut le débord à 320 px sur /modeles ; préversion faite ensuite par l'orchestrateur) · —
+- 2026-10-22 16:31 · 9.9 · dev · fini (Modèles réordonné : reranker à 537 px au lieu de 1870 à 1920 px ; débord à 320 px sur /modeles corrigé : chemin de cache sans coupure dans `.models-reason`) · 7abcf10
+- 2026-10-22 16:36 · 9.9 · second-avis · 1 high (écran Modèles toujours à 4 135 px contre ≈1 295 dans la maquette ; catalogue à 1 666 px), 4 medium (formulaire d'installation par nom au-dessus du reranker, tableaux plus denses que la maquette, fiche contradictoire), 3 low · —
+- 2026-10-22 16:36 · 9.9 · review · lancé (Opus, avec compactage de l'écran Modèles) · —
+- 2026-10-22 17:29 · 9.9 · review · fini (high corrigé : actions déplacées, densité de la maquette ; reranker à 255 px, catalogue dans le premier écran à 1920×1080 ; lignes étiquetées sous 600 px ; icônes Sobriété/Accueil écartées) · 0afc828
+- 2026-10-22 17:29 · 9.9 · PR · #129 ouverte · 0afc828
+- 2026-10-22 21:12 · 9.9 · CI · rouge (E2E Linux morceau 1/3 : test_axe_finds_no_violation_with_four_models…[dark-1440], instabilité connue de l'Arène, sans lien avec 9.9) ; job relancé · 0afc828
+- 2026-10-22 21:30 · 9.9 · CI · verte après relance · 0afc828
+- 2026-10-22 21:30 · 9.9 · fusion · PR #129 fusionnée (fin de l'Epic 9) · f6f36ae
+- 2026-10-22 21:30 · Epic 9 · décision · suite E2E complète sur master lancée par le workflow nocturne (run 39840701099) ; préversion 2.0.0a8 (pyproject, uv.lock, CITATION.cff) en PR, tag après la fusion · f6f36ae
