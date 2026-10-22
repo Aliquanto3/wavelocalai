@@ -21,7 +21,7 @@
 //   `documents-settings.js` (story 4.3).
 
 import { api, ApiError, request, uploadDocuments } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { formatDate, formatInteger } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
@@ -30,7 +30,7 @@ import "../components/index.js";
 import { createEmbeddingAlert } from "./documents-embedding-alert.js";
 import { createManage } from "./documents-manage.js";
 import { createSettings } from "./documents-settings.js";
-import { ImportRow, plural } from "./documents-import-row.js";
+import { ImportRow, importSentence, plural, spreadProgress } from "./documents-import-row.js";
 
 const MB = 1024 * 1024;
 const STATUS_ORDER = { ready: 0, indexing: 1, failed: 2 };
@@ -89,7 +89,7 @@ export function mount(host) {
     emptyAction,
   );
 
-  const tableTitle = element("h2", "", t("docs.table_title"));
+  const tableTitle = element("h2", "section-label", t("docs.table_title"));
   const count = element("p", "docs-count");
   const clearButton = element("button", "btn docs-clear", t("docs.clear"));
   clearButton.type = "button";
@@ -147,21 +147,20 @@ export function mount(host) {
   });
   drop.insertBefore(embeddingAlert.dropReasonNode, input);
 
+  // Grille à deux colonnes dès 1400px (story 9.7/9.8, maquette) : dépôt et liste des documents à
+  // gauche, réglages repliés à droite (`.two-col`/`.stack`/`.col-right`, base.css).
+  const left = element("div", "stack");
+  left.append(embeddingAlert.el, drop, notice, problem, manage.status, summary, imports, loading, empty, tableSection);
+  const right = element("div", "col-right");
+  right.append(settings.el);
+  const layout = element("div", "two-col");
+  layout.append(left, right);
+
   host.replaceChildren(
-    element("h1", "", t("screens.documents-base")),
+    moduleTitle("description", "docs", t("screens.documents-base")),
     screenTabs("documents", "documents-base"),
     element("p", "lead", t("docs.lead")),
-    embeddingAlert.el,
-    drop,
-    notice,
-    problem,
-    manage.status,
-    summary,
-    imports,
-    loading,
-    empty,
-    tableSection,
-    settings.el,
+    layout,
     dialog,
   );
 
@@ -238,6 +237,7 @@ export function mount(host) {
     const noEmbedding = embeddingAlert ? embeddingAlert.blocksImport : false; // `undefined` en construction
     choose.disabled = emptyAction.disabled = importing || noEmbedding;
     input.disabled = drop.dataset.blocked = noEmbedding;
+    drop.classList.toggle("zone-disabled", noEmbedding); // jamais la seule opacité (EXPERIENCE.md)
     busyHelp.hidden = !importing;
     lockNote.hidden = !lockedNow;
     clearButton.disabled = lockedNow;
@@ -322,18 +322,6 @@ export function mount(host) {
   }
 
   // --- Fin d'un import -------------------------------------------------------------------
-  function sentence(status) {
-    const parts = [];
-    if (tally.docs > 0) {
-      parts.push(`${plural("docs.added", tally.chunks)} ${plural("docs.from", tally.docs)}.`);
-    }
-    if (tally.duplicate > 0) parts.push(plural("docs.duplicate_count", tally.duplicate));
-    if (tally.failed > 0) parts.push(plural("docs.failed_count", tally.failed));
-    if (status === "cancelled") parts.push(t("docs.cancelled"));
-    else if (status !== "ok") parts.push(t("docs.interrupted"));
-    return parts.join(" ");
-  }
-
   function endRun(status) {
     for (const row of rows.values()) {
       if (row.final) continue;
@@ -343,7 +331,7 @@ export function mount(host) {
     stream?.close();
     stream = null;
     runId = null;
-    summary.textContent = sentence(status); // une seule annonce, à la fin
+    summary.textContent = importSentence(tally, status); // une seule annonce, à la fin
     render();
     refresh();
     settings.load(); // le modèle de la base est celui du premier import
@@ -449,7 +437,7 @@ export function mount(host) {
     try {
       const started = await uploadDocuments(files, {
         signal: controller.signal,
-        onProgress: (loaded, size) => spreadProgress(files, loaded, size),
+        onProgress: (loaded) => spreadProgress(rows, files, loaded),
         onSent: () => (sent = true),
       });
       uploading = null;
@@ -491,18 +479,6 @@ export function mount(host) {
       }
       render();
     }
-  }
-
-  // Les octets envoyés (formulaire entier, en-têtes compris) répartis sur les fichiers, dans l'ordre.
-  function spreadProgress(files, loaded) {
-    let start = 0;
-    files.forEach((file, index) => {
-      const row = rows.get(index + 1);
-      if (!row || row.state !== "uploading") return;
-      row.percent = file.size === 0 ? (loaded > start ? 100 : 0) : Math.min(100, Math.max(0, ((loaded - start) / file.size) * 100));
-      row.render();
-      start += file.size;
-    });
   }
 
   // « Vider » (bouton du tableau ou de l'erreur de réglage) ; les réglages se relisent ensuite.

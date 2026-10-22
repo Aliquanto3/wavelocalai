@@ -69,6 +69,21 @@ def test_the_alert_precedes_the_screen_and_disables_the_drop_zone(backend_with_o
     )
     drop = page.locator(".docs-drop")
     assert drop.get_attribute("data-blocked") == "true"
+    # Mise en page 9.8 : encart en `.alert-warning`, dépôt en `.zone-disabled` dont le fond se
+    # distingue vraiment de la zone active (`.docs-drop` repose le sien, chargé après base.css).
+    assert "alert-warning" in alert(page).get_attribute("class")
+    assert "zone-disabled" in drop.get_attribute("class")
+    backgrounds = page.evaluate(
+        """() => {
+            const drop = document.querySelector('.docs-drop');
+            const blocked = getComputedStyle(drop).backgroundColor;
+            drop.classList.remove('zone-disabled');
+            const active = getComputedStyle(drop).backgroundColor;
+            drop.classList.add('zone-disabled');
+            return [blocked, active];
+        }"""
+    )
+    assert backgrounds[0] != backgrounds[1], backgrounds
     assert page.get_by_role("button", name="Choisir des fichiers").is_disabled()
     assert page.get_by_role("button", name="Importer des documents").is_disabled()
     assert page.locator("#docs-drop-embedding-reason").inner_text() == (
@@ -122,6 +137,7 @@ def test_clicking_installs_through_the_models_pull_route_and_the_alert_disappear
     alert(page).wait_for(state="hidden")
     wait_for(page, "() => document.querySelector('.docs-drop')?.dataset.blocked === 'false'")
     assert page.get_by_role("button", name="Choisir des fichiers").is_enabled()
+    assert "zone-disabled" not in page.locator(".docs-drop").get_attribute("class")
 
     settings = page.evaluate(
         f"() => fetch('{server.base_url}/api/rag/settings').then(r => r.json())"

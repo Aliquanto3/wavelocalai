@@ -17,7 +17,7 @@
 import { createApproval } from "./agents-approval.js";
 import { createTools } from "./agents-tools.js";
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { t } from "../core/i18n.js";
 import { isRamGuard, onSmallerModel } from "../core/ram-guard.js";
@@ -81,7 +81,11 @@ export function mount(host) {
   const model = element("div", "agents-model");
   model.append(picker, modelHint, unverified);
   const tools = createTools(uid);
-  const settings = element("div", "agents-settings");
+  // Grille à deux colonnes dès 1400px (story 9.8, maquette) : modèle à gauche, outils à droite
+  // (`.two-col`/`.stack`/`.col-right`, base.css).
+  model.classList.add("stack");
+  tools.root.classList.add("col-right");
+  const settings = element("div", "agents-settings two-col");
   settings.append(model, tools.root);
 
   const input = element("textarea", "chat-input");
@@ -137,7 +141,9 @@ export function mount(host) {
   const work = element("div", "agents-work");
   work.append(main, steps);
   host.replaceChildren(
-    element("h1", "", t("screens.agents-solo")),
+    // Pas de jeton dédié aux Agents dans la maquette (DECISIONS.md §6) : violet de l'Arène repris
+    // par cohérence (tâche confiée à un modèle, comme l'Arène).
+    moduleTitle("smart-toy", "arena", t("screens.agents-solo")),
     screenTabs("agents", "agents-solo"),
     element("p", "lead", t("agents.lead")),
     settings,

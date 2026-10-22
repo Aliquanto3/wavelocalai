@@ -17,7 +17,7 @@
 // - Les questions saisies ne vivent que dans le brouillon `localStorage` (`core/drafts.js`).
 
 import { api, ApiError } from "../core/api.js";
-import { element, icon } from "../core/dom.js";
+import { element, icon, moduleTitle } from "../core/dom.js";
 import { formatClock, plural } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { onSmallerModel, swapModel } from "../core/ram-guard.js";
@@ -95,7 +95,7 @@ export function mount(host, params = {}) {
   live.setAttribute("aria-atomic", "true");
 
   host.replaceChildren(
-    element("h1", "", t("screens.documents-evaluation")),
+    moduleTitle("description", "docs", t("screens.documents-evaluation")),
     screenTabs("documents", "documents-evaluation"),
     element("p", "lead", t("evaluation.lead")),
     reopen.el,

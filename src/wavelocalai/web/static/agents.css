@@ -1,17 +1,10 @@
 /* Agent seul (story 6.4) : réglages, accueil de l'agent, panneau « Étapes ». Les onglets, le fil, la
    saisie et le statut sont ceux du Chat libre (`chat.css`). Couleurs et rayon : tokens.css. */
 
+/* Mise en page (`display`, `grid-template-columns`) posée par `.two-col` (base.css, story 9.8) :
+   ici, seul l'espacement propre à l'écran. */
 .agents-settings {
-  display: grid;
-  gap: 1rem 2rem;
   margin-bottom: 1rem;
-}
-
-@media (min-width: 768px) {
-  .agents-settings {
-    grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
-    align-items: start;
-  }
 }
 
 .agents-model-hint {
