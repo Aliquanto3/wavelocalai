@@ -858,32 +858,43 @@ def test_interface_component_tokens_keep_three_to_one_on_both_surfaces(app, them
             assert ratio >= 3, f"{theme} : {name} sur {surface} = {ratio:.2f}:1"
 
 
-def _mix(color: str, surface: str, percent: float) -> str:
-    """`color-mix(in srgb, color <percent>%, surface)` (base.css `.icon-mod`) : mélange linéaire des
-    composantes sRGB non linéarisées, comme le fait le navigateur."""
-    channels = []
-    for i in (1, 3, 5):
-        fg = int(color[i : i + 2], 16)
-        bg = int(surface[i : i + 2], 16)
-        channels.append(round(fg * percent / 100 + bg * (1 - percent / 100)))
-    return "#" + "".join(f"{value:02X}" for value in channels)
+# Couleur et fond effectivement rendus d'une icône de module : le navigateur résout `color-mix`, un
+# canevas 1x1 ramène chaque couleur calculée (rgb() ou color(srgb ...)) à un hex sRGB.
+RENDERED_MODULE_ICONS = """() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    const hex = (css) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = '#000';
+        context.fillStyle = css;
+        context.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        if (a !== 255) return null;  // fond transparent : la pastille n'est pas rendue
+        return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+    };
+    const out = {};
+    for (const mod of ['arena', 'bench', 'docs', 'models']) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', `icon icon-mod ${mod}`);
+        document.body.append(svg);
+        const style = getComputedStyle(svg);
+        out[mod] = [hex(style.color), hex(style.backgroundColor)];
+        svg.remove();
+    }
+    return out;
+}"""
 
 
 @pytest.mark.parametrize("theme", ["clair", "sombre"])
-def test_module_icon_tokens_keep_three_to_one_on_their_own_pastille(app, theme):
-    """Icône de module sur sa pastille (story 9.7, `.icon-mod`, base.css, 8% du fond) : au moins 3:1,
-    table recalculée de `docs/maquette-v2-mise-en-page/DECISIONS.md` §2."""
+def test_module_icons_keep_three_to_one_on_their_rendered_pastille(app, theme):
+    """Icône de module sur sa pastille (story 9.7, `.icon-mod`, base.css) : au moins 3:1, mesuré sur
+    la couleur et le fond rendus par le navigateur (table de `docs/maquette-v2-mise-en-page/DECISIONS.md`
+    §2)."""
     apply_mode(app, theme)
-    tokens = app.evaluate(
-        """() => {
-            const style = getComputedStyle(document.documentElement);
-            const read = (name) => style.getPropertyValue(`--color-${name}`).trim();
-            return Object.fromEntries(['icon-arena', 'icon-bench', 'icon-documents', 'icon-models',
-                'surface'].map((name) => [name, read(name)]));
-        }"""
-    )
-    surface = tokens["surface"]
-    for name in ("icon-arena", "icon-bench", "icon-documents", "icon-models"):
-        pastille = _mix(tokens[name], surface, 8)
-        ratio = contrast(tokens[name], pastille)
-        assert ratio >= 3, f"{theme} : {name} sur sa pastille = {ratio:.2f}:1"
+    rendered = app.evaluate(RENDERED_MODULE_ICONS)
+    for mod, (color, pastille) in rendered.items():
+        assert color and pastille, f"{theme} : .icon-mod.{mod} sans couleur ou sans pastille rendue"
+        assert color != pastille, f"{theme} : .icon-mod.{mod} sans pastille distincte"
+        ratio = contrast(color, pastille)
+        assert ratio >= 3, f"{theme} : icône {mod} ({color} sur {pastille}) = {ratio:.2f}:1"

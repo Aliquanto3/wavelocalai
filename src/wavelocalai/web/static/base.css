@@ -168,6 +168,13 @@ input {
   }
 }
 
+/* Pile verticale d'une colonne (colonne gauche de `.two-col`) : enfants espacés de 1rem. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .col-right {
   display: flex;
   flex-direction: column;

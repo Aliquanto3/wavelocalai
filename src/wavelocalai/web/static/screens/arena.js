@@ -33,7 +33,7 @@ import { store } from "../core/store.js";
 import { reuseConfig } from "./arena-actions.js";
 import { buildForm, envelopeOf, forgetErased, launchReasonOf, noLocalNotice } from "./arena-form.js";
 import { historyView } from "./arena-history.js";
-import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { judgeInfo, scoreAnnouncer } from "./arena-judge.js";
 import { judgeBannerView } from "./arena-judge-banner.js";
 import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";

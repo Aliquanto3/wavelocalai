@@ -22,7 +22,7 @@
 
 import { exportMenu } from "../components/export-menu.js";
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { formatNumber } from "../core/format.js";
 import { t } from "../core/i18n.js";
@@ -109,7 +109,7 @@ export function mount(host) {
   composer.append(inputLabel, input, keys, actions);
 
   host.replaceChildren(
-    element("h1", "", t("screens.arena-chat")),
+    moduleTitle("swords", "arena", t("screens.arena-chat")),
     screenTabs("arena", "arena-chat"),
     element("p", "lead", t("chat.lead")),
     settings,

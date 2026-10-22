@@ -126,9 +126,9 @@ def test_one_card_per_usage_with_the_best_group_by_name_and_no_rank(page, refs_s
     ]
     assert names(page, "tools") == ["Grand 14B", "Moyen 7B"]  # à égalité statistique : par nom
     assert names(page, "reasoning") == ["Moyen 7B"]
-    text = card(page, "tools").inner_text()
+    text = card(page, "tools").text_content()  # intertitre en majuscules par CSS (story 9.7)
     assert "Groupe des meilleurs" in text and "aucun rang" in text
-    assert "Meilleur modèle" in card(page, "reasoning").inner_text()
+    assert "Meilleur modèle" in card(page, "reasoning").text_content()
     assert f"Part de réussite 78{NBSP}%" in text and f"Part de réussite 72{NBSP}%" in text
     assert f"entre 73{NBSP}% et 83{NBSP}%" in text
     assert f"5,2{NBSP}tokens/s sur le poste de référence" in text
