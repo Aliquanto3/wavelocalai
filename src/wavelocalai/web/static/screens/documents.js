@@ -26,7 +26,7 @@
 //   (AD-9). `allow_cloud` du store accompagne chaque commande.
 
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { plural } from "../core/format.js";
 import { t } from "../core/i18n.js";
@@ -119,7 +119,7 @@ export function mount(host) {
   workspace.append(settings, layout);
 
   host.replaceChildren(
-    element("h1", "", t("screens.documents-chat")),
+    moduleTitle("description", "docs", t("screens.documents-chat")),
     screenTabs("documents", "documents-chat"),
     element("p", "lead", t("discussion.lead")),
     summary,

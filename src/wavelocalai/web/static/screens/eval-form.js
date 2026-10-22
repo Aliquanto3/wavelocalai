@@ -49,10 +49,10 @@ export function formView(uid) {
   let isBusy = () => false;
 
   const one = field(uid, "question", 3, DRAFT_ONE);
-  const oneLabel = element("label", "chat-input-label", t("evaluation.question"));
+  const oneLabel = element("label", "chat-input-label field-label", t("evaluation.question"));
   oneLabel.htmlFor = one.id;
   const many = field(uid, "set", 7, DRAFT_SET);
-  const manyLabel = element("label", "chat-input-label", t("evaluation.set_label"));
+  const manyLabel = element("label", "chat-input-label field-label", t("evaluation.set_label"));
   manyLabel.htmlFor = many.id;
   const manyHelp = element("p", "help", t("evaluation.set_help"));
   many.setAttribute("aria-describedby", (manyHelp.id = `${uid}-set-help`));
@@ -104,8 +104,14 @@ export function formView(uid) {
   const actions = element("div", "chat-actions eval-actions");
   actions.append(launch, reason);
 
-  const el = element("form", "eval-form");
-  el.append(seg.root, oneBox, manyBox, picker, extracts, execution, judge, judgeHelp, cloudNote, actions);
+  // Grille à deux colonnes dès 1400px (story 9.8, maquette) : question et modèles évalués à gauche,
+  // juge et lancement à droite (`.two-col`/`.stack`/`.col-right`, base.css).
+  const el = element("form", "eval-form two-col");
+  const left = element("div", "stack");
+  left.append(seg.root, oneBox, manyBox, picker, extracts, execution);
+  const right = element("div", "col-right");
+  right.append(judge, judgeHelp, cloudNote, actions);
+  el.append(left, right);
 
   const questions = () => splitQuestions(mode === "set" ? many.value : one.value);
   const judgeReady = () => {

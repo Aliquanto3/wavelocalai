@@ -23,7 +23,7 @@ import { createApproval } from "./agents-approval.js";
 import { createConfig } from "./agents-crew-config.js";
 import { createTrack } from "./agents-crew-track.js";
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { loadDraft, saveDraft } from "../core/drafts.js";
 import { t } from "../core/i18n.js";
 import { replaceAddress } from "../core/router.js";
@@ -104,8 +104,14 @@ export function mount(host, params = {}) {
   reason.id = `${uid}-reason`;
   const actions = element("div", "chat-actions");
   actions.append(launch, reason);
-  const controls = element("form", "crew-controls");
-  controls.append(teamRow, description, teamLoading, teamError, model, inputLabel, input, keys, actions);
+  // Grille à deux colonnes dès 1400px (story 9.8, maquette) : équipe et sujet à gauche, modèle de
+  // repli et lancement à droite (`.two-col`/`.stack`/`.col-right`, base.css).
+  const controls = element("form", "crew-controls two-col");
+  const controlsLeft = element("div", "stack");
+  controlsLeft.append(teamRow, description, teamLoading, teamError, inputLabel, input, keys);
+  const controlsRight = element("div", "col-right");
+  controlsRight.append(model, actions);
+  controls.append(controlsLeft, controlsRight);
 
   const status = document.createElement("wl-run-status");
   status.setAttribute("driven", "");
@@ -190,7 +196,9 @@ export function mount(host, params = {}) {
   const work = element("div", "crew-work");
   work.append(graphBox, config.root, track.root, report);
   host.replaceChildren(
-    element("h1", "", t("screens.agents-crew")),
+    // Pas de jeton dédié aux Agents dans la maquette (DECISIONS.md §6) : violet de l'Arène repris
+    // par cohérence (mission confiée à une équipe de modèles, comme l'Arène).
+    moduleTitle("smart-toy", "arena", t("screens.agents-crew")),
     screenTabs("agents", "agents-crew"),
     element("p", "lead", t("crew.lead")),
     controls,

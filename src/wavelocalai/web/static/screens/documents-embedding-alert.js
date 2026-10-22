@@ -71,10 +71,13 @@ export function createEmbeddingAlert({ host, say, onChange, onInstalled }) {
   const dropReason = element("p", "help docs-reason");
   dropReason.id = "docs-drop-embedding-reason";
   dropReason.hidden = true;
-  const section = element("section", "docs-embedding-alert");
+  // `.alert-warning` (base.css, story 9.8, maquette) : liseré et fond ambre, icône à gauche du bloc.
+  const body = element("div", "docs-embedding-alert-body");
+  body.append(title, text, button, reason, download, progressHost, problem);
+  const section = element("section", "docs-embedding-alert alert-warning");
   section.setAttribute("role", "group");
   section.setAttribute("aria-labelledby", title.id);
-  section.append(icon("warning"), title, text, button, reason, download, progressHost, problem);
+  section.append(icon("warning"), body);
   section.hidden = true;
 
   button.addEventListener("click", () => {

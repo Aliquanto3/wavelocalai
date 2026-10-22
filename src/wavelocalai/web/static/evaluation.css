@@ -1,10 +1,9 @@
 /* Écran Évaluation de la qualité (story 7.3). Couleurs et rayon viennent de tokens.css seulement ;
    aucune information ne tient à la couleur seule (état dit en texte, verdict en mot). */
 
+/* Mise en page (`display`, `grid-template-columns`) posée par `.two-col` (base.css, story 9.8) :
+   ici, seul l'espacement propre à l'écran. */
 .eval-form {
-  display: grid;
-  gap: 1rem;
-  max-width: 48rem;
   margin-bottom: 1rem;
 }
 
@@ -463,8 +462,8 @@
   justify-self: start;
 }
 
-/* Une colonne qui peut rétrécir : un tableau large défile dans son cadre, la page ne défile pas. */
-.eval-form,
+/* Une colonne qui peut rétrécir : un tableau large défile dans son cadre, la page ne défile pas.
+   `.eval-form` n'est pas ici : sa grille vient de `.two-col` (base.css, story 9.8). */
 .eval-run,
 .eval-results,
 .eval-detail,

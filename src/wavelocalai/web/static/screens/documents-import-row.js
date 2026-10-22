@@ -100,3 +100,30 @@ export class ImportRow {
     else this.bar.removeAttribute("value"); // progression indéterminée
   }
 }
+
+// Les octets envoyés (formulaire entier, en-têtes compris) répartis sur les fichiers, dans l'ordre
+// (extrait de `documents-base.js`, plafond de taille des fichiers du front).
+export function spreadProgress(rows, files, loaded) {
+  let start = 0;
+  files.forEach((file, index) => {
+    const row = rows.get(index + 1);
+    if (!row || row.state !== "uploading") return;
+    row.percent =
+      file.size === 0 ? (loaded > start ? 100 : 0) : Math.min(100, Math.max(0, ((loaded - start) / file.size) * 100));
+    row.render();
+    start += file.size;
+  });
+}
+
+// La phrase de fin d'un import (D-25) : extraits ajoutés, doublons, échecs, arrêt éventuel.
+export function importSentence(tally, status) {
+  const parts = [];
+  if (tally.docs > 0) {
+    parts.push(`${plural("docs.added", tally.chunks)} ${plural("docs.from", tally.docs)}.`);
+  }
+  if (tally.duplicate > 0) parts.push(plural("docs.duplicate_count", tally.duplicate));
+  if (tally.failed > 0) parts.push(plural("docs.failed_count", tally.failed));
+  if (status === "cancelled") parts.push(t("docs.cancelled"));
+  else if (status !== "ok") parts.push(t("docs.interrupted"));
+  return parts.join(" ");
+}
