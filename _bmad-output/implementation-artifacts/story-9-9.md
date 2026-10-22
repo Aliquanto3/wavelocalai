@@ -50,22 +50,39 @@ Documenté ici pour que la prochaine story qui toucherait ces écrans n'ait pas 
 
 ## Modèles : atteindre le reranker et le catalogue sans défiler toute la hauteur
 
-Mesuré à 1920×1080, données de la recette E2E (`tests/v2/e2e` : 3 modèles installés, 5 usages, 3
-entrées de catalogue, la section du reranker) :
+Mesuré dans Edge (Playwright), jeu de données de la maquette (3 modèles installés, 3 entrées de
+catalogue, 5 usages, reranker non installé avec sa raison), haut de chaque intertitre en px depuis le
+haut de la page :
 
-| Repère | Avant (933cf1b-like, `master`) | Après |
+| Repère (1920×1080) | Commit du dev (7abcf10) | Après la revue |
 |---|---|---|
-| Haut de « Reclassement des extraits » (reranker) | 1870 px de défilement | **537 px** |
-| Haut de « Catalogue installable » | 2146 px | **1666 px** |
-| Hauteur totale de l'écran | 4214 px | 4135 px |
+| Reclassement des extraits (reranker) | 537 | **255** |
+| Catalogue installable (titre / fin du tableau) | 1 096 / 1 379 | **823 / 1 062** |
+| Hauteur totale de l'écran | 1 894 | **1 729** (maquette : ≈ 1 295) |
 
-La hauteur totale ne baisse que peu (les données de test ont plus de lignes que les 3+3+5 de la
-maquette, dont l'estimation ~1 295 px à ~3 900 px ne tient qu'avec ce jeu de données minimal) : le
-critère de la story porte sur la distance à parcourir pour atteindre le reranker et le catalogue, pas
-sur la hauteur totale (qui dépend du nombre de modèles installés et du catalogue, hors de portée du
-CSS). Cette distance a été divisée par 3,5 pour le reranker et réduite de 22 % pour le catalogue, en
-réordonnant les sections dans l'ordre de la maquette (`models.js`, `main.append`) et en resserrant les
-intertitres (`.section-label`, 13 px au lieu d'un `<h2>` à 1,375rem avec ses marges).
+À 1920×1080, le reranker, « Sur ce poste » et le catalogue entier tiennent dans le premier écran : le
+critère est tenu. La différence restante avec la maquette vient de ce que la maquette n'a ni
+« Installer un modèle par son nom », ni « Décharger », ni la raison du reranker : ces fonctions sont
+gardées. Les 4 135 px que citait la première version de cette fiche (et le second avis) avaient été
+mesurés sur un autre jeu de données (recette E2E, lignes plus nombreuses) : ils ne se comparaient pas
+aux ≈ 1 295 px de la maquette, d'où la contradiction entre « critère tenu » et une hauteur totale
+inchangée. Ce que la revue a changé :
+
+- le bloc d'actions qui précédait le reranker (≈ 280 px) est rangé : « Décharger les modèles
+  inactifs » dans « Sur ce poste », au-dessus du tableau (il agit sur la colonne « Chargé ») ;
+  « Installer un modèle par son nom » et la mémoire libre après le catalogue (le cas d'un modèle
+  absent du catalogue). Sélecteurs E2E inchangés ;
+- la zone d'annonce `.models-notice` ne réserve plus de hauteur quand elle est vide (elle reste dans
+  le document pour les annonces) ;
+- densité de la maquette (0,45 × 0,6 rem) pour les tableaux de cet écran seulement, alignement en haut
+  gardé (un alignement centré faisait bouger les boutons d'une ligne quand la liste du sélecteur se
+  refermait : clics manqués dans `test_models_manage.py`) ; nom et tag sur une même ligne ;
+- sous 600 px, les tableaux de l'écran passent en lignes étiquetées comme la maquette à 390 px
+  (`wl-data-table` pose `data-label` sur chaque cellule de données ; la CSS n'est appliquée qu'à
+  `.models-section`).
+
+À 390 px, la page est plus haute (3 744 px contre 3 415) : les lignes étiquetées remplacent un tableau
+qui défilait dans sa zone, ce qui est le choix de la maquette.
 
 ## Défaut corrigé : débordement horizontal à 320 px sur /modeles
 
@@ -122,3 +139,24 @@ projection).
 
 Rien : le périmètre de la story est couvert en entier (Modèles, Sobriété, Accueil). La préversion
 `2.0.0a8` (version, tag, release GitHub) reste à l'orchestrateur, comme demandé.
+
+## Revue
+
+Base à jour (origin/master = 3380be0, aucun rebase nécessaire).
+
+| Sévérité | Source | Constat | Suite | Motif |
+|---|---|---|---|---|
+| high | second avis 1 | Écran Modèles trop haut, reranker et catalogue loin du haut | Corrigé | Bloc d'actions rangé, densité, zone d'annonce vide sans hauteur : reranker à 255 px, catalogue entier avant 1 080 px (tableau ci-dessus) |
+| medium | second avis 3 | Formulaire « installer par nom » au-dessus du reranker | Corrigé | Après le catalogue ; « Décharger » dans « Sur ce poste » ; sélecteurs E2E inchangés |
+| medium | second avis 4 | Tableaux plus denses que la maquette ; pas de lignes étiquetées à 390 px | Corrigé en partie | Lignes étiquetées sous 600 px, nom et tag sur une ligne, densité ; colonnes gardées : Paramètres, Débit, Origine et Usage portent les décisions D-42/D-43 et les tests des stories 5.3/5.4 (repli sous 1 024 px), et tiennent sur une ligne à 1 440 px |
+| medium | second avis 5 | Critère du catalogue non tenu | Corrigé | Même correctif que le 1 |
+| medium | revue | Contradiction de la fiche : « critère tenu » avec une hauteur totale quasi inchangée, mesures sur un autre jeu de données que la maquette | Corrigé | Section de mesure réécrite, chiffres comparables à la maquette |
+| low | second avis 6 | Cellules plus hautes que la maquette | Corrigé | Classe de densité limitée à `.models-section` |
+| low | second avis 7 | Pas d'icône de module sur Sobriété et Accueil | Rejeté | Absents de la maquette, aucun jeton de contraste testé pour eux ; choix du dev documenté ci-dessus |
+| low | second avis 8 | `.models-legend` sans `overflow-wrap` | Rejeté | Légendes à texte fixe (i18n, mots courts), aucun chemin de texte serveur ; 320 px vert |
+| — | revue | Échecs E2E préexistants sur master, reproduits à l'identique : `test_models_install::test_the_screen_lists…` (« Chargé » à « inconnu »), `test_models_manage` (défauts agent/documents, focus de « Supprimer ») ; latences < 300 ms de `tests/v2/web` (poste chargé) | Hors story | Reproduits sur master 3380be0 ; `test_the_new_actions_stay_in_reach_at_320_px`, rouge sur master, passe sur la branche |
+| — | revue | Complexité : 0 constat | — | Aucune structure qui grossit pendant l'exécution n'est touchée |
+
+À vérifier en recette : écran Modèles à 1920×1080 avec les vrais modèles du poste (catalogue visible
+sans défiler) ; lignes étiquetées à 390 px (lecteur d'écran : étiquettes lues, en-têtes de colonne
+masqués sur ce gabarit) ; « Décharger » et « Installer par nom » à leur nouvelle place.

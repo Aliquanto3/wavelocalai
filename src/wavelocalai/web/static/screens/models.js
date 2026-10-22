@@ -108,8 +108,14 @@ export function mount(host, params = {}) {
       host.querySelector("#models-installed-title")?.focus(); // la ligne supprimée n'existe plus
     },
   });
-  const installed = createInstalled({ onDelete: deleter.ask, ollamaUp: () => ollamaUp });
-  actions.append(unload.el, form, help, reason, panel, memory);
+  // « Décharger les modèles inactifs » agit sur la colonne « Chargé » : il se range dans « Sur ce
+  // poste », au-dessus du tableau (revue 9.9 : plus de bloc d'actions avant le reranker).
+  const installed = createInstalled({
+    onDelete: deleter.ask,
+    ollamaUp: () => ollamaUp,
+    toolbar: unload.el,
+  });
+  actions.append(form, help, reason, panel, memory);
 
   // --- Installation -------------------------------------------------------------------------
   let inCatalogWhileBusy = true; // l'installation en cours avait sa ligne au catalogue
@@ -314,9 +320,9 @@ export function mount(host, params = {}) {
   // La fiche (panneau) et le reste de l'écran : à droite dès 1 120 px, au-dessus en deçà (D-40).
   const main = element("div", "models-main");
   // Ordre de la maquette (DECISIONS.md §6, story 9.9) : le reranker d'abord (pas de défilement
-  // pour l'atteindre), puis « Sur ce poste », le catalogue, et les défauts en dernier.
+  // pour l'atteindre), puis « Sur ce poste », le catalogue suivi de l'installation par nom (un modèle
+  // absent du catalogue, avec la mémoire libre), et les défauts en dernier (revue 9.9).
   main.append(
-    actions,
     notice,
     problem,
     down,
@@ -324,6 +330,7 @@ export function mount(host, params = {}) {
     rerank.el,
     installed.el,
     catalog.el,
+    actions,
     defaults.el,
     deleter.el,
   );

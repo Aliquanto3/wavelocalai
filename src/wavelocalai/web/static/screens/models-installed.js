@@ -21,7 +21,8 @@ import { nameCell, paramsText, usedBy } from "./models-format.js";
 const COLLATOR = new Intl.Collator("fr", { numeric: true, sensitivity: "base" });
 const SECONDARY = "models-secondary";
 
-export function createInstalled({ onDelete, ollamaUp }) {
+// `toolbar` (facultatif) : un nœud rangé sous le titre, avant le tableau (« Décharger », story 5.4).
+export function createInstalled({ onDelete, ollamaUp, toolbar = null }) {
   let models = [];
   let loaded = null; // Set des tags chargés ; `null` : inconnu (Ollama muet)
 
@@ -38,7 +39,7 @@ export function createInstalled({ onDelete, ollamaUp }) {
   title.tabIndex = -1; // reçoit le focus quand la ligne supprimée a disparu
   table.id = "models-installed-table";
   toggle.setAttribute("aria-controls", table.id);
-  section.append(title, toggle, empty, table);
+  section.append(title, ...(toolbar ? [toolbar] : []), toggle, empty, table);
 
   toggle.addEventListener("click", () => {
     const shown = section.dataset.secondary === "shown";

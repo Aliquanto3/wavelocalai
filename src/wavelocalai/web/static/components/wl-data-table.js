@@ -149,6 +149,7 @@ export class WlDataTable extends HTMLElement {
         const cell = element(index === 0 ? "th" : "td", column.numeric ? "wl-table-num" : "");
         if (column.className) cell.classList.add(column.className);
         if (index === 0) cell.scope = "row";
+        else cell.dataset.label = column.label; // étiquette d'une ligne en bloc sur écran étroit (CSS)
         const content = column.cell ? column.cell(row) : (column.value ?? ((r) => r[column.key]))(row);
         if (content instanceof Node) cell.append(content);
         else cell.textContent = content ?? "";
