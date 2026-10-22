@@ -177,7 +177,7 @@ function renderOllama(card, ctx, state) {
 }
 
 export function buildHealth() {
-  const title = element("h2", "", t("sobriety.health.title"));
+  const title = element("h2", "section-label", t("sobriety.health.title"));
   title.id = "sob-health-title";
   const version = element("p", "help sob-legend");
   version.dataset.legend = "ollama-version";

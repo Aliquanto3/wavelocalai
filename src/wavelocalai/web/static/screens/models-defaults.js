@@ -26,7 +26,7 @@ export function createDefaults({ say, allowCloud }) {
   let index = new Map(); // tag -> modèle de `GET /api/models`
   let editing = null; // { purpose, picker, warning, node } : la ligne dont le sélecteur est ouvert
 
-  const title = element("h2", "", t("models.defaults.title"));
+  const title = element("h2", "section-label", t("models.defaults.title"));
   title.id = "models-defaults-title";
   const problem = document.createElement("wl-error");
   const table = document.createElement("wl-data-table");

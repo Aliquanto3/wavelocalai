@@ -95,7 +95,8 @@ def test_without_any_session_the_history_says_so_and_draws_no_empty_chart(backen
     assert CURRENT_NOTE in history_text(page)
     assert page.locator(f"{HISTORY} svg.wl-chart-svg").count() == 0
     assert page.locator(f"{HISTORY} table").count() == 0
-    headings = page.locator('[data-screen="sobriety"] h2').all_inner_texts()
+    # `all_text_contents()` (story 9.9) : `.section-label` les met en majuscules par CSS.
+    headings = page.locator('[data-screen="sobriety"] h2').all_text_contents()
     assert headings == ["Santé du système", "Empreinte carbone de cette session", "Historique"]
 
 

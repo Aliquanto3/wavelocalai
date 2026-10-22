@@ -146,11 +146,15 @@ def wait_notice(page, text: str) -> None:
 def test_the_screen_lists_what_is_installed_and_what_can_be_installed(models):
     assert models.get_by_role("heading", level=1).inner_text() == "Modèles"
     assert models.title() == "Modèles · WaveLocalAI"
-    assert [h.inner_text() for h in models.locator("h2:not(.wl-dialog-title)").all()] == [
-        "Sur ce poste",
-        "Modèles proposés par défaut",
+    # `text_content()` (story 9.9) : `.section-label` les met en majuscules par CSS (`inner_text()`
+    # rendrait "SUR CE POSTE"...). Ordre de la maquette (DECISIONS.md §6) : le reranker d'abord, puis
+    # « Sur ce poste », le catalogue, les défauts en dernier (pour atteindre reranker et catalogue
+    # sans défiler toute la hauteur de l'écran).
+    assert [h.text_content() for h in models.locator("h2:not(.wl-dialog-title)").all()] == [
         "Reclassement des extraits",
+        "Sur ce poste",
         "Catalogue installable",
+        "Modèles proposés par défaut",
     ]
     installed = models.locator(".models-installed tbody tr")
     assert installed.count() == 1 and "here:2b" in installed.first.inner_text()
