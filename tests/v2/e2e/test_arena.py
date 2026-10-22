@@ -643,7 +643,8 @@ def score_of(page, tag):
 def test_the_criteria_panel_is_folded_and_proposes_the_default_judge_and_criteria(arena):
     box_ = panel(arena)
     assert box_.get_attribute("open") is None  # replié
-    assert box_.locator("summary").inner_text() == "Critères de notation"
+    # inner_text() rendrait les majuscules posées par CSS (story 9.7) : texte du DOM.
+    assert box_.locator("summary").text_content().strip() == "Critères de notation"
     assert not box_.locator(".arena-judge-body").is_visible()
     open_panel(arena)
     judge = box_.locator("wl-model-picker[purpose=judge]")

@@ -85,7 +85,7 @@ export function formView(uid, scenarios) {
     option.value = item.id;
     select.append(option);
   }
-  const selectLabel = element("label", "bc-label", t("bench.scenario.label"));
+  const selectLabel = element("label", "bc-label section-label", t("bench.scenario.label"));
   selectLabel.htmlFor = select.id;
 
   const instructionBody = element("p", "bc-instruction-body");
@@ -98,7 +98,7 @@ export function formView(uid, scenarios) {
   const input = element("textarea", "bc-input");
   input.id = `${uid}-input`;
   input.rows = 3;
-  const inputLabel = element("label", "bc-label", t("bench.input.label"));
+  const inputLabel = element("label", "bc-label field-label", t("bench.input.label"));
   inputLabel.htmlFor = input.id;
   const replaceNote = element("p", "help", t("bench.input.kept"));
   const replaceButton = element("button", "btn", t("bench.input.replace"));
@@ -126,10 +126,13 @@ export function formView(uid, scenarios) {
   const launchRow = element("div", "bc-launch-row");
   launchRow.append(launch, legend);
 
-  const el = element("form", "bc-form");
+  // Grille à deux colonnes dès 1400px (story 9.7) : scénario et entrée à gauche, réglages et
+  // lancement à droite (`.two-col`/`.col-right`, base.css).
+  const el = element("form", "bc-form two-col");
   el.noValidate = true;
-  el.append(
-    element("h2", "", t("bench.scenario.title")),
+  const left = element("div", "stack");
+  left.append(
+    element("h2", "section-label", t("bench.scenario.title")),
     selectLabel,
     select,
     instruction,
@@ -137,10 +140,10 @@ export function formView(uid, scenarios) {
     inputLabel,
     input,
     replaceRow,
-    element("h2", "", t("bench.settings.title")),
-    settings,
-    launchRow,
   );
+  const right = element("div", "col-right");
+  right.append(element("h2", "section-label", t("bench.settings.title")), settings, launchRow);
+  el.append(left, right);
 
   const modified = () => input.value !== scenario.input;
 

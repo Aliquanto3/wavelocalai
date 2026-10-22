@@ -27,6 +27,13 @@ colors:
   chart-2: '#0E9F5E'
   chart-3: '#2F7FD8'
   chart-4: '#C98A00'
+  # Couleur d'icône par module (story 9.7, maquette docs/maquette-v2-mise-en-page/)
+  icon-arena: 'var(--color-chart-1)'
+  icon-bench: 'var(--color-chart-3)'
+  icon-documents: 'var(--color-chart-2)'
+  amber-strong: '#A66E00'       # dédié : chart-4 clair ne tient pas 3:1 sur sa pastille (DECISIONS.md) ; sombre = chart-4
+  icon-models: 'var(--color-amber-strong)'
+  action-tint: 'rgba(69, 29, 199, 0.08)' # aplat léger (nav courante, bandeau du juge, carte choisie) ; sombre : rgba(126, 101, 233, 0.10)
   # Thème sombre -> [theme.dark]
   primary-dark: '#7E65E9'       # texte violet, bordure, contour : 4,62:1 sur surface-dark ; v1 : aussi fond des boutons (blanc 4,26:1)
   primary-fill-dark: '#6A4DE6'  # v2 : aplat sous texte blanc (décision Q1) ; blanc dessus 5,50:1, 3,58:1 sur surface-dark
@@ -48,6 +55,12 @@ typography:
   body:
     fontFamily: 'Aptos, Inter, sans-serif'
     note: 'Streamlit natif — corps de texte, taille de base Streamlit'
+  section-label:
+    fontFamily: 'Aptos, Inter, sans-serif'
+    note: 'Intertitre de section (story 9.7) : 0.8125rem (13px), majuscules, espacé — toujours plus petit que {typography.field-label}'
+  field-label:
+    fontFamily: 'Aptos, Inter, sans-serif'
+    note: 'Libellé de champ mis en avant (story 9.7, prompt, choix du modèle) : 1.0625rem (17px), gras, au moins aussi grand que {typography.body}'
   heading:
     fontFamily: 'Aptos, Inter, sans-serif'
     note: 'Streamlit natif — st.title (h1) · st.header (h2) · st.subheader (h3)'

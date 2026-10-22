@@ -18,7 +18,11 @@
 .arena-scenarios legend {
   margin-bottom: 0.25rem;
   padding: 0;
+  font-size: var(--text-section-label);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-secondary);
 }
 
 .arena-scenario-row {
@@ -114,6 +118,7 @@
 
 .arena-tab[aria-selected="true"] {
   border-bottom-color: var(--color-primary);
+  background: var(--color-action-tint);
   font-weight: 600;
 }
 
@@ -344,12 +349,17 @@
   background: var(--color-surface);
 }
 
+/* Intertitre repliable (story 9.7, maquette `details.collapsed-settings summary`). */
 .arena-judge-summary {
   min-height: 2.75rem;
   padding: 0.625rem 0.75rem;
   border-radius: var(--radius);
   cursor: pointer;
+  font-size: var(--text-section-label);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-secondary);
 }
 
 .arena-judge-body {
@@ -418,19 +428,7 @@
   cursor: not-allowed;
 }
 
-/* Bandeau du juge au travail (story 9.3, maquette `.judge-banner` : refonte visuelle en 9.7) */
-.arena-judge-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
-  background: var(--color-surface-alt);
-  font-variant-numeric: tabular-nums;
-}
-
+/* Bandeau du juge au travail (story 9.3, habillage `.judge-banner` de base.css posé en 9.7). */
 .arena-judge-banner-clock {
   margin-inline-start: auto; /* horloge à droite, hors de la région live */
   color: var(--color-ink-secondary);

@@ -22,8 +22,8 @@
 // - `allow_cloud` du store accompagne chaque commande ; le brouillon vit dans `localStorage` seul.
 
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
-import { loadDraft, saveDraft } from "../core/drafts.js";
+import { element, moduleTitle } from "../core/dom.js";
+import { saveDraft } from "../core/drafts.js";
 import { formatClock } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { onSmallerModel, swapModel } from "../core/ram-guard.js";
@@ -31,9 +31,9 @@ import { screenTabs } from "../core/screen-tabs.js";
 import { connectRun } from "../core/sse.js";
 import { store } from "../core/store.js";
 import { reuseConfig } from "./arena-actions.js";
-import { envelopeOf, forgetErased, launchReasonOf, noLocalNotice, scenarioFieldset } from "./arena-form.js";
+import { buildForm, envelopeOf, forgetErased, launchReasonOf, noLocalNotice } from "./arena-form.js";
 import { historyView } from "./arena-history.js";
-import { judgeInfo, judgePanel, scoreAnnouncer } from "./arena-judge.js";
+import { judgeInfo, scoreAnnouncer } from "./arena-judge.js";
 import { judgeBannerView } from "./arena-judge-banner.js";
 import { reopenView } from "./arena-reopen.js";
 import { resultsView } from "./arena-results.js";
@@ -50,32 +50,12 @@ let counter = 0;
 export function mount(host, params = {}) {
   const uid = `arena-${++counter}`;
 
-  // --- Formulaire ------------------------------------------------------------------------
-  const questionLabel = element("label", "chat-input-label", t("arena.question"));
-  const question = element("textarea", "chat-input arena-question");
-  question.id = `${uid}-question`;
-  question.rows = 3;
-  questionLabel.htmlFor = question.id;
-  question.value = loadDraft(DRAFT) || t("arena.scenario.popularize.prompt");
-
-  const scenarios = scenarioFieldset(question, DRAFT, () => render());
-
-  const picker = document.createElement("wl-model-picker");
-  picker.setAttribute("purpose", "arena");
-  picker.setAttribute("multi", "");
-  picker.setAttribute("label", t("arena.models"));
-  const execution = element("p", "help arena-execution", t("arena.execution"));
-
-  const judging = judgePanel(uid);
-  const launch = element("button", "btn arena-launch", t("arena.launch"));
-  launch.type = "submit";
-  launch.setAttribute("aria-describedby", `${uid}-reason`);
-  const reason = element("p", "help arena-reason");
-  reason.id = `${uid}-reason`;
-  const actions = element("div", "chat-actions arena-actions");
-  actions.append(launch, reason);
-  const form = element("form", "arena-form");
-  form.append(questionLabel, question, scenarios, picker, execution, judging.el, actions);
+  // --- Formulaire (story 9.7 : grille à deux colonnes, `arena-form.js`) ------------------
+  const { form, question, scenarios, picker, execution, judging, launch, reason, actions } = buildForm(
+    uid,
+    DRAFT,
+    () => render(),
+  );
 
   const noLocal = noLocalNotice();
 
@@ -122,7 +102,7 @@ export function mount(host, params = {}) {
   const scoreLive = scoreAnnouncer();
 
   host.replaceChildren(
-    element("h1", "", t("screens.arena-compare")),
+    moduleTitle("swords", "arena", t("screens.arena-compare")),
     screenTabs("arena", "arena-compare"),
     element("p", "lead", t("arena.lead")),
     reopen.el,

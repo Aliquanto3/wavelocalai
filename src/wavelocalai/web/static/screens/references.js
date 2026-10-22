@@ -9,7 +9,7 @@
 // - « Comparer ces modèles » ouvre l'Arène présélectionnée (`references-compare.js`, D-19).
 
 import { api, ApiError } from "../core/api.js";
-import { element, icon } from "../core/dom.js";
+import { element, icon, moduleTitle } from "../core/dom.js";
 import { formatDate, formatInteger } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { screenTabs } from "../core/screen-tabs.js";
@@ -61,7 +61,7 @@ export function mount(host) {
   const notices = element("div", "ref-notices");
   const content = element("div", "ref-content");
   host.replaceChildren(
-    element("h1", "", t("screens.arena-references")),
+    moduleTitle("swords", "arena", t("screens.arena-references")),
     screenTabs("arena", "arena-references"),
     element("p", "lead", t("references.lead")),
     intro,

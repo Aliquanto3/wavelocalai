@@ -36,7 +36,7 @@ export function resultView(uid) {
   const el = element("section", "bc-result");
   el.setAttribute("aria-labelledby", `${uid}-result-title`);
   el.hidden = true;
-  const title = element("h2", "", t("bench.result.title"));
+  const title = element("h2", "section-label", t("bench.result.title"));
   title.id = `${uid}-result-title`;
   el.append(title, status, streamTitle, stream, verdictBox, formatted, metrics, actions);
 

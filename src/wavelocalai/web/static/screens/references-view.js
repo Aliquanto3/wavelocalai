@@ -90,7 +90,7 @@ function card(usage) {
     element("h3", "ref-card-title", usage.label),
     element("p", "help", usage.description),
     element("p", "help ref-measure", usage.measure),
-    element("p", "ref-group-title", t(alone ? "references.card.best_one" : "references.card.best_group")),
+    element("p", "ref-group-title section-label", t(alone ? "references.card.best_one" : "references.card.best_group")),
     list,
     element("p", "help", t(alone ? "references.card.alone" : "references.card.tie")),
     compareLine(usage),

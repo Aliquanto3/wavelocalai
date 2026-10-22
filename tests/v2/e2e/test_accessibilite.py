@@ -856,3 +856,45 @@ def test_interface_component_tokens_keep_three_to_one_on_both_surfaces(app, them
         for surface in ("surface", "surface-alt"):
             ratio = contrast(tokens[name], tokens[surface])
             assert ratio >= 3, f"{theme} : {name} sur {surface} = {ratio:.2f}:1"
+
+
+# Couleur et fond effectivement rendus d'une icône de module : le navigateur résout `color-mix`, un
+# canevas 1x1 ramène chaque couleur calculée (rgb() ou color(srgb ...)) à un hex sRGB.
+RENDERED_MODULE_ICONS = """() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    const hex = (css) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = '#000';
+        context.fillStyle = css;
+        context.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        if (a !== 255) return null;  // fond transparent : la pastille n'est pas rendue
+        return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+    };
+    const out = {};
+    for (const mod of ['arena', 'bench', 'docs', 'models']) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', `icon icon-mod ${mod}`);
+        document.body.append(svg);
+        const style = getComputedStyle(svg);
+        out[mod] = [hex(style.color), hex(style.backgroundColor)];
+        svg.remove();
+    }
+    return out;
+}"""
+
+
+@pytest.mark.parametrize("theme", ["clair", "sombre"])
+def test_module_icons_keep_three_to_one_on_their_rendered_pastille(app, theme):
+    """Icône de module sur sa pastille (story 9.7, `.icon-mod`, base.css) : au moins 3:1, mesuré sur
+    la couleur et le fond rendus par le navigateur (table de `docs/maquette-v2-mise-en-page/DECISIONS.md`
+    §2)."""
+    apply_mode(app, theme)
+    rendered = app.evaluate(RENDERED_MODULE_ICONS)
+    for mod, (color, pastille) in rendered.items():
+        assert color and pastille, f"{theme} : .icon-mod.{mod} sans couleur ou sans pastille rendue"
+        assert color != pastille, f"{theme} : .icon-mod.{mod} sans pastille distincte"
+        ratio = contrast(color, pastille)
+        assert ratio >= 3, f"{theme} : icône {mod} ({color} sur {pastille}) = {ratio:.2f}:1"
