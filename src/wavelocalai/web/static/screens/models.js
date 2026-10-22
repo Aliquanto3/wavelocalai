@@ -18,7 +18,7 @@
 // - Seule la fin d'une installation est annoncée (zone polie), jamais chaque pourcentage.
 
 import { api, ApiError } from "../core/api.js";
-import { element } from "../core/dom.js";
+import { element, moduleTitle } from "../core/dom.js";
 import { formatGb } from "../core/format.js";
 import { t } from "../core/i18n.js";
 import { shellReady } from "../core/shell-ready.js";
@@ -313,21 +313,23 @@ export function mount(host, params = {}) {
 
   // La fiche (panneau) et le reste de l'écran : à droite dès 1 120 px, au-dessus en deçà (D-40).
   const main = element("div", "models-main");
+  // Ordre de la maquette (DECISIONS.md §6, story 9.9) : le reranker d'abord (pas de défilement
+  // pour l'atteindre), puis « Sur ce poste », le catalogue, et les défauts en dernier.
   main.append(
     actions,
     notice,
     problem,
     down,
     loading,
-    installed.el,
-    defaults.el,
     rerank.el,
+    installed.el,
     catalog.el,
+    defaults.el,
     deleter.el,
   );
   layout.append(card.el, main);
   host.replaceChildren(
-    element("h1", "", t("screens.models")),
+    moduleTitle("deployed-code", "models", t("screens.models")),
     element("p", "lead", t("models.lead")),
     layout,
   );

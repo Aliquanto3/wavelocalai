@@ -20,7 +20,7 @@ export function createCatalog({ pull, ollamaUp, onInstall }) {
   let rows = [];
   let free = null;
 
-  const title = element("h2", "", t("models.catalog.title"));
+  const title = element("h2", "section-label", t("models.catalog.title"));
   title.id = "models-catalog-title";
   const reason = element("p", "help models-reason");
   reason.id = "models-catalog-reason";

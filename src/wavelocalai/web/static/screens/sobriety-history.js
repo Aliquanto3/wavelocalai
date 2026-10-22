@@ -54,7 +54,7 @@ function tableColumns() {
 }
 
 export function buildHistory() {
-  const title = element("h2", "", t("sobriety.history.title"));
+  const title = element("h2", "section-label", t("sobriety.history.title"));
   title.id = "sob-history-title";
 
   const windowSegments = segments({

@@ -61,7 +61,7 @@ export function demoSection() {
   const compare = arena?.screens.find((screen) => screen.id === "arena-compare");
   if (!arena || !entryScreen(arena) || compare?.status !== "available") return null;
 
-  const title = element("h2", "", t("home.demo.title"));
+  const title = element("h2", "section-label", t("home.demo.title"));
   title.id = "home-demo-title";
   const name = element("h3", "home-demo-name");
   name.append(icon(arena.icon), element("span", "", t("modules.arena")));

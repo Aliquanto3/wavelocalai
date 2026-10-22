@@ -207,7 +207,7 @@ function modulesSection() {
   if (items.length === 0) return null;
   const section = element("section", "home-section");
   section.setAttribute("aria-labelledby", "home-modules-title");
-  const title = element("h2", "", t("home.modules_title"));
+  const title = element("h2", "section-label", t("home.modules_title"));
   title.id = "home-modules-title";
   const list = element("ul", "home-module-list");
   list.append(...items);
@@ -238,7 +238,7 @@ export function mount(host) {
   cards.append(system.root, mode.root, cpu.root, memory.root);
   const status = element("section", "home-section");
   status.setAttribute("aria-labelledby", "home-status-title");
-  const statusTitle = element("h2", "", t("home.status_title"));
+  const statusTitle = element("h2", "section-label", t("home.status_title"));
   statusTitle.id = "home-status-title";
   status.append(statusTitle, cards);
 

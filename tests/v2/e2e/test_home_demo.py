@@ -40,7 +40,8 @@ def allow_cloud(page):
 def test_the_card_names_the_arena_and_lists_the_ready_models_with_their_badge(page, server):
     open_home(page, server)
     section = page.get_by_role("region", name="Démo recommandée")
-    assert section.get_by_role("heading", level=2).inner_text() == "Démo recommandée"
+    # `text_content()` (story 9.9) : `.section-label` le met en majuscules par CSS.
+    assert section.get_by_role("heading", level=2).text_content() == "Démo recommandée"
     card = demo(page)
     assert card.get_by_role("heading", level=3).inner_text() == "Arène"
     assert card.locator(".home-demo-long").inner_text() == "Arène des modèles"  # D-10

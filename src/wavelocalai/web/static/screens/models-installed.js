@@ -25,7 +25,7 @@ export function createInstalled({ onDelete, ollamaUp }) {
   let models = [];
   let loaded = null; // Set des tags chargés ; `null` : inconnu (Ollama muet)
 
-  const title = element("h2", "", t("models.installed.title"));
+  const title = element("h2", "section-label", t("models.installed.title"));
   const toggle = element("button", "btn models-toggle", t("models.installed.secondary_show"));
   toggle.type = "button";
   toggle.setAttribute("aria-expanded", "false");

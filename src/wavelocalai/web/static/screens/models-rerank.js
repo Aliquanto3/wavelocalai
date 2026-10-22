@@ -18,7 +18,7 @@ export function createRerank({ pull, onInstall }) {
   let settings = null; // { model, available, reason } ; null : pas encore lu
   let unknown = false; // la lecture a échoué
 
-  const title = element("h2", "", t("models.rerank.title"));
+  const title = element("h2", "section-label", t("models.rerank.title"));
   title.id = "models-rerank-title";
   const lead = element("p", "help", t("models.rerank.lead"));
   const status = element("p", "models-rerank-status");

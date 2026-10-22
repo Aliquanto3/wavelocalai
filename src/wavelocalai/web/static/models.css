@@ -54,6 +54,12 @@
   margin: 0.5rem 0 0;
 }
 
+/* La raison (serveur) peut contenir un chemin de cache non coupable (`C:\...\fastembed`, sans
+   espace) : à 320 px, il déborderait sans ce point de coupe (défaut corrigé par la story 9.9). */
+.models-reason {
+  overflow-wrap: anywhere;
+}
+
 .models-notice {
   min-height: 1.5rem;
   margin: 0 0 1rem;
@@ -64,7 +70,7 @@
 }
 
 .models-section {
-  margin: 0 0 2rem;
+  margin: 0 0 1.5rem;
 }
 
 .models-empty {

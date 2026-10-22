@@ -36,7 +36,7 @@ export function sessionIsEmpty(carbon) {
 }
 
 export function buildCarbon({ onMethod, methodId, actions }) {
-  const title = element("h2", "", t("sobriety.carbon.title"));
+  const title = element("h2", "section-label", t("sobriety.carbon.title"));
   title.id = "sob-carbon-title";
   title.tabIndex = -1; // le focus y revient après une remise à zéro (le bouton se désactive)
   const head = element("div", "sob-section-head");
