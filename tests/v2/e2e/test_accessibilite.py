@@ -720,14 +720,26 @@ def test_a_route_change_moves_the_focus_to_the_h1_of_the_screen(app):
 # --- Critères RGAA vérifiables par le navigateur (grille : docs/accessibilite/grille-rgaa-v2.md) ---
 
 
-def test_every_screen_has_one_h1_a_distinct_title_and_the_french_language(app):
-    """RGAA 8.3, 8.5, 8.6, 9.1 : langue de la page, un titre de page par écran, un seul `h1`."""
-    assert app.get_attribute("html", "lang") == "fr"
+def test_every_screen_has_one_h1_a_distinct_title_and_the_french_language(
+    page_tolerating_failed_requests, backend
+):
+    """RGAA 8.3, 8.5, 8.6, 9.1 : langue de la page, un titre de page par écran, un seul `h1`.
+
+    Base et serveur dédiés (story 8.5), pas le `server` partagé du reste du module : `/documents/base`
+    y garde les documents ingérés par d'autres scénarios de ce fichier, et un écran qui en liste
+    n'a alors plus un seul `h1` à son tour de passage -- un ordre de suite, pas un défaut d'écran.
+    """
+    page = page_tolerating_failed_requests
+    install_models(page)
+    server = backend.start()
+    page.goto(f"{server.base_url}/")
+    wait_ready(page)
+    assert page.get_attribute("html", "lang") == "fr"
     titles = []
-    for path in registry_routes(app):
-        go(app, path)
-        assert screen(app).locator("h1").count() == 1, path
-        titles.append(app.title())
+    for path in registry_routes(page):
+        go(page, path)
+        assert screen(page).locator("h1").count() == 1, path
+        titles.append(page.title())
     assert all(title.endswith(" · WaveLocalAI") or title == "WaveLocalAI" for title in titles)
     assert len(set(titles)) == len(titles), titles
 

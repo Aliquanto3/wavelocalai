@@ -409,6 +409,12 @@ async def test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_
         await _ended(client, run_id)
         events = await _events(client, run_id)
     assert progress_events(events) == []
+    # Story 8.5 (vu en CI Windows, `assert 2 == 1`) : sans pause, le juge de `fake:b` pouvait
+    # prendre la place locale avant que `fake:a` la demande ; `fake:b` était alors noté avec un total
+    # de 2, juste à cet instant, et jamais republié. Une seconde de génération pour `fake:b` laisse
+    # à `fake:a` le temps d'attendre la place avant le juge (file d'attente FIFO), quel que soit
+    # l'ordre de départ des deux lanes.
+    b = local("fake:b", [Sleep(1.0), *say("B")])
     judge = local("fake:j", verdict(50))
     async with arena_app(tmp_path, a, b, judge) as (_, client):
         run_id = (await _post(client, "fake:a", "fake:b", judge="fake:j")).json()["run_id"]

@@ -4,6 +4,7 @@ temporaire (aucun fichier de `benchmarks/` n'est lu ni écrit)."""
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import shutil
@@ -11,6 +12,7 @@ import time
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from wavelocalai.hardware.memory import MemoryAdvisor, MemoryReading
@@ -21,6 +23,7 @@ from wavelocalai.web.app import create_app
 
 from ..conftest import TEST_PORT, closed_port, make_settings
 from ..fake_ollama import FakeOllama
+from ..latency import assert_under_budget
 
 BASE = f"http://127.0.0.1:{TEST_PORT}"
 GB = 1024**3
@@ -65,7 +68,10 @@ async def card_app(
     )
     config = make_settings(
         tmp_path,
-        environ={"WAVELOCALAI_TESTING": "1", "GROQ_API_KEY": "gsk_test_0123456789"},
+        environ={
+            "WAVELOCALAI_TESTING": "1",
+            "GROQ_API_KEY": "gsk_test_0123456789",  # pragma: allowlist secret
+        },
         cloud={"models": {"groq": ["openai/gpt-oss-120b"]}},
     )
     memory = lambda: MemoryReading(total_gb=32.0, available_gb=available_gb)  # noqa: E731
@@ -336,15 +342,46 @@ async def test_a_catalog_card_reads_the_sampled_loaded_models_and_never_calls_ol
 
 
 def test_the_card_answers_under_300_ms_with_ollama_down(tmp_path):
+    """Deuxième meilleur de cinq appels après un échauffement, par tag (décision du 2026-10-23,
+    `latency.py`) : robuste à un appel lent isolé sous la charge du runner, sans relever le budget.
+    """
     shutil.copy(FIXTURE, tmp_path / "bench.json")
     settings = make_settings(tmp_path, ollama={"host": f"http://127.0.0.1:{closed_port()}"})
     app = create_app(settings)
     app.state.registry.bench._path = tmp_path / "bench.json"  # le fichier de la fixture, en tmp
     client = TestClient(app, base_url=BASE)
-    timings = []
     for tag in ("mid:7b", "inconnu:1b"):
+
+        def measure(tag=tag):
+            started = time.perf_counter()
+            response = client.get(f"/api/models/card/{tag}")
+            assert response.status_code in (200, 404), response.text
+            return time.perf_counter() - started
+
+        assert_under_budget(measure, 0.3, tag)
+
+
+def test_a_slow_card_source_fails_the_latency_helper(tmp_path, monkeypatch):
+    """Preuve que le test mord encore (budget NFR1/NFR2/AD-15, 300 ms) : la route ralentie à chaque
+    appel (0,4 s, sans réseau) fait échouer `assert_under_budget`."""
+    shutil.copy(FIXTURE, tmp_path / "bench.json")
+    settings = make_settings(tmp_path, ollama={"host": f"http://127.0.0.1:{closed_port()}"})
+    app = create_app(settings)
+    app.state.registry.bench._path = tmp_path / "bench.json"
+    client = TestClient(app, base_url=BASE)
+    original = app.state.registry.card_source
+
+    async def slow_card_source(*args, **kwargs):
+        await asyncio.sleep(0.4)
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(app.state.registry, "card_source", slow_card_source)
+
+    def measure():
         started = time.perf_counter()
-        response = client.get(f"/api/models/card/{tag}")
-        timings.append(time.perf_counter() - started)
+        response = client.get("/api/models/card/mid:7b")
         assert response.status_code in (200, 404), response.text
-    assert max(timings) < 0.3, timings
+        return time.perf_counter() - started
+
+    with pytest.raises(AssertionError, match="budget"):
+        assert_under_budget(measure, 0.3, "route ralentie")

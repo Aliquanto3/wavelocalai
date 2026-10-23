@@ -16,6 +16,19 @@ import { t } from "../core/i18n.js";
 
 let counter = 0;
 
+// L'élément qui avait le focus à l'ouverture peut avoir été remplacé pendant que le dialogue était
+// ouvert (une ligne de tableau reconstruite par un flux système, story 8.5) : son nœud d'origine
+// n'est alors plus dans la page. On retrouve son équivalent par ce qui l'identifie (`id`, ou son
+// tag et son `data-tag`, convention des lignes de tableau de l'app), plutôt que de perdre le focus.
+function reacquire(el) {
+  if (!el || el.isConnected) return el;
+  if (el.id) return document.getElementById(el.id);
+  const tag = el.dataset?.tag;
+  const classes = [...(el.classList ?? [])].map((name) => `.${CSS.escape(name)}`).join("");
+  if (!tag || !classes) return null;
+  return document.querySelector(`${el.tagName.toLowerCase()}${classes}[data-tag="${CSS.escape(tag)}"]`);
+}
+
 export class WlConfirmDialog extends HTMLElement {
   #dom = null;
   #resolve = null;
@@ -107,6 +120,16 @@ export class WlConfirmDialog extends HTMLElement {
     const back = this.#returnFocus;
     this.#returnFocus = null;
     if (back?.isConnected && typeof back.focus === "function") back.focus();
+    // Rattrapage (story 8.5) : si le nœud d'origine a été remplacé pendant l'ouverture, ou si le
+    // retour natif de `<dialog>` a laissé le focus sur `body`, on repose le focus sur l'équivalent
+    // actuel une image plus tard -- seulement s'il est encore perdu, pour ne jamais écraser le focus
+    // qu'un appelant a posé lui-même après `await ask()` (lignes de documents, approbations…).
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active.isConnected && !this.contains(active)) return;
+      const target = reacquire(back);
+      if (target?.isConnected && typeof target.focus === "function") target.focus();
+    });
   }
 }
 

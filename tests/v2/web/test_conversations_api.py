@@ -6,6 +6,7 @@ réseau) ; l'app est la vraie, cycle de vie compris.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -16,14 +17,16 @@ import pytest
 from wavelocalai.greenops.session import session_summary
 from wavelocalai.inference.streaming import CANCELLED_CO2
 from wavelocalai.runs.models import AssistantMessage, LeafResult
+from wavelocalai.web import routes_conversations
 from wavelocalai.web.app import create_app
 
 from ..conftest import TEST_PORT, make_settings
+from ..latency import assert_under_budget_async
 from ..producers import LOCAL_CO2, produce_chat
 from .conftest import served  # noqa: F401 - fixture
 
 BASE = f"http://127.0.0.1:{TEST_PORT}"
-FAKE_KEY = "gsk_FAKEKEYabcdefghijklmnop1234"
+FAKE_KEY = "gsk_FAKEKEYabcdefghijklmnop1234"  # pragma: allowlist secret
 UNIQUE = "Zorglub-Quasimodo-7731"
 ANSWER = "Reponse-Unique-Xylophone-9182"
 
@@ -252,7 +255,10 @@ async def test_a_message_sent_to_a_deleted_conversation_is_refused(served):  # n
 
 async def test_routes_with_a_path_parameter_stay_under_the_read_budget(tmp_path):
     """`test_read_budget.py` ne couvre que les `GET` sans paramètre de chemin : ceux-ci se
-    mesurent ici, Ollama injoignable (port fermé de `make_settings`), base de taille réelle."""
+    mesurent ici, Ollama injoignable (port fermé de `make_settings`), base de taille réelle.
+
+    Deuxième meilleur de cinq appels après un échauffement (décision du 2026-10-23, `latency.py`) :
+    robuste à un appel lent isolé sous la charge du runner, sans relever le budget."""
     app = create_app(make_settings(tmp_path, environ={"WAVELOCALAI_TESTING": "1"}))
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
@@ -265,11 +271,40 @@ async def test_routes_with_a_path_parameter_stay_under_the_read_budget(tmp_path)
                 "/api/conversations/inconnue",
             )
             for path in paths:
+
+                async def measure(path=path):
+                    started = time.perf_counter()
+                    response = await client.get(path)
+                    assert response.status_code in (200, 404), path
+                    return time.perf_counter() - started
+
+                await assert_under_budget_async(measure, 0.3, path)
+
+
+async def test_a_route_that_becomes_slow_fails_the_latency_helper(tmp_path, monkeypatch):
+    """Preuve que le test mord encore (toujours au budget NFR1/NFR2/AD-15, 300 ms) : une route
+    ralentie à chaque appel (0,4 s, sans réseau) fait échouer `assert_under_budget_async`."""
+    app = create_app(make_settings(tmp_path, environ={"WAVELOCALAI_TESTING": "1"}))
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=BASE) as client:
+            conv, _, _ = await two_exchanges(app.state.hub)
+            original = routes_conversations.conversation_view
+
+            async def slow_conversation_view(*args, **kwargs):
+                await asyncio.sleep(0.4)
+                return await original(*args, **kwargs)
+
+            monkeypatch.setattr(routes_conversations, "conversation_view", slow_conversation_view)
+
+            async def measure():
                 started = time.perf_counter()
-                response = await client.get(path)
-                elapsed = time.perf_counter() - started
-                assert response.status_code in (200, 404), path
-                assert elapsed < 0.3, f"{path} : {elapsed * 1000:.0f} ms"
+                response = await client.get(f"/api/conversations/{conv}")
+                assert response.status_code == 200
+                return time.perf_counter() - started
+
+            with pytest.raises(AssertionError, match="budget"):
+                await assert_under_budget_async(measure, 0.3, "route ralentie")
 
 
 @pytest.mark.parametrize("extension", ["json", "md"])

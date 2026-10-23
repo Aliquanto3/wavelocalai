@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 
 import pytest
+from playwright.sync_api import expect
 
 from ..conftest import closed_port
 from ..pull_fake import GB, ThreadedOllama
@@ -210,11 +211,10 @@ def test_choosing_a_default_writes_it_and_reverting_clears_it(models, manage_ser
     wait_notice(models, "Choix automatique rétabli pour l'usage Documents.")
     assert "Choisi par vous" not in models.locator(".models-defaults").inner_text()
     assert call(manage_server, "GET", "/api/models/defaults?purpose=rag")[1]["source"] == "rule"
-    assert (
-        default_row(models, "Documents")
-        .get_by_role("button", name=re.compile("^Changer"))
-        .evaluate("(button) => document.activeElement === button")
-    )  # le focus revient au bouton « Changer »
+    # le focus revient au bouton « Changer » : attente d'un état stable, pas d'une lecture instantanée.
+    expect(
+        default_row(models, "Documents").get_by_role("button", name=re.compile("^Changer"))
+    ).to_be_focused()
 
 
 def test_cancelling_a_change_writes_nothing(models, manage_server):
@@ -261,12 +261,12 @@ def test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model(
     assert dialog.locator(".wl-dialog-consequence").inner_text() == (
         f"{SMALL} sera supprimé de ce poste (1{NBSP}Go libérés)."
     )
-    assert models.evaluate("() => document.activeElement.textContent") == "Annuler"
+    expect(dialog.get_by_role("button", name="Annuler")).to_be_focused()
     dialog.get_by_role("button", name="Annuler").click()
     assert (
         ollama.deleted == [] and installed_row(models, SMALL).count() == 1
     )  # « Annuler » ne supprime rien
-    assert delete_button(models, SMALL).evaluate("(button) => document.activeElement === button")
+    expect(delete_button(models, SMALL)).to_be_focused()
     delete_button(models, SMALL).click()
     dialog.wait_for()
     dialog.get_by_role("button", name="Supprimer le modèle").click()
@@ -276,7 +276,7 @@ def test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model(
     assert installed_row(models, SMALL).count() == 0 and installed_row(models, AGENT).count() == 1
     tags = [m["tag"] for m in call(manage_server, "GET", "/api/models")[1]["models"]]
     assert SMALL not in tags
-    assert models.evaluate("() => document.activeElement.id") == "models-installed-title"
+    expect(models.locator("#models-installed-title")).to_be_focused()
 
 
 def test_the_dialog_names_the_purposes_whose_default_is_the_model(models, manage_server):
