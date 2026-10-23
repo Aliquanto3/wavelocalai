@@ -138,3 +138,10 @@ Ordre d'exécution (une à la fois) : 9.6 (maquette, préparée en premier pour 
 - 2026-10-22 21:30 · 9.9 · CI · verte après relance · 0afc828
 - 2026-10-22 21:30 · 9.9 · fusion · PR #129 fusionnée (fin de l'Epic 9) · f6f36ae
 - 2026-10-22 21:30 · Epic 9 · décision · suite E2E complète sur master lancée par le workflow nocturne (run 39840701099) ; préversion 2.0.0a8 (pyproject, uv.lock, CITATION.cff) en PR, tag après la fusion · f6f36ae
+- 2026-10-22 22:04 · Epic 9 · CI · suite E2E complète sur master : 732 verts, 1 rouge (test_axe_finds_no_violation_with_four_models…[light-1440], instabilité connue) · f6f36ae
+- 2026-10-22 22:04 · 2.0.0a8 · CI · rouge (Windows 3.12 seul : test_routes_with_a_path_parameter_stay_under_the_read_budget, 348 ms pour 300, instable au temps) ; job relancé · 538170b
+- 2026-10-23 05:43 · 2.0.0a8 · CI · verte après relance du job Windows · 538170b
+- 2026-10-23 05:43 · 2.0.0a8 · fusion · PR #130 fusionnée · 1de07be
+- 2026-10-23 05:43 · 2.0.0a8 · release · tag annoté `v2.0.0a8` et release GitHub en préversion (v1.3.0 reste « Latest ») · 1de07be
+- 2026-10-23 05:43 · 8.5 · décision · Anaël demande de planifier la fiabilisation des tests instables : story 8.5 « La CI passe sans relance » ajoutée à l'Epic 8, avant 8.4 · —
+- 2026-10-23 05:43 · Epic 9 · fin du run · 9 stories fusionnées, préversion 2.0.0a8 publiée ; à la recette : captures du README, doublon « SCÉNARIO » du Banc d'essai, largeur de l'Évaluation, écran Modèles avec les vrais modèles · —

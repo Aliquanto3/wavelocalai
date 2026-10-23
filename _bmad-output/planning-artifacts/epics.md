@@ -1930,6 +1930,49 @@ So that il n'existe plus qu'une application à installer et à maintenir.
 **When** on publie
 **Then** `version = "2.0.0"` dans `pyproject.toml`, `uv.lock` et `CITATION.cff`, tag annoté `v2.0.0`, release GitHub avec notes ; le topic GitHub du projet passe à `status-deployed`
 
+### Story 8.5 : La CI passe sans relance
+
+As a mainteneur,
+I want une CI dont le verdict ne dépend ni de la charge du runner ni du hasard,
+So that un contrôle rouge signale toujours un vrai défaut, et que la suite complète exigée par 8.4 soit verte du premier coup.
+
+**Avant :** 8.4. **Origine :** run de l'Epic 9 (2026-10-21 et 22) : 5 relances de job sur 12 PR (#119 à #130), toutes sur les tests ci-dessous, aucune sur un défaut réel (journal de `run-autonome.md`).
+
+Tests en cause, par famille :
+
+| Famille | Test | Où | Symptôme |
+|---|---|---|---|
+| Budget de latence | `tests/v2/web/test_conversations_api.py::test_routes_with_a_path_parameter_stay_under_the_read_budget` | Windows | 348 ms pour 300 |
+| Budget de latence | `test_the_card_answers_under_300_ms_with_ollama_down` | Windows | 420 ms pour 300 |
+| Budget de latence | `test_shell_renders_under_300_ms` | Windows | 301 à 430 ms |
+| Attente E2E | `tests/v2/e2e/test_arena.py::test_axe_finds_no_violation_with_four_models_the_summary_and_the_folded_answers[*-1440]` | Linux, local | `wait_for` dépassé (15 s) : le résumé n'est visible que 0,3 à 0,5 s |
+| Attente E2E | `tests/v2/e2e/test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model` | Linux | focus pas encore posé à la lecture |
+| Horloge | `test_lane_timeout_counts_from_the_slot_not_from_the_wait` (Arène) | macOS | délai mesuré trop court sous charge |
+| Ordre de la suite | `test_accessibilite.py::test_every_screen_has_one_h1_a_distinct_title…` | local | échoue après d'autres tests, vert seul |
+
+**Acceptance Criteria:**
+
+**Given** les budgets de latence (NFR1 et NFR2 : 300 ms)
+**When** un test les mesure
+**Then** il mesure la médiane de plusieurs appels après un appel d'échauffement, et non un appel isolé ; le budget reste de 300 ms, et le test échoue encore si la route devient vraiment lente (vérifié en ralentissant artificiellement la route dans un test)
+
+**Given** les tests E2E qui attendent un état transitoire (résumé de l'Arène, focus après suppression)
+**When** ils vérifient cet état
+**Then** ils attendent une condition stable de l'interface (`expect(...).to_be_visible()`, `to_be_focused()`, attribut d'état posé par l'écran) et non une fenêtre de temps ; si l'état est réellement trop bref pour l'utilisateur (résumé de l'Arène visible moins d'une seconde), c'est un défaut d'interface corrigé dans l'écran, pas dans le test
+
+**Given** les tests qui dépendent de l'horloge murale (délai de lane de l'Arène)
+**When** ils tournent sur un runner chargé
+**Then** ils pilotent une horloge injectée ou des marges qui ne dépendent pas de la vitesse du runner
+
+**Given** les tests qui dépendent de l'ordre de la suite
+**When** ils sont joués après d'autres
+**Then** l'état partagé qui les fait échouer (serveur, page, stockage) est isolé par une fixture, et le test passe seul comme en suite
+
+**Given** la story terminée
+**When** on mesure
+**Then** chaque test de la liste passe 20 fois de suite sur les trois OS (`pytest --count=20` ou boucle équivalente, lancé dans un job de CI dédié à la demande, pas en local) ; la suite E2E nocturne et la CI de PR passent 3 fois de suite sans relance ; la liste des « tests instables connus » de `run-autonome.md` est vidée, et `AGENTS.md` ne mentionne aucune relance à faire
+**And** aucun test n'est supprimé, ignoré (`skip`, `xfail`) ni affaibli pour y arriver ; un test retiré est remplacé par un test équivalent, avec la raison dans la fiche
+
 ## Epic 9 : Retours de la recette du 2026-10-21
 
 Corrige ce que la première recette humaine de la v2 (préversion 2.0.0a7) a relevé, avant la bascule (story 8.4). Source : `sprint-change-proposal-2026-10-21.md` (décisions D-R4-a, D-R6). Préversion 2.0.0a8 en fin d'epic.
