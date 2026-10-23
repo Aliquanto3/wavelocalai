@@ -113,6 +113,7 @@ development_status:
   8-1-solder-la-dette-technique-relevée-pendant-le-mvp: done
   8-2-tous-les-écrans-sont-accessibles-et-lisibles-en-projection: done
   8-3-la-parité-avec-la-v1-est-listée-et-la-suite-e2e-est-complète: done
+  8-5-la-ci-passe-sans-relance: backlog
   epic-8-retrospective: optional
 
   epic-9: done
