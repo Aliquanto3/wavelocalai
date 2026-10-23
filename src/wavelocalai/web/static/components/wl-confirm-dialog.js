@@ -16,6 +16,19 @@ import { t } from "../core/i18n.js";
 
 let counter = 0;
 
+// L'élément qui avait le focus à l'ouverture peut avoir été remplacé pendant que le dialogue était
+// ouvert (une ligne de tableau reconstruite par un flux système, story 8.5) : son nœud d'origine
+// n'est alors plus dans la page. On retrouve son équivalent par ce qui l'identifie (`id`, ou son
+// tag et son `data-tag`, convention des lignes de tableau de l'app), plutôt que de perdre le focus.
+function reacquire(el) {
+  if (!el || el.isConnected) return el;
+  if (el.id) return document.getElementById(el.id);
+  const tag = el.dataset?.tag;
+  const classes = [...(el.classList ?? [])].map((name) => `.${CSS.escape(name)}`).join("");
+  if (!tag || !classes) return null;
+  return document.querySelector(`${el.tagName.toLowerCase()}${classes}[data-tag="${CSS.escape(tag)}"]`);
+}
+
 export class WlConfirmDialog extends HTMLElement {
   #dom = null;
   #resolve = null;
@@ -106,7 +119,13 @@ export class WlConfirmDialog extends HTMLElement {
     resolve?.(value);
     const back = this.#returnFocus;
     this.#returnFocus = null;
-    if (back?.isConnected && typeof back.focus === "function") back.focus();
+    // `dialog.close()` rend elle-même le focus à l'élément actif d'avant `showModal()` (story 8.5) :
+    // ce retour natif est asynchrone et peut écraser un `focus()` posé dans le même tour de boucle.
+    // On pose le nôtre une fois ce retour natif passé.
+    requestAnimationFrame(() => {
+      const target = reacquire(back);
+      if (target?.isConnected && typeof target.focus === "function") target.focus();
+    });
   }
 }
 

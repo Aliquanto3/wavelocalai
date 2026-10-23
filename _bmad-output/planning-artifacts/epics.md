@@ -1954,7 +1954,7 @@ Tests en cause, par famille :
 
 **Given** les budgets de latence (NFR1 et NFR2 : 300 ms)
 **When** un test les mesure
-**Then** il mesure la médiane de plusieurs appels après un appel d'échauffement, et non un appel isolé ; le budget reste de 300 ms, et le test échoue encore si la route devient vraiment lente (vérifié en ralentissant artificiellement la route dans un test)
+**Then** il mesure le deuxième meilleur de cinq appels après un appel d'échauffement, et non un appel isolé (décision d'Anaël du 2026-10-23, story 8.5 : la médiane de cinq dépassait déjà le budget une fois sur deux en CI) ; le budget reste de 300 ms, et le test échoue encore si la route devient vraiment lente (vérifié en ralentissant artificiellement la route dans un test)
 
 **Given** les tests E2E qui attendent un état transitoire (résumé de l'Arène, focus après suppression)
 **When** ils vérifient cet état

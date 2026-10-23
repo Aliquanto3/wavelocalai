@@ -3,10 +3,13 @@ projection, responsive et accessibilité (axe-core, clair et sombre, sans exclus
 
 from __future__ import annotations
 
+import re
 import time
 
 import pytest
 from axe_playwright_python.sync_playwright import Axe
+
+from ..latency import second_best_of_five_many
 
 PLANNED_REASON = "Pas encore disponible dans cette préversion"
 MODULES = ["Accueil", "Arène", "Documents", "Agents", "Sobriété", "Modèles"]
@@ -93,11 +96,11 @@ def shell_timings(page, url: str) -> dict:
 
 def test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped(page, server):
     # Un premier chargement chauffe le serveur et le navigateur (imports, polices système) ; la
-    # mesure est le deuxième meilleur de cinq chargements suivants : sur les runners partagés de la
-    # CI, la médiane dépassait le budget une fois sur deux sous la charge des autres jobs (335 à
-    # 372 ms), alors que le deuxième meilleur reste stable (moins de 290 ms) et garde le budget.
-    # Une seule manche : la relance d'un test instable revient à l'outillage, pas au test.
-    # Chaque appel `fetch` vers `/api/` note si le repère `shell-ready` était déjà posé.
+    # mesure est le deuxième meilleur de cinq chargements suivants (`latency.py`, décision du
+    # 2026-10-23) : sur les runners partagés de la CI, la médiane dépassait le budget une fois sur
+    # deux sous la charge des autres jobs (335 à 372 ms), alors que le deuxième meilleur reste stable
+    # (moins de 290 ms) et garde le budget. Une seule manche : la relance d'un test instable revient
+    # à l'outillage, pas au test. Chaque appel `fetch` vers `/api/` note si `shell-ready` était posé.
     page.add_init_script(
         """(() => {
             const original = window.fetch.bind(window);
@@ -111,11 +114,8 @@ def test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped(p
             };
         })()"""
     )
-    shell_timings(page, f"{server.base_url}/")
-    runs = [shell_timings(page, f"{server.base_url}/") for _ in range(5)]
-    fcp = sorted(run["fcp"] for run in runs)[1]
-    ready = sorted(run["ready"] for run in runs)[1]
-    assert fcp < SHELL_BUDGET_MS and ready < SHELL_BUDGET_MS, runs
+    best, runs = second_best_of_five_many(lambda: shell_timings(page, f"{server.base_url}/"))
+    assert best["fcp"] < SHELL_BUDGET_MS and best["ready"] < SHELL_BUDGET_MS, runs
     assert len(module_links(page).all()) == len(MODULES) == len(registry_modules(page))
     # Rien de `/api/` n'est demandé avant que la coquille soit rendue : la barre haute branche son
     # flux après le repère `shell-ready` (story 1.9), elle ne l'attend pas.
@@ -124,6 +124,22 @@ def test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped(p
     )
     calls = page.evaluate("() => window.__apiCalls")
     assert [call for call in calls if not call["ready"]] == [], calls
+
+
+def test_a_slowed_down_shell_fails_the_latency_helper(page, server):
+    """Preuve que le test mord encore (budget NFR1/NFR2/AD-15, 300 ms) : la route de la coquille
+    retardée à chaque chargement (0,4 s, route Playwright, sans réseau) fait échouer
+    `second_best_of_five_many`."""
+    page.route(
+        re.compile(r"^http://127\.0\.0\.1[:/].*/static/main\.js$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/javascript",
+            body=("await new Promise((r) => setTimeout(r, 400));" + route.fetch().text()),
+        ),
+    )
+    best, runs = second_best_of_five_many(lambda: shell_timings(page, f"{server.base_url}/"))
+    assert best["ready"] >= SHELL_BUDGET_MS, runs
 
 
 def test_every_request_stays_on_127_0_0_1(shell, server, traffic):

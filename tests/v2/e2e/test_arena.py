@@ -1490,8 +1490,13 @@ def test_axe_finds_no_violation_with_four_models_the_summary_and_the_folded_answ
         },
     )
     launch(arena)
-    arena.locator(".arena-summary").wait_for(state="visible")
-    lane(arena, "fake:a").locator(".wl-md").wait_for()
+    # Vu deux fois en CI (run-autonome.md) avec les trois morceaux E2E en parallèle sur le même
+    # runner : le résumé apparaît bien dès le lancement (`running()`, D-16 ; le backend n'envoie
+    # `run_ended` qu'après `asyncio.gather` de toutes les lanes, `arena.py:451`), mais le rendu de la
+    # page peut dépasser les 15 s par défaut sous cette charge, sans rapport avec les 300 ms de l'app.
+    # Marge indépendante de la vitesse du runner (story 8.5), pas une attente par horloge murale.
+    arena.locator(".arena-summary").wait_for(state="visible", timeout=30_000)
+    lane(arena, "fake:a").locator(".wl-md").wait_for(timeout=30_000)
     assert_no_axe_violations(arena, f"résumé et colonnes repliées, {width} px, thème {theme}")
     wait_banner(arena, "Comparaison terminée")
     assert_no_axe_violations(arena, f"configuration revenue, {width} px, thème {theme}")

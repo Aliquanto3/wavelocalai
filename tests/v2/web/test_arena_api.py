@@ -201,10 +201,14 @@ async def test_locals_run_in_sequence_under_the_slot_and_the_cloud_runs_at_once(
 
 
 async def test_lane_timeout_counts_from_the_slot_not_from_the_wait(tmp_path):
-    # 0,25 s chacune pour un délai de 0,4 s : la seconde attend 0,25 s mais ne dépasse pas.
-    a = local("fake:a", [Sleep(0.25), *say("A")])
-    b = local("fake:b", [Sleep(0.25), *say("B")])
-    async with arena_app(tmp_path, a, b, delays={"lane_timeout_s": 0.4}) as (_, client):
+    # Marge large (décision du 2026-10-23, story 8.5) : 1 s par lane pour un délai de 1,5 s -- « compté
+    # depuis la place » (A : 1 s, B : attend 1 s puis dure 1 s, total 2 s) dépasserait nettement le
+    # délai (1,5 s) si le compte partait de l'attente, alors que « compté depuis le slot » (chaque lane
+    # dure 1 s une fois sa place prise) reste nettement en dessous. 0,25 s/0,4 s dépassait sous la
+    # charge du runner (marge de 0,15 s seulement).
+    a = local("fake:a", [Sleep(1.0), *say("A")])
+    b = local("fake:b", [Sleep(1.0), *say("B")])
+    async with arena_app(tmp_path, a, b, delays={"lane_timeout_s": 1.5}) as (_, client):
         run_id = (await _post(client, "fake:a", "fake:b")).json()["run_id"]
         snapshot = await _ended(client, run_id)
         events = await _events(client, run_id)
