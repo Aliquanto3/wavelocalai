@@ -144,6 +144,12 @@ python -m venv .venv-app
 | [Contributing](CONTRIBUTING.md) | Guide de contribution |
 | [Agent Tools](docs/AGENT_TOOLS.md) | **NOUVEAU** - Documentation des 9 outils agents |
 
+### Banc de qualité des SLM
+
+Le banc de qualité « difficile » des petits modèles locaux, conçu à partir de ce projet, vit désormais dans son propre dépôt : [**slm-quality-bench**](https://github.com/Aliquanto3/slm-quality-bench). Il évalue les modèles servis par Ollama, en français, sur deux pistes (réflexion coupée et activée), avec des questions protégées contre la contamination, un juge calibré sur des étiquettes humaines et des statistiques appariées.
+
+Les résultats de benchmark affichés par l'application en viennent : l'Action `sync-slm-results.yml` les recopie dans `benchmarks/slm-quality/` (`scripts/sync_slm_results.py`) et ouvre une PR. wavelocalai n'en produit plus lui-même.
+
 ---
 
 ## 🎯 Fonctionnalités
