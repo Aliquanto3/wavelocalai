@@ -1,0 +1,510 @@
+"""Erreurs de la v2 : liste fermée de codes et enveloppe unique (AD-18).
+
+Chaque réponse en erreur, et plus tard `run_ended.data.error`, a la forme
+`{code, message, action, detail}` : `message` et `action` en français, `detail` un objet avec
+`technical` (texte replié sous « Détails techniques ») et les clés machine déclarées avec le code
+(`detail_keys`). Les valeurs texte de `detail` passent par `mask_secrets`. Chaque story ajoute ses
+codes à `ERRORS`. Module de base : il n'importe rien du paquet.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True)
+class ErrorSpec:
+    code: str
+    status: int
+    message: str
+    action: str
+    detail_keys: tuple[str, ...] = ()  # clés machine de `detail`, hors `technical`
+
+
+_SPECS = (
+    ErrorSpec(
+        "ollama_down",
+        503,
+        "Ollama ne répond pas sur ce poste.",
+        "Lancez Ollama (application ou `ollama serve`), puis réessayez.",
+    ),
+    ErrorSpec(
+        "forbidden_host",
+        403,
+        "Cette requête vise une adresse que le serveur local n'accepte pas.",
+        "Ouvrez l'application depuis http://127.0.0.1 ou http://localhost, sur le port affiché "
+        "au lancement.",
+        ("host",),
+    ),
+    ErrorSpec(
+        "forbidden_origin",
+        403,
+        "Cette écriture vient d'une page qui n'est pas celle de l'application.",
+        "Utilisez l'application ouverte sur votre poste et fermez les onglets étrangers.",
+        ("origin",),
+    ),
+    ErrorSpec(
+        "not_found",
+        404,
+        "Cette ressource n'existe pas.",
+        "Vérifiez l'adresse, ou rechargez l'application.",
+    ),
+    ErrorSpec(
+        "method_not_allowed",
+        405,
+        "Cette opération n'est pas permise sur cette ressource.",
+        "Rechargez l'application ; si le problème persiste, signalez-le.",
+    ),
+    ErrorSpec(
+        "invalid_request",
+        422,
+        "La requête est incomplète ou invalide.",
+        "Corrigez les champs signalés dans les détails techniques, puis réessayez.",
+    ),
+    ErrorSpec(
+        "internal",
+        500,
+        "Une erreur interne est survenue.",
+        "Réessayez ; si elle persiste, consultez les journaux de `data/logs/` et relancez le "
+        "serveur.",
+    ),
+    ErrorSpec(
+        "run_busy",
+        409,
+        "Une exécution de ce genre est déjà en cours.",
+        "Rejoignez-la, ou arrêtez-la avant d'en lancer une autre.",
+        ("run_id",),
+    ),
+    ErrorSpec(
+        "pull_failed",
+        502,
+        "Le modèle {tag} n'a pas pu être installé.",
+        "Réessayez. La liste des modèles est inchangée.",
+        ("tag", "cause"),
+    ),
+    ErrorSpec(
+        "cloud_not_allowed",
+        403,
+        "Ce modèle est hébergé hors de ce poste et le mode cloud n'est pas autorisé.",
+        "Autorisez le mode cloud pour cette demande, ou choisissez un modèle local.",
+        ("tag",),
+    ),
+    ErrorSpec(
+        "model_not_chat",
+        422,
+        "Ce modèle ne sert pas à générer du texte.",
+        "Choisissez un modèle de conversation dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_embedding",
+        422,
+        "Ce modèle ne sert pas à calculer des embeddings.",
+        "Choisissez un modèle d'embedding local dans la liste.",
+        ("tag", "kind"),
+    ),
+    ErrorSpec(
+        "model_not_found",
+        404,
+        "Ce modèle n'est pas dans la liste des modèles disponibles.",
+        "Rechargez la liste des modèles, ou installez ce modèle dans Ollama.",
+        ("tag",),
+    ),
+    ErrorSpec(
+        "no_model",
+        404,
+        "Aucun modèle de conversation n'est disponible pour cet usage.",
+        "Installez un modèle de conversation dans Ollama (par exemple `ollama pull qwen3.5:2b`), "
+        "puis rechargez la liste.",
+        ("purpose",),
+    ),
+    ErrorSpec(
+        "timeout",
+        504,
+        "Délai dépassé ({timeout_s} s) : le modèle n'a pas fini de répondre.",
+        "Réessayez avec un modèle plus petit, ou allongez `lane_timeout_s` dans "
+        "`wavelocalai.toml`.",
+        ("timeout_s",),
+    ),
+    ErrorSpec(
+        "generation_interrupted",
+        502,
+        "Ollama a arrêté la génération avant la fin.",
+        "Réessayez ; si cela se répète, redémarrez Ollama ou choisissez un modèle plus petit.",
+    ),
+    ErrorSpec(
+        "invalid_output",
+        502,
+        "Le modèle n'a pas rendu la sortie structurée demandée.",
+        "Réessayez, ou choisissez un autre modèle pour cet usage.",
+    ),
+    ErrorSpec(
+        "ollama_error",
+        502,
+        "Ollama a refusé la requête.",
+        "Ouvrez les détails techniques ; vérifiez que le modèle est installé et que la mémoire "
+        "suffit.",
+    ),
+    ErrorSpec(
+        "cloud_key_missing",
+        400,
+        "La clé d'API de {provider_name} n'est pas configurée.",
+        "Ajoutez {key_var}=votre clé dans le fichier `.env` à la racine du projet, relancez le "
+        "serveur, ou choisissez un modèle local.",
+        ("provider", "provider_name", "key_var"),
+    ),
+    ErrorSpec(
+        "cloud_key_refused",
+        502,
+        "{provider_name} a refusé la clé d'API.",
+        "Vérifiez la valeur de {key_var} dans le fichier `.env` (clé valide, droits sur ce "
+        "modèle), relancez le serveur, ou repassez en Local.",
+        ("provider", "provider_name", "key_var", "http_status"),
+    ),
+    ErrorSpec(
+        "cloud_unreachable",
+        502,
+        "{provider_name} est injoignable depuis ce poste.",
+        "Vérifiez la connexion réseau, puis réessayez ; ou repassez en Local en désactivant le "
+        "mode cloud et en choisissant un modèle local.",
+        ("provider", "provider_name"),
+    ),
+    ErrorSpec(
+        "cloud_rate_limited",
+        429,
+        "{provider_name} limite le débit ou le quota de cette clé.",
+        "Patientez un peu avant de réessayer, vérifiez le quota de votre compte, ou repassez en "
+        "Local.",
+        ("provider", "provider_name", "http_status"),
+    ),
+    ErrorSpec(
+        "cloud_error",
+        502,
+        "{provider_name} a refusé ou interrompu la requête.",
+        "Ouvrez les détails techniques ; choisissez un autre modèle de ce fournisseur, réessayez "
+        "plus tard, ou repassez en Local.",
+        ("provider", "provider_name", "http_status"),
+    ),
+    ErrorSpec(
+        "conversation_busy",
+        409,
+        "Cette conversation a une réponse en cours : elle ne peut pas être effacée maintenant.",
+        "Arrêtez la réponse (touche Échap), puis effacez la conversation.",
+        ("run_id",),
+    ),
+    ErrorSpec(
+        "run_not_found",
+        404,
+        "Ce résultat est introuvable : aucune exécution ne porte cet identifiant.",
+        "Relancez l'exécution, ou rouvrez un résultat depuis la liste des résultats précédents de "
+        "l'écran.",
+        ("run_id",),
+    ),
+    ErrorSpec(
+        "arena_busy",
+        409,
+        "Cette comparaison est encore en cours : elle ne peut être ni exportée ni effacée maintenant.",
+        "Attendez sa fin, ou arrêtez-la (touche Échap), puis recommencez.",
+        ("run_id",),
+    ),  # --- base documentaire (story 4.1) ---
+    ErrorSpec(
+        "ingest_failed",
+        422,
+        "Le fichier n'a pas pu être indexé.",
+        "Vérifiez que le fichier est un PDF, TXT, MD ou DOCX lisible, sans mot de passe et avec "
+        "du texte, puis importez-le de nouveau.",
+        ("file", "reason"),
+    ),
+    ErrorSpec(
+        "no_embedding_model",
+        404,
+        "Aucun modèle d'embedding n'est installé sur ce poste.",
+        "Ouvrez la Base documentaire et cliquez sur « Installer nomic-embed-text », "
+        "puis réessayez.",
+    ),
+    ErrorSpec(
+        "embedding_locked",
+        409,
+        "La base documentaire utilise déjà un autre modèle d'embedding.",
+        "Importez avec le modèle de la base, ou videz la base avant d'en changer.",
+        ("current", "requested"),
+    ),  # --- question posée à ses documents (story 4.4) ---
+    ErrorSpec(
+        "rag_base_empty",
+        409,
+        "La base documentaire n'a aucun document prêt à interroger.",
+        "Importez au moins un document depuis la Base documentaire (#/documents/base), attendez "
+        "la fin de l'indexation, puis posez de nouveau votre question.",
+    ),
+    ErrorSpec(
+        "chunk_not_found",
+        404,
+        "Cet extrait n'existe plus : son document a été supprimé ou réindexé.",
+        "Relancez la question pour obtenir des extraits à jour.",
+        ("chunk_id",),
+    ),  # --- gestion de la base documentaire (story 4.3) ---
+    ErrorSpec(
+        "embedding_change_needs_clear",
+        409,
+        "Changer de modèle d'embedding rendrait inutilisables les extraits déjà indexés.",
+        "Videz d'abord la base documentaire, puis enregistrez le nouveau modèle et réimportez "
+        "vos documents.",
+        ("current", "requested"),
+    ),
+    ErrorSpec(
+        "base_count_stale",
+        409,
+        "La base documentaire a changé depuis son dernier affichage : rien n'a été supprimé.",
+        "Relisez le contenu de la base, puis demandez de nouveau à la vider.",
+        ("expected", "actual"),
+    ),
+    ErrorSpec(
+        "base_in_use",
+        409,
+        "Un import ou une question utilise la base documentaire : rien n'a été modifié.",
+        "Attendez la fin de l'import ou de la réponse (ou arrêtez-la), puis recommencez.",
+        ("run_id", "kind"),
+    ),
+    ErrorSpec(
+        "vector_index_lost",
+        409,
+        "Les vecteurs de la base documentaire ne sont plus en mémoire : sqlite-vec n'est pas "
+        "disponible sur ce poste, et l'index de repli est perdu à chaque redémarrage.",
+        "Videz la base documentaire et réimportez vos documents, ou utilisez une version de "
+        "Python qui charge sqlite-vec pour que la base survive aux redémarrages.",
+    ),
+    ErrorSpec(
+        "vector_tables_unreachable",
+        409,
+        "Cette base garde des vecteurs écrits avec sqlite-vec, qui n'est pas chargé sur ce poste : "
+        "ils ne peuvent pas être effacés, donc rien n'a été supprimé.",
+        "Relancez l'application avec une version de Python qui charge sqlite-vec, puis "
+        "recommencez.",
+    ),  # --- garde-fou mémoire (story 4.8) ---
+    ErrorSpec(
+        "ram_guard",
+        503,
+        "Mémoire insuffisante : {needed_gb} Go nécessaires, {free_gb} Go libres.",
+        "Choisissez un modèle plus petit, ou déchargez les modèles inactifs, puis renvoyez votre "
+        "question.",
+        ("needed_gb", "free_gb", "suggested_model"),
+    ),  # --- validation d'une action sensible (story 6.3) ---
+    ErrorSpec(
+        "approval_not_pending",
+        409,
+        "Cette demande de validation n'est plus en attente : elle a déjà reçu une réponse, a "
+        "expiré, ou son exécution est terminée.",
+        "Rouvrez l'exécution pour voir sa décision ; l'email n'est envoyé que si elle porte "
+        "« approuvé ».",
+        ("run_id", "approval_id"),
+    ),
+    # --- gestion des modèles (story 5.4) ---
+    ErrorSpec(
+        "model_in_use",
+        409,
+        "{tag} est employé par une réponse en cours : il n'a pas été supprimé.",
+        "Attendez la fin de la réponse (ou arrêtez-la), puis recommencez.",
+        ("tag", "run_id"),
+    ),
+    ErrorSpec(
+        "model_not_eligible",
+        422,
+        "{tag} ne peut pas servir à cet usage : le choix n'a pas été enregistré.",
+        "Choisissez un modèle de la liste proposée pour cet usage.",
+        ("tag", "purpose"),
+    ),
+    ErrorSpec(
+        "model_delete_failed",
+        502,
+        "Ollama n'a pas supprimé {tag}.",
+        "La liste des modèles est inchangée. Réessayez ; le détail technique dit ce qu'Ollama a "
+        "répondu.",
+        ("tag",),
+    ),
+)
+ERRORS: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
+
+_MASK = "***"
+# Clés à préfixe connu : OpenAI/Anthropic (`sk-...`), Groq (`gsk_...`), Hugging Face (`hf_...`).
+_PREFIXED_KEY = re.compile(r"\b(?:sk-|gsk_|hf_)[A-Za-z0-9_\-]{8,}")
+_BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._\-]{8,}")
+# `api_key=...`, `MISTRAL_API_KEY=...`, `"token": "..."`, `Authorization: ...`.
+_NAMED_SECRET = re.compile(
+    r"""(?ix)(?<![a-z0-9])(api[_-]?key|secret|token|authorization)(["']?\s*[:=]\s*["']?)"""
+    r"""(?!\*\*\*)[^\s"',;}]+"""
+)
+
+
+class _Fill(dict[str, Any]):
+    """Valeurs de remplacement d'un texte de code d'erreur (`{provider_name}`) ; un manque donne
+    une formule neutre plutôt qu'une erreur."""
+
+    def __missing__(self, key: str) -> str:
+        return "le fournisseur" if key == "provider_name" else key
+
+
+_TIMEOUT_WITHOUT_DELAY = "Délai dépassé : le modèle n'a pas fini de répondre."
+
+
+def _shown(key: str, value: Any) -> Any:
+    """Valeur d'un `{clé}` à l'écran : décimal à la française (`5,2`) ; un délai entier s'écrit
+    sans décimale (`120`, pas `120,0`)."""
+    if not isinstance(value, float):
+        return value
+    if key == "timeout_s" and value.is_integer():
+        return str(int(value))
+    return str(value).replace(".", ",")
+
+
+def _fill(text: str, detail: dict[str, Any]) -> str:
+    """Remplace les `{clé}` de `message` et `action` par les clés machine du `detail` (nom du
+    fournisseur, variable de clé : des constantes de l'application, jamais un texte saisi). Un
+    nombre décimal s'écrit à la française (`5,2`)."""
+    if "{" not in text:
+        return text
+    shown = {key: _shown(key, value) for key, value in detail.items()}
+    return text.format_map(_Fill(shown))
+
+
+def mask_secrets(text: str, extra_secrets: Iterable[str] = ()) -> str:
+    """Masque les clés d'API reconnaissables et les valeurs secrètes connues de `Settings`."""
+    for secret in extra_secrets:
+        if len(secret) >= 8:
+            text = text.replace(secret, _MASK)
+    text = _PREFIXED_KEY.sub(_MASK, text)
+    text = _BEARER.sub(f"Bearer {_MASK}", text)
+    return _NAMED_SECRET.sub(lambda m: f"{m.group(1)}{m.group(2)}{_MASK}", text)
+
+
+def _mask_value(value: Any, secrets: tuple[str, ...]) -> Any:
+    if isinstance(value, str):
+        return mask_secrets(value, secrets)
+    if isinstance(value, dict):
+        return {key: _mask_value(item, secrets) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_mask_value(item, secrets) for item in value]
+    return value
+
+
+class AppError(Exception):
+    """Erreur applicative à code fermé ; les routes la lèvent, `web/` la met en enveloppe."""
+
+    def __init__(self, code: str, technical: str | None = None, **detail: Any) -> None:
+        if code not in ERRORS:
+            raise ValueError(f"Code d'erreur inconnu : {code}")
+        super().__init__(technical or ERRORS[code].message)
+        self.code = code
+        self.technical = technical
+        self.detail = detail
+
+
+_HIGH_PUNCTUATION = re.compile(r" (?=[;:!?»])|(?<=«) ")
+
+
+def _french_spaces(text: str) -> str:
+    """Espace insécable avant « ; : ! ? » » et après « « » : la règle typographique des textes
+    d'interface (EXPERIENCE.md), appliquée aux textes générés comme à ceux des fichiers."""
+    return _HIGH_PUNCTUATION.sub(" ", text)
+
+
+def error_texts() -> dict[str, dict[str, str]]:
+    """Catalogue des textes d'erreur pour le front, **généré** depuis `ERRORS` : `{code: {message,
+    action}}`. Source unique des textes (C9) : le serveur l'ajoute au catalogue de textes sous la clé
+    `errors`, et le front les lit par `t("errors.<code>.message")` ; aucun fichier `i18n/fr/*.json`
+    ne les recopie. Les `{marqueurs}` restent à remplir par le front ; le Markdown (accents graves
+    des commandes) est retiré, le front n'affiche pas de Markdown ; les espaces avant la
+    ponctuation haute sont insécables."""
+    return {
+        code: {
+            "message": _french_spaces(spec.message),
+            "action": _french_spaces(spec.action.replace("`", "")),
+        }
+        for code, spec in ERRORS.items()
+    }
+
+
+def build_envelope(
+    code: str,
+    technical: str | None = None,
+    secrets: Iterable[str] = (),
+    **detail: Any,
+) -> dict[str, Any]:
+    """Enveloppe `{code, message, action, detail}` ; `detail` limité aux clés du code."""
+    spec = ERRORS.get(code)
+    if spec is None:
+        raise ValueError(f"Code d'erreur inconnu : {code}")
+    unknown = set(detail) - set(spec.detail_keys)
+    if unknown:
+        raise ValueError(f"Clés de detail non déclarées pour {code} : {sorted(unknown)}")
+    body = {"technical": technical, **detail}
+    message = (
+        _TIMEOUT_WITHOUT_DELAY  # émetteur sans délai connu : pas de « (timeout_s s) » à l'écran
+        if code == "timeout" and not isinstance(detail.get("timeout_s"), int | float)
+        else _fill(spec.message, detail)
+    )
+    return {
+        "code": spec.code,
+        "message": message,
+        "action": _fill(spec.action, detail),
+        "detail": _mask_value(body, tuple(secrets)),
+    }
+
+
+class ProviderError(AppError):
+    """Refus ou panne d'un fournisseur de modèle (AD-8) : un adaptateur la lève avec un code de
+    la liste fermée ; le service la met en enveloppe dans `run_ended.data.error`."""
+
+
+# Textes de `pull_failed` selon `detail.cause` (story 5.3) : même code, trois situations. Le
+# `message` et l'`action` génériques de `ERRORS` valent pour une cause inconnue.
+PULL_CAUSES = {
+    "not_found": (
+        "Le modèle {tag} n'a pas pu être installé : ce nom n'existe pas dans le registre d'Ollama.",
+        "Vérifiez l'orthographe du nom (par exemple `qwen3.6:7b`), puis réessayez. La liste des "
+        "modèles est inchangée.",
+    ),
+    "ollama_down": (
+        "L'installation de {tag} s'est arrêtée : Ollama ne répond plus.",
+        "Relancez Ollama (application ou `ollama serve`), puis relancez l'installation : le "
+        "téléchargement déjà fait est repris. La liste des modèles est inchangée.",
+    ),
+    "reranker_failed": (
+        "Le reranker {tag} n'a pas pu être installé.",
+        "Vérifiez la connexion au réseau et l'espace disque, puis relancez l'installation. La "
+        "recherche reste sans reclassement en attendant.",
+    ),
+    "interrupted": (
+        "L'installation de {tag} a été interrompue avant la fin.",
+        "Relancez l'installation : le téléchargement reprend là où il s'est arrêté. Si elle échoue "
+        "encore, le détail technique en donne la raison (disque plein, par exemple). La liste des "
+        "modèles est inchangée.",
+    ),
+}
+
+
+def pull_failed_envelope(
+    tag: str,
+    cause: str,
+    technical: str | None = None,
+    secrets: Iterable[str] = (),
+    *,
+    restarted: bool = False,
+) -> dict[str, Any]:
+    """Enveloppe `pull_failed` d'une installation de modèle, texte propre à la cause ;
+    `restarted` : run resté actif à l'arrêt du serveur, qui le dit."""
+    envelope = build_envelope("pull_failed", technical, secrets, tag=tag, cause=cause)
+    variant = PULL_CAUSES.get(cause)
+    if variant is not None:
+        envelope["message"] = _fill(variant[0], {"tag": tag})
+        envelope["action"] = _fill(variant[1], {"tag": tag})
+    if restarted:
+        envelope["message"] = _fill(PULL_RESTART_MESSAGE, {"tag": tag})
+    return envelope
+
+
+# Run `pull` resté actif à l'arrêt du serveur (`runs/repo.py::interrupt_orphans`) : même cause
+# `interrupted` qu'un refus d'Ollama, mais la raison est connue.
+PULL_RESTART_MESSAGE = "L'installation de {tag} a été interrompue par le redémarrage du serveur."

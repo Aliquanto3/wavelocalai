@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "crews": {
+    "etude_concurrentielle": {
+      "label": "Étude concurrentielle",
+      "category": "Analyse de marché",
+      "description": "Recherche du marché, calcul d'indicateurs puis rédaction d'une synthèse stratégique.",
+      "topic": "Analyser le marché des SLM en 2024 : acteurs, tendances, opportunités",
+      "agents": [
+        {
+          "role": "Chercheur",
+          "goal": "Collecter données marché",
+          "backstory": "Expert en veille stratégique et analyse concurrentielle",
+          "tools": ["get_current_time", "search_wavestone_internal"]
+        },
+        {
+          "role": "Analyste",
+          "goal": "Calculer les indicateurs",
+          "backstory": "Analyste quantitatif spécialisé en métriques business",
+          "tools": ["calculator", "analyze_csv"]
+        },
+        {
+          "role": "Rédacteur",
+          "goal": "Rédiger la synthèse",
+          "backstory": "Consultant senior expert en communication stratégique",
+          "tools": ["generate_document"]
+        }
+      ]
+    },
+    "audit_des_mesures": {
+      "label": "Audit des mesures",
+      "category": "Science des données",
+      "description": "Analyse statistique d'un jeu de données, graphiques puis documentation technique.",
+      "topic": "Analyser un fichier CSV du dossier de travail et produire un rapport avec graphiques",
+      "agents": [
+        {
+          "role": "Analyste de données",
+          "goal": "Analyse statistique du CSV",
+          "backstory": "Data scientist spécialisé en analyse exploratoire et statistiques",
+          "tools": ["analyze_csv", "calculator"]
+        },
+        {
+          "role": "Expert en visualisation",
+          "goal": "Générer les graphiques",
+          "backstory": "Expert en visualisation de données et storytelling visuel",
+          "tools": ["generate_chart"]
+        },
+        {
+          "role": "Rédacteur technique",
+          "goal": "Documentation technique",
+          "backstory": "Rédacteur technique spécialisé en documentation data",
+          "tools": ["generate_markdown_report"]
+        }
+      ]
+    },
+    "comparaison_carbone": {
+      "label": "Comparaison carbone",
+      "category": "Coûts et carbone",
+      "description": "Estimation des coûts, de l'impact CO₂ puis synthèse stratégique, local contre cloud.",
+      "topic": "Comparer coûts et CO₂ entre modèles locaux et cloud.",
+      "agents": [
+        {
+          "role": "Analyste des coûts",
+          "goal": "Estimer les coûts du cloud et du local",
+          "backstory": "Expert en optimisation des coûts du cloud",
+          "tools": ["calculator"]
+        },
+        {
+          "role": "Expert carbone",
+          "goal": "Calculer l'impact CO₂",
+          "backstory": "Spécialiste en informatique durable et empreinte carbone",
+          "tools": ["system_monitor"]
+        },
+        {
+          "role": "Consultant",
+          "goal": "Synthèse stratégique",
+          "backstory": "Consultant senior en transformation numérique responsable",
+          "tools": ["generate_document"]
+        }
+      ]
+    }
+  }
+}

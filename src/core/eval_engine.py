@@ -18,8 +18,10 @@ try:
 except ImportError:
     RAGAS_AVAILABLE = False
 
-from src.core.llm_provider import LLMProvider
+from src.core.judge_output import make_fence_stripping_wrapper  # noqa: E402
+from src.core.llm_provider import LLMProvider  # noqa: E402
 from src.core.providers.groq_provider import is_groq_model  # noqa: E402
+from src.core.providers.provider_factory import prefixed_cloud_provider  # noqa: E402
 
 # Enveloppe d'un juge LangChain, pour un juge Groq (`bypass_n`).
 try:
@@ -110,6 +112,14 @@ class EvalEngine:
             # Groq refuse tout `n` différent de 1 (400) ; Ragas en demande 3 pour la pertinence.
             if is_groq_model(judge_tag):
                 judge_llm = LangchainLLMWrapper(judge_llm, bypass_n=True)
+
+            # Claude entoure son JSON de balises ```json : Ragas attend du JSON brut.
+            elif prefixed_cloud_provider(judge_tag) == "anthropic" and LangchainLLMWrapper:
+                # `bypass_temperature` : les modèles Claude récents refusent `temperature` (400)
+                # et Ragas la réaffecterait sur le modèle à chaque appel.
+                judge_llm = make_fence_stripping_wrapper(LangchainLLMWrapper)(
+                    judge_llm, bypass_temperature=True
+                )
 
             # 2. Préparation du Dataset Standard Ragas
             data = {

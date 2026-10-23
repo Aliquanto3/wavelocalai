@@ -1,0 +1,61 @@
+/* wl-metric : libellé, valeur et unité, aide, état provisoire */
+.wl-metric {
+  display: block;
+}
+
+.wl-metric-head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.wl-metric-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.wl-metric-help-button .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.wl-metric-value {
+  margin: 0;
+  font-family: var(--font-metric-value);
+  font-size: var(--text-metric-value);
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.wl-metric-unit {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.wl-metric-flag {
+  font-size: var(--text-caption);
+  font-weight: 400;
+}
+
+.wl-metric[data-provisional="true"] .wl-metric-value {
+  font-style: italic;
+}
+
+.wl-metric-help {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}

@@ -197,6 +197,9 @@ def test_cloud_state_survives_page_switch(monkeypatch):
 
             for page in ["views/02_Inference_Arena.py", "views/04_Agent_Lab.py"]:
                 calls.clear()
+                # La liste est en cache 15 s (clé : état du cloud) : vidée pour observer
+                # l'argument transmis à chaque page.
+                streamlit.cache_data.clear()
                 at.switch_page(page).run()
                 assert not at.exception, [e.value for e in at.exception]
 

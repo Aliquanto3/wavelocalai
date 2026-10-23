@@ -11,6 +11,28 @@ from src.core.models_db import MODELS_DB
 
 logger = logging.getLogger(__name__)
 
+# Modèles Mistral cloud proposés quand la clé API est présente, vérifiés le 2026-10-18 sur
+# `GET /v1/models`, tous avec appel de fonctions (capacité `tools`, lue par le badge « outils
+# vérifiés » du mode Agent). Source unique : la liste du provider, la
+# détection (`is_api_model`), le routage, le mode Équipe, le nom du fournisseur et l'origine
+# cloud du tag (`is_cloud_tag`) la lisent. Les tags `-latest` n'ont pas de taille publiée
+# (pas de CO₂ estimable). Les tags Ollama locaux proches (`ministral-3:8b`, `mistral:7b`)
+# portent un « : » et n'y figurent jamais.
+MISTRAL_CLOUD_MODELS: dict[str, dict] = {
+    "mistral-small-latest": {"name": "Mistral Small", "capabilities": ["tools"]},
+    "mistral-medium-latest": {"name": "Mistral Medium", "capabilities": ["tools"]},
+    "mistral-large-latest": {"name": "Mistral Large", "capabilities": ["tools"]},
+    "ministral-8b-latest": {"name": "Ministral 8B", "capabilities": ["tools"]},
+}
+MISTRAL_CLOUD_CONTEXT = 262144
+
+
+def is_mistral_cloud_tag(model_tag: str | None) -> bool:
+    """Tag de la liste intégrée des modèles Mistral cloud. Appartenance exacte, casse comprise,
+    comme pour Groq : le tag détecté est celui envoyé à l'API. Sans variante « : » :
+    `ministral-3:8b` et `mistral:7b` restent locaux."""
+    return isinstance(model_tag, str) and model_tag in MISTRAL_CLOUD_MODELS
+
 
 def get_model_info(model_tag: str) -> dict | None:
     """
@@ -30,6 +52,19 @@ def get_model_info(model_tag: str) -> dict | None:
     return None
 
 
+def _is_cloud_provider_tag(model_tag: str) -> bool:
+    """Tag reconnu par le préfixe (`claude-`, `gpt-`, `o1-`), la liste Groq ou la liste Mistral
+    cloud intégrée. Import différé : la fabrique de providers importe ce module."""
+    from src.core.providers.groq_provider import is_groq_model
+    from src.core.providers.provider_factory import prefixed_cloud_provider
+
+    return (
+        bool(prefixed_cloud_provider(model_tag))
+        or is_groq_model(model_tag)
+        or is_mistral_cloud_tag(model_tag)
+    )
+
+
 def is_api_model(model_tag: str) -> bool:
     """
     Détecte si un modèle est de type API.
@@ -41,6 +76,11 @@ def is_api_model(model_tag: str) -> bool:
         bool: True si API, False si local
     """
     model_info = get_model_info(model_tag)
+
+    if model_info is None and _is_cloud_provider_tag(model_tag):
+        # Modèle d'un fournisseur cloud hors catalogue (Anthropic, OpenAI, Groq, Mistral) : API,
+        # sans avertissement ; les appelants testent déjà ces fournisseurs avant Mistral.
+        return True
 
     if model_info:
         model_type = model_info.get("type", "local")
@@ -65,6 +105,8 @@ def get_model_provider(model_tag: str) -> str:
     Returns:
         str: "mistral_api", "ollama", ou "unknown"
     """
+    if is_mistral_cloud_tag(model_tag):
+        return "mistral_api"
     if is_api_model(model_tag):
         model_info = get_model_info(model_tag)
         editor = model_info.get("editor", "Unknown") if model_info else "Unknown"

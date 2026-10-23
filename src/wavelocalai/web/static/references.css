@@ -1,0 +1,144 @@
+/* Écran Références (story 5.8) : une carte par usage, groupe des meilleurs, tableau équivalent.
+   Couleurs et rayon viennent de tokens.css seulement. */
+
+.ref-source,
+.ref-notices {
+  margin: 0 0 1rem;
+}
+
+.ref-content > h2 {
+  margin: 0 0 0.75rem;
+}
+
+.ref-body {
+  margin-top: 1rem;
+}
+
+.ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: 1rem;
+}
+
+.ref-card {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.ref-card p {
+  margin: 0;
+}
+
+.ref-card-title {
+  margin: 0;
+  font-family: var(--font-heading);
+}
+
+.ref-measure {
+  font-weight: 600;
+}
+
+/* Intertitre (story 9.7, `.section-label` de base.css : échelle et couleur). */
+.ref-group-title {
+  margin-top: 0.5rem;
+}
+
+.ref-group {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ref-model {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 4px solid var(--color-primary);
+  background: var(--color-surface-alt);
+}
+
+.ref-model-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.ref-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+}
+
+.ref-score {
+  font-weight: 700;
+}
+
+.ref-interval,
+.ref-line {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+/* Marque « installé » ou « autre version » : une icône et son texte, jamais la couleur seule. */
+.ref-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-full);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.ref-mark .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ref-compare {
+  display: grid;
+  justify-items: start;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+/* Un bouton désactivé reste focalisable (`aria-disabled`) : sa raison est écrite dessous. */
+.ref-compare .btn[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.ref-unavailable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  max-width: 40rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.ref-unavailable .icon {
+  grid-row: span 2;
+  color: var(--color-primary);
+}
+
+.ref-unavailable h2,
+.ref-unavailable p {
+  grid-column: 2;
+  margin: 0;
+}

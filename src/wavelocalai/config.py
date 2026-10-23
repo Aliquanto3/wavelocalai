@@ -1,0 +1,340 @@
+"""Configuration de la v2 : `Settings`, chargé une fois au démarrage (AD-15).
+
+Ordre de chargement : défauts du code, puis `wavelocalai.toml` (`tomllib`), puis `.env` et
+l'environnement du processus (secrets et quelques réglages de poste), puis les surcharges
+explicites (options de la ligne de commande). L'application n'écrit jamais le `.toml`.
+
+C'est le seul module de la v2 qui lit l'environnement : aucun `os.getenv` ailleurs (un test AST
+le vérifie). Module de base : il n'importe rien du paquet.
+"""
+
+from __future__ import annotations
+
+import os
+import tomllib
+from collections.abc import Mapping
+from datetime import date
+from importlib import metadata
+from pathlib import Path
+from typing import Any
+
+from dotenv import dotenv_values
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_TOML = PROJECT_ROOT / "wavelocalai.toml"
+DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
+DEFAULT_PORT = 8502
+LOOPBACK = "127.0.0.1"
+
+# Fournisseurs cloud et variable (de `.env` ou de l'environnement) qui porte leur clé.
+CLOUD_KEY_VARS: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+}
+
+# Réglages de poste lisibles dans `.env` ou l'environnement : variable -> chemin dans les réglages.
+ENV_OVERRIDES: dict[str, tuple[str, str]] = {
+    "WAVELOCALAI_PORT": ("server", "port"),
+    "WAVELOCALAI_DATA_DIR": ("data", "dir"),
+    "WAVELOCALAI_OLLAMA_HOST": ("ollama", "host"),
+    # SMTP de l'outil « Envoi d'email » des agents (story 6.2) : mêmes noms que la v1.
+    "SMTP_SERVER": ("smtp", "server"),
+    "SMTP_PORT": ("smtp", "port"),
+    "SMTP_USER": ("smtp", "user"),
+    "SMTP_PASSWORD": ("smtp", "password"),
+}
+TESTING_VAR = "WAVELOCALAI_TESTING"
+# E2E seulement (story 9.4) : simule un poste sans aucun modèle d'embedding, même en `testing`
+# (le `fake` ne sert plus de dernier recours), pour prouver l'encart d'alerte sans modèle réel.
+NO_FAKE_EMBEDDER_VAR = "WAVELOCALAI_TESTING_NO_FAKE_EMBEDDER"
+
+
+class ConfigError(Exception):
+    """Configuration illisible ou invalide (message en français, affiché au lancement)."""
+
+
+class _Section(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ServerSettings(_Section):
+    port: int = Field(DEFAULT_PORT, ge=1, le=65535)
+    # Ouverture automatique du navigateur au démarrage (story 9.1) ; `--no-browser` l'emporte.
+    open_browser: bool = True
+
+
+class DataSettings(_Section):
+    dir: Path = Path("data")
+
+
+class OllamaSettings(_Section):
+    host: str = "http://127.0.0.1:11434"
+    probe_timeout_s: float = Field(1.0, gt=0, le=1.0)  # AD-15 : 1 s au plus
+    probe_cache_s: float = Field(5.0, ge=0)
+
+
+class CarEquivalence(_Section):
+    """Facteur de l'équivalence parlante du CO2 en distance parcourue en voiture (story 5.1, D-38).
+
+    Réglage daté et sourcé, comme la table de prix : un facteur sans source ni date de relevé ne se
+    vérifie pas, il est refusé. Le front ne contient aucune valeur de repli.
+    """
+
+    g_per_km: float = Field(gt=0)  # g de CO2e par km parcouru
+    source: str = Field(min_length=1)  # source publique citée à l'écran
+    retrieved_at: date  # date du relevé
+
+    @model_validator(mode="after")
+    def _sourced(self) -> CarEquivalence:
+        if not self.source.strip():
+            raise ValueError("l'équivalence en voiture a besoin d'une source")
+        return self
+
+
+class CarbonSettings(_Section):
+    country_iso: str = Field("FRA", min_length=3, max_length=3)
+    pue: float = Field(1.1, ge=1.0)
+    car_equivalence: CarEquivalence | None = None  # absente : le panneau de méthode n'en dit rien
+
+
+class ModelPrice(_Section):
+    """Prix public d'un modèle cloud, par million de tokens (dans la devise de la table)."""
+
+    input_per_mtok: float = Field(ge=0)
+    output_per_mtok: float = Field(ge=0)
+
+
+class PriceTable(_Section):
+    """Table de prix cloud datée (story 3.5), clé = identifiant exposé `fournisseur/modèle`.
+
+    Aucune entrée sans date de relevé ni source : un prix sans date ne se vérifie pas. Vide, elle
+    est valide ; le verdict dit alors le coût « inconnu » avec sa raison (jamais 0).
+    """
+
+    currency: str = Field("EUR", pattern=r"^[A-Z]{3}$")  # code ISO 4217 : lu par `Intl`
+    retrieved_at: date | None = None
+    source: str | None = None
+    models: dict[str, ModelPrice] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _dated_and_sourced(self) -> PriceTable:
+        if self.models and (self.retrieved_at is None or not (self.source or "").strip()):
+            raise ValueError("une table de prix a besoin de retrieved_at et de source")
+        return self
+
+
+class CloudSettings(_Section):
+    """Modèles cloud proposés (listes fixes : aucun fournisseur n'est appelé pour les lister),
+    correspondance Groq vers l'entrée `huggingface_hub` d'ecologits (AD-11) et table de prix."""
+
+    models: dict[str, list[str]] = Field(default_factory=dict)
+    groq_ecologits: dict[str, str] = Field(default_factory=dict)
+    prices: PriceTable = PriceTable()
+
+
+class DelaySettings(_Section):
+    lane_timeout_s: float = Field(300.0, gt=0)
+    approval_expiry_s: float = Field(600.0, gt=0)
+
+
+class AgentSettings(_Section):
+    """Boucle d'outils des agents (story 6.1)."""
+
+    max_turns: int = Field(10, ge=1, le=50)  # appels de modèle au plus par tâche (fin propre)
+    tool_timeout_s: float = Field(60.0, gt=0)  # délai d'un outil ; dépassé, l'agent reçoit l'erreur
+    summary_chars: int = Field(500, ge=50)  # taille du `summary` d'une étape publiée
+    result_chars: int = Field(8000, ge=200)  # résultat d'outil rendu au modèle, tronqué au-delà
+    # Outils d'un tour (story 6.2) : au-delà, l'appel n'est pas exécuté et l'agent reçoit le refus.
+    max_tool_calls_per_turn: int = Field(8, ge=1, le=64)
+    memory_sample_s: float = Field(
+        1.0, gt=0
+    )  # relevé de la mémoire pendant une mission (story 6.5)
+    max_input_mb: int = Field(20, ge=1)  # taille d'un fichier que les outils acceptent de lire
+
+
+class SmtpSettings(_Section):
+    """SMTP de l'outil « Envoi d'email » (story 6.2), lu de `.env` ou de l'environnement : le mot de
+    passe n'a pas sa place dans `wavelocalai.toml`. La 6.2 s'en sert pour dire si l'outil est
+    disponible ; l'envoi, après validation de l'utilisateur, est `agents/outbox.py` (story 6.3)."""
+
+    server: str = "smtp.gmail.com"
+    port: int = Field(587, ge=1, le=65535)
+    user: str = ""
+    password: SecretStr = SecretStr("")
+
+    def missing(self) -> list[str]:
+        """Variables d'environnement SMTP vides, dans l'ordre `SMTP_SERVER`, `SMTP_USER`,
+        `SMTP_PASSWORD` : l'outil n'est disponible que si cette liste est vide."""
+        values = {
+            "SMTP_SERVER": self.server.strip(),
+            "SMTP_USER": self.user.strip(),
+            "SMTP_PASSWORD": self.password.get_secret_value().strip(),
+        }
+        return [name for name, value in values.items() if not value]
+
+
+class RagSettings(_Section):
+    """Base documentaire : découpe, lots d'embedding et plafonds d'un import (stories 4.1 et 4.2)."""
+
+    chunk_size: int = Field(800, ge=100, le=8000)  # caractères par extrait
+    chunk_overlap: int = Field(100, ge=0)
+    embed_batch_size: int = Field(16, ge=1, le=256)  # extraits par lot, une feuille `embedding`
+    max_file_mb: int = Field(50, ge=1)
+    max_files: int = Field(50, ge=1)  # fichiers par import
+    max_import_mb: int = Field(500, ge=1)  # taille totale d'un import
+    embedding_model: str | None = None  # défaut de la base ; sinon le premier installé
+    # Question (story 4.4) : nombre d'extraits cités et seuils du libellé de pertinence (similarité
+    # cosinus, 0 à 1) calés sur le modèle d'embedding par défaut de la base.
+    top_k: int = Field(4, ge=1, le=20)
+    # Self-RAG (story 4.6) : reformulations de la question au plus, donc `1 + n` recherches ; la
+    # borne atteinte, la réponse part avec les meilleurs extraits trouvés.
+    self_rag_max_iterations: int = Field(2, ge=1, le=5)
+    # Reranker (story 4.7) : modèle fastembed lu dans le cache du dossier de données, jamais téléchargé.
+    reranker_model: str = Field("jinaai/jina-reranker-v2-base-multilingual", min_length=1)
+    relevance_very_close: float = Field(0.70, gt=0.0, le=1.0)
+    relevance_close: float = Field(0.60, ge=0.0, lt=1.0)
+
+    @model_validator(mode="after")
+    def _overlap_below_size(self) -> RagSettings:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap doit rester inférieur à chunk_size")
+        return self
+
+    @model_validator(mode="after")
+    def _thresholds_ordered(self) -> RagSettings:
+        if self.relevance_close >= self.relevance_very_close:
+            raise ValueError("relevance_close doit rester inférieur à relevance_very_close")
+        return self
+
+
+class ArenaSettings(_Section):
+    """Plafond de jetons et détecteur de boucle de l'Arène (story 9.2) : un modèle qui tourne en
+    boucle, ou qui atteint `max_tokens`, est arrêté avant le délai de lane (`delays.lane_timeout_s`),
+    sa réponse partielle gardée et notée (`stopped_reason` de `lane_status`)."""
+
+    max_tokens: int = Field(
+        800, ge=16
+    )  # plafond par requête de lane ; fin `stopped_reason: "max_tokens"`
+    # Détecteur de répétition : le même fragment final répété au moins `loop_min_repeats` fois sur
+    # une fenêtre d'au moins `loop_window_chars` caractères arrête la lane (`stopped_reason: "loop"`).
+    loop_min_repeats: int = Field(4, ge=2)
+    loop_window_chars: int = Field(200, ge=20)
+
+
+class Settings(BaseModel):
+    """Réglages du serveur ; immuables une fois chargés."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    server: ServerSettings = ServerSettings()
+    data: DataSettings = DataSettings()
+    ollama: OllamaSettings = OllamaSettings()
+    carbon: CarbonSettings = CarbonSettings()
+    cloud: CloudSettings = CloudSettings()
+    delays: DelaySettings = DelaySettings()
+    arena: ArenaSettings = ArenaSettings()
+    rag: RagSettings = RagSettings()
+    agents: AgentSettings = AgentSettings()
+    smtp: SmtpSettings = SmtpSettings()
+    api_keys: dict[str, SecretStr] = Field(default_factory=dict)
+    testing: bool = False  # autorise l'adaptateur `fake` (AD-8) ; jamais vrai hors des tests
+    testing_no_fake_embedder: bool = False  # E2E (story 9.4) : aucun embedding, même `fake`
+    base_dir: Path = PROJECT_ROOT  # base des chemins relatifs (dossier du `.toml`)
+    env_file: Path | None = None  # `.env` lu (et passé à `disable_telemetry`)
+
+    @property
+    def data_dir(self) -> Path:
+        path = self.data.dir.expanduser()
+        return path if path.is_absolute() else (self.base_dir / path).resolve()
+
+    @property
+    def agent_work_dir(self) -> Path:
+        """Dossier de travail des agents : la seule racine que leurs outils lisent et écrivent
+        (story 6.2)."""
+        return self.data_dir / "agent_work"
+
+    def cloud_providers(self) -> list[dict[str, Any]]:
+        """`[{id, configured}]` lu d'ici : aucun fournisseur n'est appelé."""
+        return [
+            {"id": provider, "configured": bool(self.api_keys.get(provider))}
+            for provider in CLOUD_KEY_VARS
+        ]
+
+    def secret_values(self) -> list[str]:
+        """Valeurs des clés configurées, pour le masquage (AD-18)."""
+        keys = [*self.api_keys.values(), self.smtp.password]
+        return [key.get_secret_value() for key in keys if key.get_secret_value()]
+
+
+def get_version() -> str:
+    """Version du paquet installé (celle de `pyproject.toml`)."""
+    try:
+        return metadata.version("wavelocalai")
+    except metadata.PackageNotFoundError:  # pragma: no cover - paquet non installé
+        return "0+unknown"
+
+
+def _merge(base: dict[str, Any], extra: Mapping[str, Any]) -> dict[str, Any]:
+    for key, value in extra.items():
+        if isinstance(value, Mapping) and isinstance(base.get(key), dict):
+            _merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _read_toml(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        with path.open("rb") as handle:
+            return tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"Le fichier de réglages {path} est illisible : {exc}") from exc
+
+
+def load_settings(
+    toml_path: Path | None = None,
+    env_file: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    overrides: Mapping[str, Any] | None = None,
+) -> Settings:
+    """Charge `Settings` une fois : `.toml`, puis `.env` et environnement, puis surcharges.
+
+    `environ` vaut l'environnement du processus par défaut ; il l'emporte sur `.env`.
+    """
+    toml_file = Path(toml_path) if toml_path is not None else DEFAULT_TOML
+    dotenv_file = Path(env_file) if env_file is not None else DEFAULT_ENV_FILE
+    data = _read_toml(toml_file)
+    values: dict[str, str | None] = (
+        dict(dotenv_values(dotenv_file)) if dotenv_file.is_file() else {}
+    )
+    values.update(os.environ if environ is None else environ)
+
+    for var, (section, key) in ENV_OVERRIDES.items():
+        if values.get(var):
+            data.setdefault(section, {})[key] = values[var]
+    data["api_keys"] = {
+        provider: value
+        for provider, var in CLOUD_KEY_VARS.items()
+        if (value := (values.get(var) or "").strip())
+    }
+    data["testing"] = (values.get(TESTING_VAR) or "").strip().lower() in {"1", "true"}
+    data["testing_no_fake_embedder"] = (values.get(NO_FAKE_EMBEDDER_VAR) or "").strip().lower() in {
+        "1",
+        "true",
+    }
+    data["base_dir"] = toml_file.resolve().parent
+    data["env_file"] = dotenv_file
+    if overrides:
+        _merge(data, overrides)
+    try:
+        return Settings.model_validate(data)
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(part) for part in err['loc'])} : {err['msg']}" for err in exc.errors()
+        )
+        raise ConfigError(f"Réglages invalides ({details}).") from exc

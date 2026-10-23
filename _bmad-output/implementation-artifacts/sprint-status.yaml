@@ -1,0 +1,129 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-18-2026 14:09
+last_updated: 10-21-2026 16:37
+project: wavelocalai
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: done
+  1-1-le-dépôt-accueille-la-v2-squelette-python-3-11-ci-ratificati: done
+  1-2-le-serveur-v2-démarre-en-local-protégé-et-dit-son-état: done
+  1-3-le-hub-enregistre-chaque-exécution-store-sqlite-migration-du: done
+  1-4-suivre-reprendre-et-annuler-un-run-en-flux-sse: done
+  1-5-le-registre-dit-quels-modèles-sont-disponibles-d-où-ils-vien: done
+  1-6-chaque-usage-a-un-modèle-par-défaut-avec-sa-raison: done
+  1-7-le-système-publie-son-état-en-direct-et-la-session-carbone-e: done
+  1-8-la-coquille-s-affiche-tout-de-suite-aux-couleurs-de-waveston: done
+  1-9-la-barre-haute-dit-l-état-d-ollama-du-cloud-et-du-co₂-en-dir: done
+  1-10-choisir-un-modèle-au-clavier-et-suivre-l-étape-d-un-run: done
+  1-11-l-accueil-dit-en-5-secondes-si-la-démo-peut-partir: done
+  1-12-la-coquille-et-l-accueil-suivent-la-maquette-validée: done
+  epic-1-retrospective: optional
+
+  epic-2: done
+  2-1-converser-en-flux-avec-un-modèle-ollama-serveur: done
+  2-2-l-écran-chat-libre-affiche-la-réponse-en-flux-et-la-reprend: done
+  2-3-chaque-réponse-locale-affiche-son-co₂-mesuré: done
+  2-4-converser-avec-un-modèle-cloud-openai-groq-anthropic-mistral: done
+  2-5-une-réponse-cloud-affiche-une-estimation-ou-non-mesurable-ja: done
+  2-6-retrouver-exporter-et-effacer-une-conversation-préversion-2: done
+  2-7-le-chat-prend-la-créativité-du-modèle-et-s-exporte-sur-écran-étroit: done
+  epic-2-retrospective: optional
+
+  epic-3: done
+  3-1-l-arène-exécute-plusieurs-modèles-sur-une-même-question-serv: done
+  3-2-l-écran-arène-affiche-les-colonnes-en-flux: done
+  3-3-un-juge-note-chaque-réponse-et-non-évalué-n-est-jamais-0: done
+  3-4-le-classement-la-matrice-qualité-co₂-et-le-tableau-se-constr: done
+  3-5-le-verdict-local-cloud-est-chiffré: done
+  3-6-rouvrir-exporter-et-lancer-l-arène-depuis-l-accueil-flow-1: done
+  epic-3-retrospective: optional
+
+  epic-4: done
+  4-1-indexer-un-document-dans-la-base-locale-serveur: done
+  4-2-l-écran-base-documentaire-suit-chaque-fichier: done
+  4-3-supprimer-un-document-vider-la-base-changer-de-réglages: done
+  4-4-poser-une-question-à-ses-documents-et-recevoir-les-sources-d: done
+  4-5-l-écran-discussion-montre-la-réponse-à-côté-de-ses-sources: done
+  4-6-chercher-autrement-hyde-self-rag-et-citer-ses-sources: done
+  4-7-reclasser-les-extraits-avec-un-reranker-local-s-il-est-là: done
+  4-8-le-garde-fou-mémoire-chiffre-le-besoin-réel-et-garde-la-ques: done
+  4-9-jouer-le-flow-2-de-bout-en-bout-et-clore-le-mvp-préversion-2: done
+  epic-4-retrospective: optional
+
+  epic-5: in-progress
+  5-0-découper-les-fichiers-partagés-du-front: done
+  5-1-l-écran-sobriété-montre-la-machine-et-la-session-en-direct: done
+  5-2-retrouver-l-historique-carbone-et-ouvrir-une-nouvelle-sessio: done
+  5-3-installer-un-modèle-en-sachant-s-il-tient-en-mémoire: done
+  5-4-décharger-supprimer-un-modèle-et-choisir-ses-défauts: done
+  5-5-récupérer-le-reranker-depuis-l-écran-modèles: done
+  5-6-la-fiche-modèle-explique-son-débit-et-ce-qu-il-donne-sur-d-a: done
+  5-7-les-défauts-agent-et-rag-s-appuient-sur-le-banc: backlog
+  5-8-quel-modèle-pour-quel-usage-préversion-2-0-0a5: done
+  epic-5-retrospective: optional
+
+  epic-6: in-progress
+  6-1-un-agent-appelle-des-outils-et-publie-chaque-étape-serveur: done
+  6-2-l-agent-dispose-des-outils-de-la-v1-sans-chemin-libre: done
+  6-3-aucun-email-ne-part-sans-validation-explicite: done
+  6-4-l-écran-agent-seul-montre-chaque-étape-et-demande-la-validat: done
+  6-5-une-équipe-d-agents-mène-une-mission-l-un-après-l-autre-serv: done
+  6-6-l-écran-équipe-d-agents-montre-le-schéma-la-trace-et-le-rapp: done
+  epic-6-retrospective: optional
+
+  epic-7: in-progress
+  7-1-noter-la-fidélité-et-la-pertinence-d-une-réponse-serveur: done
+  7-2-un-jeu-fixe-de-cas-garde-le-juge-honnête: done
+  7-3-l-écran-évaluation-de-la-qualité-montre-les-étapes-et-garde: done
+  7-4-le-banc-d-essai-dit-si-la-sortie-respecte-le-format-préversi: done
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-solder-la-dette-technique-relevée-pendant-le-mvp: done
+  8-2-tous-les-écrans-sont-accessibles-et-lisibles-en-projection: done
+  8-3-la-parité-avec-la-v1-est-listée-et-la-suite-e2e-est-complète: done
+  8-5-la-ci-passe-sans-relance: backlog
+  epic-8-retrospective: optional
+
+  epic-9: done
+  9-1-le-lanceur-ouvre-l-application-dans-le-navigateur: done
+  9-2-l-arène-arrête-un-modèle-qui-tourne-en-boucle: done
+  9-3-on-voit-le-juge-de-l-arène-travailler: done
+  9-4-installer-le-modèle-de-représentation-depuis-la-base-documentai: done
+  9-5-fastembed-est-installé-d-office-le-bouton-du-reranker-fonctionne: done
+  9-6-maquette-de-la-nouvelle-mise-en-page-humaine: done
+  9-7-fondation-de-la-mise-en-page-et-écrans-de-l-arène: done
+  9-8-documents-et-agents-suivent-la-nouvelle-mise-en-page: done
+  9-9-modèles-sobriété-et-accueil-suivent-la-nouvelle-mise-en-page: done
+  epic-9-retrospective: optional

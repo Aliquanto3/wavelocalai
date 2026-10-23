@@ -34,9 +34,7 @@ env/
 .env/
 .venv/
 .venv-app/
-# Créé par `uv run` (scripts BMAD) : le dépôt n'est pas un projet uv, et un fichier
-# non suivi bloquerait bmad-build-auto, qui exige un arbre de travail propre.
-uv.lock
+.venv-bench/
 env.bak/
 venv.bak/
 
@@ -73,6 +71,8 @@ logs/
 *.log
 emissions.csv
 models/
+# Paquet models de la v2 (code, pas des poids de modèles)
+!src/wavelocalai/models/
 *.gguf
 *.bin
 *.pt
@@ -116,3 +116,9 @@ outputs/*.md
 
 # Mais garder le dossier
 !outputs/.gitkeep
+
+# Compteur d'échecs du contrôle rapide (agent-cost-kit)
+.claude/cost-kit/.blocages
+
+# Mesures de coût locales (/agent-cost-kit:mesurer-couts)
+mesures-couts/

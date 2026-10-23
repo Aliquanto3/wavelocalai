@@ -35,6 +35,7 @@ from src.core.model_defaults import (
     arena_preselection,
     choose_judge,
     find_entry,
+    is_embedding_model,
     rank_models,
 )
 from src.core.models_db import MODELS_DB, get_friendly_name_from_tag
@@ -86,6 +87,48 @@ def cloud_enabled() -> bool:
     """État du contrôle global « Autoriser le cloud », lu par toutes les pages. Repli :
     désactivé (local), y compris pour une page exécutée sans le routeur."""
     return bool(st.session_state.get(CLOUD_KEY, CLOUD_DEFAULT))
+
+
+# --- Cache court des modèles installés et du sélecteur ---
+# La liste des modèles (Ollama, `/api/tags`) et le classement du sélecteur étaient recalculés
+# à chaque interaction. Durée courte : un modèle installé hors de l'app apparaît en quelques
+# secondes ; une installation depuis l'app invalide le cache tout de suite.
+MODELS_CACHE_TTL_S = 15
+
+
+class _NoModelsError(Exception):
+    """Levée par le cache quand aucun modèle n'est listé : st.cache_data ne garde pas les
+    exceptions, donc une liste vide (Ollama arrêté, rien d'installé) n'est jamais mise en
+    cache et un modèle installé juste après apparaît au rerun suivant."""
+
+
+@st.cache_data(ttl=MODELS_CACHE_TTL_S, show_spinner=False)
+def _installed_models_cached(cloud_on: bool) -> list[dict]:
+    models = LLMProvider.list_models(cloud_enabled=cloud_on)
+    if not models:
+        raise _NoModelsError
+    return models
+
+
+def installed_models(cloud_on: bool | None = None) -> list[dict]:
+    """
+    Modèles proposés par les fournisseurs (LLMProvider.list_models), gardés `MODELS_CACHE_TTL_S`
+    secondes par état du contrôle cloud. `cloud_on` : contrôle global par défaut. Liste
+    vide jamais mise en cache.
+    """
+    cloud_on = cloud_enabled() if cloud_on is None else cloud_on
+    try:
+        return _installed_models_cached(cloud_on)
+    except _NoModelsError:
+        return []
+
+
+def invalidate_model_caches() -> None:
+    """À appeler quand les modèles installés ou la mémoire changent (installation, bouton
+    « Rafraîchir ») : vide la liste et le sélecteur en cache, et la mémoire mesurée."""
+    _installed_models_cached.clear()
+    _model_menu_cached.clear()
+    st.session_state.pop(MEMORY_SNAPSHOT_KEY, None)
 
 
 def _origin(is_cloud) -> bool | None:
@@ -217,15 +260,29 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     poste, sinon d'après la mémoire) et présélection de l'Arène. Les tags ne
     changent pas : seul l'ordre des libellés dépend de la machine. Deux tags au même nom
     affiché : le nom de chacun est complété par son tag, aucun modèle n'est masqué. Une
-    entrée sans `model` est ignorée.
+    entrée sans `model` est ignorée, de même qu'un modèle d'embedding (il ne génère pas de
+    texte : ni défaut ni choix possible ; l'onglet de gestion des modèles les liste toujours).
     """
-    models = [m for m in models if m.get("model")]
+    # Tout ce dont dépend le résultat est un argument du calcul en cache : modèles, types
+    # cloud, contrôle cloud, mémoire de la session et benchmark de ce poste (lu une fois :
+    # débit du tri s'il mesure tous les locaux qui tiennent, et juge par défaut).
+    return _model_menu_cached(
+        models, tuple(cloud_types), cloud_enabled(), available_memory_gb(), machine_benchmark()
+    )
+
+
+@st.cache_data(ttl=MODELS_CACHE_TTL_S, show_spinner=False)
+def _model_menu_cached(
+    models: list[dict],
+    cloud_types: tuple[str, ...],
+    cloud_on: bool,
+    available_gb: float,
+    bench: dict[str, BenchScore],
+) -> ModelMenu:
+    models = [m for m in models if m.get("model") and not is_embedding_model(m)]
     friendly = {m["model"]: _display_name(m) for m in models}
-    # Benchmark de ce poste, lu une fois : débit du tri (s'il mesure tous les locaux qui
-    # tiennent) et juge par défaut.
-    bench = machine_benchmark()
     ranked = rank_models(
-        models, available_memory_gb(), cloud_types=cloud_types, names=friendly, benchmark=bench
+        models, available_gb, cloud_types=cloud_types, names=friendly, benchmark=bench
     )
 
     # Libellé déjà pris par un autre tag : nom complété par le tag.
@@ -240,7 +297,7 @@ def model_menu(models: list[dict], cloud_types: tuple[str, ...] = ("cloud",)) ->
     }
     tag_to_label = {c.tag: model_label(tag_to_friendly[c.tag], c.is_cloud) for c in ranked}
 
-    judge_choice = choose_judge(ranked, bench, allow_cloud=cloud_enabled())
+    judge_choice = choose_judge(ranked, bench, allow_cloud=cloud_on)
     judge = judge_choice.choice
     return ModelMenu(
         display_to_tag={label: tag for tag, label in tag_to_label.items()},

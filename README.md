@@ -2,13 +2,62 @@
 
 **Workbench de démonstration d'IA locale et responsable**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red.svg)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-118%20passed-brightgreen.svg)](#)
 [![Coverage](https://img.shields.io/badge/coverage-86.5%25-brightgreen.svg)](#)
 
 > 💡 *Démonstration interactive des Small Language Models (SLM) pour Wavestone : Performance, Green IT et Souveraineté des Données.*
+
+![Démonstration de la v2 de WaveLocalAI : accueil, Arène des modèles, Discussion avec sources, Agent seul, Sobriété et matériel](docs/assets/v2-demo.gif)
+
+*La v2, en cinq captures à la suite : l'accueil et sa démo recommandée, l'Arène des modèles et son classement, la Discussion avec le passage source surligné, un agent qui appelle un outil, puis la Sobriété et matériel. Les captures viennent de doublures (modèles et réponses simulés, document fictif, aucune donnée réelle) : voir [Captures](#captures-de-la-v2).*
+
+---
+
+## La v2 (préversion)
+
+La v2 est une application web locale (serveur FastAPI, interface sans compilation ni CDN) construite dans ce dépôt à côté de la v1 (Streamlit), qui reste livrée jusqu'à la bascule (story 8.4). Elle ouvre une coquille unique à six modules (Accueil, Arène, Documents, Agents, Sobriété, Modèles) et garde tout sur le poste. La liste de ce que la v1 faisait et de ce qu'il en advient : [`docs/parite-v1-v2.md`](docs/parite-v1-v2.md).
+
+### Installation et lancement de la v2
+
+Même installation que la v1 (voir [Installation](#installation-5-min) pour installer uv et Ollama), puis :
+
+```powershell
+git clone https://github.com/Aliquanto3/wavelocalai.git
+cd wavelocalai
+
+# Crée .venv et installe les dépendances aux versions figées de uv.lock (installation éditable)
+uv sync
+
+# Lance la v2 (la v1 se lance toujours par `uv run wavelocalai`)
+uv run wavelocalai-v2
+```
+
+Le navigateur par défaut s'ouvre tout seul sur http://127.0.0.1:8502 (le port 8501 reste à la v1) dès que le port répond : le serveur n'écoute que sur la machine locale. Options : `--port`, `--data-dir` (dossier des données, `data/` par défaut), `--config` (un fichier `wavelocalai.toml`) et `--no-browser` (n'ouvre pas le navigateur ; ou le réglage `[server] open_browser = false` de `wavelocalai.toml`). Si l'ouverture échoue (pas de navigateur, session sans affichage), l'URL est affichée dans la console et le serveur continue. Un modèle local reste à télécharger (`ollama pull qwen2.5:1.5b`) ; l'écran Modèles sait aussi les installer.
+
+Tests de la v2 : `uv run python -m pytest tests/v2` (sans Ollama) ; les parcours dans un navigateur (`tests/v2/e2e`, marqueur `e2e`) se lancent avec `-m e2e` et tournent chaque nuit sur Linux dans la CI (voir `AGENTS.md`).
+
+### Captures de la v2
+
+| | |
+|---|---|
+| ![Accueil de la v2 : état du poste, démo recommandée, modules](docs/assets/v2-accueil.png) | ![Arène des modèles : trois colonnes de réponses, note du juge, « non évalué » avec sa raison](docs/assets/v2-arene.png) |
+| ![Discussion : réponse du modèle, source citée avec le passage surligné](docs/assets/v2-documents.png) | ![Agent seul : outils en interrupteurs, étapes dépliables, réponse](docs/assets/v2-agents.png) |
+| ![Sobriété et matériel : santé du poste en direct, empreinte carbone de la session](docs/assets/v2-sobriete.png) | |
+
+Ces images sont produites par [`scripts/readme_captures_v2.py`](scripts/readme_captures_v2.py) (Playwright, doublures des tests : modèles `fake`, faux Ollama, document fictif, dossier de données temporaire, aucune requête hors de 127.0.0.1). Aucun document ni extrait réel n'y figure ; le matériel affiché (processeur, mémoire, accélérateur) est fictif, jamais celui du poste qui a fait la capture.
+
+---
+
+## La v1 (Streamlit)
+
+La v1 reste la version livrée tant que la v2 ne l'a pas remplacée ; sa documentation suit.
+
+![Démonstration de la v1 de WaveLocalAI : accueil, chat dans l'Arène des modèles, agent qui audite la machine, page Sobriété et matériel](docs/assets/demo.gif)
+
+*En 40 secondes : on pose une question à un modèle et on voit sa vitesse et son CO₂, un agent outillé audite la machine, puis la page Sobriété suit la charge et les émissions. Vidéo source : [`docs/assets/demo.mp4`](docs/assets/demo.mp4). Cette capture utilise un modèle cloud ; l'usage visé reste un petit modèle local via Ollama.*
 
 ---
 
@@ -27,57 +76,58 @@ WaveLocalAI est un **proof of concept** conçu pour :
 
 ### Prérequis
 
-- **Python 3.10+**
+- **uv** (installe Python lui-même ; 3.11 et 3.12 pris en charge)
 - **Ollama** : [Télécharger ici](https://ollama.com/download)
 - *Optionnel :* Clé API Mistral pour comparaison Cloud
 
 ### Installation (5 min)
 
-L'application s'installe dans son propre environnement, `.venv-app`, distinct du `.venv` réservé au banc de benchmark sur certaines machines. Les versions exactes sont figées dans `constraints.txt` : toujours installer avec `-c constraints.txt`.
+L'installation passe par [uv](https://docs.astral.sh/uv/), sans droits administrateur : uv télécharge lui-même Python (3.12). Les versions exactes sont figées dans `uv.lock`.
 
-```bash
-# 1. Cloner le projet
+```powershell
+# 1. Installer uv (Windows, sans droits administrateur)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Mac/Linux : curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Récupérer le projet (git clone, ou le zip du dépôt décompressé)
 git clone https://github.com/Aliquanto3/wavelocalai.git
 cd wavelocalai
 
-# 2. Créer l'environnement virtuel de l'application
-python -m venv .venv-app
+# 3. Lancer l'application : le premier lancement crée .venv, installe les dépendances
+#    et crée data/models.json depuis config/models_catalog.json
+uv run wavelocalai
 
-# 3. Installer les dépendances aux versions figées (Windows)
-.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt
-
-# Mac/Linux
-.venv-app/bin/python -m pip install -r requirements.txt -c constraints.txt
-
-# 4. Configurer (optionnel)
-cp .env.example .env
-# Éditer .env pour ajouter MISTRAL_API_KEY si souhaité
-
-# 5. Télécharger un modèle local
+# 4. Télécharger un modèle local (Ollama doit être installé)
 ollama pull qwen2.5:1.5b
-
-# 6. Lancer l'application, depuis la racine du dépôt (Windows)
-.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
-
-# Mac/Linux
-.venv-app/bin/python -m streamlit run src/app/Accueil.py
 ```
 
-L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Lancer depuis la racine du dépôt : Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le fichier n'est pas lu et le serveur écoute sur le réseau.
+Configuration optionnelle : `cp .env.example .env`, puis ajouter `MISTRAL_API_KEY` pour la comparaison Cloud.
+
+Sur un réseau d'entreprise qui intercepte le HTTPS (proxy avec certificat maison), faire utiliser à uv le magasin de certificats du système, comme pour WaveStack : `$env:UV_SYSTEM_CERTS = "1"` avant `uv run`.
+
+> **Machine de banc installée avant le passage à uv** : son `.venv` est encore le venv du banc, et `uv sync` ou `uv run` remplacerait son contenu par celui de l'application. Avant le premier `uv run`, recréer le banc dans `.venv-bench` (étape 2 de `docs/PROMPT_NOUVELLE_MACHINE.md`) puis supprimer l'ancien `.venv`. Ne pas se contenter de le renommer : sous Windows, les exécutables du venv (`hf.exe`) gardent le chemin de l'ancien dossier.
+
+**Mettre à jour** : `git pull`, puis `uv sync` (ou directement `uv run wavelocalai`).
+
+L'interface s'ouvre sur http://localhost:8501. Par défaut, le serveur n'écoute que sur la machine locale (`.streamlit/config.toml`, `server.address = "localhost"`) : aucune URL réseau n'est annoncée et la télémétrie Streamlit est coupée. Le lanceur se place lui-même à la racine du dépôt, car Streamlit ne lit `.streamlit/config.toml` que dans le répertoire courant, sinon le serveur écouterait sur le réseau.
 
 **Ouvrir l'application sur le réseau** (démonstration depuis un autre poste) est un choix explicite, à faire au lancement uniquement, sur un réseau de confiance :
 
-```bash
-# Windows
-.venv-app\Scripts\python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
-
-# Mac/Linux
-.venv-app/bin/python -m streamlit run src/app/Accueil.py --server.address 0.0.0.0
+```powershell
+uv run wavelocalai --server.address 0.0.0.0
 ```
 
-Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau.
+Streamlit annonce alors aussi une « Network URL » : l'application et les documents indexés deviennent accessibles aux autres machines du réseau. Les arguments supplémentaires sont transmis à `streamlit run`.
 
-**Mettre à jour une dépendance** : modifier `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier (`uv pip compile requirements.txt --universal --python-version 3.10 -o constraints.txt`) et vérifier par une installation réelle.
+**Sans uv** : créer un environnement et installer aux versions figées de `constraints.txt`, puis lancer Streamlit depuis la racine du dépôt.
+
+```bash
+python -m venv .venv-app
+.venv-app\Scripts\python -m pip install -r requirements.txt -c constraints.txt   # Mac/Linux : .venv-app/bin/python
+.venv-app\Scripts\python -m streamlit run src/app/Accueil.py
+```
+
+**Mettre à jour une dépendance** : modifier `pyproject.toml`, puis `uv lock` (et reporter le changement dans `requirements.txt`, puis régénérer `constraints.txt` avec la commande inscrite en tête du fichier, pour la méthode sans uv). Le venv du banc de benchmark est `.venv-bench` (voir `docs/PROMPT_NOUVELLE_MACHINE.md`).
 
 **Tests** : `python -m pytest tests/unit tests/app` tourne sans Ollama, clé d'API ni réseau. `tests/integration` exige Ollama et `qwen2.5:1.5b` ; les tests marqués `e2e` sont exclus par défaut (`-m e2e` pour les lancer).
 
@@ -274,6 +324,18 @@ export LANGSMITH_TRACING=true LANGCHAIN_TRACING_V2=true
 Certaines télémétries dépendent de plusieurs variables, dont chacune suffit à les couper :
 - CrewAI reste coupé tant que `CREWAI_DISABLE_TELEMETRY` ou `OTEL_SDK_DISABLED` vaut `true` : définir les deux (`CREWAI_DISABLE_TELEMETRY=false` et `OTEL_SDK_DISABLED=false`). `OTEL_SDK_DISABLED=false` réactive aussi tout autre SDK OpenTelemetry du processus.
 - Hugging Face lit aussi `DO_NOT_TRACK` : définir `HF_HUB_DISABLE_TELEMETRY=0` et `DO_NOT_TRACK=0`. `DO_NOT_TRACK=0` lève l'opt-out pour toutes les bibliothèques qui lisent cette convention, pas seulement pour Hugging Face.
+
+### Reranker local de la v2 (optionnel)
+
+La v2 (`wavelocalai-v2`, port 8502) peut reclasser les extraits trouvés avec un reranker local (fastembed, ONNX), installé avec les autres dépendances (`uv sync` seul suffit). **Elle ne télécharge jamais rien d'elle-même** : le reranker ne sert que s'il est déjà dans le dossier `data/models/fastembed` (sous le dossier de données de `wavelocalai.toml`). Sans lui, la recherche garde l'ordre des vecteurs, et « Réglages avancés » de la Discussion dit pourquoi (« Reclassement indisponible : … »).
+
+Pour le récupérer, un seul geste explicite : le bouton « Installer le reranker » de l'écran Modèles, qui lance un run `pull` (barre de progression, annulable) et remplit le cache. Pour le faire hors de l'interface, en ligne de commande :
+
+```bash
+uv run python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='jinaai/jina-reranker-v2-base-multilingual', cache_dir='data/models/fastembed')"
+```
+
+Le modèle se règle dans `[rag] reranker_model` de `wavelocalai.toml` (multilingue par défaut, pour des documents en français) ; le nom donné au script ci-dessus doit être le même. Pour jouer le test d'intégration, qui saute sans le cache : `python -m pytest tests/v2/integration/test_rag_rerank_local.py`.
 
 ### Ajout d'un Nouveau Modèle
 

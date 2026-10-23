@@ -1,14 +1,18 @@
 ---
 name: WaveLocalAI
-description: Démonstrateur Wavestone d'IA générative locale et sobre, en Streamlit 1.x natif ; charte Wavestone appliquée par .streamlit/config.toml, sans framework CSS.
+description: Démonstrateur Wavestone d'IA générative locale et sobre, en Streamlit 1.x natif ; charte Wavestone appliquée par .streamlit/config.toml, sans framework CSS. La v2 (src/wavelocalai/) reprend ces jetons dans static/tokens.css, comparés par un test de dérive.
 status: final
-updated: 2026-09-27
+updated: 2026-10-19
 sources:
   - docs/audits/frontend-2026-09/SYNTHESE.md
   - docs/audits/frontend-2026-09/poste-rtx3060/UX.md
+  - docs/audits/refonte-2026-10/03-ux-front.md
+  - _bmad-output/planning-artifacts/reports-v2-inventaire.md
+  - docs/maquette-v2/README.md (maquette validée du front v2, décisions d'Anaël du 2026-10-18)
 colors:
   # Thème clair (par défaut) -> [theme.light]
   primary: '#451DC7'            # primaryColor ; blanc dessus 9,32:1
+  primary-fill: '#451DC7'       # v2 : aplat violet sous texte blanc ; blanc dessus 9,32:1
   on-primary: '#FFFFFF'
   surface: '#FFFFFF'            # backgroundColor
   surface-alt: '#F6F5FA'        # secondaryBackgroundColor (--ws-cream)
@@ -23,8 +27,16 @@ colors:
   chart-2: '#0E9F5E'
   chart-3: '#2F7FD8'
   chart-4: '#C98A00'
+  # Couleur d'icône par module (story 9.7, maquette docs/maquette-v2-mise-en-page/)
+  icon-arena: 'var(--color-chart-1)'
+  icon-bench: 'var(--color-chart-3)'
+  icon-documents: 'var(--color-chart-2)'
+  amber-strong: '#A66E00'       # dédié : chart-4 clair ne tient pas 3:1 sur sa pastille (DECISIONS.md) ; sombre = chart-4
+  icon-models: 'var(--color-amber-strong)'
+  action-tint: 'rgba(69, 29, 199, 0.08)' # aplat léger (nav courante, bandeau du juge, carte choisie) ; sombre : rgba(126, 101, 233, 0.10)
   # Thème sombre -> [theme.dark]
-  primary-dark: '#7E65E9'       # compromis : blanc dessus 4,26:1, texte 4,62:1 sur surface-dark, 4,24:1 sur une pastille choisie
+  primary-dark: '#7E65E9'       # texte violet, bordure, contour : 4,62:1 sur surface-dark ; v1 : aussi fond des boutons (blanc 4,26:1)
+  primary-fill-dark: '#6A4DE6'  # v2 : aplat sous texte blanc (décision Q1) ; blanc dessus 5,50:1, 3,58:1 sur surface-dark
   on-primary-dark: '#FFFFFF'
   surface-dark: '#0A0A14'
   surface-alt-dark: '#16162A'   # secondaryBackgroundColor
@@ -43,6 +55,12 @@ typography:
   body:
     fontFamily: 'Aptos, Inter, sans-serif'
     note: 'Streamlit natif — corps de texte, taille de base Streamlit'
+  section-label:
+    fontFamily: 'Aptos, Inter, sans-serif'
+    note: 'Intertitre de section (story 9.7) : 0.8125rem (13px), majuscules, espacé — toujours plus petit que {typography.field-label}'
+  field-label:
+    fontFamily: 'Aptos, Inter, sans-serif'
+    note: 'Libellé de champ mis en avant (story 9.7, prompt, choix du modèle) : 1.0625rem (17px), gras, au moins aussi grand que {typography.body}'
   heading:
     fontFamily: 'Aptos, Inter, sans-serif'
     note: 'Streamlit natif — st.title (h1) · st.header (h2) · st.subheader (h3)'
@@ -128,6 +146,45 @@ components:
   logo:
     streamlit: 'st.logo avec wordmark texte « WaveLocalAI »'
     foreground: '{colors.ink}'
+  # v2 (web components de src/wavelocalai/web/static/) : écarts au rendu ci-dessus
+  wl-button-primary:
+    web: '<button class="button-primary">'
+    background: '{colors.primary-fill}'
+    background-dark: '{colors.primary-fill-dark}'
+    foreground: '{colors.on-primary}'
+    radius: '{rounded.DEFAULT}'
+  wl-switch:
+    web: '<input type="checkbox" role="switch"> en bascule visuelle (Autoriser le cloud, Mode projection, Format imposé, Réponse concise, outils de l''agent ; décision D-6)'
+    track-on: '{colors.primary-fill}'
+    track-on-dark: '{colors.primary-fill-dark}'
+    track-off: '{colors.surface-alt}'
+    border: '{colors.ink-secondary}'
+    thumb: '{colors.surface}'
+    radius: '{rounded.full}'
+  wl-pill-selected:
+    web: 'pastille ou segment choisi (fenêtre d''historique, Graphique / Tableau, Cartes / Tableau, modèles choisis)'
+    background: '{colors.primary-fill}'
+    background-dark: '{colors.primary-fill-dark}'
+    foreground: '{colors.on-primary}'
+    radius: '{rounded.full}'
+  wl-side-panel:
+    web: 'panneau latéral (fiche modèle, verdicts, trace d''agent, sources)'
+    background: '{colors.surface}'
+    border: '{colors.line}'
+    radius: '{rounded.DEFAULT}'
+  wl-step-trace:
+    web: '<ol> d''étapes dépliables'
+    current-outline: '{colors.primary}'
+    meta: '{typography.caption}'
+  wl-team-graph:
+    web: 'SVG fait main'
+    node-border: '{colors.ink-secondary}'
+    active-outline: '{colors.primary}'
+    edge: '{colors.gray-graphic}'
+  wl-progress-bytes:
+    web: '<progress> + texte chiffré'
+    bar: '{colors.primary}'
+    track: '{colors.line}'
 ---
 
 ## Brand & Style
@@ -137,7 +194,7 @@ WaveLocalAI est un démonstrateur Wavestone : il prouve, mesures à l'appui, qu'
 1. **Les chiffres sont les héros.** Débit, CO₂ et latence portent la plus grande taille de la page (`{typography.metric-value}`).
 2. **Une seule couleur d'action.** Violet `{colors.primary}` pour agir, vert pour « local, sobre, réussi », rouge `{colors.risk}` pour le risque seulement.
 3. **La souveraineté se voit.** Le badge Local/Cloud est l'**élément signature** : sobre, répété, porteur du propos. Le reste de l'interface s'efface.
-4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte ; seule exception, l'accueil « Bonjour ! » de l'agent.
+4. `[ASSUMPTION]` **Icônes Material, pas d'emojis.** Icônes `:material/…:` monochromes, qui héritent de la couleur du texte, sans exception. v2 (décision D-2) : **Material Symbols Rounded** officiels, sous-ensemble en sprite `icons.svg` avec sa licence ; les tracés Material Icons (Filled) de la maquette n'entrent pas dans le front. Maquette validée (story 9.6, décision d'Anaël du 2026-10-21) : sur l'écran de configuration d'un module, l'icône du module est **colorée par module**, posée sur une pastille de sa propre couleur à 8 % (`.icon-mod`) — Arène `chart-1` (violet), Banc d'essai `chart-3` (bleu), Base documentaire `chart-2` (vert), Modèles `amber-strong` (`#A66E00` en clair, `chart-4` en sombre, jeton à poser par la story 9.7, voir `docs/maquette-v2-mise-en-page/DECISIONS.md`). Les icônes d'état (succès, erreur, arrêt) restent les couleurs sémantiques existantes (`risk`, `accent-green`) ; l'icône seule porte la couleur sémantique, jamais le texte qui l'accompagne (ex. « Arrêté : … » reste en `{colors.ink}`).
 
 **Implémentation.** Streamlit 1.x, composants natifs uniquement : aucun framework CSS, aucun `<style>` injecté, aucun hex dans le code des pages. Les tokens passent par `.streamlit/config.toml` :
 
@@ -149,11 +206,12 @@ Chaque clé se vérifie dans la documentation de la version de Streamlit figée 
 
 ## Colors
 
-Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et soigné, avec des neutres dérivés de l'encre. Seuils WCAG 2.2 : 4,5:1 pour le texte courant, 3:1 pour le grand texte et le graphique.
+Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et soigné, avec des neutres dérivés de l'encre. En v2, le menu Affichage propose aussi « Système », qui applique le jeu clair ou sombre selon `prefers-color-scheme` (décision D-7) ; aucun troisième jeu de jetons. Seuils WCAG 2.2 : 4,5:1 pour le texte courant, 3:1 pour le grand texte et le graphique.
 
 | Token (clair / sombre) | Clair | Sombre | Clé `config.toml` | Usage | Interdit |
 |---|---|---|---|---|---|
-| `primary` / `primary-dark` | `#451DC7` | `#7E65E9` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 4,26:1 (compromis sombre, voir la note sous le tableau) | Décoration, fonds, titres colorés |
+| `primary` / `primary-dark` | `#451DC7` | `#7E65E9` | `primaryColor` | Action principale, bascule active, pastille sélectionnée. Blanc dessus : 9,32:1 / 4,26:1 (compromis sombre de la v1, voir la note sous le tableau). En v2 : texte violet, bordure, contour d'élément actif, interrupteur coché | Décoration, fonds, titres colorés ; en v2, fond sous texte blanc |
+| `primary-fill` / `primary-fill-dark` | `#451DC7` | `#6A4DE6` | — (v2 seulement) | v2 : tout aplat violet qui porte du texte blanc (`button-primary`, pastille ou segment choisi, compteur violet). Blanc dessus 9,32:1 / 5,50:1 ; aplat sombre contre `surface-dark` 3,58:1, contre `surface-alt-dark` 3,23:1 | Texte violet sur fond (prendre `primary`) ; grand aplat décoratif |
 | `surface` / `surface-dark` | `#FFFFFF` | `#0A0A14` | `backgroundColor` | Fond de page | — |
 | `surface-alt` / `surface-alt-dark` | `#F6F5FA` | `#16162A` | `secondaryBackgroundColor` | Barre latérale, champs, blocs de code | Violet en fond |
 | `ink` / `ink-dark` | `#0A0A14` | `#F6F5FA` | `textColor` | Tout le texte | — |
@@ -167,10 +225,13 @@ Clair par défaut (salle éclairée, vidéoprojecteur) ; sombre disponible et so
 
 **Note `primary-dark` (décision du 27/09, story 14 de `spec-fiabilisation-frontend`).** En sombre, Streamlit emploie `primaryColor` comme fond du texte blanc des boutons principaux et comme couleur de texte (valeur des curseurs, pastilles et segments choisis, dont le fond mêle 10 % de la primaire au fond). Aucune valeur unique ne donne 4,5:1 partout : blanc dessus exige une luminance ≤ 0,183, texte sur `surface-dark` ≥ 0,190. Critère retenu : rendre le plus faible de ces contrastes aussi haut que possible. `#7E65E9` donne (calculé) blanc dessus 4,26:1, curseur sur `surface-dark` 4,62:1, curseur sur `surface-alt-dark` (barre latérale) 4,17:1, pastille choisie 4,25:1 (4,24:1 mesuré par axe). Écartés : `#6A4DE6` (texte 3,34:1), `#7A5FEA` (pastille 4,04:1), `#8468EC` (blanc dessus 4,06:1), `#886DED` (blanc dessus 3,85:1). Écarts connus, par type de composant : texte blanc des boutons principaux, pastilles et segments choisis, curseurs de la barre latérale. Le wordmark garde `#6A4DE6` (image unique, grand texte).
 
+**Note `primary-fill` (décision Q1 du 18/10, `reports-v2-inventaire.md`, report A19).** La v2 n'est pas liée à la clé unique `primaryColor` : elle sépare le violet qui se lit (texte, bordure, contour, `primary`) du violet qui porte du texte blanc (`primary-fill`). En clair, les deux valent `#451DC7`. En sombre, `#6A4DE6` (déjà `chart-1` clair et couleur du wordmark) donne blanc dessus 5,50:1 et reste distinct du fond (3,58:1 sur `surface-dark`, 3,23:1 sur `surface-alt-dark`, au-dessus du 3:1 des composants). Écartés : `#7A5FEA` (blanc 4,51:1, sans marge), `#7459E6` (4,87:1, marge étroite), `#6548DF` (aplat à 3,00:1 sur `surface-alt-dark`). Les écarts de la v1 listés ci-dessus disparaissent en v2 ; axe-core le vérifie sur le premier bouton plein en sombre (story 2.2) puis sur chaque écran.
+
 - **Légendes.** `{colors.ink-secondary}` et `{colors.ink-secondary-dark}` ne s'appliquent que si la version figée expose une clé de thème native. Sinon, la couleur native reste, son contraste est mesuré et signalé au rapport de nuit ; aucun CSS.
 - **Badges.** `badge-local` vert et `badge-cloud` orange utilisent les couleurs natives de `st.badge` (`[ASSUMPTION]`), dont le contraste est vérifié à l'axe-core au matin. Orange = attention, les données sortent de la machine ; jamais de rouge.
 - **Graphiques.** `chart-4` clair fait 2,95:1 sur blanc : il n'encode jamais seul une valeur, ses points sont étiquetés.
 - Aucune couleur ne porte seule une information : badge, succès, erreur et série ont toujours un libellé.
+- **Icônes par module (v2, maquette story 9.6, décision d'Anaël du 2026-10-21).** Sur sa pastille à 8 % (`.icon-mod`) : Arène `chart-1` (4,93:1 clair, 4,10:1 sombre), Banc d'essai `chart-3` (3,71:1 / 4,91:1), Base documentaire `chart-2` (3,12:1 clair — marge étroite, 5,76:1 sombre). Pour Modèles, `chart-4` clair ne tient pas 3:1 sur sa pastille (2,74:1) : un jeton dédié, `amber-strong` (`#A66E00` clair, `chart-4` sombre), le remplace et tient 3,92:1 ; il sert aussi au liseré et à l'icône de l'encart d'alerte « modèle de représentation manquant » de la Base documentaire (3,85:1 clair sur le fond de l'encart). Jeton et classes `.icon-mod` à poser par la story 9.7 (`tokens.css`/`screens.css`) ; valeurs détaillées et méthode de calcul : `docs/maquette-v2-mise-en-page/DECISIONS.md` §2.
 
 ## Typography
 
@@ -182,6 +243,8 @@ Une seule famille pour le texte et les titres : **Aptos**, appelée par son nom 
 | `{typography.metric-value}` | valeur de `st.metric` | Plus gros chiffre de la page ; débit, CO₂ et durées passent par là, pas par du gras. |
 | `{typography.caption}` | `st.caption` | Métadonnées et légendes. |
 | `{typography.body}` | texte | Ni majuscules d'insistance ni gras décoratif. |
+| `{typography.section-label}` (v2, maquette story 9.6, décision d'Anaël du 2026-10-21) | — | Intertitre de section repliée ou de bloc (« Réglages », « Scénario ») : **13 px** (`0.8125rem`), majuscules, espacé (`letter-spacing: 0.04em`), `{colors.ink-secondary}`. Jeton `--text-section-label` à poser par la story 9.7. |
+| `{typography.field-label}` (v2, maquette story 9.6, décision d'Anaël du 2026-10-21) | — | Libellé d'un champ mis en avant (prompt, choix du modèle) : **17 px** (`1.0625rem`), gras, toujours plus grand que `{typography.section-label}` (ratio ~1,3) et au moins aussi grand que `{typography.body}`. Jeton `--text-field-label` à poser par la story 9.7. |
 
 ## Layout & Spacing
 
@@ -189,6 +252,7 @@ Une seule famille pour le texte et les titres : **Aptos**, appelée par son nom 
 - Largeurs par `width=` (pas `use_container_width`, déprécié) et par les ratios de `st.columns`.
 - **Accueil :** une colonne hiérarchisée — en-tête, bandeau d'état (une rangée de `metric`), liste des modules. Pas de grille de cartes.
 - **Module :** titre, onglets (`st.tabs`), réglages en barre latérale, rangée de `metric` au-dessus du détail des résultats.
+- **v2, écran de configuration (Banc d'essai, Arène formulaire ; maquette story 9.6, décision d'Anaël du 2026-10-21).** Dès **1 400 px** environ (`min-width` du cadre), grille à deux colonnes : colonne principale flexible (**480 px au moins**) à gauche pour la saisie et le choix du modèle, colonne secondaire (**320 à 400 px**) à droite pour les réglages repliés (`<details>`), l'aperçu et les résultats. En dessous de 1 400 px, une seule colonne, dans le même ordre (saisie puis réglages). Pendant l'exécution, la configuration se replie en résumé (inchangé, voir EXPERIENCE.md) ; les résultats (lanes de l'Arène, tableau) occupent alors la largeur pleine, hors de cette grille à deux colonnes — l'écran de résultats de l'Arène n'y entre jamais, même avant le lancement d'un nouveau run (le bandeau du juge et les colonnes de réponse gardent leur propre grille, D-15). Zones d'action (navigation courante, carte ou pastille choisie, bandeau du juge) : aplat léger de `{colors.primary}` à **8 % en clair**, de `{colors.primary-dark}` à **10 % en sombre** (jeton `--color-action-tint` à poser par la story 9.7) ; le texte posé dessus reste `{colors.ink}` (≥ 16:1), le violet n'y sert qu'aux icônes, entourages et soulignés. Les pastilles ou segments choisis suivent `wl-pill-selected` (aplat `{colors.primary-fill}`, texte blanc), pas cet aplat.
 
 ## Elevation & Depth
 
@@ -211,7 +275,7 @@ Un seul rayon, `{rounded.DEFAULT}` (12 px, `--radius-sm` de la charte), porté p
 | `badge-cloud` | `st.badge(color="orange")` | « Cloud » + `:material/cloud:` `[ASSUMPTION]`. |
 | `cloud-toggle` | `st.toggle` | Actif en `{colors.primary}`. |
 | `card` | `st.container(border=True)` | Bordure `{colors.line}`, fond du thème ; remplace tout encart en CSS injecté. |
-| `module-link` | `st.page_link` | Icône Material propre au module, jamais partagée. |
+| `module-link` | `st.page_link` | Icône Material propre au module, jamais partagée. v2 : Arène = `swords` (code livré et maquette ; remplace `leaderboard`) ; la carte Références a sa propre icône, distincte de `swords` (décision du 2026-10-19). |
 | `alert-info` · `alert-success` · `alert-warning` · `alert-error` | `st.info` · `st.success` · `st.warning` · `st.error` | Rendu natif, une icône Material au plus, aucun emoji. |
 | `chat-message` | `st.chat_message` | Réponse, puis ligne de métadonnées en `{typography.caption}`. |
 | `sources-expander` | `st.expander` | Natif. |
@@ -221,12 +285,30 @@ Un seul rayon, `{rounded.DEFAULT}` (12 px, `--radius-sm` de la charte), porté p
 | `chart` | `st.plotly_chart` et natifs | Palette du thème actif ; unité dans le titre d'axe. |
 | `logo` | `st.logo` | Wordmark texte « WaveLocalAI » en `{colors.ink}` pour la nuit ; l'ajout du SVG Wavestone se décide au matin. |
 
+### Composants de la v2
+
+Rendu propre à la v2 (HTML et CSS servis par `web/`), là où il s'écarte du tableau Streamlit. Comportement : `EXPERIENCE.md`, « Écrans v2 des Epics 5 à 7 ».
+
+| Composant | Spécification visuelle |
+|---|---|
+| `wl-button-primary` | Fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}` ; désactivé : fond `{colors.surface-alt}`, bordure `{colors.line}`, texte `{colors.ink-secondary}`, jamais par la seule opacité. |
+| `wl-switch` | Bascule visuelle (D-6) : piste `{rounded.full}` bordée `{colors.ink-secondary}` (3:1 au moins sur le fond), curseur rond `{colors.surface}` ; activée : piste `{colors.primary-fill}` / `{colors.primary-fill-dark}` et icône `check` dans le curseur ; libellé texte toujours à côté, jamais l'état porté par la seule couleur. Indisponible : `aria-disabled`, piste en pointillés `{colors.line}`, libellé `{colors.ink-secondary}`, raison en légende visible. |
+| `wl-pill-selected` | Pastille ou segment choisi : fond `{colors.primary-fill}` / `{colors.primary-fill-dark}`, texte `{colors.on-primary}`, icône `check` à gauche ; non choisi : bordure `{colors.line}`, texte `{colors.ink}`. Indisponible : texte `{colors.ink-secondary}`, icône `block`, bordure en pointillés `{colors.line}`. |
+| `wl-side-panel` | À droite dès 1 024 px (largeur 1/3, 360 px au moins), bordure gauche `{colors.line}`, en-tête `h2` + bouton « Fermer » ; en deçà, sous le contenu, replié. Variantes fixées par la maquette : panneau des sources sans « Fermer » ni repli en large (D-22) ; fiche modèle à droite dès 1 120 px, au-dessus de la liste en deçà (D-40) ; « Configurer l'équipe » en colonne de droite non modale, sous le schéma en deçà de 1 024 px (D-35). |
+| `wl-step-trace` | Une ligne par étape : numéro, icône Material par type (`psychology` réflexion, `build` appel d'outil, `output` résultat, `chat` réponse, `pending_actions` attente de validation), libellé, durée en `{typography.caption}` alignée à droite. Étape en cours : contour 2 px `{colors.primary}` et libellé « en cours ». Erreur d'outil : icône `error` et texte, sans fond rouge. |
+| `wl-team-graph` | Nœuds en rectangles `{rounded.DEFAULT}` bordés `{colors.ink-secondary}`, nom du rôle dedans ; flèches `{colors.gray-graphic}` vers le nœud « Rapport ». Agent actif : contour 3 px `{colors.primary}` + libellé « en cours » sous le nœud ; terminé : icône `check_circle` ; arrêté : libellé « Arrêté » ; non lancé : libellé « Non lancé » (D-34). Horizontal dès 768 px jusqu'à 4 agents, vertical en deçà ou à 5 agents (maximum, D-36). |
+| Menu « Exporter » | Sous 768 px, les deux boutons d'export (Chat, Arène) cèdent la place à un `button-secondary` « Exporter » (icône `expand_more`) qui ouvre une liste des formats, fermée par Échap et au clic extérieur, focus rendu au bouton (D-3). |
+| Réponse repliée (Arène) | Dès 1 440 px avec 4 colonnes : réponse limitée à 4 lignes (`line-clamp`), sans fondu de couleur, puis le bouton « Afficher toute la réponse » (D-15). |
+| `wl-progress-bytes` | Barre `{colors.primary}` sur piste `{colors.line}`, texte « Téléchargement 1,2 Go sur 4,7 Go · 26 % » à côté, jamais la barre seule. |
+| Verdict par affirmation | Liste : verdict en texte avec icône (`check_circle` « appuyée », `help` « non appuyée », `cancel` « contredite »), affirmation, puis extrait d'appui cité en `{typography.caption}`. Couleur d'icône `{colors.ink}` : le verdict se lit dans le mot. |
+
 ## Do's and Don'ts
 
 | À faire | À éviter |
 |---|---|
 | Couleurs, police et rayon dans `.streamlit/config.toml` | Hex en dur, `<style>`, `unsafe_allow_html` pour colorer |
 | `{colors.primary}` pour l'action principale | Rouge sur une action principale (« FIGHT ! ») |
+| v2 : `{colors.primary-fill-dark}` sous tout texte blanc en sombre | v2 : texte blanc sur `{colors.primary-dark}` (4,26:1) |
 | `{colors.risk}` pour le risque, nommé par un texte | CO₂ coloré vert/orange/rouge selon un seuil |
 | `{colors.accent-green}` en aplat sous de l'encre, ou en sombre | Vert de la charte en texte sur blanc |
 | Icônes `:material/…:`, distinctes par module | Emojis en icône, doublés (« 📂 📂 ») ou en titre |

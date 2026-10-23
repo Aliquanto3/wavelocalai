@@ -1,0 +1,258 @@
+/* Agent seul : réglages, outils, fil, panneau « Étapes », saisie. Jetons de tokens.css seulement.
+   Les règles de la trace d'étapes (.step-*) servent aussi à l'écran Équipe d'agents, qui importe ce fichier. */
+
+/* Réglages */
+.agent-settings {
+  margin-bottom: 1rem;
+}
+
+.agent-model-warning {
+  max-width: 42rem;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+}
+
+/* Outils de l'agent : neuf cases, chacune avec son aide */
+.agent-tools {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.agent-tools legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.agent-tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-tool {
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.agent-tool-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+}
+
+.agent-tool-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.agent-tool-help {
+  margin-top: 0;
+}
+
+.agent-tool[data-available="false"] {
+  border-style: dashed;
+  background: var(--color-surface-alt);
+}
+
+.agent-tool[data-available="false"] .agent-tool-name {
+  color: var(--color-ink-secondary);
+}
+
+.agent-tool[data-available="false"] input,
+.agent-tool[data-available="false"] label {
+  cursor: not-allowed;
+}
+
+.agent-tool-reason {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 0.5rem;
+  border-inline-start: 3px solid var(--color-chart-4);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink);
+}
+
+/* Mise en page : fil et saisie à gauche, étapes à droite dès 1 024 px */
+.agent-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "thread"
+    "steps"
+    "composer";
+  gap: 1rem 1.5rem;
+}
+
+.agent-area-thread {
+  grid-area: thread;
+  min-width: 0;
+}
+
+.agent-area-steps {
+  grid-area: steps;
+  min-width: 0;
+}
+
+.agent-area-composer {
+  grid-area: composer;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .agent-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+    grid-template-areas:
+      "thread steps"
+      "composer steps";
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+}
+
+.agent-conversation > * + * {
+  margin-top: 0.75rem;
+}
+
+.agent-conversation > .agent-hello {
+  margin-bottom: 0;
+}
+
+/* Accueil de l'agent et actions rapides */
+.agent-quick-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.agent-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-quick-button {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+}
+
+.agent-quick-button .help {
+  margin: 0;
+}
+
+.agent-quick-label {
+  font-weight: 600;
+}
+
+.agent-notices:empty {
+  display: none;
+}
+
+.agent-notices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.agent-notices > .wl-notice {
+  flex: 1 1 20rem;
+  margin-bottom: 0;
+}
+
+/* Panneau « Étapes » */
+.agent-steps {
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.agent-steps-title {
+  margin-bottom: 0.5rem;
+  font-size: 1.125rem;
+}
+
+.agent-steps .wl-run-status {
+  margin-bottom: 0.75rem;
+}
+
+.agent-steps-empty,
+.agent-approval-note {
+  margin: 0 0 0.75rem;
+}
+
+.agent-approval-note {
+  padding-inline-start: 0.5rem;
+  border-inline-start: 3px solid var(--color-chart-4);
+  color: var(--color-ink);
+}
+
+/* Saisie */
+.agent-composer {
+  margin-top: 0.25rem;
+}
+
+.agent-input-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.agent-input {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  max-height: 14rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  resize: vertical;
+}
+
+.agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.agent-reason:empty {
+  display: none;
+}
+
+/* Sous 768 px, la saisie reste en bas de l'écran. */
+@media (max-width: 767px) {
+  .agent-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    padding: 0.5rem 0 0.75rem;
+    background: var(--color-surface);
+  }
+}
+
+.agent-download {
+  align-self: flex-start;
+}

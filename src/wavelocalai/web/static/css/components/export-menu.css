@@ -1,0 +1,60 @@
+/* Menu « Exporter » (components/export-menu.js, D-3) : un bouton par format dès 768 px, un seul
+   bouton « Exporter » qui ouvre la liste des formats en dessous. */
+.wl-export {
+  position: relative;
+  display: inline-flex;
+}
+
+.wl-export[hidden] {
+  display: none;
+}
+
+.wl-export-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wl-export-narrow {
+  display: none;
+}
+
+.wl-export-list {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-start: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12rem;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  list-style: none;
+}
+
+.wl-export-list[hidden] {
+  display: none;
+}
+
+.wl-export-choice {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@media (max-width: 767.98px) {
+  .wl-export-wide {
+    display: none;
+  }
+
+  .wl-export-narrow {
+    display: block;
+  }
+}
+
+.wl-run-stop:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}

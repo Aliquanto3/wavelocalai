@@ -1,0 +1,1224 @@
+/* Composants de la maquette. Repris de feat/v2-ecran-chat : wl-model-picker, wl-run-status,
+   onglets, wl-chat-thread (chat.css). Ajouts : bouton plein, dialogue, squelette. */
+
+/* wl-model-picker : combobox avec liste, groupes, pastilles retirables */
+.wl-picker {
+  display: block;
+  max-width: 42rem;
+}
+
+.wl-picker-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.wl-picker-box {
+  position: relative;
+}
+
+.wl-picker-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-picker-popup {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 40;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+}
+
+/* La liste elle-même défile : axe reconnaît ainsi la fenêtre d'un combobox (clavier par le champ). */
+.wl-picker-listbox {
+  max-height: min(30rem, 60vh);
+  overflow-y: auto;
+}
+
+.wl-picker-empty {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-group-title {
+  padding: 0.5rem 1rem 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-inline-start: 4px solid transparent;
+  cursor: pointer;
+}
+
+.wl-picker-option.is-active {
+  background: var(--color-surface-alt);
+  border-inline-start-color: var(--color-primary);
+}
+
+.wl-picker-option[aria-selected="true"] .wl-picker-option-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wl-picker-option[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.wl-picker-option-head,
+.wl-picker-option-meta,
+.wl-picker-option-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.wl-picker-option-meta {
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-picker-option-name {
+  font-weight: 600;
+}
+
+.wl-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-gray-graphic);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-picker-check .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.wl-picker-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.wl-picker-warning .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--color-chart-4);
+}
+
+.wl-picker-pill {
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+
+.wl-picker-help {
+  margin-top: 0.5rem;
+}
+
+.wl-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+}
+
+.wl-picker-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-picker-chip-remove:hover {
+  background: var(--color-line);
+}
+
+.wl-picker-chip-remove .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.wl-picker-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-picker-notice-text {
+  margin: 0;
+}
+
+/* wl-run-status : étape, chronomètre, Arrêter */
+.wl-run-status {
+  display: block;
+}
+
+.wl-run-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.wl-run-stage {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wl-run-timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-secondary);
+}
+
+.wl-run-hint {
+  margin: 0;
+}
+
+.wl-run-stop:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* Onglets d'un module (core/screen-tabs.js) */
+.screen-tabs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.screen-tab {
+  display: flex;
+  flex-direction: column;
+}
+
+.screen-tab-link {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 3px solid transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.screen-tab-link[href]:hover {
+  background: var(--color-line);
+}
+
+.screen-tab-link[aria-current="page"] {
+  border-bottom-color: var(--color-primary);
+}
+
+.screen-tab-link[aria-disabled="true"] {
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.screen-tab-reason {
+  padding: 0 0.75rem 0.25rem;
+  font-family: var(--font-caption);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--color-ink-secondary);
+}
+
+/* Fil de conversation (wl-chat-thread) */
+wl-chat-thread,
+.wl-thread {
+  display: block;
+  position: relative;
+}
+
+
+.wl-thread-log {
+  min-height: 8rem;
+  max-height: min(60vh, 40rem);
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* Fil vide : le journal reste dans l'arbre d'accessibilité, sans cadre ni hauteur. */
+.wl-thread-log:empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wl-thread-end {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.wl-msg + .wl-msg {
+  margin-top: 1rem;
+}
+
+.wl-msg-user {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.wl-msg-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+}
+
+.wl-msg-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wl-md {
+  overflow-wrap: anywhere;
+}
+
+.wl-md > :last-child,
+.wl-md li > :last-child {
+  margin-bottom: 0;
+}
+
+.wl-md ul,
+.wl-md ol {
+  margin: 0 0 1em;
+  padding-inline-start: 1.5rem;
+}
+
+.wl-md blockquote {
+  margin: 0 0 1em;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--color-line);
+  color: var(--color-ink-secondary);
+}
+
+.wl-md hr {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.wl-md code {
+  padding: 0.0625rem 0.25rem;
+  border-radius: 4px;
+  background: var(--color-surface-alt);
+  font-size: 0.9em;
+}
+
+.wl-md pre.md-code {
+  margin: 0 0 1em;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  white-space: pre-wrap; /* le code se replie : pas de zone qui défile au clavier seulement */
+  overflow-wrap: anywhere;
+}
+
+.wl-md pre.md-code code {
+  padding: 0;
+  background: none;
+}
+
+.md-heading {
+  margin-bottom: 0.5em;
+}
+
+.md-heading-1 {
+  font-size: 1.25rem;
+}
+
+.md-heading-2 {
+  font-size: 1.125rem;
+}
+
+.wl-thought {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.wl-thought summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.wl-thought-body {
+  margin-top: 0.25rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--color-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wl-msg-note {
+  margin: 0.25rem 0 0;
+}
+
+.wl-msg-flag {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  padding: 0 0.5rem;
+  border-inline-start: 3px solid var(--color-risk);
+  font-weight: 600;
+}
+
+.wl-msg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.25rem 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.wl-msg-foot .wl-metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+
+.wl-msg-foot .wl-metric-help {
+  max-width: 22rem;
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.btn-primary {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Désactivé : jamais par la seule opacité (DESIGN.md, wl-button-primary). */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+a.btn {
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+a.btn-primary {
+  color: var(--color-on-primary);
+}
+
+.wl-error-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.wl-error code,
+.lead code,
+.help code {
+  overflow-wrap: anywhere;
+}
+
+/* wl-confirm-dialog : <dialog> natif */
+.wl-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.25rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.wl-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+}
+
+.wl-dialog-title {
+  font-size: 1.25rem;
+}
+
+.wl-dialog-consequence {
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 6px solid var(--color-chart-4);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius);
+}
+
+.wl-dialog-details {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.wl-dialog-details dt {
+  font-weight: 700;
+}
+
+.wl-dialog-details dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wl-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* wl-skeleton : premier chargement */
+.wl-skeleton {
+  display: block;
+}
+
+.wl-skeleton-bars {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.wl-skeleton-bar {
+  display: block;
+  height: 1rem;
+  border-radius: var(--radius);
+  background: var(--color-line);
+  animation: wl-pulse 1.4s ease-in-out infinite;
+}
+
+.wl-skeleton-bar:first-child {
+  width: 60%;
+  height: 1.75rem;
+}
+
+.wl-skeleton-bar:nth-child(3n) {
+  width: 80%;
+}
+
+.wl-skeleton-slow {
+  margin-top: 0.5rem;
+}
+
+@keyframes wl-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Page ouverte en file:// : message de marche à suivre (index.html) */
+:root[data-file="true"] .topbar-tools,
+:root[data-file="true"] .nav-toggle {
+  display: none;
+}
+
+.file-steps li + li {
+  margin-top: 0.5rem;
+}
+
+/* Groupe de segments (js/components/segments.js) : radiogroup, le choix porte l'icône check */
+.wl-seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+}
+
+.wl-seg-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 1rem;
+  border: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-seg-button + .wl-seg-button {
+  border-inline-start: 1px solid var(--color-gray-graphic);
+}
+
+.wl-seg-button:hover {
+  background: var(--color-surface-alt);
+}
+
+.wl-seg-button .icon {
+  display: none;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.wl-seg-button[aria-checked="true"] {
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.wl-seg-button[aria-checked="true"] .icon {
+  display: inline-block;
+}
+
+/* Tableau triable (js/components/data-table.js) : le conteneur défile, jamais la page */
+.wl-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wl-table th,
+.wl-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.wl-table thead th {
+  background: var(--color-surface-alt);
+  vertical-align: middle; /* en-têtes triables (bouton) et simples sur la même ligne */
+}
+
+.wl-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.wl-table .is-numeric {
+  text-align: end;
+}
+
+.wl-sort {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wl-sort:hover {
+  background: var(--color-surface-alt);
+}
+
+.wl-sort .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  opacity: 0.45;
+}
+
+.wl-sort[data-dir] .icon {
+  opacity: 1;
+}
+
+.wl-sort[data-dir="asc"] .icon {
+  transform: rotate(180deg);
+}
+
+/* Matrice (js/components/charts.js) : nuage de points accessible */
+.wl-matrix {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 1rem;
+}
+
+.wl-matrix-svg {
+  width: 100%;
+  max-width: 46rem;
+  height: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-matrix-grid {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.wl-matrix-axis {
+  stroke: var(--color-ink-secondary);
+  stroke-width: 1.5;
+}
+
+.wl-matrix-tick,
+.wl-matrix-axis-title,
+.wl-matrix-label {
+  fill: var(--color-ink);
+  font-family: var(--font-caption);
+  font-size: 12px;
+}
+
+.wl-matrix-axis-title {
+  font-weight: 600;
+}
+
+.wl-matrix-label {
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+.wl-matrix-dot {
+  fill: color-mix(in srgb, var(--dot) 55%, var(--color-surface));
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.wl-matrix-dot.is-unknown {
+  fill: none;
+  stroke-dasharray: 4 3;
+}
+
+.wl-matrix-legend {
+  max-width: 46rem;
+}
+
+.wl-matrix-legend-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.wl-matrix-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wl-matrix-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wl-matrix-size-dot {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+/* Trace d'étapes d'un agent (js/components/step-trace.js) */
+.step-trace {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* L'étape en cours : contour épais et libellé « en cours » (jamais la couleur seule). */
+.step[data-state="running"] {
+  border: 2px solid var(--color-primary);
+}
+
+.step[data-state="waiting"] {
+  border: 2px dashed var(--color-chart-4);
+}
+
+.step[data-state="error"],
+.step[data-state="failed"] {
+  border-inline-start: 6px solid var(--color-risk);
+}
+
+.step[data-state="cancelled"],
+.step[data-state="interrupted"] {
+  border-style: dashed;
+}
+
+.step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--color-ink);
+  text-align: start;
+  cursor: pointer;
+}
+
+.step-head:hover {
+  background: var(--color-surface-alt);
+}
+
+.step-n {
+  flex: none;
+  min-width: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.step-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  color: var(--color-primary);
+}
+
+.step[data-state="error"] .step-icon,
+.step[data-state="failed"] .step-icon {
+  color: var(--color-risk);
+}
+
+.step[data-state="waiting"] .step-icon {
+  color: var(--color-chart-4);
+}
+
+.step-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.step-agent,
+.step-outcome {
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  color: var(--color-ink-secondary);
+}
+
+.step-outcome {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.step-state {
+  flex: 0 1 auto;
+  max-width: 9rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  color: var(--color-ink-secondary);
+}
+
+.step[data-state="running"] .step-state,
+.step[data-state="waiting"] .step-state {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.step-head > .icon:last-child {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  transition: transform 0.15s;
+}
+
+.step-head[aria-expanded="true"] > .icon:last-child {
+  transform: rotate(180deg);
+}
+
+.step-body {
+  padding: 0 0.75rem 0.75rem 2.5rem;
+}
+
+.step-field {
+  margin: 0.5rem 0 0.25rem;
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  color: var(--color-ink-secondary);
+}
+
+.step-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.step-code {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.step-file {
+  margin-top: 0.5rem;
+}
+
+/* Aide en bouton et panneau de sources (js/components/help-toggle.js, source-panel.js) */
+.wl-help {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.wl-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.wl-help-button:hover {
+  background: var(--color-line);
+}
+
+.wl-help-button .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.wl-help-text {
+  flex-basis: 100%;
+  max-width: 28rem;
+  margin: 0;
+}
+
+/* Panneau de sources */
+.wl-sources {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-sources-summary {
+  padding: 0.75rem 1rem;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wl-sources-empty {
+  margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+.wl-sources-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 1rem 1rem;
+  list-style: none;
+}
+
+.wl-source {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 4px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.wl-source.is-linked {
+  border-color: var(--color-primary);
+  background: var(--color-surface-alt);
+}
+
+.wl-source-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.wl-source-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-source-page {
+  margin-inline-start: -0.5rem;
+  color: var(--color-ink-secondary);
+}
+
+.wl-source-relevance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.wl-source-rel {
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.wl-source-relevance .help {
+  margin: 0;
+}
+
+.wl-source-quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  margin: 0 0 0.5rem;
+  padding-inline-start: 0.75rem;
+  overflow: hidden;
+  border-inline-start: 3px solid var(--color-gray-graphic);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.wl-source-quote.is-open {
+  display: block;
+  overflow: visible;
+}
+
+/* Passage surligné : fond et soulignement, pas la couleur seule. */
+.wl-source-mark {
+  padding: 0 0.125rem;
+  border-bottom: 2px solid var(--color-primary);
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.wl-source-gone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.wl-source-gone .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-chart-4);
+}
+
+.wl-source-open {
+  min-height: 2.5rem;
+}
+
+/* Exports (décision 3) : un bouton par format en large, un bouton « Exporter » sous 768 px. */
+.wl-export {
+  position: relative;
+  display: inline-flex;
+}
+
+.wl-export-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wl-export-narrow {
+  display: none;
+}
+
+.wl-export-list {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-start: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12rem;
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  list-style: none;
+}
+
+.wl-export-list[hidden] {
+  display: none;
+}
+
+.wl-export-choice {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@media (max-width: 767.98px) {
+  .wl-export-wide {
+    display: none;
+  }
+
+  .wl-export-narrow {
+    display: block;
+  }
+}
+
+.wl-export[hidden] {
+  display: none;
+}
+
+/* Interrupteurs (décision 6) : même bascule que « Autoriser le cloud » (.switch, shell.css). */
+input[type="checkbox"].wl-switch-input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.5rem;
+  height: 1.5rem;
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-gray-graphic);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+input[type="checkbox"].wl-switch-input::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: transform 0.15s;
+}
+
+input[type="checkbox"].wl-switch-input:checked {
+  background: var(--color-primary);
+}
+
+input[type="checkbox"].wl-switch-input:checked::before {
+  transform: translateX(1rem);
+}
+
+input[type="checkbox"].wl-switch-input:disabled,
+input[type="checkbox"].wl-switch-input[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Panneau de sources toujours ouvert en large (décision 22) : le résumé n'est plus un bouton. */
+@media (min-width: 1024px) {
+  .wl-sources-auto > .wl-sources-summary {
+    cursor: default;
+    list-style: none;
+  }
+
+  .wl-sources-auto > .wl-sources-summary::-webkit-details-marker {
+    display: none;
+  }
+}

@@ -1,0 +1,291 @@
+/* Sobriété et matériel (story 5.1) : cartes de santé, empreinte carbone, repliés.
+   Jetons de tokens.css seulement ; aucune couleur selon un seuil de CO₂. */
+
+.sob-section {
+  margin: 1.5rem 0;
+}
+
+.sob-section h2 {
+  margin-bottom: 0.5rem;
+}
+
+.sob-legend {
+  margin: 0 0 0.25rem;
+}
+
+.sob-legend:empty {
+  display: none;
+}
+
+/* Cartes de santé du système */
+.sob-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.sob-card {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.sob-card:focus-visible {
+  outline: 3px solid var(--color-primary);
+}
+
+.sob-card .wl-metric-value {
+  overflow-wrap: anywhere;
+}
+
+.sob-card[data-card="ollama"] .wl-metric-value,
+.sob-card[data-card="accelerator"] .wl-metric-value {
+  font-size: 1.75rem;
+}
+
+.sob-card[aria-busy="true"] .wl-metric-value {
+  display: none;
+}
+
+.sob-card-detail {
+  margin-top: 0.25rem;
+}
+
+.sob-line {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.sob-line:empty,
+.sob-line[hidden] {
+  display: none;
+}
+
+.sob-hint {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+}
+
+.sob-warn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.sob-warn .icon {
+  color: var(--color-chart-4);
+}
+
+.sob-card .btn {
+  margin-top: 0.75rem;
+}
+
+.sob-card .btn[hidden] {
+  display: none;
+}
+
+.sob-card .btn[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.sob-skeleton {
+  display: block;
+  height: 2.5rem;
+  margin-top: 0.25rem;
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  animation: sob-pulse 1.4s ease-in-out infinite;
+}
+
+.sob-skeleton[hidden] {
+  display: none;
+}
+
+@keyframes sob-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Empreinte carbone */
+.sob-carbon {
+  max-width: 60rem;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+}
+
+.sob-carbon .wl-metric-value {
+  overflow-wrap: anywhere;
+}
+
+.sob-carbon[aria-busy="true"] .wl-metric-value {
+  display: none;
+}
+
+.sob-carbon > .wl-notice {
+  margin-bottom: 0;
+}
+
+.sob-empty h3 {
+  margin: 0 0 0.25rem;
+}
+
+.sob-empty p {
+  margin: 0;
+}
+
+.sob-carbon-content[hidden],
+.sob-empty[hidden],
+.sob-carbon > .wl-notice[hidden],
+.link-button[hidden] {
+  display: none;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* En-tête de la section carbone : titre et « Remettre le compteur à zéro » (story 5.2) */
+.sob-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+}
+
+.sob-section-head h2:focus-visible {
+  outline: 3px solid var(--color-primary);
+}
+
+.sob-reset {
+  display: grid;
+  max-width: 24rem;
+  justify-items: start;
+  gap: 0.25rem;
+}
+
+.sob-reset p {
+  margin: 0;
+}
+
+.sob-reset p:empty,
+.sob-reset p[hidden] {
+  display: none;
+}
+
+/* Désactivé : jamais par la seule opacité, la raison est écrite dessous. */
+.sob-reset-button:disabled {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+/* Historique par session close (story 5.2) */
+.sob-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.sob-controls [hidden] {
+  display: none;
+}
+
+.sob-history {
+  max-width: 60rem;
+  min-width: 0;
+}
+
+.sob-history-body,
+.sob-history .wl-chart,
+.sob-history .wl-data-table {
+  min-width: 0;
+}
+
+.sob-history-note {
+  margin: 0.75rem 0 0;
+}
+
+.sob-history-note[hidden] {
+  display: none;
+}
+
+.sob-history-failed {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+.sob-history .sob-empty {
+  margin: 0;
+}
+
+/* Repliés */
+.sob-details {
+  max-width: 60rem;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.sob-details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sob-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+}
+
+.sob-dl dt {
+  color: var(--color-ink-secondary);
+}
+
+.sob-dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.sob-details > p {
+  margin: 0.75rem 0 0;
+}
+
+.sob-method-list {
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+
+.sob-method-list li + li {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .sob-dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sob-dl dd {
+    margin-bottom: 0.5rem;
+  }
+}

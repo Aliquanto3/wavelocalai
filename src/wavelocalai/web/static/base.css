@@ -1,0 +1,261 @@
+/* Reset, typographie, focus, mouvement et mode projection (UX-DR2). */
+
+/* Inter, servie depuis ce dossier (aucun CDN) : la pile Aptos -> Inter -> sans-serif est dans
+   tokens.css. Aptos est appelée par son nom (--font-body) : installée, elle prime ; sinon le
+   navigateur ne télécharge Inter que pour les caractères qu'il affiche. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable-Italic.woff2") format("woff2");
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  line-height: 1.25;
+  margin: 0 0 0.5em;
+}
+
+h1 {
+  font-size: var(--text-heading);
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 1.375rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--color-link);
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* Focus visible à 3:1 au moins sur toutes les surfaces (primary : 9,32:1 clair, 4,6:1 sombre). */
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Cibles de focus programmatique (h1 de l'écran, <main>) : pas d'anneau parasite. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mode projection : rampe typographique x9/7 (toute la mise en page est en rem), métriques
+   agrandies, pied de page masqué. */
+:root[data-projection="true"] {
+  font-size: calc(100% * 9 / 7);
+  --text-metric-value: 3.25rem;
+}
+
+:root[data-projection="true"] .footer {
+  display: none;
+}
+
+/* Sous 480 px, la valeur agrandie ne tient plus dans une carte : on la réduit (320 px sans
+   défilement horizontal, projection comprise). */
+@media (max-width: 480px) {
+  :root[data-projection="true"] {
+    --text-metric-value: 2rem;
+  }
+}
+
+/* ===== Mise en page et typographie de la grille (story 9.7, maquette docs/maquette-v2-mise-en-page/) =====
+   Classes génériques posées ici pour que les stories 9.8 et 9.9 n'aient qu'à les appliquer. */
+
+/* Intertitre de section ("Réglages", "Scénario"...) : plus petit qu'un libellé de champ. */
+.section-label {
+  margin: 0 0 0.5rem;
+  font-size: var(--text-section-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-secondary);
+}
+
+/* Libellé d'un champ mis en avant (prompt, choix du modèle). */
+.field-label {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-size: var(--text-field-label);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* Grille de configuration à deux colonnes, dès 1400px (colonne principale flexible à gauche,
+   réglages/aperçu à droite) ; une seule colonne en dessous, dans le même ordre. */
+.two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.two-col > * {
+  min-width: 0;
+}
+
+@media (min-width: 1400px) {
+  .two-col {
+    grid-template-columns: minmax(480px, 1fr) minmax(320px, 400px);
+  }
+}
+
+/* Pile verticale d'une colonne (colonne gauche de `.two-col`) : enfants espacés de 1rem. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Icône colorée par module, sur sa pastille (8% du fond). */
+.icon-mod {
+  display: inline-flex;
+  padding: 0.3rem;
+  border-radius: var(--radius);
+}
+
+.icon-mod.arena {
+  color: var(--color-icon-arena);
+  background: color-mix(in srgb, var(--color-icon-arena) 8%, var(--color-surface));
+}
+
+.icon-mod.bench {
+  color: var(--color-icon-bench);
+  background: color-mix(in srgb, var(--color-icon-bench) 8%, var(--color-surface));
+}
+
+.icon-mod.docs {
+  color: var(--color-icon-documents);
+  background: color-mix(in srgb, var(--color-icon-documents) 8%, var(--color-surface));
+}
+
+.icon-mod.models {
+  color: var(--color-icon-models);
+  background: color-mix(in srgb, var(--color-icon-models) 8%, var(--color-surface));
+}
+
+/* Icône de module posée devant le titre de l'écran. */
+h1 > .icon-mod {
+  margin-inline-end: 0.5rem;
+  vertical-align: -0.35em;
+}
+
+/* Bandeau du juge au travail, au-dessus des colonnes de l'Arène (story 9.3, maquette). */
+.judge-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--color-action-tint);
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.judge-banner .icon {
+  color: var(--color-primary);
+}
+
+/* Encart d'alerte (liseré ambre), par exemple modèle de représentation manquant. */
+.alert-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-amber-strong);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-chart-4) 12%, var(--color-surface));
+}
+
+.alert-warning .icon {
+  flex: none;
+  color: var(--color-amber-strong);
+}
+
+/* Zone désactivée (dépôt de fichiers, champ hors service...) : jamais par la seule opacité. */
+.zone-disabled {
+  border-style: dashed;
+  background: var(--color-surface-alt);
+}
+
+.zone-disabled .field-label,
+.zone-disabled p {
+  color: var(--color-ink-secondary);
+}

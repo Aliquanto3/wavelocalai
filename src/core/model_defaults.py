@@ -109,13 +109,16 @@ AGENT_MIN_TOOL_SUCCESS = 0.75
 
 # Juges cloud, du plus capable au moins capable (préfixes de tag) ; les autres modèles cloud
 # suivent par ordre alphabétique. Un fournisseur ajouté plus tard s'insère dans cette liste.
+# Exception de coût : Opus 5.5 passe avant Fable 5.1 (environ 2,5 fois son prix) pour que
+# le juge par défaut ne soit pas le modèle le plus cher ; Fable reste sélectionnable.
 CLOUD_JUDGE_PREFERENCE = (
-    "claude-sonnet-4",
+    "claude-opus-5-5",
+    "claude-fable-5-1",
     "gpt-4o",  # hors gpt-4o-mini (CLOUD_JUDGE_DEMOTED)
     "openai/gpt-oss-120b",  # Groq
     "mistral-large",
-    "claude-3-5-sonnet",
-    "claude-3-opus",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
     "gpt-4-turbo",
     "mistral-medium",
     "llama-3.3-70b-versatile",  # Groq
@@ -321,6 +324,17 @@ def is_remote_tag(model: Mapping[str, Any]) -> bool:
         or variant.endswith(REMOTE_TAG_SUFFIX)
         or name.endswith(REMOTE_TAG_SUFFIX)
     )
+
+
+def is_embedding_model(model: Mapping[str, Any]) -> bool:
+    """Modèle d'embedding (`nomic-embed-text`), inapte à générer du texte : « embed » dans le
+    tag (insensible à la casse) ou famille BERT dans les détails d'Ollama, que son listage
+    fournit sans appel supplémentaire (les capacités exigent un appel par modèle)."""
+    if "embed" in str(model.get("model") or model.get("name") or "").lower():
+        return True
+    details = model.get("details")
+    family = details.get("family") if isinstance(details, Mapping) else None
+    return "bert" in str(family or "").lower()
 
 
 def is_dedicated_reasoning(tag: str, *names: str | None) -> bool:

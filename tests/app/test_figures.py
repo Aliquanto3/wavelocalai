@@ -91,6 +91,29 @@ def test_session_co2_unit_and_value():
     assert f"soit environ 0,00382{NBSP}km en voiture" in _captions(at)
 
 
+def test_session_co2_unknown_is_never_zero():
+    """Mesure inconnue (stop() renvoie None) : « — » et une explication, jamais « 0 g » ni
+    d'équivalence en km."""
+    from src.core.green_monitor import SESSION_UNKNOWN_TEXT
+
+    at = _hardware_page(FakeTracker(None, running=False), last_emissions=None)
+
+    assert _metric(at, "Total de la session") == "—"
+    assert SESSION_UNKNOWN_TEXT in _captions(at)
+    assert not any("km en voiture" in c for c in _captions(at))
+
+
+def test_tracker_failure_is_explained(monkeypatch):
+    """CodeCarbon non démarré (verrou d'une autre instance) : la page le dit en clair."""
+    from src.core import green_monitor
+
+    message = green_monitor.TRACKER_LOCKED_TEXT.format(lock="verrou.lock")
+    monkeypatch.setattr(green_monitor, "_shared_failure", message)
+    at = _hardware_page(FakeTracker(0.0))
+
+    assert message in [w.value for w in at.warning]
+
+
 def test_session_co2_after_stop_button():
     """« Arrêter et enregistrer » : la valeur affichée est celle renvoyée par stop()."""
     at = _hardware_page(FakeTracker(1234.0))
@@ -148,7 +171,7 @@ def test_history_without_file():
     """Aucun fichier d'émissions : message d'état vide, pas de graphique ni d'avertissement."""
     at = _hardware_page(FakeTracker(0.0))
 
-    assert "Aucune session mesurée pour l'instant." in [i.value for i in at.info]
+    assert "Aucun lancement de l'application mesuré pour l'instant." in [i.value for i in at.info]
     assert not at.get("plotly_chart")
     assert not [w.value for w in at.warning if "historique" in w.value]
 
@@ -212,7 +235,7 @@ def test_history_bars_per_session_in_rule_unit(offline_app_env):
     assert trace["marker"]["color"] == THEME_CATEGORY_TOKENS[0]
     assert _decode(trace["y"]) == pytest.approx([420, 630, 1200])
     layout = figure["layout"]
-    assert _axis_title(layout) == "Émissions de CO₂ par session"
+    assert _axis_title(layout) == "Émissions de CO₂ par lancement de l'application"
     assert _axis_title(layout["yaxis"]) == "CO₂ (mg)"
     assert "yaxis2" not in layout
     assert layout["separators"] == f",{NNBSP}"
@@ -275,10 +298,12 @@ def test_history_empty_window(offline_app_env):
 
     # Des sessions plus anciennes existent : le message les compte et invite à « Tout ».
     assert (
-        f"Aucune session sur cette période. 1{NBSP}session plus ancienne : choisissez « Tout » "
-        "pour les afficher." in [i.value for i in at.info]
+        f"Aucun lancement de l'application sur cette période. 1{NBSP}lancement plus ancien : "
+        "choisissez « Tout » pour les afficher." in [i.value for i in at.info]
     )
-    assert "Aucune session mesurée pour l'instant." not in [i.value for i in at.info]
+    assert "Aucun lancement de l'application mesuré pour l'instant." not in [
+        i.value for i in at.info
+    ]
     assert not at.get("plotly_chart")
 
     _period(at).set_value("Tout").run()
@@ -328,7 +353,9 @@ def test_tracking_unavailable_is_not_empty_history(monkeypatch):
 
     warnings = [w.value for w in at.warning]
     assert any(w.startswith("Suivi carbone indisponible") for w in warnings)
-    assert "Aucune session mesurée pour l'instant." not in [i.value for i in at.info]
+    assert "Aucun lancement de l'application mesuré pour l'instant." not in [
+        i.value for i in at.info
+    ]
     assert "Suivi carbone en pause" not in warnings
 
 

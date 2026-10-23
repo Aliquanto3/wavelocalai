@@ -4,7 +4,7 @@ Ce guide détaille l'installation de **WaveLocalAI** sur un poste de travail sta
 
 ## 1. Prérequis Système
 
-* **Python 3.10+** installé.
+* **Python 3.11+** installé.
 * **Ollama** : Le moteur d'inférence local (Application externe).
     * Télécharger : [https://ollama.com/download](https://ollama.com/download)
     * *Vérification* : Ouvrez un navigateur sur `http://localhost:11434`. Vous devez voir "Ollama is running".
@@ -17,7 +17,7 @@ Ce guide détaille l'installation de **WaveLocalAI** sur un poste de travail sta
 En entreprise, l'exécution de scripts (`activate.ps1` ou `.bat`) est souvent bloquée par les politiques de sécurité. Nous recommandons la méthode de l'**Invocation Directe**.
 
 ### A. Création de l'environnement
-Pour ne pas polluer votre Python global, l'application a son propre environnement, `.venv-app` (ignoré par git). Sur certaines machines, `.venv` est réservé au banc de benchmark et ne contient que ses dépendances : ne jamais y installer `requirements.txt`.
+Méthode recommandée : `uv run wavelocalai` (voir le README), qui crée et remplit `.venv`. Cette section décrit l'installation sans uv, dans un environnement `.venv-app` (ignoré par git). Le venv du banc de benchmark s'appelle `.venv-bench` : ne jamais y installer `requirements.txt`.
 
 ```bash
 # À la racine du projet
@@ -25,7 +25,7 @@ python -m venv .venv-app
 ```
 
 ### B. Installation des dépendances (Méthode Robuste)
-Au lieu d'activer l'environnement, nous appelons directement son exécutable Python. Les versions exactes sont figées dans `constraints.txt` (généré par `uv pip compile`, valable de Python 3.10 à 3.12 sur Windows, macOS et Linux) : toujours installer avec `-c constraints.txt`.
+Au lieu d'activer l'environnement, nous appelons directement son exécutable Python. Les versions exactes sont figées dans `constraints.txt` (généré par `uv pip compile`, valable de Python 3.11 à 3.12 sur Windows, macOS et Linux) : toujours installer avec `-c constraints.txt`.
 
 **Sous Windows (PowerShell/CMD) :**
 ```bash

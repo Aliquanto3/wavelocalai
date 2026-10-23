@@ -1,0 +1,550 @@
+/* Écran Modèles (story 5.3) : barre d'installation, tableaux, progression d'un téléchargement.
+   Couleurs et rayon viennent de tokens.css seulement. */
+
+.models-actions {
+  margin: 0 0 1.5rem;
+}
+
+.models-install-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-install-form label {
+  flex: 1 0 100%;
+  font-weight: 600;
+}
+
+.models-input {
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-gray-graphic);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Bouton plein (A19) : l'aplat violet qui porte du texte blanc est `primary-fill`. */
+.models-install-named {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.models-install-named:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Un bouton désactivé reste focalisable (`aria-disabled`) : sa raison est écrite à côté. */
+.models-actions .btn[aria-disabled="true"],
+.models-section .btn[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.models-actions .help,
+.models-section .help {
+  margin: 0.5rem 0 0;
+}
+
+/* La raison (serveur) peut contenir un chemin de cache non coupable (`C:\...\fastembed`, sans
+   espace) : à 320 px, il déborderait sans ce point de coupe (défaut corrigé par la story 9.9). */
+.models-reason {
+  overflow-wrap: anywhere;
+}
+
+.models-notice {
+  min-height: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+/* Vide, la zone polie reste dans le document (annonces) sans réserver de hauteur (revue 9.9). */
+.models-notice:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+.models-down {
+  margin: 0 0 1rem;
+}
+
+.models-section {
+  margin: 0 0 1.5rem;
+}
+
+/* « Décharger » au-dessus du tableau « Sur ce poste » (revue 9.9). */
+.models-installed .models-unload-box {
+  margin: 0 0 0.75rem;
+}
+
+/* Densité de la maquette (DECISIONS.md §6) pour les tableaux de cet écran seulement. */
+.models-section .wl-table th,
+.models-section .wl-table td {
+  padding: 0.45rem 0.6rem; /* alignement en haut gardé : un bouton ne bouge pas quand la ligne change */
+}
+
+/* Écran étroit : chaque ligne devient un bloc étiqueté (`data-label` de wl-data-table), sans
+   colonne cachée derrière un défilement (maquette, 390 px). */
+@media (max-width: 599px) {
+  .models-section .wl-table,
+  .models-section .wl-table tbody,
+  .models-section .wl-table tr {
+    display: block;
+  }
+
+  .models-section .wl-table thead {
+    display: none;
+  }
+
+  .models-section .wl-table tr {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .models-section .wl-table tbody th,
+  .models-section .wl-table td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding: 0.2rem 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .models-section .wl-table td::before {
+    content: attr(data-label);
+    color: var(--color-ink-secondary);
+    font-size: var(--text-caption);
+  }
+}
+
+.models-empty {
+  max-width: 45rem;
+}
+
+/* Nom et tag sur une ligne quand la place le permet : une ligne de tableau moins haute. */
+.models-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.125rem 0.5rem;
+}
+
+.models-name-text {
+  font-weight: 600;
+}
+
+.models-tag {
+  color: var(--color-ink-secondary);
+  font-family: var(--font-caption);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+/* Colonnes Usage et Origine : repliées sous 1 024 px, un bouton les affiche (D-43). */
+.models-toggle {
+  display: none;
+  margin: 0 0 0.75rem;
+}
+
+@media (max-width: 1023px) {
+  .models-toggle {
+    display: inline-flex;
+  }
+
+  .models-installed:not([data-secondary="shown"]) .models-secondary {
+    display: none;
+  }
+}
+
+/* Cellule d'installation : le bouton, ou la progression, ou l'échec sous le bouton. */
+.models-install-cell {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.models-pull-panel {
+  max-width: 32rem;
+  margin: 0.75rem 0 0;
+}
+
+.models-pull-done {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* wl-progress-bytes : barre `primary` sur piste `line`, texte à côté, jamais la barre seule. */
+.wl-progress-bytes {
+  display: grid;
+  gap: 0.375rem;
+  min-width: 14rem;
+}
+
+.wl-progress-text {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-progress-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.wl-progress-bar {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  height: 0.625rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-line);
+  accent-color: var(--color-primary);
+  appearance: none;
+  overflow: hidden;
+}
+
+.wl-progress-bar::-webkit-progress-bar {
+  background: var(--color-line);
+}
+
+.wl-progress-bar::-webkit-progress-value {
+  background: var(--color-primary);
+}
+
+.wl-progress-bar::-moz-progress-bar {
+  background: var(--color-primary);
+}
+
+/* Bouton plein du reranker (A19) : même aplat que « Installer ». */
+.models-install-reranker {
+  border-color: var(--color-primary-fill);
+  background: var(--color-primary-fill);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.models-install-reranker:hover {
+  background: var(--color-primary-fill);
+}
+
+/* Story 5.5 : « Reclassement des extraits » (état, raison, bouton, progression du run `pull`). */
+.models-rerank {
+  max-width: 45rem;
+}
+
+.models-rerank-status {
+  margin: 0.5rem 0 0;
+  font-weight: 600;
+}
+
+.models-rerank .models-install-reranker {
+  margin: 0.75rem 0 0;
+}
+
+.models-rerank-progress {
+  max-width: 32rem;
+  margin: 0.75rem 0 0;
+}
+
+/* Story 5.4 : « Décharger », « Supprimer » et les modèles proposés par défaut. */
+.models-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* 320 px : la piste ne s'élargit pas au plus large contenu */
+  gap: 1rem;
+}
+
+.models-unload-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-unload-box .help {
+  margin: 0;
+}
+
+/* « Supprimer » et sa raison visible (jamais en infobulle seule). */
+.models-delete-cell {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  min-width: 8rem;
+}
+
+.models-delete-cell .help {
+  margin: 0;
+}
+
+.models-default-model {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+
+.models-default-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+}
+
+.models-default-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.models-default-editor {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 14rem;
+}
+
+/* « Usage » d'une ligne des défauts : un mot, jamais coupé au milieu. */
+.models-defaults .wl-table tbody th {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* Le sélecteur ouvert dans une cellule : sa liste s'ouvre dans la cellule (la zone du tableau, qui
+   défile, la rognerait si elle flottait). */
+.models-default-editor .wl-picker-popup {
+  position: static;
+  margin-top: 0.25rem;
+}
+
+.models-default-editor .wl-picker-listbox {
+  max-height: 16rem;
+}
+
+/* Story 5.6 : la fiche d'un modèle. Panneau à droite de la liste dès 1 120 px (D-40), au-dessus en
+   deçà ; le même rendu sert le panneau flottant ouvert depuis un sélecteur. */
+.models-layout {
+  display: block;
+}
+
+.models-main {
+  min-width: 0;
+}
+
+.models-fiche {
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.models-fiche[hidden] {
+  display: none;
+}
+
+@media (min-width: 1120px) {
+  .models-layout[data-fiche="true"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem);
+    gap: 0 1.5rem;
+    align-items: start;
+  }
+
+  .models-layout[data-fiche="true"] .models-fiche {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .models-layout[data-fiche="true"] .models-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+.models-name-link {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.models-name-link[aria-current="true"] {
+  text-decoration-thickness: 3px;
+}
+
+.models-fiche-close {
+  margin: 0 0 0.75rem;
+}
+
+.models-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.models-card-title {
+  margin: 0;
+  font-size: 1.375rem;
+  overflow-wrap: anywhere;
+}
+
+.models-card-body h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.0625rem;
+}
+
+.models-card-note,
+.models-card-warning {
+  margin: 0.75rem 0 0.5rem;
+}
+
+.models-card-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-inline-start: 6px solid var(--color-chart-4);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.models-card-warning .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--color-chart-4);
+}
+
+.models-card-install {
+  margin: 0.25rem 0 0;
+}
+
+.models-card-body .btn[aria-disabled="true"] {
+  border-color: var(--color-line);
+  background: var(--color-surface-alt);
+  color: var(--color-ink-secondary);
+  cursor: not-allowed;
+}
+
+.models-card-traits {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.375rem 1rem;
+  margin: 0;
+}
+
+.models-card-traits dt {
+  color: var(--color-ink-secondary);
+}
+
+.models-card-traits dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.models-card-details {
+  margin: 1rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.models-card-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.models-card-why {
+  margin: 0.5rem 0 0;
+  padding-inline-start: 1.25rem;
+}
+
+.models-card-why li {
+  margin: 0 0 0.375rem;
+}
+
+.models-strong {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 600;
+}
+
+/* Le tableau des postes défile dans sa zone, jamais la page ; la zone se focalise au clavier. */
+.models-card-scroll {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.models-card-scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* « Fiche du modèle » à côté d'un sélecteur (décision du 2026-10-19, n° 17). */
+.models-card-open-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.5rem;
+  margin: 0.375rem 0 0;
+}
+
+.models-card-open-box[hidden] {
+  display: none;
+}
+
+.models-card-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.models-card-open .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Panneau ouvert depuis un sélecteur : sur la droite de l'écran courant, au-dessus de la barre haute. */
+.models-card-drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 60;
+  box-sizing: border-box;
+  width: min(32rem, 100vw);
+  padding: 1rem;
+  overflow-y: auto;
+  border-inline-start: 1px solid var(--color-line);
+  background: var(--color-surface);
+  border-block: 0;
+  border-inline-start-width: 3px;
+}
+
+.models-card-drawer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.models-card-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.models-card-close .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}

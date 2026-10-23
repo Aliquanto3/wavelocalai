@@ -1,0 +1,77 @@
+/* Jetons de DESIGN.md (UX-DR1). Miroir : tests/v2/unit/test_shell_static.py échoue si une couleur,
+   un rayon ou une famille de police diffère. Thème clair par défaut ; le sombre s'applique par
+   data-theme="dark" sur <html> (core/theme.js). Aucune autre couleur en dur dans le CSS. */
+:root {
+  color-scheme: light;
+
+  --color-primary: #451DC7;
+  --color-primary-fill: #451DC7;
+  --color-on-primary: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F6F5FA;
+  --color-ink: #0A0A14;
+  --color-ink-secondary: #4A4A5E;
+  --color-gray-graphic: #8A8A9E;
+  --color-line: #E6E6EC;
+  --color-link: #451DC7;
+  --color-accent-green: #04F06A;
+  --color-risk: #FF2A49;
+  --color-chart-1: #6A4DE6;
+  --color-chart-2: #0E9F5E;
+  --color-chart-3: #2F7FD8;
+  --color-chart-4: #C98A00;
+
+  /* Couleur d'icône par module (story 9.7, maquette docs/maquette-v2-mise-en-page/). */
+  --color-icon-arena: var(--color-chart-1);
+  --color-icon-bench: var(--color-chart-3);
+  --color-icon-documents: var(--color-chart-2);
+  --color-amber-strong: #A66E00; /* dédié : chart-4 clair ne tient pas 3:1, voir DECISIONS.md */
+  --color-icon-models: var(--color-amber-strong);
+
+  /* Aplat léger de la primaire sur les zones d'action (nav courante, bandeau du juge, carte choisie). */
+  --color-action-tint: rgba(69, 29, 199, 0.08);
+
+  --radius: 12px;
+  --radius-full: 9999px;
+
+  /* Aptos s'il est installé (Office), sinon Inter servie par base.css, sinon sans-serif. */
+  --font-body: Aptos, Inter, sans-serif;
+  --font-heading: Aptos, Inter, sans-serif;
+  --font-metric-value: Aptos, Inter, sans-serif;
+  --font-caption: Aptos, Inter, sans-serif;
+
+  /* Rampe typographique (absente de DESIGN.md sauf section-label/field-label, non comparée par le
+     test de dérive pour les autres). */
+  --text-section-label: 0.8125rem; /* intertitres "Réglages", "Scénario"... */
+  --text-body: 1rem;
+  --text-field-label: 1.0625rem; /* libellé des champs mis en avant (prompt, modèle) */
+  --text-caption: 0.875rem;
+  --text-heading: 1.75rem;
+  --text-metric-value: 2.5rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary: #7E65E9;
+  --color-primary-fill: #6A4DE6;
+  --color-on-primary: #FFFFFF;
+  --color-surface: #0A0A14;
+  --color-surface-alt: #16162A;
+  --color-ink: #F6F5FA;
+  --color-ink-secondary: #B4B4C6;
+  --color-line: #2E2E44;
+  --color-link: #9B85F0;
+  --color-accent-green: #04F06A;
+  --color-risk: #FF2A49;
+  --color-chart-1: #7A5FEA;
+  --color-chart-2: #12A564;
+  --color-chart-3: #3B86DB;
+  --color-chart-4: #B07800;
+  --color-icon-arena: var(--color-chart-1);
+  --color-icon-bench: var(--color-chart-3);
+  --color-icon-documents: var(--color-chart-2);
+  --color-amber-strong: var(--color-chart-4);
+  --color-icon-models: var(--color-amber-strong);
+  --color-action-tint: rgba(126, 101, 233, 0.10);
+}

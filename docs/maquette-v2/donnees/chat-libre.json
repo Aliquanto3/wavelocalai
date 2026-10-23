@@ -1,0 +1,36 @@
+{
+  "_doc": "Données simulées du Chat libre. Textes fictifs (aucun client, aucun document réel). metrics : ce que le serveur publierait dans l'événement metrics (D3, AD-10) ; le front ne calcule rien. default_question : question proposée par les scénarios.",
+  "default_question": "Résume en cinq points ce qu'un petit modèle local apporte à une PME fictive, la société Ombrelune.",
+  "long_question": "Rédige un plan détaillé d'atelier d'une demi-journée sur la sobriété numérique pour l'équipe fictive Ombrelune.",
+  "answers": {
+    "default": {
+      "thought": "La question porte sur une PME fictive. Il faut cinq points courts : confidentialité, coût, sobriété, autonomie, limites. Rester concret et éviter le jargon.",
+      "partial": "1. **Confidentialité** : les données d'Ombrelune ne quittent pas le poste.\n2. **Coût maîtrisé** : pas d'abonnement",
+      "text": "1. **Confidentialité** : les données d'Ombrelune ne quittent pas le poste ; rien n'est envoyé à un service extérieur.\n2. **Coût maîtrisé** : pas d'abonnement à la requête, le modèle tourne sur un portable existant.\n3. **Sobriété** : un modèle de 2 milliards de paramètres consomme peu ; chaque réponse affiche son CO₂ mesuré.\n4. **Autonomie** : l'outil fonctionne hors ligne, pendant un déplacement ou une panne réseau.\n5. **Limites assumées** : pour une question pointue, un modèle plus gros (local ou cloud, si autorisé) reste possible.\n\nEn résumé, un petit modèle local couvre l'essentiel des usages courants d'Ombrelune, à condition de **vérifier les réponses importantes**."
+    },
+    "long": {
+      "thought": "",
+      "partial": "## Atelier sobriété numérique",
+      "text": "## Atelier sobriété numérique, équipe Ombrelune (fictive)\n\n**Durée** : une demi-journée, 9 h 00 à 12 h 30.\n\n### 1. Accueil et objectifs (20 min)\n- Tour de table : un usage numérique du quotidien par personne.\n- Objectif : repartir avec trois gestes concrets et une mesure de départ.\n\n### 2. Mesurer avant d'agir (40 min)\n- Lire l'empreinte d'une réponse de modèle : CO₂ en mg, débit, durée.\n- Comparer un petit modèle local et un modèle cloud sur la même question.\n- Noter les écarts dans un tableau partagé.\n\n### 3. Atelier pratique (60 min)\n- Par binôme : reformuler trois demandes pour obtenir des réponses plus courtes.\n- Choisir le plus petit modèle qui répond correctement.\n- Vérifier la réponse avec une source interne fictive.\n\n### 4. Pause (15 min)\n\n### 5. Arbitrer local ou cloud (45 min)\n- Critères : confidentialité, qualité attendue, coût, empreinte.\n- Cas d'école : un compte rendu de réunion fictif, un tableau de ventes fictif.\n- Règle retenue : local par défaut, cloud seulement sur décision explicite.\n\n### 6. Plan d'action (30 min)\n- Trois gestes par personne, un indicateur suivi chaque mois.\n- Un référent sobriété dans l'équipe.\n\n### 7. Clôture (10 min)\n- Ce que chacun retient en une phrase.\n- Date du point d'étape dans un mois.\n\n```\nMatériel : un portable par binôme, WaveLocalAI installé, aucun accès cloud requis.\n```\n\nCe plan peut être raccourci à deux heures en retirant les parties 4 et 5."
+    }
+  },
+  "metrics": {
+    "qwen3.5:2b": { "ttft_s": 0.42, "load_s": 3.2, "eval_tokens": 212, "eval_s": 5.17, "tps": 41, "tps_source": "ollama_eval", "total_s": 8.9, "origin": "local", "co2": { "mg": 1.8, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gemma4:1b": { "ttft_s": 0.31, "load_s": 1.9, "eval_tokens": 188, "eval_s": 2.98, "tps": 63, "tps_source": "ollama_eval", "total_s": 5.3, "origin": "local", "co2": { "mg": 0.94, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "lfm2.5:1.2b": { "ttft_s": 0.33, "load_s": 2.1, "eval_tokens": 196, "eval_s": 3.38, "tps": 58, "tps_source": "ollama_eval", "total_s": 5.9, "origin": "local", "co2": { "mg": 1.1, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "qwen3.6:7b": { "ttft_s": 0.9, "load_s": 6.8, "eval_tokens": 231, "eval_s": 12.8, "tps": 18, "tps_source": "ollama_eval", "total_s": 20.6, "origin": "local", "co2": { "mg": 6.3, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } },
+    "gpt-5-mini": { "ttft_s": 0.71, "load_s": null, "eval_tokens": 205, "eval_s": 2.4, "tps": 85, "tps_source": "wallclock", "total_s": 3.1, "origin": "cloud", "co2": { "mg": 0.9, "method": "ecologits", "estimated": true, "range_mg": { "low": 0.6, "high": 1.4 }, "allocation": "direct", "reason": null } },
+    "openai/gpt-oss-120b": { "ttft_s": 0.22, "load_s": null, "eval_tokens": 219, "eval_s": 0.6, "tps": 365, "tps_source": "wallclock", "total_s": 0.9, "origin": "cloud", "co2": { "mg": 2.4, "method": "ecologits", "estimated": true, "range_mg": { "low": 1.5, "high": 3.9 }, "allocation": "direct", "reason": null } },
+    "claude-haiku-4-5": { "ttft_s": 0.55, "load_s": null, "eval_tokens": 224, "eval_s": 2.1, "tps": 107, "tps_source": "wallclock", "total_s": 2.7, "origin": "cloud", "co2": { "mg": null, "method": "unmeasurable", "estimated": false, "range_mg": null, "allocation": "direct", "reason": "Anthropic ne publie pas la taille de ce modèle : son empreinte ne peut pas être calculée." } },
+    "default_local": { "ttft_s": 0.5, "load_s": 3.0, "eval_tokens": 200, "eval_s": 5, "tps": 40, "tps_source": "ollama_eval", "total_s": 8.5, "origin": "local", "co2": { "mg": 1.5, "method": "codecarbon", "estimated": false, "range_mg": null, "allocation": "direct", "reason": null } }
+  },
+  "conversation": {
+    "_doc": "Conversation rouverte (GET /api/conversations/{id}) : messages, raisonnement, métriques et CO₂ reviennent tels qu'affichés.",
+    "messages": [
+      { "role": "user", "text": "Quelle différence entre le débit et la durée totale d'une réponse ?" },
+      { "role": "assistant", "tag": "qwen3.5:2b", "name": "Qwen 3.5 2B", "origin": "local", "thought": "Distinguer débit (tokens par seconde de génération) et durée totale (chargement compris).", "text": "Le **débit** compte les tokens générés par seconde de génération, chargement exclu. La **durée totale** va de l'envoi de la question au dernier mot, chargement du modèle compris.", "metrics": "qwen3.5:2b" },
+      { "role": "user", "text": "Et le CO₂ affiché, d'où vient-il ?" },
+      { "role": "assistant", "tag": "qwen3.5:2b", "name": "Qwen 3.5 2B", "origin": "local", "thought": "", "text": "Il est **mesuré sur ce poste** par CodeCarbon pendant la génération, puis converti selon le mix électrique du pays configuré.", "metrics": "qwen3.5:2b" }
+    ]
+  }
+}

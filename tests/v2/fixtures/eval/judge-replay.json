@@ -1,0 +1,399 @@
+{
+  "note": "Sorties du juge rejouées par le test de non-regression (story 7.2), produites à partir des verdicts attendus de cases.json : `python -m tests.v2.eval_fixed_set record`. `relevance` : instantané de la pertinence avec l'embedding déterministe du test (pas une annotation humaine).",
+  "entries": {
+    "4aa575658d9c87bd7ad84dee7d5f4a3a4d19cceb42cbed3fbf41b3f98ba2d69c": {
+      "case": "mediatheque-pret",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Un abonné peut emprunter six documents à la fois.\", \"Les six documents se répartissent en quatre livres et deux disques ou films.\", \"La durée du prêt est de trois semaines.\", \"Un prêt peut être prolongé une fois de deux semaines.\", \"La prolongation est impossible si un autre abonné a réservé le document.\"]}"
+    },
+    "d5c948dc9332753aa325a04ee5759e9fe4bea36850fb7d4b1da165ca5b0aa2aa": {
+      "case": "mediatheque-pret",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "52a8bc77978b700872d74351def00b9a4b68132763acae52d7745012a45ac645": {
+      "case": "mediatheque-pret",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "887fc5a2fee23f2e708668a8f22f30ae609a8a49dbb3b86555f81a3506e3d3db": {
+      "case": "mediatheque-pret",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "81c63b10c4f86aedbd27702d622530540d93e1dc8d9304749cd9ce7148e5c180": {
+      "case": "mediatheque-pret",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "da2ae835d3292594650c1e329d896469a0bf472a51044d5bef8906007a1c0dc1": {
+      "case": "mediatheque-pret",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "4c0d2dfdcc084e2d3dad31805e9f372801824e8105c844e71baecf1d3e7cc5bf": {
+      "case": "mediatheque-pret",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Combien de documents un abonné peut-il emprunter en même temps ?\", \"Quelle est la durée d'un prêt à la médiathèque ?\", \"Peut-on prolonger un prêt et de combien de temps ?\"]}"
+    },
+    "730507493969628257444f1929d0b87e6b750fd28338fe672bd784e86140c3e7": {
+      "case": "mediatheque-pret",
+      "kind": "useful",
+      "output": "{\"useful\": [1, 2], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "805879dc3002fb935be775a0dd9bce283c2705bfcd638955deb5e85a5941e79f": {
+      "case": "mediatheque-films",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Les films sont prêtés pour trois semaines.\", \"En cas de retard, le droit d'emprunt est suspendu pendant autant de jours que le retard.\"]}"
+    },
+    "7cd3cad4b6f846d01cface84420cb38c3ac9b227ffb472750bfe7901bf16b2ed": {
+      "case": "mediatheque-films",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"contredite\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : contredite.\"}"
+    },
+    "5c4ca6cfcb69668bc8d81949d2b4ce0f85e68ea22ef11db85046682726939bc1": {
+      "case": "mediatheque-films",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "1fa2475f3516e1474411a128ba87c690105532d54cf669c65dc0beafa3481712": {
+      "case": "mediatheque-films",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quelle est la durée de prêt d'un film ?\", \"Que se passe-t-il en cas de retard de retour ?\", \"Pendant combien de temps le droit d'emprunt est-il suspendu ?\"]}"
+    },
+    "a671a86bd53c565ab9e64aca1c07d9874b45c81c2df5c0bcc164a0f9d1243fec": {
+      "case": "mediatheque-films",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "670a35ad130adfe6b484852fd2b89301e5e91fa8acc1a15dd61043c784ad07cc": {
+      "case": "teletravail-ordinateur",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Le télétravail est possible jusqu'à deux jours par semaine.\", \"L'indemnité forfaitaire de télétravail est de dix euros par mois.\", \"L'entreprise fournit un ordinateur portable à chaque télétravailleur.\"]}"
+    },
+    "82751102fa4f2c309c056e7079512a264fb4f16b808987e84fb8a662ae35ae43": {
+      "case": "teletravail-ordinateur",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "1b4c0bc9874985ece83d336d1629759e277e2db2dbd55bbe76dfccaba40cb932": {
+      "case": "teletravail-ordinateur",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "d6067bb9e11d3c501b18b75dd204c52730cd9839600ec3febbe69cc9f8b17bc4": {
+      "case": "teletravail-ordinateur",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"non appuyée\", \"support\": null, \"reason\": \"Verdict attendu du jeu fixe : non appuyée.\"}"
+    },
+    "010038589722825cc6b57e0346166e7ab24d6703a63d9d42bfe8707ddf1ed2b1": {
+      "case": "teletravail-ordinateur",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Combien de jours par semaine peut-on télétravailler ?\", \"Quelle indemnité reçoit un télétravailleur ?\", \"Quelles sont les conditions du télétravail dans l'entreprise ?\"]}"
+    },
+    "91463eebfe214418bd3c30eff5e068ce408ca9018ca907ad74d1c9538e2eb70d": {
+      "case": "teletravail-ordinateur",
+      "kind": "useful",
+      "output": "{\"useful\": [1, 2], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "0b1095eefc6ea1fd75295f9b1abe16afc24d220367ba11851ab22e663a6742ca": {
+      "case": "velo-batterie",
+      "kind": "claims",
+      "output": "{\"claims\": [\"La batterie du Brise 3 a une capacité de 400 Wh.\", \"La batterie se recharge complètement en environ trois heures.\", \"L'assistance électrique se coupe à 25 km/h.\", \"La batterie est garantie deux ans.\", \"La batterie est fabriquée en France.\"]}"
+    },
+    "8ef734e8144af030864c1e072ad257530bae698460eebaccaf6be55a11767524": {
+      "case": "velo-batterie",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "ccd93d78dcfff9458cc3221385a1aeb5f5a00b178eeb363ba018679b6c413e90": {
+      "case": "velo-batterie",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"contredite\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : contredite.\"}"
+    },
+    "fd63d5ecda206d20210dc6d2ae8465dd7f05a1cfdde01997375bfd9309643c2f": {
+      "case": "velo-batterie",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "dd7cc86970a0ceb28458f0545eb4fb88c6ad16a1bd8137edd2c001a8a09b1ba4": {
+      "case": "velo-batterie",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 4, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "fa52d2cdf32213d491a7ba4af8d1f3de6315deebff6af777a14dad9f5e5e5fb7": {
+      "case": "velo-batterie",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"non appuyée\", \"support\": null, \"reason\": \"Verdict attendu du jeu fixe : non appuyée.\"}"
+    },
+    "9dfa6dab946d08f10fde1ac13ef798f9c31055605780cfca6366c4e4888df8ea": {
+      "case": "velo-batterie",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quelle est la capacité de la batterie du Brise 3 ?\", \"À quelle vitesse l'assistance électrique se coupe-t-elle ?\", \"Quelle est la garantie de la batterie ?\"]}"
+    },
+    "0affcbd182db086b6c0a04dd563a27cbe84340ac4266001a2cf6e5e9432c3a54": {
+      "case": "velo-batterie",
+      "kind": "useful",
+      "output": "{\"useful\": [1, 2, 4], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "7f3f0eb83c54c79b9a59bb57d21294746671ad9b90aa1c9e8dc62e3e8a046629": {
+      "case": "frais-repas-negation",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Les repas sont remboursés pour tout déplacement, quelle que soit sa durée.\", \"Le plafond de remboursement est de vingt-cinq euros par repas.\"]}"
+    },
+    "cb840a8067746c98201864e8f324a6279afb04f9c9ef14802d49da259e334519": {
+      "case": "frais-repas-negation",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"contredite\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : contredite.\"}"
+    },
+    "a46716dcead63b21a1b88102020d897027753a0087335e192534d25f24086e20": {
+      "case": "frais-repas-negation",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "e1a9917fa76a21d6c126e59d2e7b92c2417f0a97f403cb2f1a4b3b631588fe57": {
+      "case": "frais-repas-negation",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Les frais de repas sont-ils remboursés lors d'un déplacement ?\", \"Quel est le plafond de remboursement d'un repas ?\", \"Dans quels cas les repas d'un déplacement sont-ils pris en charge ?\"]}"
+    },
+    "63a4be4871a5a94c9842727f62ba9f29e30ceb3f5052cb32046c3760f5de850a": {
+      "case": "frais-repas-negation",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "70d9e48ca71a207762699fedeec32b882f4347403177424d86d9824a21211358": {
+      "case": "prime-naissance-sans-reponse",
+      "kind": "claims",
+      "output": "{\"claims\": []}"
+    },
+    "a74fe2275f971c0cd8ac774bc84aadb2b9c9696dcb328ebee49023fa9caddb91": {
+      "case": "prime-naissance-sans-reponse",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Le montant de la prime de naissance est-il indiqué dans les documents ?\", \"Les documents précisent-ils une prime de naissance ?\", \"Quelle information les documents donnent-ils sur les primes ?\"]}"
+    },
+    "0477b526dc48e34e032e1840115ace83e44942bbb5f1e234051987b6a2192937": {
+      "case": "prime-naissance-sans-reponse",
+      "kind": "useful",
+      "output": "{\"useful\": [], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "2be41f629fb16fe7c4d52edc9387027f747ae2a388d10cf4e60ead040022d445": {
+      "case": "jardin-partage",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Un jardin partagé sera créé derrière l'école des Tilleuls.\", \"Le vote de création du jardin a été unanime.\", \"La mairie finance la clôture et l'arrivée d'eau.\", \"L'association réalise les plantations.\"]}"
+    },
+    "ffd31c9a38d4b5b6f020a30ed4f95bec17e5285249d2f963caf14e151bd636fa": {
+      "case": "jardin-partage",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "468c1c6581f7870de6f212e3d0b513341e67432f9da5dfcba7c305242055b5c0": {
+      "case": "jardin-partage",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "5555fe588f4e9cf873c0b23d252ac5e4d6d3a72d50ba799d0b3a324ac8d5a4c5": {
+      "case": "jardin-partage",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "3ef5063a40ba3ffcb8884db5d1dc2e07a9e7e6d956e24430dc46b050d18e96e4": {
+      "case": "jardin-partage",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 2, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "237f7adaa370714de3a3d070713da49790bb7c58158865a91309cc126116490b": {
+      "case": "jardin-partage",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quel projet de jardin le comité de quartier a-t-il voté ?\", \"Qui finance les travaux du jardin partagé ?\", \"Où sera créé le jardin partagé ?\"]}"
+    },
+    "fb7eee6e915ac393ffdc087bf1f052639cadb5b0b5030b9346226731cafbfdfb": {
+      "case": "jardin-partage",
+      "kind": "useful",
+      "output": "{\"useful\": [1, 2], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "b3b9b8688d46cfe3de6a14018e598563c2f4e7284b9a6948c8da3a2679063f7f": {
+      "case": "chantier-fin-de-journee",
+      "kind": "claims",
+      "output": "{\"claims\": [\"L'équipe coupe l'alimentation électrique avant de quitter le chantier.\", \"L'équipe ferme l'arrivée d'eau.\", \"L'équipe range les outils dans le fourgon.\", \"L'équipe balaie la zone de travail.\", \"L'équipe verrouille le portail.\", \"L'équipe vérifie que les lampes sont éteintes.\", \"L'équipe relève le compteur d'eau.\", \"L'équipe ferme les fenêtres.\", \"L'équipe arrose les plantes du chantier.\", \"L'équipe laisse le chauffage provisoire allumé.\", \"L'équipe photographie l'avancement.\", \"L'équipe signe la fiche de fin de journée.\"]}"
+    },
+    "0b54efc3cf72bbaf62f70c01633a027c4bb26e63c370057c4701aa8c1cab3b23": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "1eabca3cb835d3ee302e29f8221d08fbd285c4f840bdf5b4d8d134d115a05654": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "48304e62e2c92fab0d76b999535ea87c20a745ad1b2324174b9b6d610abc3b2f": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "db14f36151bc341c9d4affd01a8980339d92e27ec6616d4c98f845d7e6978cf2": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "7b81e4613295bb3a70381c2f9776fe021abfe99756db359b8eb1fe599857c16e": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "7f648fa11d1fe684c3a79ce50c03ea3fbaca6f06b17c20616b75cab139b97842": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "7a981ed3979ae73a4be993f28f52f62a23c91679d39d54f0ddf8f649d6ac3f3f": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "15c1f5921430ec0860263465c9b22884a429c4971c027e9f6057ac132e243dd0": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "1d93234bc32c74ecd7534f873222df1f03c94a95f03fbcfdc665d9fa98cf6468": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"non appuyée\", \"support\": null, \"reason\": \"Verdict attendu du jeu fixe : non appuyée.\"}"
+    },
+    "f153fc7da3fdab54105610e020c8bac49241be0160dacdbdee6f54e667215b40": {
+      "case": "chantier-fin-de-journee",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"contredite\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : contredite.\"}"
+    },
+    "55d5d3ae8bc1e0771b544d9e81f413fa96d5c03dcf23c36d4fa9f62f78aae48f": {
+      "case": "chantier-fin-de-journee",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quelles consignes faut-il suivre en fin de journée sur un chantier ?\", \"Que doit faire l'équipe avant de quitter le chantier ?\", \"Quelles vérifications sont demandées avant de fermer un chantier ?\"]}"
+    },
+    "32be4cc49ba83f67518cc2ce9a0e4ae5b57b6d61889e6f24abcf34bd14956cde": {
+      "case": "chantier-fin-de-journee",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "0faf9a6b9abac7e7cfbaaf608c9ee37ecb504b55883bd3625bf013e529ca5f9f": {
+      "case": "sauvegarde-frequence",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Une sauvegarde complète a lieu une fois par semaine.\", \"La sauvegarde complète a lieu le dimanche.\", \"Du lundi au samedi, seules les modifications du jour sont sauvegardées.\"]}"
+    },
+    "c2aa4b3b66690ef815260ae4b5bf06529e0973a8f822a652724f92fe04ddd047": {
+      "case": "sauvegarde-frequence",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "c3f355645c77c0adddcf6f2bb8edfb8e33dca59e3b5045c078731c7fb7af3a62": {
+      "case": "sauvegarde-frequence",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "b3d89d3433c6f15a5e953ccf3fb7c14f66f8c664136080263b46f09a74128117": {
+      "case": "sauvegarde-frequence",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "d3241580eadaa2caa4dfad28145991b0deba8672866920bdae78a00bcee09457": {
+      "case": "sauvegarde-frequence",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quand les sauvegardes complètes sont-elles réalisées ?\", \"À quel rythme les données sont-elles sauvegardées ?\", \"Que sauvegarde-t-on les autres nuits de la semaine ?\"]}"
+    },
+    "3e8c4e90e5f7adace39c8ccd0396e3349177bdaffd41424c00c16245f8358c30": {
+      "case": "sauvegarde-frequence",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "3459eb1edf39ed99d578fef90062c47992010e3d1b9337ad8bbbf14a79617053": {
+      "case": "preavis-cadre",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Le préavis de démission d'un cadre est d'un mois.\"]}"
+    },
+    "136f7fa7fe2b1809c0e56461901f379aaed363dca44b389ddb2875d63191cb03": {
+      "case": "preavis-cadre",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"contredite\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : contredite.\"}"
+    },
+    "4b00d4f11c14aae85c9c96b7914f81025e3d1782fcaef4ee7c48039666cdb166": {
+      "case": "preavis-cadre",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quelle est la durée du préavis de démission d'un cadre ?\", \"Combien de temps dure le préavis d'un cadre qui démissionne ?\", \"Quel préavis un cadre doit-il respecter ?\"]}"
+    },
+    "17ddd85d264a5c211e7f4f011e84459d17c0337ca08982153f568dde20dabdb0": {
+      "case": "preavis-cadre",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "5275bfda4d7b4b3158fbe8e528e40147f63b680d5a74bec5aee3926d761b08f4": {
+      "case": "piscine-vidange",
+      "kind": "claims",
+      "output": "{\"claims\": [\"Le bassin est vidangé et nettoyé en entier une fois par an.\", \"La vidange a lieu pendant la première quinzaine de septembre.\"]}"
+    },
+    "8b54875f4f304e1700b941d441f945e5485c931a0c80d607bea03ebfebbf7188": {
+      "case": "piscine-vidange",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "cc23c7a84948c050b89446f5ee3114041808b7d8a3548a642a57c784cbbac759": {
+      "case": "piscine-vidange",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "df2763efd0d4cdb49c9d1712b5046a0c2c1983aed6f64efa11d764714708867a": {
+      "case": "piscine-vidange",
+      "kind": "questions",
+      "output": "{\"questions\": [\"À quelle période le bassin est-il vidangé ?\", \"Combien de fois par an le bassin est-il nettoyé ?\", \"Quand a lieu l'entretien annuel de la piscine ?\"]}"
+    },
+    "5153c32239dbbab1f5b67e24f7b449fda712877a8153e408eb468fa5377749ac": {
+      "case": "piscine-vidange",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    },
+    "0d54a54385ee2a926f9b4e9aff5f6aea82a0b8225c74a090fb7e3152efdb9c39": {
+      "case": "mediatheque-fermeture",
+      "kind": "claims",
+      "output": "{\"claims\": [\"La médiathèque est fermée le lundi.\", \"La médiathèque est fermée les jours fériés.\", \"La plupart des médiathèques de France sont fermées le lundi.\"]}"
+    },
+    "5180a8bb46cfec09c7238c02bef8b873ca350d72c97c376060377333ba6d85c5": {
+      "case": "mediatheque-fermeture",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "6a4d61688f62c61882163266759153d06ba134812632c0f6aef94240f3706617": {
+      "case": "mediatheque-fermeture",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"appuyée\", \"support\": 1, \"reason\": \"Verdict attendu du jeu fixe : appuyée.\"}"
+    },
+    "d413349fd39de4a68a6fa316d8a3ba485964792182d46bf8f4690baa004b4a3c": {
+      "case": "mediatheque-fermeture",
+      "kind": "verdict",
+      "output": "{\"verdict\": \"non appuyée\", \"support\": null, \"reason\": \"Verdict attendu du jeu fixe : non appuyée.\"}"
+    },
+    "9f98fa5345a6638c5135b58ac1fd73379636902375ba7560abfe30493a06ea62": {
+      "case": "mediatheque-fermeture",
+      "kind": "questions",
+      "output": "{\"questions\": [\"Quels sont les jours de fermeture de la médiathèque ?\", \"La médiathèque ouvre-t-elle le lundi ?\", \"Quand la médiathèque est-elle fermée au public ?\"]}"
+    },
+    "b4bbbc639917856f8e21d24b41de90bad2afe7cb9eec16f931e070e0fef54e64": {
+      "case": "mediatheque-fermeture",
+      "kind": "useful",
+      "output": "{\"useful\": [1], \"reason\": \"Extraits utiles attendus du jeu fixe.\"}"
+    }
+  },
+  "relevance": {
+    "mediatheque-pret": 53,
+    "mediatheque-films": 48,
+    "teletravail-ordinateur": 23,
+    "velo-batterie": 59,
+    "frais-repas-negation": 48,
+    "prime-naissance-sans-reponse": 44,
+    "jardin-partage": 43,
+    "chantier-fin-de-journee": 56,
+    "sauvegarde-frequence": 37,
+    "preavis-cadre": 64,
+    "piscine-vidange": 48,
+    "mediatheque-fermeture": 55
+  }
+}

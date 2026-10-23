@@ -29,8 +29,8 @@ provoquer le moindre conflit de fusion.
 
 ```bash
 git clone <url> && cd wavelocalai
-python -m venv .venv
-.venv/Scripts/python -m pip install ollama codecarbon psutil python-dotenv huggingface_hub[hf_xet]
+python -m venv .venv-bench
+.venv-bench/Scripts/python -m pip install ollama codecarbon psutil python-dotenv huggingface_hub[hf_xet]
 # Ollama 0.30 minimum (0.34+ recommandé) : https://ollama.com/download
 ```
 

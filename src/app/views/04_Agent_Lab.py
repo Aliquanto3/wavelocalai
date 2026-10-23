@@ -4,12 +4,11 @@ import nest_asyncio
 import psutil
 import streamlit as st
 
-from src.app.tabs.agent.crew import render_agent_crew_tab
-from src.app.tabs.agent.solo import clear_email_drafts, render_agent_solo_tab
 from src.app.formatting import format_gb, format_percent, format_unit
 from src.app.modules import AGENTS
-from src.app.ui import FAVICON_PATH, cloud_enabled, machine_benchmark, model_menu
-from src.core.llm_provider import LLMProvider
+from src.app.tabs.agent.crew import render_agent_crew_tab
+from src.app.tabs.agent.solo import clear_email_drafts, render_agent_solo_tab
+from src.app.ui import FAVICON_PATH, installed_models, machine_benchmark, model_menu
 from src.core.model_defaults import agent_default, tools_verified
 from src.core.models_db import get_friendly_name_from_tag, get_model_info
 
@@ -97,7 +96,7 @@ with st.sidebar:
         st.rerun()
 
 # --- PRÉPARATION DATA ---
-installed = LLMProvider.list_models(cloud_enabled=cloud_enabled())
+installed = installed_models()
 # Ordre : locaux avant cloud, puis ceux qui ne sont pas dédiés au raisonnement, puis ceux
 # qui tiennent en mémoire, puis outils vérifiés, puis la règle commune (le plus rapide en
 # tête) : un modèle cloud, un modèle dédié au raisonnement ou un local qui ne tient pas ne
@@ -107,6 +106,9 @@ installed = LLMProvider.list_models(cloud_enabled=cloud_enabled())
 # réussite des outils mesuré par ce benchmark quand il existe, d'après le catalogue sinon
 # (tools_verified) ; le modèle d'agent_default y satisfait toujours.
 menu = model_menu(installed, cloud_types=("api", "cloud"))
+# Capacités déclarées par le fournisseur (liste Mistral cloud intégrée), pour un modèle
+# absent du catalogue.
+provider_capabilities = {m.get("model"): m.get("capabilities") or [] for m in installed}
 bench = machine_benchmark()
 agent_choice = agent_default([menu.choices[label] for label in menu.labels], bench)
 agent_tag = agent_choice.tag if agent_choice else None
@@ -116,7 +118,7 @@ for label in menu.labels:
     choice = menu.choices[label]
     # Nom du catalogue (pas le nom affiché, qui peut porter le tag).
     info = get_model_info(get_friendly_name_from_tag(tag))
-    capabilities = info.get("capabilities", []) if info else []
+    capabilities = info.get("capabilities", []) if info else provider_capabilities.get(tag, [])
     is_verified = tools_verified(tag, capabilities, bench)
     # Remplace l'ancien marqueur emoji : support des outils vérifié par le benchmark de ce
     # poste ou, à défaut, par le catalogue.

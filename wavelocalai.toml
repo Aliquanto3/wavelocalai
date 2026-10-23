@@ -1,0 +1,154 @@
+# Réglages versionnés de la v2 (AD-15). Chargés une fois au démarrage par `wavelocalai/config.py`,
+# jamais réécrits par l'application. Les secrets (clés d'API) vont dans `.env`, jamais ici ;
+# ce que l'interface modifie vit dans la table `preferences`.
+
+[server]
+# 8501 reste à la v1. Écoute sur 127.0.0.1 seulement (AD-19).
+port = 8502
+# Ouvre le navigateur par défaut une fois le port prêt (story 9.1) ; `--no-browser` l'emporte.
+open_browser = true
+
+[data]
+# Dossier des données (base, journaux, caches). Relatif à ce fichier.
+dir = "data"
+
+[ollama]
+# 127.0.0.1 et non localhost : sur certains postes, localhost résout en IPv6 et échoue.
+host = "http://127.0.0.1:11434"
+probe_timeout_s = 1.0  # délai de la sonde de santé (1 s au plus, AD-15)
+probe_cache_s = 5.0    # durée de vie de l'état d'Ollama en cache
+
+[carbon]
+country_iso = "FRA"
+pue = 1.1
+
+[carbon.car_equivalence]
+# Équivalence parlante du CO2 de la session en distance parcourue en voiture, dite dans le panneau
+# « Comment ces chiffres sont calculés » seulement (D-38). Facteur : voiture thermique moyenne,
+# fabrication et usage compris, 142 g de CO2e par km (0,14225 kg CO2e/km ; usage seul : 111 g/km),
+# ADEME, « Modélisation de l'empreinte carbone de la voiture - 2025 », relevé le 2026-10-19 sur
+# https://impactco2.fr/outils/transport/voiturethermique (l'API publique du même site donne 110,6 g/km,
+# usage seul, pour la même voiture).
+g_per_km = 142
+source = "ADEME, Modélisation de l'empreinte carbone de la voiture (2025), voiture thermique moyenne, fabrication et usage, via impactco2.fr"
+retrieved_at = 2026-10-19
+
+[delays]
+lane_timeout_s = 300.0    # délai d'une lane d'Arène, depuis l'acquisition du sémaphore (local)
+approval_expiry_s = 600.0 # sans réponse en 10 minutes, une approbation vaut refus
+
+[arena]
+# Arrêt automatique ou à la demande d'une lane qui tourne en boucle (story 9.2). `max_tokens` plafonne
+# chaque requête de lane (fin `stopped_reason: "max_tokens"`). Le détecteur de boucle arrête une lane
+# dont le même fragment final revient au moins `loop_min_repeats` fois sur une fenêtre d'au moins
+# `loop_window_chars` caractères (`stopped_reason: "loop"`) ; dans les deux cas, et pour l'arrêt manuel
+# (« Arrêter ce modèle »), la réponse partielle est gardée et notée.
+max_tokens = 800
+loop_min_repeats = 4
+loop_window_chars = 200
+
+[cloud.models]
+# Modèles cloud proposés par fournisseur, une fois la clé présente dans `.env` ET `allow_cloud`
+# demandé (listes fixes : aucun fournisseur n'est appelé pour les lister). Identifiant exposé :
+# `fournisseur/modèle`. Identifiants vérifiés dans la documentation officielle des fournisseurs
+# le 2026-10-18 (story 2.4) : OpenAI (`gpt-6-sol`, `gpt-6-luna` ; `gpt-4o` et `gpt-4o-mini` sont
+# dépréciés, arrêt le 2027-01-14), Groq (production), Anthropic (alias de l'aperçu des modèles),
+# Mistral (`mistral-large-latest` et `mistral-small-latest` figurent dans la référence de
+# l'API ; `mistral-medium-latest` n'y est pas confirmé, retiré).
+openai = ["gpt-6-sol", "gpt-6-luna"]
+groq = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+anthropic = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
+mistral = ["mistral-large-latest", "mistral-small-latest"]
+
+[cloud.groq_ecologits]
+# Modèle Groq -> entrée `huggingface_hub` d'ecologits (AD-11). Sans entrée, le CO2 d'un modèle
+# Groq est « non mesurable » (raison affichée). Entrées confirmées le 2026-10-18 (story 2.5) contre
+# ecologits 0.11.3 par `tests/v2/unit/test_cloud_estimate.py` : chacune doit exister dans le
+# référentiel installé. `llama-3.3-70b-versatile` n'a pas d'entrée : ecologits ne connaît pas
+# Llama 3.3, et Llama 3.1 70B est un autre modèle (pas de correspondance inventée).
+"openai/gpt-oss-120b" = "openai/gpt-oss-120b"
+"openai/gpt-oss-20b" = "openai/gpt-oss-20b"
+"llama-3.1-8b-instant" = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+
+[cloud.prices]
+# Table de prix cloud datée (story 3.5), lue par le verdict local/cloud de l'Arène. Prix publics
+# par million de tokens, API standard (ni batch, ni cache, ni priorité), palier de base.
+# Relevé du 2026-10-19 sur les pages officielles des fournisseurs (chargées une à une).
+# DEVISE : tous les fournisseurs affichent leurs prix en dollars ($). La table est donc en USD,
+# et non en EUR comme la valeur par défaut ; aucune conversion de change n'est faite.
+# Groq à 0 : la démo utilise le plan gratuit de l'API Groq (décision d'Anaël du 2026-10-19).
+# `mistral-large-latest` vérifié par GET https://api.mistral.ai/v1/models le 2026-10-19.
+currency = "USD"
+retrieved_at = 2026-10-19
+source = "https://developers.openai.com/api/docs/pricing ; https://console.groq.com/docs/models ; https://claude.com/pricing ; https://docs.mistral.ai/inference/pricing"
+
+[cloud.prices.models]
+# OpenAI — https://developers.openai.com/api/docs/pricing (Standard). Palier contexte court
+# (<= 272K tokens d'entrée) ; au-delà : 4,00 / 15,00 $.
+"openai/gpt-6-sol" = { input_per_mtok = 2.00, output_per_mtok = 10.00 }
+# OpenAI — même page. Palier contexte court (<= 272K tokens d'entrée) ; au-delà : 0,20 / 0,75 $.
+"openai/gpt-6-luna" = { input_per_mtok = 0.10, output_per_mtok = 0.50 }
+
+# Groq — plan gratuit de l'API (décision d'Anaël du 2026-10-19) : 0 pour tous les modèles.
+# Plan payant pour mémoire (https://console.groq.com/docs/models) : gpt-oss-120b 0,15 / 0,60 $,
+# gpt-oss-20b 0,075 / 0,30 $, llama-3.3-70b-versatile et llama-3.1-8b-instant sur demande.
+"groq/openai/gpt-oss-120b" = { input_per_mtok = 0.0, output_per_mtok = 0.0 }
+"groq/openai/gpt-oss-20b" = { input_per_mtok = 0.0, output_per_mtok = 0.0 }
+"groq/llama-3.3-70b-versatile" = { input_per_mtok = 0.0, output_per_mtok = 0.0 }
+"groq/llama-3.1-8b-instant" = { input_per_mtok = 0.0, output_per_mtok = 0.0 }
+
+# Anthropic — https://claude.com/pricing (redirection de anthropic.com/pricing). Prix de base,
+# hors cache ; inférence limitée aux États-Unis à 1,1x, mode rapide d'Opus 5.5 à 2x.
+"anthropic/claude-opus-5-5" = { input_per_mtok = 4.00, output_per_mtok = 20.00 }
+# Anthropic — même page, sans palier de contexte.
+"anthropic/claude-sonnet-5-5" = { input_per_mtok = 2.00, output_per_mtok = 10.00 }
+# Anthropic — même page. Palier des prompts <= 100K tokens ; au-delà : 0,50 / 2,50 $.
+"anthropic/claude-haiku-5-5" = { input_per_mtok = 0.10, output_per_mtok = 0.50 }
+
+# Mistral — https://docs.mistral.ai/inference/pricing et
+# https://docs.mistral.ai/models/mistral-small-4-0-26-03 : Mistral Small 4 (v26.03,
+# identifiant `mistral-small-2603`). RÉSERVE : la page tronque le second alias (« +1 ») ;
+# Small 4 est le seul Mistral Small listé, d'où le rattachement à `mistral-small-latest`,
+# non confirmé mot pour mot. Le niveau (standard) n'est pas libellé sur la page.
+"mistral/mistral-small-latest" = { input_per_mtok = 0.15, output_per_mtok = 0.60 }
+# Mistral — `mistral-large-latest` désigne `mistral-large-2512` (Large 3, 25.12), vérifié par
+# GET https://api.mistral.ai/v1/models le 2026-10-19 ; prix de Large 3 sur la page des prix.
+"mistral/mistral-large-latest" = { input_per_mtok = 0.50, output_per_mtok = 1.50 }
+
+[rag]
+# Base documentaire (story 4.1). Les extraits mesurent `chunk_size` caractères, avec
+# `chunk_overlap` de recouvrement ; chaque lot de `embed_batch_size` extraits est une feuille
+# `embedding` mesurée par CodeCarbon. `embedding_model` : défaut de la base ; absent, le premier
+# modèle d'embedding installé dans Ollama.
+chunk_size = 800
+chunk_overlap = 100
+embed_batch_size = 16
+max_file_mb = 50
+# Plafonds d'un import (story 4.2) : nombre de fichiers et taille totale, vérifiés par l'écran
+# avant l'envoi puis par la route.
+max_files = 50
+max_import_mb = 500
+
+# Question (story 4.4) : `top_k` extraits cités par réponse ; seuils du libellé de pertinence sur la
+# similarité cosinus (1 - distance), calés sur nomic-embed-text : au moins `relevance_very_close`
+# = « très proche », au moins `relevance_close` = « proche », en dessous = « éloignée ».
+top_k = 4
+# Self-RAG (story 4.6) : au plus `self_rag_max_iterations` reformulations de la question (donc au
+# plus 1 + n recherches) ; la borne atteinte, la réponse part avec les meilleurs extraits trouvés.
+self_rag_max_iterations = 2
+# Reranker local (story 4.7) : modèle fastembed lu dans `data/models/fastembed`, jamais téléchargé par
+# l'app. Absent (ou extra `rerank` non installé), la recherche se fait sans reclassement et l'écran
+# dit pourquoi. Remplir le cache : voir le README (« Reranker local »).
+reranker_model = "jinaai/jina-reranker-v2-base-multilingual"
+relevance_very_close = 0.70
+relevance_close = 0.60
+
+[agents]
+# Boucle d'outils des agents (story 6.1).
+max_turns = 10        # appels de modèle au plus par tâche ; borne atteinte = fin propre avec la raison
+tool_timeout_s = 60.0 # délai d'un outil ; dépassé, l'agent reçoit l'erreur et peut poursuivre
+summary_chars = 500   # taille du résumé d'une étape publiée
+result_chars = 8000   # taille d'un résultat d'outil rendu au modèle, tronqué au-delà
+max_tool_calls_per_turn = 8 # appels d'outils exécutés au plus par tour ; les suivants sont refusés (story 6.2)
+memory_sample_s = 1.0 # relevé de la mémoire du poste pendant une mission d'équipe, pour son pic (story 6.5)
+max_input_mb = 20     # taille d'un fichier que les outils d'agent acceptent de lire (dossier de travail seulement)

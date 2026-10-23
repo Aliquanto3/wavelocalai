@@ -1,0 +1,138 @@
+/* Agent seul (story 6.4) : réglages, accueil de l'agent, panneau « Étapes ». Les onglets, le fil, la
+   saisie et le statut sont ceux du Chat libre (`chat.css`). Couleurs et rayon : tokens.css. */
+
+/* Mise en page (`display`, `grid-template-columns`) posée par `.two-col` (base.css, story 9.8) :
+   ici, seul l'espacement propre à l'écran. */
+.agents-settings {
+  margin-bottom: 1rem;
+}
+
+.agents-model-hint {
+  margin: 0.25rem 0 0;
+}
+
+.agents-warning {
+  margin: 0.5rem 0 0;
+  padding: 0.25rem 0.75rem;
+  border-inline-start: 6px solid var(--color-chart-4);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius);
+}
+
+.agents-warning:empty {
+  display: none;
+}
+
+/* Outils : neuf interrupteurs, sur deux ou trois colonnes quand la fenêtre le permet. */
+.agents-tools {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.agents-tools-legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.agents-tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agents-tool {
+  min-width: 0;
+}
+
+.agents-tool-help,
+.agents-tool-reason {
+  margin: 0 0 0 3.5rem;
+}
+
+.agents-tool-reason {
+  font-weight: 600;
+}
+
+/* Fil et panneau « Étapes » : côte à côte dès 1 024 px, sinon l'un sous l'autre (toujours dépliés). */
+.agents-work {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .agents-work {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
+    align-items: start;
+  }
+
+  .agents-steps {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.agents-main,
+.agents-steps {
+  min-width: 0;
+}
+
+.agents-steps-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.agents-block-notice {
+  margin: 0.5rem 0 0;
+}
+
+.agents-main wl-run-status {
+  display: block;
+  margin-top: 0.5rem;
+}
+
+/* Accueil de l'agent : « Bonjour ! » et les actions rapides. */
+.agents-welcome {
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.agents-welcome-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+
+.agents-welcome-text {
+  margin: 0 0 0.75rem;
+}
+
+.agents-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.agents-quick-card {
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.agents-quick-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.agents-download {
+  display: inline-block;
+  margin-top: 0.5rem;
+  text-decoration: none;
+}

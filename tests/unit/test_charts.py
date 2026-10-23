@@ -5,11 +5,10 @@ Tests des aides aux graphiques (src/app/charts.py, story 10) : couleur liée à 
 Usage: python -m pytest tests/unit/test_charts.py -v
 """
 
-from datetime import datetime, timedelta
-from pathlib import Path
-
 import importlib.util
 import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -17,7 +16,6 @@ import pytest
 import streamlit
 
 import src.app.charts as charts
-
 from src.app.charts import (
     BUBBLE_MAX_PX,
     BUBBLE_MIN_PX,
@@ -293,10 +291,10 @@ def test_history_empty_window():
     assert history.empty
     assert history.older_count == 2
     assert empty_window_text(history.older_count) == (
-        f"Aucune session sur cette période. 2{NBSP}sessions plus anciennes : choisissez "
-        "« Tout » pour les afficher."
+        f"Aucun lancement de l'application sur cette période. 2{NBSP}lancements plus anciens : "
+        "choisissez « Tout » pour les afficher."
     )
-    assert empty_window_text(0) == "Aucune session sur cette période."
+    assert empty_window_text(0) == "Aucun lancement de l'application sur cette période."
 
 
 def test_history_all_single_session_has_readable_span():

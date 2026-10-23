@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -16,14 +17,20 @@ logger = logging.getLogger(__name__)
 # Configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
-# Import conditionnel pour le runtime
-try:
-    from anthropic import AsyncAnthropic as _AsyncAnthropic
+# SDK présent sans être importé : `import anthropic` coûte environ 1 s, payé seulement au
+# premier client (donc jamais sans clé d'API). `_AsyncAnthropic` reste remplaçable en test.
+ANTHROPIC_AVAILABLE = importlib.util.find_spec("anthropic") is not None
+_AsyncAnthropic = None
 
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    _AsyncAnthropic = None
-    ANTHROPIC_AVAILABLE = False
+
+def _async_client_class():
+    """Classe `AsyncAnthropic` du SDK, importée à la première demande."""
+    global _AsyncAnthropic
+    if _AsyncAnthropic is None:
+        from anthropic import AsyncAnthropic
+
+        _AsyncAnthropic = AsyncAnthropic
+    return _AsyncAnthropic
 
 
 class AnthropicProvider(ILLMProvider):
@@ -33,14 +40,10 @@ class AnthropicProvider(ILLMProvider):
 
     # Modèles disponibles avec leurs métadonnées
     AVAILABLE_MODELS = {
-        "claude-sonnet-4-20250514": {"name": "Claude Sonnet 4", "params": "?", "context": 200000},
-        "claude-3-5-sonnet-20241022": {
-            "name": "Claude 3.5 Sonnet",
-            "params": "?",
-            "context": 200000,
-        },
-        "claude-3-5-haiku-20241022": {"name": "Claude 3.5 Haiku", "params": "?", "context": 200000},
-        "claude-3-opus-20240229": {"name": "Claude 3 Opus", "params": "?", "context": 200000},
+        "claude-opus-5-5": {"name": "Claude Opus 5.5", "params": "?", "context": 1000000},
+        "claude-sonnet-5-5": {"name": "Claude Sonnet 5.5", "params": "?", "context": 1000000},
+        "claude-haiku-5-5": {"name": "Claude Haiku 5.5", "params": "?", "context": 1000000},
+        "claude-fable-5-1": {"name": "Claude Fable 5.1", "params": "?", "context": 1000000},
     }
 
     def __init__(self, api_key: str | None = None):
@@ -60,7 +63,7 @@ class AnthropicProvider(ILLMProvider):
                 raise ImportError("anthropic package not installed. Run: pip install anthropic")
             if not self._api_key:
                 raise ValueError("Anthropic API key not configured")
-            self._client = _AsyncAnthropic(api_key=self._api_key)
+            self._client = _async_client_class()(api_key=self._api_key)
         return self._client
 
     @property
@@ -111,10 +114,15 @@ class AnthropicProvider(ILLMProvider):
                 "Provider Anthropic non disponible (clé API manquante ou SDK non installé)."
             )
 
-        # Anthropic utilise un format différent pour le system prompt
-        system = system_prompt or "You are a helpful assistant."
+        # Anthropic reçoit le system à part : on y réunit `system_prompt` et le contenu des
+        # messages system (contexte RAG compris) ; le défaut ne sert que s'il n'y en a aucun.
+        system_parts = [system_prompt] if system_prompt else []
+        system_parts += [m.get("content") for m in messages if m.get("role") == "system"]
+        system = (
+            "\n\n".join(p for p in system_parts if isinstance(p, str) and p)
+            or "You are a helpful assistant."
+        )
 
-        # Filtrer les messages système (Anthropic les gère séparément)
         filtered_messages = [m for m in messages if m.get("role") != "system"]
 
         timer = MetricsCalculator()
@@ -126,12 +134,13 @@ class AnthropicProvider(ILLMProvider):
             client = self._get_client()
             timer.start()
 
+            # `temperature` est ignorée : le SDK 1.x ne l'accepte plus et les modèles
+            # Claude actuels refusent les paramètres d'échantillonnage (erreur 400).
             async with client.messages.stream(
                 model=model_name,
                 max_tokens=4096,
                 system=system,
                 messages=filtered_messages,
-                temperature=temperature,
             ) as stream:
                 async for text in stream.text_stream:
                     full_text += text
@@ -173,9 +182,9 @@ class AnthropicProvider(ILLMProvider):
 
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(
-            model=model_name, api_key=self._api_key, temperature=temperature, **kwargs
-        )
+        # `temperature` reste dans la signature publique mais n'est pas transmise : les
+        # modèles Claude actuels refusent les paramètres d'échantillonnage (erreur 400).
+        return ChatAnthropic(model=model_name, api_key=self._api_key, **kwargs)
 
     def health_check(self) -> bool:
         """Vérifie si l'API Anthropic est accessible."""
@@ -187,7 +196,7 @@ class AnthropicProvider(ILLMProvider):
 
             client = anthropic.Anthropic(api_key=self._api_key)
             client.messages.create(
-                model="claude-3-5-haiku-20241022",
+                model="claude-haiku-5-5",
                 max_tokens=10,
                 messages=[{"role": "user", "content": "Hi"}],
             )

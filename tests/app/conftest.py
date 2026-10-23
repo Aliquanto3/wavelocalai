@@ -133,6 +133,35 @@ def offline_app_env(tmp_path, monkeypatch):
     MODELS_DB.update(original_catalog)
 
 
+class FakeProcessTracker:
+    """Tracker CodeCarbon du processus simulé : compteur à zéro, aucun fil, aucun fichier."""
+
+    def __init__(self):
+        self._is_running = False
+
+    def start(self):
+        self._is_running = True
+
+    def stop(self):
+        self._is_running = False
+        return 0.0
+
+    def snapshot_kg(self):
+        return 0.0 if self._is_running else None
+
+
+@pytest.fixture(autouse=True)
+def fake_shared_tracker(monkeypatch):
+    """Tracker unique du processus (src/core/green_monitor.py) simulé : les pages créent des
+    `SessionTracker` sans démarrer CodeCarbon, ses fils ni son fichier. État remis à zéro."""
+    from src.core import green_monitor
+
+    monkeypatch.setattr(green_monitor, "_new_shared_tracker", FakeProcessTracker)
+    green_monitor.stop_shared_tracker()
+    yield
+    green_monitor.stop_shared_tracker()
+
+
 # ---------------------------------------------------------------------------
 # États simulés (story 5) : aucun modèle, Ollama arrêté, inférence en échec
 # ---------------------------------------------------------------------------

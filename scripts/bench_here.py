@@ -197,10 +197,17 @@ def pull_via_hf(entry: dict[str, Any], tag: str) -> bool:
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
     target = GGUF_DIR / fb["file"]
 
-    hf = shutil.which("hf") or str(ROOT / ".venv" / "Scripts" / "hf.exe")
+    # hf du venv qui exécute ce script (.venv-bench, ou .venv sur une machine pas encore migrée)
+    local_hf = [Path(sys.executable).parent / n for n in ("hf.exe", "hf")]
+    hf = next((str(c) for c in local_hf if c.exists()), None) or shutil.which("hf") or "hf"
     print(f"    téléchargement Hugging Face : {fb['repo']}/{fb['file']}")
-    if subprocess.run([hf, "download", fb["repo"], fb["file"],
-                       "--local-dir", str(GGUF_DIR)]).returncode != 0:
+    try:
+        code = subprocess.run([hf, "download", fb["repo"], fb["file"],
+                               "--local-dir", str(GGUF_DIR)]).returncode
+    except FileNotFoundError:
+        print("    outil `hf` introuvable : installer huggingface_hub dans le venv du banc")
+        return False
+    if code != 0:
         print("    échec du téléchargement")
         return False
 

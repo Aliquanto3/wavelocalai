@@ -1,0 +1,12 @@
+{
+  "id": "chat-libre-interrompu",
+  "kind": "chat",
+  "label": "Ollama coupe deux fois : la relance automatique échoue, erreur « interrupted »",
+  "events": [
+    { "wait": 0, "type": "run_started", "data": { "kind": "chat", "models": ["{{tag}}"], "params": { "temperature": "{{temperature}}" } } },
+    { "wait": 300, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{partial}}", "tps": "{{tps}}" } },
+    { "wait": 600, "type": "retry", "data": { "lane": "{{tag}}", "reason": "Ollama a fermé le flux avant la fin ; nouvelle tentative." } },
+    { "wait": 500, "tokens": { "lane": "{{tag}}", "channel": "answer", "text": "{{partial}}", "tps": "{{tps}}" } },
+    { "wait": 700, "type": "run_ended", "data": { "status": "error", "error": "{{error}}" } }
+  ]
+}

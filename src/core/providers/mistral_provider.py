@@ -10,6 +10,7 @@ from typing import Any
 from src.core.config import MISTRAL_API_KEY
 from src.core.interfaces import ILLMProvider
 from src.core.metrics import InferenceMetrics, MetricsCalculator
+from src.core.model_detector import MISTRAL_CLOUD_CONTEXT, MISTRAL_CLOUD_MODELS
 from src.core.models_db import get_cloud_models_from_db
 
 logger = logging.getLogger(__name__)
@@ -60,10 +61,28 @@ class MistralProvider(ILLMProvider):
         return MISTRAL_AVAILABLE and bool(self._api_key)
 
     def list_models(self) -> list[dict[str, Any]]:
-        """Liste les modèles Mistral configurés dans models.json."""
+        """Liste les modèles Mistral cloud (vide sans clé) : la liste intégrée
+        (`MISTRAL_CLOUD_MODELS`), puis les entrées `type: api` de models.json, sans doublon."""
         if not self.is_available:
             return []
-        return get_cloud_models_from_db()
+
+        models = [
+            {
+                "model": tag,
+                "name": info["name"],
+                "type": "cloud",
+                "provider": "mistral",
+                "params": "?",
+                "context_length": MISTRAL_CLOUD_CONTEXT,
+                "capabilities": list(info["capabilities"]),
+            }
+            for tag, info in MISTRAL_CLOUD_MODELS.items()
+        ]
+        known = {m["model"].lower() for m in models}
+        for entry in get_cloud_models_from_db():
+            if str(entry.get("model", "")).lower() not in known:
+                models.append(entry)
+        return models
 
     async def chat_stream(
         self,

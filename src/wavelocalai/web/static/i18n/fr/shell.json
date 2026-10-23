@@ -1,0 +1,108 @@
+{
+  "app": {
+    "name": "WaveLocalAI"
+  },
+  "shell": {
+    "skip": "Aller au contenu",
+    "menu": "Menu",
+    "modules": "Modules",
+    "footer": "Les données restent sur ce poste tant que le cloud n'est pas autorisé.",
+    "noscript": "WaveLocalAI a besoin de JavaScript pour s'afficher. Activez-le dans votre navigateur, puis rechargez la page.",
+    "display": {
+      "button": "Affichage",
+      "theme": "Thème",
+      "light": "Clair",
+      "dark": "Sombre",
+      "system": "Système",
+      "projection": "Mode projection",
+      "projection_help": "Texte agrandi pour la salle ; le pied de page est masqué."
+    },
+    "footer_cloud": "Le cloud est autorisé. Les données envoyées aux modèles cloud quittent ce poste."
+  },
+  "modules": {
+    "home": "Accueil",
+    "arena": "Arène",
+    "documents": "Documents",
+    "agents": "Agents",
+    "sobriety": "Sobriété",
+    "models": "Modèles"
+  },
+  "screens": {
+    "home": "Accueil",
+    "arena-chat": "Chat libre",
+    "arena-compare": "Arène",
+    "arena-bench": "Banc d'essai",
+    "arena-references": "Références",
+    "documents-chat": "Discussion",
+    "documents-base": "Base documentaire",
+    "documents-evaluation": "Évaluation de la qualité",
+    "agents-solo": "Agent seul",
+    "agents-crew": "Équipe d'agents",
+    "sobriety": "Sobriété et matériel",
+    "models": "Modèles"
+  },
+  "router": {
+    "title": "{screen} · WaveLocalAI",
+    "announce": "Écran {screen}",
+    "planned": "Pas encore disponible dans cette préversion",
+    "redirected": "{reason}. Retour à l'Accueil.",
+    "load_failed": "Cet écran n'a pas pu être chargé. Rechargez la page ; si le problème persiste, signalez-le."
+  },
+  "format": {
+    "unknown": "inconnu",
+    "not_evaluated": "non évalué",
+    "money_below": "moins de {value}"
+  },
+  "tabs": {
+    "label": "Écrans du module {module}"
+  },
+  "topbar": {
+    "ollama": {
+      "checking": "Ollama, vérification en cours…",
+      "up": "Ollama disponible",
+      "down": "Ollama ne répond pas",
+      "unknown": "Ollama, état inconnu",
+      "title": "État d'Ollama",
+      "state": "État",
+      "state_up": "Disponible",
+      "state_down": "Indisponible",
+      "version": "Version",
+      "version_unknown": "inconnue",
+      "memory": "Mémoire du poste",
+      "memory_value": "{used} utilisés sur {total}",
+      "memory_free": "Mémoire libre",
+      "loaded": "Modèles chargés",
+      "loaded_item": "{tag}, {size}",
+      "none_loaded": "Aucun modèle chargé en mémoire",
+      "retry": "Réessayer",
+      "retrying": "Vérification en cours…"
+    },
+    "cloud": {
+      "label": "Autoriser le cloud",
+      "help_button": "Aide sur l'autorisation du cloud",
+      "help": "Désactivé à chaque ouverture de la page. Activé, les données envoyées aux modèles cloud quittent la machine."
+    },
+    "co2": {
+      "button": "CO₂ session",
+      "title": "CO₂ de la session",
+      "total": "Total",
+      "cloud_estimated": "{value} (estimé)",
+      "cloud_unmeasurable": "non mesurable",
+      "unmeasurable": "Non mesurables",
+      "unmeasurable_none": "Aucune réponse",
+      "unmeasurable_one": "1 réponse",
+      "unmeasurable_many": "{count} réponses",
+      "unmeasurable_help": "Les réponses non mesurables ne sont pas comptées dans le total.",
+      "link": "Détails dans Sobriété"
+    },
+    "connection": {
+      "region": "État de la connexion",
+      "lost": "Connexion au serveur perdue, nouvelle tentative…",
+      "restored": "Connexion au serveur rétablie."
+    },
+    "restarted": {
+      "message": "Le serveur a redémarré. Les exécutions en cours sont perdues.",
+      "reload": "Recharger"
+    }
+  }
+}

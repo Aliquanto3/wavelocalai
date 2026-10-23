@@ -1,0 +1,108 @@
+// Textes de l'interface (AD-20) : un fichier par domaine dans static/i18n/fr/, fusionnés ici sous
+// les mêmes clés qu'un catalogue unique (`t("home.lead")` ne dépend pas du fichier qui la porte).
+// Les textes d'erreur (`errors.<code>.message` et `.action`) ne sont dans aucun fichier : le serveur
+// les génère depuis `errors.py` et les ajoute au document assemblé (source unique).
+// Le HTML garde son texte français (la page se lit même si ce module échoue) ; `data-i18n`,
+// `data-i18n-aria-label` et `data-i18n-title` nomment la clé qui le remplace, et un test compare
+// les deux.
+//
+// Mode d'emploi : une story qui livre un écran écrit ses textes dans son propre fichier
+// (`i18n/fr/<écran>.json`, clé de premier niveau `<écran>`) et ajoute son nom à `TEXT_FILES`
+// ci-dessous, la seule liste. Deux fichiers qui portent la même clé de premier niveau font échouer
+// `tests/v2/unit/test_static_split.py` (jamais d'écrasement silencieux) ; le chargement échoue aussi.
+
+const ATTRIBUTES = [
+  ["i18nAriaLabel", "aria-label"],
+  ["i18nTitle", "title"],
+];
+
+// Les fichiers de `static/i18n/fr/` (sans `.json`), repli du document unique.
+export const TEXT_FILES = [
+  "shell",
+  "home",
+  "components",
+  "chat",
+  "discussion",
+  "docs",
+  "arena",
+  "references",
+  "models",
+  "sobriety",
+  "evaluation",
+  "bench",
+  "agents",
+  "crew",
+];
+
+let texts = {};
+const warned = new Set();
+
+// Un seul document, assemblé par le serveur depuis ces fichiers (`GET /static/i18n/fr.json`) : une
+// requête au lieu de quatorze avant le rendu (budget de 300 ms, AD-15).
+async function loadBundle(base) {
+  const response = await fetch(`${base}.json`);
+  if (!response.ok) throw new Error(`Catalogue de textes indisponible (${response.status}).`);
+  return response.json();
+}
+
+// Repli (serveur sans le document assemblé) : un fichier par domaine, fusionnés ici.
+async function loadFiles(base) {
+  const files = await Promise.all(
+    TEXT_FILES.map(async (name) => {
+      const response = await fetch(`${base}/${name}.json`);
+      if (!response.ok) throw new Error(`Catalogue de textes indisponible (${name}, ${response.status}).`);
+      return [name, await response.json()];
+    }),
+  );
+  const merged = {};
+  for (const [name, part] of files) {
+    for (const key of Object.keys(part)) {
+      if (key in merged) throw new Error(`Clé de textes déclarée deux fois : ${key} (${name}.json).`);
+      merged[key] = part[key];
+    }
+  }
+  return merged;
+}
+
+export async function loadTexts(base = "/static/i18n/fr") {
+  try {
+    texts = await loadBundle(base);
+  } catch {
+    texts = await loadFiles(base);
+  }
+}
+
+function lookup(key) {
+  let value = texts;
+  for (const part of key.split(".")) {
+    if (value === null || typeof value !== "object") return undefined;
+    value = value[part];
+  }
+  return typeof value === "string" ? value : undefined;
+}
+
+// Le texte de `key`, `{nom}` remplacé par `vars.nom`. Une clé absente rend la clé, dite en console.
+export function t(key, vars = {}) {
+  const value = lookup(key);
+  if (value === undefined) {
+    if (!warned.has(key)) {
+      warned.add(key);
+      console.warn(`i18n : clé absente du catalogue : ${key}`);
+    }
+    return key;
+  }
+  return value.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
+}
+
+// Applique le catalogue aux éléments `data-i18n*` sous `root`.
+export function applyTexts(root = document) {
+  for (const el of root.querySelectorAll("[data-i18n]")) {
+    el.textContent = t(el.dataset.i18n);
+  }
+  for (const [dataName, attribute] of ATTRIBUTES) {
+    const selector = `[data-${dataName.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}]`;
+    for (const el of root.querySelectorAll(selector)) {
+      el.setAttribute(attribute, t(el.dataset[dataName]));
+    }
+  }
+}

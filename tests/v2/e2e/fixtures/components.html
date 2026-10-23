@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Composants partagés</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/base.css">
+  <link rel="stylesheet" href="/static/css/components/accessibility.css">
+  <link rel="stylesheet" href="/static/css/components/button.css">
+  <link rel="stylesheet" href="/static/css/components/topbar.css">
+  <link rel="stylesheet" href="/static/css/components/status-pill.css">
+  <link rel="stylesheet" href="/static/css/components/switch.css">
+  <link rel="stylesheet" href="/static/css/components/banner.css">
+  <link rel="stylesheet" href="/static/css/components/badge.css">
+  <link rel="stylesheet" href="/static/css/components/metric.css">
+  <link rel="stylesheet" href="/static/css/components/error.css">
+  <link rel="stylesheet" href="/static/css/components/layout.css">
+  <link rel="stylesheet" href="/static/css/components/model-picker.css">
+  <link rel="stylesheet" href="/static/css/components/run-status.css">
+  <link rel="stylesheet" href="/static/css/components/export-menu.css">
+  <link rel="stylesheet" href="/static/css/components/data-table.css">
+  <link rel="stylesheet" href="/static/css/components/notice.css">
+  <link rel="stylesheet" href="/static/css/components/segments.css">
+  <link rel="stylesheet" href="/static/css/components/chart.css">
+  <link rel="stylesheet" href="/static/css/components/confirm-dialog.css">
+  <link rel="stylesheet" href="/static/css/components/step-trace.css">
+  <link rel="stylesheet" href="/static/css/components/team-graph.css">
+  <link rel="stylesheet" href="/static/css/components/source-panel.css">
+  <script type="module" src="/__fixtures__/components.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Composants partagés</h1>
+
+    <section aria-labelledby="badges-title">
+      <h2 id="badges-title">Badges</h2>
+      <ul id="badges">
+        <li><wl-badge kind="local"></wl-badge></li>
+        <li><wl-badge kind="cloud"></wl-badge></li>
+        <li><wl-badge kind="unknown"></wl-badge></li>
+        <li><wl-badge></wl-badge></li>
+        <li><wl-badge kind="indicative"></wl-badge></li>
+        <li><wl-badge kind="single-judge"></wl-badge></li>
+        <li><wl-badge kind="estimated"></wl-badge></li>
+        <li><wl-badge kind="unmeasurable"></wl-badge></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="metrics-title">
+      <h2 id="metrics-title">Métriques</h2>
+      <wl-metric id="metric-plain" label="Chargement" value="3,2" unit="s"></wl-metric>
+      <wl-metric id="metric-help" label="Débit" value="38" unit="tokens/s"
+                 help="Tokens générés par seconde, mesurés par Ollama."></wl-metric>
+      <wl-metric id="metric-provisional" label="Débit en cours" value="41" unit="tokens/s"
+                 provisional></wl-metric>
+    </section>
+
+    <section aria-labelledby="error-title">
+      <h2 id="error-title">Erreur</h2>
+      <wl-error id="error"></wl-error>
+    </section>
+  </main>
+</body>
+</html>

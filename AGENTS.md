@@ -1,9 +1,9 @@
 <!-- bmad:context -->
 <!-- Verified 2026-09-26 against 27d2f7e. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
-## wavelocalai (v1)
+## wavelocalai (v1 et v2)
 
-Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mesure carbone (CodeCarbon), et banc de benchmark multi-machines dans `scripts/`. Python. La v1 est en maintenance : elle sert de référence à la v2 (dépôt voisin `wavelocalai-v2`). Plans en cours : `docs/audits/frontend-2026-09/` et `_bmad-output/`.
+Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mesure carbone (CodeCarbon), et banc de benchmark multi-machines dans `scripts/`. Python. La v1 est en correctifs seulement : elle sert de référence à la v2, construite dans ce même dépôt (`src/wavelocalai/`, voir « La v2 » ; plan : `docs/audits/refonte-2026-10/00-synthese.md`). Plans en cours : `docs/audits/refonte-2026-10/`, `docs/audits/frontend-2026-09/` et `_bmad-output/`.
 
 ## Policy
 
@@ -11,6 +11,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 - Nouvelles fonctionnalités dans la v1 seulement si elles améliorent l'UI ou l'UX ; les autres vont dans la v2.
 - Ne modifier la mesure du benchmark (`scripts/benchmark_slm.py`, et ce qu'il importe de `src/core/`, dont `config.py`) que dans une PR dédiée au benchmark. Les exports ne tracent que le SHA de `benchmark_slm.py` : un changement dans `src/core/` fausse les comparaisons sans alerte.
 - Ne jamais éditer à la main `benchmarks/results/*.json` (écrit par `scripts/bench_here.py export`) ni `config/models_catalog.json` (écrit par `scripts/build_catalog.py`).
+- Les résultats de benchmark viennent de slm-quality-bench (`benchmarks/slm-quality/`, écrit par `scripts/sync_slm_results.py`) ; ne jamais les éditer à la main ni en produire dans wavelocalai.
 - Ne jamais commiter, vider ou réinitialiser `data/` (Chroma, logs, `models.json` local). Le dépôt est public : aucun document client, extrait de réponse RAG ou capture montrant du contenu indexé dans un commit ou une PR.
 - Ne jamais éditer `_bmad/` ni `.claude/skills/bmad-*`, régénérés par l'installeur : personnaliser via `_bmad/custom/*.toml`.
 - Ne jamais figer une version de dépendance de mémoire : la vérifier sur PyPI ou npm, ou par une installation réelle.
@@ -23,13 +24,22 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 - Catalogue de modèles de l'app : `data/models.json` (local, non versionné) ; `config/models_catalog.json` en est l'extrait versionné.
 - Lancer un benchmark ? Lire d'abord `docs/PROMPT_NOUVELLE_MACHINE.md` : aucun téléchargement pendant une campagne, et une PR de bench ne contient que le fichier de résultats.
 
+## La v2 (`src/wavelocalai/`)
+
+- Paquet à côté de la v1, dans le même projet : installation éditable seulement (`uv sync`), lanceur `wavelocalai-v2` (`wavelocalai.__main__:main`), port 8502 (8501 reste à la v1). Spec, architecture et epics : `_bmad-output/planning-artifacts/` (la spine d'architecture prime).
+- La v2 n'importe jamais `src.*` et la v1 jamais `wavelocalai` : ce qui est repris est copié puis adapté. Seul `web/` importe FastAPI, Starlette et uvicorn ; les imports lourds (`codecarbon`, `fastembed`, `pypdf`, `docx`, `ecologits`, SDK cloud) restent dans les fonctions. `tests/v2/unit/test_layers.py` le vérifie.
+- Version unique du dépôt : `2.0.0.dev0`, puis une préversion `2.0.0aN` par epic.
+- Tests : `python -m pytest tests/v2` (`tests/v2/{unit,web,e2e}`). E2E (`-m e2e`, exclus par défaut) en local sur Edge, rien à télécharger : `$env:WAVELOCALAI_E2E_CHROMIUM="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` puis `.venv\Scripts\python -m pytest tests/v2/e2e/<fichier> -m e2e` ; sans la variable, Chromium de Playwright (`python -m playwright install chromium`). Doublures (`fake`, faux Ollama, faux SMTP) : pas d'Ollama ; une requête hors de `127.0.0.1` fait échouer le test puis la suite (`conftest.py`).
+- CI des E2E : `.github/workflows/e2e-nocturne.yml` joue toute la suite chaque nuit sur Linux (Chromium de Playwright installé par la CI), et à la demande ; les PR n'attendent pas ce job nocturne (décision Q6 ; le job `test-v2-e2e` de `tests.yml` est un autre job, voir `story-8-3.md`). Parité avec la v1 : `docs/parite-v1-v2.md`.
+
 ## Running and verifying
 
-- Appeler l'interpréteur directement (`.venv\Scripts\python -m …`) plutôt qu'activer le venv : l'exécution de scripts PowerShell peut être bloquée.
-- Sur certaines machines, `.venv` ne contient que les dépendances du benchmark (pas Streamlit) : l'app tourne alors dans `.venv-app` (ignoré par git). Ne jamais installer `requirements.txt` dans un `.venv` réservé au benchmark.
-- Tests : `python -m pytest tests/unit`. Un `pytest` nu ou `pytest tests/` lance aussi `tests/integration`, qui exige Ollama et `qwen2.5:1.5b`.
+- Installation et lancement : `uv sync` puis `uv run wavelocalai` (`src/app/launcher.py`). Appeler l'interpréteur directement (`.venv\Scripts\python -m …`) plutôt qu'activer le venv : l'exécution de scripts PowerShell peut être bloquée.
+- `.venv` est celui de l'application (`uv sync`, `uv.lock` versionné). Sur les machines de banc, le venv du benchmark, qui n'a que ses dépendances (pas Streamlit), s'appelle `.venv-bench` ; ne jamais lancer `uv sync` ni installer `requirements.txt` dedans. `requirements.txt` et `constraints.txt` restent pour la méthode sans uv.
+- Tests (à lancer avant toute PR) : `python -m pytest tests/unit tests/app` (`tests/app` : AppTest, sans Ollama). Un `pytest` nu ou `pytest tests/` lance aussi `tests/integration`, qui exige Ollama et `qwen2.5:1.5b`.
+- Contrôle rapide (lint, format, imports, sur les fichiers modifiés depuis `master`) : `.venv\Scripts\python .claude/cost-kit/controle_rapide.py`.
 - `pytest.ini` prime sur la section pytest de `pyproject.toml`, dont les options de couverture sont donc ignorées ; la CI ajoute `--cov` elle-même.
-- Viser Python 3.10+ (cible black/ruff `py310`, CI de 3.10 à 3.12).
+- Python 3.11+ (`requires-python = ">=3.11,<3.13"`, CI en 3.11 et 3.12). Cible black/ruff `py310` pour la v1 ; `py311` pour `src/wavelocalai/` et `tests/v2/`, par leur `ruff.toml` propre.
 
 ## Conventions that differ from defaults
 
@@ -37,8 +47,7 @@ Démonstrateur Streamlit de petits modèles de langage locaux (Ollama), avec mes
 
 ## Known pitfalls
 
-- La CI (`.github/workflows/tests.yml`) ne se déclenche que sur `main` et `develop` : elle ne tourne jamais ici. Lancer les tests en local avant toute PR.
-- Sur `master` (3dfdfda), 4 tests de `tests/unit` échouent déjà : `test_inference_reelle_ollama`, `test_get_langchain_model_mistral`, `test_pull_model_cloud_raises_error`, `test_get_all_languages`. Ne pas les imputer à sa propre modification.
+- La CI (`.github/workflows/tests.yml`) tourne sur les push et les PR vers `master` (3 systèmes, Python 3.11 et 3.12) : un job v1 lance `pytest tests/unit tests/app`, un job v2 (`uv sync --locked`) lance `pytest tests/v2` ; son lint est informatif. Le même contrôle en local évite de le découvrir en PR.
 - `.secrets.baseline` : sous Windows PowerShell 5.1, `Out-File -Encoding utf8` ajoute un BOM qui casse detect-secrets ; écrire avec `[System.Text.UTF8Encoding]::new($false)`.
 - Télémétries coupées par défaut par `src/core/telemetry.py` (`TELEMETRY_OPT_OUTS`, liste reprise dans le README) : tout module de `src/` ou `scripts/` qui importe Chroma, CrewAI, Ragas, Hugging Face ou `langchain_community` (qui charge Hugging Face) appelle `disable_telemetry()` juste avant cet import ; un test AST de `tests/unit/test_telemetry.py` relève ces modules et vérifie l'ordre. Réactivation par l'environnement ou le `.env`, dont la valeur l'emporte.
 - Tests navigateur : les listes de modèles de Streamlit sont virtualisées (taper pour filtrer), et une écriture Chroma faite par un autre processus reste invisible pour un serveur déjà lancé (ingérer via l'interface).

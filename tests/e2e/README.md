@@ -112,7 +112,7 @@ Chaque constat de `docs/audits/frontend-2026-09/SYNTHESE.md` (§3) a au moins un
 | Constat | Test e2e | Couverture hors navigateur |
 |---|---|---|
 | U1 Aucune identité Wavestone | `test_pages.py::test_primary_action_uses_brand_color` (couleur, police Inter locale, fond), `test_accessibility.py` (fond clair et sombre) | `tests/app/test_theme.py::test_theme_colors_match_design` |
-| U2 Emojis en guise d'icônes et de titres | `test_pages.py::test_page_structure` : aucun emoji dans h1–h4, hors « 👋 Bonjour ! » | `tests/app/test_theme.py::test_app_sources_have_no_emoji` |
+| U2 Emojis en guise d'icônes et de titres | `test_pages.py::test_page_structure` : aucun emoji dans h1–h4 | `tests/app/test_theme.py::test_app_sources_have_no_emoji` |
 | U3 Barre d'outils de développement | `test_pages.py::test_home_is_local_and_available` : pas de bouton Deploy | `tests/app/test_theme.py::test_toolbar_and_static_serving` |
 | U4 Rouge pour l'action principale | `test_pages.py::test_primary_action_uses_brand_color` | — |
 | U5 Contrastes AA en échec | `test_accessibility.py::test_axe_no_theme_violation` (10 cas) | — |

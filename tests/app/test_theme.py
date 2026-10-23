@@ -60,8 +60,6 @@ EMOJI_RE = re.compile(
     "[\u203c\u2049\u2139\u2190\u2191\u2193-\u21ff\u2300-\u23ff\u25a0-\u25ff"
     "\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff]"
 )
-# Seule exception autorisée par DESIGN.md : l'accueil de l'agent.
-ALLOWED_EMOJI_LINE = "👋 Bonjour !"
 
 HEX_RE = re.compile(r"#[0-9A-Fa-f]{6}\b")
 # Cherché sur le fichier entier : attrape aussi st.markdown(\n    "### …").
@@ -202,12 +200,12 @@ def test_app_sources_have_no_deprecated_width_nor_injected_html():
 
 
 def test_app_sources_have_no_emoji():
-    """Aucun emoji dans src/app ni dans les textes renvoyés par les outils et providers,
-    sauf l'accueil « 👋 Bonjour ! » de l'agent."""
+    """Aucun emoji dans src/app ni dans les textes renvoyés par les outils et providers, sans
+    exception : l'accueil de l'agent est « Bonjour ! »."""
     offenders = []
     for path in _app_sources() + CORE_DISPLAYED_SOURCES:
         for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if EMOJI_RE.search(line.replace(ALLOWED_EMOJI_LINE, "")):
+            if EMOJI_RE.search(line):
                 offenders.append(f"{path.relative_to(ROOT_DIR)}:{lineno}: {line.strip()}")
 
     assert not offenders, "\n".join(offenders)
