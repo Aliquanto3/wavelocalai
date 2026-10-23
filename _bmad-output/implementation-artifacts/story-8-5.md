@@ -2,7 +2,7 @@
 title: 'Story 8.5 : La CI passe sans relance'
 type: 'bugfix'
 created: '2026-10-23'
-status: 'review'
+status: 'done'
 baseline_commit: '355fd2cd2e60b244358eeebf8487c9a9dee1a93f'  # pragma: allowlist secret
 route: 'dispatch'
 review_loop_iteration: 0

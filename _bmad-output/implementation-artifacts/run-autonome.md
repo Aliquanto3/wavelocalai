@@ -145,3 +145,7 @@ Ordre d'exécution (une à la fois) : 9.6 (maquette, préparée en premier pour 
 - 2026-10-23 05:43 · 2.0.0a8 · release · tag annoté `v2.0.0a8` et release GitHub en préversion (v1.3.0 reste « Latest ») · 1de07be
 - 2026-10-23 05:43 · 8.5 · décision · Anaël demande de planifier la fiabilisation des tests instables : story 8.5 « La CI passe sans relance » ajoutée à l'Epic 8, avant 8.4 · —
 - 2026-10-23 05:43 · Epic 9 · fin du run · 9 stories fusionnées, préversion 2.0.0a8 publiée ; à la recette : captures du README, doublon « SCÉNARIO » du Banc d'essai, largeur de l'Évaluation, écran Modèles avec les vrais modèles · —
+- 2026-10-23 · 8.5 · review · fini (second avis Haiku + revue Opus : attente de l'Arène sans relèvement de délai, focus du dialogue de confirmation, course du juge, `stabilite.yml` déclenché par PR) · cddc360
+- 2026-10-23 · 8.5 · décision · Anaël : budget de la coquille mesuré depuis `responseStart`, puis vérifié en CI sur Ubuntu seulement (macOS et Windows trop lents même depuis `responseStart`) · 737912f
+- 2026-10-23 13:59 · 8.5 · fusion · PR #132 fusionnée, CI verte sur les trois OS, `stabilite.yml` vert (20 passages, trois OS) · 14aee5b
+- 2026-10-23 · README · fusion · PR #22 fusionnée (lien vers slm-quality-bench, paragraphe aligné sur la migration du 2026-10-18) · b0d5d6e
