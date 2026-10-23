@@ -148,7 +148,7 @@ python -m venv .venv-app
 
 Le banc de qualité « difficile » des petits modèles locaux, conçu à partir de ce projet, vit désormais dans son propre dépôt : [**slm-quality-bench**](https://github.com/Aliquanto3/slm-quality-bench). Il évalue les modèles servis par Ollama, en français, sur deux pistes (réflexion coupée et activée), avec des questions protégées contre la contamination, un juge calibré sur des étiquettes humaines et des statistiques appariées.
 
-Le benchmark de vitesse et de capacités de ce dépôt (`scripts/benchmark_slm.py`, `scripts/bench_here.py`) reste ici : il alimente le catalogue de modèles de l'application.
+Les résultats de benchmark affichés par l'application en viennent : l'Action `sync-slm-results.yml` les recopie dans `benchmarks/slm-quality/` (`scripts/sync_slm_results.py`) et ouvre une PR. wavelocalai n'en produit plus lui-même.
 
 ---
 
