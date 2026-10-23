@@ -119,10 +119,14 @@ export class WlConfirmDialog extends HTMLElement {
     resolve?.(value);
     const back = this.#returnFocus;
     this.#returnFocus = null;
-    // `dialog.close()` rend elle-même le focus à l'élément actif d'avant `showModal()` (story 8.5) :
-    // ce retour natif est asynchrone et peut écraser un `focus()` posé dans le même tour de boucle.
-    // On pose le nôtre une fois ce retour natif passé.
+    if (back?.isConnected && typeof back.focus === "function") back.focus();
+    // Rattrapage (story 8.5) : si le nœud d'origine a été remplacé pendant l'ouverture, ou si le
+    // retour natif de `<dialog>` a laissé le focus sur `body`, on repose le focus sur l'équivalent
+    // actuel une image plus tard -- seulement s'il est encore perdu, pour ne jamais écraser le focus
+    // qu'un appelant a posé lui-même après `await ask()` (lignes de documents, approbations…).
     requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active.isConnected && !this.contains(active)) return;
       const target = reacquire(back);
       if (target?.isConnected && typeof target.focus === "function") target.focus();
     });

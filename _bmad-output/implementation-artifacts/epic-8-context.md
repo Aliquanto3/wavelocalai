@@ -16,7 +16,7 @@ Faire de la v2 l'unique application du dépôt : solder la dette technique et le
 
 ## Requirements & Constraints
 
-- Budgets de performance : coquille < 300 ms en local, changement d'écran < 150 ms, premier rendu < 1 s ; aucune route de lecture > 300 ms Ollama arrêté (sonde ≤ 1 s, cache 5 s en lecture / 1 s pour le flux système). Les tests de budget doivent mesurer une médiane de plusieurs appels après un appel d'échauffement, pas un appel isolé (8.5).
+- Budgets de performance : coquille < 300 ms en local, changement d'écran < 150 ms, premier rendu < 1 s ; aucune route de lecture > 300 ms Ollama arrêté (sonde ≤ 1 s, cache 5 s en lecture / 1 s pour le flux système). Les tests de budget doivent mesurer le deuxième meilleur de cinq appels après un appel d'échauffement, pas un appel isolé (8.5, décision du 2026-10-23).
 - Accessibilité : RGAA 4.1 / WCAG 2.2 AA, axe-core sans violation ni exclusion sur chaque écran, en clair, en sombre et en mode projection (panneaux et dialogues ouverts compris) ; aucun défilement horizontal à 320 px CSS et 200 % de zoom, hors tableaux larges qui défilent dans leur conteneur.
 - Tests : `tests/v2/unit` (sans serveur), `tests/v2/web` (TestClient), `tests/v2/e2e` (Playwright, marqueur `e2e`, exclu par défaut de la CI de PR) ; Ollama réel = marqueur `integration` ; base de test toujours en dossier temporaire. « Terminé » = code et tests verts vérifiables par l'agent, puis recette humaine en fin de lot ; la v1 doit rester lançable et intacte jusqu'à la bascule.
 - Aucun test ne doit être supprimé, ignoré (`skip`, `xfail`) ni affaibli pour stabiliser la CI (8.5) ; un test retiré est remplacé par un équivalent, raison documentée.

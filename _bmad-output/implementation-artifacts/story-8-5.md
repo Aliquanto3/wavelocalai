@@ -66,12 +66,12 @@ context:
 - [x] `tests/v2/latency.py` (nouveau, ou `tests/v2/conftest.py`) -- helper de mesure : un échauffement, cinq mesures, deuxième meilleur comparé au budget, message d'échec avec toutes les mesures -- un seul endroit pour la règle.
 - [x] `_bmad-output/planning-artifacts/epics.md:1957` -- remplacer « la médiane de plusieurs appels après un appel d'échauffement » par « le deuxième meilleur de cinq appels après un appel d'échauffement » -- décision du 2026-10-23.
 - [x] `tests/v2/web/test_conversations_api.py`, `tests/v2/web/test_model_card_api.py`, `tests/v2/e2e/test_shell.py` -- utiliser le helper ; ajouter un test qui ralentit la route (et le chargement de la coquille, par route Playwright retardée) et vérifie l'échec du helper -- preuve que le test mord encore.
-- [x] `src/wavelocalai/web/static/screens/arena.js` et/ou `tests/v2/e2e/test_arena.py` -- diagnostiquer, puis corriger l'écran si le résumé disparaît trop tôt ; sinon attendre un état stable (`expect(...).to_be_visible()`, attribut d'état) -- respecte D-16. Diagnostic : pas de défaut d'écran (le backend attend toutes les lanes avant `run_ended`) ; marge du délai de l'attente portée à 30 s (charge du runner, voir Implementation Notes).
+- [x] `src/wavelocalai/web/static/screens/arena.js` et/ou `tests/v2/e2e/test_arena.py` -- diagnostiquer, puis corriger l'écran si le résumé disparaît trop tôt ; sinon attendre un état stable (`expect(...).to_be_visible()`, attribut d'état) -- respecte D-16. Diagnostic : pas de défaut d'écran (le backend attend toutes les lanes avant `run_ended`) ; cause trouvée à la revue : « mot » répété 400 fois déclenchait le détecteur de répétition (story 9.2), qui arrêtait les lanes aussitôt ; texte sans répétition, `fake:a` qui ne finit pas seul et run arrêté par « Arrêter » après l'audit, délai par défaut rendu.
 - [x] `tests/v2/e2e/test_models_manage.py` -- attentes de focus par `expect(...).to_be_focused()`.
 - [x] `tests/v2/web/test_arena_api.py` -- marges proportionnelles : durée de lane et délai tels que « compté depuis l'attente » dépasse nettement et « compté depuis la place » reste nettement en dessous (ex. 1 s par lane, délai 1,5 s), sans changer la production.
 - [x] `tests/v2/e2e/conftest.py` et/ou `test_accessibilite.py` -- trouver l'état partagé fautif, l'isoler par fixture ; le test passe seul et en suite.
-- [x] `.github/workflows/stabilite.yml` (nouveau) -- `workflow_dispatch` seul, matrice ubuntu/windows/macos, Python 3.12, `uv sync --locked`, Chromium de Playwright, boucle de 20 passes sur les sept tests, arrêt au premier échec.
-- [x] `_bmad-output/implementation-artifacts/run-autonome.md` -- vider la liste des tests instables connus (ligne 45) en citant la story 8.5 ; vérifier qu'`AGENTS.md` ne mentionne aucune relance (rien à y changer).
+- [x] `.github/workflows/stabilite.yml` (nouveau) -- `workflow_dispatch`, plus `pull_request` filtré sur ce seul fichier (revue : `workflow_dispatch` n'est lançable qu'une fois le fichier sur `master`), matrice ubuntu/windows/macos, Python 3.12, `uv sync --locked`, Chromium de Playwright, boucle de 20 passes sur les sept tests, arrêt au premier échec.
+- [ ] `_bmad-output/implementation-artifacts/run-autonome.md` -- vider la liste des tests instables connus (ligne 45) en citant la story 8.5 ; vérifier qu'`AGENTS.md` ne mentionne aucune relance (rien à y changer). Revue : retiré de la PR de story (fichier d'état du run, PR `chore/etat-run` à part), à faire par l'orchestrateur une fois `stabilite.yml` vert.
 
 **Acceptance Criteria:**
 - Given le workflow `stabilite.yml` lancé sur la branche, when il se termine, then les sept tests passent 20 fois de suite sur les trois OS.
@@ -107,19 +107,35 @@ context:
   fois en local (sur ce poste, chargé par cette même session) un dépassement du délai par défaut de
   Playwright (15 s) avant que `.arena-summary` devienne visible, cohérent avec les deux occurrences
   CI de `run-autonome.md` (3 morceaux E2E en parallèle sur le même runner) : le délai de cette seule
-  attente est porté à 30 s (marge indépendante de la vitesse du runner, pas un budget applicatif).
-  Non reproduit à nouveau sur 8 passages locaux suivants : la preuve définitive revient à
-  `stabilite.yml` (20 passages × 3 OS).
+  attente avait été porté à 30 s. Revue : délai rendu à sa valeur par défaut, l'attente était mal
+  posée. Reproduit à chaque passage en local : le run finissait en moins de 4 s, `fake:a` compris,
+  car le texte long (`"mot " * 400`) déclenchait le détecteur de répétition de la story 9.2
+  (`loop_detector.py`, `stopped_reason: "loop"`), qui arrêtait les lanes sans attendre leur pause ;
+  le résumé n'était visible qu'un instant. Le texte long n'a plus de répétition (`mot0 … mot399`),
+  `fake:a` dort 3 × 30 s (plafond du `fake`) sans finir seul, et le test audite le résumé, clique
+  « Arrêter » et attend « Comparaison arrêtée » avant l'audit de la configuration revenue.
 - `test_accessibilite.py::test_every_screen_has_one_h1_a_distinct_title_and_the_french_language` :
   utilisait le `server` partagé (module, toutes les routes de `test_accessibilite.py`) au lieu d'un
   serveur dédié ; un scénario antérieur du même fichier peut laisser des documents ingérés dans la
   base de `/documents/base`, changeant son rendu (plus un seul `h1`) selon l'ordre de la suite. Isolé
   avec la fixture `backend` (serveur et dossier de données neufs, propres à ce test).
-- `.github/workflows/stabilite.yml` (nouveau) : `workflow_dispatch` seul, matrice des trois OS,
+- `.github/workflows/stabilite.yml` (nouveau) : `workflow_dispatch` et `pull_request` filtré sur ce fichier, matrice des trois OS,
   vingt passages des sept tests ci-dessus (`-m "e2e or not e2e"` pour mélanger web et E2E dans le même
   passage malgré le `-m "not e2e"` par défaut de `pytest.ini`), arrêt au premier échec par passage.
-- `epics.md:1957` et `run-autonome.md` (liste des tests instables) mis à jour comme demandé.
-  `AGENTS.md` ne mentionne aucune relance : rien à y changer.
+- `epics.md:1957` mis à jour comme demandé. `run-autonome.md` : retiré de la PR à la revue (fichier
+  d'état du run). `AGENTS.md` ne mentionne aucune relance : rien à y changer.
+
+- `test_arena_judge_api.py::test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_judge`
+  (ajout de la revue, vu en CI Windows 3.12, run 39926709839, `assert 2 == 1`) : quand le juge de
+  `fake:b` prenait la place locale avant que `fake:a` (réponse vide) la demande, `fake:b` était
+  noté avec le total juste à cet instant (2) et jamais republié. Pas un défaut : `total` compte les
+  colonnes encore en génération, et `_refresh_judge_total` ne republie que les colonnes encore chez
+  le juge. `fake:b` génère maintenant pendant 1 s (`Sleep(1.0)`), ce qui laisse `fake:a` attendre la
+  place avant le juge (file FIFO de `LocalSlot`) quel que soit l'ordre de départ.
+- `wl-confirm-dialog.js` (revue) : le retour de focus synchrone d'avant 8.5 est rétabli ; le
+  rattrapage par `requestAnimationFrame` ne joue que si le focus est perdu (`body`, nœud détaché ou
+  resté dans le dialogue fermé), pour ne jamais écraser un focus posé par l'appelant après
+  `await ask()` (`documents-manage.js` : `focusRow`, `fallbackFocus`).
 
 ## Spec Change Log
 
@@ -128,13 +144,32 @@ context:
 
 ## Review Triage Log
 
+Revue Opus du 2026-10-23, base `origin/master` 355fd2c à jour (pas de rebase nécessaire).
+
+- medium · second avis 1 · corrigé · `test_arena.py` : le délai à 30 s masquait une attente mal posée ; vraie cause, le détecteur de répétition (9.2) arrêtait les lanes sur `"mot " * 400`. Texte sans répétition, run arrêté par « Arrêter », délai par défaut.
+- medium · second avis 2 · corrigé · `stabilite.yml` : `workflow_dispatch` n'est lançable qu'une fois le fichier sur `master` ; ajout de `pull_request` filtré sur ce seul fichier, pour avoir la preuve sur la PR avant fusion.
+- medium · second avis 3 · corrigé · `run-autonome.md` ramené à l'état de `master` (fichier d'état du run, et preuve affirmée mais pas faite) ; liste à vider par l'orchestrateur, en PR `chore/etat-run`, une fois `stabilite.yml` vert. `sprint-status.yaml` n'est pas dans la branche.
+- medium · second avis 4 + revue · corrigé · `wl-confirm-dialog.js` : le `focus()` différé écrasait le focus posé par l'appelant après `await ask()` (`documents-manage.js`). Retour synchrone rétabli, rattrapage seulement si le focus est perdu. E2E rejoués : `test_models_manage` (delete), `test_documents_manage` (21), `test_accessibilite` (focus, h1), approbations `test_agents_solo`/`test_agents_crew`, tous verts.
+- low · second avis 5 · rejeté · `reacquire` rend `null` si les classes ont changé : le focus reste alors sur `body`, comme avant la 8.5. Pas de régression, cas non rencontré.
+- low · second avis 6 · corrigé · `epic-8-context.md` : « médiane de plusieurs appels » remplacé par « deuxième meilleur de cinq appels ».
+- low · second avis 7 · corrigé · `controle_rapide.py` relancé : vert, sans coupe-circuit.
+- low · second avis 8 · rejeté · `timeout-minutes: 90` : estimation de 1 à 2 min par passage, soit 20 à 40 min pour 20 passages, plus l'installation. À mesurer au premier passage sur la PR.
+- medium · orchestrateur (CI run 39926709839) · corrigé · `test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_judge` dépendait de l'ordre d'accès à la place locale (voir Implementation Notes). Ajouté à `stabilite.yml`.
+- medium · orchestrateur (CI run 39926709839) · reporté (décision d'Anaël) · `test_shell_renders_under_300_ms…` sur Ubuntu : mesures de 333, 334, 390, 364 et 243 ms, deuxième meilleur à 333 ms. La branche applique déjà la règle (échauffement puis deuxième meilleur de cinq, sur `fcp` comme sur `ready`), mais le runner dépasse le budget. Ni la règle ni le budget ne peuvent changer sans Anaël (frozen-intent). Pistes à trancher : meilleur de cinq, mesure depuis `responseStart` (sans le temps du serveur), ou budget de coquille vérifié en local seulement.
+- low · revue · reporté · `test_models_manage.py::test_the_defaults_section_lists_the_five_purposes_with_their_reason` et `test_choosing_a_default_writes_it_and_reverting_clears_it` dépendent de la RAM libre réelle du poste (rouges ici, poste saturé, comme sur `master`). Verts en CI. À isoler par une mémoire injectée si on les voit en CI.
+- Complexité : 0 constat (le helper fait six mesures, `reacquire` une requête DOM par fermeture).
+
+## Revue
+
+Constats medium du second avis et de l'orchestrateur corrigés, sauf le budget de la coquille sous la charge d'Ubuntu, qui attend une décision. Restent à vérifier sur la PR : `stabilite.yml` vert sur les trois OS (AC 1) et trois CI vertes de suite (AC 2). Statut laissé à `review` jusqu'à ces preuves et à cette décision.
+
 ## Verification
 
 **Commands:**
 - `.venv\Scripts\python -m pytest tests/v2/web/test_conversations_api.py tests/v2/web/test_model_card_api.py tests/v2/web/test_arena_api.py -q --tb=short` -- expected: vert
 - `.venv\Scripts\python -m pytest tests/v2/e2e/test_shell.py tests/v2/e2e/test_arena.py tests/v2/e2e/test_models_manage.py tests/v2/e2e/test_accessibilite.py -m e2e -q --tb=short` (avec `WAVELOCALAI_E2E_CHROMIUM` sur Edge) -- expected: vert
 - `.venv\Scripts\python .claude/cost-kit/controle_rapide.py` -- expected: aucun défaut
-- `gh workflow run stabilite.yml --ref <branche>` puis `gh run watch <id> --interval 60` -- expected: vert sur les trois OS -- not yet run (demande de ne rien pousser ni lancer de workflow distant dans cette session) ; à lancer avant fusion.
+- `stabilite.yml` se lance seul sur la PR (déclencheur `pull_request` filtré sur le fichier) ; `gh run watch <id> --interval 60` -- expected: vert sur les trois OS -- not yet run (rien poussé dans cette session) ; preuve à constater sur la PR avant fusion.
 
 **Observed (ce poste, Edge, exécutions locales) :**
 - `tests/v2/web/test_conversations_api.py tests/v2/web/test_model_card_api.py tests/v2/web/test_arena_api.py` : 59 verts.

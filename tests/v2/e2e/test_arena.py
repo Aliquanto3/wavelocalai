@@ -1478,27 +1478,29 @@ def test_axe_finds_no_violation_with_four_models_the_summary_and_the_folded_answ
     arena.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
     for name in ("Charlie 3B", "Delta 4B"):
         pick(arena, name)
-    long_text = "mot " * 400
+    # Des mots tous différents : « mot » répété 400 fois déclenchait le détecteur de répétition
+    # (story 9.2, `loop_detector.py`), qui arrêtait les lanes aussitôt -- d'où un résumé visible un
+    # instant seulement, puis jamais (story 8.5).
+    long_text = " ".join(f"mot{index}" for index in range(400))
     scripted(
         arena,
         server,
         {
-            "fake:a": [{"text": long_text}, {"sleep_s": 2.5}, {"done": DONE}],
+            "fake:a": [{"text": long_text}, *[{"sleep_s": 30}] * 3],  # 90 s, jamais fini seul
             "fake:b": [{"text": long_text}, {"done": DONE}],
             "fake:c": [{"text": "Court"}, {"done": DONE}],
             "fake:d": [{"text": long_text}, {"done": DONE}],
         },
     )
     launch(arena)
-    # Vu deux fois en CI (run-autonome.md) avec les trois morceaux E2E en parallèle sur le même
-    # runner : le résumé apparaît bien dès le lancement (`running()`, D-16 ; le backend n'envoie
-    # `run_ended` qu'après `asyncio.gather` de toutes les lanes, `arena.py:451`), mais le rendu de la
-    # page peut dépasser les 15 s par défaut sous cette charge, sans rapport avec les 300 ms de l'app.
-    # Marge indépendante de la vitesse du runner (story 8.5), pas une attente par horloge murale.
-    arena.locator(".arena-summary").wait_for(state="visible", timeout=30_000)
-    lane(arena, "fake:a").locator(".wl-md").wait_for(timeout=30_000)
+    # Story 8.5 : `fake:a` ne finit pas seul pendant le test (3 × 30 s, plafond du `fake`) ; le run
+    # s'arrête par « Arrêter » une fois l'audit du résumé fait. Le résumé n'est visible que tant que
+    # le run tourne : une fin naturelle courrait contre l'attente, et aucun délai n'y changerait rien.
+    arena.locator(".arena-summary").wait_for(state="visible")
+    lane(arena, "fake:a").locator(".wl-md").wait_for()
     assert_no_axe_violations(arena, f"résumé et colonnes repliées, {width} px, thème {theme}")
-    wait_banner(arena, "Comparaison terminée")
+    arena.locator(".arena-banner").get_by_role("button", name="Arrêter").click()
+    wait_banner(arena, "Comparaison arrêtée")
     assert_no_axe_violations(arena, f"configuration revenue, {width} px, thème {theme}")
 
 

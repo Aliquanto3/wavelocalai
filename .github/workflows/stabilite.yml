@@ -1,12 +1,19 @@
 name: Stabilite CI (story 8.5)
 
-# Rejoue, a la demande seulement, les sept tests signales instables au temps ou a l'ordre de la
-# suite pendant le run de l'Epic 9 (5 relances de job sur 12 PR, jamais pour un defaut reel) :
+# Rejoue les sept tests signales instables au temps ou a l'ordre de la
+# suite pendant le run de l'Epic 9 (5 relances de job sur 12 PR, jamais pour un defaut reel),
+# plus celui du juge vu ensuite (revue de la 8.5) :
 # chacun doit passer 20 fois de suite sur les trois OS, arret au premier echec (jamais de relance).
-# Jamais sur push ni PR : une fois la stabilite prouvee, le controle rapide, la CI de branche
-# (tests.yml) et la suite nocturne (e2e-nocturne.yml) suffisent.
+# A la demande, et sur une PR seulement si elle modifie ce fichier : `workflow_dispatch` n'est
+# lancable qu'une fois le fichier sur la branche par defaut, or la preuve doit preceder la fusion
+# (PR de la story 8.5). Ensuite, le controle rapide, la CI de branche (tests.yml) et la suite
+# nocturne (e2e-nocturne.yml) suffisent ; aucun autre declencheur sur push ni PR.
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/stabilite.yml'
 
 permissions:
   contents: read
@@ -45,13 +52,14 @@ jobs:
     # `-m "e2e or not e2e"` annule le `-m "not e2e"` par defaut de pytest.ini (`addopts`) : les
     # tests web et E2E de la liste tournent dans le meme passage. Vingt passages, arret au premier
     # echec a l'interieur d'un passage (`-x`) : une relance reviendrait a l'outillage, pas au test.
-    - name: Rejouer 20 fois les sept tests autrefois instables
+    - name: Rejouer 20 fois les tests autrefois instables
       shell: bash
       run: |
         tests=(
           "tests/v2/web/test_conversations_api.py::test_routes_with_a_path_parameter_stay_under_the_read_budget"
           "tests/v2/web/test_model_card_api.py::test_the_card_answers_under_300_ms_with_ollama_down"
           "tests/v2/web/test_arena_api.py::test_lane_timeout_counts_from_the_slot_not_from_the_wait"
+          "tests/v2/web/test_arena_judge_api.py::test_judge_progress_is_not_published_for_an_empty_answer_or_without_a_judge"
           "tests/v2/e2e/test_shell.py::test_shell_renders_under_300_ms_without_waiting_for_the_api_ollama_stopped"
           "tests/v2/e2e/test_arena.py::test_axe_finds_no_violation_with_four_models_the_summary_and_the_folded_answers"
           "tests/v2/e2e/test_models_manage.py::test_deleting_asks_first_with_the_focus_on_cancel_then_removes_the_model"
