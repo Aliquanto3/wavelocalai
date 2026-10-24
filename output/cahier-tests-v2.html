@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cahier de tests WaveLocalAI v2 — Wavestone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ws-purple: #451DC7; --ws-purple-dark: #250F6B; --ws-purple-soft: #EDE7FE;
+    --ws-green: #04F06A; --ws-green-light: #CAFEE0;
+    --ws-ink: #0a0a14; --ws-ink-soft: #4a4a5e; --ws-gray: #8a8a9e;
+    --ws-line: #E6E6EC; --ws-cream: #F6F5FA; --ws-yellow: #FFCA4A; --ws-red: #FF2A49;
+    --radius-sm: 12px; --radius-md: 16px; --radius-lg: 22px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+  body { font-family: 'Aptos', 'Inter', system-ui, sans-serif; background: white; color: var(--ws-ink);
+         line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  .container { max-width: 1360px; margin: 0 auto; padding: 0 2rem; }
+  .mono { font-family: 'Manrope', 'Inter', monospace; letter-spacing: 0.14em; text-transform: uppercase;
+          font-size: 0.78rem; font-weight: 700; }
+  section { padding: 5.5rem 0; position: relative; }
+  section.alt { background: var(--ws-cream); }
+  h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.1; }
+  h2 { font-size: clamp(1.9rem, 4vw, 3rem); font-weight: 700; letter-spacing: -0.03em; }
+  .accent { color: var(--ws-purple); }
+  code, kbd { font-family: Consolas, 'Cascadia Mono', monospace; font-size: 0.86em; background: var(--ws-purple-soft);
+              color: var(--ws-purple-dark); padding: 0.08em 0.4em; border-radius: 6px; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--ws-line); transition: all .4s var(--ease); }
+  nav.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,0.05); }
+  .nav-inner { max-width: 1360px; margin: 0 auto; padding: 0.9rem 2rem; display: flex;
+               justify-content: space-between; align-items: center; gap: 1.5rem; }
+  .logo { display: flex; align-items: center; gap: 0.85rem; text-decoration: none; color: var(--ws-ink); }
+  .logo-svg { height: 24px; width: auto; display: block; flex-shrink: 0; }
+  .logo-svg path { fill: var(--ws-purple); transition: fill .3s var(--ease); }
+  .logo:hover .logo-svg path { fill: var(--ws-purple-dark); }
+  .logo-divider { width: 1px; height: 26px; background: var(--ws-line); }
+  .logo-context { display: flex; flex-direction: column; line-height: 1.15; }
+  .logo-context .for { font-size: 0.66rem; color: var(--ws-gray); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+  .logo-context .for-client { color: var(--ws-purple); font-weight: 800; }
+  .nav-links { display: flex; gap: 1.6rem; align-items: center; }
+  .nav-links a { color: var(--ws-ink); text-decoration: none; font-size: 0.86rem; font-weight: 500; position: relative; padding: 0.3rem 0; }
+  .nav-links a::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--ws-purple); transition: width .4s var(--ease); }
+  .nav-links a:hover::after { width: 100%; }
+  .nav-progress { display: flex; align-items: center; gap: 0.7rem; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+  .nav-progress .bar { width: 110px; height: 8px; border-radius: 99px; background: var(--ws-line); overflow: hidden; }
+  .nav-progress .bar span { display: block; height: 100%; width: 0; background: var(--ws-purple); transition: width .4s var(--ease); }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.85rem 1.5rem; border-radius: 100px;
+         font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: all .3s var(--ease); cursor: pointer;
+         border: none; font-family: inherit; }
+  .btn-primary { background: var(--ws-purple); color: white; }
+  .btn-primary:hover { background: var(--ws-purple-dark); transform: translateY(-2px); }
+  .btn-outline { background: white; color: var(--ws-ink); border: 1.5px solid var(--ws-line); }
+  .btn-outline:hover { border-color: var(--ws-purple); color: var(--ws-purple); }
+  .btn .arrow { transition: transform .3s var(--ease); }
+  .btn:hover .arrow { transform: translateX(4px); }
+  .btn svg { width: 18px; height: 18px; }
+
+  /* HERO */
+  .hero { display: flex; align-items: center; padding: 9rem 0 4rem; position: relative; overflow: hidden; }
+  .hero-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .hero-bg::before { content: ''; position: absolute; width: 700px; height: 700px; border-radius: 50%; top: -200px; right: -200px; opacity: 0.7;
+                     background: radial-gradient(circle, var(--ws-purple-soft), transparent 70%); }
+  .hero-bg::after { content: ''; position: absolute; width: 400px; height: 400px; border-radius: 50%; bottom: -100px; left: -100px;
+                    background: radial-gradient(circle, rgba(4,240,106,0.18), transparent 70%); }
+  .dot-grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(69,29,199,0.12) 1px, transparent 1px);
+              background-size: 28px 28px; opacity: 0.5; pointer-events: none; }
+  .hero-content { position: relative; z-index: 2; width: 100%; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 0.6rem; margin-bottom: 1.8rem; color: var(--ws-purple); }
+  .hero-eyebrow::before { content: ''; width: 32px; height: 2px; background: var(--ws-purple); }
+  h1.hero-title { font-size: clamp(2.4rem, 6vw, 4.8rem); line-height: 0.98; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 2rem; max-width: 900px; }
+  h1.hero-title .highlight { color: var(--ws-purple); position: relative; display: inline-block; z-index: 0; }
+  h1.hero-title .highlight::after { content: ''; position: absolute; left: 0; bottom: 6px; width: 100%; height: 14px; background: var(--ws-green);
+                                    z-index: -1; opacity: 0.55; animation: underlineGrow 1.2s .6s var(--ease) both; }
+  @keyframes underlineGrow { from { width: 0; } to { width: 100%; } }
+  .hero-sub { font-size: 1.15rem; color: var(--ws-ink-soft); max-width: 640px; margin-bottom: 2.2rem; }
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-top: 4.5rem; padding-top: 2.5rem; border-top: 1px solid var(--ws-line); }
+  .stat .num { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .stat .num .suffix { color: var(--ws-purple); }
+  .stat .label { color: var(--ws-gray); font-size: 0.88rem; margin-top: 0.5rem; }
+  .hero-orb { position: absolute; right: 4%; top: 50%; transform: translateY(-50%); width: 420px; height: 420px; pointer-events: none; z-index: 1;
+              animation: orbFloat 8s ease-in-out infinite; }
+  @keyframes orbFloat { 0%, 100% { transform: translateY(-50%) rotate(0deg); } 50% { transform: translateY(-54%) rotate(3deg); } }
+  .hero-orb .ring { animation: ringSpin 40s linear infinite; transform-origin: center; }
+  .hero-orb .ring-2 { animation-duration: 60s; animation-direction: reverse; }
+  .hero-orb .ring-3 { animation-duration: 80s; }
+  @keyframes ringSpin { to { transform: rotate(360deg); } }
+  .hero-orb .node { animation: nodePulse 3s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+  .hero-orb .n2 { animation-delay: .4s; } .hero-orb .n3 { animation-delay: .8s; } .hero-orb .n4 { animation-delay: 1.2s; }
+  .hero-orb .n5 { animation-delay: 1.6s; } .hero-orb .n6 { animation-delay: 2s; }
+  @keyframes nodePulse { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.4); opacity: 1; } }
+  @media (max-width: 1100px) { .hero-orb { opacity: 0.25; width: 300px; } }
+  @media (max-width: 700px) { .hero-orb { display: none; } }
+
+  /* REVEAL */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal.delay-1 { transition-delay: .1s; } .reveal.delay-2 { transition-delay: .2s; } .reveal.delay-3 { transition-delay: .3s; }
+
+  .section-head { margin-bottom: 3rem; max-width: 900px; }
+  .eyebrow { color: var(--ws-purple); margin-bottom: 1.1rem; display: inline-flex; align-items: center; gap: 0.7rem; }
+  .eyebrow::before { content: ''; width: 28px; height: 2px; background: var(--ws-purple); }
+  .section-intro { margin-top: 1.2rem; font-size: 1.03rem; color: var(--ws-ink-soft); max-width: 760px; }
+  .section-meta { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.2rem; }
+  .chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.8rem; border-radius: 99px; font-size: 0.8rem;
+          font-weight: 600; background: white; border: 1px solid var(--ws-line); color: var(--ws-ink-soft); }
+  .chip svg { width: 14px; height: 14px; }
+
+  /* PILLARS (how to use) */
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .pillar { background: white; border: 1px solid var(--ws-line); border-radius: var(--radius-lg); padding: 2rem; transition: all .4s var(--ease); }
+  .pillar:hover { border-color: var(--ws-purple); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(69,29,199,0.08); }
+  .pillar .ico { width: 48px; height: 48px; border-radius: 14px; background: var(--ws-purple-soft); color: var(--ws-purple);
+                 display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; }
+  .pillar .ico svg { width: 24px; height: 24px; }
+  .pillar h3 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .pillar p { color: var(--ws-ink-soft); font-size: 0.95rem; }
+
+  /* TABS (préparation) */
+  .tabs-nav { display: flex; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; border-bottom: 1px solid var(--ws-line); padding-bottom: 1.3rem; }
+  .tab-btn { padding: 0.75rem 1.4rem; border: 1.5px solid var(--ws-line); background: white; border-radius: 999px; cursor: pointer;
+             font-family: inherit; font-weight: 600; font-size: 0.9rem; color: var(--ws-ink); transition: all .3s var(--ease);
+             display: flex; align-items: center; gap: 0.6rem; }
+  .tab-btn .step { width: 24px; height: 24px; border-radius: 50%; background: var(--ws-cream); display: flex; align-items: center;
+                   justify-content: center; font-size: 0.78rem; font-weight: 700; }
+  .tab-btn:hover { border-color: var(--ws-ink); transform: translateY(-2px); }
+  .tab-btn.active { background: var(--ws-ink); color: white; border-color: var(--ws-ink); }
+  .tab-btn.active .step { background: var(--ws-purple); color: white; }
+  .tab-panel { display: none; animation: fadeIn .5s var(--ease); }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .panel-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2rem; align-items: start; }
+  .panel-grid p, .panel-grid li { color: var(--ws-ink-soft); font-size: 0.97rem; }
+  .panel-grid ul { padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+  .cmd { position: relative; background: var(--ws-ink); color: #e9e6ff; border-radius: var(--radius-md); padding: 1.3rem 1.4rem;
+         font-family: Consolas, 'Cascadia Mono', monospace; font-size: 0.88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+  .cmd .c { color: #9b93c9; }
+  .copy { position: absolute; top: 0.7rem; right: 0.7rem; background: rgba(255,255,255,0.1); color: white; border: 0; border-radius: 8px;
+          padding: 0.35rem 0.7rem; font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+  .copy:hover { background: var(--ws-purple); }
+  .models-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; background: white; border-radius: var(--radius-md); overflow: hidden; }
+  .models-table th, .models-table td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--ws-line); vertical-align: top; }
+  .models-table th { font-family: 'Manrope', sans-serif; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-gray); background: var(--ws-cream); }
+
+  /* FILTER BAR */
+  .filterbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 2rem;
+               background: white; border: 1px solid var(--ws-line); border-radius: var(--radius-md); padding: 1rem 1.3rem; }
+  .seg { display: inline-flex; border: 1.5px solid var(--ws-line); border-radius: 99px; overflow: hidden; }
+  .seg button { border: 0; background: white; padding: 0.55rem 1rem; font-family: inherit; font-weight: 600; font-size: 0.84rem; cursor: pointer; color: var(--ws-ink-soft); }
+  .seg button.on { background: var(--ws-purple); color: white; }
+  .counts { display: flex; gap: 1.2rem; flex-wrap: wrap; font-size: 0.86rem; font-weight: 600; }
+  .counts span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.ok { background: var(--ws-green); } .dot.ko { background: var(--ws-red); } .dot.blk { background: var(--ws-yellow); } .dot.todo { background: var(--ws-line); }
+
+  /* TEST CARDS */
+  .tests { display: grid; gap: 1rem; }
+  .test { background: white; border: 1px solid var(--ws-line); border-left: 4px solid var(--ws-line); border-radius: var(--radius-md);
+          padding: 1.4rem 1.6rem; display: grid; grid-template-columns: 1fr 230px; gap: 1.6rem; transition: border-color .3s, box-shadow .3s; }
+  .test:hover { box-shadow: 0 8px 28px rgba(69,29,199,0.06); }
+  .test[data-status="ok"] { border-left-color: var(--ws-green); }
+  .test[data-status="ko"] { border-left-color: var(--ws-red); }
+  .test[data-status="blk"] { border-left-color: var(--ws-yellow); }
+  .test.hidden { display: none; }
+  .test-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+  .test-id { font-family: 'Manrope', sans-serif; font-weight: 800; color: var(--ws-purple); font-size: 0.85rem; letter-spacing: 0.06em; }
+  .test-title { font-size: 1.08rem; font-weight: 700; }
+  .tag { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 99px; }
+  .tag.ess { background: var(--ws-purple-soft); color: var(--ws-purple); }
+  .tag.opt { background: var(--ws-cream); color: var(--ws-gray); border: 1px solid var(--ws-line); }
+  .tag.ui { background: var(--ws-green-light); color: #035c2a; }
+  .test-body { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+  .test-body h4 { font-family: 'Manrope', sans-serif; font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-gray); margin-bottom: 0.45rem; }
+  .test-body ol, .test-body ul { padding-left: 1.15rem; display: grid; gap: 0.3rem; font-size: 0.93rem; color: var(--ws-ink-soft); }
+  .test-body .expect li::marker { color: var(--ws-purple); }
+  .test-side { display: flex; flex-direction: column; gap: 0.6rem; }
+  .status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
+  .status button { border: 1.5px solid var(--ws-line); background: white; border-radius: 10px; padding: 0.5rem 0.2rem; font-family: inherit;
+                   font-weight: 700; font-size: 0.78rem; cursor: pointer; color: var(--ws-ink-soft); transition: all .2s; }
+  .status button:hover { border-color: var(--ws-ink); }
+  .status button[aria-pressed="true"][data-v="ok"] { background: var(--ws-green); border-color: var(--ws-green); color: var(--ws-ink); }
+  .status button[aria-pressed="true"][data-v="ko"] { background: var(--ws-red); border-color: var(--ws-red); color: white; }
+  .status button[aria-pressed="true"][data-v="blk"] { background: var(--ws-yellow); border-color: var(--ws-yellow); color: var(--ws-ink); }
+  .test-side textarea { width: 100%; min-height: 84px; resize: vertical; border: 1.5px solid var(--ws-line); border-radius: 10px; padding: 0.6rem 0.7rem;
+                        font-family: inherit; font-size: 0.85rem; color: var(--ws-ink); }
+  .test-side textarea:focus, .status button:focus-visible, .btn:focus-visible, .tab-btn:focus-visible, .seg button:focus-visible { outline: 3px solid var(--ws-purple); outline-offset: 2px; }
+  .hint { font-size: 0.78rem; color: var(--ws-gray); }
+
+  /* ACCORDION (dépannage) */
+  .phase-item { background: white; border-radius: var(--radius-lg); overflow: hidden; transition: all .4s var(--ease); border: 1px solid var(--ws-line); margin-bottom: 0.8rem; }
+  .phase-item.open { border-color: var(--ws-purple); box-shadow: 0 12px 40px rgba(69,29,199,0.08); }
+  .phase-header { width: 100%; background: none; border: 0; text-align: left; font-family: inherit; color: inherit; padding: 1.4rem 1.8rem;
+                  display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 1.2rem; cursor: pointer; }
+  .phase-num { font-size: 2rem; font-weight: 800; color: var(--ws-purple); line-height: 1; letter-spacing: -0.04em; }
+  .phase-title h3 { font-size: 1.1rem; font-weight: 700; }
+  .phase-toggle { width: 38px; height: 38px; border-radius: 50%; background: var(--ws-cream); display: flex; align-items: center; justify-content: center; transition: all .4s var(--ease); }
+  .phase-item.open .phase-toggle { background: var(--ws-purple); color: white; transform: rotate(45deg); }
+  .phase-body { max-height: 0; overflow: hidden; transition: max-height .6s var(--ease); }
+  .phase-item.open .phase-body { max-height: 600px; }
+  .phase-body-inner { padding: 0 1.8rem 1.6rem calc(1.8rem + 56px + 1.2rem); color: var(--ws-ink-soft); font-size: 0.95rem; display: grid; gap: 0.6rem; }
+
+  /* BILAN (dark) */
+  .closer { background: var(--ws-ink); color: white; overflow: hidden; }
+  .closer h2 { color: white; }
+  .closer .eyebrow { color: var(--ws-green); } .closer .eyebrow::before { background: var(--ws-green); }
+  .closer .section-intro { color: rgba(255,255,255,0.7); }
+  .bilan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; margin: 2.5rem 0; }
+  .bilan-card { border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md); padding: 1.4rem; }
+  .bilan-card .n { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .bilan-card .l { color: rgba(255,255,255,0.65); font-size: 0.88rem; margin-top: 0.4rem; }
+  .bilan-card.ok .n { color: var(--ws-green); } .bilan-card.ko .n { color: var(--ws-red); } .bilan-card.blk .n { color: var(--ws-yellow); }
+  .verdict { border-radius: var(--radius-lg); padding: 1.6rem 1.8rem; background: linear-gradient(135deg, var(--ws-purple), var(--ws-purple-dark));
+             position: relative; overflow: hidden; margin-bottom: 2rem; }
+  .verdict::after { content: ''; position: absolute; width: 260px; height: 260px; border-radius: 50%; right: -80px; top: -120px;
+                    background: radial-gradient(circle, rgba(4,240,106,0.35), transparent 70%); }
+  .verdict strong { font-size: 1.3rem; display: block; margin-bottom: 0.3rem; position: relative; }
+  .verdict span { color: rgba(255,255,255,0.8); position: relative; }
+  .closer .btn-outline { background: transparent; color: white; border-color: rgba(255,255,255,0.3); }
+  .closer .btn-outline:hover { border-color: var(--ws-green); color: var(--ws-green); }
+  .closer .btn-primary:hover { background: #5a33e0; }
+
+  footer { padding: 2.5rem 0; background: var(--ws-ink); color: rgba(255,255,255,0.6); border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.85rem; }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+
+  .scroll-progress { position: fixed; top: 0; left: 0; height: 2px; width: 0%; background: var(--ws-green); z-index: 200; transition: width .1s linear; }
+  .cursor-dot { position: fixed; width: 24px; height: 24px; border-radius: 50%; background: var(--ws-purple); opacity: 0.15; pointer-events: none;
+                transform: translate(-50%, -50%); z-index: 200; mix-blend-mode: multiply; left: -50px; top: -50px; }
+  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(120%); background: var(--ws-ink); color: white;
+           padding: 0.8rem 1.3rem; border-radius: 99px; font-size: 0.88rem; font-weight: 600; z-index: 300; transition: transform .4s var(--ease); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 1100px) { .nav-links { display: none; } }
+  @media (max-width: 900px) {
+    .hero { padding: 7rem 0 3rem; }
+    section { padding: 4rem 0; }
+    .hero-stats, .bilan-grid { grid-template-columns: repeat(2, 1fr); }
+    .pillars, .panel-grid, .test-body { grid-template-columns: 1fr; }
+    .test { grid-template-columns: 1fr; }
+    .cursor-dot { display: none; }
+    .container { padding: 0 1rem; }
+    .nav-inner { padding: 0.8rem 1rem; }
+    .logo-divider, .logo-context { display: none; }
+    .phase-body-inner { padding: 0 1.3rem 1.3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+  @media print {
+    nav, .scroll-progress, .cursor-dot, .hero-orb, .filterbar, .hero-actions, .closer .hero-actions { display: none !important; }
+    .reveal { opacity: 1; transform: none; }
+    section { padding: 2rem 0; }
+    .test { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+<div class="cursor-dot" id="cursor"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="#top" class="logo" aria-label="Wavestone, haut de page">
+      <svg class="logo-svg" viewBox="0 0 307 42" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2" aria-hidden="true">
+        <path d="M-3.843-8.349h16.891l-2.409 3.746-12.447-.019-2.035-3.727Z" transform="scale(2 -2) rotate(-61.367 .264 -10.29)"/>
+        <path d="M0 12.081c-3.666 0-5.343-2.682-5.343-6.041C-5.343 2.682-3.666 0 0 0s5.343 2.682 5.343 6.04c0 3.359-1.677 6.041-5.343 6.041M0-1.617c-4.933 0-8.833 2.907-8.833 7.657 0 4.751 3.9 7.658 8.833 7.658 4.932 0 8.833-2.907 8.833-7.658 0-4.75-3.901-7.657-8.833-7.657" transform="matrix(2 0 0 2 221.951 14.024)"/>
+        <path d="M0-10.554h5.34V2.011h3.329v-12.565h5.34v-2.011H0v2.011Z" transform="matrix(2 0 0 2 173.832 36.636)"/>
+        <path d="M0-3.449c-2.126-.554-4.134-1.078-4.134-2.391 0-1.323 1.848-1.915 3.679-1.915 1.82 0 3.546.456 5.278 1.392l.42.227v-1.927l-.165-.082C3.516-8.920 1.457-9.383-.429-9.383c-3.162 0-6.54 1.165-6.54 4.436 0 3.154 3.247 4.013 6.112 4.772C1.3.395 3.336.934 3.336 2.334c0 1.338-1.927 1.980-3.717 1.980-2.118 0-4.221-.665-6.248-1.957l-.227-.145-.942 1.367.255.173c2.018 1.367 4.779 2.182 7.384 2.182 3.945 0 6.493-1.756 6.493-4.439 0-3.292-3.512-4.208-6.334-4.944" transform="matrix(2 0 0 2 156.98 29.542)"/>
+        <path d="M0 2h8.257l.006-2.016H0v-4.251h8.904l.006-2.017H-3.329V8.284H9.035l.006-2.016H0V2Z" transform="matrix(2 0 0 2 117.545 24.063)"/>
+        <path d="M0 10.535V6.267h8.257l.006-2.016H0V0h8.905l.005-2.016H-3.329v14.567H9.035l.006-2.016H0Z" transform="matrix(2 0 0 2 288.814 15.528)"/>
+        <path d="M0 5.542 2.493.901l2.542 4.641H0Zm-4.823 4.64 2.329.003 1.411-2.627H6.14l1.438 2.624h3.783L3.267-4.643l-8.09 14.825Z" transform="matrix(2 0 0 2 54.77 20.265)"/>
+        <path d="m0 3.74-5.085-9.281h-3.784L-.775 9.284l8.09-14.825-2.33-.003L0 3.74Z" transform="matrix(2 0 0 2 90.655 22.593)"/>
+        <path d="m0-14.575.004 9.072-12.051-9.333V-.003h2.014l.014-9.063L2.014.261l.002-14.836H0Z" transform="matrix(2 0 0 2 270.249 40.645)"/>
+        <path d="M0-20.58h-2.653c-2.896 3.035-5.583 6.249-7.672 9.626a51.752 51.752 0 0 0-2.356 4.236l-4.442-8.107h-4.246L-13.275 0l.002-.008C-10.777-7.504-6.209-14.46 0-20.58" transform="matrix(2 0 0 2 60.381 41.16)"/>
+      </svg>
+      <span class="logo-divider"></span>
+      <div class="logo-context">
+        <span class="for">Cahier de tests</span>
+        <span class="for for-client">WaveLocalAI v2</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="#preparation">Préparation</a>
+      <a href="#coquille">Coquille</a>
+      <a href="#modeles">Modèles</a>
+      <a href="#arene">Arène</a>
+      <a href="#documents">Documents</a>
+      <a href="#agents">Agents</a>
+      <a href="#sobriete">Sobriété</a>
+      <a href="#bilan">Bilan</a>
+    </div>
+    <div class="nav-progress" aria-live="polite">
+      <div class="bar" aria-hidden="true"><span id="navBar"></span></div>
+      <span id="navCount">0 / 0</span>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="dot-grid"></div>
+  <svg class="hero-orb" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#451DC7" stop-opacity="0.15"/><stop offset="100%" stop-color="#04F06A" stop-opacity="0.05"/></linearGradient>
+      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#451DC7"/><stop offset="100%" stop-color="#04F06A"/></linearGradient>
+    </defs>
+    <circle cx="230" cy="230" r="200" fill="url(#orbGrad)"/>
+    <g class="ring ring-1"><circle cx="230" cy="230" r="210" stroke="#451DC7" stroke-width="1" stroke-dasharray="2 8" opacity="0.4"/></g>
+    <g class="ring ring-2"><circle cx="230" cy="230" r="170" stroke="#451DC7" stroke-width="1.5" opacity="0.5"/></g>
+    <g class="ring ring-3"><circle cx="230" cy="230" r="130" stroke="#04F06A" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/></g>
+    <circle cx="230" cy="230" r="70" fill="url(#ringGrad)" opacity="0.18"/>
+    <circle cx="230" cy="230" r="40" fill="#451DC7" opacity="0.9"/>
+    <path d="M214 232l10 10 22-24" stroke="#04F06A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <g stroke="#451DC7" stroke-width="1" opacity="0.35">
+      <line x1="230" y1="230" x2="90" y2="120"/><line x1="230" y1="230" x2="370" y2="100"/><line x1="230" y1="230" x2="400" y2="280"/>
+      <line x1="230" y1="230" x2="110" y2="370"/><line x1="230" y1="230" x2="340" y2="390"/><line x1="230" y1="230" x2="60" y2="240"/>
+    </g>
+    <circle class="node n1" cx="90" cy="120" r="8" fill="#451DC7"/><circle class="node n2" cx="370" cy="100" r="10" fill="#04F06A"/>
+    <circle class="node n3" cx="400" cy="280" r="7" fill="#451DC7"/><circle class="node n4" cx="110" cy="370" r="9" fill="#04F06A"/>
+    <circle class="node n5" cx="340" cy="390" r="7" fill="#451DC7"/><circle class="node n6" cx="60" cy="240" r="8" fill="#04F06A"/>
+  </svg>
+  <div class="container hero-content">
+    <div class="hero-eyebrow mono reveal">Préversion 2.0.0a7 · master du 2026-10-20</div>
+    <h1 class="hero-title reveal delay-1">L'appli tient-elle debout&nbsp;? <span class="highlight">Vérifions-le</span>.</h1>
+    <p class="hero-sub reveal delay-2">Une recette des grandes lignes, pas des détails&nbsp;: chaque module se lance, produit un résultat juste et lisible, et l'interface reste cohérente. Pensée pour ce PC (16 Go, sans GPU dédié), avec les modèles déjà installés.</p>
+    <div class="hero-actions reveal delay-3">
+      <a href="#preparation" class="btn btn-primary">Commencer <span class="arrow">→</span></a>
+      <a href="#bilan" class="btn btn-outline">Voir le bilan</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat reveal"><div class="num" data-count="12">0</div><div class="label">écrans couverts</div></div>
+      <div class="stat reveal delay-1"><div class="num" id="kpiTests" data-count="0">0</div><div class="label">tests au total</div></div>
+      <div class="stat reveal delay-2"><div class="num" id="kpiEss" data-count="0">0</div><div class="label">tests essentiels</div></div>
+      <div class="stat reveal delay-3"><div class="num" data-count="75">0<span class="suffix"> min</span></div><div class="label">environ, essentiels seuls</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 01 MODE D'EMPLOI -->
+<section class="alt" id="mode-emploi">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">01 — Mode d'emploi</span>
+      <h2>Un statut par test, <span class="accent">un bilan à la fin.</span></h2>
+      <p class="section-intro">Les statuts et les notes restent dans ce navigateur : vous pouvez fermer la page et reprendre plus tard. Le bilan s'exporte en Markdown, prêt à coller dans une issue ou à me renvoyer.</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar reveal">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h3>OK, KO ou Bloqué</h3>
+        <p>OK si tous les points « Attendu » sont vrais. KO dès qu'un point est faux. Bloqué si un test précédent empêche de le jouer. Recliquer sur un statut l'efface.</p>
+      </div>
+      <div class="pillar reveal delay-1">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></div>
+        <h3>Une note par écart</h3>
+        <p>Pour un KO, notez ce que vous avez vu et l'écran (<code>#/arene/comparer</code>…). Une impression d'interface (lenteur, texte coupé, libellé obscur) mérite aussi une note sur un test OK.</p>
+      </div>
+      <div class="pillar reveal delay-2">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <h3>Essentiels d'abord</h3>
+        <p>Le filtre « Essentiels » réduit la recette à ce qui prouve que l'appli fonctionne. Les tests « Utile » affinent le jugement sur l'interface si vous avez le temps.</p>
+      </div>
+    </div>
+    <div class="filterbar reveal">
+      <div class="seg" role="group" aria-label="Filtrer les tests">
+        <button type="button" data-filter="all" class="on" aria-pressed="true">Tous</button>
+        <button type="button" data-filter="ess" aria-pressed="false">Essentiels</button>
+        <button type="button" data-filter="todo" aria-pressed="false">À faire</button>
+        <button type="button" data-filter="ko" aria-pressed="false">KO et bloqués</button>
+      </div>
+      <div class="counts" aria-live="polite">
+        <span><i class="dot ok"></i><b id="cOk">0</b>&nbsp;OK</span>
+        <span><i class="dot ko"></i><b id="cKo">0</b>&nbsp;KO</span>
+        <span><i class="dot blk"></i><b id="cBlk">0</b>&nbsp;bloqués</span>
+        <span><i class="dot todo"></i><b id="cTodo">0</b>&nbsp;à faire</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 PRÉPARATION -->
+<section id="preparation">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">02 — Préparation</span>
+      <h2>Mettre ce PC à jour <span class="accent">avant de tester.</span></h2>
+      <p class="section-intro">Les étapes 1 et 2 sont déjà faites sur ce PC (<code>master</code> à jour, <code>.venv</code> recréé en Python 3.12, serveur vérifié). Restent Ollama et le lancement.</p>
+    </div>
+    <div class="tabs-nav reveal" role="tablist" aria-label="Étapes de préparation">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="prep-1"><span class="step">1</span>Mettre à jour</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="prep-2"><span class="step">2</span>Installer</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="prep-3"><span class="step">3</span>Ollama et modèles</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="prep-4"><span class="step">4</span>Lancer</button>
+    </div>
+    <div class="tab-panel active" id="prep-1" role="tabpanel">
+      <div class="panel-grid">
+        <div>
+          <p>Fait le 21 octobre : <code>master</code> est à <code>5e2da08</code>. Pour une version plus récente plus tard, relancer ces commandes.</p>
+          <ul style="margin-top:1rem">
+            <li>Attendu : <code>git log -1</code> affiche <code>5e2da08</code> (fin du run des Epics 5 à 8) ou plus récent.</li>
+          </ul>
+        </div>
+        <div class="cmd"><button class="copy" type="button">Copier</button>cd C:\Users\anael.yahi\Documents\GitHub\wavelocalai
+git switch master
+git pull --ff-only
+git log -1 --oneline</div>
+      </div>
+    </div>
+    <div class="tab-panel" id="prep-2" role="tabpanel">
+      <div class="panel-grid">
+        <div>
+          <p>Fait le 21 octobre : <code>.venv</code> recréé en Python 3.12.15, v1 et v2 installées, version 2.0.0a7 confirmée. À relancer seulement après un nouveau <code>git pull</code>.</p>
+          <ul style="margin-top:1rem">
+            <li><code>--extra rerank</code> est facultatif : sans lui, la Discussion dit « Reclassement indisponible » et c'est normal.</li>
+          </ul>
+        </div>
+        <div class="cmd"><button class="copy" type="button">Copier</button>uv sync
+<span class="c"># Vérification : doit afficher 2.0.0a7</span>
+uv run python -c "from importlib.metadata import version; print(version('wavelocalai'))"</div>
+      </div>
+    </div>
+    <div class="tab-panel" id="prep-3" role="tabpanel">
+      <div class="panel-grid">
+        <div>
+          <p>Ollama 0.35.1 tourne et 19 modèles sont installés. Aucun modèle d'embedding n'est présent : le test <b>M2</b> l'installe depuis l'écran Modèles, ce qui teste l'installation au passage. La mise à jour d'Ollama proposée (0.40.7) n'est pas nécessaire.</p>
+          <p style="margin-top:1rem">Modèles conseillés pour ce poste sans GPU (rapides, déjà présents) :</p>
+        </div>
+        <table class="models-table">
+          <thead><tr><th>Usage</th><th>Modèle conseillé</th></tr></thead>
+          <tbody>
+            <tr><td>Chat libre, Discussion</td><td><code>qwen3.5:2b</code></td></tr>
+            <tr><td>Arène (3 modèles)</td><td><code>qwen3.5:0.8b</code>, <code>gemma3:1b</code>, <code>granite4.2:3b</code></td></tr>
+            <tr><td>Juge</td><td><code>qwen3.5:4b</code> (ou Claude si le cloud est testé)</td></tr>
+            <tr><td>Agents</td><td><code>qwen3.5:4b</code> (outils vérifiés)</td></tr>
+            <tr><td>Raisonnement visible</td><td><code>lfm2.5-thinking:1.2b</code></td></tr>
+            <tr><td>Embedding (à installer)</td><td><code>nomic-embed-text</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="tab-panel" id="prep-4" role="tabpanel">
+      <div class="panel-grid">
+        <div>
+          <p>Lancer la v2 dans un terminal à part et le laisser ouvert pendant toute la recette. L'interface s'ouvre sur <code>http://127.0.0.1:8502</code> (la v1 garde le port 8501).</p>
+          <ul style="margin-top:1rem">
+            <li>Navigateur conseillé : Edge, fenêtre plein écran, zoom 100 %.</li>
+            <li>Gardez le terminal visible : une trace d'erreur Python y vaut une note de KO.</li>
+          </ul>
+        </div>
+        <div class="cmd"><button class="copy" type="button">Copier</button>uv run wavelocalai-v2
+<span class="c"># puis ouvrir</span>
+start http://127.0.0.1:8502</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Les sections de tests sont générées à partir de TESTS (script en bas de page) -->
+<div id="testSections"></div>
+
+<!-- DÉPANNAGE -->
+<section id="depannage">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">10 — Si quelque chose coince</span>
+      <h2>Les blocages probables, <span class="accent">et quoi en conclure.</span></h2>
+    </div>
+    <div class="phase-item reveal">
+      <button class="phase-header" type="button" aria-expanded="false"><div class="phase-num">A</div><div class="phase-title"><h3>Une réponse met plus d'une minute à venir</h3></div><div class="phase-toggle" aria-hidden="true">+</div></button>
+      <div class="phase-body"><div class="phase-body-inner"><p>Sans GPU, le premier appel charge le modèle (10 à 30 s pour 2 à 4 Go). Le pied de réponse distingue « chargement » et « durée » : si le chargement explique l'attente, ce n'est pas un KO. Prenez un modèle plus petit (<code>qwen3.5:0.8b</code>) et notez la lenteur seulement si elle gêne une démo.</p></div></div>
+    </div>
+    <div class="phase-item reveal">
+      <button class="phase-header" type="button" aria-expanded="false"><div class="phase-num">B</div><div class="phase-title"><h3>« Ollama ne répond pas » alors qu'il tourne</h3></div><div class="phase-toggle" aria-hidden="true">+</div></button>
+      <div class="phase-body"><div class="phase-body-inner"><p>Vérifiez dans PowerShell : <code>ollama list</code>. S'il répond, cliquez la pastille de la barre haute puis « Réessayer ». Si l'état reste faux plus de 5 s, c'est un KO de <b>S-01</b> à noter avec la version d'Ollama.</p></div></div>
+    </div>
+    <div class="phase-item reveal">
+      <button class="phase-header" type="button" aria-expanded="false"><div class="phase-num">C</div><div class="phase-title"><h3>Un écran reste blanc ou affiche « Cet écran n'a pas pu être chargé »</h3></div><div class="phase-toggle" aria-hidden="true">+</div></button>
+      <div class="phase-body"><div class="phase-body-inner"><p>Ouvrez les outils de développement (<kbd>F12</kbd>), onglet Console, et copiez la première ligne rouge dans la note du test. Rechargez avec <kbd>Ctrl</kbd>+<kbd>F5</kbd> : si l'écran revient, notez-le quand même.</p></div></div>
+    </div>
+    <div class="phase-item reveal">
+      <button class="phase-header" type="button" aria-expanded="false"><div class="phase-num">D</div><div class="phase-title"><h3>L'agent ou l'équipe tourne en rond</h3></div><div class="phase-toggle" aria-hidden="true">+</div></button>
+      <div class="phase-body"><div class="phase-body-inner"><p>Un petit modèle peut mal appeler les outils : la boucle s'arrête d'elle-même au bout de 10 appels avec sa raison. C'est un comportement attendu. Le KO, c'est une boucle sans fin, sans raison affichée, ou un arrêt (<kbd>Échap</kbd>) sans effet.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BILAN -->
+<section class="closer" id="bilan">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow mono">11 — Bilan</span>
+      <h2>Alors, <span style="color:var(--ws-green)">ça fonctionne&nbsp;?</span></h2>
+      <p class="section-intro">Le verdict se calcule sur les tests essentiels. Exportez le bilan pour garder une trace ou ouvrir les correctifs.</p>
+    </div>
+    <div class="bilan-grid">
+      <div class="bilan-card ok"><div class="n" id="bOk">0</div><div class="l">OK</div></div>
+      <div class="bilan-card ko"><div class="n" id="bKo">0</div><div class="l">KO</div></div>
+      <div class="bilan-card blk"><div class="n" id="bBlk">0</div><div class="l">Bloqués</div></div>
+      <div class="bilan-card"><div class="n" id="bTodo">0</div><div class="l">À faire</div></div>
+    </div>
+    <div class="verdict" id="verdict" aria-live="polite"><strong>Recette pas encore commencée</strong><span>Jouez les tests essentiels pour obtenir un verdict.</span></div>
+    <div class="hero-actions">
+      <button class="btn btn-primary" type="button" id="exportMd">Télécharger le bilan (.md) <span class="arrow">→</span></button>
+      <button class="btn btn-outline" type="button" id="copyMd">Copier le bilan</button>
+      <button class="btn btn-outline" type="button" id="resetAll">Tout remettre à zéro</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-inner">
+    <span>Cahier de tests WaveLocalAI v2 · préversion 2.0.0a7 · établi le 21 octobre 2026</span>
+    <span>Wavestone · usage interne</span>
+  </div>
+</footer>
+
+<script>
+// ---------- DONNÉES DES TESTS ----------
+// p : "ess" (essentiel) ou "opt" (utile) ; ui : true si le test juge surtout l'interface.
+const SECTIONS = [
+  { id: "coquille", num: "03", title: "Coquille et Accueil", accent: "Le cadre commun.", chips: ["#/", "barre haute", "≈ 10 min"],
+    intro: "La barre haute, la navigation et l'Accueil sont partagés par tous les écrans : s'ils sont faux, tout le reste l'est.",
+    tests: [
+      { id: "S-01", p: "ess", t: "Ouverture et Accueil en direct",
+        steps: ["Ouvrir <code>http://127.0.0.1:8502</code>.", "Observer l'Accueil pendant une dizaine de secondes."],
+        expect: ["La page s'affiche en moins de 2 à 3 s, sans écran blanc.", "Cartes « Système », « Mode », processeur et mémoire : les valeurs bougent seules (rafraîchies toutes les 2 s).", "Pastille de la barre haute : « Ollama disponible ».", "Carte « Démo recommandée » et cinq cartes de modules, plus « Références »."] },
+      { id: "S-02", p: "ess", ui: true, t: "Navigation entre modules et écrans",
+        steps: ["Cliquer chaque module de la barre : Accueil, Arène, Documents, Agents, Sobriété, Modèles.", "Dans Arène, Documents et Agents, cliquer chaque onglet d'écran.", "Utiliser le bouton Précédent du navigateur, puis recharger (<kbd>F5</kbd>) sur un écran."],
+        expect: ["Les 12 écrans s'ouvrent, aucun n'affiche « Pas encore disponible ».", "L'adresse change (<code>#/arene/chat</code>, <code>#/documents/base</code>…) et le titre de l'onglet suit.", "Précédent revient à l'écran d'avant ; <kbd>F5</kbd> rouvre le même écran."] },
+      { id: "S-03", p: "ess", t: "Ollama arrêté puis relancé",
+        steps: ["Quitter Ollama (icône de la zone de notification, « Quit Ollama »).", "Attendre, puis ouvrir la pastille d'Ollama dans la barre haute.", "Ouvrir le Chat libre et Modèles.", "Relancer Ollama, puis « Réessayer »."],
+        expect: ["« Ollama ne répond pas » en moins de 3 s environ.", "Les écrans restent utilisables et disent ce qui manque, sans trace d'erreur brute.", "Après relance : « Ollama disponible », version et modèles chargés dans le panneau."] },
+      { id: "S-04", p: "ess", ui: true, t: "Thèmes et mode projection",
+        steps: ["Barre haute, menu « Affichage » : passer en Sombre, puis Clair, puis Système.", "Activer « Mode projection », parcourir Accueil et Arène, puis le désactiver."],
+        expect: ["Le thème change partout sans texte illisible (gris sur gris, violet sur noir).", "Le choix survit à un rechargement.", "Projection : texte nettement agrandi, pied de page masqué, rien ne déborde."] },
+      { id: "S-05", p: "opt", ui: true, t: "Charte, langue et fenêtre étroite",
+        steps: ["Parcourir les écrans en regardant couleurs, icônes et textes.", "Réduire la fenêtre à la moitié de l'écran, puis au plus étroit possible.", "Faire <kbd>Ctrl</kbd>+<kbd>+</kbd> jusqu'à 200 % sur l'Accueil."],
+        expect: ["Violet Wavestone, icônes au trait, aucun emoji, tout en français.", "Aucune barre de défilement horizontale ; la navigation passe en menu.", "À 200 %, rien n'est coupé ni superposé."] },
+      { id: "S-06", p: "opt", t: "Clavier seul",
+        steps: ["Recharger l'Accueil, puis naviguer uniquement avec <kbd>Tab</kbd>, <kbd>Maj</kbd>+<kbd>Tab</kbd>, <kbd>Entrée</kbd> et <kbd>Échap</kbd>.", "Ouvrir un écran, un menu (« Affichage ») puis le refermer."],
+        expect: ["Le focus est toujours visible (contour net).", "Le lien « Aller au contenu » apparaît au premier <kbd>Tab</kbd> vers le haut.", "<kbd>Échap</kbd> ferme menus et dialogues ; aucun piège au clavier."] }
+    ] },
+  { id: "modeles", num: "04", title: "Modèles", accent: "Ce que le poste sait faire.", chips: ["#/modeles", "≈ 10 min"],
+    intro: "À faire tôt : M2 installe le modèle d'embedding dont la partie Documents a besoin.",
+    tests: [
+      { id: "M-01", p: "ess", t: "Liste des modèles du poste",
+        steps: ["Ouvrir Modèles.", "Lire la section « Sur ce poste »."],
+        expect: ["Les 19 modèles d'Ollama sont listés avec usage, paramètres, taille.", "« Tient en mémoire » est cohérent (les 6 Go de <code>gemma4:e4b-it-qat</code> tiennent sur 16 Go).", "Le débit mesuré s'affiche pour les modèles déjà utilisés, « inconnu » sinon."] },
+      { id: "M-02", p: "ess", t: "Installer un modèle par son nom",
+        steps: ["« Installer un modèle par son nom » : saisir <code>nomic-embed-text</code> et lancer.", "Suivre la progression jusqu'au bout."],
+        expect: ["Progression chiffrée (Mo ou %), qui avance.", "Le modèle apparaît dans la liste, classé embedding.", "Il n'apparaît pas dans les sélecteurs du Chat libre (embedding exclu)."] },
+      { id: "M-03", p: "ess", t: "Fiche d'un modèle",
+        steps: ["Ouvrir la fiche de <code>qwen3.5:4b</code>.", "Ouvrir « Pourquoi ce débit ? » et « Sur d'autres postes »."],
+        expect: ["Dense ou MoE, quantification, licence, outils et raisonnement indiqués.", "Comparaison avec les postes de référence, dont le PC pro 16 Go sans GPU.", "L'adresse devient <code>#/modeles/qwen3.5:4b</code> (ou encodée) et rouvre la fiche après <kbd>F5</kbd>."] },
+      { id: "M-04", p: "opt", t: "Décharger et confirmer une suppression",
+        steps: ["Après avoir utilisé un modèle, cliquer « Décharger les modèles inactifs ».", "Sur <code>granite4:350m</code>, cliquer « Supprimer » puis <b>Annuler</b> dans le dialogue."],
+        expect: ["La pastille Ollama ne liste plus de modèle chargé.", "Le dialogue chiffre la conséquence (taille libérée) ; « Annuler » ne supprime rien."] }
+    ] },
+  { id: "arene", num: "05", title: "Arène", accent: "Chat, comparaison, banc.", chips: ["#/arene/…", "≈ 25 min"],
+    intro: "Le cœur de la démo d'avant-vente (Flow 1). On vérifie le flux, la conservation des résultats et la lisibilité des mesures.",
+    tests: [
+      { id: "A-01", p: "ess", t: "Chat libre : réponse en flux et mesures",
+        steps: ["Chat libre, modèle <code>qwen3.5:2b</code>.", "Envoyer : « Explique en trois phrases ce qu'est un petit modèle de langage. »"],
+        expect: ["Le texte arrive au fil de l'eau, un message signale le premier chargement.", "Pied de réponse : CO₂ (mesuré, ou « non mesurable » expliqué), débit, tokens, chargement, durée.", "« CO₂ session » de la barre haute augmente."] },
+      { id: "A-02", p: "ess", t: "Arrêter une génération",
+        steps: ["Demander une réponse longue (« Écris un texte de 600 mots sur la sobriété numérique »).", "Appuyer sur <kbd>Échap</kbd> (ou « Arrêter ») au milieu."],
+        expect: ["L'arrêt est quasi immédiat (moins d'1 s).", "Le texte partiel reste affiché et marqué comme interrompu."] },
+      { id: "A-03", p: "ess", t: "Changer d'écran pendant une génération",
+        steps: ["Relancer une réponse longue.", "Pendant le flux, aller sur Sobriété, puis revenir au Chat libre."],
+        expect: ["La réponse a continué ou reprend, sans trou ni texte en double.", "Après <kbd>F5</kbd>, la conversation est toujours là."] },
+      { id: "A-04", p: "opt", t: "Raisonnement, créativité, export, effacement",
+        steps: ["Choisir <code>lfm2.5-thinking:1.2b</code>, poser une petite énigme.", "Bouger le curseur « Créativité ».", "Exporter la conversation en Markdown, puis « Effacer la conversation »."],
+        expect: ["Un bloc « Raisonnement » replié, ouvrable.", "Le curseur montre la valeur conseillée du modèle.", "Le fichier Markdown est lisible ; l'effacement vide le fil."] },
+      { id: "A-05", p: "ess", ui: true, t: "Comparer : garde-fous du formulaire",
+        steps: ["Ouvrir l'onglet « Arène » (comparaison).", "Ne garder qu'un modèle dans le sélecteur, puis en choisir 5."],
+        expect: ["« Lancer la comparaison » désactivé, avec la raison écrite « Choisissez au moins 2 modèles ».", "Au-delà de 4 : « Choisissez 4 modèles au plus ».", "Le sélecteur se filtre en tapant, groupe Local / Cloud, pastille MoE."] },
+      { id: "A-06", p: "ess", t: "Comparer trois modèles",
+        steps: ["Modèles : <code>qwen3.5:0.8b</code>, <code>gemma3:1b</code>, <code>granite4.2:3b</code> ; juge <code>qwen3.5:4b</code>.", "Choisir le scénario « Vulgarisation » et lancer."],
+        expect: ["Bandeau d'avancement avec chronomètre ; une colonne par modèle, statut chargement → rédaction → notation.", "Réponses en flux (les locaux l'un après l'autre).", "Classement, « Matrice » et « Tableau » ; un modèle non noté affiche « non évalué : raison », jamais 0."] },
+      { id: "A-07", p: "ess", t: "Comparaison conservée et exportée",
+        steps: ["Après A-06, aller sur Accueil puis revenir.", "Copier l'adresse <code>#/arene/comparer/…</code>, recharger la page.", "Exporter en CSV et en Markdown."],
+        expect: ["Le résultat est intact au retour et après <kbd>F5</kbd> ; il figure dans « Comparaisons précédentes ».", "Le Markdown contient la preuve : fiche machine, version d'Ollama, digests, méthode CO₂, juge.", "Le CSV s'ouvre proprement dans Excel (accents corrects)."] },
+      { id: "A-08", p: "ess", t: "Banc d'essai : format attendu",
+        steps: ["Banc d'essai, modèle <code>qwen3.5:2b</code>, scénario « Extraction ».", "« Lancer le test », puis activer « Format imposé » et « Relancer le test »."],
+        expect: ["Réponse en flux, mesures (débit, chargement, durée, CO₂).", "Verdict « Format respecté » ou la première violation, en clair.", "Le test figure dans « Tests passés » et se rouvre par son adresse."] },
+      { id: "A-09", p: "opt", t: "Références des postes",
+        steps: ["Ouvrir l'onglet « Références »."],
+        expect: ["Résultats issus de slm-quality-bench, datés, avec leur poste de référence.", "Lisible sans connaître le banc (unités et colonnes expliquées)."] }
+    ] },
+  { id: "documents", num: "06", title: "Documents", accent: "L'assistant documentaire.", chips: ["#/documents/…", "≈ 20 min"],
+    intro: "Le Flow 2 de l'atelier. Utilisez des documents publics : par exemple <code>README.md</code> et <code>docs/parite-v1-v2.md</code> du dépôt, et un PDF public de votre choix. Jamais de document client.",
+    tests: [
+      { id: "D-01", p: "ess", t: "Importer des documents",
+        steps: ["Base documentaire : vérifier la carte « Votre base documentaire est vide » si c'est le cas.", "Déposer <code>README.md</code>, <code>docs/parite-v1-v2.md</code> et un PDF public."],
+        expect: ["La zone de dépôt réagit immédiatement.", "Suivi par fichier : lecture, découpage, vectorisation.", "Résumé « N documents prêts · N extraits » à jour ; la carte de l'Accueil aussi."] },
+      { id: "D-02", p: "ess", t: "Imports refusés",
+        steps: ["Redéposer <code>README.md</code>.", "Déposer un fichier non pris en charge (une image <code>.png</code>)."],
+        expect: ["« Déjà indexé » pour le doublon.", "« Échec : raison » pour l'image, compteurs inchangés."] },
+      { id: "D-03", p: "ess", t: "Question avec sources",
+        steps: ["Discussion, modèle <code>qwen3.5:2b</code>.", "Demander : « Quelles fonctions de la v1 sont à confirmer par Anaël ? »", "Cliquer un renvoi [n] de la réponse."],
+        expect: ["Le panneau des sources s'affiche <b>avant</b> la réponse : document, page, rang.", "La réponse cite ses sources par [n].", "Au clic : l'extrait entier avec le passage surligné."] },
+      { id: "D-04", p: "opt", t: "Stratégies de recherche",
+        steps: ["Ouvrir « Réglages avancés ».", "Reposer la question en « Réponse imaginée d'abord », puis « Recherche vérifiée » ; changer le nombre d'extraits."],
+        expect: ["Les trois stratégies répondent ; les durées de recherche et de génération sont séparées.", "L'état du reclassement est dit (« Reclassement actif » ou sa raison)."] },
+      { id: "D-05", p: "ess", t: "Supprimer un document, vider sans vider",
+        steps: ["Supprimer le PDF seul.", "Cliquer « Vider la base documentaire », lire le dialogue, puis <b>Annuler</b>."],
+        expect: ["Seul le PDF disparaît ; les compteurs baissent d'autant.", "Le dialogue annonce le nombre d'extraits ; « Annuler » ne supprime rien."] },
+      { id: "D-06", p: "ess", t: "Évaluation de la qualité",
+        steps: ["Évaluation : modèles <code>qwen3.5:0.8b</code> et <code>qwen3.5:2b</code>, juge <code>qwen3.5:4b</code>, mode « Question ».", "Question : « Sur quel port écoute la v2 ? » et lancer."],
+        expect: ["Étapes au fil de l'eau, dont « Recherche des extraits communs ».", "Tableau : fidélité, pertinence, précision du contexte, débit, CO₂ ; le détail d'un score montre les verdicts par affirmation.", "Le résultat se rouvre par son adresse et figure dans « Évaluations passées »."] }
+    ] },
+  { id: "agents", num: "07", title: "Agents", accent: "Outils et équipes.", chips: ["#/agents/…", "≈ 20 min"],
+    intro: "Les agents sont lents sur CPU : un seul passage de chaque suffit. Ce qui compte, c'est la trace lisible et le contrôle (arrêt, validation de l'email).",
+    tests: [
+      { id: "G-01", p: "ess", t: "Agent seul : action rapide",
+        steps: ["Agent seul, modèle <code>qwen3.5:4b</code>.", "Sur l'écran « Bonjour ! », cliquer « Analyser les données »."],
+        expect: ["Étapes en direct (appel d'outil, résultat), chacune dépliable.", "Réponse finale avec CO₂, nombre d'étapes et durée.", "Fichiers produits téléchargeables par leurs liens."] },
+      { id: "G-02", p: "ess", t: "Aucun email sans accord",
+        steps: ["Activer l'outil « Envoi d'email » (décoché par défaut).", "Demander : « Envoie un résumé de l'heure actuelle à test@example.com »", "Dans le dialogue de validation, refuser."],
+        expect: ["Le dialogue montre destinataire, objet et corps, avec le délai de réponse.", "Après refus, l'agent le dit ; aucun envoi."] },
+      { id: "G-03", p: "ess", t: "Équipe d'agents : lancer et arrêter",
+        steps: ["Équipe d'agents : charger « Comparaison carbone », « Modèle des agents » <code>qwen3.5:2b</code>.", "« Lancer la mission », suivre le premier agent, puis <kbd>Échap</kbd>."],
+        expect: ["Schéma de l'équipe avec l'état de chaque agent qui change.", "Suivi agent par agent et « Journal brut ».", "Arrêt rapide ; rapport partiel conservé."] },
+      { id: "G-04", p: "opt", t: "Équipe : mission complète et réouverture",
+        steps: ["Relancer la mission jusqu'au bout (patience).", "Télécharger le rapport en Markdown ; recharger la page."],
+        expect: ["« Rapport » complet ; le fichier Markdown est lisible.", "La mission se rouvre par <code>#/agents/equipe/…</code>."] },
+      { id: "G-05", p: "opt", ui: true, t: "Équipe : configurer",
+        steps: ["Volet « Configurer » : modifier l'objectif d'un agent, « Ajouter un agent », « Enregistrer ».", "« Revenir à l'équipe d'origine »."],
+        expect: ["L'équipe est marquée « Modifiée » ; le schéma suit.", "Le retour à l'origine restaure l'équipe."] }
+    ] },
+  { id: "sobriete", num: "08", title: "Sobriété", accent: "Les mesures tiennent-elles ?", chips: ["#/sobriete", "≈ 5 min"],
+    intro: "À jouer après les autres modules : la session a alors accumulé des réponses mesurées.",
+    tests: [
+      { id: "E-01", p: "ess", t: "Santé du poste en direct",
+        steps: ["Ouvrir Sobriété et matériel, observer 10 s.", "Passer sur un autre onglet du navigateur 10 s, revenir."],
+        expect: ["Processeur et mémoire bougent sans clic.", "Carte de l'accélérateur : Intel Iris Xe, ou « non mesurable » expliqué (pas de NVML ici).", "Carte Ollama : version et modèles chargés."] },
+      { id: "E-02", p: "ess", t: "Total de la session",
+        steps: ["Lire « Total de la session » et sa ventilation par module.", "Ouvrir « Comment ces chiffres sont calculés »."],
+        expect: ["Le total est cohérent avec « CO₂ session » de la barre haute.", "Arène, Documents et Agents apparaissent ; les réponses non mesurables sont comptées à part.", "L'explication distingue local mesuré et cloud estimé."] },
+      { id: "E-03", p: "opt", ui: true, t: "Historique",
+        steps: ["Basculer 7 jours / 30 jours / Tout, puis « Graphique » / « Tableau »."],
+        expect: ["Une seule unité, axes lisibles, tableau équivalent au graphique."] }
+    ] },
+  { id: "cloud", num: "09", title: "Cloud", accent: "Les clés sont déjà là.", chips: ["barre haute", "≈ 10 min"],
+    intro: "Le <code>.env</code> de ce PC configure OpenAI, Groq, Anthropic et Mistral (vérifié sur <code>/api/health</code>) : cette partie est jouable. Elle envoie des requêtes payantes, mais pour quelques centimes.",
+    tests: [
+      { id: "K-01", p: "opt", t: "Autoriser le cloud",
+        steps: ["Activer « Autoriser le cloud » dans la barre haute, lire son aide.", "Changer d'écran, puis recharger la page."],
+        expect: ["Le pied de page dit que les données envoyées au cloud quittent le poste.", "La bascule reste active d'un écran à l'autre, mais est désactivée après rechargement."] },
+      { id: "K-02", p: "opt", t: "Réponse d'un modèle cloud",
+        steps: ["Cloud autorisé, Chat libre avec <code>claude-haiku-5-5</code> (ou Mistral Small).", "Discussion avec le même modèle."],
+        expect: ["Modèles groupés sous « Cloud » ; CO₂ « estimé » (et non mesuré).", "Discussion : avertissement « … les extraits retrouvés dans vos documents lui sont envoyés »."] }
+    ] }
+];
+
+// ---------- RENDU ----------
+const KEY = "wl-cahier-v2";
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+const host = document.getElementById("testSections");
+const ALL = [];
+SECTIONS.forEach((s, i) => {
+  const sec = document.createElement("section");
+  sec.id = s.id;
+  if (i % 2 === 0) sec.className = "alt";
+  sec.innerHTML = `
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow mono">${s.num} — ${s.title}</span>
+        <h2>${s.title}. <span class="accent">${s.accent}</span></h2>
+        <p class="section-intro">${s.intro}</p>
+        <div class="section-meta">${s.chips.map(c => `<span class="chip">${c}</span>`).join("")}</div>
+      </div>
+      <div class="tests"></div>
+    </div>`;
+  const list = sec.querySelector(".tests");
+  s.tests.forEach(t => {
+    t.section = s.title; ALL.push(t);
+    const st = state[t.id] || {};
+    const card = document.createElement("article");
+    card.className = "test reveal";
+    card.dataset.id = t.id; card.dataset.p = t.p; card.dataset.status = st.s || "";
+    card.innerHTML = `
+      <div>
+        <div class="test-head">
+          <span class="test-id">${t.id}</span>
+          <h3 class="test-title">${t.t}</h3>
+          <span class="tag ${t.p}">${t.p === "ess" ? "Essentiel" : "Utile"}</span>
+          ${t.ui ? '<span class="tag ui">Interface</span>' : ""}
+        </div>
+        <div class="test-body">
+          <div><h4>Étapes</h4><ol>${t.steps.map(x => `<li>${x}</li>`).join("")}</ol></div>
+          <div class="expect"><h4>Attendu</h4><ul>${t.expect.map(x => `<li>${x}</li>`).join("")}</ul></div>
+        </div>
+      </div>
+      <div class="test-side">
+        <div class="status" role="group" aria-label="Statut du test ${t.id}">
+          <button type="button" data-v="ok" aria-pressed="${st.s === "ok"}">OK</button>
+          <button type="button" data-v="ko" aria-pressed="${st.s === "ko"}">KO</button>
+          <button type="button" data-v="blk" aria-pressed="${st.s === "blk"}">Bloqué</button>
+        </div>
+        <label class="hint" for="n-${t.id}">Note</label>
+        <textarea id="n-${t.id}" placeholder="Ce que vous avez vu, l'écran concerné…">${(st.n || "").replace(/</g, "&lt;")}</textarea>
+      </div>`;
+    card.querySelectorAll(".status button").forEach(b => b.addEventListener("click", () => {
+      const cur = (state[t.id] || {}).s;
+      const v = cur === b.dataset.v ? "" : b.dataset.v;
+      state[t.id] = { ...(state[t.id] || {}), s: v };
+      card.dataset.status = v;
+      card.querySelectorAll(".status button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.v === v)));
+      save(); refresh();
+    }));
+    card.querySelector("textarea").addEventListener("input", e => {
+      state[t.id] = { ...(state[t.id] || {}), n: e.target.value }; save();
+    });
+    list.appendChild(card);
+  });
+  host.appendChild(sec);
+});
+
+document.getElementById("kpiTests").dataset.count = ALL.length;
+document.getElementById("kpiEss").dataset.count = ALL.filter(t => t.p === "ess").length;
+
+// ---------- COMPTEURS, FILTRE, VERDICT ----------
+let filter = "all";
+function statusOf(t) { return (state[t.id] || {}).s || ""; }
+function refresh() {
+  const c = { ok: 0, ko: 0, blk: 0, todo: 0 };
+  ALL.forEach(t => { const s = statusOf(t); c[s || "todo"]++; });
+  const done = ALL.length - c.todo;
+  [["cOk", c.ok], ["cKo", c.ko], ["cBlk", c.blk], ["cTodo", c.todo], ["bOk", c.ok], ["bKo", c.ko], ["bBlk", c.blk], ["bTodo", c.todo]]
+    .forEach(([id, v]) => document.getElementById(id).textContent = v);
+  document.getElementById("navCount").textContent = `${done} / ${ALL.length}`;
+  document.getElementById("navBar").style.width = (done / ALL.length * 100) + "%";
+
+  const ess = ALL.filter(t => t.p === "ess");
+  const eKo = ess.filter(t => statusOf(t) === "ko").length;
+  const eBlk = ess.filter(t => statusOf(t) === "blk").length;
+  const eTodo = ess.filter(t => !statusOf(t)).length;
+  const v = document.getElementById("verdict");
+  let title, sub;
+  if (eTodo === ess.length) { title = "Recette pas encore commencée"; sub = "Jouez les tests essentiels pour obtenir un verdict."; }
+  else if (eTodo > 0) { title = `Recette en cours : ${ess.length - eTodo} essentiels sur ${ess.length} joués`; sub = eKo ? `${eKo} KO déjà relevé(s) parmi les essentiels.` : "Aucun KO parmi les essentiels joués jusqu'ici."; }
+  else if (eKo === 0 && eBlk === 0) { title = "L'application fonctionne dans les grandes lignes"; sub = "Tous les tests essentiels sont OK. Les notes d'interface restent à trier."; }
+  else if (eKo <= 2) { title = "Fonctionne, avec des défauts à corriger"; sub = `${eKo} KO et ${eBlk} bloqué(s) parmi les essentiels : ouvrir un correctif par KO avant la 2.0.0.`; }
+  else { title = "Pas encore prête"; sub = `${eKo} KO et ${eBlk} bloqué(s) parmi les essentiels.`; }
+  v.innerHTML = `<strong>${title}</strong><span>${sub}</span>`;
+  applyFilter();
+}
+function applyFilter() {
+  document.querySelectorAll(".test").forEach(card => {
+    const t = ALL.find(x => x.id === card.dataset.id), s = statusOf(t);
+    const show = filter === "all" || (filter === "ess" && t.p === "ess") || (filter === "todo" && !s) || (filter === "ko" && (s === "ko" || s === "blk"));
+    card.classList.toggle("hidden", !show);
+  });
+}
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.filter;
+  document.querySelectorAll(".seg button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", String(x === b)); });
+  applyFilter();
+}));
+
+// ---------- EXPORT ----------
+const LABEL = { ok: "OK", ko: "KO", blk: "Bloqué", "": "À faire" };
+function toMarkdown() {
+  const d = new Date();
+  const lines = [`# Recette WaveLocalAI v2 (2.0.0a7)`, ``, `Date : ${d.toLocaleDateString("fr-FR")} ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`, ``,
+    `**${document.querySelector("#verdict strong").textContent}** — ${document.querySelector("#verdict span").textContent}`, ``];
+  SECTIONS.forEach(s => {
+    lines.push(`## ${s.title}`, ``, `| Test | Priorité | Statut | Note |`, `|---|---|---|---|`);
+    s.tests.forEach(t => {
+      const st = state[t.id] || {};
+      const note = (st.n || "").replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
+      lines.push(`| ${t.id} ${t.t} | ${t.p === "ess" ? "Essentiel" : "Utile"} | ${LABEL[st.s || ""]} | ${note} |`);
+    });
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+function toast(msg) { const el = document.getElementById("toast"); el.textContent = msg; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2200); }
+document.getElementById("exportMd").addEventListener("click", () => {
+  const blob = new Blob([toMarkdown()], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `recette-wavelocalai-v2-${new Date().toISOString().slice(0, 10)}.md`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.getElementById("copyMd").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(toMarkdown()); toast("Bilan copié"); } catch (e) { toast("Copie impossible : utilisez le téléchargement"); }
+});
+document.getElementById("resetAll").addEventListener("click", () => {
+  if (!confirm("Effacer tous les statuts et toutes les notes ?")) return;
+  state = {}; save();
+  document.querySelectorAll(".test").forEach(c => { c.dataset.status = ""; c.querySelectorAll(".status button").forEach(b => b.setAttribute("aria-pressed", "false")); c.querySelector("textarea").value = ""; });
+  refresh();
+});
+
+// ---------- COPIE DES COMMANDES ----------
+document.querySelectorAll(".copy").forEach(b => b.addEventListener("click", async () => {
+  const text = [...b.parentElement.childNodes].filter(n => n !== b).map(n => n.textContent).join("").trim();
+  try { await navigator.clipboard.writeText(text); toast("Commandes copiées"); } catch (e) { toast("Copie impossible"); }
+}));
+
+// ---------- ONGLETS ----------
+document.querySelectorAll(".tab-btn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab-btn").forEach(x => { x.classList.remove("active"); x.setAttribute("aria-selected", "false"); });
+  document.querySelectorAll(".tab-panel").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); b.setAttribute("aria-selected", "true");
+  document.getElementById(b.dataset.tab).classList.add("active");
+}));
+
+// ---------- ACCORDÉON ----------
+document.querySelectorAll(".phase-header").forEach(h => h.addEventListener("click", () => {
+  const item = h.parentElement, open = item.classList.contains("open");
+  document.querySelectorAll(".phase-item").forEach(p => { p.classList.remove("open"); p.querySelector(".phase-header").setAttribute("aria-expanded", "false"); });
+  if (!open) { item.classList.add("open"); h.setAttribute("aria-expanded", "true"); }
+}));
+
+// ---------- SCROLL, REVEAL, COMPTEURS, CURSEUR ----------
+const progress = document.getElementById("scrollProgress"), navbar = document.getElementById("navbar");
+window.addEventListener("scroll", () => {
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  progress.style.width = (h > 0 ? window.scrollY / h * 100 : 0) + "%";
+  navbar.classList.toggle("scrolled", window.scrollY > 20);
+});
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add("visible"); }), { threshold: 0.08 });
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+function animateCounter(el) {
+  const target = +el.dataset.count, suffix = el.querySelector(".suffix")?.outerHTML || "", start = performance.now();
+  (function step(now) {
+    const t = Math.min((now - start) / 1600, 1);
+    el.innerHTML = Math.round(target * (1 - Math.pow(1 - t, 3))) + suffix;
+    if (t < 1) requestAnimationFrame(step);
+  })(start);
+}
+const co = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && !e.target.dataset.done) { e.target.dataset.done = "1"; animateCounter(e.target); } }), { threshold: 0.5 });
+document.querySelectorAll("[data-count]").forEach(el => co.observe(el));
+const cursor = document.getElementById("cursor");
+if (window.matchMedia("(pointer: fine)").matches) {
+  document.addEventListener("mousemove", e => { cursor.style.left = e.clientX + "px"; cursor.style.top = e.clientY + "px"; });
+} else { cursor.style.display = "none"; }
+
+refresh();
+</script>
+</body>
+</html>
